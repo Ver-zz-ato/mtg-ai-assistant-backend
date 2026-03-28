@@ -6,11 +6,9 @@ import { PriceBody } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Normalize a card name so the client and server use the exact same key.
- * - lowercase
- * - trim
- * - collapse spaces
- * - strip weird quotes and diacritics
+ * `price_cache.card_name` lookup key only — keep in sync with shopping-list + bulk price import.
+ * Differs from `scryfall_cache.name` PK: use `normalizeScryfallCacheName` in `lib/server/scryfallCacheRow.ts` for DB cache rows.
+ * Steps: lowercase, NFKD + strip combining marks, fold a few apostrophe code points to ASCII `'`, collapse spaces.
  */
 function normalizeName(name: string): string {
   return name

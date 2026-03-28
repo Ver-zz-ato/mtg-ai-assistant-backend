@@ -1,0 +1,24 @@
+# Frontend changelog
+
+## 2026-03-28
+
+### Deck role tagging — supplemental Scryfall `keywords`
+
+- **`lib/deck/card-role-tags.ts`:** After existing oracle/heuristic rules, optional additive tags from `EnrichedCard.keywords` (source `keywords`, lower confidence): Landfall → `payoff` (nonlands only); subset of graveyard keyword actions → `graveyard_setup`; Populate → `token_payoff`; Fabricate → `token_producer`. Skipped when that role was already assigned.
+- **`tests/unit/card-role-tags-keyword.test.ts`:** Covers the new additive paths only.
+- **`docs/IMPLEMENTATION_REFERENCE.md`:** Short note on primary vs keyword-supplemental tagging.
+
+### Docs / guardrails — cache keys vs price keys vs display names
+
+- **`docs/IMPLEMENTATION_REFERENCE.md`:** Short table: scryfall PK (`normalizeScryfallCacheName`), `price_cache` key (`/api/price`), `canonicalize()` (display/alias).
+- **Inline comments:** `lib/deck/inference.ts` (`norm`), `app/api/price/route.ts`, `lib/ai/price-utils.ts`, `lib/cards/canonicalize.ts` — clarify which normalizer applies where.
+- **`tests/unit/cache-name-keys.test.ts`:** Asserts `normalizeScryfallCacheName` and price-route-style normalization diverge on U+2019 apostrophe (documented intentional difference).
+
+### Deck inference — `byName` map key normalization
+
+- **`lib/deck/inference.ts`:** All `byName` lookups and updates use the same canonical name helper as batch/card fetch (`normalizeScryfallCacheName` / `norm`) instead of `toLowerCase()`, so deck lines match cache keys (accents, Unicode normalization).
+- **`tests/unit/inference-byName-key.test.ts`:** Asserts `tagCardRoles` resolves a deck line when the map is keyed by normalized name.
+
+### Deck shopping list — `price_cache` schema alignment
+
+- **`app/api/deck/shopping-list/route.ts`:** Reads/writes `price_cache` using `card_name`, `usd_price`, `eur_price`, and `onConflict: 'card_name'` (matches `app/api/price/route.ts` and bulk import). GBP for cached rows is derived from USD via the same FX pattern as the price route; no `gbp_price` column.

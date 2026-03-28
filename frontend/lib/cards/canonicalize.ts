@@ -113,6 +113,10 @@ function loadFilesIfNeeded(force = false) {
   dataVersion = computeVersion(used) + `:a${aliasMap.size}:c${cardMap.size}`;
 }
 
+/**
+ * Alias / deck-text friendly resolution (`canonical_cards.jsonl`). `canonicalName` is for display and matching user input —
+ * do not use as `scryfall_cache` PK or `price_cache` key (those have separate normalizers).
+ */
 export function canonicalize(input: string): { canonicalName: string; oracle_id?: string } {
   loadFilesIfNeeded();
   const key = String(input || "").trim().toLowerCase();

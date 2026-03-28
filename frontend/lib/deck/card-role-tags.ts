@@ -38,6 +38,8 @@ const SOURCE_ORACLE_REGEX = "oracle_regex";
 const SOURCE_TYPE_LINE = "type_line";
 const SOURCE_MANA_COST = "mana_cost";
 const SOURCE_HEURISTIC = "heuristic";
+/** Scryfall `keywords[]` from cache/API — supplemental only; never replaces oracle/name rules above. */
+const SOURCE_KEYWORDS = "keywords";
 
 function tag(
   tag: string,
@@ -232,6 +234,48 @@ const RULES: ((c: EnrichedCard) => TagWithMeta | null)[] = [
   checkHate,
 ];
 
+/** Lowercased Scryfall oracle keyword strings (ability words / keyword actions). */
+function keywordLowerSet(card: EnrichedCard): Set<string> {
+  const out = new Set<string>();
+  for (const k of card.keywords || []) {
+    if (typeof k === "string" && k.trim()) out.add(k.trim().toLowerCase());
+  }
+  return out;
+}
+
+/**
+ * Low-confidence tags when `keywords` matches a known pattern and primary rules did not already emit that role.
+ * Keeps oracle/heuristics authoritative; keywords fill occasional gaps (e.g. ability word present, terse oracle in cache).
+ */
+function supplementKeywordTags(card: EnrichedCard, existing: TagWithMeta[]): TagWithMeta[] {
+  const kws = keywordLowerSet(card);
+  if (kws.size === 0) return [];
+
+  const have = new Set(existing.map((x) => x.tag));
+  const add: TagWithMeta[] = [];
+
+  // Landfall — lands-matter / payoffs (nonlands only; lands with landfall are still land-role via fixing)
+  if (kws.has("landfall") && !isLandForDeck(card) && !have.has("payoff")) {
+    add.push(tag("payoff", 0.52, SOURCE_KEYWORDS));
+  }
+
+  // Graveyard-linked keyword actions (subset of Scryfall `keywords`; does not tag removal/wipes)
+  const gy = ["disturb", "flashback", "embalm", "eternalize", "escape", "unearth", "dredge", "rebound", "jump-start", "aftermath"];
+  if (gy.some((k) => kws.has(k)) && !have.has("graveyard_setup") && !have.has("recursion")) {
+    add.push(tag("graveyard_setup", 0.55, SOURCE_KEYWORDS));
+  }
+
+  if (kws.has("populate") && !have.has("token_payoff")) {
+    add.push(tag("token_payoff", 0.54, SOURCE_KEYWORDS));
+  }
+
+  if (kws.has("fabricate") && !have.has("token_producer")) {
+    add.push(tag("token_producer", 0.54, SOURCE_KEYWORDS));
+  }
+
+  return add;
+}
+
 /**
  * Tag an enriched card with role tags (confidence + source).
  */
@@ -243,6 +287,10 @@ export function tagCard(card: EnrichedCard): TaggedCard {
     if (t && !tags.some((x) => x.tag === t.tag)) {
       tags.push(t);
     }
+  }
+
+  for (const t of supplementKeywordTags(card, tags)) {
+    if (!tags.some((x) => x.tag === t.tag)) tags.push(t);
   }
 
   return { ...card, tags };

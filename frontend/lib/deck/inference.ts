@@ -32,7 +32,11 @@ export type SfCard = {
   is_planeswalker?: boolean;
 };
 
-/** Same as `normalizeScryfallCacheName` — alias for local call sites. */
+/**
+ * `scryfall_cache` / in-memory `byName` lookup key (oracle-card PK norm). Use for every map get/set here —
+ * not `price_cache.card_name` (see `/api/price` — folds some apostrophe code points) and not
+ * `canonicalize().canonicalName` (alias list / display-oriented).
+ */
 const norm = normalizeScryfallCacheName;
 
 /** jsonb `legalities` from scryfall_cache or Scryfall API; `{}` when null/missing/invalid. */
@@ -618,15 +622,15 @@ export async function inferDeckAim(
     }
   }
 
-  // Analyze card patterns to infer strategy
-  const cardNames = entries.map(e => e.name.toLowerCase());
+  // Analyze card patterns to infer strategy (keys must match `fetchCardsBatch` / `norm(card.name)`)
+  const cardNames = entries.map((e) => norm(e.name));
   const cardTexts = new Map<string, string>();
   
   // Collect oracle texts
   for (const { name } of entries) {
-    const card = byName.get(name.toLowerCase());
+    const card = byName.get(norm(name));
     if (card?.oracle_text) {
-      cardTexts.set(name.toLowerCase(), card.oracle_text.toLowerCase());
+      cardTexts.set(norm(name), card.oracle_text.toLowerCase());
     }
   }
 
@@ -653,7 +657,7 @@ export async function inferDeckAim(
 
   // Planeswalker strategies
   const planeswalkerCount = entries.filter(e => {
-    const card = byName.get(e.name.toLowerCase());
+    const card = byName.get(norm(e.name));
     if (!card) return false;
     const tl = (card.type_line || '').toLowerCase();
     return sfIsPlaneswalker(card, tl);
@@ -715,11 +719,11 @@ export async function inferDeckAim(
 
   // Voltron (equipment/auras)
   const equipmentCount = entries.filter(e => {
-    const card = byName.get(e.name.toLowerCase());
+    const card = byName.get(norm(e.name));
     return card?.type_line?.toLowerCase().includes('equipment');
   }).length;
   const auraCount = entries.filter(e => {
-    const card = byName.get(e.name.toLowerCase());
+    const card = byName.get(norm(e.name));
     return card?.type_line?.toLowerCase().includes('aura');
   }).length;
   if (equipmentCount >= 5 || auraCount >= 5) {
@@ -761,7 +765,7 @@ export function tagCardRoles(
   const roleInfo: CardRoleInfo[] = [];
   
   for (const { name, count } of entries) {
-    const c = byName.get(name.toLowerCase());
+    const c = byName.get(norm(name));
     if (!c) continue;
     
     const roles: CardRole[] = [];
@@ -770,7 +774,7 @@ export function tagCardRoles(
     const cmc = c.cmc || 0;
     
     // Commander
-    if (commander && name.toLowerCase() === commander.toLowerCase()) {
+    if (commander && norm(name) === norm(commander)) {
       roles.push('commander');
     }
     
@@ -903,7 +907,7 @@ export function analyzeCurve(
   let interactionCount = 0;
   
   for (const { name, count } of entries) {
-    const c = byName.get(name.toLowerCase());
+    const c = byName.get(norm(name));
     if (!c) continue;
     
     const cmc = c.cmc || 0;
@@ -1046,13 +1050,13 @@ export async function detectPartnerCommanders(
   byName: Map<string, SfCard>
 ): Promise<string[] | null> {
   // Fetch the commander card to check for Partner
-  let commanderCard: SfCard | undefined = byName.get(commanderName.toLowerCase());
+  let commanderCard: SfCard | undefined = byName.get(norm(commanderName));
   if (!commanderCard) {
     // If not in cache, try fetching
     const fetched = await fetchCard(commanderName);
     if (fetched) {
       commanderCard = fetched;
-      byName.set(fetched.name.toLowerCase(), fetched);
+      byName.set(norm(fetched.name), fetched);
     }
   }
   
@@ -1067,14 +1071,14 @@ export async function detectPartnerCommanders(
   // Search decklist for other legendary creatures with Partner
   const partners: string[] = [commanderCard.name];
   for (const { name } of entries) {
-    if (name.toLowerCase() === commanderName.toLowerCase()) continue;
+    if (norm(name) === norm(commanderName)) continue;
     
-    let card: SfCard | undefined = byName.get(name.toLowerCase());
+    let card: SfCard | undefined = byName.get(norm(name));
     if (!card) {
       const fetched = await fetchCard(name);
       if (fetched) {
         card = fetched;
-        byName.set(fetched.name.toLowerCase(), fetched);
+        byName.set(norm(fetched.name), fetched);
       }
     }
     if (!card) continue;
@@ -1133,7 +1137,7 @@ export function detectArchetype(
 
   // Scan decklist for patterns
   for (const { name, count } of entries) {
-    const c = byName.get(name.toLowerCase());
+    const c = byName.get(norm(name));
     if (!c) continue;
     
     const oracleText = (c.oracle_text || '').toLowerCase();
@@ -1191,7 +1195,7 @@ export function analyzeManabase(
 
   // Extract mana pips from oracle text of non-land spells
   for (const { name, count } of entries) {
-    const c = byName.get(name.toLowerCase());
+    const c = byName.get(norm(name));
     if (!c) continue;
     
     const typeLine = (c.type_line || '').toLowerCase();
@@ -1322,7 +1326,7 @@ export async function inferDeckContext(
 
   // Count lands
   for (const { name, count } of entries) {
-    const c = byName.get(name.toLowerCase());
+    const c = byName.get(norm(name));
     if (!c) continue;
     const t = (c.type_line || "").toLowerCase();
     if (sfIsLand(c, t)) context.landCount += count;
@@ -1375,7 +1379,7 @@ export async function inferDeckContext(
         const allColors = new Set<string>(context.colors);
         for (const partnerName of partners) {
           if (partnerName === commanderCard.name) continue;
-          const partnerCard = byName.get(partnerName.toLowerCase()) || await fetchCard(partnerName);
+          const partnerCard = byName.get(norm(partnerName)) || await fetchCard(partnerName);
           if (partnerCard && partnerCard.color_identity) {
             partnerCard.color_identity.forEach(c => allColors.add(c.toUpperCase()));
           }
@@ -1386,7 +1390,7 @@ export async function inferDeckContext(
         const partnerTexts: string[] = [commanderCard.oracle_text || ''];
         for (const partnerName of partners) {
           if (partnerName === commanderCard.name) continue;
-          const partnerCard = byName.get(partnerName.toLowerCase()) || await fetchCard(partnerName);
+          const partnerCard = byName.get(norm(partnerName)) || await fetchCard(partnerName);
           if (partnerCard && partnerCard.oracle_text) {
             partnerTexts.push(partnerCard.oracle_text);
           }
@@ -1405,7 +1409,7 @@ export async function inferDeckContext(
   if (context.colors.length === 0) {
     const colorSet = new Set<string>();
     for (const { name } of entries) {
-      const key = name.toLowerCase();
+      const key = norm(name);
       let c = byName.get(key);
       if (!c) {
         // Attempt to fetch missing card data so color identity isn't empty
@@ -1413,7 +1417,7 @@ export async function inferDeckContext(
           const fetched = await fetchCard(name);
           if (fetched) {
             c = fetched;
-            byName.set(fetched.name.toLowerCase(), fetched);
+            byName.set(norm(fetched.name), fetched);
           }
         } catch {
           // Ignore fetch errors; we'll fall back to colorless if everything fails

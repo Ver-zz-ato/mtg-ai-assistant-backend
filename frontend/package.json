@@ -14,7 +14,7 @@
     "test:comprehensive:full": "playwright test -c playwright.comprehensive.config.ts && node scripts/comprehensive-test-summary.mjs",
     "test:comprehensive:report": "playwright show-report test-results/comprehensive-html-report",
     "test:comprehensive:summary": "node scripts/comprehensive-test-summary.mjs",
-    "test:unit": "tsx tests/unit/canonicalize.test.ts && tsx tests/unit/openai-params.test.ts && tsx tests/unit/layer0-gate.test.ts && tsx tests/unit/pricing.test.ts && tsx tests/unit/panic-switches.test.ts && tsx tests/unit/ai-usage-route.test.ts && tsx tests/unit/mulligan-trap-hands.test.ts && tsx tests/unit/active-deck-context.test.ts && tsx tests/unit/active-deck-context-prompt-contract.test.ts && tsx tests/unit/rules-facts.test.ts && tsx tests/unit/deck-plan-profile.test.ts",
+    "test:unit": "tsx tests/unit/canonicalize.test.ts && tsx tests/unit/openai-params.test.ts && tsx tests/unit/layer0-gate.test.ts && tsx tests/unit/pricing.test.ts && tsx tests/unit/panic-switches.test.ts && tsx tests/unit/ai-usage-route.test.ts && tsx tests/unit/mulligan-trap-hands.test.ts && tsx tests/unit/active-deck-context.test.ts && tsx tests/unit/active-deck-context-prompt-contract.test.ts && tsx tests/unit/rules-facts.test.ts && tsx tests/unit/deck-plan-profile.test.ts && tsx tests/unit/inference-byName-key.test.ts && tsx tests/unit/cache-name-keys.test.ts && tsx tests/unit/card-role-tags-keyword.test.ts",
     "test:integration:chat": "tsx tests/integration/chat-intelligence.integration.test.ts",
     "verify:ai": "node scripts/verify-ai-cost-quality.mjs",
     "verify:ai:strict": "node scripts/verify-ai-cost-quality.mjs --require-db",

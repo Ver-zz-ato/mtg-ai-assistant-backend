@@ -14,6 +14,10 @@ function normCur(v: any): Currency {
   return (s === "EUR" || s === "GBP") ? (s as Currency) : "USD";
 }
 
+/**
+ * Price-key normalization for `price_cache.card_name` (matches `app/api/price/route.ts`).
+ * Not the same as `scryfall_cache` PK (`normalizeScryfallCacheName` — no apostrophe folding).
+ */
 function normalizeName(raw: string): string {
   return String(raw || "")
     .toLowerCase()
@@ -22,6 +26,26 @@ function normalizeName(raw: string): string {
     .replace(/[''`]/g, "'")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// GBP for cache reads: derive from USD using live FX — same approach as `app/api/price/route.ts`
+let fxCache: { at: number; USD_GBP: number } | null = null;
+async function getFxRates(): Promise<{ USD_GBP: number }> {
+  const TTL_MS = 4 * 60 * 60 * 1000;
+  if (fxCache && Date.now() - fxCache.at < TTL_MS) {
+    return { USD_GBP: fxCache.USD_GBP };
+  }
+  try {
+    const res = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=GBP", { cache: "no-store" });
+    const data = res.ok ? ((await res.json()) as { rates?: { GBP?: number } }) : {};
+    const USD_GBP = Number(data?.rates?.GBP ?? 0.78) || 0.78;
+    fxCache = { at: Date.now(), USD_GBP };
+    return { USD_GBP };
+  } catch {
+    const USD_GBP = 0.78;
+    fxCache = { at: Date.now(), USD_GBP };
+    return { USD_GBP };
+  }
 }
 
 /** Card page URL from canonical scryfall_cache fields (`set` + `collector_number` only). */
@@ -36,7 +60,7 @@ function scryfallCardUriFromCache(
   return `https://scryfall.com/search?q=${encodeURIComponent(fallbackName)}`;
 }
 
-// Cache-aware price fetching
+// Cache-aware price fetching (schema: card_name, usd_price, eur_price — same as bulk-price-import / `app/api/price/route.ts`)
 async function getCachedPrices(supabase: any, names: string[]): Promise<Map<string, { usd?: number; eur?: number; gbp?: number }>> {
   const map = new Map<string, { usd?: number; eur?: number; gbp?: number }>();
   if (!names.length) return map;
@@ -44,15 +68,17 @@ async function getCachedPrices(supabase: any, names: string[]): Promise<Map<stri
   const normalizedNames = names.map(normalizeName);
   const { data } = await supabase
     .from('price_cache')
-    .select('name, usd, eur, gbp')
-    .in('name', normalizedNames)
+    .select('card_name, usd_price, eur_price, updated_at')
+    .in('card_name', normalizedNames)
     .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
   
+  const { USD_GBP } = await getFxRates();
   for (const row of (data || [])) {
-    map.set(row.name, {
-      usd: row.usd ? Number(row.usd) : undefined,
-      eur: row.eur ? Number(row.eur) : undefined,
-      gbp: row.gbp ? Number(row.gbp) : undefined
+    const usd = row.usd_price ? Number(row.usd_price) : undefined;
+    map.set(row.card_name, {
+      usd,
+      eur: row.eur_price ? Number(row.eur_price) : undefined,
+      gbp: usd != null ? Number((usd * USD_GBP).toFixed(2)) : undefined,
     });
   }
   
@@ -96,13 +122,12 @@ async function cachePrices(supabase: any, priceData: Array<{ name: string; usd?:
       .from('price_cache')
       .upsert(
         priceData.map(p => ({
-          name: normalizeName(p.name),
-          usd: p.usd,
-          eur: p.eur,
-          gbp: p.gbp,
+          card_name: normalizeName(p.name),
+          usd_price: p.usd ?? null,
+          eur_price: p.eur ?? null,
           updated_at: new Date().toISOString()
         })),
-        { onConflict: 'name' }
+        { onConflict: 'card_name' }
       );
   } catch (error) {
     console.warn('Failed to cache prices:', error);

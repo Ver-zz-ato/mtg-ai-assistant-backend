@@ -6,7 +6,7 @@
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Normalize a card name so the client and server use the exact same key.
+ * Same key algorithm as `app/api/price/route.ts` — `price_cache` only; not `scryfall_cache` PK (`normalizeScryfallCacheName`).
  */
 function normalizeName(name: string): string {
   return name
