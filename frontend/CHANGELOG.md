@@ -2,6 +2,12 @@
 
 ## 2026-03-28
 
+### Meta cron — trending cards (trend delta, filters)
+
+- **`app/api/cron/meta-signals/route.ts`:** **`trending-cards`** now uses **unique deck incidence** (not row counts), **trend_score = (recent_count/recent_total) − (prev_count/prev_total)** (recent = last 30d activity; previous = 30–60d ago via `created_at` and `updated_at` sub-windows, deduped). Excludes **`scryfall_cache`** lands (`is_land` or **`type_line`** word **`Land`** via `\bLand\b` — not substring `land`, which wrongly matched **Island**), **staple denylist**, cards in **>40%** of a **1000-deck** sample, and **<5** recent decks. Still **30** rows. **most-played-cards** unchanged.
+- **`lib/meta/trendingCardsCompute.ts`:** Pure scoring + constants; **`isLandFromCacheRow`** fix (above).
+- **`tests/unit/trending-cards-compute.test.ts`:** Assert-style unit checks.
+
 ### Vercel cost — polling, middleware, ingest matcher
 
 - **`lib/active-users-context.tsx`:** **`/api/stats/activity`** poll **120s** (was 60s); **no poll while tab hidden**; **visibility** refetch when stale (~90s); **in-flight** dedupe.

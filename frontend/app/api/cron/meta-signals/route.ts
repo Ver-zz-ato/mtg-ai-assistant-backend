@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { getCommanderBySlug } from "@/lib/commanders";
+import {
+  computeTrendingCardsList,
+  isLandFromCacheRow,
+  mergeDeckIdsIntoMap,
+  mapToDeckCounts,
+  TRENDING_CARDS_MIN_RECENT_DECKS,
+} from "@/lib/meta/trendingCardsCompute";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -20,6 +28,40 @@ function isAuthorized(req: NextRequest): boolean {
   const url = new URL(req.url);
   const queryKey = url.searchParams.get("key") || "";
   return !!cronKey && (!!vercelId || hdr === cronKey || queryKey === cronKey);
+}
+
+/** Unique deck incidence per card (card name -> number of distinct decks containing it). */
+async function uniqueDeckCountsForDeckIds(
+  admin: SupabaseClient,
+  deckIds: string[]
+): Promise<Record<string, number>> {
+  const acc = new Map<string, Set<string>>();
+  const CHUNK = 250;
+  for (let i = 0; i < deckIds.length; i += CHUNK) {
+    const slice = deckIds.slice(i, i + CHUNK);
+    const { data } = await admin.from("deck_cards").select("deck_id, name").in("deck_id", slice);
+    mergeDeckIdsIntoMap(data ?? [], acc);
+  }
+  return mapToDeckCounts(acc);
+}
+
+/** Lowercase scryfall `name` keys that are lands (is_land or type_line contains "land"). */
+async function fetchLandNameKeysLower(admin: SupabaseClient, names: string[]): Promise<Set<string>> {
+  const land = new Set<string>();
+  const uniq = [...new Set(names.map((n) => n.toLowerCase().trim()))].filter(Boolean);
+  const CHUNK = 150;
+  for (let i = 0; i < uniq.length; i += CHUNK) {
+    const slice = uniq.slice(i, i + CHUNK);
+    const { data } = await admin
+      .from("scryfall_cache")
+      .select("name, is_land, type_line")
+      .in("name", slice);
+    for (const row of data ?? []) {
+      const r = row as { name: string; is_land?: boolean | null; type_line?: string | null };
+      if (isLandFromCacheRow(r)) land.add(r.name.toLowerCase());
+    }
+  }
+  return land;
 }
 
 export async function GET(req: NextRequest) {
@@ -45,6 +87,9 @@ async function runMetaSignals() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const iso30 = thirtyDaysAgo.toISOString();
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+  const iso60 = sixtyDaysAgo.toISOString();
 
   let updated = 0;
 
@@ -129,31 +174,60 @@ async function runMetaSignals() {
   );
   if (!e3) updated++;
 
-  // trending-cards: most appearances in decks created/updated last 30 days
-  const { data: recentDeckIds } = await admin
+  // Deck sample for global stats (shared: trending inclusion cap + most-played-cards)
+  const { data: allDeckRows } = await admin
+    .from("decks")
+    .select("id")
+    .eq("is_public", true)
+    .eq("format", "Commander")
+    .limit(1000);
+  const allIds = (allDeckRows ?? []).map((d) => d.id as string);
+
+  // trending-cards: trend delta vs prior 30d; exclude lands, staples, >40% deck inclusion; min 5 recent decks
+  const { data: recentDeckRows } = await admin
     .from("decks")
     .select("id")
     .eq("is_public", true)
     .eq("format", "Commander")
     .or(`created_at.gte.${iso30},updated_at.gte.${iso30}`);
+  const recentIds = [...new Set((recentDeckRows ?? []).map((d) => d.id as string))];
 
-  const recentIds = (recentDeckIds ?? []).map((d) => d.id);
-  const cardCountsTrending: Record<string, number> = {};
+  const { data: prevCreated } = await admin
+    .from("decks")
+    .select("id")
+    .eq("is_public", true)
+    .eq("format", "Commander")
+    .gte("created_at", iso60)
+    .lt("created_at", iso30);
+  const { data: prevUpdated } = await admin
+    .from("decks")
+    .select("id")
+    .eq("is_public", true)
+    .eq("format", "Commander")
+    .gte("updated_at", iso60)
+    .lt("updated_at", iso30);
+  const prevIds = [...new Set([...(prevCreated ?? []), ...(prevUpdated ?? [])].map((d) => d.id as string))];
 
-  if (recentIds.length > 0) {
-    const { data: recentCards } = await admin
-      .from("deck_cards")
-      .select("name")
-      .in("deck_id", recentIds.slice(0, 500));
-    for (const c of recentCards ?? []) {
-      const n = (c.name as string)?.trim();
-      if (n) cardCountsTrending[n] = (cardCountsTrending[n] ?? 0) + 1;
-    }
-  }
-  const trendingCards = Object.entries(cardCountsTrending)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 30)
-    .map(([name, count]) => ({ name, count }));
+  const [recentCounts, prevCounts, globalUniqueCounts] = await Promise.all([
+    uniqueDeckCountsForDeckIds(admin, recentIds),
+    uniqueDeckCountsForDeckIds(admin, prevIds),
+    uniqueDeckCountsForDeckIds(admin, allIds),
+  ]);
+
+  const namesForLand = Object.entries(recentCounts)
+    .filter(([, c]) => c >= TRENDING_CARDS_MIN_RECENT_DECKS)
+    .map(([n]) => n);
+  const landKeys = await fetchLandNameKeysLower(admin, namesForLand);
+
+  const trendingCards = computeTrendingCardsList({
+    recentCounts,
+    prevCounts,
+    globalCounts: globalUniqueCounts,
+    recentTotalDecks: recentIds.length,
+    prevTotalDecks: prevIds.length,
+    globalTotalDecks: allIds.length,
+    landNamesLower: landKeys,
+  });
 
   const { error: e4 } = await admin.from("meta_signals").upsert(
     {
@@ -165,25 +239,17 @@ async function runMetaSignals() {
   );
   if (!e4) updated++;
 
-  // most-played-cards: most appearances across all public decks
-  const { data: allDeckIds } = await admin
-    .from("decks")
-    .select("id")
-    .eq("is_public", true)
-    .eq("format", "Commander")
-    .limit(1000);
-
-  const allIds = (allDeckIds ?? []).map((d) => d.id);
+  // most-played-cards: row counts across same deck sample (unchanged UI semantics)
   const cardCountsAll: Record<string, number> = {};
-
   if (allIds.length > 0) {
-    const { data: allCards } = await admin
-      .from("deck_cards")
-      .select("name")
-      .in("deck_id", allIds);
-    for (const c of allCards ?? []) {
-      const n = (c.name as string)?.trim();
-      if (n) cardCountsAll[n] = (cardCountsAll[n] ?? 0) + 1;
+    const ROW_CHUNK = 400;
+    for (let i = 0; i < allIds.length; i += ROW_CHUNK) {
+      const slice = allIds.slice(i, i + ROW_CHUNK);
+      const { data: allCards } = await admin.from("deck_cards").select("name").in("deck_id", slice);
+      for (const c of allCards ?? []) {
+        const n = (c.name as string)?.trim();
+        if (n) cardCountsAll[n] = (cardCountsAll[n] ?? 0) + 1;
+      }
     }
   }
   const mostPlayedCards = Object.entries(cardCountsAll)
