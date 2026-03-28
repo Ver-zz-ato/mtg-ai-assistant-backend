@@ -39,7 +39,141 @@ type RevenueCatWebhookPayload = {
   purchased_at_ms?: number;
   transferred_from?: string[];
   transferred_to?: string[];
+  environment?: string;
+  store?: string;
+  price?: number;
+  price_in_purchased_currency?: number;
+  currency?: string;
+  expires_date?: string;
 };
+
+/** Discord: only these RevenueCat event types (best-effort notifications). */
+const DISCORD_NOTIFY_EVENTS = new Set([
+  'INITIAL_PURCHASE',
+  'RENEWAL',
+  'CANCELLATION',
+  'BILLING_ISSUE',
+  'EXPIRATION',
+  'PRODUCT_CHANGE',
+  'UNCANCELLATION',
+  'SUBSCRIPTION_PAUSED',
+  'TRANSFER',
+]);
+
+const DISCORD_CONTENT_MAX = 1900;
+
+const DISCORD_EVENT_EMOJI: Record<string, string> = {
+  INITIAL_PURCHASE: '💰',
+  RENEWAL: '🔄',
+  CANCELLATION: '📵',
+  BILLING_ISSUE: '⚠️',
+  EXPIRATION: '❌',
+  PRODUCT_CHANGE: '🔀',
+  UNCANCELLATION: '✅',
+  SUBSCRIPTION_PAUSED: '⏸️',
+  TRANSFER: '🔁',
+};
+
+const DISCORD_EVENT_LABEL: Record<string, string> = {
+  INITIAL_PURCHASE: 'Initial Purchase',
+  RENEWAL: 'Renewal',
+  CANCELLATION: 'Cancellation',
+  BILLING_ISSUE: 'Billing Issue',
+  EXPIRATION: 'Expired',
+  PRODUCT_CHANGE: 'Product Change',
+  UNCANCELLATION: 'Uncancellation',
+  SUBSCRIPTION_PAUSED: 'Subscription Paused',
+  TRANSFER: 'Transfer',
+};
+
+function getEventType(body: RevenueCatWebhookPayload): string {
+  const t = body.type;
+  if (t) return t;
+  const ev = (body as { event?: { type?: string } }).event;
+  return ev?.type ?? '';
+}
+
+function getEventId(body: RevenueCatWebhookPayload): string | undefined {
+  if (body.id) return body.id;
+  const ev = (body as { event?: { id?: string } }).event;
+  return ev?.id;
+}
+
+/** Merge nested `event` for Discord formatting when RevenueCat sends api_version + event wrapper. */
+function effectiveForDiscord(body: RevenueCatWebhookPayload): RevenueCatWebhookPayload {
+  const ev = (body as { event?: RevenueCatWebhookPayload }).event;
+  if (!ev || typeof ev !== 'object') return body;
+  return { ...ev, ...body };
+}
+
+function formatDiscordAppSubMessage(body: RevenueCatWebhookPayload, eventType: string): string {
+  const d = effectiveForDiscord(body);
+  const emoji = DISCORD_EVENT_EMOJI[eventType] ?? '📱';
+  const title = DISCORD_EVENT_LABEL[eventType] ?? eventType;
+  const lines: string[] = [`${emoji} App Sub: ${title}`];
+
+  if (eventType === 'TRANSFER') {
+    const from = (d.transferred_from ?? []).filter(Boolean).join(', ') || '—';
+    const to = (d.transferred_to ?? []).filter(Boolean).join(', ') || '—';
+    lines.push(`Transferred from: ${from}`);
+    lines.push(`Transferred to: ${to}`);
+  } else {
+    const user = d.app_user_id ?? d.original_app_user_id ?? '—';
+    lines.push(`User: ${user}`);
+  }
+
+  if (d.product_id) lines.push(`Product: ${d.product_id}`);
+
+  const entIds = d.entitlement_ids ?? (d.entitlement_id ? [d.entitlement_id] : []);
+  lines.push(`Entitlements: ${entIds.length ? entIds.join(', ') : 'none'}`);
+
+  if (d.store) lines.push(`Store: ${d.store}`);
+  if (d.environment) lines.push(`Env: ${d.environment}`);
+
+  const price = d.price_in_purchased_currency ?? d.price;
+  if (price != null && d.currency) lines.push(`Price: ${price} ${d.currency}`);
+  else if (price != null) lines.push(`Price: ${String(price)}`);
+  else if (d.currency) lines.push(`Currency: ${d.currency}`);
+
+  if (d.expiration_at_ms != null && d.expiration_at_ms !== undefined) {
+    lines.push(`Expires: ${new Date(d.expiration_at_ms).toISOString()}`);
+  } else if (d.expires_date) {
+    lines.push(`Expires: ${d.expires_date}`);
+  }
+
+  let content = lines.join('\n');
+  if (content.length > DISCORD_CONTENT_MAX) {
+    content = content.slice(0, DISCORD_CONTENT_MAX - 3) + '…';
+  }
+  return content;
+}
+
+/**
+ * Best-effort Discord notification for app subscription events.
+ * Env: DISCORD_APPSUB_WEBHOOK (server-only). Never log the URL.
+ */
+async function notifyDiscordAppSubscriptionIfNeeded(
+  body: RevenueCatWebhookPayload,
+  eventType: string
+): Promise<void> {
+  if (!DISCORD_NOTIFY_EVENTS.has(eventType)) return;
+  const url = process.env.DISCORD_APPSUB_WEBHOOK;
+  if (!url?.trim()) return;
+
+  const content = formatDiscordAppSubMessage(body, eventType);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+      console.warn('[revenuecat webhook] discord notify failed', res.status);
+    }
+  } catch {
+    console.warn('[revenuecat webhook] discord notify failed');
+  }
+}
 
 function getAdminSupabase(): SupabaseClient {
   const admin = getAdmin();
@@ -132,8 +266,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const eventType = body.type || '';
-  const eventId = body.id;
+  const eventType = getEventType(body);
+  const eventId = getEventId(body);
 
   // Idempotency: in-memory (same pattern as Stripe webhook)
   if (eventId && processedEvents.has(eventId)) {
@@ -146,6 +280,8 @@ export async function POST(req: NextRequest) {
     }
     processedEvents.add(eventId);
   }
+
+  await notifyDiscordAppSubscriptionIfNeeded(body, eventType);
 
   const traceLog = process.env.NODE_ENV !== 'production' || process.env.DEBUG_ENTITLEMENTS === '1';
   if (traceLog) {
