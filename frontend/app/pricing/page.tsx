@@ -11,6 +11,7 @@ import Link from 'next/link';
 import ProValueTooltip from '@/components/ProValueTooltip';
 import PricingTestimonials from '@/components/PricingTestimonials';
 import { AUTH_MESSAGES, showAuthToast } from '@/lib/auth-messages';
+import { WEBSITE_APP_PRICING_NOTE } from '@/lib/pricing-copy';
 
 export default function PricingPage() {
   const { isPro, hasBillingAccount } = useProStatus();
@@ -390,7 +391,7 @@ export default function PricingPage() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-8 mb-16 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Free Tier */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700">
             <div className="text-center mb-8">
@@ -555,6 +556,10 @@ export default function PricingPage() {
             )}
           </div>
         </div>
+
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mt-6 mb-16">
+          {WEBSITE_APP_PRICING_NOTE}
+        </p>
 
         {/* Feature Comparison */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 mb-16 border border-gray-200 dark:border-gray-700">

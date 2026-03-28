@@ -4,6 +4,7 @@ import { useProStatus } from '@/hooks/useProStatus';
 import { useCapture } from '@/lib/analytics/useCapture';
 import { AnalyticsEvents } from '@/lib/analytics/events';
 import Link from 'next/link';
+import { WEBSITE_APP_PRICING_NOTE } from '@/lib/pricing-copy';
 
 interface ProUpsellBannerProps {
   context: 'deck_page' | 'collections' | 'cost_to_finish';
@@ -53,6 +54,7 @@ export default function ProUpsellBanner({ context, deckCount }: ProUpsellBannerP
           <p className="text-blue-200 text-xs">
             Just £1.99/mo • Cancel anytime
           </p>
+          <p className="text-blue-300/70 text-[11px] mt-1">{WEBSITE_APP_PRICING_NOTE}</p>
         </div>
         <Link
           href="/pricing"

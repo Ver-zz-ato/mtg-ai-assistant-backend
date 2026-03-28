@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { capture } from '@/lib/ph';
+import { WEBSITE_APP_PRICING_NOTE } from '@/lib/pricing-copy';
 
 interface ProValueTooltipProps {
   trigger: React.ReactNode;
@@ -165,8 +166,9 @@ export default function ProValueTooltip({
               >
                 Upgrade to Pro
               </button>
-              <div className="text-center mt-1">
+              <div className="text-center mt-1 space-y-1">
                 <span className="text-xs text-gray-400">£1.99/month or £14.99/year</span>
+                <p className="text-[10px] text-gray-500 leading-snug">{WEBSITE_APP_PRICING_NOTE}</p>
               </div>
             </div>
           </div>

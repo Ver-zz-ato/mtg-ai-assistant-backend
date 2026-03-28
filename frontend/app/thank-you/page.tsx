@@ -7,6 +7,7 @@ import { useProStatus } from '@/hooks/useProStatus';
 import Link from 'next/link';
 import { captureProEvent, getActiveProFeature } from '@/lib/analytics-pro';
 import { clearActiveWorkflow, getCurrentWorkflowRunId } from '@/lib/analytics/workflow-abandon';
+import { WEBSITE_APP_PRICING_NOTE } from '@/lib/pricing-copy';
 
 function ThankYouContent() {
   const router = useRouter();
@@ -280,6 +281,7 @@ function ThankYouContent() {
           {/* Subscription Info */}
           <div className="mt-8 text-center text-blue-200 text-sm">
             <p>Your {planName} Pro subscription ({planPrice}) is now active.</p>
+            <p className="mt-2 text-xs text-blue-300/80 max-w-md mx-auto">{WEBSITE_APP_PRICING_NOTE}</p>
             <p className="mt-2">You can manage your subscription anytime from your account settings.</p>
           </div>
         </div>

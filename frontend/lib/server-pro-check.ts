@@ -2,8 +2,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getAdmin } from '@/app/api/_lib/supa';
 
-/** Pro entitlement identifier in RevenueCat (must match mobile app). */
-const REVENUECAT_ENTITLEMENT_ID = 'pro';
+/**
+ * Pro entitlement identifiers in RevenueCat REST `subscriber.entitlements` keys.
+ * Must stay aligned with mobile `ENTITLEMENT_IDS` in Manatap-APP `src/lib/purchases.ts`.
+ * (Dashboard may use `Manatap.ai Pro` only — backend previously checked `pro` alone and missed active subs.)
+ */
+const REVENUECAT_PRO_ENTITLEMENT_IDS = ['pro', 'Manatap.ai Pro'] as const;
 
 /**
  * Standardized Pro status check for server-side code.
@@ -47,7 +51,7 @@ export async function checkProStatus(userId: string): Promise<boolean> {
     }
 
     // 2) RevenueCat: mobile subscribers (app_user_id = Supabase user id when app calls Purchases.logIn(userId))
-    const fromRevenueCat = await checkRevenueCatPro(userId);
+    const { fromRevenueCat } = await getRevenueCatSubscriberState(userId);
     if (fromRevenueCat) return true;
 
     return false;
@@ -57,37 +61,126 @@ export async function checkProStatus(userId: string): Promise<boolean> {
   }
 }
 
+type RevenueCatSubscriberJson = {
+  subscriber?: {
+    entitlements?: Record<string, { expires_date?: string | null; product_identifier?: string } | undefined>;
+  };
+};
+
+function parseProFromRevenueCatSubscriberJson(json: RevenueCatSubscriberJson | null | undefined): {
+  fromRevenueCat: boolean;
+  entitlementKeys: string[];
+  matchedEntitlementId: string | null;
+} {
+  const entitlements = json?.subscriber?.entitlements;
+  const entitlementKeys =
+    entitlements && typeof entitlements === 'object' ? Object.keys(entitlements) : [];
+
+  for (const id of REVENUECAT_PRO_ENTITLEMENT_IDS) {
+    const ent = entitlements?.[id];
+    if (!ent) continue;
+    const expires = ent.expires_date;
+    if (expires == null) {
+      return { fromRevenueCat: true, entitlementKeys, matchedEntitlementId: id };
+    }
+    if (new Date(expires) > new Date()) {
+      return { fromRevenueCat: true, entitlementKeys, matchedEntitlementId: id };
+    }
+  }
+  return { fromRevenueCat: false, entitlementKeys, matchedEntitlementId: null };
+}
+
+export type RevenueCatSubscriberDebug = {
+  secretConfigured: boolean;
+  requestSent: boolean;
+  httpStatus: number | null;
+  queriedAppUserId: string;
+  subscriberPresent: boolean;
+  entitlementKeys: string[];
+  matchedEntitlementId: string | null;
+  fromRevenueCat: boolean;
+  /** Non-secret: HTTP status, missing key, or fetch/parse error message */
+  error?: string;
+};
+
 /**
- * Check RevenueCat for active "pro" entitlement.
- * Requires REVENUECAT_SECRET_API_KEY (secret key from RevenueCat dashboard).
+ * Fetch RevenueCat subscriber and resolve Pro from REST `subscriber.entitlements`.
+ * Requires REVENUECAT_SECRET_API_KEY (secret key from RevenueCat dashboard — same project as mobile public SDK).
  */
-async function checkRevenueCatPro(appUserId: string): Promise<boolean> {
+async function getRevenueCatSubscriberState(appUserId: string): Promise<{
+  fromRevenueCat: boolean;
+  debug: RevenueCatSubscriberDebug;
+}> {
   const secretKey = process.env.REVENUECAT_SECRET_API_KEY || process.env.REVENUECAT_SECRET_KEY;
-  if (!secretKey?.trim()) return false;
+  if (!secretKey?.trim()) {
+    return {
+      fromRevenueCat: false,
+      debug: {
+        secretConfigured: false,
+        requestSent: false,
+        httpStatus: null,
+        queriedAppUserId: appUserId,
+        subscriberPresent: false,
+        entitlementKeys: [],
+        matchedEntitlementId: null,
+        fromRevenueCat: false,
+        error: 'REVENUECAT_SECRET_API_KEY / REVENUECAT_SECRET_KEY not set',
+      },
+    };
+  }
+
+  const encodedId = encodeURIComponent(appUserId);
+  const url = `https://api.revenuecat.com/v1/subscribers/${encodedId}`;
 
   try {
-    const encodedId = encodeURIComponent(appUserId);
-    const res = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodedId}`, {
+    const res = await fetch(url, {
       method: 'GET',
       headers: { Authorization: `Bearer ${secretKey}` },
     });
-    if (!res.ok) return false;
 
-    const json = (await res.json()) as {
-      subscriber?: {
-        entitlements?: Record<
-          string,
-          { expires_date?: string | null; product_identifier?: string }
-        >;
-      };
+    let json: RevenueCatSubscriberJson | null = null;
+    try {
+      json = (await res.json()) as RevenueCatSubscriberJson;
+    } catch {
+      json = null;
+    }
+
+    const subscriberPresent = json?.subscriber != null;
+    const parsed = parseProFromRevenueCatSubscriberJson(json ?? undefined);
+
+    const debug: RevenueCatSubscriberDebug = {
+      secretConfigured: true,
+      requestSent: true,
+      httpStatus: res.status,
+      queriedAppUserId: appUserId,
+      subscriberPresent,
+      entitlementKeys: parsed.entitlementKeys,
+      matchedEntitlementId: parsed.matchedEntitlementId,
+      fromRevenueCat: parsed.fromRevenueCat,
+      error: !res.ok ? `HTTP ${res.status}` : undefined,
     };
-    const ent = json.subscriber?.entitlements?.[REVENUECAT_ENTITLEMENT_ID];
-    if (!ent) return false;
-    const expires = ent.expires_date;
-    if (expires == null) return true; // lifetime
-    return new Date(expires) > new Date();
-  } catch {
-    return false;
+
+    if (!res.ok) {
+      return { fromRevenueCat: false, debug };
+    }
+
+    return { fromRevenueCat: parsed.fromRevenueCat, debug };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return {
+      fromRevenueCat: false,
+      debug: {
+        secretConfigured: true,
+        requestSent: true,
+        httpStatus: null,
+        queriedAppUserId: appUserId,
+        subscriberPresent: false,
+        entitlementKeys: [],
+        matchedEntitlementId: null,
+        fromRevenueCat: false,
+        error: message,
+      },
+    };
   }
 }
 
@@ -131,7 +224,7 @@ export async function getProStatusDetails(userId: string): Promise<{
       if (adminProfile?.is_pro === true) isProFromProfile = true;
     }
 
-    const fromRevenueCat = await checkRevenueCatPro(userId);
+    const { fromRevenueCat } = await getRevenueCatSubscriberState(userId);
     const isPro = isProFromProfile || isProFromMetadata || fromRevenueCat;
 
     if (process.env.NODE_ENV !== 'production' && process.env.DEBUG_ENTITLEMENTS === '1') {
@@ -180,6 +273,7 @@ export async function getEntitlementDebugForAdmin(userId: string): Promise<{
   finalIsPro: boolean;
   sources: string[];
   mismatchFlags: string[];
+  revenueCatDebug: RevenueCatSubscriberDebug;
 }> {
   const admin = getAdmin();
   if (!admin) {
@@ -234,7 +328,20 @@ export async function getEntitlementDebugForAdmin(userId: string): Promise<{
   const metadata = (authUser?.user?.user_metadata || {}) as { is_pro?: boolean; pro?: boolean };
   const isProFromMetadata = metadata?.is_pro === true || metadata?.pro === true;
 
-  const fromRevenueCat = await checkRevenueCatPro(userId);
+  const { fromRevenueCat, debug: revenueCatDebug } = await getRevenueCatSubscriberState(userId);
+
+  console.log('[admin/entitlements/debug] RevenueCat', {
+    userId: userId.slice(0, 8) + '…',
+    secretConfigured: revenueCatDebug.secretConfigured,
+    requestSent: revenueCatDebug.requestSent,
+    httpStatus: revenueCatDebug.httpStatus,
+    queriedAppUserId: revenueCatDebug.queriedAppUserId,
+    subscriberPresent: revenueCatDebug.subscriberPresent,
+    entitlementKeys: revenueCatDebug.entitlementKeys,
+    matchedEntitlementId: revenueCatDebug.matchedEntitlementId,
+    fromRevenueCat: revenueCatDebug.fromRevenueCat,
+    error: revenueCatDebug.error,
+  });
 
   const finalIsPro = isProFromProfile || isProFromMetadata || fromRevenueCat;
   if (isProFromProfile) sources.push('profile');
@@ -275,5 +382,6 @@ export async function getEntitlementDebugForAdmin(userId: string): Promise<{
     finalIsPro,
     sources,
     mismatchFlags,
+    revenueCatDebug,
   };
 }

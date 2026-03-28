@@ -15,6 +15,7 @@ import PrivacyDataToggle from "@/components/PrivacyDataToggle";
 import BadgeShareBanner from "@/components/BadgeShareBanner";
 import { ProTagLink } from "@/components/ProBadge";
 import { showProToast } from "@/lib/pro-ux";
+import { WEBSITE_APP_PRICING_NOTE } from "@/lib/pricing-copy";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
@@ -654,6 +655,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                           </a>
                         </div>
                       </div>
+                      <p className="text-[11px] text-neutral-500 mt-2">{WEBSITE_APP_PRICING_NOTE}</p>
                     </div>
                   </div>
                 )}
@@ -1201,6 +1203,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                         </button>
                       </div>
                     </div>
+                    <p className="text-[11px] text-neutral-500 mt-2">{WEBSITE_APP_PRICING_NOTE}</p>
                   </div>
 
                   <div className="space-y-2">
