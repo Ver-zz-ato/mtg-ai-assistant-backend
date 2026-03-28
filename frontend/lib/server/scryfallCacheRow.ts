@@ -243,6 +243,23 @@ export function needsPhase3Backfill(row: Record<string, unknown>): boolean {
 }
 
 /**
+ * Incomplete repair candidate: missing type line, oracle text, or both preview images.
+ * Aligns with `db/SCRYFALL_CACHE_INCOMPLETE_REPAIR.md` SQL; also treats blank strings as incomplete.
+ */
+export function isScryfallCacheRowIncomplete(row: Record<string, unknown>): boolean {
+  const tl = row.type_line;
+  if (tl == null || (typeof tl === "string" && tl.trim() === "")) return true;
+  const ot = row.oracle_text;
+  if (ot == null || (typeof ot === "string" && ot.trim() === "")) return true;
+  const sm = row.small;
+  const nm = row.normal;
+  const noSmall = sm == null || sm === "";
+  const noNormal = nm == null || nm === "";
+  if (noSmall && noNormal) return true;
+  return false;
+}
+
+/**
  * Shared row body for merge and full build (Phase 3).
  * `nameKey` must already be `normalizeScryfallCacheName(top-level card.name)` — never derived from `card_faces`.
  */

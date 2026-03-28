@@ -194,6 +194,7 @@ With the live column list, material data is **Scryfall-sourced or deterministica
 - **Collection refresh:** `getDetailsForNamesCached` / `getEnrichmentForNames` skip cache upserts when the normalized request lookup key ≠ normalized API `card.name` (structured warning).
 - **Lockstep:** `bulk-jobs-server/server.js` mirrors the same normalization; `bulk-price-import` keeps a **separate** `norm()` (apostrophe folding) for `price_cache` keys — documented in code, not used for `scryfall_cache` PK.
 - **Health checks:** `db/scryfall_cache_health_audit.sql` (SQL editor); read-only `GET /api/admin/data/scryfall-cache-health` (counts + pointer to SQL).
+- **Incomplete repair:** `POST /api/cron/scryfall-cache-incomplete-repair` — batches incomplete rows (null `type_line` / `oracle_text` / both images), `/cards/collection` + `mergeScryfallCacheRowFromApiCard`. See `db/SCRYFALL_CACHE_INCOMPLETE_REPAIR.md`.
 - **Legacy lightweight importers** (`lightweight-scryfall`, `bulk-jobs/scryfall-import`) use `buildScryfallCacheRowFromApiCard` for full rows (same PK and field population as bulk cron); dedupe by `row.name`.
 
 ## References (code)
@@ -205,3 +206,4 @@ With the live column list, material data is **Scryfall-sourced or deterministica
 - `frontend/app/api/cron/bulk-scryfall/route.ts`, `bulk-price-import/route.ts`
 - `frontend/app/api/admin/data/optimize-scryfall-cache/route.ts`
 - `db/scryfall_cache_health_audit.sql`, `frontend/app/api/admin/data/scryfall-cache-health/route.ts`
+- `db/SCRYFALL_CACHE_INCOMPLETE_REPAIR.md`, `frontend/app/api/cron/scryfall-cache-incomplete-repair/route.ts`
