@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import '@/styles/ph-toolbar-fix.css';
 import Providers from "@/components/Providers";
 import { AuthProvider } from "@/lib/auth-context"; // NEW: Push-based auth state management
+import HashAuthCallbackHandler from "@/components/HashAuthCallbackHandler";
 import AnalyticsProvider from "@/components/AnalyticsProvider";
 import AnalyticsIdentity from "@/components/AnalyticsIdentity";
 import WorkflowAbandonOnRouteChange from "@/components/WorkflowAbandonOnRouteChange";
@@ -105,6 +106,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <CookieConsentProvider>
             <AuthProvider>
+              <HashAuthCallbackHandler />
               <ActiveUsersProvider>
               <KeyboardShortcutsProvider>
                 <SecureConnectionsGuard />
