@@ -52,3 +52,6 @@ legacy_*_backup/
 
 # Playwright auth state
 tests/.auth/
+
+# Operator audit outputs (local)
+tmp/

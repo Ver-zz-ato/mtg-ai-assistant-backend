@@ -1,0 +1,82 @@
+{
+  "generatedAt": "2026-03-28T15:29:51.363Z",
+  "sourcePreviewPath": "C:\\Users\\davy_\\Projects\\mtg_ai_assistant\\frontend\\tmp\\scryfall-cache-cleanup-preview.json",
+  "sourceAuditPath": "C:\\Users\\davy_\\Projects\\mtg_ai_assistant\\frontend\\tmp\\scryfall-cache-name-audit.json",
+  "auditSummary": {
+    "unmatchedCount": 499,
+    "categoryCounts": {
+      "bracketed_name": 2,
+      "quoted_name": 6,
+      "unknown": 409,
+      "csv_pollution": 81,
+      "import_set_number_junk": 1
+    }
+  },
+  "previewSummary": {
+    "total_unmatched": 499,
+    "repair_pass_1": 3,
+    "repair_pass_2": 1,
+    "repair_to_canonical_total": 4,
+    "delete_candidate": 0,
+    "manual_review": 495
+  },
+  "summary": {
+    "repair_to_canonical_in_preview": 4,
+    "merge_then_delete_bad_row": 1,
+    "rename_row_to_canonical": 0,
+    "skipped_unsafe": 3
+  },
+  "merge_plans": [
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "storm the vault",
+      "canonical_name": "storm the vault // vault of catlacan",
+      "preview": {
+        "category": "unknown",
+        "confidence": "medium",
+        "reason": "Pass 2: face name matched unique MDFC/full card after strip_trailing_price",
+        "repair_pass": 2,
+        "matched_by_rule": "pass2:face_resolve:unique_after:strip_trailing_price"
+      }
+    }
+  ],
+  "rename_plans": [],
+  "skipped_unsafe": [
+    {
+      "original_name": "\"[[bonus round]]\"",
+      "reason": "repair_bad_row_not_in_database",
+      "detail": "bonus round",
+      "preview": {
+        "category": "bracketed_name",
+        "confidence": "medium",
+        "reason": "Pass 1 cumulative through strip_outer_double_brackets (3 micro-steps)",
+        "repair_pass": 1,
+        "matched_by_rule": "pass1:cumulative_after:strip_outer_double_brackets"
+      }
+    },
+    {
+      "original_name": "\"[[storm-kiln artist]]\"",
+      "reason": "repair_bad_row_not_in_database",
+      "detail": "storm-kiln artist",
+      "preview": {
+        "category": "bracketed_name",
+        "confidence": "medium",
+        "reason": "Pass 1 cumulative through strip_outer_double_brackets (3 micro-steps)",
+        "repair_pass": 1,
+        "matched_by_rule": "pass1:cumulative_after:strip_outer_double_brackets"
+      }
+    },
+    {
+      "original_name": "\"settle the wreckage\"",
+      "reason": "repair_bad_row_not_in_database",
+      "detail": "settle the wreckage",
+      "preview": {
+        "category": "quoted_name",
+        "confidence": "high",
+        "reason": "Pass 1 cumulative through strip_outer_quotes (2 micro-steps)",
+        "repair_pass": 1,
+        "matched_by_rule": "pass1:cumulative_after:strip_outer_quotes"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "generatedAt": "2026-03-28T15:42:33.950Z",
+  "sourceReviewPath": "C:\\Users\\davy_\\Projects\\mtg_ai_assistant\\frontend\\tmp\\scryfall-cache-final-small-bucket-review.json",
+  "summary": {
+    "merge_then_delete_bad_row": 0,
+    "rename_row_to_canonical": 0,
+    "skipped_sql": 0
+  },
+  "merge_plans": [],
+  "rename_plans": [],
+  "skipped_sql": []
+}

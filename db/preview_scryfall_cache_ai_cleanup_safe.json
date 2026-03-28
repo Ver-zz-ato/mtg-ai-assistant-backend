@@ -1,0 +1,299 @@
+{
+  "generatedAt": "2026-03-28T15:24:15.066Z",
+  "sourceInput": "C:\\Users\\davy_\\Projects\\mtg_ai_assistant\\frontend\\tmp\\scryfall-cache-ai-reviewed.json",
+  "summary": {
+    "merge_then_delete_bad_row": 20,
+    "rename_row_to_canonical": 2,
+    "delete_candidate": 0,
+    "skipped_unsafe": 3,
+    "omitted_low_or_missing_confidence": 31
+  },
+  "merge_plans": [
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "[[doomblade]]",
+      "canonical_name": "doom blade",
+      "proposed_target_display": "Doom Blade"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "[[dreadreturn]]",
+      "canonical_name": "dread return",
+      "proposed_target_display": "Dread Return"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "[[galagreeters]]",
+      "canonical_name": "gala greeters",
+      "proposed_target_display": "Gala Greeters"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "[[gutshot]]",
+      "canonical_name": "gut shot",
+      "proposed_target_display": "Gut Shot"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "[[nature'sclaim]]",
+      "canonical_name": "nature's claim",
+      "proposed_target_display": "Nature's Claim"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "awaken the woods (pbro) 170p",
+      "canonical_name": "awaken the woods",
+      "proposed_target_display": "Awaken the Woods"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "ayara, first of locthwain (peld) 75p",
+      "canonical_name": "ayara, first of locthwain",
+      "proposed_target_display": "Ayara, First of Locthwain"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "battle angels of tyr (pclb) 9p",
+      "canonical_name": "battle angels of tyr",
+      "proposed_target_display": "Battle Angels of Tyr"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "beast whisperer (pgrn) 123★",
+      "canonical_name": "beast whisperer",
+      "proposed_target_display": "Beast Whisperer"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "bolas's citadel (pwar) 79p",
+      "canonical_name": "bolas's citadel",
+      "proposed_target_display": "Bolas's Citadel"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "breach the multiverse (pmom) 94p",
+      "canonical_name": "breach the multiverse",
+      "proposed_target_display": "Breach the Multiverse"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "brightclimb pathway",
+      "canonical_name": "brightclimb pathway // grimclimb pathway",
+      "proposed_target_display": "Brightclimb Pathway // Grimclimb Pathway"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "claim jumper (potj) 8p",
+      "canonical_name": "claim jumper",
+      "proposed_target_display": "Claim Jumper"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "elspeth, storm slayer (ptdm) 11p",
+      "canonical_name": "elspeth, storm slayer",
+      "proposed_target_display": "Elspeth, Storm Slayer"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "muraganda raceway (pdft) 257p",
+      "canonical_name": "muraganda raceway",
+      "proposed_target_display": "Muraganda Raceway"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "nessian wilds ravager (pbng) 129★",
+      "canonical_name": "nessian wilds ravager",
+      "proposed_target_display": "Nessian Wilds Ravager"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "priest of forgotten gods (prna) 83p",
+      "canonical_name": "priest of forgotten gods",
+      "proposed_target_display": "Priest of Forgotten Gods"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "resplendent angel (plci) 32p",
+      "canonical_name": "resplendent angel",
+      "proposed_target_display": "Resplendent Angel"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "silent hallcreeper (pdsk) 72p",
+      "canonical_name": "silent hallcreeper",
+      "proposed_target_display": "Silent Hallcreeper"
+    },
+    {
+      "strategy": "merge_then_delete_bad_row",
+      "bad_name": "thopter fabricator (pdft) 68p",
+      "canonical_name": "thopter fabricator",
+      "proposed_target_display": "Thopter Fabricator"
+    }
+  ],
+  "rename_plans": [
+    {
+      "strategy": "rename_row_to_canonical",
+      "bad_name": "[[seeker’s squire]]",
+      "canonical_name": "seeker's squire",
+      "proposed_target_display": "Seeker's Squire"
+    },
+    {
+      "strategy": "rename_row_to_canonical",
+      "bad_name": "[[stormthevault]]",
+      "canonical_name": "storm the vault",
+      "proposed_target_display": "Storm the Vault"
+    }
+  ],
+  "delete_plans": [],
+  "skipped_unsafe": [
+    {
+      "original_name": "1,\"ob nixilis, the hate-twisted",
+      "reason": "repair_bad_row_not_in_database",
+      "detail": "ob nixilis, the hate-twisted"
+    },
+    {
+      "original_name": "1,\"otawara, soaring city",
+      "reason": "repair_bad_row_not_in_database",
+      "detail": "otawara, soaring city"
+    },
+    {
+      "original_name": "1,\"shizo, death's storehouse",
+      "reason": "repair_bad_row_not_in_database",
+      "detail": "shizo, death's storehouse"
+    }
+  ],
+  "sample_mappings": [
+    {
+      "original_name": "[[doomblade]]",
+      "proposed_target_display": "Doom Blade",
+      "proposed_target_pk": "doom blade",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "[[dreadreturn]]",
+      "proposed_target_display": "Dread Return",
+      "proposed_target_pk": "dread return",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "[[galagreeters]]",
+      "proposed_target_display": "Gala Greeters",
+      "proposed_target_pk": "gala greeters",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "[[gutshot]]",
+      "proposed_target_display": "Gut Shot",
+      "proposed_target_pk": "gut shot",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "[[nature'sclaim]]",
+      "proposed_target_display": "Nature's Claim",
+      "proposed_target_pk": "nature's claim",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "[[seeker’s squire]]",
+      "proposed_target_display": "Seeker's Squire",
+      "proposed_target_pk": "seeker's squire",
+      "strategy": "rename_row_to_canonical"
+    },
+    {
+      "original_name": "[[stormthevault]]",
+      "proposed_target_display": "Storm the Vault",
+      "proposed_target_pk": "storm the vault",
+      "strategy": "rename_row_to_canonical"
+    },
+    {
+      "original_name": "awaken the woods (pbro) 170p",
+      "proposed_target_display": "Awaken the Woods",
+      "proposed_target_pk": "awaken the woods",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "ayara, first of locthwain (peld) 75p",
+      "proposed_target_display": "Ayara, First of Locthwain",
+      "proposed_target_pk": "ayara, first of locthwain",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "battle angels of tyr (pclb) 9p",
+      "proposed_target_display": "Battle Angels of Tyr",
+      "proposed_target_pk": "battle angels of tyr",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "beast whisperer (pgrn) 123★",
+      "proposed_target_display": "Beast Whisperer",
+      "proposed_target_pk": "beast whisperer",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "bolas's citadel (pwar) 79p",
+      "proposed_target_display": "Bolas's Citadel",
+      "proposed_target_pk": "bolas's citadel",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "breach the multiverse (pmom) 94p",
+      "proposed_target_display": "Breach the Multiverse",
+      "proposed_target_pk": "breach the multiverse",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "brightclimb pathway",
+      "proposed_target_display": "Brightclimb Pathway // Grimclimb Pathway",
+      "proposed_target_pk": "brightclimb pathway // grimclimb pathway",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "claim jumper (potj) 8p",
+      "proposed_target_display": "Claim Jumper",
+      "proposed_target_pk": "claim jumper",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "elspeth, storm slayer (ptdm) 11p",
+      "proposed_target_display": "Elspeth, Storm Slayer",
+      "proposed_target_pk": "elspeth, storm slayer",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "muraganda raceway (pdft) 257p",
+      "proposed_target_display": "Muraganda Raceway",
+      "proposed_target_pk": "muraganda raceway",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "nessian wilds ravager (pbng) 129★",
+      "proposed_target_display": "Nessian Wilds Ravager",
+      "proposed_target_pk": "nessian wilds ravager",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "priest of forgotten gods (prna) 83p",
+      "proposed_target_display": "Priest of Forgotten Gods",
+      "proposed_target_pk": "priest of forgotten gods",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "resplendent angel (plci) 32p",
+      "proposed_target_display": "Resplendent Angel",
+      "proposed_target_pk": "resplendent angel",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "silent hallcreeper (pdsk) 72p",
+      "proposed_target_display": "Silent Hallcreeper",
+      "proposed_target_pk": "silent hallcreeper",
+      "strategy": "merge_then_delete_bad_row"
+    },
+    {
+      "original_name": "thopter fabricator (pdft) 68p",
+      "proposed_target_display": "Thopter Fabricator",
+      "proposed_target_pk": "thopter fabricator",
+      "strategy": "merge_then_delete_bad_row"
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 -- Read-only health checks for public.scryfall_cache (run in Supabase SQL editor).
 -- Safe to run in production; no writes.
+--
+-- Quick aggregate counts (name_norm drift, junk heuristics): see
+--   db/scryfall_cache_post_cleanup_health_counts.sql
+-- Operator checklist + writer-path audit: docs/SCRYFALL_CACHE_POST_CLEANUP_VERIFICATION.md
 
 -- 1) Row count
 -- select count(*) as total from public.scryfall_cache;
