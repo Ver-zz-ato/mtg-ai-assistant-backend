@@ -14,6 +14,7 @@ import ShareButton from "@/components/ShareButton";
 import HandTestingSection from "./HandTestingSection";
 import type { Metadata } from "next";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
+import { isMaybeFlexBucketEnabledForFormat, normalizeMaybeFlexCards } from "@/lib/deck/maybeFlexCards";
 
 type Params = { id: string };
 export const revalidate = 120; // short ISR window for public decks
@@ -271,6 +272,9 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   const title = deckRow?.title ?? "Deck";
   const format = String(deckRow?.format || "Commander");
   const commander = deckRow?.commander || "";
+  const maybeFlexPublic = isMaybeFlexBucketEnabledForFormat(format)
+    ? normalizeMaybeFlexCards((deckRow as { meta?: { maybeFlexCards?: unknown } })?.meta?.maybeFlexCards)
+    : [];
   const archeMeta: any = (deckRow as any)?.meta?.archetype || null;
   const isOwner = user?.id && (deckRow as any)?.user_id === user?.id;
 
@@ -668,7 +672,11 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                 Decklist ({((cards || []).reduce((sum, c) => sum + (c.qty || 1), 0))} cards)
               </h2>
             </div>
-            <PublicDeckCardList cards={cards || []} priceMap={priceMap} />
+            <PublicDeckCardList
+              cards={cards || []}
+              maybeFlexCards={maybeFlexPublic.length > 0 ? maybeFlexPublic : undefined}
+              priceMap={priceMap}
+            />
           </div>
           
           {/* Comments Section */}

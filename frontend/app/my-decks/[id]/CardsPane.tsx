@@ -5,6 +5,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { capture } from '@/lib/ph';
 import EditorAddBar from "@/components/EditorAddBar";
 import FixSingleCardModal from "./FixSingleCardModal";
+import {
+  isMaybeFlexBucketEnabledForFormat,
+  normalizeMaybeFlexCards,
+  mergeMaybeFlexByName,
+  totalMaybeFlexQty,
+  type MaybeFlexCard,
+} from "@/lib/deck/maybeFlexCards";
 
 type CardRow = { id: string; deck_id: string; name: string; qty: number; created_at: string };
 
@@ -23,7 +30,11 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
   const [pendingAddName, setPendingAddName] = useState<string>('');
   const [pendingAddQty, setPendingAddQty] = useState<number>(1);
   const [offColorCards, setOffColorCards] = useState<Set<string>>(new Set());
+  const showMaybeFlex = useMemo(() => isMaybeFlexBucketEnabledForFormat(format), [format]);
+  const [maybeFlex, setMaybeFlex] = useState<MaybeFlexCard[]>([]);
+  const [flexBusy, setFlexBusy] = useState(false);
   const addBarRef = React.useRef<HTMLDivElement|null>(null);
+  const flexAddBarRef = React.useRef<HTMLDivElement|null>(null);
   const listRef = React.useRef<HTMLDivElement|null>(null);
   
   // Check color identity for all cards when cards or allowedColors change (Commander format only)
@@ -77,6 +88,28 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     window.addEventListener('deck:changed', handleDeckChange);
     return () => window.removeEventListener('deck:changed', handleDeckChange);
   }, [deckId]);
+
+  useEffect(() => {
+    if (!deckId || !showMaybeFlex) {
+      setMaybeFlex([]);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch(`/api/decks/get?id=${encodeURIComponent(deckId)}`, { cache: "no-store" });
+        const j = await r.json().catch(() => ({}));
+        if (!alive) return;
+        const raw = j?.deck?.meta?.maybeFlexCards;
+        setMaybeFlex(normalizeMaybeFlexCards(raw));
+      } catch {
+        if (alive) setMaybeFlex([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [deckId, showMaybeFlex]);
 
   async function add(name: string | { name: string }, qty: number, validatedName?: string) {
     if (!deckId) return;
@@ -236,6 +269,75 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         add(n, q, n); // Use validated name directly
       }
     }
+  }
+
+  async function persistMaybeFlex(next: MaybeFlexCard[]) {
+    if (!deckId || !showMaybeFlex) return;
+    setFlexBusy(true);
+    try {
+      const res = await fetch("/api/decks/maybe-flex", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckId, cards: next }),
+      });
+      const json = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !json?.ok) {
+        alert(json?.error || "Could not save Maybe / Flex cards.");
+        return;
+      }
+      setMaybeFlex(normalizeMaybeFlexCards(json.cards));
+      try {
+        window.dispatchEvent(new Event("deck:changed"));
+      } catch {}
+    } finally {
+      setFlexBusy(false);
+    }
+  }
+
+  async function addMaybeFlex(name: string | { name: string }, qty: number, validatedName?: string) {
+    if (!deckId || !showMaybeFlex) return;
+    let n = (validatedName || (typeof name === "string" ? name : name?.name) || "").trim();
+    const q = Math.max(1, Number(qty) || 1);
+    if (!n) return;
+    try {
+      const { containsProfanity } = await import("@/lib/profanity");
+      if (containsProfanity(n)) {
+        alert("Please choose a different name.");
+        return;
+      }
+    } catch {}
+    if (!validatedName) {
+      try {
+        const validationRes = await fetch("/api/cards/fuzzy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ names: [n] }),
+        });
+        const validationJson = await validationRes.json().catch(() => ({}));
+        const fuzzyResults = validationJson?.results || {};
+        const suggestion = fuzzyResults[n]?.suggestion;
+        if (suggestion && suggestion.toLowerCase() !== n.toLowerCase()) {
+          n = suggestion;
+        }
+      } catch {}
+    }
+    const next = mergeMaybeFlexByName(maybeFlex, n, q);
+    setMaybeFlex(next);
+    await persistMaybeFlex(next);
+  }
+
+  async function deltaMaybeFlex(name: string, d: number) {
+    if (!showMaybeFlex) return;
+    const next = mergeMaybeFlexByName(maybeFlex, name, d);
+    setMaybeFlex(next);
+    await persistMaybeFlex(next);
+  }
+
+  async function removeMaybeFlex(name: string, qty: number) {
+    if (!showMaybeFlex) return;
+    const next = mergeMaybeFlexByName(maybeFlex, name, -qty);
+    setMaybeFlex(next);
+    await persistMaybeFlex(next);
   }
 
   async function importDecklist() {
@@ -482,6 +584,8 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
 
   // render each actual row (not grouped), sorted by name for a stable view
   const rows = useMemo(() => [...cards].sort((a, b) => a.name.localeCompare(b.name)), [cards]);
+  const flexRows = useMemo(() => [...maybeFlex].sort((a, b) => a.name.localeCompare(b.name)), [maybeFlex]);
+  const maybeFlexQtyTotal = useMemo(() => totalMaybeFlexQty(maybeFlex), [maybeFlex]);
 
   // Scryfall images (thumb + hover)
   const [imgMap, setImgMap] = useState<Record<string, { small?: string; normal?: string }>>({});
@@ -958,8 +1062,16 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
       </div>
 
       {/* Totals */}
-      <div className="mt-4 flex items-center justify-between">
-        <div className="text-xs opacity-70">Cards: <span className="font-mono">{rows.reduce((s,c)=>s+c.qty,0)}</span></div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="text-xs opacity-70 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          <span>
+            {showMaybeFlex ? <span className="text-neutral-400">Main deck · </span> : null}
+            Cards: <span className="font-mono">{rows.reduce((s,c)=>s+c.qty,0)}</span>
+          </span>
+          {showMaybeFlex ? (
+            <span className="text-neutral-500 tabular-nums">Maybe / Flex: {maybeFlexQtyTotal} cards</span>
+          ) : null}
+        </div>
         {(() => { try {
           const total = rows.reduce((acc, c) => {
             const norm = c.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
@@ -969,6 +1081,61 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
           return (<div className="text-sm opacity-90">Est. total (snapshot): <span className="font-mono">{sym}{total.toFixed(2)}</span></div>);
         } catch { return null; } })()}
       </div>
+
+      {showMaybeFlex && (
+        <details className="mt-6 rounded-lg border border-neutral-700/80 bg-neutral-950/40">
+          <summary className="cursor-pointer select-none px-3 py-2.5 list-none text-sm font-medium text-neutral-200">
+            Maybe / Flex cards
+          </summary>
+          <div className="px-3 pb-3 pt-1 space-y-3 border-t border-neutral-800">
+            <p className="text-[11px] text-neutral-500 leading-relaxed">
+              Optional cards you&apos;re considering for this deck. These are not counted as part of the main deck.
+            </p>
+            <div className="max-w-xl" ref={flexAddBarRef}>
+              <EditorAddBar onAdd={addMaybeFlex} />
+            </div>
+            {flexBusy ? <p className="text-xs text-neutral-500">Saving…</p> : null}
+            <div className="space-y-1">
+              {flexRows.map((c, idx) => (
+                <div
+                  key={`mf-${c.name}-${idx}`}
+                  className="flex items-center justify-between rounded border border-neutral-800 px-3 py-2 text-sm"
+                >
+                  <span className="truncate min-w-0 pr-2">{c.name}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <input
+                      type="number"
+                      className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center"
+                      min={1}
+                      step={1}
+                      value={c.qty}
+                      onChange={(e) => {
+                        const v = Math.max(0, parseInt(e.target.value || "0", 10));
+                        const d = v - c.qty;
+                        if (d !== 0) void deltaMaybeFlex(c.name, d);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="p-1 text-neutral-400 hover:text-red-400"
+                      onClick={() => void removeMaybeFlex(c.name, c.qty)}
+                      title="Remove from Maybe / Flex"
+                      aria-label="Remove from Maybe / Flex"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {flexRows.length === 0 && !flexBusy ? (
+                <p className="text-xs text-neutral-500">No cards in this list yet.</p>
+              ) : null}
+            </div>
+          </div>
+        </details>
+      )}
 
       {/* Global hover preview for card images */}
       {pv.shown && typeof window !== 'undefined' && (

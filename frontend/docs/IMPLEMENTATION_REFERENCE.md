@@ -17,6 +17,15 @@ Brief pointers for API ↔ DB contracts. For full product docs, see repo `docs/`
 - **Primary signals:** Oracle regex and type-line / mana heuristics (named sources: `oracle_regex`, `type_line`, `heuristic`, etc.).
 - **Supplemental:** When `EnrichedCard.keywords` is present (from `scryfall_cache` / API), a small additive pass may attach low-confidence tags with source `keywords` — e.g. **Landfall** → `payoff`, **Flashback** / **Disturb** / … → `graveyard_setup`, **Populate** → `token_payoff`, **Fabricate** → `token_producer`, only if the main rules did not already assign that role. Keywords are **not** the sole source of truth for roles.
 
+## Maybe / Flex cards (non-Commander decks)
+
+- **Purpose:** Optional consideration list — **not** main deck, **not** counted in main totals, **not** in **`deck_cards`**.
+- **Storage:** `decks.meta.maybeFlexCards` — `Array<{ name: string; qty: number }>` (max 80 entries, qty 1–99). **Backward compatible** if absent.
+- **UI gating:** Shown only when `isMaybeFlexBucketEnabledForFormat(format)` is true: non-empty format and **not** commander-like — **`commander`**, **`edh`**, or **`cedh`** (trim + lowercase). **Hidden** when format is missing/empty (safest default). **`POST /api/decks/maybe-flex`** uses the same helper.
+- **API:** **`POST /api/decks/maybe-flex`** — body `{ deckId, cards }`; updates **`meta`**; rejects Commander decks.
+- **Public + export:** **`PublicDeckCardList`** optional **`maybeFlexCards`** (read-only). **`CopyDecklistButton`** / **`ExportDeckCSV`** append **`buildMaybeFlexPlaintextAppend(format, meta.maybeFlexCards)`** after the main list (same format gate).
+- **Deck analyze / LLM:** Payloads built from **`deck_cards`** / **`deck_text`** only — maybe/flex cards are **excluded** unless explicitly merged elsewhere (they are not).
+
 ## Pricing
 
 - **`GET/POST /api/price`** — `price_cache` keys: `card_name` (normalized with apostrophe folding per route helper), `usd_price`, `eur_price`. GBP is derived for responses, not stored.

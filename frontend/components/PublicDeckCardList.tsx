@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { usePriceTrends, getTrendDisplay, formatTrendPct } from '@/hooks/usePriceTrends';
 import { normalizeScryfallCacheName } from '@/lib/server/scryfallCacheRow';
+import { totalMaybeFlexQty } from '@/lib/deck/maybeFlexCards';
 
 type Card = {
   name: string;
@@ -39,6 +40,8 @@ function resolveCardImageUrls(name: string, imgMap: CardImageMap): { small?: str
 
 interface PublicDeckCardListProps {
   cards: Card[];
+  /** Read-only maybe/flex (public view); omitted or empty = no section. */
+  maybeFlexCards?: Card[];
   priceMap?: Map<string, number>;
   showTrends?: boolean;
   currency?: 'USD' | 'EUR' | 'GBP';
@@ -46,6 +49,7 @@ interface PublicDeckCardListProps {
 
 export default function PublicDeckCardList({ 
   cards, 
+  maybeFlexCards,
   priceMap = new Map(), 
   showTrends = true,
   currency = 'USD' 
@@ -71,7 +75,9 @@ export default function PublicDeckCardList({
     return normal || small || '';
   }, [pv.previewCardName, pv.shown, imgMap]);
   
-  // Get card names for trend fetching
+  const flexList = maybeFlexCards && maybeFlexCards.length > 0 ? maybeFlexCards : null;
+
+  // Get card names for trend fetching (main deck only)
   const cardNames = useMemo(() => cards.map(c => c.name), [cards]);
   
   // Fetch price trends for cards that have prices
@@ -80,11 +86,18 @@ export default function PublicDeckCardList({
     enabled: showTrends && cards.length > 0 
   });
 
+  const imageNameKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const c of cards) s.add(c.name);
+    if (flexList) for (const c of flexList) s.add(c.name);
+    return Array.from(s).slice(0, 300);
+  }, [cards, flexList]);
+
   // Load card images
   useEffect(() => {
     (async () => {
       try {
-        const names = Array.from(new Set(cards.map(c => c.name))).slice(0, 300);
+        const names = imageNameKeys;
         if (!names.length) { setImgMap({}); return; }
         const { getImagesForNames } = await import("@/lib/scryfall");
         const m = await getImagesForNames(names);
@@ -97,7 +110,7 @@ export default function PublicDeckCardList({
         setImgMap({}); 
       }
     })();
-  }, [cards.map(c => c.name).join('|')]);
+  }, [imageNameKeys.join('|')]);
 
   const calcPos = (e: MouseEvent | any) => {
     try {
@@ -193,6 +206,54 @@ export default function PublicDeckCardList({
           })}
         </ul>
       </div>
+
+      {flexList ? (
+        <div className="mt-6 pt-4 border-t border-neutral-700/80">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+            <h3 className="text-sm font-semibold text-neutral-300">Maybe / Flex cards</h3>
+            <span className="text-xs text-neutral-500 tabular-nums">
+              Maybe / Flex: {totalMaybeFlexQty(flexList)} cards
+            </span>
+          </div>
+          <p className="text-[11px] text-neutral-500 mb-2 leading-relaxed">
+            Optional cards not counted as part of the main deck.
+          </p>
+          <ul className="space-y-2">
+            {flexList.map((c, idx) => {
+              const { small: src } = resolveCardImageUrls(c.name, imgMap);
+              return (
+                <li
+                  key={`flex-${idx}-${c.name}`}
+                  className="flex items-center gap-3 p-2 rounded-lg bg-neutral-800/25 border border-neutral-800/60 text-sm text-neutral-200"
+                >
+                  <span className="w-10 text-center tabular-nums font-semibold text-violet-300/90 bg-neutral-900/50 px-2 py-1 rounded shrink-0">
+                    {c.qty}×
+                  </span>
+                  {src ? (
+                    <img
+                      src={src}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="w-[24px] h-[34px] object-cover rounded shrink-0"
+                      onMouseEnter={(e) => {
+                        const { x, y, below } = calcPos(e as any);
+                        setPv({ previewCardName: c.name, x, y, shown: true, below });
+                      }}
+                      onMouseMove={(e) => {
+                        const { x, y, below } = calcPos(e as any);
+                        setPv((p) => (p.shown ? { ...p, x, y, below } : p));
+                      }}
+                      onMouseLeave={() => setPv((p) => ({ ...p, shown: false, previewCardName: null }))}
+                    />
+                  ) : null}
+                  <span className="flex-1 min-w-0 truncate">{c.name}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
       
       {/* Global hover preview for card images */}
       {pv.shown && previewSrc && typeof window !== 'undefined' && (

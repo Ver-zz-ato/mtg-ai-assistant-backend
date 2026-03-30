@@ -1,5 +1,29 @@
 # Frontend changelog
 
+## 2026-03-30
+
+### Deck editor — Maybe / Flex cards (non-Commander only)
+
+- **Storage:** Optional **`decks.meta.maybeFlexCards`**: `Array<{ name: string; qty: number }>` (not in **`deck_cards`**). No migration; absent field loads as empty.
+- **UI:** **`app/my-decks/[id]/CardsPane.tsx`** — collapsible **Maybe / Flex cards** section (helper copy) when format is set and not Commander; **`Main deck ·`** prefix on main card count. Add/remove/qty via **`EditorAddBar`** + row controls; **POST `/api/decks/maybe-flex`** persists (owner auth; **400** for Commander).
+- **Helpers:** **`lib/deck/maybeFlexCards.ts`** — **`isMaybeFlexBucketEnabledForFormat`** (false if format missing/empty or Commander), normalize/merge helpers.
+- **Analysis:** Unchanged — **DeckAnalyzerPanel** / **`/api/deck/analyze`** build **`deckText`** from **`deck_cards`** only; maybe/flex never included.
+- **Follow-up (gating):** **`isMaybeFlexBucketEnabledForFormat`** / **`POST /api/decks/maybe-flex`** share the same gate: disabled for **empty format**, **`commander`**, **`edh`**, **`cedh`** (case-insensitive). Fixes mismatch where API could accept saves when the UI hid the section (e.g. unset format); **`edh`** / **`cedh`** labels now match Commander.
+- **Polish:** **`Maybe / Flex: N cards`** qty total in **`CardsPane`** totals row (eligible decks). **Public** **`/decks/[id]`** — read-only **Maybe / Flex** block in **`PublicDeckCardList`** when meta has entries. **Copy decklist** + **Export CSV** append **`// Maybe / Flex cards`** via **`buildMaybeFlexPlaintextAppend`** (`lib/deck/maybeFlexCards.ts`).
+
+### Collection page — card deck usage (badges, filter, detail)
+
+- **Deck usage map:** Single GET **`/api/collections/deck-usage`** loads the signed-in user’s decks + **`deck_cards`**, aggregates to **`usageByKey`** (normalized keys, MDFC front-face fallback). Unsigned users get empty data (fail-open). **`lib/collection/deckCardUsage.ts`** holds **`getCardUsageKey`**, **`getDeckUsageForCard`**, and server aggregation helper.
+- **`components/CollectionEditor.tsx` (page mode):** Row pill shows **deck count** when the card appears in ≥1 deck; **⋯** opens a detail modal. **Deck use** filter: All / In decks / Unused (enabled after usage load). Scryfall link + list behavior unchanged.
+- **`components/CollectionCardDetailModal.tsx`:** Full-art modal with **In your decks** (**`<details>`**, collapsed by default); deck rows link to **`/my-decks/[id]`** with quantity.
+
+### Collection deck usage — QA hardening (2026-03-30)
+
+- **`lib/collection/deckCardUsage.ts`:** Unicode curly quotes folded before **`normalizeCardName`** for stabler name matching.
+- **`app/api/collections/deck-usage/route.ts`:** **`deck_cards`** query uses **`.order('id')`** so **`.range`** pagination is deterministic.
+- **`CollectionEditor.tsx`:** Clear usage map when refetching; **`deckUsageTrustworthy`** gates badges/filters/modal usages when **`loadError`** is set; refetch on **`authUser?.id`** change; reset modal/filter on session/collection change; **`loadHint`** on non-OK HTTP and fetch **catch** so **Unused** is not trusted without a valid response body.
+- **`CollectionCardDetailModal.tsx`:** Optional **`detailsResetKey`**; **`Link`** **`onClose`** before navigate.
+
 ## 2026-03-28
 
 ### Meta cron — trending cards (trend delta, filters)

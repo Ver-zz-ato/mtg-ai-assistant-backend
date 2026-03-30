@@ -42,6 +42,7 @@ const GROUPS = [
       { href: "/admin/feedback-dashboard", label: "Feedback Dashboard", eli5: "Where feedback is collected, where it goes (Supabase vs PostHog), counts and links" },
       { href: "/admin/feedback", label: "Feedback", eli5: "Thumbs up/down and comments from the widget + chat" },
       { href: "/admin/ai-reports", label: "AI Reports", eli5: "Review and triage AI report submissions from chat" },
+      { href: "/admin/app-ai-feedback", label: "App AI Feedback", eli5: "App-identified structured AI reports (chat corrections with app_* surface); honest limits for generic feedback" },
       { href: "/admin/support", label: "User Support", eli5: "Grant Pro, resend emails, GDPR export/delete" },
       { href: "/admin/users", label: "User Search", eli5: "Find users by email or ID" },
       { href: "/admin/shoutbox", label: "Shoutbox", eli5: "Moderate messages, ban users, trigger AI posts" },

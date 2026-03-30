@@ -4,6 +4,7 @@ import { useState } from "react";
 import { track } from "@/lib/analytics/track";
 import { useAuth } from "@/lib/auth-context";
 import { useProStatus } from "@/hooks/useProStatus";
+import { buildMaybeFlexPlaintextAppend } from "@/lib/deck/maybeFlexCards";
 
 type Props = { deckId: string; filename?: string; small?: boolean; className?: string };
 
@@ -39,6 +40,7 @@ export default function ExportDeckCSV({ deckId, filename = "deck.csv", small, cl
           decklistText += `\n${card.qty} ${card.name}`;
         }
       }
+      decklistText += buildMaybeFlexPlaintextAppend(json.deck?.format as string | undefined, json.deck?.meta?.maybeFlexCards);
 
       // CSV format matching import format: title,commander,decklist
       const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;

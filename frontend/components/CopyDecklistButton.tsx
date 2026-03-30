@@ -4,6 +4,7 @@ import { useState } from "react";
 import { track } from "@/lib/analytics/track";
 import { useAuth } from "@/lib/auth-context";
 import { useProStatus } from "@/hooks/useProStatus";
+import { buildMaybeFlexPlaintextAppend } from "@/lib/deck/maybeFlexCards";
 
 export default function CopyDecklistButton({ deckId, small, className }: { deckId: string; small?: boolean; className?: string }) {
   const [busy, setBusy] = useState(false);
@@ -32,6 +33,8 @@ export default function CopyDecklistButton({ deckId, small, className }: { deckI
       if (!text?.trim() && Array.isArray(json.cards)) {
         text = json.cards.map((c: any) => `${c.qty} ${c.name}`).join("\n");
       }
+      const fmt = json.deck?.format as string | undefined;
+      text = String(text || "") + buildMaybeFlexPlaintextAppend(fmt, json.deck?.meta?.maybeFlexCards);
       await navigator.clipboard.writeText(text || "");
       setOk(true);
       setTimeout(() => setOk(false), 1200);
