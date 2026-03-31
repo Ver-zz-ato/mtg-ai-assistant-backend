@@ -3,7 +3,9 @@
  * Unknown keys: show raw key in admin UI.
  */
 export const APP_FEATURE_PAGE_LABELS: Record<string, string> = {
-  app_chat_thread: "Deck chat",
+  app_chat_thread: "Main chat (full screen)",
+  app_chat_guest: "Guest chat",
+  app_deck_chat_modal: "Deck chat modal",
   app_home_chat: "Home chat",
   app_deck_analyze: "Analyze deck",
   app_compare_ai: "Deck compare (AI)",

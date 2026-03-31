@@ -36,6 +36,9 @@ export async function POST(req: NextRequest) {
     const hasCorrectionText = typeof correction_text === "string" && correction_text.trim().length > 0;
     const hasBetterCards = typeof better_cards_text === "string" && better_cards_text.trim().length > 0;
 
+    const chatSurfaceRaw = typeof chat_surface === "string" ? chat_surface.trim() : "";
+    const isAppChatSurface = chatSurfaceRaw.startsWith("app_");
+
     if (isSuggestionReport) {
       if (!hasReasons && !hasDescription) {
         return NextResponse.json({ error: "Select at least one reason or add a description" }, { status: 400 });
@@ -45,6 +48,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Add at least one reason, what it should have said, or better cards" }, { status: 400 });
       }
     } else {
+      if (isAppChatSurface && !hasDescription) {
+        return NextResponse.json(
+          { error: "Please add a short description of the issue" },
+          { status: 400 },
+        );
+      }
       if (!hasReasons) {
         return NextResponse.json({ error: "At least one issue type is required" }, { status: 400 });
       }
@@ -101,6 +110,11 @@ export async function POST(req: NextRequest) {
         page_path: page_path ?? null,
         chat_surface: chat_surface ?? null,
       };
+    } else if (isAppChatSurface) {
+      contextJsonb = {
+        source: "app_chat_issue",
+        chat_surface: chatSurfaceRaw,
+      };
     }
 
     const row: Record<string, unknown> = {
@@ -116,7 +130,29 @@ export async function POST(req: NextRequest) {
     if (contextJsonb !== null) row.context_jsonb = contextJsonb;
 
     const { error } = await supabase.from("ai_response_reports").insert(row);
-    
+
+    if (!error) {
+      try {
+        const { captureServer } = await import("@/lib/server/analytics");
+        if (typeof captureServer === "function") {
+          await captureServer("chat_issue_report_submitted", {
+            platform: isAppChatSurface ? "app" : "web",
+            chat_surface: chatSurfaceRaw || null,
+            thread_id: threadId ?? null,
+            message_id: messageId ?? null,
+            issue_types: issueTypesArr,
+            description_length: descriptionVal?.length ?? 0,
+            context_source:
+              contextJsonb && typeof contextJsonb === "object" && "source" in contextJsonb
+                ? String((contextJsonb as { source?: string }).source)
+                : null,
+          });
+        }
+      } catch {
+        /* non-blocking */
+      }
+    }
+
     if (error) {
       console.error('[Report API] Insert error:', error);
       // If table doesn't exist, return success anyway (non-critical feature)

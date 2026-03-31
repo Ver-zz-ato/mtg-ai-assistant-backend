@@ -6,6 +6,7 @@ import { getAppFeaturePageLabel } from "@/lib/ai/app-feature-labels";
 
 type ContextJsonb = {
   source?: string;
+  /** chat_correction | app_chat_issue | … */
   chat_surface?: string | null;
   page_path?: string | null;
   prompt_version_id?: string | null;
@@ -105,22 +106,28 @@ export default function AppAIFeedbackAdminPage() {
         <p className="font-medium text-amber-200/90">What this page includes</p>
         <ul className="list-disc pl-5 space-y-1 text-neutral-300">
           <li>
-            <strong className="text-neutral-200">Confirmed app structured reports</strong> — rows in{" "}
-            <code className="text-neutral-400">ai_response_reports</code> where the app submitted a{" "}
-            <em>chat correction</em> and stored <code className="text-neutral-400">chat_surface</code>{" "}
-            with the <code className="text-neutral-400">app_</code> prefix. The website chat correction
-            flow only uses <code className="text-neutral-400">main_chat</code> and{" "}
-            <code className="text-neutral-400">deck_chat</code>, so this filter is a reliable separator
-            for native corrections captured that way.
+            <strong className="text-neutral-200">Confirmed app structured reports</strong> —{" "}
+            <code className="text-neutral-400">ai_response_reports</code> where{" "}
+            <code className="text-neutral-400">context_jsonb.source</code> is{" "}
+            <code className="text-neutral-400">chat_correction</code> or{" "}
+            <code className="text-neutral-400">app_chat_issue</code>, and{" "}
+            <code className="text-neutral-400">chat_surface</code> starts with{" "}
+            <code className="text-neutral-400">app_</code>. Website chat <em>corrections</em> use{" "}
+            <code className="text-neutral-400">main_chat</code> / <code className="text-neutral-400">deck_chat</code>;
+            mobile <strong>Report</strong> uses <code className="text-neutral-400">app_chat_issue</code>.
           </li>
         </ul>
         <p className="font-medium text-amber-200/90 pt-1">What this page does not include</p>
         <ul className="list-disc pl-5 space-y-1 text-neutral-300">
           <li>
-            <strong className="text-neutral-200">Chat “report issue” (flag)</strong> submissions — the
-            API does not persist <code className="text-neutral-400">context_jsonb</code> for those rows,
-            so app and website reports look the same in SQL. Use PostHog or a future DB field if you need
-            to split them.
+            <strong className="text-neutral-200">Legacy mobile flag-only reports</strong> — older app
+            builds that called <code className="text-neutral-400">/api/chat/report</code> without{" "}
+            <code className="text-neutral-400">chat_surface</code> have no{" "}
+            <code className="text-neutral-400">app_chat_issue</code> context; triage in{" "}
+            <Link href="/admin/ai-reports" className="text-amber-400 hover:underline">
+              AI reports
+            </Link>
+            .
           </li>
           <li>
             <strong className="text-neutral-200">Thumbs / generic feedback</strong> — the{" "}
@@ -145,7 +152,7 @@ export default function AppAIFeedbackAdminPage() {
             <StatCard
               label="Confirmed app reports"
               value={summary.confirmedAppStructuredReports}
-              hint="chat_correction + app_* surface"
+              hint="chat_correction or app_chat_issue + app_* surface"
             />
             <StatCard label="Pending" value={summary.byStatus.pending ?? 0} />
             <StatCard label="Reviewed" value={summary.byStatus.reviewed ?? 0} />
@@ -256,6 +263,11 @@ export default function AppAIFeedbackAdminPage() {
                         {r.user_id ?? "—"}
                       </td>
                       <td className="p-2 text-xs text-neutral-300 min-w-[160px]">
+                        {ctx?.source ? (
+                          <div>
+                            <span className="text-neutral-500">ctx source:</span> {ctx.source}
+                          </div>
+                        ) : null}
                         <div>
                           <span className="text-neutral-500">surface:</span> {surface || "—"}
                         </div>

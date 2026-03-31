@@ -5,17 +5,14 @@ import { isAdmin } from "@/lib/admin-check";
 /**
  * GET /api/admin/app-ai-feedback
  *
- * Returns KPIs and rows for structured AI reports that can be identified as
- * mobile-app chat corrections: context_jsonb.source = chat_correction and
- * chat_surface text starts with "app_" (website uses main_chat / deck_chat only).
+ * KPIs + rows for app-identified structured reports: context_jsonb.source is
+ * chat_correction or app_chat_issue, and chat_surface starts with app_.
  */
-
-/** PostgREST JSON text extract + LIKE; must be chained after .select() for typed client. */
-function withAppConfirmedRowFilters<T extends { filter: (c: string, o: string, v: string) => T }>(
+function withAppConfirmedRowFilters<T extends { or: (filters: string) => T; filter: (c: string, o: string, v: string) => T }>(
   q: T,
 ): T {
   return q
-    .filter("context_jsonb->>source", "eq", "chat_correction")
+    .or("context_jsonb->>source.eq.chat_correction,context_jsonb->>source.eq.app_chat_issue")
     .filter("context_jsonb->>chat_surface", "like", "app\\_%");
 }
 
@@ -107,7 +104,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       filterExplanation:
-        'Rows are limited to ai_response_reports where context_jsonb.source = "chat_correction" and chat_surface starts with "app_" (website corrections use main_chat / deck_chat).',
+        'Rows: (source = chat_correction OR app_chat_issue) AND chat_surface LIKE app_%. Mobile Report uses app_chat_issue.',
       summary: {
         confirmedAppStructuredReports: confirmedTotal ?? 0,
         byStatus: {
