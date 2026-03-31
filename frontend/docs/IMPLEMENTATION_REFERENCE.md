@@ -30,3 +30,10 @@ Brief pointers for API ↔ DB contracts. For full product docs, see repo `docs/`
 
 - **`GET/POST /api/price`** — `price_cache` keys: `card_name` (normalized with apostrophe folding per route helper), `usd_price`, `eur_price`. GBP is derived for responses, not stored.
 - **`POST /api/deck/shopping-list`** — Uses the same `price_cache` columns and `normalizeName` semantics as `/api/price` for cache hits and upserts after Scryfall fetches. This normalization is for **price rows**, not `scryfall_cache.name` (canonical oracle PK uses `normalizeScryfallCacheName` in `lib/server/scryfallCacheRow.ts`).
+
+## Admin scanner analytics (mobile / PostHog)
+
+- **UI:** `/admin/app-scanner` — scanner funnel, quality breakdowns, AI Assist, auto-add / persist labeling.
+- **API:** `GET /api/admin/scanner-analytics/overview?days=7` — HogQL aggregates; requires `POSTHOG_PERSONAL_API_KEY` + `POSTHOG_PROJECT_ID`.
+- **Helper:** `lib/server/posthog-hogql.ts` — shared Query API client (same env pattern as `scripts/audit-phase2/posthog-events.ts`).
+- **Doc:** `docs/ADMIN_SCANNER_DASHBOARD.md` (includes a **REVERT** checklist).

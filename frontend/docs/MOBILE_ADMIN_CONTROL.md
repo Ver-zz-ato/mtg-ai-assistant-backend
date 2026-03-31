@@ -27,6 +27,7 @@ All under `/admin/*`, protected by `AdminGuard` + server-side admin checks on mu
 | `/admin/app-whats-new` | List / create / edit `app_changelog` rows |
 | `/admin/tier-limits` | Edit `mobile.tiers.limits` (validated JSON) |
 | `/admin/mobile-bootstrap-preview` | Debug view; same payload as public bootstrap |
+| `/admin/app-scanner` | PostHog scanner funnel / quality (requires PostHog personal API key on server; see `docs/ADMIN_SCANNER_DASHBOARD.md`) |
 
 Dashboard entry: **Admin → Mobile & Client Control** (`/admin/JustForDavy`).
 

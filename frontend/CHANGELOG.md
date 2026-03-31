@@ -2,6 +2,14 @@
 
 ## 2026-03-31
 
+### Admin — mobile scanner analytics (PostHog)
+
+- **`/admin/app-scanner`:** Dashboard for mobile scanner events (`scan_card_*`, `scan_ai_*`): overview tiles, funnel-style counts, quality breakdowns (name resolution, match source, confirm method), AI Assist blocked/fallback/failures, auto-add vs canonical rates, and `will_persist_to_supabase` (new-deck vs persisted intent).
+- **`GET /api/admin/scanner-analytics/overview`:** Server HogQL aggregates; uses `POSTHOG_PERSONAL_API_KEY` + `POSTHOG_PROJECT_ID` when set.
+- **`lib/server/posthog-hogql.ts`:** Minimal HogQL client for admin reporting.
+- **Nav:** Link under Admin → Mobile & Client Control (`JustForDavy`).
+- **Docs:** `docs/ADMIN_SCANNER_DASHBOARD.md` (purpose + **REVERT** steps); `docs/MOBILE_ADMIN_CONTROL.md` table row for `/admin/app-scanner`.
+
 ### Cache key alignment (scryfall PK vs price key)
 
 - **`app/api/deck/shopping-list/route.ts`:** `getCachedCardData` queries **`scryfall_cache.name`** with **`normalizeScryfallCacheName`** (not the price-style `normalizeName`). **`price_cache`** paths unchanged.

@@ -33,6 +33,11 @@ const GROUPS = [
         label: "Mobile Bootstrap Preview",
         eli5: "See exactly what config the app will receive on launch.",
       },
+      {
+        href: "/admin/app-scanner",
+        label: "Scanner analytics",
+        eli5: "PostHog funnel and quality metrics for the mobile card scanner (OCR, AI assist, auto-add).",
+      },
     ],
   },
   {
