@@ -426,14 +426,33 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
         
         const j = await r.json().catch(() => ({}));
         const dataRows: any[] = Array.isArray(j?.data) ? j.data : [];
-        
-        // Process fetched cards
+        const notFoundRaw: unknown[] = Array.isArray(j?.not_found) ? j.not_found : [];
+        const notFoundNameKeys = new Set<string>();
+        for (const item of notFoundRaw) {
+          if (
+            item &&
+            typeof item === "object" &&
+            typeof (item as { name?: unknown }).name === "string"
+          ) {
+            const k = norm((item as { name: string }).name);
+            if (k) notFoundNameKeys.add(k);
+          }
+        }
+
+        // Pair each identifier with the next card in `data` (order matches request; not_found omits entries).
         const upsertRows: any[] = [];
-        
-        for (const c of dataRows) {
-          const key = norm(c?.name || "");
-          if (!key) continue;
-          
+        let dataIdx = 0;
+        for (let bi = 0; bi < batch.length; bi++) {
+          const requestedName = batch[bi];
+          const reqKey = norm(requestedName);
+          if (!reqKey) continue;
+          if (notFoundNameKeys.has(reqKey)) continue;
+          const c = dataRows[dataIdx++];
+          if (!c) break;
+
+          const canonicalKey = norm(c?.name || "");
+          if (!canonicalKey) continue;
+
           const card: SfCard = {
             name: c.name,
             type_line: c.type_line,
@@ -444,11 +463,14 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
             mana_cost: c.mana_cost,
             ...mapApiCardExtras(c as Record<string, unknown>),
           };
-          
-          result.set(key, card);
-          sfCache.set(key, card); // Store in memory
-          
-          // Prepare for DB upsert (canonical row shape + Phase 2A columns)
+
+          result.set(canonicalKey, card);
+          sfCache.set(canonicalKey, card);
+          if (reqKey !== canonicalKey) {
+            result.set(reqKey, card);
+            sfCache.set(reqKey, card);
+          }
+
           const built = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, {
             source: "inference.fetchCardsBatch",
           });
