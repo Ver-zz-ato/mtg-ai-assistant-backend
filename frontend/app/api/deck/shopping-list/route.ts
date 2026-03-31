@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withLogging } from "@/lib/api/withLogging";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,11 +90,11 @@ async function getCachedCardData(supabase: any, names: string[]): Promise<Map<st
   const map = new Map<string, any>();
   if (!names.length) return map;
   
-  const normalizedNames = names.map(normalizeName);
+  const scryfallNameKeys = names.map(normalizeScryfallCacheName);
   const { data } = await supabase
     .from('scryfall_cache')
     .select('name, type_line, oracle_text, set, collector_number, updated_at')
-    .in('name', normalizedNames)
+    .in('name', scryfallNameKeys)
     .gte('updated_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()); // 7 days
 
   for (const row of (data || [])) {

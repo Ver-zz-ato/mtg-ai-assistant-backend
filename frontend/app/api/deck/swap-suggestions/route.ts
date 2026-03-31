@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { canonicalize } from "@/lib/cards/canonicalize";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { convert } from "@/lib/currency/rates";
 import { createClient } from "@/lib/server-supabase";
@@ -153,7 +154,7 @@ async function snapOrScryPrice(name: string, currency: string, useSnapshot: bool
   const proper = canonicalize(name).canonicalName || name;
   if (useSnapshot) {
     try {
-      const key = proper.toLowerCase();
+      const key = normalizeScryfallCacheName(proper);
       const { data } = await supabase.from('price_snapshots').select('unit').eq('snapshot_date', snapshotDate).eq('name_norm', key).eq('currency', currency).maybeSingle();
       const unit = Number((data as any)?.unit || 0);
       if (unit > 0) return unit;

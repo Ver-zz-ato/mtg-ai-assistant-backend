@@ -1,5 +1,12 @@
 # Frontend changelog
 
+## 2026-03-31
+
+### Cache key alignment (scryfall PK vs price key)
+
+- **`app/api/deck/shopping-list/route.ts`:** `getCachedCardData` queries **`scryfall_cache.name`** with **`normalizeScryfallCacheName`** (not the price-style `normalizeName`). **`price_cache`** paths unchanged.
+- **`lib/deck/deck-context-summary.ts`:** Fallback **`tally()`** looks up **`fetchCardsBatch`** rows with **`normalizeScryfallCacheName(name)`** instead of **`toLowerCase()`**. Deck hash / **`normalizeCardName`** hashing unchanged.
+
 ## 2026-03-30
 
 ### Deck editor — Maybe / Flex cards (non-Commander only)

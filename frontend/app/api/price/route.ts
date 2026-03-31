@@ -4,6 +4,7 @@ import { withLogging } from "@/lib/api/withLogging";
 import { ok, err } from "@/lib/api/envelope";
 import { PriceBody } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
 /**
  * `price_cache.card_name` lookup key only — keep in sync with shopping-list + bulk price import.
@@ -243,6 +244,7 @@ export const GET = withLogging(async (req: NextRequest) => {
     const names = [name];
     const cachedPrices = await getCachedPrices(names);
     const normName = normalizeName(name);
+    const snapshotNorm = normalizeScryfallCacheName(name);
     
     let priceData = cachedPrices[normName];
     
@@ -324,7 +326,7 @@ export const GET = withLogging(async (req: NextRequest) => {
               .from('price_snapshots')
               .select('snapshot_date, unit')
               .eq('currency', currency)
-              .eq('name_norm', normName)
+              .eq('name_norm', snapshotNorm)
               .lte('snapshot_date', targetStr)
               .order('snapshot_date', { ascending: false })
               .limit(1);

@@ -7,6 +7,7 @@
 
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { normalizeCardName } from "@/lib/deck/mtgValidators";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { hashStringSync } from "@/lib/guest-tracking";
 import { fetchCardsBatch, type SfCard } from "@/lib/deck/inference";
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
@@ -112,7 +113,7 @@ function tally(
   const drawCards: string[] = [];
 
   for (const { name, count } of entries) {
-    const card = byName.get(name.toLowerCase());
+    const card = byName.get(normalizeScryfallCacheName(name));
     const typeLine = card?.type_line ?? "";
     const oracle = card?.oracle_text ?? "";
     const displayName = name.trim().replace(/\s+/g, " ");

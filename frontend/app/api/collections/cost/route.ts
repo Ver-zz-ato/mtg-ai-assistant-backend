@@ -1,4 +1,4 @@
-﻿import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 // frontend/app/api/collections/cost/route.ts
 // Node runtime so we can use supabase-js + normal fetch without Edge errors.
 export const runtime = "nodejs";
@@ -10,6 +10,7 @@ import { withLogging } from "@/lib/api/withLogging";
 import { ok, err } from "@/lib/api/envelope";
 import { CostBody } from "@/lib/validation";
 import { canonicalize } from "@/lib/cards/canonicalize";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { convert } from "@/lib/currency/rates";
 // ---- Utilities ----
 type Currency = "USD" | "EUR" | "GBP" | "TIX";
@@ -217,6 +218,7 @@ export const POST = withLogging(async (req: Request) => {
       if (need === 0) continue;
 
       const proper = canonicalize(name).canonicalName || name;
+      const snapshotNorm = normalizeScryfallCacheName(proper);
 
       let unit = 0;
       if (useSnapshot) {
@@ -224,7 +226,7 @@ export const POST = withLogging(async (req: Request) => {
           .from('price_snapshots')
           .select('unit')
           .eq('snapshot_date', snapshotDate)
-          .eq('name_norm', name)
+          .eq('name_norm', snapshotNorm)
           .eq('currency', currency)
           .maybeSingle();
         unit = Number((snap as any)?.unit || 0);
@@ -236,7 +238,7 @@ export const POST = withLogging(async (req: Request) => {
           // Upsert into snapshot table for reuse within the day
           await supabase
             .from('price_snapshots')
-            .upsert({ snapshot_date: snapshotDate, name_norm: name, currency, unit, source: 'Scryfall' }, { onConflict: 'snapshot_date,name_norm,currency' });
+            .upsert({ snapshot_date: snapshotDate, name_norm: snapshotNorm, currency, unit, source: 'Scryfall' }, { onConflict: 'snapshot_date,name_norm,currency' });
         }
       }
 
