@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
 
 export const dynamic = "force-dynamic";
 
@@ -39,22 +40,6 @@ async function checkIfCommander(cardName: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function parseDeckText(text: string): Array<{ name: string; qty: number }> {
-  const out: Array<{ name: string; qty: number }> = [];
-  if (!text) return out;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    const m = line.match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
-    if (!m) continue;
-    const qty = Math.max(0, parseInt(m[1], 10) || 0);
-    const name = m[2].trim();
-    if (!qty || !name) continue;
-    out.push({ name, qty });
-  }
-  return out;
 }
 
 export async function POST(req: Request) {

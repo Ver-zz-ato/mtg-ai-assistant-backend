@@ -6,6 +6,7 @@ import { withLogging } from "@/lib/api/withLogging";
 
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -74,23 +75,6 @@ const Req = z.object({
   deck_text: z.string().default(""),
   data: z.any().optional(),
 });
-
-function parseDeckText(text: string): Array<{ name: string; qty: number }> {
-  const out: Array<{ name: string; qty: number }> = [];
-  if (!text) return out;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    // e.g. "1 Sol Ring", "2x Arcane Signet"
-    const m = line.match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
-    if (!m) continue;
-    const qty = Math.max(0, parseInt(m[1], 10) || 0);
-    const name = m[2].trim();
-    if (!qty || !name) continue;
-    out.push({ name, qty });
-  }
-  return out;
-}
 
 function aggregateCards(cards: Array<{ name: string; qty: number }>): Array<{ name: string; qty: number }> {
   const map = new Map<string, { name: string; qty: number }>();
