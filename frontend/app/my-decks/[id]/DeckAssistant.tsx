@@ -16,7 +16,8 @@ import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { renderMarkdown } from "@/lib/chat/markdownRenderer";
 import { parseDeckCommand } from "@/lib/chat/commandParser";
-import { toast } from "@/lib/toast-client";
+import { toast, toastError } from "@/lib/toast-client";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { validateAndNormalizeCardName } from "@/lib/chat/cardValidator";
 import ChatCorrectionModal from "@/components/ChatCorrectionModal";
 
@@ -960,12 +961,11 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {isAssistant && m.content && m.content !== 'Thinking..' && (
                       <button
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(String(m.content || ''));
-                          } catch (err) {
-                            // Silently fail
-                          }
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const ok = await copyTextToClipboard(String(m.content || ""));
+                          if (ok) toast("Copied to clipboard", "success");
+                          else toastError("Could not copy — try selecting the text manually.");
                         }}
                         className="p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"
                         title="Copy message"

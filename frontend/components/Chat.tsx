@@ -47,6 +47,7 @@ import { useProStatus } from "@/hooks/useProStatus";
 import { getBulkPrices } from "@/lib/chat/actions/bulk-prices";
 import { isDecklist } from "@/lib/chat/decklistDetector";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT } from "@/lib/limits";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 const DEV = process.env.NODE_ENV !== "production";
 
@@ -1806,15 +1807,28 @@ function Chat(props: ChatProps = {}) {
                         <div className="flex justify-end w-full max-sm:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button
                             type="button"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(String(m.content || ''));
-                                capture('chat_message_copied', {
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const text = String(m.content || "");
+                              const ok = await copyTextToClipboard(text);
+                              if (ok) {
+                                capture("chat_message_copied", {
                                   messageId: String(m.id),
                                   role: m.role,
                                 });
-                              } catch {
-                                // ignore
+                                try {
+                                  const { toast } = await import("@/lib/toast-client");
+                                  toast("Copied to clipboard", "success");
+                                } catch {
+                                  /* non-blocking */
+                                }
+                              } else {
+                                try {
+                                  const { toastError } = await import("@/lib/toast-client");
+                                  toastError("Could not copy — try selecting the text manually.");
+                                } catch {
+                                  /* non-blocking */
+                                }
                               }
                             }}
                             className="p-1.5 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700/90"
@@ -1841,15 +1855,28 @@ function Chat(props: ChatProps = {}) {
                     <div className="flex justify-end mt-1.5 max-sm:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(String(m.content || ''));
-                            capture('chat_message_copied', {
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const text = String(m.content || "");
+                          const ok = await copyTextToClipboard(text);
+                          if (ok) {
+                            capture("chat_message_copied", {
                               messageId: String(m.id),
                               role: m.role,
                             });
-                          } catch {
-                            // ignore
+                            try {
+                              const { toast } = await import("@/lib/toast-client");
+                              toast("Copied to clipboard", "success");
+                            } catch {
+                              /* non-blocking */
+                            }
+                          } else {
+                            try {
+                              const { toastError } = await import("@/lib/toast-client");
+                              toastError("Could not copy — try selecting the text manually.");
+                            } catch {
+                              /* non-blocking */
+                            }
                           }
                         }}
                         className="p-1.5 rounded-md text-blue-100/90 hover:text-white hover:bg-blue-500/35"
