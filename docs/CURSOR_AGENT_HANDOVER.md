@@ -122,7 +122,7 @@ When adding a new gated feature:
 
 - **Migrations:** **`frontend/db/`** (e.g. `migrations/*.sql`). Apply via Supabase CLI or dashboard.
 - **Important tables:** `profiles`, `decks`, `deck_cards`, `chat_threads`, `chat_messages`, `collections`, `wishlists`, `rate_limit_*` (for durable limits), `ai_usage`, `deck_costs`, `price_snapshots`. Do not assume schema from this list alone; check migrations.
-- **RLS:** Supabase RLS is used. Server code uses the anon key with the user’s JWT; row access is enforced by RLS.
+- **RLS and privileges:** Many tables use **RLS**; server routes often use the anon key with the user’s JWT (`authenticated` role). **Additionally (2026-04):** several **website-only** tables had **PostgreSQL table privileges** tightened (`ops_reports`, `seo_queries`, `deck_costs` — no `anon`/`authenticated`; `seo_pages` — `SELECT` only for those roles). See **`docs/SUPABASE_SCHEMA.md`** (*Database access — grant hardening*). Tables such as **`ai_test_*`** and **`api_usage_rate_limits`** were **not** revoked yet — they still depend on `authenticated`/`anon` in code.
 
 ---
 

@@ -4,10 +4,27 @@
 
 **When you apply migrations:** Update this file with the new schema (e.g. export from Supabase SQL editor or Dashboard), or send the new schema to the AI and ask it to update this doc.
 
+### Database access — grant hardening (production, 2026-04)
+
+These notes describe **table-level privileges** (`GRANT` / `REVOKE`) in PostgreSQL. **RLS** may still be disabled on these tables; confirm in the Supabase Dashboard if you need row-level policies.
+
+| Table | `anon` / `authenticated` | `service_role` / `postgres` | Intended usage |
+|--------|-------------------------|------------------------------|----------------|
+| `ops_reports` | No table privileges (revoked) | Full | Writes/reads via **service role** (admin APIs, crons, `runOpsReport`) |
+| `seo_queries` | No table privileges (revoked) | Full | Ingest, admin list, ops reports, scripts |
+| `deck_costs` | No table privileges (revoked) | Full | Deck-costs / commander-aggregates crons, `getCostLandingData` (service role) |
+| `seo_pages` | **SELECT** only (writes revoked) | Full | Public SSR reads (`createClientForStatic`); mutations via **service role** in admin routes |
+
+**Deferred (do not mirror these revokes without code/RLS work):** `ai_test_cases`, `ai_test_results`, `ai_test_schedules`, `api_usage_rate_limits` — current Next.js paths still rely on **`authenticated`** and/or **`anon`** for DB access.
+
+The **ManaTap mobile app** does not query these website-only tables directly.
+
 ---
 
 <!-- WARNING: This schema is for context only and is not meant to be run. -->
 <!-- Table order and constraints may not be valid for execution. -->
+
+**Export note:** `watchlists` (price watchlists) and `wishlists` (deck wishlists) are different tables. Some dashboard exports list `CREATE TABLE public.wishlists` twice with different columns; Postgres only allows one `public.wishlists` — confirm the live definition in the Supabase SQL editor or `information_schema`.
 
 ```sql
 CREATE TABLE public.admin_audit (
@@ -164,6 +181,7 @@ CREATE TABLE public.ai_response_reports (
   admin_notes text,
   reviewed_by uuid,
   reviewed_at timestamp with time zone,
+  context_jsonb jsonb,
   CONSTRAINT ai_response_reports_pkey PRIMARY KEY (id),
   CONSTRAINT ai_response_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT ai_response_reports_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id)
@@ -403,6 +421,23 @@ CREATE TABLE public.api_usage_rate_limits (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT api_usage_rate_limits_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.app_changelog (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  body text NOT NULL,
+  platform text NOT NULL DEFAULT 'mobile'::text,
+  min_app_version text,
+  max_app_version text,
+  is_active boolean NOT NULL DEFAULT true,
+  starts_at timestamp with time zone,
+  ends_at timestamp with time zone,
+  priority integer NOT NULL DEFAULT 100,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_by uuid,
+  updated_by uuid,
+  CONSTRAINT app_changelog_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.app_config (
   key text NOT NULL,
   value jsonb,
@@ -442,6 +477,16 @@ CREATE TABLE public.card_embeddings (
   format_legal ARRAY,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT card_embeddings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.card_embeddings_backup_20260328 (
+  id uuid,
+  card_name text,
+  embedding USER-DEFINED,
+  oracle_text text,
+  type_line text,
+  color_identity ARRAY,
+  format_legal ARRAY,
+  updated_at timestamp with time zone
 );
 CREATE TABLE public.chat_embeddings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -497,14 +542,37 @@ CREATE TABLE public.collection_cards (
   CONSTRAINT collection_cards_pkey PRIMARY KEY (id),
   CONSTRAINT collection_cards_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id)
 );
+CREATE TABLE public.collection_cards_backup_20260328 (
+  id uuid,
+  collection_id uuid,
+  name text,
+  qty integer,
+  created_at timestamp with time zone
+);
 CREATE TABLE public.collection_items (
   collection_id uuid NOT NULL,
   card_name text NOT NULL,
   qty integer NOT NULL DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   id bigint NOT NULL DEFAULT nextval('collection_items_id_seq'::regclass),
   CONSTRAINT collection_items_pkey PRIMARY KEY (id),
   CONSTRAINT collection_items_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id)
+);
+CREATE TABLE public.collection_items_backup_20260328 (
+  collection_id uuid,
+  card_name text,
+  qty integer,
+  created_at timestamp with time zone,
+  id bigint
+);
+CREATE TABLE public.collection_likes (
+  collection_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  ip_hash text,
+  CONSTRAINT collection_likes_pkey PRIMARY KEY (collection_id, user_id),
+  CONSTRAINT collection_likes_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id),
+  CONSTRAINT collection_likes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.collection_meta (
   collection_id uuid NOT NULL,
@@ -522,7 +590,7 @@ CREATE TABLE public.collections (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   name text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT collections_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.commander_aggregates (
@@ -563,6 +631,13 @@ CREATE TABLE public.deck_cards (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT deck_cards_pkey PRIMARY KEY (id),
   CONSTRAINT deck_cards_deck_id_fkey FOREIGN KEY (deck_id) REFERENCES public.decks(id)
+);
+CREATE TABLE public.deck_cards_backup_20260328 (
+  id uuid,
+  deck_id uuid,
+  name text,
+  qty integer,
+  created_at timestamp with time zone
 );
 CREATE TABLE public.deck_comments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -641,24 +716,6 @@ CREATE TABLE public.deck_versions (
   CONSTRAINT deck_versions_deck_id_fkey FOREIGN KEY (deck_id) REFERENCES public.decks(id),
   CONSTRAINT deck_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
-CREATE TABLE public.precon_decks (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  commander text NOT NULL,
-  colors text[] NOT NULL DEFAULT '{}',
-  format text NOT NULL DEFAULT 'Commander',
-  deck_text text NOT NULL DEFAULT '',
-  set_name text NOT NULL,
-  release_year integer NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  meta jsonb DEFAULT '{}',
-  CONSTRAINT precon_decks_pkey PRIMARY KEY (id)
-);
--- RLS: public read (SELECT); no INSERT/UPDATE/DELETE policies (admin uses service role)
--- Indexes: set_name, release_year, commander, colors (GIN)
--- Used by: /decks/browse Precons tab, GET /api/decks/precons, POST /api/decks/precons/import
-
 CREATE TABLE public.decks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL DEFAULT auth.uid(),
@@ -697,13 +754,23 @@ CREATE TABLE public.eval_runs (
   meta jsonb,
   CONSTRAINT eval_runs_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.feature_flags (
+  key text NOT NULL,
+  enabled boolean NOT NULL DEFAULT false,
+  description text,
+  value jsonb NOT NULL DEFAULT '{}'::jsonb,
+  platform text NOT NULL DEFAULT 'all'::text,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_by uuid,
+  CONSTRAINT feature_flags_pkey PRIMARY KEY (key)
+);
 CREATE TABLE public.feedback (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,
   email text,
   rating integer,
   text text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT feedback_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.guest_sessions (
@@ -772,7 +839,7 @@ CREATE TABLE public.mulligan_advice_cache_admin (
 );
 CREATE TABLE public.mulligan_advice_runs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   source text NOT NULL,
   user_id uuid,
   deck_summary text,
@@ -801,6 +868,20 @@ CREATE TABLE public.ops_reports (
   run_key text UNIQUE,
   CONSTRAINT ops_reports_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.precon_decks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  commander text NOT NULL,
+  colors ARRAY NOT NULL DEFAULT '{}'::text[],
+  format text NOT NULL DEFAULT 'Commander'::text,
+  deck_text text NOT NULL DEFAULT ''::text,
+  set_name text NOT NULL,
+  release_year integer NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  meta jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT precon_decks_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.price_cache (
   id bigint NOT NULL DEFAULT nextval('price_cache_id_seq'::regclass),
   card_name text NOT NULL UNIQUE,
@@ -812,6 +893,16 @@ CREATE TABLE public.price_cache (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT price_cache_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.price_cache_backup_20260328 (
+  id bigint,
+  card_name text,
+  usd_price numeric,
+  usd_foil_price numeric,
+  eur_price numeric,
+  tix_price numeric,
+  created_at timestamp with time zone,
+  updated_at timestamp with time zone
+);
 CREATE TABLE public.price_snapshots (
   snapshot_date date NOT NULL,
   name_norm text NOT NULL,
@@ -820,6 +911,14 @@ CREATE TABLE public.price_snapshots (
   source text NOT NULL DEFAULT 'Scryfall'::text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT price_snapshots_pkey PRIMARY KEY (snapshot_date, name_norm, currency)
+);
+CREATE TABLE public.price_snapshots_backup_20260328 (
+  snapshot_date date,
+  name_norm text,
+  currency text,
+  unit numeric,
+  source text,
+  created_at timestamp with time zone
 );
 CREATE TABLE public.pro_gate_events (
   id bigint NOT NULL DEFAULT nextval('pro_gate_events_id_seq'::regclass),
@@ -895,7 +994,7 @@ CREATE TABLE public.prompt_layer_versions (
   layer_key text NOT NULL,
   body text NOT NULL,
   meta jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT prompt_layer_versions_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.prompt_layers (
@@ -927,6 +1026,15 @@ CREATE TABLE public.prompt_versions (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT prompt_versions_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.remote_config (
+  key text NOT NULL,
+  description text,
+  value jsonb NOT NULL DEFAULT '{}'::jsonb,
+  platform text NOT NULL DEFAULT 'all'::text,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_by uuid,
+  CONSTRAINT remote_config_pkey PRIMARY KEY (key)
+);
 CREATE TABLE public.request_metrics (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   ts timestamp with time zone NOT NULL DEFAULT now(),
@@ -955,7 +1063,7 @@ CREATE TABLE public.roast_permalinks (
   format text,
   roast_level text,
   commander_art_url text,
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT roast_permalinks_pkey PRIMARY KEY (id),
   CONSTRAINT roast_permalinks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
@@ -974,7 +1082,83 @@ CREATE TABLE public.scryfall_cache (
   mana_cost text,
   cmc integer DEFAULT 0,
   legalities jsonb,
+  name_norm text,
+  colors ARRAY,
+  keywords ARRAY,
+  power text,
+  toughness text,
+  loyalty text,
+  is_land boolean,
+  is_creature boolean,
+  is_instant boolean,
+  is_sorcery boolean,
+  is_enchantment boolean,
+  is_artifact boolean,
+  is_planeswalker boolean,
   CONSTRAINT scryfall_cache_pkey PRIMARY KEY (name)
+);
+CREATE TABLE public.scryfall_cache_backup_20260328 (
+  name text,
+  small text,
+  normal text,
+  art_crop text,
+  updated_at timestamp with time zone,
+  type_line text,
+  oracle_text text,
+  color_identity ARRAY,
+  rarity text,
+  set text,
+  collector_number text,
+  mana_cost text,
+  cmc integer,
+  legalities jsonb,
+  name_norm text,
+  colors ARRAY,
+  keywords ARRAY,
+  power text,
+  toughness text,
+  loyalty text,
+  is_land boolean,
+  is_creature boolean,
+  is_instant boolean,
+  is_sorcery boolean,
+  is_enchantment boolean,
+  is_artifact boolean,
+  is_planeswalker boolean
+);
+CREATE TABLE public.scryfall_cache_backup_20260328_fullsafe (
+  name text,
+  small text,
+  normal text,
+  art_crop text,
+  updated_at timestamp with time zone,
+  type_line text,
+  oracle_text text,
+  color_identity ARRAY,
+  rarity text,
+  set text,
+  collector_number text,
+  mana_cost text,
+  cmc integer,
+  legalities jsonb,
+  name_norm text,
+  colors ARRAY,
+  keywords ARRAY,
+  power text,
+  toughness text,
+  loyalty text,
+  is_land boolean,
+  is_creature boolean,
+  is_instant boolean,
+  is_sorcery boolean,
+  is_enchantment boolean,
+  is_artifact boolean,
+  is_planeswalker boolean
+);
+CREATE TABLE public.scryfall_name_repair_map_20260328 (
+  old_name text NOT NULL,
+  new_name text NOT NULL,
+  CONSTRAINT scryfall_name_repair_map_20260328_pkey PRIMARY KEY (old_name)
 );
 CREATE TABLE public.seo_pages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -989,7 +1173,7 @@ CREATE TABLE public.seo_pages (
   strategy_slug text,
   priority integer NOT NULL DEFAULT 0,
   status text NOT NULL DEFAULT 'draft'::text CHECK (status = ANY (ARRAY['draft'::text, 'published'::text, 'disabled'::text])),
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   resolved_url text,
   quality_score integer NOT NULL DEFAULT 0,
@@ -1010,6 +1194,27 @@ CREATE TABLE public.seo_queries (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT seo_queries_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.shared_health_reports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  deck_id uuid,
+  snapshot_json jsonb NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT shared_health_reports_pkey PRIMARY KEY (id),
+  CONSTRAINT shared_health_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT shared_health_reports_deck_id_fkey FOREIGN KEY (deck_id) REFERENCES public.decks(id)
+);
+CREATE TABLE public.shared_item_comments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  resource_type text NOT NULL CHECK (resource_type = ANY (ARRAY['collection'::text, 'roast'::text, 'health_report'::text, 'custom_card'::text])),
+  resource_id text NOT NULL,
+  user_id uuid NOT NULL,
+  content text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT shared_item_comments_pkey PRIMARY KEY (id),
+  CONSTRAINT shared_item_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.shoutbox_messages (
   id bigint NOT NULL DEFAULT nextval('shoutbox_messages_id_seq'::regclass),
   user_name text NOT NULL,
@@ -1023,7 +1228,7 @@ CREATE TABLE public.tags (
   user_id uuid NOT NULL,
   name text NOT NULL,
   color text,
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT tags_pkey PRIMARY KEY (id),
   CONSTRAINT tags_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
@@ -1034,6 +1239,13 @@ CREATE TABLE public.top_cards (
   commander_slugs jsonb NOT NULL DEFAULT '[]'::jsonb,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT top_cards_pkey PRIMARY KEY (card_name)
+);
+CREATE TABLE public.top_cards_backup_20260328 (
+  card_name text,
+  slug text,
+  deck_count integer,
+  commander_slugs jsonb,
+  updated_at timestamp with time zone
 );
 CREATE TABLE public.user_ai_examples (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1068,6 +1280,13 @@ CREATE TABLE public.user_prompt_variant (
   CONSTRAINT user_prompt_variant_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT user_prompt_variant_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.prompt_ab_tests(id)
 );
+CREATE TABLE public.user_push_tokens (
+  user_id uuid NOT NULL,
+  expo_push_token text NOT NULL,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_push_tokens_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_push_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.watchlist_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   watchlist_id uuid NOT NULL,
@@ -1077,6 +1296,14 @@ CREATE TABLE public.watchlist_items (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT watchlist_items_pkey PRIMARY KEY (id),
   CONSTRAINT watchlist_items_watchlist_id_fkey FOREIGN KEY (watchlist_id) REFERENCES public.watchlists(id)
+);
+CREATE TABLE public.watchlist_items_backup_20260328 (
+  id uuid,
+  watchlist_id uuid,
+  name text,
+  target_price numeric,
+  created_at timestamp with time zone,
+  updated_at timestamp with time zone
 );
 CREATE TABLE public.watchlists (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1093,16 +1320,23 @@ CREATE TABLE public.wishlist_items (
   wishlist_id uuid NOT NULL,
   name text NOT NULL,
   qty integer NOT NULL DEFAULT 1 CHECK (qty >= 0),
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT wishlist_items_pkey PRIMARY KEY (id),
   CONSTRAINT wishlist_items_wishlist_id_fkey FOREIGN KEY (wishlist_id) REFERENCES public.wishlists(id)
+);
+CREATE TABLE public.wishlist_items_backup_20260328 (
+  id uuid,
+  wishlist_id uuid,
+  name text,
+  qty integer,
+  created_at timestamp with time zone
 );
 CREATE TABLE public.wishlists (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   name text NOT NULL,
   is_public boolean NOT NULL DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT wishlists_pkey PRIMARY KEY (id),
   CONSTRAINT wishlists_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );

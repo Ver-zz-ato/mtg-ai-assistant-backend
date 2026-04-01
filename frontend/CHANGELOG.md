@@ -1,5 +1,18 @@
 # Frontend changelog
 
+## 2026-04-01
+
+### Documentation — Supabase grant hardening (shared project)
+
+- **`docs/SUPABASE_SCHEMA.md`:** New subsection **Database access — grant hardening** documenting production privilege changes on `ops_reports`, `seo_queries`, `deck_costs`, `seo_pages`, and tables intentionally deferred (`ai_test_*`, `api_usage_rate_limits`).
+- **`docs/CURSOR_AGENT_HANDOVER.md`:** Database section updated to reference grant tightening vs RLS-only wording.
+
+*Note: Privilege changes were applied in Supabase (not via this repo’s migration files in this pass).*
+
+### Documentation — full `public` schema snapshot
+
+- **`docs/SUPABASE_SCHEMA.md`:** Embedded `CREATE TABLE` list refreshed from a Supabase export (adds e.g. `app_changelog`, `remote_config`, expanded `ai_test_*` / `scryfall_cache` columns, `*_backup_20260328` staging tables). Short **Export note** clarifies `watchlists` vs `wishlists` and duplicate `wishlists` lines in some exports.
+
 ## 2026-03-31
 
 ### Admin — mobile scanner analytics (PostHog)
