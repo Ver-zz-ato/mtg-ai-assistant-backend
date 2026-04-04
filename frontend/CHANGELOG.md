@@ -5,7 +5,7 @@
 ### AI deck generation — `parseAiDeckOutputLines` + generate-from-collection
 
 - **`lib/deck/generation-helpers.ts`:** Parser accepts **numbered lists**, **markdown fences**, **`- ` bullets**, **bare card-name lines** (no quantity), **\`** / **\`** stripping.
-- **`app/api/deck/generate-from-collection/route.ts`:** **`max_completion_tokens` 12000**; on **too short** decklists logs **`finish_reason`**, parse stats, and a **content head** (server logs); app sees an extra sentence when **`finish_reason === "length"`**.
+- **`app/api/deck/generate-from-collection/route.ts`:** **`max_completion_tokens` 12000**; on **too short** decklists logs **`finish_reason`**, parse stats, and a **content head** (server logs); app sees an extra sentence when **`finish_reason === "length"`**. **Commander:** **≥85** unique parsed cards before CI filter; **skip color-identity filter** when commander colors are **unknown** (empty cache); if CI filter **drops below 60** but the model list had **≥85**, **use the full model list** (avoids ~45-card colorless leftovers); **reject** final Commander lists with **fewer than 90** cards with a clear error.
 - **Tests:** `tests/unit/parse-ai-deck-output-lines.test.ts` (in **`npm run test:unit`**).
 
 ## 2026-04-01

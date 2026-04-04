@@ -168,9 +168,13 @@ export async function POST(req: NextRequest) {
     const parsed = parseAiDeckOutputLines(content);
     let cards = aggregateCards(parsed);
 
-    if (cards.length < 30) {
+    const fmtLower = (format || "Commander").toLowerCase();
+    const isCommanderRequest = fmtLower.includes("commander");
+    const minParsedCards = isCommanderRequest ? 85 : 30;
+    if (cards.length < minParsedCards) {
       console.error("[generate-from-collection] deck too short", {
         finishReason,
+        isCommanderRequest,
         contentLen: typeof content === "string" ? content.length : 0,
         parsedLines: parsed.length,
         uniqueCards: cards.length,
@@ -180,29 +184,63 @@ export async function POST(req: NextRequest) {
         finishReason === "length"
           ? " Output hit the size limit — tap try again."
           : "";
-      return NextResponse.json(
-        { ok: false, error: `Generated decklist too short; please try again.${hint}` },
-        { status: 500 }
-      );
+      const errMsg = isCommanderRequest
+        ? `Generated Commander decklist too short (${cards.length} cards; aim for ~100). Please try again.${hint}`
+        : `Generated decklist too short; please try again.${hint}`;
+      return NextResponse.json({ ok: false, error: errMsg }, { status: 500 });
     }
 
-    const commanderName = commander || cards[0]?.name || "Unknown";
+    const commanderName = commander?.trim() || cards[0]?.name || "Unknown";
     const allowedColors = (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase());
     const allNames = cards.map((c) => c.name);
     const details = await getDetailsForNamesCached(allNames);
 
-    // Filter out color identity violations
-    const filtered = cards.filter((c) => {
-      const entry = details.get(norm(c.name));
-      if (!entry) return true; // Unknown cards: keep (e.g. basic lands)
-      return isWithinColorIdentity(entry as SfCard, allowedColors);
-    });
+    /**
+     * Empty commander identity: `isWithinColorIdentity` treats every colored card as illegal.
+     * Skip filtering so we don't return tiny 40–50 card "decks" of mostly colorless cards.
+     */
+    let filtered: typeof cards;
+    if (allowedColors.length === 0) {
+      console.warn("[generate-from-collection] Skipping color-identity filter (no commander colors in cache)", {
+        commanderName,
+      });
+      filtered = cards;
+    } else {
+      filtered = cards.filter((c) => {
+        const entry = details.get(norm(c.name));
+        if (!entry) return true; // Unknown cards: keep (e.g. basic lands)
+        return isWithinColorIdentity(entry as SfCard, allowedColors);
+      });
+      if (filtered.length < 60 && cards.length >= 85) {
+        console.warn("[generate-from-collection] CI filter over-pruned; using full model list", {
+          commanderName,
+          before: cards.length,
+          after: filtered.length,
+        });
+        filtered = cards;
+      }
+    }
 
     // Trim to exactly 100 cards (prioritize order from AI; remove extras from end)
     if (filtered.length > 100) {
       cards = filtered.slice(0, 100);
     } else {
       cards = filtered;
+    }
+
+    if (isCommanderRequest && cards.length < 90) {
+      console.error("[generate-from-collection] Commander deck under 90 cards after processing", {
+        commanderName,
+        len: cards.length,
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Generated Commander deck was too short after checks; please try again or pick a different commander.",
+        },
+        { status: 500 }
+      );
     }
 
     const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
