@@ -15,6 +15,7 @@ import {
   getCommanderColorIdentity,
   totalDeckQty,
   trimDeckToMaxQty,
+  extractChatCompletionContent,
 } from "@/lib/deck/generation-helpers";
 import {
   normalizeGenerationBody,
@@ -24,6 +25,10 @@ import {
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+
+/** Deck lists are long; gpt-5* may use part of the budget before visible text — keep headroom. */
+const DECK_GEN_MAX_COMPLETION_TOKENS = 16_384;
+const MAX_LENGTH_CONTINUATIONS = 4;
 
 export const runtime = "nodejs";
 
@@ -149,7 +154,7 @@ export async function POST(req: NextRequest) {
       const payload = prepareOpenAIBody({
         model,
         messages,
-        max_completion_tokens: 12000,
+        max_completion_tokens: DECK_GEN_MAX_COMPLETION_TOKENS,
         temperature: 0.7,
       } as Record<string, unknown>);
       // eslint-disable-next-line no-restricted-globals -- OpenAI streaming-compatible POST
@@ -167,7 +172,7 @@ export async function POST(req: NextRequest) {
         return { ok: false as const, error: "Deck generation failed" };
       }
       const data = await resp.json();
-      const messageContent = data?.choices?.[0]?.message?.content ?? "";
+      const messageContent = extractChatCompletionContent(data);
       const fr = data?.choices?.[0]?.finish_reason as string | undefined;
       return { ok: true as const, content: messageContent, finishReason: fr };
     };
@@ -187,6 +192,36 @@ export async function POST(req: NextRequest) {
     /** Commander: need ~100 physical cards (sum of line quantities), not unique row count. */
     const minCommanderQty = 95;
     const minOtherQty = 30;
+
+    let lengthContinuationRound = 0;
+    while (
+      isCommanderRequest &&
+      totalQty < minCommanderQty &&
+      finishReason === "length" &&
+      lengthContinuationRound < MAX_LENGTH_CONTINUATIONS
+    ) {
+      lengthContinuationRound++;
+      const followUp =
+        totalQty === 0
+          ? "Your previous reply hit the output limit before any deck lines appeared (or content was not plain lines). Output ONLY a complete 100-card Commander decklist: each line \"qty Card Name\", group basics (e.g. 30 Mountain). No markdown fences, no explanation — first line must be a card."
+          : `Your previous reply was truncated with about ${totalQty} cards total. Output ONLY additional \"qty Card Name\" lines so the full deck reaches exactly 100 cards. Do not repeat cards already listed above.`;
+      const cont = await runCompletion([
+        ...baseMessages,
+        { role: "assistant", content },
+        { role: "user", content: followUp },
+      ]);
+      if (!cont.ok) break;
+      content = `${content.trimEnd()}\n${cont.content.trimStart()}`;
+      cards = aggregateCards(parseAiDeckOutputLines(content));
+      totalQty = totalDeckQty(cards);
+      finishReason = cont.finishReason;
+      console.warn("[generate-from-collection] length continuation", {
+        round: lengthContinuationRound,
+        totalQty,
+        finishReason,
+        contentLen: content.length,
+      });
+    }
 
     if (
       isCommanderRequest &&

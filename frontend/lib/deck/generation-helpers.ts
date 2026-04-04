@@ -5,6 +5,21 @@
 
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 
+/** OpenAI chat.completions: `message.content` may be a string or an array of parts (e.g. gpt-5 family). */
+export function extractChatCompletionContent(data: unknown): string {
+  const c = (data as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content;
+  if (typeof c === "string") return c;
+  if (!Array.isArray(c)) return "";
+  const chunks: string[] = [];
+  for (const part of c) {
+    if (typeof part === "string") chunks.push(part);
+    else if (part && typeof part === "object" && typeof (part as { text?: string }).text === "string") {
+      chunks.push((part as { text: string }).text);
+    }
+  }
+  return chunks.join("");
+}
+
 export function norm(name: string): string {
   return String(name || "")
     .toLowerCase()

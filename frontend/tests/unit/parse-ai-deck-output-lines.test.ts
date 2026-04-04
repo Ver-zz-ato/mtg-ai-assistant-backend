@@ -3,6 +3,7 @@ import {
   aggregateCards,
   totalDeckQty,
   trimDeckToMaxQty,
+  extractChatCompletionContent,
 } from "@/lib/deck/generation-helpers";
 import assert from "node:assert";
 
@@ -58,5 +59,16 @@ const trimmed = trimDeckToMaxQty(
 assert.equal(totalDeckQty(trimmed), 100);
 assert.equal(trimmed[0]?.qty, 50);
 assert.equal(trimmed[1]?.qty, 50);
+
+assert.equal(
+  extractChatCompletionContent({
+    choices: [{ message: { content: [{ text: "1 Sol Ring\n1 Mountain" }] } }],
+  }),
+  "1 Sol Ring\n1 Mountain"
+);
+assert.equal(
+  extractChatCompletionContent({ choices: [{ message: { content: "plain" } }] }),
+  "plain"
+);
 
 console.log("parse-ai-deck-output-lines.test.ts passed");
