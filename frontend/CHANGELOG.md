@@ -1,5 +1,12 @@
 # Frontend changelog
 
+## 2026-04-03
+
+### AI deck generation — parse model output (generate / transform)
+
+- **`lib/deck/generation-helpers.ts` — `parseAiDeckOutputLines`:** Accepts **numbered lists** (`1. Sol Ring` as one copy), **markdown fences** (content between first and last \`\`\`), **`- ` bullets** with `qty name`, and strips stray **\`** / **\`**. Reduces false **“Generated decklist too short”** when the model drifts from strict `1 Name` lines.
+- **Tests:** `tests/unit/parse-ai-deck-output-lines.test.ts` (included in **`npm run test:unit`**).
+
 ## 2026-04-01
 
 ### Documentation — Supabase grant hardening (shared project)

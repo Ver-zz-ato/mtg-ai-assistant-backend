@@ -26,21 +26,56 @@ export function aggregateCards(cards: Array<{ name: string; qty: number }>): Arr
 }
 
 /**
+ * If the model wrapped the list in ``` fences (optionally with prose before/after), use the fenced body.
+ */
+function unwrapMarkdownFence(text: string): string {
+  const t = text.trim();
+  const open = t.indexOf("```");
+  if (open === -1) return t;
+  const afterOpen = t.indexOf("\n", open);
+  const innerStart = afterOpen === -1 ? open + 3 : afterOpen + 1;
+  const close = t.lastIndexOf("```");
+  if (close <= open) return t;
+  return t.slice(innerStart, close).trim();
+}
+
+function cleanCardNameFragment(s: string): string {
+  return s.replace(/\*\*/g, "").replace(/`+/g, "").trim();
+}
+
+/**
  * Parse model decklist output: one "qty name" line per card (same rules as legacy generate route).
+ * Accepts common model drift: markdown fences, bullets, numbered lists ("1. Name" = one copy), trailing junk.
  */
 export function parseAiDeckOutputLines(text: string): Array<{ name: string; qty: number }> {
   const out: Array<{ name: string; qty: number }> = [];
   if (!text) return out;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
+  const body = unwrapMarkdownFence(text);
+  for (const raw of body.split(/\r?\n/)) {
+    let line = raw.trim();
     if (!line) continue;
     if (line.startsWith("#")) continue;
-    const m = line.match(/^(\d+)\s*x?\s+(.+?)\s*$/i);
-    if (!m) continue;
-    const qty = Math.max(1, Math.min(99, parseInt(m[1], 10) || 1));
-    const name = m[2].trim();
-    if (!name) continue;
-    out.push({ name, qty });
+    if (line.startsWith("```")) continue;
+
+    if (line.startsWith("- ")) line = line.slice(2).trim();
+    line = line.replace(/^\*+\s*/, "").replace(/\s*\*+$/, "").trim();
+    if (!line) continue;
+
+    // Standard: "1 Sol Ring", "1x Sol Ring", "4 Forest"
+    let m = line.match(/^(\d+)\s*x?\s+(.+)$/i);
+    if (m) {
+      const qty = Math.max(1, Math.min(99, parseInt(m[1], 10) || 1));
+      const name = cleanCardNameFragment(m[2]);
+      if (name) out.push({ name, qty });
+      continue;
+    }
+
+    // Numbered list: "1. Sol Ring" — leading number is list index, not MTG quantity
+    m = line.match(/^(\d+)\.\s+(.+)$/);
+    if (m) {
+      const name = cleanCardNameFragment(m[2]);
+      if (name) out.push({ name, qty: 1 });
+    }
   }
   return out;
 }
