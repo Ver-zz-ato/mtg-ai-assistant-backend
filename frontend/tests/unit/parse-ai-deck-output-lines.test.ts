@@ -1,4 +1,9 @@
-import { parseAiDeckOutputLines, aggregateCards } from "@/lib/deck/generation-helpers";
+import {
+  parseAiDeckOutputLines,
+  aggregateCards,
+  totalDeckQty,
+  trimDeckToMaxQty,
+} from "@/lib/deck/generation-helpers";
 import assert from "node:assert";
 
 function lines(n: number): string {
@@ -35,5 +40,23 @@ const p5 = parseAiDeckOutputLines(bare);
 assert.equal(p5.length, 3);
 assert.equal(p5[0]?.qty, 1);
 assert.equal(p5[0]?.name, "Sol Ring");
+
+// 1 + 35 + 64 = 100 physical cards but 66 rows — validators must use totalDeckQty, not row count
+const p6b = parseAiDeckOutputLines(
+  "1 Krenko, Mob Boss\n35 Mountain\n" + Array.from({ length: 64 }, (_, i) => `1 Goblin ${i}`).join("\n")
+);
+const a6 = aggregateCards(p6b);
+assert.equal(a6.length, 66, "66 unique rows");
+assert.equal(totalDeckQty(a6), 100, "100 physical cards with grouped Mountain");
+const trimmed = trimDeckToMaxQty(
+  [
+    { name: "Forest", qty: 50 },
+    { name: "Bear", qty: 60 },
+  ],
+  100
+);
+assert.equal(totalDeckQty(trimmed), 100);
+assert.equal(trimmed[0]?.qty, 50);
+assert.equal(trimmed[1]?.qty, 50);
 
 console.log("parse-ai-deck-output-lines.test.ts passed");

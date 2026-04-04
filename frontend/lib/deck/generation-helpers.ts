@@ -25,6 +25,26 @@ export function aggregateCards(cards: Array<{ name: string; qty: number }>): Arr
   return Array.from(map.values());
 }
 
+/** Total physical cards (sum of qty). Commander checks must use this, not row count — e.g. "35 Mountain" + 64 one-ofs = 65 rows but 99 cards. */
+export function totalDeckQty(cards: Array<{ qty: number }>): number {
+  return cards.reduce((s, c) => s + Math.max(0, Number(c.qty) || 0), 0);
+}
+
+/** Keep card order; cap total quantity at maxQty (for Commander: 100). */
+export function trimDeckToMaxQty(cards: Array<{ name: string; qty: number }>, maxQty: number): Array<{ name: string; qty: number }> {
+  let rem = Math.max(0, maxQty);
+  const out: Array<{ name: string; qty: number }> = [];
+  for (const c of cards) {
+    if (rem <= 0) break;
+    const q = Math.max(0, Number(c.qty) || 0);
+    if (q <= 0) continue;
+    const take = Math.min(q, rem);
+    out.push({ name: c.name, qty: take });
+    rem -= take;
+  }
+  return out;
+}
+
 /**
  * If the model wrapped the list in ``` fences (optionally with prose before/after), use the fenced body.
  */

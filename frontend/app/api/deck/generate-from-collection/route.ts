@@ -8,7 +8,14 @@ import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
 import { GENERATE_FROM_COLLECTION_FREE, GENERATE_FROM_COLLECTION_PRO } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
-import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity } from "@/lib/deck/generation-helpers";
+import {
+  norm,
+  aggregateCards,
+  parseAiDeckOutputLines,
+  getCommanderColorIdentity,
+  totalDeckQty,
+  trimDeckToMaxQty,
+} from "@/lib/deck/generation-helpers";
 import {
   normalizeGenerationBody,
   buildGenerationSystemPrompt,
@@ -133,51 +140,97 @@ export async function POST(req: NextRequest) {
       useCase: "deck_analysis",
     });
 
-    const payload = prepareOpenAIBody({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_completion_tokens: 12000,
-      temperature: 0.7,
-    } as Record<string, unknown>);
+    const baseMessages: Array<{ role: string; content: string }> = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
 
-    // eslint-disable-next-line no-restricted-globals -- OpenAI streaming-compatible POST
-    const resp = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    const runCompletion = async (messages: Array<{ role: string; content: string }>) => {
+      const payload = prepareOpenAIBody({
+        model,
+        messages,
+        max_completion_tokens: 12000,
+        temperature: 0.7,
+      } as Record<string, unknown>);
+      // eslint-disable-next-line no-restricted-globals -- OpenAI streaming-compatible POST
+      const resp = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error("[generate-from-collection] OpenAI error:", resp.status, errText);
+        return { ok: false as const, error: "Deck generation failed" };
+      }
+      const data = await resp.json();
+      const messageContent = data?.choices?.[0]?.message?.content ?? "";
+      const fr = data?.choices?.[0]?.finish_reason as string | undefined;
+      return { ok: true as const, content: messageContent, finishReason: fr };
+    };
 
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error("[generate-from-collection] OpenAI error:", resp.status, errText);
-      return NextResponse.json(
-        { ok: false, error: "Deck generation failed" },
-        { status: 500 }
-      );
+    let completion = await runCompletion(baseMessages);
+    if (!completion.ok) {
+      return NextResponse.json({ ok: false, error: completion.error }, { status: 500 });
     }
-
-    const data = await resp.json();
-    const content = data?.choices?.[0]?.message?.content ?? "";
-    const finishReason = data?.choices?.[0]?.finish_reason as string | undefined;
-    const parsed = parseAiDeckOutputLines(content);
-    let cards = aggregateCards(parsed);
+    let content = completion.content;
+    let finishReason = completion.finishReason;
+    let cards = aggregateCards(parseAiDeckOutputLines(content));
 
     const fmtLower = (format || "Commander").toLowerCase();
     const isCommanderRequest = fmtLower.includes("commander");
-    const minParsedCards = isCommanderRequest ? 85 : 30;
-    if (cards.length < minParsedCards) {
+    let totalQty = totalDeckQty(cards);
+
+    /** Commander: need ~100 physical cards (sum of line quantities), not unique row count. */
+    const minCommanderQty = 95;
+    const minOtherQty = 30;
+
+    if (
+      isCommanderRequest &&
+      totalQty >= 40 &&
+      totalQty < minCommanderQty &&
+      finishReason !== "length"
+    ) {
+      const retryMsg = [
+        `Your previous reply totals only ${totalQty} cards (add quantities on each line; e.g. "35 Mountain" counts as 35).`,
+        "Commander requires exactly 100 cards total. Output a COMPLETE replacement decklist only: 100 cards total, same commander and constraints, one entry per line as \"qty Card Name\". No markdown or commentary.",
+      ].join(" ");
+      const retry = await runCompletion([
+        ...baseMessages,
+        { role: "assistant", content: content },
+        { role: "user", content: retryMsg },
+      ]);
+      if (retry.ok) {
+        const retryParsed = parseAiDeckOutputLines(retry.content);
+        const retryCards = aggregateCards(retryParsed);
+        const retryTotal = totalDeckQty(retryCards);
+        if (retryTotal > totalQty) {
+          const beforeTotal = totalQty;
+          content = retry.content;
+          finishReason = retry.finishReason;
+          cards = retryCards;
+          totalQty = retryTotal;
+          console.warn("[generate-from-collection] Applied completion retry (short first pass)", {
+            before: beforeTotal,
+            after: retryTotal,
+          });
+        }
+      }
+    }
+
+    const tooShort =
+      isCommanderRequest ? totalQty < minCommanderQty : totalQty < minOtherQty;
+    if (tooShort) {
       console.error("[generate-from-collection] deck too short", {
         finishReason,
         isCommanderRequest,
         contentLen: typeof content === "string" ? content.length : 0,
-        parsedLines: parsed.length,
-        uniqueCards: cards.length,
+        parsedLines: parseAiDeckOutputLines(content).length,
+        uniqueRows: cards.length,
+        totalQty,
         head: typeof content === "string" ? content.slice(0, 500) : "",
       });
       const hint =
@@ -185,7 +238,7 @@ export async function POST(req: NextRequest) {
           ? " Output hit the size limit — tap try again."
           : "";
       const errMsg = isCommanderRequest
-        ? `Generated Commander decklist too short (${cards.length} cards; aim for ~100). Please try again.${hint}`
+        ? `Generated Commander decklist too short (${totalQty} cards total; aim for 100). Please try again.${hint}`
         : `Generated decklist too short; please try again.${hint}`;
       return NextResponse.json({ ok: false, error: errMsg }, { status: 500 });
     }
@@ -211,27 +264,30 @@ export async function POST(req: NextRequest) {
         if (!entry) return true; // Unknown cards: keep (e.g. basic lands)
         return isWithinColorIdentity(entry as SfCard, allowedColors);
       });
-      if (filtered.length < 60 && cards.length >= 85) {
+      if (totalDeckQty(filtered) < 60 && totalDeckQty(cards) >= 85) {
         console.warn("[generate-from-collection] CI filter over-pruned; using full model list", {
           commanderName,
-          before: cards.length,
-          after: filtered.length,
+          beforeRows: cards.length,
+          beforeQty: totalDeckQty(cards),
+          afterRows: filtered.length,
+          afterQty: totalDeckQty(filtered),
         });
         filtered = cards;
       }
     }
 
-    // Trim to exactly 100 cards (prioritize order from AI; remove extras from end)
-    if (filtered.length > 100) {
-      cards = filtered.slice(0, 100);
+    // Cap at 100 physical cards (row count can be <100 when basics are grouped)
+    if (totalDeckQty(filtered) > 100) {
+      cards = trimDeckToMaxQty(filtered, 100);
     } else {
       cards = filtered;
     }
 
-    if (isCommanderRequest && cards.length < 90) {
+    if (isCommanderRequest && totalDeckQty(cards) < 90) {
       console.error("[generate-from-collection] Commander deck under 90 cards after processing", {
         commanderName,
-        len: cards.length,
+        rows: cards.length,
+        totalQty: totalDeckQty(cards),
       });
       return NextResponse.json(
         {
