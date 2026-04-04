@@ -75,6 +75,34 @@ export function parseAiDeckOutputLines(text: string): Array<{ name: string; qty:
     if (m) {
       const name = cleanCardNameFragment(m[2]);
       if (name) out.push({ name, qty: 1 });
+      continue;
+    }
+
+    // Bare card name (model sometimes omits quantity)
+    if (
+      line.length >= 3 &&
+      line.length <= 120 &&
+      /[a-zA-Z]/.test(line) &&
+      !/^\d/.test(line) &&
+      !line.includes("://") &&
+      !line.includes("@")
+    ) {
+      const low = line.toLowerCase();
+      if (
+        low.startsWith("here ") ||
+        low.startsWith("below ") ||
+        low.includes("decklist") ||
+        low.includes("commander:") ||
+        low.includes("following cards") ||
+        low.includes("following is") ||
+        low.endsWith(":") ||
+        low === "mainboard" ||
+        low === "sideboard" ||
+        low === "commander"
+      ) {
+        continue;
+      }
+      out.push({ name: cleanCardNameFragment(line), qty: 1 });
     }
   }
   return out;

@@ -30,4 +30,10 @@ const p4 = parseAiDeckOutputLines(bullets);
 assert.equal(p4.length, 2);
 assert.equal(p4[0]?.qty, 1);
 
+const bare = "Sol Ring\nCommand Tower\nArcane Signet";
+const p5 = parseAiDeckOutputLines(bare);
+assert.equal(p5.length, 3);
+assert.equal(p5[0]?.qty, 1);
+assert.equal(p5[0]?.name, "Sol Ring");
+
 console.log("parse-ai-deck-output-lines.test.ts passed");

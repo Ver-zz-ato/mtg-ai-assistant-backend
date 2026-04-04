@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      max_completion_tokens: 8000,
+      max_completion_tokens: 12000,
       temperature: 0.7,
     } as Record<string, unknown>);
 
@@ -164,12 +164,24 @@ export async function POST(req: NextRequest) {
 
     const data = await resp.json();
     const content = data?.choices?.[0]?.message?.content ?? "";
+    const finishReason = data?.choices?.[0]?.finish_reason as string | undefined;
     const parsed = parseAiDeckOutputLines(content);
     let cards = aggregateCards(parsed);
 
     if (cards.length < 30) {
+      console.error("[generate-from-collection] deck too short", {
+        finishReason,
+        contentLen: typeof content === "string" ? content.length : 0,
+        parsedLines: parsed.length,
+        uniqueCards: cards.length,
+        head: typeof content === "string" ? content.slice(0, 500) : "",
+      });
+      const hint =
+        finishReason === "length"
+          ? " Output hit the size limit — tap try again."
+          : "";
       return NextResponse.json(
-        { ok: false, error: "Generated decklist too short; please try again" },
+        { ok: false, error: `Generated decklist too short; please try again.${hint}` },
         { status: 500 }
       );
     }

@@ -2,10 +2,11 @@
 
 ## 2026-04-03
 
-### AI deck generation — parse model output (generate / transform)
+### AI deck generation — `parseAiDeckOutputLines` + generate-from-collection
 
-- **`lib/deck/generation-helpers.ts` — `parseAiDeckOutputLines`:** Accepts **numbered lists** (`1. Sol Ring` as one copy), **markdown fences** (content between first and last \`\`\`), **`- ` bullets** with `qty name`, and strips stray **\`** / **\`**. Reduces false **“Generated decklist too short”** when the model drifts from strict `1 Name` lines.
-- **Tests:** `tests/unit/parse-ai-deck-output-lines.test.ts` (included in **`npm run test:unit`**).
+- **`lib/deck/generation-helpers.ts`:** Parser accepts **numbered lists**, **markdown fences**, **`- ` bullets**, **bare card-name lines** (no quantity), **\`** / **\`** stripping.
+- **`app/api/deck/generate-from-collection/route.ts`:** **`max_completion_tokens` 12000**; on **too short** decklists logs **`finish_reason`**, parse stats, and a **content head** (server logs); app sees an extra sentence when **`finish_reason === "length"`**.
+- **Tests:** `tests/unit/parse-ai-deck-output-lines.test.ts` (in **`npm run test:unit`**).
 
 ## 2026-04-01
 
