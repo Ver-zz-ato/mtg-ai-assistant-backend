@@ -157,6 +157,10 @@ export function refinementPromptDirective(refinement: string | null): string {
       "REFINEMENT (mandatory — follow when choosing cards): more_ramp",
       "Increase mana acceleration: aim for roughly 10–14 ramp sources total (land ramp, mana dorks, mana rocks, spells that put extra lands or mana into play) unless the commander/budget forbids. Prefer adding ramp before cutting lands.",
     ].join("\n"),
+    more_card_draw: [
+      "REFINEMENT (mandatory — follow when choosing cards): more_card_draw",
+      "Increase card advantage: aim for roughly 8–12+ sources that draw cards, rummage, or loot (including attached to creatures/artifacts, wheels, and efficient cantrips). Trim low-impact filler or redundant win-more before cutting lands or ramp.",
+    ].join("\n"),
     more_interaction: [
       "REFINEMENT (mandatory — follow when choosing cards): more_interaction",
       "Increase interaction density: aim for roughly 10–15+ spells or permanents that answer threats (creature removal, artifact/enchantment removal, counterspells, bounce). If space is tight, trim lower-impact value or win-more cards first.",

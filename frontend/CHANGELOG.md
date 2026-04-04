@@ -1,5 +1,11 @@
 # Frontend changelog
 
+## 2026-04-04
+
+### Deck generation — refinement `more_card_draw`
+
+- **`lib/deck/generation-input.ts`:** **`refinementPromptDirective`** maps **`more_card_draw`** (aligned with ManaTap preview “light draw” signal).
+
 ## 2026-04-03
 
 ### AI deck generation — `parseAiDeckOutputLines` + generate-from-collection
