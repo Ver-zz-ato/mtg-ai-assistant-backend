@@ -73,7 +73,8 @@ export async function GET(req: NextRequest) {
       byName.get(n)!.push({ snapshot_date: row.snapshot_date, unit: Number(row.unit) });
     }
 
-    // Fallback: for missing names, try ilike on first word (handles comma/unicode mismatches e.g. Chatterfang)
+    // Prefix fallback only when unambiguous: `firstWord%` must match rows for a single `name_norm`.
+    // Multiple distinct cards under the same prefix → skip (better empty chart than wrong history).
     const stillMissingExact = wanted.filter((n) => !byName.has(n) || byName.get(n)!.length === 0);
     for (const n of stillMissingExact) {
       const firstWord = n.split(/[\s,，\uFF0C]/)[0];
@@ -87,9 +88,10 @@ export async function GET(req: NextRequest) {
       if (from) q2 = q2.gte("snapshot_date", from);
       const { data: ilikeRows } = await q2;
       const arr = (ilikeRows || []) as any[];
-      if (arr.length > 0) {
-        byName.set(n, arr.map((r) => ({ snapshot_date: r.snapshot_date, unit: Number(r.unit) })));
-      }
+      if (arr.length === 0) continue;
+      const distinctNorms = new Set(arr.map((r) => String(r.name_norm)));
+      if (distinctNorms.size !== 1) continue;
+      byName.set(n, arr.map((r) => ({ snapshot_date: r.snapshot_date, unit: Number(r.unit) })));
     }
 
     const today = new Date().toISOString().slice(0, 10);

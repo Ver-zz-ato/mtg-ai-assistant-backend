@@ -2,6 +2,10 @@
 
 ## 2026-04-05
 
+### Phase 3 — price series: safer `price_snapshots` prefix fallback
+
+- **`app/api/price/series/route.ts`:** After exact **`name_norm`** miss, **`ilike(firstWord%)`** is used only when all returned rows share **one** distinct **`name_norm`** (otherwise skip — avoids wrong-card history).
+
 ### Phase 1 — price series: `price_snapshots.name_norm` matches snapshot writer
 
 - **`app/api/price/series/route.ts`:** Primary `.in('name_norm', …)` uses **`scryfallCacheLookupNameKeys`** (same **`normalizeScryfallCacheName`** as **`priceSnapshotFromScryfallBulk`**), not the previous inline NFKD+apostrophe norm. Scryfall fallback keys card rows with **`normalizeScryfallCacheName(c.name)`**.
