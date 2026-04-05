@@ -4,7 +4,7 @@
 
 ### Deck generation — refinement `more_card_draw`
 
-- **`lib/deck/generation-input.ts`:** **`refinementPromptDirective`** maps **`more_card_draw`** (aligned with ManaTap preview “light draw” signal).
+- **`lib/deck/generation-input.ts`:** **`refinementPromptDirective`** maps **`more_card_draw`** (aligned with ManaTap preview “light draw” signal). **`refinementPromptDirectivesJoined`** applies **comma-separated** refinement tokens (e.g. **`more_card_draw,more_ramp`**) as separate prompt blocks instead of one unknown token.
 
 ## 2026-04-03
 

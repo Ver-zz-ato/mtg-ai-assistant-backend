@@ -193,6 +193,17 @@ export function refinementPromptDirective(refinement: string | null): string {
   ].join("\n");
 }
 
+/** Comma-separated chip ids from mobile (e.g. `more_card_draw,more_ramp`) → one block per known token. */
+export function refinementPromptDirectivesJoined(refinement: string | null): string {
+  if (!refinement?.trim()) return "";
+  const tokens = refinement
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const blocks = tokens.map((t) => refinementPromptDirective(t)).filter(Boolean);
+  return blocks.join("\n\n");
+}
+
 /** Combined block for generate structured section or transform user prompt. */
 export function formatBuildModeAndRefinementDirectives(
   buildMode: string | null,
@@ -200,7 +211,7 @@ export function formatBuildModeAndRefinementDirectives(
 ): string {
   const parts: string[] = [];
   const bm = buildModePromptDirective(buildMode);
-  const rf = refinementPromptDirective(refinement);
+  const rf = refinementPromptDirectivesJoined(refinement);
   if (bm) parts.push(bm);
   if (rf) parts.push(rf);
   if (parts.length === 0) return "";
@@ -212,7 +223,7 @@ function buildModeUserAddendum(input: NormalizedGenerationInput): string {
 }
 
 function refinementAddendum(input: NormalizedGenerationInput): string {
-  return refinementPromptDirective(input.refinement);
+  return refinementPromptDirectivesJoined(input.refinement);
 }
 
 function structuredIntentSection(input: NormalizedGenerationInput): string {
