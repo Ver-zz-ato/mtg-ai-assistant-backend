@@ -1,5 +1,13 @@
 # Frontend changelog
 
+## 2026-04-05
+
+### Card pages — `printed_name` (display only)
+
+- **`lib/cards/displayName.ts`:** **`getDisplayCardName`** — prefer cache **`printed_name`** when it differs from oracle **`name`** (UI only).
+- **`lib/server/scryfallCache.ts`:** **`getDetailsForNamesCached`** selects **`printed_name`** from **`scryfall_cache`** and passes it through on live-fetch merges.
+- **`app/cards/[slug]/page.tsx`:** Top card page — **breadcrumb** last segment uses **oracle** name (navigation/identity); **h1** uses **`getDisplayCardName`** (printed when distinct); **img alt** is **`Printed (Oracle)`** when they differ so screen readers keep canonical identity; optional muted **Oracle:** line when printed differs.
+
 ## 2026-04-04
 
 ### Deck generation — refinement `more_card_draw`

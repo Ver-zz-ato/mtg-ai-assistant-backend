@@ -5,6 +5,7 @@ import AuthenticMTGCard from "@/components/AuthenticMTGCard";
 import { getCardBySlug, getTopCards } from "@/lib/top-cards";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { createClient } from "@/lib/supabase/server";
+import { getDisplayCardName } from "@/lib/cards/displayName";
 import { getCommanderBySlug } from "@/lib/commanders";
 
 function norm(name: string): string {
@@ -119,6 +120,20 @@ async function TopCardContent({ card, slug }: { card: { card_name: string; deck_
 
   const details = detailsMap.get(norm(card.card_name)) ?? detailsMap.get(card.card_name);
   const price = priceRow && (Number((priceRow as { usd_price?: number }).usd_price) || Number((priceRow as { usd?: number }).usd) || 0);
+  const oracleName = card.card_name;
+  const printedName =
+    details && typeof details === "object" && "printed_name" in details
+      ? (details as { printed_name?: string | null }).printed_name
+      : undefined;
+  const displayTitle = getDisplayCardName({ name: oracleName, printed_name: printedName });
+  const showOracleNameCaption =
+    typeof printedName === "string" &&
+    printedName.trim().length > 0 &&
+    printedName.trim().toLowerCase() !== oracleName.trim().toLowerCase();
+  /** Breadcrumb = navigation / oracle identity; h1 = printed presentation when distinct. */
+  const imageAlt = showOracleNameCaption
+    ? `${displayTitle} (${oracleName})`
+    : displayTitle;
 
   return (
     <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -128,15 +143,18 @@ async function TopCardContent({ card, slug }: { card: { card_name: string; deck_
           <span className="mx-2">/</span>
           <Link href="/cards" className="hover:text-white">Cards</Link>
           <span className="mx-2">/</span>
-          <span className="text-neutral-200">{card.card_name}</span>
+          <span className="text-neutral-200">{oracleName}</span>
         </nav>
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{card.card_name}</h1>
+        <h1 className={`text-3xl md:text-4xl font-bold text-white ${showOracleNameCaption ? "mb-1" : "mb-4"}`}>{displayTitle}</h1>
+        {showOracleNameCaption ? (
+          <p className="text-sm text-neutral-500 mb-4">Oracle: {oracleName}</p>
+        ) : null}
 
         {details?.image_uris?.normal && (
           <div className="mb-6">
             <img
               src={details.image_uris.normal}
-              alt={card.card_name}
+              alt={imageAlt}
               className="max-w-[244px] rounded-lg"
             />
           </div>

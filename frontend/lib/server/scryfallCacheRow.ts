@@ -137,6 +137,27 @@ function isEmptyLegalities(v: unknown): boolean {
   return Object.keys(v as Record<string, unknown>).length === 0;
 }
 
+/** Merge `printed_name` after other fields; never wipe a good existing value with null/empty from `built`. */
+function mergePrintedNameIntoRow(
+  out: Record<string, unknown>,
+  existing: Record<string, unknown>,
+  built: Record<string, unknown>
+): void {
+  const rawNew = built.printed_name;
+  const newStr = typeof rawNew === "string" && rawNew.trim() !== "" ? rawNew.trim() : "";
+  if (newStr !== "") {
+    out.printed_name = newStr;
+    return;
+  }
+  const rawOld = existing.printed_name;
+  const oldStr = typeof rawOld === "string" && rawOld.trim() !== "" ? rawOld.trim() : "";
+  if (oldStr !== "") {
+    out.printed_name = oldStr;
+    return;
+  }
+  out.printed_name = null;
+}
+
 /**
  * Phase 3 backfill: merge Scryfall API card into an existing row without replacing good data with nulls.
  * Returns null if API oracle identity does not match PK (historic junk / mismatch — skip row).
@@ -204,6 +225,14 @@ export function mergeScryfallCacheRowFromApiCard(
     takeExistingIfNewEmpty(key);
   }
 
+  /**
+   * `printed_name` is display metadata only: never use for PK or matching.
+   * - If the API row yields a non-empty printed title distinct from oracle, store it.
+   * - If the API yields null/empty (including image-only shapes with no printed field), keep a non-empty existing value.
+   * - Image-only upserts use `buildScryfallCachePartialImageRow`, which omits `printed_name`, so DB clients must not send null for that column on partial updates (Supabase upsert with a partial object leaves other columns unchanged).
+   */
+  mergePrintedNameIntoRow(out, existing, built);
+
   for (const key of MERGE_BOOLEAN_FLAG_KEYS) {
     const newVal = built[key];
     const oldVal = existing[key];
@@ -260,20 +289,83 @@ export function isScryfallCacheRowIncomplete(row: Record<string, unknown>): bool
 }
 
 /**
- * Shared row body for merge and full build (Phase 3).
- * `nameKey` must already be `normalizeScryfallCacheName(top-level card.name)` — never derived from `card_faces`.
+ * Resolves preview image URIs the same way as `buildScryfallCacheRowCore` (root `image_uris` first, else front face).
+ * `printedNameSource` identifies which object's `printed_name` matches that bitmap (for UB / special frames).
  */
-function buildScryfallCacheRowCore(card: ScryfallApiCard, nameKey: string): Record<string, unknown> {
+function resolveScryfallPreviewImages(card: ScryfallApiCard): {
+  small: string | null;
+  normal: string | null;
+  art_crop: string | null;
+  printedNameSource: "root" | "front" | "none";
+  faces: ScryfallApiCard[];
+  front: ScryfallApiCard | undefined;
+} {
   const faces = Array.isArray(card.card_faces) ? (card.card_faces as ScryfallApiCard[]) : [];
   const front = faces[0] as ScryfallApiCard | undefined;
 
   const imageUris = (card.image_uris as { small?: string; normal?: string; art_crop?: string } | undefined) || {};
   const faceUris =
     (front?.image_uris as { small?: string; normal?: string; art_crop?: string } | undefined) || {};
-  const img = {
+
+  const hasRootUris = !!(imageUris.small || imageUris.normal || imageUris.art_crop);
+  const hasFaceUris = !!(faceUris.small || faceUris.normal || faceUris.art_crop);
+
+  const printedNameSource: "root" | "front" | "none" = hasRootUris
+    ? "root"
+    : hasFaceUris
+      ? "front"
+      : "none";
+
+  return {
     small: imageUris.small ?? faceUris.small ?? null,
     normal: imageUris.normal ?? faceUris.normal ?? null,
     art_crop: imageUris.art_crop ?? faceUris.art_crop ?? null,
+    printedNameSource,
+    faces,
+    front,
+  };
+}
+
+/**
+ * Display-only `printed_name` for the cached small/normal/art_crop when it differs from oracle `name` (PK).
+ * - Uses root `printed_name` when preview images come from `card.image_uris`.
+ * - Uses front-face `printed_name` when images come only from `card_faces[0].image_uris` (typical MDFC / single-face-on-face layout).
+ * - If Scryfall omits URIs on both (bulk edge cases), falls back to: multi-face → front then root; else root then front.
+ * - Returns null if missing, whitespace-only, or normalizes equal to oracle `nameKey` (store SQL NULL).
+ */
+function printedNameFromApiCard(card: ScryfallApiCard, nameKey: string): string | null {
+  const { printedNameSource, faces, front } = resolveScryfallPreviewImages(card);
+
+  const trimPrinted = (v: unknown): string => {
+    if (typeof v !== "string") return "";
+    return String(v).trim();
+  };
+
+  let raw = "";
+
+  if (printedNameSource === "root") {
+    raw = trimPrinted(card.printed_name);
+  } else if (printedNameSource === "front" && front) {
+    raw = trimPrinted(front.printed_name);
+  } else {
+    const fromRoot = trimPrinted(card.printed_name);
+    const fromFront = front ? trimPrinted(front.printed_name) : "";
+    raw = faces.length > 1 ? fromFront || fromRoot : fromRoot || fromFront;
+  }
+
+  if (!raw) return null;
+  if (normalizeScryfallCacheName(raw) === nameKey) return null;
+  return raw;
+}
+
+/** Shared row body for merge and full build (Phase 3). */
+function buildScryfallCacheRowCore(card: ScryfallApiCard, nameKey: string): Record<string, unknown> {
+  const preview = resolveScryfallPreviewImages(card);
+  const { front } = preview;
+  const img = {
+    small: preview.small,
+    normal: preview.normal,
+    art_crop: preview.art_crop,
   };
 
   const oracleRaw =
@@ -326,10 +418,12 @@ function buildScryfallCacheRowCore(card: ScryfallApiCard, nameKey: string): Reco
       : null;
 
   const legalities = legalitiesForUpsert(card);
+  const printed_name = printedNameFromApiCard(card, nameKey);
 
   return {
     name: nameKey,
     name_norm: nameKey,
+    printed_name,
     small: img.small,
     normal: img.normal,
     art_crop: img.art_crop,

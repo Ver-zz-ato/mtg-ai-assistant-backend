@@ -76,17 +76,34 @@ export async function getDetailsForNamesCached(names: string[]) {
   const out = new Map<string, any>();
   if (!keys.length) return out;
 
-  type Row = { name: string; small: string|null; normal: string|null; art_crop: string|null; type_line?: string|null; oracle_text?: string|null; color_identity?: string[]|null; rarity?: string|null; set?: string|null; collector_number?: string|null; legalities?: Record<string, string>|null; updated_at?: string|null };
+  type Row = {
+    name: string;
+    small: string | null;
+    normal: string | null;
+    art_crop: string | null;
+    printed_name?: string | null;
+    type_line?: string | null;
+    oracle_text?: string | null;
+    color_identity?: string[] | null;
+    rarity?: string | null;
+    set?: string | null;
+    collector_number?: string | null;
+    legalities?: Record<string, string> | null;
+    updated_at?: string | null;
+  };
   let rows: Row[] = [];
   try {
     const { data } = await supabase
       .from("scryfall_cache")
-      .select("name, small, normal, art_crop, type_line, oracle_text, color_identity, rarity, set, collector_number, legalities, updated_at")
+      .select(
+        "name, small, normal, art_crop, printed_name, type_line, oracle_text, color_identity, rarity, set, collector_number, legalities, updated_at"
+      )
       .in("name", keys);
     rows = (data || []) as any;
     for (const row of rows) {
       out.set(row.name, {
         image_uris: { small: row.small || undefined, normal: row.normal || undefined, art_crop: row.art_crop || undefined },
+        printed_name: row.printed_name ?? undefined,
         type_line: row.type_line || undefined,
         oracle_text: row.oracle_text || undefined,
         color_identity: row.color_identity || [],
@@ -133,20 +150,23 @@ export async function getDetailsForNamesCached(names: string[]) {
         }
         const colorIdentity = Array.isArray(c?.color_identity) ? c.color_identity : [];
         const legalities = (c?.legalities && typeof c.legalities === "object") ? c.legalities as Record<string, string> : null;
-        out.set(key, { 
-          image_uris: img, 
-          type_line: c?.type_line, 
+        // Preserve English image override for non-English printings (see img resolution above).
+        const apiPk = norm(String(c?.name ?? ""));
+        const cacheRow = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, {
+          source: "getDetailsForNamesCached",
+        });
+        const printedFromRow =
+          cacheRow && typeof cacheRow.printed_name === "string" ? cacheRow.printed_name : undefined;
+        out.set(key, {
+          image_uris: img,
+          printed_name: printedFromRow,
+          type_line: c?.type_line,
           oracle_text: c?.oracle_text || c?.card_faces?.[0]?.oracle_text,
           color_identity: colorIdentity,
           rarity: c?.rarity,
           set: c?.set,
           collector_number: c?.collector_number,
           legalities: legalities ?? undefined,
-        });
-        // Preserve English image override for non-English printings (see img resolution above).
-        const apiPk = norm(String(c?.name ?? ""));
-        const cacheRow = buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, {
-          source: "getDetailsForNamesCached",
         });
         if (cacheRow && key === apiPk) {
           cacheRow.small = (img as { small?: string }).small ?? cacheRow.small;
