@@ -12,6 +12,7 @@ import { CostBody } from "@/lib/validation";
 import { canonicalize } from "@/lib/cards/canonicalize";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { convert } from "@/lib/currency/rates";
+import { parseDeckText as parseDeckLines } from "@/lib/deck/parseDeckText";
 // ---- Utilities ----
 type Currency = "USD" | "EUR" | "GBP" | "TIX";
 
@@ -46,54 +47,12 @@ function normalizeName(raw: string): { key: string; canon: string } {
   return { key, canon };
 }
 
-function parseDeckText(text: string): Map<string, number> {
+function wantQtyByCanonKey(text: string): Map<string, number> {
   const map = new Map<string, number>();
-  if (!text) return map;
-  const lines = text.split(/\r?\n/);
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-    // Strip comment-like bits, sideboard headers etc.
-    if (/^(#|\/\/|SB:|COMMANDER|SIDEBOARD)/i.test(line)) continue;
-
-    // Try patterns:
-    //  "1 Sol Ring"
-    //  "Sol Ring x1"
-    //  "4x Lightning Bolt"
-    //  "Sol Ring,1" (CSV format)
-    let qty = 1;
-    let name = line;
-
-    // leading qty
-    const mLead = line.match(/^(\d+)\s+[xX]?\s*(.+)$/);
-    if (mLead) {
-      qty = Math.max(1, parseInt(mLead[1]!, 10));
-      name = mLead[2]!.trim();
-    } else {
-      // trailing " xN"
-      const mTrail = line.match(/^(.+?)\s+[xX]\s*(\d+)$/);
-      if (mTrail) {
-        name = mTrail[1]!.trim();
-        qty = Math.max(1, parseInt(mTrail[2]!, 10));
-      } else {
-        // comma-separated: "Card Name,1" or "Card Name, 1"
-        const mComma = line.match(/^(.+?)\s*,\s*(\d+)$/);
-        if (mComma) {
-          name = mComma[1]!.trim();
-          qty = Math.max(1, parseInt(mComma[2]!, 10));
-        }
-      }
-    }
-
-    // skip obvious headings
-    if (/^(LANDS|CREATURES|INSTANTS|SORCERIES|ARTIFACTS|ENCHANTMENTS|PLANESWALKERS)/i.test(name)) {
-      continue;
-    }
-
-    const norm = normalizeName(name);
+  for (const e of parseDeckLines(text)) {
+    const norm = normalizeName(e.name);
     if (!norm.key) continue;
-    const cur = map.get(norm.key) || 0;
-    map.set(norm.key, cur + qty);
+    map.set(norm.key, (map.get(norm.key) || 0) + e.qty);
   }
   return map;
 }
@@ -160,18 +119,16 @@ export const POST = withLogging(async (req: Request) => {
     }
 
     // parse target deck
-    const want = parseDeckText(deckText);
+    const want = wantQtyByCanonKey(deckText);
 
     // read owned (optional)
     const ownedMap = new Map<string, number>();
     if (useOwned && collectionId) {
-      // we don't know your exact schema; be flexible
-      // Try common names for a collection items table
+      // Live Supabase uses `collection_cards`; legacy names kept only as last-resort probes.
       const candidateTables = [
-        // DEPRECATION NOTE: prefer "collection_cards"; keep legacy names for backward compat.
+        "collection_cards",
         "collection_items",
         "collections_items",
-        "collection_cards",
         "user_collection_items",
         "cards_in_collection",
       ];

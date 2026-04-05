@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,29 +51,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: deckError.message }, { status: 500 });
     }
 
-    const lines = (precon.deck_text || "").split(/\r?\n/).filter((l: string) => l.trim());
-    const cardRows: Array<{ deck_id: string; name: string; qty: number }> = [];
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (
-        trimmed.toLowerCase().startsWith("commander") ||
-        trimmed.toLowerCase().includes("commander:") ||
-        trimmed.toLowerCase().startsWith("sideboard") ||
-        trimmed.toLowerCase().startsWith("mainboard") ||
-        trimmed.toLowerCase().startsWith("deck")
-      ) {
-        continue;
-      }
-      const match = trimmed.match(/^(\d+)\s*[xX]?\s+(.+)$/);
-      if (match) {
-        const quantity = parseInt(match[1], 10);
-        const cardName = match[2].trim();
-        if (cardName && quantity > 0) {
-          cardRows.push({ deck_id: newDeck.id, name: cardName, qty: quantity });
-        }
-      }
-    }
+    const parsed = parseDeckText(precon.deck_text || "");
+    const cardRows = parsed.map((e) => ({
+      deck_id: newDeck.id,
+      name: e.name,
+      qty: e.qty,
+    }));
 
     if (cardRows.length > 0) {
       await supabase.from("deck_cards").insert(cardRows);

@@ -1,5 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildResolvedCollectionBulkNameMap } from "@/lib/collections/buildResolvedCollectionBulkNameMap";
+import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,6 +91,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: `Too many rows (>${MAX_ROWS})` }, { status: 400 });
     }
 
+    const origin = new URL(req.url).origin;
+    const nameMap = await buildResolvedCollectionBulkNameMap(
+      origin,
+      rows.map((r) => r.name),
+    );
+    const rowsResolved = rows
+      .map((r) => {
+        const key = sanitizedNameForDeckPersistence(String(r.name)) || String(r.name).trim();
+        if (!key) return null;
+        const name = nameMap.get(key) ?? key;
+        return { name, qty: r.qty };
+      })
+      .filter((r): r is { name: string; qty: number } => r != null);
+
+    if (!rowsResolved.length) {
+      return NextResponse.json({ ok: false, error: "No rows found" }, { status: 400 });
+    }
+
     // Replace contents
     const del = await supabase.from("collection_cards").delete().eq("collection_id", collection_id);
     if (del.error) return NextResponse.json({ ok: false, error: del.error.message }, { status: 200 });
@@ -96,8 +116,8 @@ export async function POST(req: NextRequest) {
     // Chunk insert
     const chunkSize = 500;
     let inserted = 0;
-    for (let i = 0; i < rows.length; i += chunkSize) {
-      const chunk = rows.slice(i, i + chunkSize).map((r) => ({
+    for (let i = 0; i < rowsResolved.length; i += chunkSize) {
+      const chunk = rowsResolved.slice(i, i + chunkSize).map((r) => ({
         collection_id,
         name: r.name,
         qty: r.qty,

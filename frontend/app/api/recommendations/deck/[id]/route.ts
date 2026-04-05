@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getDetailsForNamesCached } from '@/lib/server/scryfallCache';
 import { isWithinColorIdentity } from '@/lib/deck/mtgValidators';
+import { parseDeckText } from '@/lib/deck/parseDeckText';
+import { normalizeName } from '@/lib/mtg/normalize';
 
 export const runtime = 'nodejs';
 
@@ -67,18 +69,11 @@ export async function GET(
       price?: number;
     }> = [];
 
-    // Parse current deck cards
+    // Parse current deck cards (shared parser: strips set tails, section lines, etc.)
     const deckCards = new Set<string>();
     if (deck.deck_text) {
-      const lines = deck.deck_text.split(/\r?\n/);
-      for (const line of lines) {
-        const match = line.match(/^(?:\d+x?\s+)?(.+?)(?:\s+\(.*\))?$/);
-        if (match) {
-          const cardName = match[1].trim();
-          if (cardName && !cardName.match(/^(Commander|Sideboard|Deck|Maybeboard):/i)) {
-            deckCards.add(cacheNameNorm(cardName));
-          }
-        }
+      for (const e of parseDeckText(deck.deck_text)) {
+        deckCards.add(cacheNameNorm(e.name));
       }
     }
 
@@ -219,27 +214,27 @@ export async function GET(
 
     recommendations.push(...selected);
 
-    // Fetch card images and prices
+    // Fetch card images and prices (scryfall_cache.name = oracle PK; price_cache uses normalizeName)
     for (const rec of recommendations) {
       try {
-        // Get image from Scryfall cache
+        const cachePk = cacheNameNorm(rec.name);
+        const priceKey = normalizeName(rec.name);
         const { data: cached } = await supabase
           .from('scryfall_cache')
           .select('small, normal')
-          .ilike('name', rec.name)
-          .single();
+          .eq('name', cachePk)
+          .maybeSingle();
 
         if (cached) {
           rec.imageUrl = cached.small || cached.normal;
           rec.imageNormal = cached.normal || cached.small;
         }
 
-        // Get price from price cache
         const { data: priceData } = await supabase
           .from('price_cache')
           .select('usd_price')
-          .ilike('card_name', rec.name)
-          .single();
+          .eq('card_name', priceKey)
+          .maybeSingle();
 
         if (priceData && priceData.usd_price) {
           rec.price = Number(priceData.usd_price);

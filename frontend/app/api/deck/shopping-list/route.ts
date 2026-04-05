@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withLogging } from "@/lib/api/withLogging";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
+import { parseDeckText as parseDeckLines } from "@/lib/deck/parseDeckText";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,19 +136,15 @@ async function cachePrices(supabase: any, priceData: Array<{ name: string; usd?:
   }
 }
 
-function parseDeckText(text: string): Map<string, { name: string; qty: number }> {
+/** Map decklist → price_cache-style keys via shared `parseDeckText` (cleaning + skip rules). */
+function buildWantMap(text: string): Map<string, { name: string; qty: number }> {
   const map = new Map<string, { name: string; qty: number }>();
-  if (!text) return map;
-  const rx = /^(\d+)\s*[xX]?\s+(.+)$/;
-  for (const raw of text.replace(/\r/g, "").split("\n")) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#") || line.startsWith("//")) continue;
-    const m = line.match(rx);
-    const qty = m ? Math.max(1, parseInt(m[1]!, 10)) : 1;
-    const name = (m ? m[2] : line).trim();
-    const key = normalizeName(name);
+  for (const e of parseDeckLines(text)) {
+    const key = normalizeName(e.name);
+    if (!key) continue;
     const prev = map.get(key);
-    if (prev) prev.qty += qty; else map.set(key, { name, qty });
+    if (prev) prev.qty += e.qty;
+    else map.set(key, { name: e.name, qty: e.qty });
   }
   return map;
 }
@@ -332,7 +329,7 @@ export const POST = withLogging(async (req: NextRequest) => {
     }
     if (!deckText) return NextResponse.json({ ok: false, error: "missing deck" }, { status: 400 });
 
-    const want = parseDeckText(deckText);
+    const want = buildWantMap(deckText);
     const owned = useOwned && collectionId ? await loadOwnedByCollection(supabase, collectionId) : new Map<string, number>();
 
     // Get all cards that need to be purchased

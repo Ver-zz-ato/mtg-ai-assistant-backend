@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
 
 export const dynamic = "force-dynamic";
 
@@ -339,20 +340,12 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       
       console.log('[Version Restore] Deleted existing cards, parsing deck_text...');
 
-      // Parse deck_text and insert new cards
-      const lines = (version.deck_text || '').split('\n').filter((l: string) => l.trim());
-      const cards: { deck_id: string; name: string; qty: number }[] = [];
-      
-      for (const line of lines) {
-        const match = line.match(/^(\d+)\s+(.+)$/);
-        if (match) {
-          const qty = parseInt(match[1]);
-          const name = match[2].trim();
-          if (name && qty > 0) {
-            cards.push({ deck_id: deckId, name, qty });
-          }
-        }
-      }
+      const parsed = parseDeckText(version.deck_text || "");
+      const cards: { deck_id: string; name: string; qty: number }[] = parsed.map((e) => ({
+        deck_id: deckId,
+        name: e.name,
+        qty: e.qty,
+      }));
 
       console.log(`[Version Restore] Parsed ${cards.length} cards from deck_text`);
 

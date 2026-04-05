@@ -23,26 +23,6 @@ for (const p of [path.join(process.cwd(), ".env.local"), ".env.local"]) {
 
 const SEED_USER_ID = "b8c7d6e5-f4a3-4210-9d00-000000000001";
 
-function parseDeckList(deckList: string): Array<{ name: string; qty: number }> {
-  const cards: Array<{ name: string; qty: number }> = [];
-  const lines = deckList.split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("//")) continue;
-    const parts = trimmed.split(/\s+/);
-    if (parts.length < 2) continue;
-    let qty = 1;
-    const first = parts[0].replace(/x$/i, "");
-    if (/^\d+$/.test(first)) {
-      qty = parseInt(first, 10) || 1;
-      parts.shift();
-    }
-    const name = parts.join(" ").trim();
-    if (name && qty > 0) cards.push({ name, qty });
-  }
-  return cards;
-}
-
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -55,6 +35,7 @@ async function main() {
   const admin = createClient(url, key);
 
   const { SAMPLE_DECKS } = await import("../lib/sample-decks");
+  const { parseDeckText } = await import("../lib/deck/parseDeckText");
   let inserted = 0;
   let skipped = 0;
 
@@ -71,7 +52,7 @@ async function main() {
       continue;
     }
 
-    const cards = parseDeckList(deck.deckList);
+    const cards = parseDeckText(deck.deckList);
     if (cards.length < 90) {
       console.log("⊘ Skipping", deck.name, "- too few cards:", cards.length);
       skipped++;

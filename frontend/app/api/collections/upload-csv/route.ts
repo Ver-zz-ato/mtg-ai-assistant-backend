@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withLogging } from "@/lib/api/withLogging";
 import { parseCollectionCsvText } from "@/lib/csv/collection";
+import { buildResolvedCollectionBulkNameMap } from "@/lib/collections/buildResolvedCollectionBulkNameMap";
+import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
 
 export const dynamic = "force-dynamic";
 
@@ -28,30 +30,43 @@ export const POST = withLogging(async (req: Request) => {
   const text = await (file as Blob).text();
   const { rows: items, report } = parseCollectionCsvText(text);
 
+  const origin = new URL(req.url).origin;
+  const nameMap = await buildResolvedCollectionBulkNameMap(
+    origin,
+    items.map((it) => it.name),
+  );
+
   let added = 0, updated = 0, skipped: string[] = [];
   for (const it of items) {
+    const key = sanitizedNameForDeckPersistence(String(it.name)) || String(it.name).trim();
+    if (!key) {
+      skipped.push(`${it.name} (${it.qty})`);
+      continue;
+    }
+    const persistName = nameMap.get(key) ?? key;
+
     // Look up existing row by (collection_id, name)
     const { data: existing } = await supabase
       .from("collection_cards")
       .select("id, qty")
       .eq("collection_id", collectionId)
-      .eq("name", it.name)
+      .eq("name", persistName)
       .maybeSingle();
 
     if (!existing) {
       const { error: insErr } = await supabase.from("collection_cards").insert({
         collection_id: collectionId,
-        name: it.name,
+        name: persistName,
         qty: it.qty,
       });
-      if (insErr) skipped.push(`${it.name} (${it.qty})`);
+      if (insErr) skipped.push(`${persistName} (${it.qty})`);
       else added++;
     } else {
       const { error: upErr } = await supabase
         .from("collection_cards")
         .update({ qty: (existing.qty as number) + it.qty })
         .eq("id", existing.id);
-      if (upErr) skipped.push(`${it.name} (${it.qty})`);
+      if (upErr) skipped.push(`${persistName} (${it.qty})`);
       else updated++;
     }
   }

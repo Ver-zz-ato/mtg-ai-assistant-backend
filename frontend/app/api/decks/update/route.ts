@@ -164,10 +164,7 @@ export async function POST(req: Request) {
     // If deck_text changed, recompute archetype scores and persist in meta
     try {
       if (typeof b.deck_text === 'string') {
-        const parsed = (b.deck_text || '').split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(t=>{
-          const m = t.match(/^(\d+)x?\s+(.+)$/i); if (m) return { qty: parseInt(m[1],10)||1, name: m[2] };
-          return { qty: 1, name: t };
-        });
+        const parsed = parseDeckText(b.deck_text || '');
         const scores = await (async function(){
           const identifiers = Array.from(new Set(parsed.map(p=>p.name))).slice(0,300).map(n=>({ name: n }));
           const scry: Record<string, any> = {};

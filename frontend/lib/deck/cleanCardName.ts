@@ -39,7 +39,12 @@ export function normalizeChars(s: string): string {
  */
 export function cleanCardName(raw: string): string {
   let s = normalizeChars(raw);
-  
+
+  // Wiki / spell-table style [[Card Name]] (unwrap nested wrappers)
+  while (s.startsWith('[[') && s.endsWith(']]') && s.length >= 4) {
+    s = normalizeChars(s.slice(2, -2));
+  }
+
   // Remove common line prefixes
   // SB: / Sideboard: prefix
   s = s.replace(/^(SB:|Sideboard:)\s*/i, '');
@@ -60,9 +65,15 @@ export function cleanCardName(raw: string): string {
   // (ABC), (ABC123), [ABC], [ABC123], {ABC}, #ABC, <ABC>
   // With optional collector number after
   
-  // Pattern: (SET) or [SET] or {SET} followed by optional collector number and foil/special indicators
-  // Examples: "(C21) 263", "[2XM] 123 *F*", "(SLD) 2283 *FOIL*"
-  s = s.replace(/\s*[\(\[\{<]([A-Z0-9]{2,8})[\)\]\}>]\s*#?\d*\s*(\*[A-Z]+\*|\(F(oil)?\)|\(E(tched)?\))?$/i, '');
+  // Trailing set + collector: repeat so (plst) m21-117 and similar fully peel off
+  for (let pass = 0; pass < 5; pass++) {
+    const prev = s;
+    // e.g. "peer into the abyss (plst) m21-117"
+    s = s.replace(/\s+\([a-z0-9]{2,8}\)\s+[a-z0-9]{2,5}-\d{1,5}[a-z]?$/i, '');
+    // (SET) or [SET] or {SET} + optional numeric / foil tail
+    s = s.replace(/\s*[\(\[\{<]([A-Za-z0-9]{2,8})[\)\]\}>]\s*#?\d*\s*(\*[A-Z]+\*|\(F(oil)?\)|\(E(tched)?\))?$/i, '');
+    if (s === prev) break;
+  }
   
   // Pattern: #SET or #SET-123 (Deckstats style)
   s = s.replace(/\s*#[A-Z0-9]{2,8}(-\d+)?$/i, '');
@@ -238,6 +249,25 @@ export function looksLikeCardName(s: string): boolean {
   
   // Looks like a header/label
   if (/^(deck|sideboard|mainboard|maybeboard|commander|companion|total|count|price)$/i.test(cleaned)) return false;
-  
+
+  // Decklist section lines: "Artifacts (5)", "Creatures (23)"
+  if (
+    /^(COMMANDER|SIDEBOARD|MAINBOARD|MAYBEBOARD|LANDS?|CREATURES?|INSTANTS?|SORCERY|SORCERIES|ARTIFACTS?|ENCHANTMENTS?|PLANESWALKERS?|BATTLES?|CONSIDERING|COMPANION)\s*\(\d+\)\s*$/i.test(
+      cleaned,
+    )
+  ) {
+    return false;
+  }
+
   return true;
+}
+
+/**
+ * Normalize raw user/import input before persisting to `deck_cards.name` when the value
+ * did not go through {@link parseDeckText}. Returns empty string if it should not be stored.
+ */
+export function sanitizedNameForDeckPersistence(raw: string): string {
+  const s = cleanCardName(raw);
+  if (!s || !looksLikeCardName(s)) return '';
+  return s;
 }

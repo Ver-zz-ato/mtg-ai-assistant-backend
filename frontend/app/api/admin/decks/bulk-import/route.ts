@@ -10,6 +10,7 @@ import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { containsProfanity } from "@/lib/profanity";
+import { cleanCardName } from "@/lib/deck/cleanCardName";
 
 const PUBLIC_DECKS_USER_ID = "b8c7d6e5-f4a3-4210-9d00-000000000001";
 const MAX_DECKS = 500;
@@ -173,8 +174,8 @@ function parseDecklist(text: string, format: string = "Commander"): { commander:
     
     const match = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
     const qty = match ? parseInt(match[1], 10) || 1 : 1;
-    const name = match ? match[2].trim() : line;
-    
+    const rawName = match ? match[2].trim() : line;
+    const name = cleanCardName(rawName);
     if (!name) continue;
     
     // For Commander format, first non-empty line is the commander
@@ -370,17 +371,12 @@ export async function POST(req: NextRequest) {
           /* ignore */
         }
       }
-      // Insert sideboard cards (marked with is_sideboard if column exists, otherwise just add)
+      // Sideboard: same row shape as mainboard — live `deck_cards` has no `is_sideboard` column in repo migrations.
       for (const c of parsed.sideboard) {
         try {
-          await admin.from("deck_cards").insert({ deck_id: deckId, name: c.name, qty: c.qty, is_sideboard: true });
+          await admin.from("deck_cards").insert({ deck_id: deckId, name: c.name, qty: c.qty });
         } catch {
-          // If is_sideboard column doesn't exist, try without it
-          try {
-            await admin.from("deck_cards").insert({ deck_id: deckId, name: c.name, qty: c.qty });
-          } catch {
-            /* ignore */
-          }
+          /* ignore */
         }
       }
 

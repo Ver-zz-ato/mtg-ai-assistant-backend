@@ -1,3 +1,5 @@
+import { cleanCardName } from "@/lib/deck/cleanCardName";
+
 /**
  * Canonical row shaping for public.scryfall_cache writes (Phase 2A+).
  * Single source for PK normalization and Scryfall API → DB upsert shape.
@@ -23,10 +25,16 @@ export function sanitizeImageCacheInputName(raw: string): string | null {
 }
 
 /**
- * Canonical PK for `scryfall_cache.name` / `name_norm`. Single source of truth for cache rows.
+ * Canonical PK for `scryfall_cache.name` and for **`price_snapshots.name_norm`** rows written by
+ * {@link runPriceSnapshotFromScryfallBulk} (Scryfall bulk `default_cards` → median prices).
+ * Readers of `price_snapshots` must use this same normalization for primary `.in('name_norm', …)` lookups.
+ *
+ * **Intentionally different** from `price_cache.card_name` normalization (`/api/price` `normalizeName`,
+ * bulk-price-import `norm`) which folds apostrophes and related characters for live price keys.
  *
  * **Lockstep copies** (must match this algorithm byte-for-byte):
  * - `bulk-jobs-server/server.js` → `norm()`
+ * - `Manatap-APP` `nameNormForSnapshots` (mobile snapshot chart queries)
  *
  * **Near-match (do not use for scryfall_cache PK):** `bulk-price-import/route.ts` adds apostrophe
  * normalization for `price_cache` keys — intentional; not interchangeable with this function.
@@ -38,6 +46,18 @@ export function normalizeScryfallCacheName(name: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Deduped lookup strings for `scryfall_cache.name` / `.in('name', …)` when the input may differ
+ * from the oracle row (raw + `cleanCardName`). Not for `price_cache` — use `normalizeName` there.
+ */
+export function scryfallCacheLookupNameKeys(raw: string): string[] {
+  const t = String(raw || "").trim();
+  if (!t) return [];
+  const a = normalizeScryfallCacheName(t);
+  const b = normalizeScryfallCacheName(cleanCardName(t));
+  return [...new Set([a, b].filter(Boolean))];
 }
 
 /** Optional structured logging for cache writes / merge (route or subsystem label). */

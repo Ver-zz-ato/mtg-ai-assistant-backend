@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 
 export const runtime = 'nodejs';
 
@@ -15,6 +16,38 @@ export async function POST(req: NextRequest) {
     let wishlist_id: string = String(body?.wishlist_id||'');
 
     if (!names.length) return NextResponse.json({ ok:false, error:'names required' }, { status:400 });
+
+    /** Align persisted `wishlist_items.name` with `deck_cards` / `collections/cards` POST: sanitize + same-origin fuzzy when unambiguous top suggestion differs. */
+    const resolvedBySanitized = new Map<string, string>();
+    if (!body.skipValidation) {
+      const sanitizedKeys: string[] = [];
+      for (const raw of names) {
+        const s = sanitizedNameForDeckPersistence(String(raw));
+        if (s) sanitizedKeys.push(s);
+      }
+      const uniq = [...new Set(sanitizedKeys)];
+      for (let i = 0; i < uniq.length; i += 50) {
+        const chunk = uniq.slice(i, i + 50);
+        try {
+          const fuzzyRes = await fetch(`${req.nextUrl.origin}/api/cards/fuzzy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ names: chunk }),
+          });
+          const fuzzyData = await fuzzyRes.json().catch(() => ({}));
+          const results = (fuzzyData as { results?: Record<string, { suggestion?: string }> })?.results ?? {};
+          for (const key of chunk) {
+            const suggestion = results[key]?.suggestion;
+            let final = key;
+            if (suggestion && suggestion.toLowerCase() !== key.toLowerCase()) final = suggestion;
+            resolvedBySanitized.set(key, final);
+          }
+        } catch (e) {
+          console.warn('[wishlists/add] Name validation failed, using sanitized keys:', e);
+          for (const key of chunk) resolvedBySanitized.set(key, key);
+        }
+      }
+    }
 
     // Ensure a wishlist exists (default 'My Wishlist') if none provided
     if (!wishlist_id) {
@@ -39,7 +72,11 @@ export async function POST(req: NextRequest) {
 
     // Upsert items (increment qty if existing)
     for (const raw of names) {
-      const name = String(raw).trim(); if (!name) continue;
+      const sanitized = sanitizedNameForDeckPersistence(String(raw));
+      if (!sanitized) continue;
+      const name = body.skipValidation
+        ? sanitized
+        : (resolvedBySanitized.get(sanitized) ?? sanitized);
       const { data: existing } = await (supabase as any)
         .from('wishlist_items')
         .select('id, qty')
@@ -61,8 +98,13 @@ export async function POST(req: NextRequest) {
       // Load canonicalizer on server
       const { canonicalize } = await import('@/lib/cards/canonicalize');
       const mergedSet = new Set<string>(current.map(s=>String(s)));
-      for (const n of names) {
-        const c = canonicalize(n||'').canonicalName || String(n||'');
+      for (const raw of names) {
+        const sanitized = sanitizedNameForDeckPersistence(String(raw));
+        if (!sanitized) continue;
+        const persisted = body.skipValidation
+          ? sanitized
+          : (resolvedBySanitized.get(sanitized) ?? sanitized);
+        const c = canonicalize(persisted).canonicalName || persisted;
         if (c) mergedSet.add(c);
       }
       const merged = Array.from(mergedSet);

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
 import { canonicalize } from "@/lib/cards/canonicalize";
 
 export const runtime = "nodejs";
@@ -246,7 +247,7 @@ export async function POST(req: NextRequest) {
       return await importDeckText(supabase, deckId, deckText);
     }
 
-    let name = String(body?.name ?? "").trim();
+    let name = sanitizedNameForDeckPersistence(String(body?.name ?? ""));
     const qty = Math.max(1, Number(body?.qty ?? 1) || 1);
 
     if (!name) {
@@ -364,7 +365,10 @@ export async function PATCH(req: NextRequest) {
 
   // Rename path
   if (newNameRaw) {
-    const newName = newNameRaw.replace(/\s*\(.*?\)\s*$/, '').trim();
+    const newName = sanitizedNameForDeckPersistence(newNameRaw);
+    if (!newName) {
+      return NextResponse.json({ ok: false, error: "invalid card name" }, { status: 400 });
+    }
     // If another row exists with same (case-sensitive) name, merge quantities
     const { data: existing } = await supabase
       .from('deck_cards')

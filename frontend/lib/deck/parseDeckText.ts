@@ -38,6 +38,8 @@ export function parseDeckText(raw?: string): ParsedDeckEntry[] {
     
     // Skip section headers
     if (/^(COMMANDER|SIDEBOARD|MAINBOARD|MAYBEBOARD|LANDS?|CREATURES?|INSTANTS?|SORCERY|SORCERIES|ARTIFACTS?|ENCHANTMENTS?|PLANESWALKERS?|BATTLES?|CONSIDERING|COMPANION):?\s*$/i.test(line)) continue;
+    // e.g. "Artifacts (5)", "Creatures (23)"
+    if (/^(COMMANDER|SIDEBOARD|MAINBOARD|MAYBEBOARD|LANDS?|CREATURES?|INSTANTS?|SORCERY|SORCERIES|ARTIFACTS?|ENCHANTMENTS?|PLANESWALKERS?|BATTLES?|CONSIDERING|COMPANION)\s*\(\d+\)\s*$/i.test(line)) continue;
     
     // Strip sideboard/commander prefix but continue processing
     line = line.replace(/^(SB:|Sideboard:|CMDR:|Commander:)\s*/i, '');

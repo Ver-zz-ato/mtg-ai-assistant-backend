@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { scryfallCacheLookupNameKeys } from '@/lib/server/scryfallCacheRow';
 
 export async function GET(req: NextRequest) {
   try {
@@ -60,14 +61,16 @@ export async function GET(req: NextRequest) {
     // Get commander's color identity and filter cards
     let filteredCardCounts = cardCounts;
     try {
-      // Normalize commander name for lookup
-      const normName = commanderName.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-      
-      const { data: cmdCache } = await supabase
-        .from('scryfall_cache')
-        .select('color_identity')
-        .eq('name', normName)
-        .maybeSingle();
+      const ciKeys = scryfallCacheLookupNameKeys(commanderName);
+
+      const { data: cmdCache } =
+        ciKeys.length > 0
+          ? await supabase
+              .from('scryfall_cache')
+              .select('color_identity')
+              .in('name', ciKeys)
+              .maybeSingle()
+          : { data: null as null };
       
       const allowedColors = (cmdCache?.color_identity || []).map((c: string) => c.toUpperCase());
       

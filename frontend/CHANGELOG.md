@@ -2,6 +2,46 @@
 
 ## 2026-04-05
 
+### Phase 1 — price series: `price_snapshots.name_norm` matches snapshot writer
+
+- **`app/api/price/series/route.ts`:** Primary `.in('name_norm', …)` uses **`scryfallCacheLookupNameKeys`** (same **`normalizeScryfallCacheName`** as **`priceSnapshotFromScryfallBulk`**), not the previous inline NFKD+apostrophe norm. Scryfall fallback keys card rows with **`normalizeScryfallCacheName(c.name)`**.
+- **`lib/server/scryfallCacheRow.ts`:** JSDoc — **`price_snapshots.name_norm`** + mobile **`nameNormForSnapshots`** lockstep note; contrast with **`price_cache`**.
+- **`lib/server/priceSnapshotFromScryfallBulk.ts`:** Comment — readers must use writer normalization.
+
+### Phase 3B — collection bulk CSV upload: safe resolved names
+
+- **`lib/collections/buildResolvedCollectionBulkNameMap.ts`:** Batched same-origin **`POST /api/cards/fuzzy`**; maps sanitized keys → persistence names, applying **`suggestion` only when `all.length === 1`** (no silent pick among multiple fuzzy candidates).
+- **`app/api/collections/upload-csv/route.ts`:** Uses the map so **`collection_cards.name`** matches resolved titles when unambiguous; merge/lookup keyed on resolved name.
+- **`app/api/collections/upload/route.ts`:** Full replace upload resolves names the same way before chunked insert.
+
+### Phase 3 — wishlist batch add: persisted name alignment
+
+- **`app/api/wishlists/add/route.ts`:** Sanitize with **`sanitizedNameForDeckPersistence`**, then optional batched **`POST /api/cards/fuzzy`** (same pattern as **`decks/cards`** / **`collections/cards`**) so **`wishlist_items.name`** matches resolved titles when the API suggests a different spelling; **`skipValidation`** preserves prior behavior; auth metadata mirror uses the same persisted string.
+
+### Entry-point name recovery (search + scan recognize)
+
+- **`app/api/cards/search/route.ts`:** After Scryfall autocomplete and **`cards/search`** both return no rows, **one-shot `cards/named?fuzzy`** (skipped when the query looks like Scryfall syntax, e.g. contains `:` / `=` / `!`) so typos still surface a single best title for **`CardAutocomplete`** / **`EditorAddBar`**.
+- **`app/api/cards/recognize-image/route.ts`:** After fast **`scryfall_cache`** checks, call same-origin **`POST /api/cards/fuzzy`** before Scryfall named fuzzy so vision guesses reuse the full cache + autocomplete + fuzzy pipeline; response shape unchanged.
+
+### Entry-point fuzzy — verification (cache-first)
+
+- **`app/api/cards/search/route.ts`:** Tier-3 fuzzy suggestion is still only **`{ name }`**; it is **accepted only if `scryfall_cache` has that exact `name`**, so the typeahead does not promote Scryfall-only oracle titles with no cached row.
+- **`app/api/cards/recognize-image/route.ts`:** Documented that **`validated_name` / alternatives are title strings**, not cache-backed card payloads; clients still resolve art/prices via their own lookups.
+
+### Phase 2 — card-data cleanup (low-risk)
+
+- **`lib/server/scryfallCacheRow.ts`:** **`scryfallCacheLookupNameKeys(raw)`** — shared **`scryfall_cache.name`** lookup candidates (not **`price_cache`**); used by **`lib/ai/error-recovery.ts`**, collection MTGO **`export`**, **`popular-cards`**.
+- **`lib/ai/error-recovery.ts`:** **`fallbackToScryfallCache`** — empty candidate guard + helper.
+- **`app/api/collections/cost/route.ts`:** Owned-cards table probe order — **`collection_cards` first**, then legacy names.
+- **`app/api/admin/decks/bulk-import/route.ts`:** Sideboard inserts match live **`deck_cards`** shape (**no `is_sideboard`** column in repo migrations).
+
+### API / cache key shaping (Phase 1B)
+
+- **Recommendations:** `app/api/recommendations/cards/route.ts` and `app/api/recommendations/deck/[id]/route.ts` — image rows use **`normalizeScryfallCacheName`** / **`cacheNameNorm`**; **`price_cache`** uses **`normalizeName`** (`@/lib/mtg/normalize`); **`.maybeSingle()`** instead of `.single()` on lookups.
+- **Collection MTGO export:** `app/api/collections/[id]/export/route.ts` — **`scryfall_cache`** enrich query uses PK candidates from **`normalizeScryfallCacheName` + `cleanCardName`**, remap by row **`name`**.
+- **Chat fallback:** `lib/ai/error-recovery.ts` — **`fallbackToScryfallCache`** queries with PK candidate **`.in('name', …)`**.
+- **Popular cards:** `app/api/deck/popular-cards/route.ts` — commander **`color_identity`** via **`normalizeScryfallCacheName` + `cleanCardName`** **`.in('name', …)`**.
+
 ### Card pages — `printed_name` (display only)
 
 - **`lib/cards/displayName.ts`:** **`getDisplayCardName`** — prefer cache **`printed_name`** when it differs from oracle **`name`** (UI only).

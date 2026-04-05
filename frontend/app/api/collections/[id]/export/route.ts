@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/server-supabase";
+import { normalizeScryfallCacheName, scryfallCacheLookupNameKeys } from "@/lib/server/scryfallCacheRow";
+import { cleanCardName } from "@/lib/deck/cleanCardName";
 
 function asAttachment(body: string, filename: string, mime = 'text/plain') {
   return new Response(body, {
@@ -53,16 +55,28 @@ export async function GET(req: Request, ctx: { params: Promise<Params> }) {
   if (format === 'mtga') return asAttachment(formatMTGA(rows), `collection-${id}.mtga`);
   if (format === 'moxfield') return asAttachment(formatMoxfield(rows), `collection-${id}.txt`);
   if (format === 'mtgo') {
-    // Enrich with set and collector number
-    const names = Array.from(new Set(rows.map(r=>r.name)));
-    const { data: meta } = await supabase
-      .from('scryfall_cache')
-      .select('name,set,collector_number')
-      .in('name', names)
-      .limit(2000);
-    const map = new Map<string, { set?: string; collector_number?: string }>();
-    for (const m of meta||[]) map.set((m as any).name, { set: (m as any).set?.toUpperCase(), collector_number: (m as any).collector_number });
-    const enriched = rows.map(r => ({ ...r, ...(map.get(r.name)||{}) }));
+    // Enrich with set and collector number (scryfall_cache.name is oracle PK)
+    const pkCandidates = [...new Set(rows.flatMap((r) => scryfallCacheLookupNameKeys(String(r.name || ""))))];
+    const { data: meta } =
+      pkCandidates.length > 0
+        ? await supabase
+            .from('scryfall_cache')
+            .select('name,set,collector_number')
+            .in('name', pkCandidates)
+            .limit(2000)
+        : { data: null as null };
+    const byPk = new Map<string, { set?: string; collector_number?: string }>();
+    for (const m of meta || [])
+      byPk.set(String((m as any).name), {
+        set: (m as any).set?.toUpperCase(),
+        collector_number: (m as any).collector_number,
+      });
+    const enriched = rows.map((r) => {
+      const raw = String(r.name || "").trim();
+      const extra =
+        byPk.get(normalizeScryfallCacheName(raw)) ?? byPk.get(normalizeScryfallCacheName(cleanCardName(raw))) ?? {};
+      return { ...r, ...extra };
+    });
     return asAttachment(formatMTGO(enriched), `collection-${id}.dek`);
   }
 

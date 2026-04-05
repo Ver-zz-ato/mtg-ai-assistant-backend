@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import {
+  normalizeScryfallCacheName,
+  scryfallCacheLookupNameKeys,
+} from "@/lib/server/scryfallCacheRow";
 
 export const runtime = "nodejs";
 
@@ -41,19 +45,14 @@ export async function GET(req: NextRequest) {
       });
     } catch {}
 
-    // Normalize names (server side) - match price_snapshots name_norm (bulk snapshot format)
-    // NFKD, strip diacritics, apostrophes→', fullwidth comma→comma, nbsp→space, collapse spaces
-    const norm = (s: string) =>
-      String(s || "")
-        .toLowerCase()
-        .normalize("NFKD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/['\u2019\u2018`]/g, "'")
-        .replace(/\uFF0C/g, ",")  // fullwidth comma → ASCII comma (Scryfall can return these)
-        .replace(/\u00A0/g, " ")  // nbsp → space
-        .replace(/\s+/g, " ")
-        .trim();
-    const wanted = Array.from(new Set(names.map(norm))).slice(0, 10); // cap to 10 series for MVP
+    // Primary `price_snapshots.name_norm` keys must match the snapshot writer (`normalizeScryfallCacheName`
+    // in priceSnapshotFromScryfallBulk). Intentionally not `price_cache.card_name` normalization.
+    // Up to 10 requested names; expand each with raw + cleanCardName keys like scryfall_cache lookups.
+    const keySet = new Set<string>();
+    for (const raw of names.slice(0, 10)) {
+      for (const k of scryfallCacheLookupNameKeys(raw)) keySet.add(k);
+    }
+    const wanted = Array.from(keySet);
 
     let q = db
       .from("price_snapshots")
@@ -127,7 +126,7 @@ export async function GET(req: NextRequest) {
           const USD_EUR = 0.92;
           const USD_GBP = 0.78;
           for (const c of json.data ?? []) {
-            const normName = norm(c.name);
+            const normName = normalizeScryfallCacheName(c.name);
             if (!byName.has(normName) || byName.get(normName)!.length === 0) {
               const usd = c.prices?.usd ? parseFloat(c.prices.usd) : 0;
               const eur = c.prices?.eur ? parseFloat(c.prices.eur) : usd * USD_EUR;

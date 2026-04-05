@@ -44,9 +44,16 @@ function norm(s: string) {
     .trim();
 }
 
+/**
+ * Returns oracle-style title strings only — never a full cache row or Scryfall JSON.
+ * `/api/cards/fuzzy` may source suggestions from Scryfall when the DB misses; final `named?fuzzy`
+ * also returns a bare name. Callers must not assume images/prices exist without their own cache/batch lookup.
+ */
 async function fuzzyValidate(
   guessed: string,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  /** Same-origin base (e.g. req.nextUrl.origin) — when set, reuse `/api/cards/fuzzy` after quick cache checks. */
+  origin?: string
 ): Promise<{ validated: string; alternatives: string[] }> {
   const q0 = cleanCardName(guessed);
   if (!q0 || q0.length < 2) return { validated: "", alternatives: [] };
@@ -71,6 +78,33 @@ async function fuzzyValidate(
         .map((r) => ({ name: r.name, score: stringSimilarity(qn, norm(r.name)) }))
         .sort((a, b) => b.score - a.score);
       return { validated: sorted[0].name, alternatives: sorted.slice(1, 4).map((r) => r.name) };
+    }
+
+    if (origin) {
+      try {
+        const fr = await fetch(`${origin}/api/cards/fuzzy`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ names: [q0] }),
+        });
+        const j = (await fr.json().catch(() => ({}))) as {
+          ok?: boolean;
+          results?: Record<string, { suggestion?: string; all?: string[] }>;
+        };
+        if (j?.ok && j.results) {
+          const entry = j.results[q0];
+          const sug = entry?.suggestion?.trim();
+          const all = Array.isArray(entry?.all)
+            ? entry.all.map((s) => String(s).trim()).filter(Boolean)
+            : [];
+          if (sug) {
+            const alts = all.filter((n) => norm(n) !== norm(sug)).slice(0, 3);
+            return { validated: sug, alternatives: alts };
+          }
+        }
+      } catch {
+        /* fall through to Scryfall */
+      }
     }
 
     const r = await fetch(
@@ -214,9 +248,10 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
-    const { validated } = await fuzzyValidate(parsed.primary, supabase);
+    const origin = new URL(req.url).origin;
+    const { validated } = await fuzzyValidate(parsed.primary, supabase, origin);
     const altResults = await Promise.all(
-      parsed.alternatives.slice(0, 3).map((a) => fuzzyValidate(a, supabase))
+      parsed.alternatives.slice(0, 3).map((a) => fuzzyValidate(a, supabase, origin))
     );
     const allValidated: string[] = [];
     if (validated) allValidated.push(validated);

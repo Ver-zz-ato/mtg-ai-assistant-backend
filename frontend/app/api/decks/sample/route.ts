@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSampleDeckById, SAMPLE_DECKS } from '@/lib/sample-decks';
+import { parseDeckText } from '@/lib/deck/parseDeckText';
 
 export async function GET(req: NextRequest) {
   try {
@@ -86,36 +87,12 @@ export async function POST(req: NextRequest) {
       console.log('[Sample Deck] Starting card parsing for deck:', newDeck.id);
       console.log('[Sample Deck] Deck list preview:', sampleDeck.deckList.substring(0, 200));
       
-      const lines = sampleDeck.deckList.split('\n').filter(l => l.trim());
-      const cardRows: Array<{ deck_id: string; name: string; qty: number }> = [];
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        
-        // Skip category markers (Commander, Sideboard, etc.)
-        if (trimmed.toLowerCase().startsWith('commander') || 
-            trimmed.toLowerCase().includes('commander:') ||
-            trimmed.toLowerCase().startsWith('sideboard') ||
-            trimmed.toLowerCase().startsWith('mainboard') ||
-            trimmed.toLowerCase().startsWith('deck')) {
-          continue;
-        }
-        
-        // Parse card line (format: "1x Card Name" or "1 Card Name")
-        const match = trimmed.match(/^(\d+)\s*[xX]?\s+(.+)$/);
-        if (match) {
-          const quantity = parseInt(match[1], 10);
-          const cardName = match[2].trim();
-          
-          if (cardName && quantity > 0) {
-            cardRows.push({
-              deck_id: newDeck.id,
-              name: cardName,
-              qty: quantity,
-            });
-          }
-        }
-      }
+      const parsed = parseDeckText(sampleDeck.deckList);
+      const cardRows: Array<{ deck_id: string; name: string; qty: number }> = parsed.map((e) => ({
+        deck_id: newDeck.id,
+        name: e.name,
+        qty: e.qty,
+      }));
       
       console.log(`[Sample Deck] Parsed ${cardRows.length} cards from deck list`);
       

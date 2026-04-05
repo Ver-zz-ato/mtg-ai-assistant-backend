@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeScryfallCacheName } from '@/lib/server/scryfallCacheRow';
+import { normalizeName } from '@/lib/mtg/normalize';
 
 export const runtime = 'nodejs';
 
@@ -135,26 +137,26 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Step 6: Fetch card images and prices
+    // Step 6: Fetch card images and prices (cache PK vs price_cache key differ — see CARD_DATA_GUARDRAILS)
     for (const rec of recommendations) {
       try {
-        // Get image from Scryfall cache
+        const cachePk = normalizeScryfallCacheName(rec.name);
+        const priceKey = normalizeName(rec.name);
         const { data: cached } = await supabase
           .from('scryfall_cache')
           .select('small, normal')
-          .eq('name', rec.name)
-          .single();
+          .eq('name', cachePk)
+          .maybeSingle();
 
         if (cached) {
           rec.imageUrl = cached.small || cached.normal;
         }
 
-        // Get price from price cache
         const { data: priceData } = await supabase
           .from('price_cache')
           .select('usd_price')
-          .eq('card_name', rec.name)
-          .single();
+          .eq('card_name', priceKey)
+          .maybeSingle();
 
         if (priceData && priceData.usd_price) {
           rec.price = Number(priceData.usd_price);

@@ -3,6 +3,8 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { cleanCardName } from "@/lib/deck/cleanCardName";
 
 // Simple CSV parser for deck format
 function parseCSV(csvContent: string): { headers: string[]; decks: any[] } {
@@ -67,38 +69,20 @@ function parseCSV(csvContent: string): { headers: string[]; decks: any[] } {
   return { headers, decks };
 }
 
-// Parse decklist text
+/** First non-comment line = commander; remainder parsed with shared `parseDeckText`. */
 function parseDecklist(decklistText: string): { commander: string; cards: Array<{ name: string; qty: number }>; totalCards: number } {
-  const lines = decklistText.split('\n').filter(line => {
-    const trimmed = line.trim();
-    return trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('//');
-  });
-  
-  if (lines.length === 0) return { commander: '', cards: [], totalCards: 0 };
-  
-  const commanderLine = lines[0].trim();
+  const lines = decklistText.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#") && !l.startsWith("//"));
+  if (lines.length === 0) return { commander: "", cards: [], totalCards: 0 };
+
+  const commanderLine = lines[0];
   const commanderMatch = commanderLine.match(/^(\d+)\s+(.+)$/);
-  const commander = commanderMatch ? commanderMatch[2] : commanderLine;
-  
-  const cards: Array<{ name: string; qty: number }> = [];
-  let totalCards = 0;
-  
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    
-    const match = line.match(/^(\d+)\s+(.+)$/);
-    const qty = match ? parseInt(match[1]) : 1;
-    const cardName = match ? match[2] : line;
-    
-    if (cardName.toLowerCase() !== commander.toLowerCase()) {
-      cards.push({ name: cardName, qty });
-      totalCards += qty;
-    }
-  }
-  
-  totalCards += 1; // Commander
-  
+  const rawCommander = (commanderMatch ? commanderMatch[2] : commanderLine).trim();
+  const commander = cleanCardName(rawCommander) || rawCommander;
+
+  const body = lines.slice(1).join("\n");
+  const cards = parseDeckText(body);
+  const totalCards = 1 + cards.reduce((s, c) => s + c.qty, 0);
+
   return { commander, cards, totalCards };
 }
 

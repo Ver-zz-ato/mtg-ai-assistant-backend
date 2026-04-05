@@ -2,6 +2,8 @@
  * Error recovery and graceful degradation utilities
  */
 
+import { scryfallCacheLookupNameKeys } from '@/lib/server/scryfallCacheRow';
+
 export type FallbackLayer = 'scryfall_cache' | 'keyword_search' | 'cached_response' | 'error_message';
 
 export interface FallbackResult<T> {
@@ -19,11 +21,11 @@ export async function fallbackToScryfallCache(
   supabase: any
 ): Promise<FallbackResult<any>> {
   try {
-    const { data } = await supabase
-      .from('scryfall_cache')
-      .select('*')
-      .eq('name', cardName)
-      .maybeSingle();
+    const keys = scryfallCacheLookupNameKeys(cardName);
+    if (keys.length === 0) {
+      return { success: false, layer: 'scryfall_cache' };
+    }
+    const { data } = await supabase.from('scryfall_cache').select('*').in('name', keys).maybeSingle();
     
     if (data) {
       return { success: true, data, layer: 'scryfall_cache' };

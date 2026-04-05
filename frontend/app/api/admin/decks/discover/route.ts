@@ -8,6 +8,7 @@ import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { containsProfanity } from "@/lib/profanity";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
 
 // Dedicated system user for bulk-imported public decks (NOT your admin account)
 const PUBLIC_DECKS_USER_ID = "b8c7d6e5-f4a3-4210-9d00-000000000001";
@@ -348,7 +349,13 @@ export async function POST(req: NextRequest) {
             results.push({ commander, title: deck.title, success: false, error: "Already exists", deckId: existing.id });
             continue;
           }
-          const deckText = deck.cards.map((c) => `${c.qty} ${c.name}`).join("\n");
+          const rawImport = deck.cards.map((c) => `${Math.max(1, Number(c.qty) || 1)} ${c.name}`).join("\n");
+          const parsedRows = parseDeckText(rawImport);
+          const importRows =
+            parsedRows.length > 0
+              ? parsedRows
+              : deck.cards.map((c) => ({ name: c.name, qty: Math.max(1, Number(c.qty) || 1) }));
+          const deckText = importRows.map((e) => `${e.qty} ${e.name}`).join("\n");
           let { data: newDeck, error: deckErr } = await admin
             .from("decks")
             .insert({
@@ -393,7 +400,7 @@ export async function POST(req: NextRequest) {
             }
           }
           const did = newDeck.id as string;
-          for (const c of deck.cards) {
+          for (const c of importRows) {
             try {
               await admin.from("deck_cards").insert({ deck_id: did, name: c.name, qty: c.qty });
             } catch {

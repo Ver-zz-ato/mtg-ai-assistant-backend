@@ -7,6 +7,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeScryfallCacheName as norm } from "@/lib/server/scryfallCacheRow";
 
+// `name_norm` on inserted rows = `norm` above. Readers (e.g. GET /api/price/series) must use the same
+// `normalizeScryfallCacheName` — not `price_cache.card_name` normalization.
+
 function median(arr: number[]): number | null {
   if (!arr.length) return null;
   const s = arr.slice().sort((a, b) => a - b);
