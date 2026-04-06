@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     // Step 1: Get user's decks
     const { data: decks } = await supabase
       .from('decks')
-      .select('id, deck_text, commander, colors')
+      .select('id, deck_text, commander, colors, format')
       .eq('user_id', user.id)
       .limit(10);
 
@@ -135,6 +135,27 @@ export async function GET(request: NextRequest) {
           reason: `Popular in ${topColors.join('/')} decks`,
         });
       });
+    }
+
+    const formatRaw =
+      request.nextUrl.searchParams.get("format")?.trim() ||
+      (decks && decks[0] && typeof (decks[0] as { format?: string }).format === "string"
+        ? (decks[0] as { format: string }).format
+        : "Commander");
+    const formatLabel =
+      formatRaw.length > 0
+        ? formatRaw.charAt(0).toUpperCase() + formatRaw.slice(1).toLowerCase()
+        : "Commander";
+
+    try {
+      const { filterRecommendationRowsByName } = await import("@/lib/deck/recommendation-legality");
+      const { allowed } = await filterRecommendationRowsByName(recommendations, formatLabel, {
+        logPrefix: "/api/recommendations/cards",
+      });
+      recommendations.length = 0;
+      recommendations.push(...allowed);
+    } catch (legErr) {
+      console.warn("[recommendations/cards] Legality filter failed:", legErr);
     }
 
     // Step 6: Fetch card images and prices (cache PK vs price_cache key differ — see CARD_DATA_GUARDRAILS)

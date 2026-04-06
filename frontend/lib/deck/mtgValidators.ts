@@ -75,17 +75,101 @@ export function matchesRequestedType(card: SfCard, requestedType?: string): bool
   }
 }
 
-export function isLegalForFormat(card: SfCard, format: string): boolean {
-  const legalities = card.legalities || {};
-  const key = format.toLowerCase();
+/**
+ * Map user / deck format labels to Scryfall `legalities` JSON keys.
+ * Returns null when the format cannot be mapped (caller should treat as not legal for recommendations).
+ */
+export function userFormatToScryfallLegalityKey(format: string): string | null {
+  const f = String(format || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  if (!f) return null;
+  if (f === "commander" || f === "edh" || f === "cedh" || f.includes("commander")) return "commander";
+  if (f === "standard" || f === "std") return "standard";
+  if (f === "modern") return "modern";
+  if (f === "pioneer") return "pioneer";
+  if (f === "pauper") return "pauper";
+  if (f === "brawl") return "brawl";
+  if (f === "legacy") return "legacy";
+  if (f === "vintage") return "vintage";
+  if (f === "historic") return "historic";
+  if (f === "alchemy") return "alchemy";
+  if (f === "explorer") return "explorer";
+  if (f === "gladiator") return "gladiator";
+  if (f === "penny") return "penny";
+  if (f === "duel" || f === "duel commander") return "duel";
+  if (f === "oldschool") return "oldschool";
+  if (f === "premodern") return "premodern";
+  if (f === "predh") return "predh";
+  return null;
+}
 
-  if (key === "commander" || key === "edh") {
-    const status = legalities["commander"];
-    return status !== "banned";
+/** Curated ban-list bucket keys (matches `banned_cards.json` / `getBannedCards`). */
+export type BannedDataFormatKey = "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper" | "Brawl";
+
+export function userFormatToBannedDataKey(format: string): BannedDataFormatKey | null {
+  const f = String(format || "").trim().toLowerCase();
+  if (!f) return null;
+  if (f === "commander" || f === "edh" || f === "cedh" || f.includes("commander")) return "Commander";
+  if (f === "modern") return "Modern";
+  if (f === "pioneer") return "Pioneer";
+  if (f === "standard" || f === "std") return "Standard";
+  if (f === "pauper") return "Pauper";
+  if (f === "brawl") return "Brawl";
+  return null;
+}
+
+/**
+ * ADD/CUT upgrade-block syntax in chat/analysis output: Commander singleton vs 60-card with copy counts.
+ */
+export function userFormatToRecommendationAddCutSyntax(format: string): "commander" | "sixty" {
+  const f = String(format || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!f) return "sixty";
+  if (f.includes("commander") || f === "edh" || f === "cedh" || f === "predh") return "commander";
+  if (f === "duel" || f.includes("duel commander")) return "commander";
+  return "sixty";
+}
+
+/** Whether ADD lines should be checked against commander (or Brawl commander) color identity. */
+export function userFormatUsesCommanderColorIdentity(format: string): boolean {
+  const f = String(format || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (f.includes("commander") || f === "edh" || f === "cedh" || f === "predh" || f === "brawl") return true;
+  if (f === "duel" || f.includes("duel commander")) return true;
+  return false;
+}
+
+/**
+ * Whether Scryfall legality status allows play in the given format key.
+ * - Commander: only `legal` (no restricted list).
+ * - Vintage: `legal` or `restricted`.
+ * - Other mapped formats: `legal` only (`restricted` is a Vintage-specific concept on Scryfall).
+ * - Missing/empty status, `banned`, `not_legal`: not allowed.
+ */
+export function scryfallStatusAllowsInFormat(
+  status: string | undefined,
+  scryfallFormatKey: string
+): boolean {
+  if (status === undefined || status === null || String(status).trim() === "") return false;
+  if (status === "banned" || status === "not_legal") return false;
+  if (scryfallFormatKey === "vintage") {
+    return status === "legal" || status === "restricted";
   }
+  if (scryfallFormatKey === "commander") {
+    return status === "legal";
+  }
+  return status === "legal";
+}
 
-  const status = legalities[key];
-  return status === "legal" || status === "restricted";
+/**
+ * True if the card is allowed in the format per Scryfall `legalities` only (no ban-list overlay).
+ */
+export function isLegalForFormat(card: SfCard, format: string): boolean {
+  const sk = userFormatToScryfallLegalityKey(format);
+  if (!sk) return false;
+  const legalities = card.legalities || {};
+  const status = legalities[sk];
+  return scryfallStatusAllowsInFormat(status, sk);
 }
 
 /**

@@ -11,7 +11,6 @@ import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
-import { COMMANDER_BANNED } from "@/lib/deck/banned-cards";
 import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -1746,7 +1745,9 @@ Return the corrected answer with concise, user-facing tone.`;
     if (deckCardsForValidate.length > 0 && outText && typeof outText === "string") {
       try {
         const formatKeyForValidate = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
-        const formatKeyVal = (formatKeyForValidate === "modern" || formatKeyForValidate === "pioneer" ? formatKeyForValidate : "commander") as "commander" | "modern" | "pioneer";
+        const formatKeyVal = (formatKeyForValidate === "modern" || formatKeyForValidate === "pioneer"
+          ? formatKeyForValidate
+          : "commander") as "commander" | "modern" | "pioneer";
         
         // Get color identity from: inferredContext > prefs.colors > null (let validator fetch it)
         const colorIdentityForValidate: string[] | null = 
@@ -1762,6 +1763,7 @@ Return the corrected answer with concise, user-facing tone.`;
           colorIdentity: colorIdentityForValidate,
           commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
           rawText: outText,
+          formatForLegality: formatKeyForValidate,
         });
         let validationWarning: string | null = null;
         if (!result.valid && result.issues.length > 0) {
@@ -1802,6 +1804,7 @@ Return the corrected answer with concise, user-facing tone.`;
                 commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
                 rawText: outText,
                 isRegenPass: true,
+                formatForLegality: formatKeyForValidate,
               });
               if (!result.valid && result.issues.length > 0) outText = result.repairedText;
             }
@@ -1812,6 +1815,19 @@ Return the corrected answer with concise, user-facing tone.`;
         const { applyOutputCleanupFilter, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
         outText = applyOutputCleanupFilter(outText);
         outText = applyBracketEnforcement(outText);
+        try {
+          const rawFmt = String(formatKeyForValidate || "commander");
+          const formatForRec =
+            rawFmt.length > 0
+              ? rawFmt.charAt(0).toUpperCase() + rawFmt.slice(1).toLowerCase()
+              : "Commander";
+          const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
+          outText = await stripIllegalBracketCardTokensFromText(outText, formatForRec, {
+            logPrefix: "/api/chat bracket legality",
+          });
+        } catch {
+          /* non-fatal */
+        }
         // Append validation warning if any cards were removed
         if (validationWarning) {
           outText = outText + validationWarning;
@@ -1824,6 +1840,22 @@ Return the corrected answer with concise, user-facing tone.`;
         }
       } catch (e) {
         if (DEV) console.warn("[chat] validateRecommendations/cleanup error:", e);
+      }
+    } else if (outText && typeof outText === "string" && outText.includes("[[")) {
+      try {
+        const rawFmt = String(
+          (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander"
+        );
+        const formatForRec =
+          rawFmt.length > 0
+            ? rawFmt.charAt(0).toUpperCase() + rawFmt.slice(1).toLowerCase()
+            : "Commander";
+        const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
+        outText = await stripIllegalBracketCardTokensFromText(outText, formatForRec, {
+          logPrefix: "/api/chat bracket legality (no deck)",
+        });
+      } catch {
+        /* non-fatal */
       }
     }
 

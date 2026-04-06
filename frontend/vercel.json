@@ -1,7 +1,8 @@
 {
   "functions": {
     "app/api/admin/ai-test/self-optimize-proposal/route.ts": { "maxDuration": 800 },
-    "app/api/admin/ai-test/batch/route.ts": { "maxDuration": 600 }
+    "app/api/admin/ai-test/batch/route.ts": { "maxDuration": 600 },
+    "app/api/cron/mtg-legality-refresh/route.ts": { "maxDuration": 800 }
   },
   "crons": [
     { "path": "/api/cron/cleanup-price-cache", "schedule": "0 4 * * *" },
@@ -17,6 +18,6 @@
     { "path": "/api/shout/auto-generate", "schedule": "17 */4 * * *" },
     { "path": "/api/shout/cleanup", "schedule": "0 3 * * *" },
     { "path": "/api/cron/budget-swaps-update", "schedule": "0 3 * * 0" },
-    { "path": "/api/cron/update-banned-lists", "schedule": "0 2 * * 0" }
+    { "path": "/api/cron/mtg-legality-refresh", "schedule": "0 2 * * 0" }
   ]
 }

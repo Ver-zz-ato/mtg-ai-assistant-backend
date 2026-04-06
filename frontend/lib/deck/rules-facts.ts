@@ -108,7 +108,12 @@ export async function getCardRulesFact(cardName: string): Promise<CardRulesFact>
   const reason = inferCommanderEligibleReason(typeLine, oracleText);
   const colorIdentity = Array.isArray(entry.color_identity) ? entry.color_identity.map((c: string) => c.toUpperCase()) : [];
   const leg = entry.legalities;
-  const legalInCommander = leg?.commander != null ? leg.commander !== "banned" : null;
+  const cmdStatus = leg?.commander;
+  let legalInCommander: boolean | null = null;
+  if (cmdStatus === "legal") legalInCommander = true;
+  else if (cmdStatus === "banned" || cmdStatus === "not_legal") legalInCommander = false;
+  else if (cmdStatus != null && String(cmdStatus).trim() !== "") legalInCommander = false;
+  else legalInCommander = null;
 
   return {
     cardName: resolved,

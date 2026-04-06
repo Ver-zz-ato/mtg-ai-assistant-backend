@@ -334,6 +334,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    try {
+      const { filterDecklistQtyRowsForFormat } = await import("@/lib/deck/recommendation-legality");
+      const fmtLabel = String(format || "Commander").trim();
+      const { lines: legalLines } = await filterDecklistQtyRowsForFormat(cards, fmtLabel, {
+        logPrefix: "/api/deck/generate-from-collection",
+      });
+      cards = legalLines;
+    } catch (legErr) {
+      console.warn("[generate-from-collection] Legality filter failed:", legErr);
+    }
+
+    if (isCommanderRequest && totalDeckQty(cards) < 90) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Generated Commander deck was too short after legality filtering; please try again or pick a different commander.",
+        },
+        { status: 500 }
+      );
+    }
+
     const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
     const colors = allowedColors;
     const overallAim = playstyle

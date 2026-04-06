@@ -360,8 +360,7 @@ export async function POST(req: NextRequest) {
             Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === cardKey)?.[1];
           
           if (!cardEntry) {
-            // Card not found in cache - keep it (might be valid)
-            return true;
+            return false;
           }
           
           const cardColors = cardEntry.color_identity || [];
@@ -382,6 +381,23 @@ export async function POST(req: NextRequest) {
         console.error('[swap-suggestions] Color identity validation error:', colorErr);
         // Continue with unfiltered suggestions on error
       }
+    }
+
+    try {
+      const { filterSuggestedCardNamesForFormat } = await import("@/lib/deck/recommendation-legality");
+      const legal = await filterSuggestedCardNamesForFormat(
+        validatedSuggestions.map((s) => s.to),
+        format,
+        { logPrefix: "/api/deck/swap-suggestions" }
+      );
+      const legalNorm = new Set(
+        legal.allowed.map((n) => normalizeScryfallCacheName(n))
+      );
+      validatedSuggestions = validatedSuggestions.filter((s) =>
+        legalNorm.has(normalizeScryfallCacheName(s.to))
+      );
+    } catch (legErr) {
+      console.warn("[swap-suggestions] Legality filter failed:", legErr);
     }
 
     return NextResponse.json({ ok: true, currency, budget, suggestions: validatedSuggestions });

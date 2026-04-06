@@ -1,14 +1,15 @@
 /**
- * Manual / legacy cron: banned overlay only (no scryfall_cache legalities pass).
- * Primary schedule: `/api/cron/mtg-legality-refresh` (see vercel.json).
- * Streams Scryfall oracle_cards bulk once.
+ * Cron: refresh banned_cards (app_config) + scryfall_cache legalities from Scryfall oracle_cards bulk (two passes).
+ * Idempotent. On partial failure after banned write, cache may be partially updated; prior rows are never deleted.
+ *
+ * Schedule: see vercel.json (replaces standalone update-banned-lists cron).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
-import { refreshBannedListsOnly } from "@/lib/data/mtg-legality-refresh";
+import { runMtgLegalityFullRefresh } from "@/lib/data/mtg-legality-refresh";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 function isAuthorized(req: NextRequest): boolean {
   const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
@@ -23,32 +24,39 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  return runUpdateBannedLists();
+  return runJob();
 }
 
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  return runUpdateBannedLists();
+  return runJob();
 }
 
-async function runUpdateBannedLists() {
+async function runJob() {
   const admin = getAdmin();
   if (!admin) {
     return NextResponse.json({ ok: false, error: "admin_client_unavailable" }, { status: 500 });
   }
 
   try {
-    const { counts } = await refreshBannedListsOnly(admin);
-
+    const { banned, legalities } = await runMtgLegalityFullRefresh(admin);
     return NextResponse.json({
       ok: true,
-      updated: counts,
+      banned: {
+        Commander: banned.Commander.length,
+        Modern: banned.Modern.length,
+        Pioneer: banned.Pioneer.length,
+        Standard: banned.Standard.length,
+        Pauper: banned.Pauper.length,
+        Brawl: banned.Brawl.length,
+      },
+      cache_legalities: legalities,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "cron_failed";
-    console.error("[update-banned-lists]", e);
+    console.error("[mtg-legality-refresh]", e);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

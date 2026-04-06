@@ -179,6 +179,21 @@ export async function POST(req: NextRequest) {
       cards = filtered;
     }
 
+    try {
+      const { filterDecklistQtyRowsForFormat } = await import("@/lib/deck/recommendation-legality");
+      const { lines: legalLines, removed } = await filterDecklistQtyRowsForFormat(cards, input.format, {
+        logPrefix: "/api/deck/transform",
+      });
+      if (removed.length > 0) {
+        warnings.push(
+          `Legality filter removed ${removed.length} card line(s) not legal in ${input.format}.`
+        );
+      }
+      cards = legalLines;
+    } catch (legErr) {
+      console.warn("[deck/transform] Legality filter failed:", legErr);
+    }
+
     const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
     const colors = allowedColors;
 

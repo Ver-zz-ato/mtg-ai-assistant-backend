@@ -2,8 +2,10 @@
 // Validator for deck analysis responses
 
 import { fetchCard } from "./inference";
-import { normalizeCardName, isWithinColorIdentity, isLegalForFormat } from "./mtgValidators";
+import { isWithinColorIdentity } from "./mtgValidators";
 import { BANNED_LISTS } from "./banned-cards";
+import { evaluateCardRecommendationLegality, banNormSetForUserFormat } from "./recommendation-legality";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { detectAntiSynergies, type AntiSynergyResult } from "./antiSynergy";
 
 export type ValidationResult = {
@@ -72,7 +74,7 @@ export async function validateDeckAnalysis(
 
     // Validate recommendations
     if (Array.isArray(jsonData.recommendations)) {
-      const bannedList = banned[context.format] || {};
+      const banNormSet = banNormSetForUserFormat(banned, context.format);
       const allowedColors = context.colors.length ? context.colors.map(c => c.toUpperCase()) : ["C"];
 
       for (const rec of jsonData.recommendations) {
@@ -96,14 +98,20 @@ export async function validateDeckAnalysis(
             errors.push(`Off-color recommendation: ${cardName} (not in ${allowedColors.join("/")} color identity)`);
           }
 
-          // Check format legality
-          if (!isLegalForFormat(card, context.format)) {
-            errors.push(`Illegal card: ${cardName} (not legal in ${context.format})`);
-          }
-
-          // Check if banned
-          if (bannedList[card.name]) {
-            errors.push(`Banned card: ${cardName} (banned in ${context.format})`);
+          const { allowed: recLegal, reason: recReason } = evaluateCardRecommendationLegality(
+            { legalities: card.legalities },
+            normalizeScryfallCacheName(card.name),
+            context.format,
+            banNormSet
+          );
+          if (!recLegal) {
+            const label =
+              recReason === "banned"
+                ? "Banned card"
+                : recReason === "not_legal"
+                  ? "Not legal"
+                  : "Illegal or unknown legality";
+            errors.push(`${label}: ${cardName} (${recReason ?? "unknown"} in ${context.format})`);
           }
         } catch (e) {
           warnings.push(`Could not validate card ${cardName}: ${String(e)}`);

@@ -173,7 +173,7 @@ export function buildDeckFacts(
     if (c.cache_miss) continue;
     const leg = c.legalities?.[formatKey];
     if (!leg) legalityIncomplete = true;
-    if (leg === "banned") bannedCards.push(c.name);
+    if (leg === "banned" || leg === "not_legal") bannedCards.push(c.name);
     const ci = new Set((c.color_identity || []).map((x) => x.toUpperCase()));
     if (commander && colorIdentity.size > 0 && ci.size > 0) {
       const allowed = [...colorIdentity];

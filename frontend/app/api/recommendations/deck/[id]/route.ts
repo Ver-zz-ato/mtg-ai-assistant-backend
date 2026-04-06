@@ -169,32 +169,25 @@ export async function GET(
       filtered = filtered.filter(card => {
         const key = cacheNameNorm(card.name);
         const entry = details.get(key);
-        if (!entry) return true; // Unknown card: keep (e.g. cache miss)
+        if (!entry) return false;
         return isWithinColorIdentity(entry as any, colors);
       });
     }
 
-    // Filter by format legality (non-Commander)
-    if (deckFormat !== 'commander') {
-      const legalityKeys = Array.from(new Set(filtered.map((c) => cacheNameNorm(c.name)))).filter(Boolean);
-      if (legalityKeys.length > 0) {
-        const { data: legalityData } = await supabase
-          .from('scryfall_cache')
-          .select('name, legalities')
-          .in('name', legalityKeys);
+    const formatLabel =
+      (deck.format || "Commander").trim().length > 0
+        ? (deck.format || "Commander").trim().charAt(0).toUpperCase() +
+          (deck.format || "Commander").trim().slice(1).toLowerCase()
+        : "Commander";
 
-        if (legalityData && legalityData.length > 0) {
-          const legalCards = new Set<string>();
-          legalityData.forEach((card: any) => {
-            const legalities = card.legalities || {};
-            const formatKey = deckFormat === 'standard' ? 'standard' : deckFormat === 'modern' ? 'modern' : 'commander';
-            if (legalities[formatKey] === 'legal' || legalities[formatKey] === 'restricted') {
-              legalCards.add(cacheNameNorm(String(card.name ?? '')));
-            }
-          });
-          filtered = filtered.filter((card) => legalCards.has(cacheNameNorm(card.name)));
-        }
-      }
+    try {
+      const { filterRecommendationRowsByName } = await import("@/lib/deck/recommendation-legality");
+      const { allowed } = await filterRecommendationRowsByName(filtered, formatLabel, {
+        logPrefix: "/api/recommendations/deck",
+      });
+      filtered = allowed;
+    } catch (legErr) {
+      console.warn("[recommendations/deck] Legality filter failed:", legErr);
     }
 
     // Prioritize cards not in collection

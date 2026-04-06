@@ -316,9 +316,8 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
                 Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === cardKey)?.[1];
               
               if (!cardEntry) {
-                // Card not found in cache - keep it (might be valid)
-                console.warn(`⚠️ [health-suggestions] Card not in cache: ${s.card}`);
-                return true;
+                console.warn(`⚠️ [health-suggestions] Card not in cache (dropped): ${s.card}`);
+                return false;
               }
               
               const cardColors = cardEntry.color_identity || [];
@@ -342,6 +341,20 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
           console.error('❌ [health-suggestions] Color identity validation error:', colorErr);
           // Continue with unfiltered suggestions on error
         }
+      }
+
+      try {
+        const { filterRecommendationRowsByName } = await import("@/lib/deck/recommendation-legality");
+        const withNames = validatedSuggestions.map((s) => ({ ...s, name: s.card }));
+        const { allowed } = await filterRecommendationRowsByName(withNames, format, {
+          logPrefix: "/api/deck/health-suggestions",
+        });
+        validatedSuggestions = allowed.map(({ name, reason }) => ({
+          card: name,
+          reason: reason || "Recommended for this deck",
+        }));
+      } catch (legErr) {
+        console.warn("[health-suggestions] Legality filter failed:", legErr);
       }
 
       console.log('✅ [health-suggestions] Returning response with', validatedSuggestions.length, 'suggestions');

@@ -5,8 +5,12 @@
  * copy limits (60-card), strictly-worse substitutions. Supports in-place repair.
  */
 
-import { normalizeCardName } from "@/lib/deck/mtgValidators";
-import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
+import {
+  normalizeCardName,
+  isWithinColorIdentity,
+  userFormatToRecommendationAddCutSyntax,
+  userFormatUsesCommanderColorIdentity,
+} from "@/lib/deck/mtgValidators";
 
 function norm(name: string): string {
   return normalizeCardName(name);
@@ -25,14 +29,36 @@ function cacheNorm(name: string): string {
 export type ValidateRecommendationsInput = {
   /** Parsed decklist: card names (and optionally counts for 60-card). */
   deckCards: Array<{ name: string; count?: number }>;
-  formatKey: "commander" | "modern" | "pioneer";
-  /** Commander color identity (commander only). */
+  /**
+   * Legacy hint when `formatForLegality` is omitted (Commander / Modern / Pioneer).
+   * Prefer `formatForLegality` for Standard, Pauper, Brawl, Legacy, etc.
+   */
+  formatKey?: "commander" | "modern" | "pioneer";
+  /** Commander color identity (commander / brawl-style decks). */
   colorIdentity?: string[] | null;
   commanderName?: string | null;
   /** Raw LLM output text. */
   rawText: string;
   /** When true, never set needsRegeneration (used when validating regen response; max 1 retry). */
   isRegenPass?: boolean;
+  /**
+   * User / deck format for Scryfall legality, ban overlay, ADD/CUT syntax, and identity checks.
+   * Takes precedence over `formatKey` when set (e.g. standard, pauper, brawl, legacy).
+   */
+  formatForLegality?: string | null;
+  /**
+   * Hermetic unit tests only: rows keyed by cacheNorm(card name), as returned from scryfall cache.
+   * Production callers must not set this.
+   */
+  testCardDetailsMap?: Map<
+    string,
+    { color_identity?: string[]; legalities?: Record<string, string> }
+  >;
+  /**
+   * When set, skip loading banned_cards.json; use normalized cache keys (see scryfall cache PK).
+   * `new Set()` = no ban overlay; `null` treated as no overlay.
+   */
+  testLegalityBanNormSet?: Set<string> | null;
 };
 
 export type ValidationIssue = {
@@ -65,9 +91,9 @@ function baseCardName(s: string): string {
   return s.replace(/\s*\([^)]*\)\s*$/, "").trim();
 }
 
-function parseAddNames(text: string, formatKey: string): string[] {
+function parseAddNames(text: string, addCutSyntax: "commander" | "sixty"): string[] {
   const names: string[] = [];
-  if (formatKey === "commander") {
+  if (addCutSyntax === "commander") {
     const reBracket = new RegExp(RE_ADD_COMMANDER.source, RE_ADD_COMMANDER.flags);
     let m: RegExpExecArray | null;
     while ((m = reBracket.exec(text)) !== null) {
@@ -104,11 +130,11 @@ function parseCutNames(text: string): string[] {
 /** Upgrade block: lines from ADD line to next ADD or end of block. Commander also matches bare "ADD X / CUT Y" on one line. Supports "1. ADD ...", "• ADD ...". */
 function findUpgradeBlocks(
   text: string,
-  formatKey: string
+  addCutSyntax: "commander" | "sixty"
 ): Array<{ start: number; end: number; addCard: string; cutCard: string | null }> {
   const lines = text.split("\n");
   const blocks: Array<{ start: number; end: number; addCard: string; cutCard: string | null }> = [];
-  const addReBracket = formatKey === "commander"
+  const addReBracket = addCutSyntax === "commander"
     ? /(?:\d+[.)]\s*|[-•]\s*)?ADD\s*\[\[([^\]]+)\]\]/i
     : /(?:\d+[.)]\s*|[-•]\s*)?ADD\s*\+\d+\s*\[\[([^\]]+)\]\]/i;
   const addReBareCommander = /(?:\d+[.)]\s*|[-•]\s*)?ADD\s+([^/\n\[\]]+?)\s*\/\s*CUT\s+([^\n\[\]]+?)(?=,|\s*$|\s*\n)/i;
@@ -118,7 +144,7 @@ function findUpgradeBlocks(
   while (i < lines.length) {
     const line = lines[i];
     const addMatchBracket = line.match(addReBracket);
-    const addMatchBare = formatKey === "commander" ? line.match(addReBareCommander) : null;
+    const addMatchBare = addCutSyntax === "commander" ? line.match(addReBareCommander) : null;
 
     if (addMatchBracket) {
       const addCard = (addMatchBracket[1] || "").trim();
@@ -141,6 +167,25 @@ function findUpgradeBlocks(
     }
   }
   return blocks;
+}
+
+function resolveRecommendationFormat(input: ValidateRecommendationsInput): {
+  formatDisplay: string;
+  addCutSyntax: "commander" | "sixty";
+  usesCommanderColorIdentity: boolean;
+} {
+  const legacyKey = input.formatKey ?? "commander";
+  const fallbackFromLegacy =
+    legacyKey === "modern" ? "Modern" : legacyKey === "pioneer" ? "Pioneer" : "Commander";
+  const raw = (input.formatForLegality || "").trim();
+  const legalitySource = raw || fallbackFromLegacy;
+  const formatDisplay =
+    legalitySource.charAt(0).toUpperCase() + legalitySource.slice(1).toLowerCase();
+  return {
+    formatDisplay,
+    addCutSyntax: userFormatToRecommendationAddCutSyntax(legalitySource),
+    usesCommanderColorIdentity: userFormatUsesCommanderColorIdentity(legalitySource),
+  };
 }
 
 /** Strictly worse: ADD is strictly worse than CUT. (addNorm, cutNorm) -> remove block. Extensible per format. */
@@ -202,6 +247,7 @@ export function formatValidationWarning(issues: ValidationIssue[]): string | nul
   // Group by type
   const inventedCards = userFacingIssues.filter(i => i.kind === 'invented_card').map(i => i.card).filter(Boolean);
   const offColorCards = userFacingIssues.filter(i => i.kind === 'off_color').map(i => i.card).filter(Boolean);
+  const illegalFormatCards = userFacingIssues.filter(i => i.kind === 'illegal_format').map(i => i.card).filter(Boolean);
   const overLimitCards = userFacingIssues.filter(i => i.kind === 'over_copy_limit').map(i => i.card).filter(Boolean);
   
   const parts: string[] = [];
@@ -212,6 +258,10 @@ export function formatValidationWarning(issues: ValidationIssue[]): string | nul
   
   if (offColorCards.length > 0) {
     parts.push(`off-color for your commander: ${offColorCards.slice(0, 3).join(', ')}${offColorCards.length > 3 ? ` (+${offColorCards.length - 3} more)` : ''}`);
+  }
+
+  if (illegalFormatCards.length > 0) {
+    parts.push(`not legal in this format: ${illegalFormatCards.slice(0, 3).join(', ')}${illegalFormatCards.length > 3 ? ` (+${illegalFormatCards.length - 3} more)` : ''}`);
   }
   
   if (overLimitCards.length > 0) {
@@ -263,11 +313,12 @@ async function fetchCommanderColorIdentity(commanderName: string): Promise<strin
 export async function validateRecommendations(
   input: ValidateRecommendationsInput
 ): Promise<ValidateRecommendationsResult> {
-  const { deckCards, formatKey, colorIdentity, commanderName, rawText } = input;
+  const { deckCards, colorIdentity, commanderName, rawText } = input;
+  const { formatDisplay, addCutSyntax, usesCommanderColorIdentity } = resolveRecommendationFormat(input);
   const deckSet = new Set(deckCards.map((c) => norm(c.name)));
-  /** For Commander: ADD checks use deck + commander; CUT checks use deck only (99). */
+  /** Commander / Brawl: ADD checks use deck + commander; CUT checks use deck only (mainboard). */
   const allPresentCards = new Set(deckSet);
-  if (formatKey === "commander" && commanderName) {
+  if (usesCommanderColorIdentity && commanderName) {
     allPresentCards.add(norm(commanderName));
   }
   const deckCounts = new Map<string, number>();
@@ -280,7 +331,7 @@ export async function validateRecommendations(
   let allowedColors: string[] = [];
   if (colorIdentity?.length) {
     allowedColors = colorIdentity.map((c) => c.toUpperCase());
-  } else if (formatKey === "commander" && commanderName) {
+  } else if (usesCommanderColorIdentity && commanderName) {
     // Dynamically fetch commander's color identity from Scryfall cache
     allowedColors = await fetchCommanderColorIdentity(commanderName);
     if (allowedColors.length > 0) {
@@ -290,10 +341,10 @@ export async function validateRecommendations(
     }
   }
 
-  const addNames = parseAddNames(rawText, formatKey);
+  const addNames = parseAddNames(rawText, addCutSyntax);
   const cutNames = parseCutNames(rawText);
   const issues: ValidationIssue[] = [];
-  const blocks = findUpgradeBlocks(rawText, formatKey);
+  const blocks = findUpgradeBlocks(rawText, addCutSyntax);
   const blocksToRemove = new Set<number>();
 
   // 1) ADD already in deck (or commander)
@@ -321,10 +372,14 @@ export async function validateRecommendations(
   }
 
   // 3) Invented cards (ADD not in Scryfall cache)
-  let cardMap: Map<string, { color_identity?: string[] }> = new Map();
+  let cardMap: Map<string, { color_identity?: string[]; legalities?: Record<string, string> }> = new Map();
   if (addNames.length > 0) {
-    const { getDetailsForNamesCached } = await import("@/lib/server/scryfallCache");
-    cardMap = await getDetailsForNamesCached(addNames);
+    if (input.testCardDetailsMap) {
+      cardMap = input.testCardDetailsMap;
+    } else {
+      const { getDetailsForNamesCached } = await import("@/lib/server/scryfallCache");
+      cardMap = await getDetailsForNamesCached(addNames);
+    }
   }
 
   for (let i = 0; i < blocks.length; i++) {
@@ -345,8 +400,59 @@ export async function validateRecommendations(
     }
   }
 
-  // 4) Commander: ADD off-color or unknown identity (do not assume colorless when cache has no color_identity)
-  if (formatKey === "commander" && allowedColors.length > 0) {
+  // 3b) Format legality + ban overlay (shared recommendation-legality)
+  let banNormSet: Set<string> | null = null;
+  try {
+    const { evaluateCardRecommendationLegality } = await import("@/lib/deck/recommendation-legality");
+    if (input.testLegalityBanNormSet !== undefined) {
+      banNormSet =
+        input.testLegalityBanNormSet && input.testLegalityBanNormSet.size > 0
+          ? input.testLegalityBanNormSet
+          : null;
+    } else {
+      const { getBannedCards, bannedDataToMaps } = await import("@/lib/data/get-banned-cards");
+      const { userFormatToBannedDataKey } = await import("@/lib/deck/mtgValidators");
+      const { normalizeScryfallCacheName } = await import("@/lib/server/scryfallCacheRow");
+      const maps = bannedDataToMaps(await getBannedCards());
+      const bk = userFormatToBannedDataKey(formatDisplay);
+      const bannedMap = bk ? maps[bk] : undefined;
+      banNormSet = new Set<string>();
+      if (bannedMap) {
+        for (const n of Object.keys(bannedMap)) {
+          banNormSet.add(normalizeScryfallCacheName(n));
+        }
+      }
+      if (banNormSet.size === 0) banNormSet = null;
+    }
+
+    for (let i = 0; i < blocks.length; i++) {
+      if (blocksToRemove.has(i)) continue;
+      const b = blocks[i];
+      const key = cacheNorm(b.addCard);
+      const entry =
+        cardMap.get(key) ??
+        Array.from(cardMap.entries()).find(([k]) => cacheNorm(k) === key)?.[1];
+      const { allowed, reason } = evaluateCardRecommendationLegality(
+        entry as { legalities?: Record<string, string> | null } | undefined,
+        key,
+        formatDisplay,
+        banNormSet
+      );
+      if (!allowed) {
+        issues.push({
+          kind: "illegal_format",
+          card: b.addCard,
+          message: `ADD ${b.addCard} is not legal in ${formatDisplay} (${reason ?? "unknown"})`,
+        });
+        blocksToRemove.add(i);
+      }
+    }
+  } catch (legErr) {
+    console.warn("[validateRecommendations] Legality overlay failed:", legErr);
+  }
+
+  // 4) Commander / Brawl: ADD off-color or unknown identity (do not assume colorless when cache has no color_identity)
+  if (usesCommanderColorIdentity && allowedColors.length > 0) {
     for (let i = 0; i < blocks.length; i++) {
       if (blocksToRemove.has(i)) continue;
       const b = blocks[i];
@@ -359,14 +465,18 @@ export async function validateRecommendations(
             allowedColors
           );
           if (!ok) {
-            issues.push({ kind: "off_color", card: b.addCard, message: `ADD ${b.addCard} is off-color for commander` });
+            issues.push({
+              kind: "off_color",
+              card: b.addCard,
+              message: `ADD ${b.addCard} is off-color for this deck's identity`,
+            });
             blocksToRemove.add(i);
           }
         } else {
           issues.push({
             kind: "off_color",
             card: b.addCard,
-            message: `ADD ${b.addCard} has no color_identity in cache; removing for Commander`,
+            message: `ADD ${b.addCard} has no color_identity in cache; removing for identity-checked format`,
           });
           blocksToRemove.add(i);
         }
@@ -374,8 +484,8 @@ export async function validateRecommendations(
     }
   }
 
-  // 5) 60-card: over copy limit (ADD would exceed 4 copies) — we don't have full deck counts per card from suggestion; skip or warn only. We could remove if we know current count + 1 > 4. For now we only remove blocks that suggest >4 in the ADD line (e.g. ADD +4 X when X already has 4).
-  if (formatKey !== "commander") {
+  // 5) 60-card-style formats: over copy limit (ADD would exceed 4 copies) — we don't have full deck counts per card from suggestion; skip or warn only. We could remove if we know current count + 1 > 4. For now we only remove blocks that suggest >4 in the ADD line (e.g. ADD +4 X when X already has 4).
+  if (addCutSyntax === "sixty") {
     const addPlusRe = /ADD\s*\+(\d+)\s*\[\[([^\]]+)\]\]/i;
     for (let i = 0; i < blocks.length; i++) {
       if (blocksToRemove.has(i)) continue;

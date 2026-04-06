@@ -13,9 +13,10 @@ import {
   CardSuggestion,
   isWithinColorIdentity,
   matchesRequestedType,
-  isLegalForFormat,
   normalizeCardName,
 } from "@/lib/deck/mtgValidators";
+import { evaluateCardRecommendationLegality, banNormSetForUserFormat } from "@/lib/deck/recommendation-legality";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import roleBaselines from "@/lib/data/role_baselines.json";
 import colorIdentityMap from "@/lib/data/color_identity_map.json";
@@ -733,6 +734,7 @@ async function validateSlots(
   userMessage: string | undefined,
   locked: Set<string>,
   strict: boolean,
+  bannedLists: Record<string, Record<string, true>>,
   deckAnalysisSystemPrompt: string | null,
   userId?: string | null,
   isPro?: boolean,
@@ -753,6 +755,7 @@ async function validateSlots(
   const deckNormalized = new Set(deckEntries.map((entry) => normalizeCardName(entry.name)));
   const profile = getCommanderProfileData(context.commander, context);
   const isCommander = context.format === "Commander";
+  const banNormSet = banNormSetForUserFormat(bannedLists, context.format);
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
@@ -806,7 +809,14 @@ async function validateSlots(
           filtered.push({ slotRole: slot.role, name: card.name, reason: "off-color", source });
           continue;
         }
-        if (!isLegalForFormat(card, context.format)) {
+        const cacheKey = normalizeScryfallCacheName(card.name);
+        const { allowed: slotLegal } = evaluateCardRecommendationLegality(
+          { legalities: card.legalities },
+          cacheKey,
+          context.format,
+          banNormSet
+        );
+        if (!slotLegal) {
           filtered.push({ slotRole: slot.role, name: card.name, reason: `illegal in ${context.format}`, source });
           continue;
         }
@@ -867,7 +877,7 @@ async function postFilterSuggestions(
   const fabledPassageRule = forbidRules.find((rule) => /fabled passage/i.test(rule));
   const fastManaRule = forbidRules.find((rule) => /mana crypt/i.test(rule) || /fast mana/i.test(rule));
 
-  const getBannedList = (fmt: string): Record<string, true> | null => bannedLists[fmt] ?? null;
+  const banNormSet = banNormSetForUserFormat(bannedLists, context.format);
 
   for (const suggestion of candidates) {
     let card = byName.get(suggestion.card.toLowerCase());
@@ -888,28 +898,16 @@ async function postFilterSuggestions(
     let reasonText = suggestion.reason || "";
     const reviewNotes: string[] = [];
 
-    // Check if card is banned in the current format
-    const bannedList = getBannedList(context.format);
-    if (bannedList && bannedList[card.name]) {
-      const message = suggestion.reason
-        ? `${suggestion.reason} (banned in ${context.format}, suggest a legal alternative)`
-        : `Banned in ${context.format}, suggest a legal alternative.`;
-      const existing = merged.get(card.name);
-      if (existing) {
-        existing.reason = [existing.reason, message].filter(Boolean).join(" | ") || message;
-        existing.needs_review = true;
-      } else {
-        merged.set(card.name, {
-          card: card.name,
-          reason: message,
-          source: suggestion.source,
-          requestedType: suggestion.requestedType,
-          needs_review: true,
-          slotRole: suggestion.slotRole,
-          category: suggestion.category,
-        });
-      }
-      removalReasons.add("banned");
+    const cacheKeyPost = normalizeScryfallCacheName(card.name);
+    const { allowed: postLegal, reason: postLegReason } = evaluateCardRecommendationLegality(
+      { legalities: card.legalities },
+      cacheKeyPost,
+      context.format,
+      banNormSet
+    );
+    if (!postLegal) {
+      removalReasons.add(postLegReason || "illegal in format");
+      removedCount += 1;
       continue;
     }
 
@@ -920,7 +918,8 @@ async function postFilterSuggestions(
         byName,
         normalizedDeck,
         allowedColors,
-        suggestion.requestedType
+        suggestion.requestedType,
+        banNormSet
       );
       removalReasons.add("fast mana gated");
       removedCount += 1;
@@ -945,12 +944,6 @@ async function postFilterSuggestions(
 
     if (!isWithinColorIdentity(card, Array.from(allowedColors))) {
       removalReasons.add("off-color identity");
-      removedCount += 1;
-      continue;
-    }
-
-    if (!isLegalForFormat(card, context.format)) {
-      removalReasons.add("illegal in format");
       removedCount += 1;
       continue;
     }
@@ -1042,7 +1035,8 @@ async function findFastManaReplacement(
   byName: Map<string, SfCard>,
   normalizedDeck: Set<string>,
   allowedColors: Set<string>,
-  requestedType?: string
+  requestedType: string | undefined,
+  banNormSet: Set<string> | null
 ): Promise<SfCard | undefined> {
   const priorityList = FAST_MANA_REPLACEMENT_PRIORITY[originalCard.name] ?? [];
   const candidates = [...priorityList, ...FAST_MANA_REPLACEMENT_POOL];
@@ -1060,7 +1054,13 @@ async function findFastManaReplacement(
     if (!candidate) continue;
     if (!isWithinColorIdentity(candidate, allowedList)) continue;
     if (requestedType && requestedType.toLowerCase() !== "any" && !matchesRequestedType(candidate, requestedType)) continue;
-    if (!isLegalForFormat(candidate, context.format)) continue;
+    const { allowed: repLegal } = evaluateCardRecommendationLegality(
+      { legalities: candidate.legalities },
+      normalizeScryfallCacheName(candidate.name),
+      context.format,
+      banNormSet
+    );
+    if (!repLegal) continue;
     return candidate;
   }
   return undefined;
@@ -1791,7 +1791,7 @@ export async function POST(req: Request) {
   const evalRunId = typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null;
   if (useGPT) {
     const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -1804,7 +1804,7 @@ export async function POST(req: Request) {
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -1878,6 +1878,7 @@ export async function POST(req: Request) {
             colorIdentity: context.colors?.length ? context.colors : null,
             commanderName: context.commander || null,
             rawText: analysisText,
+            formatForLegality: format,
           });
           if (!valResult.valid && valResult.issues.length > 0) {
             if (process.env.NODE_ENV === "development") {
@@ -1888,6 +1889,14 @@ export async function POST(req: Request) {
           const { applyOutputCleanupFilter, applyBracketEnforcement } = await import("@/lib/chat/outputCleanupFilter");
           analysisText = applyOutputCleanupFilter(analysisText);
           analysisText = applyBracketEnforcement(analysisText);
+          try {
+            const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
+            analysisText = await stripIllegalBracketCardTokensFromText(analysisText, String(format || "Commander"), {
+              logPrefix: "/api/deck/analyze bracket legality",
+            });
+          } catch {
+            /* non-fatal */
+          }
           if (valResult.issues.length > 0) {
             analysisText = (analysisText || "").trim();
             const repairNotice = "Some suggestions were removed because they weren't valid for this deck. You can run analysis again for a fresh set.";

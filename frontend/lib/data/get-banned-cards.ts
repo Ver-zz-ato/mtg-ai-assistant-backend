@@ -1,6 +1,9 @@
 /**
  * Banned cards source: app_config first (updated by cron), then bundled JSON fallback.
  * Used by deck/analyze and validation. Same shape as banned_cards.json.
+ *
+ * Cron: `/api/cron/mtg-legality-refresh` (weekly) writes `banned_cards` + optional `mtg_legality_sync_status`.
+ * Manual banned-only: `/api/cron/update-banned-lists`.
  */
 import { createClient } from "@/lib/supabase/server";
 import bannedCardsData from "./banned_cards.json";

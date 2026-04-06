@@ -1642,6 +1642,7 @@ export async function POST(req: NextRequest) {
                 colorIdentity: deckContextForCompose?.colorIdentity ?? null,
                 commanderName: deckContextForCompose?.commanderName ?? null,
                 rawText: outputText,
+                formatForLegality: formatKey,
               });
               let validationWarning: string | null = null;
               if (!result.valid && result.issues.length > 0) {
@@ -1699,6 +1700,7 @@ export async function POST(req: NextRequest) {
                         commanderName: deckContextForCompose?.commanderName ?? null,
                         rawText: outputText,
                         isRegenPass: true,
+                        formatForLegality: formatKey,
                       });
                       if (!result.valid && result.issues.length > 0) outputText = result.repairedText;
                     }
@@ -1716,6 +1718,19 @@ export async function POST(req: NextRequest) {
               cleanupSynergySkippedForDeckAnalysis = true; // No reply shortening
               outputText = applyOutputCleanupFilter(outputText);
               outputText = applyBracketEnforcement(outputText);
+              try {
+                const rawFmt = String(formatKey || "commander");
+                const formatForRec =
+                  rawFmt.length > 0
+                    ? rawFmt.charAt(0).toUpperCase() + rawFmt.slice(1).toLowerCase()
+                    : "Commander";
+                const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
+                outputText = await stripIllegalBracketCardTokensFromText(outputText, formatForRec, {
+                  logPrefix: "/api/chat/stream bracket legality",
+                });
+              } catch {
+                /* non-fatal */
+              }
               // Append validation warning if any cards were removed
               if (validationWarning) {
                 outputText = outputText + validationWarning;
@@ -1734,6 +1749,20 @@ export async function POST(req: NextRequest) {
               }
             } catch (e) {
               if (DEV) console.warn("[stream] validateRecommendations/cleanup error:", e);
+            }
+          } else if (outputText && outputText.includes("[[")) {
+            try {
+              const rawFmt = String(formatKey || "commander");
+              const formatForRec =
+                rawFmt.length > 0
+                  ? rawFmt.charAt(0).toUpperCase() + rawFmt.slice(1).toLowerCase()
+                  : "Commander";
+              const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
+              outputText = await stripIllegalBracketCardTokensFromText(outputText, formatForRec, {
+                logPrefix: "/api/chat/stream bracket legality (no deck)",
+              });
+            } catch {
+              /* non-fatal */
             }
           }
 

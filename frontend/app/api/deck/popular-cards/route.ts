@@ -2,7 +2,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { scryfallCacheLookupNameKeys } from '@/lib/server/scryfallCacheRow';
+import { scryfallCacheLookupNameKeys, normalizeScryfallCacheName } from '@/lib/server/scryfallCacheRow';
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,9 +57,28 @@ export async function GET(req: NextRequest) {
         }
       });
     }
+
+    // Commander legality + ban overlay (same path as other recommendations; drop cache miss / illegal)
+    let filteredCardCounts = cardCounts;
+    try {
+      const allNames = Object.keys(cardCounts);
+      if (allNames.length > 0) {
+        const { filterSuggestedCardNamesForFormat } = await import('@/lib/deck/recommendation-legality');
+        const { allowed: legalNames } = await filterSuggestedCardNamesForFormat(allNames, 'Commander', {
+          logPrefix: '/api/deck/popular-cards',
+        });
+        const legalNorm = new Set(legalNames.map((n) => normalizeScryfallCacheName(n)));
+        const afterLegality: Record<string, number> = {};
+        for (const [name, count] of Object.entries(cardCounts)) {
+          if (legalNorm.has(normalizeScryfallCacheName(name))) afterLegality[name] = count;
+        }
+        filteredCardCounts = afterLegality;
+      }
+    } catch (legErr) {
+      console.warn('[popular-cards] Legality filter failed:', legErr);
+    }
     
     // Get commander's color identity and filter cards
-    let filteredCardCounts = cardCounts;
     try {
       const ciKeys = scryfallCacheLookupNameKeys(commanderName);
 
@@ -94,8 +113,7 @@ export async function GET(req: NextRequest) {
             Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === normCard)?.[1];
           
           if (!entry) {
-            // Card not found in cache - include it (might be valid)
-            filteredCardCounts[cardName] = count;
+            // Already dropped by legality pass when possible; skip unknown cache rows
             continue;
           }
           

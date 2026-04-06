@@ -66,6 +66,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Missing decks or comparison data" }, { status: 400 });
     }
 
+    const formatRaw = String(body?.format ?? body?.deckFormat ?? "Commander").trim();
+    const formatLabel =
+      formatRaw.length > 0
+        ? formatRaw.charAt(0).toUpperCase() + formatRaw.slice(1).toLowerCase()
+        : "Commander";
+
     // Build prompt for AI analysis
     const prompt = `You are an expert Magic: The Gathering deck analyst. Analyze the following deck comparison and provide insights.
 
@@ -82,6 +88,8 @@ Please provide a comprehensive analysis covering:
 3. Strengths and weaknesses of each deck
 4. Recommendations for improvements
 5. Which deck might be stronger in different scenarios
+
+When naming specific cards as recommendations, use only cards legal in ${formatLabel}. Wrap card names in [[double brackets]].
 
 Keep the analysis concise but insightful (300-500 words). Format with clear sections.`;
 
@@ -106,7 +114,7 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
         [
           {
             role: "system",
-            content: "You are an expert Magic: The Gathering deck analyst. Provide clear, actionable insights about deck comparisons."
+            content: `You are an expert Magic: The Gathering deck analyst. Provide clear, actionable insights about deck comparisons. For new card suggestions, only recommend cards legal in ${formatLabel}; use [[double brackets]] for card names.`,
           },
           {
             role: "user",
@@ -128,7 +136,15 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
         }
       );
 
-      const analysis = response.text || "Unable to generate analysis.";
+      let analysis = response.text || "Unable to generate analysis.";
+      try {
+        const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
+        analysis = await stripIllegalBracketCardTokensFromText(analysis, formatLabel, {
+          logPrefix: "/api/deck/compare-ai",
+        });
+      } catch {
+        /* non-fatal */
+      }
 
       return NextResponse.json({ ok: true, analysis });
     } catch (e: any) {
