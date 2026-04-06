@@ -6,18 +6,23 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
+import {
+  getMtgLegalityCronSecrets,
+  isMtgLegalityCronAuthorized,
+} from "@/app/api/_lib/mtg-legality-cron-auth";
 import { runMtgLegalityFullRefresh } from "@/lib/data/mtg-legality-refresh";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
 
 function isAuthorized(req: NextRequest): boolean {
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
-  const vercelId = req.headers.get("x-vercel-id");
+  const secrets = getMtgLegalityCronSecrets();
   const url = new URL(req.url);
-  const queryKey = url.searchParams.get("key") || "";
-  return !!cronKey && (!!vercelId || hdr === cronKey || queryKey === cronKey);
+  return isMtgLegalityCronAuthorized(secrets, {
+    authorizationHeader: req.headers.get("authorization"),
+    xCronKey: req.headers.get("x-cron-key"),
+    queryKey: url.searchParams.get("key"),
+  });
 }
 
 export async function GET(req: NextRequest) {

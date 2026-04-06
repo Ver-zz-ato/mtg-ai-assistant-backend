@@ -14,7 +14,14 @@
 | ops-report/daily | `/api/cron/ops-report/daily` | 06:00 daily |
 | ops-report/weekly | `/api/cron/ops-report/weekly` | 07:00 Sundays |
 | budget-swaps-update | `/api/cron/budget-swaps-update` | 03:00 Sundays |
-| update-banned-lists | `/api/cron/update-banned-lists` | 02:00 Sundays (suggested) |
+| mtg-legality-refresh | `/api/cron/mtg-legality-refresh` | 02:00 Sundays |
+| update-banned-lists | `/api/cron/update-banned-lists` | legacy / manual (optional) |
+
+### Securing `mtg-legality-refresh`
+
+- **Do not** rely on `x-vercel-id` for this route (it is not a secret).
+- **Vercel schedule:** add **`CRON_SECRET`** in the Vercel project env. Vercel sends `Authorization: Bearer <CRON_SECRET>` on cron invocations ([docs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs)). Use the same value as `CRON_KEY` if you want one shared secret.
+- **Manual / scripts / admin cron runner:** `x-cron-key` or `?key=` must match `CRON_KEY`, `CRON_SECRET`, or `RENDER_CRON_SECRET`.
 
 ## Manual run
 
