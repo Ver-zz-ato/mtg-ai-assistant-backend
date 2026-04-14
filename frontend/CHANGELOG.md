@@ -1,5 +1,11 @@
 # Frontend changelog
 
+## 2026-04-14
+
+### Mobile auth — precon clone import
+
+- **`app/api/decks/precons/import/route.ts`:** After cookie **`getUser()`**, accept **`Authorization: Bearer`** and use **`createClientWithBearerToken`** so the Expo app can clone precons without browser cookies (same pattern as **`/api/deck/analyze`**).
+
 ## 2026-04-05
 
 ### Phase 3 — price series: safer `price_snapshots` prefix fallback

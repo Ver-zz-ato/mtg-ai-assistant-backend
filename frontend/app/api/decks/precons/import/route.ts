@@ -1,13 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const {
+    // Auth precedence (match deck/analyze): cookie session first, else Bearer (mobile).
+    const { getServerSupabase } = await import("@/lib/server-supabase");
+    let supabase = await getServerSupabase();
+    let {
       data: { user },
     } = await supabase.auth.getUser();
+
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const {
+          data: { user: bearerUser },
+        } = await bearerSupabase.auth.getUser(bearerToken);
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ ok: false, error: "Authentication required" }, { status: 401 });
