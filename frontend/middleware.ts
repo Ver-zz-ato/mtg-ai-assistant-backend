@@ -46,7 +46,7 @@ try {
 // Static images (logo, tool buttons, deck snapshot) must bypass middleware to load reliably.
 // Exclude /ingest/* (PostHog/Sentry proxy rewrites) — no Supabase session or maintenance checks needed.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|sitemap.xml|sitemap/|ingest|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|sitemap.xml|sitemap/|ingest|\\.well-known(?:/|$)|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)'],
 };
 
 export async function middleware(req: NextRequest) {
