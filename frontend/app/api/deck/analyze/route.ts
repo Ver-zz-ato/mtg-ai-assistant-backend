@@ -1933,6 +1933,23 @@ export async function POST(req: Request) {
     }));
   }
 
+  const validatedAnalysisMeta = validatedAnalysis
+    ? (() => {
+        const validationErrors = Array.isArray(validatedAnalysis.validationErrors)
+          ? validatedAnalysis.validationErrors.filter((e): e is string => typeof e === "string" && e.trim().length > 0)
+          : [];
+        if (validationErrors.length > 0) {
+          return {
+            validated_analysis_ok: false,
+            validated_analysis_code: "ANALYSIS_VALIDATION_FAILED" as const,
+            validated_analysis_message: "Deck analysis failed validation on the server.",
+            validated_analysis_errors: validationErrors,
+          };
+        }
+        return { validated_analysis_ok: true };
+      })()
+    : { validated_analysis_ok: null as null };
+
   return new Response(
     JSON.stringify({
     score,
@@ -1969,6 +1986,7 @@ export async function POST(req: Request) {
         analysis_validation_errors: validatedAnalysis.validationErrors,
         analysis_validation_warnings: validatedAnalysis.validationWarnings,
       } : {}),
+      ...validatedAnalysisMeta,
     }),
     { status: 200, headers: { "content-type": "application/json" } }
   );
