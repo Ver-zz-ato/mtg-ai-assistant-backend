@@ -1335,7 +1335,11 @@ function rebalanceSuggestionsByCategory(list: CardSuggestion[]): CardSuggestion[
   return result;
 }
 
-export async function runDeckAnalyzeCore(req: Request) {
+export async function runDeckAnalyzeCore(
+  req: Request,
+  options?: { includeValidatedNarrative?: boolean }
+) {
+  const includeValidatedNarrative = options?.includeValidatedNarrative !== false;
   // Get user and supabase first (needed throughout the function)
   const { getServerSupabase } = await import('@/lib/server-supabase');
   // 🔒 Auth precedence (MUST NOT change):
@@ -1838,7 +1842,7 @@ export async function runDeckAnalyzeCore(req: Request) {
     validationWarnings?: string[];
   } | null = null;
 
-  if (useGPT && deckAnalysisSystemPrompt) {
+  if (includeValidatedNarrative && useGPT && deckAnalysisSystemPrompt) {
     try {
       const { generateValidatedDeckAnalysis } = await import("@/lib/deck/analysis-with-validation");
       deckAnalyzeRequestId = crypto.randomUUID();
