@@ -895,7 +895,7 @@ async function postFilterSuggestions(
     }
 
     let needsReview = Boolean(suggestion.needs_review);
-    let reasonText = suggestion.reason || "";
+    let reasonText = generateHighQualityReason({ card, suggestion, context });
     const reviewNotes: string[] = [];
 
     const cacheKeyPost = normalizeScryfallCacheName(card.name);
@@ -928,9 +928,12 @@ async function postFilterSuggestions(
         needsReview = true;
         continue;
       }
-      const swapReason = suggestion.reason
-        ? `${suggestion.reason} | Replacing ${card.name} with ${replacement.name} for casual tables.`
-        : `Replacing ${card.name} with ${replacement.name} to stay casual.`;
+      const replacementReason = generateHighQualityReason({
+        card: replacement,
+        suggestion: { ...suggestion, card: replacement.name },
+        context,
+      });
+      const swapReason = `${replacementReason} Replacing ${card.name} with ${replacement.name} for casual tables.`;
       reasonText = swapReason;
       reviewNotes.push(FAST_MANA_REPLACEMENT_NOTE);
       card = replacement;
@@ -1027,6 +1030,99 @@ async function postFilterSuggestions(
 
   const final = Array.from(merged.values());
   return { final, debug: removalReasons, removedCount };
+}
+
+function classifySuggestionRole(suggestion: CardSuggestion): "ramp" | "draw" | "removal" | "land" | "synergy" | "generic" {
+  const source = `${suggestion.slotRole || ""} ${suggestion.category || ""} ${suggestion.requestedType || ""}`.toLowerCase();
+  if (/(ramp|accel|mana rock|mana dork|treasure)/.test(source)) return "ramp";
+  if (/(draw|card advantage|loot|value engine)/.test(source)) return "draw";
+  if (/(removal|interaction|answer|board wipe|sweeper)/.test(source)) return "removal";
+  if (/(land|manabase|mana base|fixing)/.test(source)) return "land";
+  if (/(synergy|engine|payoff|archetype|commander)/.test(source)) return "synergy";
+  return "generic";
+}
+
+function formatManaValue(card: SfCard): string | null {
+  if (typeof card.cmc !== "number" || !Number.isFinite(card.cmc)) return null;
+  const rounded = Math.round(card.cmc * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`;
+}
+
+function timingWindowFromCmc(card: SfCard): string {
+  if (typeof card.cmc !== "number" || !Number.isFinite(card.cmc)) return "your mid game";
+  if (card.cmc <= 2) return "your early turns";
+  if (card.cmc <= 4) return "your mid game";
+  return "the late game";
+}
+
+function speedDescriptor(card: SfCard): string {
+  if (card.is_instant) return "Instant-speed";
+  if (card.is_sorcery) return "Sorcery-speed";
+  return "Low-commitment";
+}
+
+function cleanGenericFragments(input: string | undefined): string {
+  const text = String(input || "").trim();
+  if (!text) return "";
+  return text
+    .replace(/\b(great|solid|good|useful)\s+(card|option|include)\b/gi, "")
+    .replace(/\b(useful in many situations|fits many decks)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function generateHighQualityReason(args: {
+  card: SfCard;
+  suggestion: CardSuggestion;
+  context: InferredDeckContext;
+}): string {
+  const { card, suggestion, context } = args;
+  const role = classifySuggestionRole(suggestion);
+  const mv = formatManaValue(card);
+  const timing = timingWindowFromCmc(card);
+  const commander = context.commander?.trim() || null;
+  const archetype = context.archetype || null;
+  const lowRamp = (context.existingRampCount ?? 0) < 8;
+  const highTopEnd = (context.curveAnalysis?.highEndCount ?? 0) >= 10;
+  const hasTwoDropGap = Array.isArray(context.curveAnalysis?.gaps) && context.curveAnalysis!.gaps.includes(2);
+  const hasThreeDropGap = Array.isArray(context.curveAnalysis?.gaps) && context.curveAnalysis!.gaps.includes(3);
+
+  let primary = "";
+  if (role === "ramp") {
+    const detail = mv ? `${mv}-mana ramp` : "ramp piece";
+    const comparison = mv && Number(mv) <= 2 ? "that comes online earlier than typical 3-4 mana ramp options" : "that smooths your mana development";
+    primary = `${detail} ${comparison}, helping stabilize ${timing}.`;
+  } else if (role === "draw") {
+    const detail = mv ? `${mv}-mana draw effect` : "Card draw effect";
+    const curveNudge = hasThreeDropGap ? "and helps fill your 3-mana gap" : "and supports your resource flow";
+    primary = `${detail} that keeps cards flowing in ${timing} ${curveNudge}.`;
+  } else if (role === "removal") {
+    const detail = mv ? `at ${mv} mana` : "at a lower opportunity cost";
+    primary = `${speedDescriptor(card)} interaction ${detail} that answers threats sooner than higher-cost lines.`;
+  } else if (role === "land") {
+    primary = "Improves mana consistency and helps your curve deploy on time across early and mid turns.";
+  } else if (role === "synergy") {
+    const detail = mv ? `${mv}-mana role-player` : "Role-player";
+    primary = `${detail} that reinforces your core plan with clearer payoff timing.`;
+  } else {
+    const detail = mv ? `${mv}-mana inclusion` : "Flexible inclusion";
+    const comparison = highTopEnd || hasTwoDropGap ? "that smooths your curve pressure" : "that improves consistency in key turns";
+    primary = `${detail} ${comparison} in ${timing}.`;
+  }
+
+  const synergyBits: string[] = [];
+  if (commander) synergyBits.push(`Supports ${commander}'s plan.`);
+  if (archetype === "token_sac") synergyBits.push("Fits your token-sacrifice game plan.");
+  if (archetype === "aristocrats") synergyBits.push("Supports aristocrats-style value loops.");
+  if (lowRamp && role !== "ramp") synergyBits.push("Helps offset your current low ramp support.");
+  if (highTopEnd && (typeof card.cmc === "number" && card.cmc <= 3)) synergyBits.push("Adds earlier play patterns to offset a top-heavy curve.");
+
+  const baseClean = cleanGenericFragments(suggestion.reason);
+  const sentenceTwo = synergyBits[0] || "";
+  const combined = [primary, sentenceTwo].filter(Boolean).join(" ");
+  if (combined.trim().length > 0) return combined.trim();
+  if (baseClean) return baseClean;
+  return "Adds a concrete role upgrade aligned to your current deck context.";
 }
 
 async function findFastManaReplacement(
