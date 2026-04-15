@@ -4,6 +4,7 @@
 
 | Cron | Path | Schedule (UTC) |
 |------|------|----------------|
+| price-snapshot | `/api/cron/price/snapshot` | 02:00 daily |
 | cleanup-price-cache | `/api/cron/cleanup-price-cache` | 04:00 daily |
 | deck-costs | `/api/cron/deck-costs` | 04:30 daily |
 | commander-aggregates | `/api/cron/commander-aggregates` | 05:00 daily |
@@ -42,11 +43,17 @@ npx tsx scripts/run-crons.ts all https://www.manatap.ai
 
 ## Dependencies
 
+- **price-snapshot** → writes full daily `price_snapshots` history (USD/EUR/GBP) from Scryfall bulk data, keeps ~60 days.
 - **deck-costs** → populates `deck_costs` from `deck_cards` + `price_cache`
 - **commander-aggregates** → needs `deck_costs`; populates `commander_aggregates` (deck_count, median_deck_cost, top_cards, etc.). **Commander Intelligence** on commander pages reads from this cache — run this cron after bulk-importing decks to refresh deck counts.
 - **meta-signals** → needs `commander_aggregates`; populates `meta_signals` (trending, most-played, budget commanders)
 
-Run in order: deck-costs → commander-aggregates → meta-signals → top-cards.
+Run in order: price-snapshot → deck-costs → commander-aggregates → meta-signals → top-cards.
+
+## Snapshot source of truth
+
+- The production daily history source is the website cron route **`/api/cron/price/snapshot`** (Vercel cron).
+- Legacy external schedulers may still exist; keep this route as canonical for historical trackers.
 
 ## Budget Swaps (weekly)
 

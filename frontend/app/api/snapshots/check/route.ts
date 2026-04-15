@@ -29,6 +29,8 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
+    const daysParam = Number(new URL(req.url).searchParams.get("days") || 7);
+    const lookbackDays = Number.isFinite(daysParam) ? Math.min(Math.max(daysParam, 1), 60) : 7;
     
     // Get all unique snapshot dates
     const { data: allSnapshots, error } = await supabase
@@ -83,6 +85,48 @@ export async function GET(req: NextRequest) {
       return diff <= 7 * 24 * 60 * 60 * 1000; // Within 7 days
     });
 
+    const latestDate = newestDate ?? new Date().toISOString().slice(0, 10);
+    const recentDateCutoff = new Date(new Date(latestDate).getTime() - (lookbackDays - 1) * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    // Expected coverage baselines
+    const { count: expectedFromPriceCache } = await supabase
+      .from('price_cache')
+      .select('card_name', { count: 'exact', head: true });
+    const { count: expectedFromScryfallCache } = await supabase
+      .from('scryfall_cache')
+      .select('name', { count: 'exact', head: true });
+
+    // Recent per-day row counts (currency + date).
+    const { data: recentRows } = await supabase
+      .from('price_snapshots')
+      .select('snapshot_date, currency')
+      .gte('snapshot_date', recentDateCutoff)
+      .order('snapshot_date', { ascending: false })
+      .limit(200000);
+
+    const rowsByDayCurrency = new Map<string, number>();
+    for (const row of (recentRows ?? []) as Array<{ snapshot_date: string; currency: string }>) {
+      const k = `${String(row.snapshot_date)}|${String(row.currency || 'USD').toUpperCase()}`;
+      rowsByDayCurrency.set(k, (rowsByDayCurrency.get(k) ?? 0) + 1);
+    }
+
+    const recentCoverage = Array.from(rowsByDayCurrency.entries())
+      .map(([k, rows]) => {
+        const [snapshot_date, currency] = k.split('|');
+        return {
+          snapshot_date,
+          currency,
+          rows,
+          pct_of_price_cache: expectedFromPriceCache ? Number(((rows / expectedFromPriceCache) * 100).toFixed(2)) : null,
+          pct_of_scryfall_cache: expectedFromScryfallCache ? Number(((rows / expectedFromScryfallCache) * 100).toFixed(2)) : null,
+        };
+      })
+      .sort((a, b) => (a.snapshot_date === b.snapshot_date
+        ? a.currency.localeCompare(b.currency)
+        : b.snapshot_date.localeCompare(a.snapshot_date)));
+
     return NextResponse.json({
       ok: true,
       summary: {
@@ -99,15 +143,21 @@ export async function GET(req: NextRequest) {
         canShow30d60d: has30dData && has60dData,
         currencies: Object.fromEntries(
           Array.from(datesByCurrency.entries()).map(([curr, dates]) => [curr, dates.size])
-        )
+        ),
       },
+      expectedCoverage: {
+        fromPriceCache: expectedFromPriceCache ?? null,
+        fromScryfallCache: expectedFromScryfallCache ?? null,
+      },
+      recentCoverageLookbackDays: lookbackDays,
+      recentCoverage,
       recentDates: dateArray.slice(-10).reverse(), // Last 10 dates
       explanation: {
         whatIsSnapshot: "A price snapshot is a daily record of card prices. Each day, prices are captured and stored.",
         whyOnlyOnePoint: daysOfData === 1 
           ? "You only have 1 snapshot date, which means snapshots just started. You need 30+ days of snapshots to see 30d/60d history."
           : `You have ${daysOfData} days of snapshot data. ${has30dData && has60dData ? '30d/60d data should be available.' : 'Need more days for 30d/60d history.'}`,
-        howToGetMore: "Snapshots are created automatically by daily cron jobs. Each day a new snapshot is added, you'll get more history points."
+        howToGetMore: "Snapshots are created automatically by daily cron jobs. Each day a new full snapshot should be added."
       }
     });
   } catch (e: any) {

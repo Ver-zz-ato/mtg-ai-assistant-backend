@@ -2,9 +2,11 @@
   "functions": {
     "app/api/admin/ai-test/self-optimize-proposal/route.ts": { "maxDuration": 800 },
     "app/api/admin/ai-test/batch/route.ts": { "maxDuration": 600 },
-    "app/api/cron/mtg-legality-refresh/route.ts": { "maxDuration": 800 }
+    "app/api/cron/mtg-legality-refresh/route.ts": { "maxDuration": 800 },
+    "app/api/cron/price/snapshot/route.ts": { "maxDuration": 800 }
   },
   "crons": [
+    { "path": "/api/cron/price/snapshot", "schedule": "0 2 * * *" },
     { "path": "/api/cron/cleanup-price-cache", "schedule": "0 4 * * *" },
     { "path": "/api/cron/deck-costs", "schedule": "30 4 * * *" },
     { "path": "/api/cron/commander-aggregates", "schedule": "0 5 * * *" },

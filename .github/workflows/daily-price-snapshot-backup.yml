@@ -1,0 +1,27 @@
+name: Daily Price Snapshot (Backup)
+
+on:
+  schedule:
+    - cron: "10 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger website snapshot cron route
+        run: |
+          if [ -z "${{ secrets.BASE_URL }}" ]; then
+            echo "BASE_URL missing (expected e.g. https://www.manatap.ai)" >&2
+            exit 1
+          fi
+          if [ -z "${{ secrets.CRON_KEY }}" ]; then
+            echo "CRON_KEY missing" >&2
+            exit 1
+          fi
+          URL="${{ secrets.BASE_URL }}/api/cron/price/snapshot"
+          echo "Calling $URL"
+          curl -fsS -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "Content-Type: application/json" \
+            "$URL"
