@@ -1335,7 +1335,7 @@ function rebalanceSuggestionsByCategory(list: CardSuggestion[]): CardSuggestion[
   return result;
 }
 
-export async function POST(req: Request) {
+export async function runDeckAnalyzeCore(req: Request) {
   // Get user and supabase first (needed throughout the function)
   const { getServerSupabase } = await import('@/lib/server-supabase');
   // 🔒 Auth precedence (MUST NOT change):
@@ -1990,4 +1990,8 @@ export async function POST(req: Request) {
     }),
     { status: 200, headers: { "content-type": "application/json" } }
   );
+}
+
+export async function POST(req: Request) {
+  return runDeckAnalyzeCore(req);
 }
