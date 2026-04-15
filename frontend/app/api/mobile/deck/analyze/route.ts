@@ -31,11 +31,31 @@ export async function POST(req: Request) {
     } catch {
       requestMode = "unknown";
     }
+    console.log("[mobile/deck/analyze][debug] before core", {
+      requestMode,
+    });
     const coreRes = await runDeckAnalyzeCore(req, {
       includeValidatedNarrative: false,
     });
     const status = coreRes.status;
     const body = (await coreRes.json().catch(() => ({}))) as Record<string, unknown>;
+    const coreKeys = Object.keys(body);
+    const coreAnalysisValidationErrors = parseStringArray(body.analysis_validation_errors);
+    const coreAnalysisValidationWarnings = parseStringArray(body.analysis_validation_warnings);
+    console.log("[mobile/deck/analyze][debug] after core", {
+      status,
+      coreOk: coreRes.ok,
+      keyCount: coreKeys.length,
+      keys: coreKeys,
+      hasAnalysis: typeof body.analysis === "string" || body.analysis != null,
+      hasAnalysisJson: body.analysis_json != null,
+      hasAnalysisValidationErrors: Array.isArray(body.analysis_validation_errors),
+      hasValidatedAnalysisOk: Object.prototype.hasOwnProperty.call(body, "validated_analysis_ok"),
+      hasValidatedAnalysisCode: Object.prototype.hasOwnProperty.call(body, "validated_analysis_code"),
+      analysisValidationErrorCount: coreAnalysisValidationErrors.length,
+      analysisValidationErrorSample: coreAnalysisValidationErrors[0]?.slice(0, 200),
+      analysisValidationWarningCount: coreAnalysisValidationWarnings.length,
+    });
 
     if (!coreRes.ok) {
       const code = pickTrimmedString(body.code) ?? `HTTP_${status}`;
@@ -92,11 +112,26 @@ export async function POST(req: Request) {
         userId: null,
         isPro: false,
       });
+      console.log("[mobile/deck/analyze][debug] after explainer", {
+        hasExplainerSummary: typeof analysis?.summary === "string" && analysis.summary.trim().length > 0,
+        hasExplainerArchetype:
+          typeof analysis?.archetype === "string" && analysis.archetype.trim().length > 0,
+        hasExplainerGamePlan:
+          typeof analysis?.game_plan === "string" && analysis.game_plan.trim().length > 0,
+        suggestionExplanationCount: Array.isArray(analysis?.suggestion_explanations)
+          ? analysis.suggestion_explanations.length
+          : 0,
+      });
     } catch {
       partial = true;
       code = "ANALYSIS_EXPLANATION_UNAVAILABLE";
       message = "Detailed AI explanation unavailable for this run.";
       analysis = null;
+      console.log("[mobile/deck/analyze][debug] explainer threw", {
+        partial,
+        code,
+        message,
+      });
     }
 
     console.log("[mobile/deck/analyze]", {
@@ -108,6 +143,15 @@ export async function POST(req: Request) {
       validationErrorCount: validationErrors.length,
       validationErrorSample: validationErrors[0]?.slice(0, 200),
       analysisNulled: analysis === null,
+    });
+    console.log("[mobile/deck/analyze][debug] final response", {
+      ok: true,
+      partial,
+      code,
+      message,
+      hasAnalysis: analysis !== null,
+      validationErrorCount: validationErrors.length,
+      validationErrorSample: validationErrors[0]?.slice(0, 200),
     });
     return NextResponse.json(
       {
