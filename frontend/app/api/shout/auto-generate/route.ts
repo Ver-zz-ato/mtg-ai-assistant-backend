@@ -60,6 +60,9 @@ const messageTemplates = [
   "edh night tomorrow, can't wait",
   "my collection is getting out of hand",
   "just discovered this site, pretty cool",
+  "first time here, seems cool",
+  "new around here, this is actually helpful",
+  "just found this shoutbox, vibes are good",
   "the ai suggestions are actually decent",
   "commander damage wins feel so good",
   "gg everyone",
@@ -286,6 +289,7 @@ declare global {
 }
 
 const MIN_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours (1–3 messages per run)
+const RECENT_TEXT_WINDOW = 30;
 
 let __lastId = 0;
 function nextIdNum(): number {
@@ -296,6 +300,25 @@ function nextIdNum(): number {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function normalizeMessageText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isNearDuplicateMessage(text: string, recentNormalized: string[]): boolean {
+  const normalized = normalizeMessageText(text);
+  if (!normalized) return true;
+  return recentNormalized.some(existing => {
+    if (existing === normalized) return true;
+    if (normalized.length >= 24 && existing.includes(normalized)) return true;
+    if (existing.length >= 24 && normalized.includes(existing)) return true;
+    return false;
+  });
 }
 
 async function handleGenerate(req: NextRequest) {
@@ -364,6 +387,40 @@ async function handleGenerate(req: NextRequest) {
     }];
     console.log("🗣️ Shoutbox: Using template fallback");
   }
+
+  // Filter out repeats against very recent history and within this generated batch
+  const recentNormalized = history
+    .slice(-RECENT_TEXT_WINDOW)
+    .map(m => normalizeMessageText(m.text))
+    .filter(Boolean);
+
+  const uniqueMessages: GeneratedMessage[] = [];
+  for (const msg of messages) {
+    if (isNearDuplicateMessage(msg.text, recentNormalized)) {
+      continue;
+    }
+    uniqueMessages.push(msg);
+    recentNormalized.push(normalizeMessageText(msg.text));
+  }
+
+  // Ensure we still have at least one candidate after de-dup filtering
+  if (uniqueMessages.length === 0) {
+    usedAI = false;
+    for (let attempts = 0; attempts < 8; attempts++) {
+      const fallbackMessage: GeneratedMessage = {
+        user: generateTemplateName(),
+        text: generateTemplateMessage(),
+        delay_seconds: 0,
+      };
+      if (isNearDuplicateMessage(fallbackMessage.text, recentNormalized)) {
+        continue;
+      }
+      uniqueMessages.push(fallbackMessage);
+      break;
+    }
+  }
+
+  messages = uniqueMessages;
   
   // Post messages with staggered delays
   const posted: Array<{ user: string; text: string }> = [];
@@ -372,10 +429,13 @@ async function handleGenerate(req: NextRequest) {
   const supabase = await createClient();
   
   // Check for banned usernames
-  const { data: bannedUsers } = await supabase
-    .from('banned_shoutbox_users')
-    .select('user_name')
-    .in('user_name', messages.map(m => m.user));
+  const candidateUsers = [...new Set(messages.map(m => m.user))];
+  const { data: bannedUsers } = candidateUsers.length > 0
+    ? await supabase
+      .from('banned_shoutbox_users')
+      .select('user_name')
+      .in('user_name', candidateUsers)
+    : { data: [] as Array<{ user_name: string }> };
   
   const bannedSet = new Set((bannedUsers || []).map(b => b.user_name.toLowerCase()));
   

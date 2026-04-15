@@ -47,13 +47,13 @@ export async function GET() {
     console.error('Failed to load shoutbox messages from database:', err);
   }
   
-  // Get in-memory messages (includes seed messages and recent posts)
+  // Get in-memory messages (runtime-only posts not yet reflected in DB)
   const memoryHistory = getHistory();
   
-  // Combine and deduplicate (prefer database messages for real ones, keep seed messages from memory)
+  // Combine and deduplicate (prefer database messages for persisted rows)
   const messageMap = new Map<number, Shout>();
   
-  // Add seed messages (negative IDs) from memory - only if within retention window
+  // Add runtime-only in-memory messages (negative IDs) within retention window
   memoryHistory.filter(msg => msg.id < 0 && msg.ts >= cutoffTime).forEach(msg => {
     messageMap.set(msg.id, msg);
   });
