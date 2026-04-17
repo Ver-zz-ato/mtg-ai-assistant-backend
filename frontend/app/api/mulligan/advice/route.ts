@@ -38,6 +38,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const bodyObj = body as Record<string, unknown>;
+  if (typeof bodyObj.source_page === "string" && typeof bodyObj.sourcePage !== "string") {
+    bodyObj.sourcePage = bodyObj.source_page;
+  }
+
   const { resolveAiUsageSourceForRequest, AI_USAGE_SOURCE_MANATAP_APP } = await import("@/lib/ai/manatap-client-origin");
   const aiUsageSource = resolveAiUsageSourceForRequest(req, body, null);
 

@@ -1,5 +1,13 @@
 # Frontend changelog
 
+## 2026-04-17
+
+### Mobile AI usage attribution (`ai_usage` / admin ai-usage-app)
+
+- **`app/api/mobile/deck/analyze/route.ts`:** Read JSON **once** and pass **`parsedBody`** into **`runDeckAnalyzeCore`**. A second **`req.json()`** after **`req.clone().json()`** could yield an empty body, dropping **`usageSource` / `sourcePage`** so **`source`/`source_page`** never showed as app-tagged.
+- **`app/api/deck/analyze/route.ts`:** **`runDeckAnalyzeCore`** accepts optional **`parsedBody`**; accept **`source_page`** as alias for **`sourcePage`**.
+- **`app/api/mulligan/advice/route.ts`:** Map **`source_page` → `sourcePage`** before Zod parse so `app_mulligan_advice` is not lost.
+
 ## 2026-04-14
 
 ### Mobile auth — precon clone import

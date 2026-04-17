@@ -1433,7 +1433,7 @@ function rebalanceSuggestionsByCategory(list: CardSuggestion[]): CardSuggestion[
 
 export async function runDeckAnalyzeCore(
   req: Request,
-  options?: { includeValidatedNarrative?: boolean }
+  options?: { includeValidatedNarrative?: boolean; /** When set, use this instead of reading req.json() (mobile wrapper must not double-read the body). */ parsedBody?: Record<string, unknown> }
 ) {
   const includeValidatedNarrative = options?.includeValidatedNarrative !== false;
   // Get user and supabase first (needed throughout the function)
@@ -1547,7 +1547,11 @@ export async function runDeckAnalyzeCore(
     );
   }
 
-  const body = (await req.json().catch(() => ({}))) as {
+  const rawBody =
+    options?.parsedBody != null
+      ? options.parsedBody
+      : await req.json().catch(() => ({}));
+  const body = rawBody as {
     deckText?: string;
     deckId?: string;
     format?: "Commander" | "Modern" | "Pioneer";
@@ -1562,11 +1566,15 @@ export async function runDeckAnalyzeCore(
     forceModel?: string;
     /** Where the analyze was triggered (e.g. deck_page_analyze, homepage, build_assistant) */
     sourcePage?: string;
+    source_page?: string;
     /** For AI test cost reporting - links ai_usage to eval_runs */
     eval_run_id?: string;
     /** Admin AI test: force tier overlay (guest/free/pro) */
     forceTier?: string;
   };
+  if (!body.sourcePage?.trim() && typeof body.source_page === "string" && body.source_page.trim()) {
+    body.sourcePage = body.source_page.trim();
+  }
 
   const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
   const deckAnalyzeUsageSource = resolveAiUsageSourceForRequest(

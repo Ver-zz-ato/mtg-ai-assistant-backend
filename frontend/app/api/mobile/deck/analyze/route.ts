@@ -20,14 +20,16 @@ export async function POST(req: Request) {
     let requestMode: "deckId" | "deckText" | "unknown" = "unknown";
     let requestCommander: string | null = null;
     let requestFormat: string | null = null;
+    /** Single read: runDeckAnalyzeCore also needs this JSON for usageSource/sourcePage; a second req.json() can be empty. */
+    let parsedBody: Record<string, unknown> = {};
     try {
-      const payload = (await req.clone().json().catch(() => ({}))) as Record<string, unknown>;
-      const hasDeckId = typeof payload.deckId === "string" && payload.deckId.trim().length > 0;
+      parsedBody = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+      const hasDeckId = typeof parsedBody.deckId === "string" && parsedBody.deckId.trim().length > 0;
       const hasDeckText =
-        typeof payload.deckText === "string" && payload.deckText.trim().length > 0;
+        typeof parsedBody.deckText === "string" && parsedBody.deckText.trim().length > 0;
       requestMode = hasDeckId ? "deckId" : hasDeckText ? "deckText" : "unknown";
-      requestCommander = pickTrimmedString(payload.commander);
-      requestFormat = pickTrimmedString(payload.format);
+      requestCommander = pickTrimmedString(parsedBody.commander);
+      requestFormat = pickTrimmedString(parsedBody.format);
     } catch {
       requestMode = "unknown";
     }
@@ -36,6 +38,7 @@ export async function POST(req: Request) {
     });
     const coreRes = await runDeckAnalyzeCore(req, {
       includeValidatedNarrative: false,
+      parsedBody,
     });
     const status = coreRes.status;
     const body = (await coreRes.json().catch(() => ({}))) as Record<string, unknown>;
