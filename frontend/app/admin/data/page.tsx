@@ -154,6 +154,7 @@ export default function DataPage(){
             <div className="font-semibold">🤖 Automated schedule (GitHub Actions)</div>
             <div>• Job 2 (prices): daily ~3:00 AM UTC — see <code className="bg-black/40 px-1 rounded">daily-price-update.yml</code></div>
             <div>• Job 3 (snapshots): daily ~2:00 AM UTC — <code className="bg-black/40 px-1 rounded">price-snapshot.yml</code> (<code className="bg-black/40 px-1 rounded">CRON_URL</code>)</div>
+            <div>• Delegation: frontend cron can forward Job 3 to <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> (e.g. <code className="bg-black/40 px-1 rounded">https://mtg-bulk-jobs.onrender.com</code>)</div>
             <div>• Job 1 (bulk Scryfall): weekly Sunday ~2:00 AM UTC on production — <code className="bg-black/40 px-1 rounded">weekly-scryfall-import.yml</code></div>
             <div>• RUN NOW below hits your <strong>local</strong> server (dev / manual catch-up)</div>
           </div>
@@ -365,6 +366,7 @@ export default function DataPage(){
               <div className="font-semibold text-blue-300 mt-2">Runtime & Schedule:</div>
               <div>• Takes several minutes (downloads Scryfall bulk <code className="bg-black/40 px-1 rounded">default_cards</code>, median prices per name → <code className="bg-black/40 px-1 rounded">price_snapshots</code>)</div>
               <div>• Production: same pipeline — <code className="bg-black/40 px-1 rounded">CRON_URL</code> should hit <code className="bg-black/40 px-1 rounded">/api/cron/price/snapshot</code> (daily ~2:00 AM UTC, <code className="bg-black/40 px-1 rounded">price-snapshot.yml</code>)</div>
+              <div>• Recommended prod config: set <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> on Vercel to your Render service (e.g. <code className="bg-black/40 px-1 rounded">https://mtg-bulk-jobs.onrender.com</code>) so cron delegates long runs safely.</div>
               <div>• Local button: <code className="bg-black/40 px-1 rounded">POST /api/bulk-jobs/price-snapshot</code></div>
               
               <div className="font-semibold text-blue-300 mt-2">Dependencies:</div>

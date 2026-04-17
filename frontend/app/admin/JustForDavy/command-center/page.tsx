@@ -117,7 +117,7 @@ export default function CommandCenterPage() {
         fetch('/api/admin/ai-usage/summary?days=7&limit=5000', { cache: 'no-store' }),
         fetch(`/api/admin/pro-gate-analytics?range=${proGateRange}`, { cache: 'no-store' }),
         fetch(`/api/admin/mulligan/analytics?days=${mulliganDays}`, { cache: 'no-store' }),
-        fetch('/api/admin/config?key=job:last:deck-costs&key=job:last:commander-aggregates&key=job:last:meta-signals&key=job:last:top-cards&key=job:last:budget-swaps-update', { cache: 'no-store' }),
+        fetch('/api/admin/config?key=job:last:deck-costs&key=job:last:commander-aggregates&key=job:last:meta-signals&key=job:last:top-cards&key=job:last:budget-swaps-update&key=job:last:price_snapshot_bulk', { cache: 'no-store' }),
         fetch('/api/admin/ops-reports/list?limit=5', { cache: 'no-store' }),
       ]);
 
@@ -574,6 +574,40 @@ export default function CommandCenterPage() {
               </button>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Price snapshot automation (delegated) */}
+      <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">Price Snapshot Automation</h2>
+            <p className="text-[11px] text-neutral-500 mt-0.5">
+              Daily snapshot cron (`/api/cron/price/snapshot`) should delegate to your Render bulk jobs service via `BULK_JOBS_URL`.
+            </p>
+          </div>
+          <Link href="/admin/data" className="text-xs text-blue-400 hover:text-blue-300">
+            Data jobs page →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="p-3 rounded bg-neutral-800/60 border border-neutral-700">
+            <div className="text-neutral-400">Last snapshot run</div>
+            <div className="font-mono text-sm mt-1">
+              {cronLastRun['job:last:price_snapshot_bulk']
+                ? new Date(cronLastRun['job:last:price_snapshot_bulk']).toLocaleString()
+                : '—'}
+            </div>
+          </div>
+          <div className="p-3 rounded bg-neutral-800/60 border border-neutral-700">
+            <div className="text-neutral-400">Expected env wiring</div>
+            <div className="mt-1 text-neutral-300">
+              Vercel: <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL=https://mtg-bulk-jobs.onrender.com</code>
+            </div>
+            <div className="text-neutral-500 mt-1">
+              Keep <code className="bg-black/40 px-1 rounded">CRON_KEY</code> identical on Vercel + Render.
+            </div>
+          </div>
         </div>
       </section>
 
