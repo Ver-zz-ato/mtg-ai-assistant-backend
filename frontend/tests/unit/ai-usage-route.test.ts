@@ -23,6 +23,7 @@ const ROUTES_FROM_CALLLM = [
   "deck_analyze_slot_planning",
   "deck_analyze_slot_candidates",
   "deck_compare",
+  "deck_compare_mobile",
   "deck_scan",
   "swap_suggestions",
   "swap_why",

@@ -14,6 +14,11 @@ export const ROUTE_TO_PAGE: Record<string, { page: string; description: string; 
   health_suggestions: { page: "Deck Health", description: "Deck health suggestions", apiPath: "/api/deck/health-suggestions" },
   deck_scan: { page: "Deck Health / Scan", description: "Deck health suggestions (AI deck scan)", apiPath: "/api/deck/health-suggestions" },
   deck_compare: { page: "Deck Compare", description: "Compare two decks", apiPath: "/api/deck/compare-ai" },
+  deck_compare_mobile: {
+    page: "Deck Compare (mobile)",
+    description: "Structured JSON compare for ManaTap app",
+    apiPath: "/api/mobile/deck/compare-ai",
+  },
   reprint_risk: { page: "Reprint Risk", description: "Card reprint risk analysis", apiPath: "/api/cards/reprint-risk" },
   debug_ping: { page: "Admin AI Health", description: "Admin probe/ping", apiPath: "/api/admin/ai/health" },
   "/api/chat/stream": { page: "Chat", description: "Streaming chat API", apiPath: "/api/chat/stream" },
@@ -24,6 +29,11 @@ export const ROUTE_TO_PAGE: Record<string, { page: string; description: string; 
   "/api/deck/suggestion-why": { page: "Suggestion Why", description: "Suggestion explanation API", apiPath: "/api/deck/suggestion-why" },
   "/api/deck/health-suggestions": { page: "Deck Health", description: "Health suggestions API", apiPath: "/api/deck/health-suggestions" },
   "/api/deck/compare-ai": { page: "Deck Compare", description: "Deck compare API", apiPath: "/api/deck/compare-ai" },
+  "/api/mobile/deck/compare-ai": {
+    page: "Deck Compare (mobile)",
+    description: "Structured mobile deck compare AI",
+    apiPath: "/api/mobile/deck/compare-ai",
+  },
   "/api/cards/reprint-risk": { page: "Reprint Risk", description: "Reprint risk API", apiPath: "/api/cards/reprint-risk" },
   "/api/admin/ai/health": { page: "Admin Health", description: "Admin AI health probe", apiPath: "/api/admin/ai/health" },
 };

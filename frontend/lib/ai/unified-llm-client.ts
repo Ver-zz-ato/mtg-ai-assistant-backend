@@ -60,6 +60,8 @@ export type LLMConfig = {
   eval_run_id?: string | null;
   /** ai_test, ai_test_judge, production, etc. */
   source?: string | null;
+  /** Chat completions only: request a JSON object (OpenAI `response_format`). */
+  jsonResponse?: boolean;
 };
 
 export type LLMResponse = {
@@ -79,6 +81,7 @@ const DEFAULT_TIMEOUTS: Record<string, number> = {
   'deck_scan': 300000,   // 5 minutes - AI Deck Scan (complex deck analysis needs more time)
   'health_report': 120000, // 2 minutes - Pro Health Report (full deck analysis)
   'deck_compare': 300000, // 5 minutes - deck comparison analysis (complex analysis)
+  'deck_compare_mobile': 300000, // mobile deck compare — structured JSON
   'swap_suggestions': 300000, // 5 minutes - interactive suggestions
   'swap_why': 300000,     // 5 minutes - interactive explanation
   'reprint_risk': 300000, // 5 minutes - interactive check
@@ -133,6 +136,7 @@ export async function callLLM(
       messages: messages,
       ...(config.maxTokens ? { max_completion_tokens: config.maxTokens } : {}),
       ...(config.stop?.length ? { stop: config.stop } : {}),
+      ...(config.jsonResponse ? { response_format: { type: "json_object" as const } } : {}),
     });
   }
 
@@ -157,6 +161,7 @@ export async function callLLM(
         messages: messages,
         ...(config.maxTokens ? { max_completion_tokens: config.maxTokens } : {}),
         ...(config.stop?.length ? { stop: config.stop } : {}),
+        ...(config.jsonResponse ? { response_format: { type: "json_object" as const } } : {}),
       });
     }
 
