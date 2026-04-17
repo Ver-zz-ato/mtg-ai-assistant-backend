@@ -348,18 +348,32 @@ async function runPriceSnapshot() {
     
     const today = new Date().toISOString().split('T')[0];
     
-    // Get all cards with prices from price_cache (using bulk import schema)
-    const { data: cards, error: fetchError } = await supabase
-      .from('price_cache')
-      .select('card_name, usd_price, eur_price')
-      .not('usd_price', 'is', null);
-    
-    if (fetchError) {
-      throw new Error(`Failed to fetch prices: ${fetchError.message}`);
+    // Get all cards with prices from price_cache (using bulk import schema).
+    // IMPORTANT: paginate explicitly so we do not silently cap at ~1000 rows.
+    const cards = [];
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    while (true) {
+      const { data: page, error: fetchError } = await supabase
+        .from('price_cache')
+        .select('card_name, usd_price, eur_price')
+        .or('usd_price.not.is.null,eur_price.not.is.null')
+        .order('card_name', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (fetchError) {
+        throw new Error(`Failed to fetch prices: ${fetchError.message}`);
+      }
+      if (!page || page.length === 0) break;
+      cards.push(...page);
+      if (page.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+      if (offset % 10000 === 0) {
+        console.log(`📥 Loaded ${offset} price_cache rows for snapshot so far...`);
+      }
     }
     
-    console.log(`📊 Creating snapshots for ${cards.length} cards...`);
-    console.log(`💡 This will create price history for ALL ${cards.length} cards in price_cache`);
+    console.log(`📊 Creating snapshots for ${cards.length} cards with at least one price (USD or EUR)...`);
+    console.log(`💡 This will create price history for every priced card in price_cache`);
     
     // Fetch FX for GBP conversion
     let usd_gbp = 0.78;

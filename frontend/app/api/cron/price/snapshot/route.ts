@@ -19,13 +19,57 @@ function isAdmin(user: any): boolean {
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
+function getCronKey(): string {
+  return process.env.CRON_KEY || process.env.CRON_SECRET || process.env.RENDER_CRON_SECRET || "";
+}
+
+function getBulkJobsBaseUrl(): string {
+  return (
+    process.env.BULK_JOBS_URL ||
+    process.env.BULK_JOBS_BASE_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    ""
+  )
+    .trim()
+    .replace(/\/+$/, "");
+}
+
+async function triggerExternalBulkSnapshot(cronKey: string): Promise<{ ok: true; delegated: true; url: string } | null> {
+  const base = getBulkJobsBaseUrl();
+  if (!base) return null;
+  try {
+    const endpoint = `${base}/price-snapshot`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "x-cron-key": cronKey,
+        "Content-Type": "application/json",
+      },
+    });
+    const body = await res.text().catch(() => "");
+    if (!res.ok) {
+      throw new Error(`external_snapshot_failed:${res.status}:${body.slice(0, 300)}`);
+    }
+    return { ok: true, delegated: true, url: endpoint };
+  } catch (e) {
+    console.warn("[cron/price/snapshot] external delegation failed, falling back to in-process run", e);
+    return null;
+  }
+}
+
 async function runSnapshot(req: NextRequest) {
   try {
     const isVercelCron = !!req.headers.get("x-vercel-cron");
     const key = req.nextUrl.searchParams.get("key") || "";
-    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
+    const cronKey = getCronKey();
     if (!(isVercelCron || (cronKey && key && key === cronKey))) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+
+    // Preferred production path: hand off to the long-running bulk-jobs server.
+    const delegated = await triggerExternalBulkSnapshot(cronKey);
+    if (delegated) {
+      return NextResponse.json({ ok: true, mode: "delegated", ...delegated });
     }
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -63,7 +107,7 @@ export async function POST(req: NextRequest) {
   console.log("📈 Price snapshot endpoint called");
 
   try {
-    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
+    const cronKey = getCronKey();
     const hdr = req.headers.get("x-cron-key") || "";
     console.log("🔑 Auth check - cronKey exists:", !!cronKey, "header exists:", !!hdr);
 
@@ -91,6 +135,12 @@ export async function POST(req: NextRequest) {
     if (!useAdmin) {
       console.log("❌ Authorization failed");
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+
+    // Preferred production path: hand off to the long-running bulk-jobs server.
+    const delegated = await triggerExternalBulkSnapshot(cronKey);
+    if (delegated) {
+      return NextResponse.json({ ok: true, mode: "delegated", ...delegated });
     }
 
     console.log("🚀 Authorization successful, starting price snapshot (Scryfall bulk)...");

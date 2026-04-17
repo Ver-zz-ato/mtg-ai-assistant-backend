@@ -17,8 +17,14 @@ jobs:
           fi
           URL="${{ secrets.CRON_URL }}"
           KEY="${{ secrets.CRON_KEY }}"
+          echo "Calling $URL (POST)"
           if [ -n "$KEY" ]; then
-            if echo "$URL" | grep -q '?' ; then URL="$URL&key=$KEY"; else URL="$URL?key=$KEY"; fi
+            curl -fsS -X POST \
+              -H "x-cron-key: $KEY" \
+              -H "Content-Type: application/json" \
+              "$URL"
+          else
+            curl -fsS -X POST \
+              -H "Content-Type: application/json" \
+              "$URL"
           fi
-          echo "Calling $URL"
-          curl -fsSL "$URL"
