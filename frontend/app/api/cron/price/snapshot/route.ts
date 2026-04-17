@@ -34,7 +34,7 @@ function getBulkJobsBaseUrl(): string {
     .replace(/\/+$/, "");
 }
 
-async function triggerExternalBulkSnapshot(cronKey: string): Promise<{ ok: true; delegated: true; url: string } | null> {
+async function triggerExternalBulkSnapshot(cronKey: string): Promise<{ delegated: true; url: string } | null> {
   const base = getBulkJobsBaseUrl();
   if (!base) return null;
   try {
@@ -50,7 +50,7 @@ async function triggerExternalBulkSnapshot(cronKey: string): Promise<{ ok: true;
     if (!res.ok) {
       throw new Error(`external_snapshot_failed:${res.status}:${body.slice(0, 300)}`);
     }
-    return { ok: true, delegated: true, url: endpoint };
+    return { delegated: true, url: endpoint };
   } catch (e) {
     console.warn("[cron/price/snapshot] external delegation failed, falling back to in-process run", e);
     return null;
