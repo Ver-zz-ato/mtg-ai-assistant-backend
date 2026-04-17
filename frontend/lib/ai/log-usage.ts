@@ -8,10 +8,29 @@
  */
 
 import { getServerSupabase } from '@/lib/server-supabase';
+import { getAdmin } from '@/lib/supa';
 import { costUSD, PRICING_VERSION } from '@/lib/ai/pricing';
 
 const PREVIEW_MAX = 1000;
 const DEV = process.env.NODE_ENV !== 'production';
+
+/**
+ * ai_usage has RLS with policy (auth.uid() = user_id). A cookie/anon client
+ * therefore silently blocks inserts for:
+ *   - guest calls (user_id NULL → auth.uid() NULL, WITH CHECK fails)
+ *   - mobile calls authed via Authorization: Bearer (no cookie → auth.uid() NULL)
+ * Writes must go through the service-role client so analytics are recorded
+ * regardless of how the caller authenticated. Falls back to the cookie client
+ * if the service key is unavailable (e.g. misconfigured env), preserving prior
+ * behaviour rather than throwing from a best-effort logger.
+ */
+function getAiUsageWriter() {
+  try {
+    return getAdmin();
+  } catch {
+    return null;
+  }
+}
 
 /** Normalize route for ai_usage insert; never null. */
 export function getRouteForInsert(payload: { route?: string | null }): string {
@@ -79,7 +98,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       console.warn("[ai_usage] missing route", { model: payload.model, hasRoute: !!payload.route });
     }
     const route = getRouteForInsert(payload);
-    const supabase = await getServerSupabase();
+    const supabase = getAiUsageWriter() ?? (await getServerSupabase());
     const cost = typeof payload.cost_usd === 'number' && payload.cost_usd >= 0
       ? payload.cost_usd
       : costUSD(payload.model, payload.input_tokens || 0, payload.output_tokens || 0);
@@ -217,9 +236,11 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
     }
     if (!inserted) {
       const { error: e3 } = await supabase.from('ai_usage').insert(minimal);
-      if (e3 && DEV) console.warn('[recordAiUsage] insert fallback failed:', e3.message);
+      if (e3) {
+        console.warn('[recordAiUsage] insert fallback failed:', e3.message);
+      }
     }
   } catch (e) {
-    if (DEV) console.warn('[recordAiUsage]', e);
+    console.warn('[recordAiUsage]', e);
   }
 }

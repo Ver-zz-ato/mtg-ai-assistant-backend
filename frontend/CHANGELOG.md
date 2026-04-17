@@ -2,6 +2,15 @@
 
 ## 2026-04-17
 
+### `ai_usage` write path — use service-role client (RLS fix)
+
+- **`lib/ai/log-usage.ts`:** **`recordAiUsage`** now uses **`getAdmin()`** (service role) instead of **`getServerSupabase()`** (cookie/anon). **`ai_usage`** has RLS policy **`auth.uid() = user_id`** (USING + WITH CHECK), so the anon cookie client was silently dropping every insert where `auth.uid()` didn't equal `user_id`:
+  - **Mobile app** (`Authorization: Bearer …`, no cookies) → cookie client sees no JWT → `auth.uid()` NULL → WITH CHECK fails → insert blocked.
+  - **Guests** (no auth) → same, blocked.
+  - **Website signed-in** worked only because cookies carried the matching JWT (46 596 rows all had `has_user=true`, zero with `user_id IS NULL`).
+- Falls back to the cookie client if `SUPABASE_SERVICE_ROLE_KEY` is missing, so the logger never throws.
+- Also promoted final-fallback and catch-path **`console.warn`** out of `DEV`-only so silent production drops are visible in Vercel logs.
+
 ### Mobile AI usage attribution (`ai_usage` / admin ai-usage-app)
 
 - **`app/api/mobile/deck/analyze/route.ts`:** Read JSON **once** and pass **`parsedBody`** into **`runDeckAnalyzeCore`**. A second **`req.json()`** after **`req.clone().json()`** could yield an empty body, dropping **`usageSource` / `sourcePage`** so **`source`/`source_page`** never showed as app-tagged.
