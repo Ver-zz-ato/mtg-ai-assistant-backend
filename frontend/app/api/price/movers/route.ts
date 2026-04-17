@@ -120,14 +120,14 @@ export async function GET(req: NextRequest) {
 
     const cutoff = new Date(new Date(latest).getTime() - windowDays*24*60*60*1000).toISOString().slice(0,10);
 
-    // Pick the most recent snapshot before latest and within the window; fallback to any prior date (up to 90d) if none in window
+    // Pick the earliest snapshot inside the requested window (true window baseline).
     const { data: priorRows } = await db
       .from('price_snapshots')
       .select('snapshot_date')
       .eq('currency', currency)
-      .lt('snapshot_date', latest)
       .gte('snapshot_date', cutoff)
-      .order('snapshot_date', { ascending: false })
+      .lt('snapshot_date', latest)
+      .order('snapshot_date', { ascending: true })
       .limit(1);
     let prior = ((priorRows as unknown as SnapshotDateRow[] | null)?.[0]?.snapshot_date) ?? null;
     if (!prior) {
@@ -144,25 +144,34 @@ export async function GET(req: NextRequest) {
     }
     if (!prior) return NextResponse.json({ ok: true, rows: [], latest });
 
-    // Pull prior and latest in separate queries (avoids 1000-row cap giving no overlap)
-    const { data: priorData } = await db
-      .from('price_snapshots')
-      .select('name_norm, unit')
-      .eq('currency', currency)
-      .eq('snapshot_date', prior)
-      .limit(10000);
-    const { data: latestData } = await db
-      .from('price_snapshots')
-      .select('name_norm, unit')
-      .eq('currency', currency)
-      .eq('snapshot_date', latest)
-      .limit(10000);
+    // Pull prior/latest rows in pages to avoid truncation from row caps.
+    const fetchRowsForDate = async (d: string): Promise<NameUnitRow[]> => {
+      const out: NameUnitRow[] = [];
+      const PAGE = 2000;
+      const MAX_ROWS = 100000;
+      let offset = 0;
+      while (offset < MAX_ROWS) {
+        const { data, error } = await db
+          .from('price_snapshots')
+          .select('name_norm, unit')
+          .eq('currency', currency)
+          .eq('snapshot_date', d)
+          .order('name_norm', { ascending: true })
+          .range(offset, offset + PAGE - 1);
+        if (error || !data?.length) break;
+        out.push(...(data as unknown as NameUnitRow[]));
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+      return out;
+    };
+    const [priorData, latestData] = await Promise.all([fetchRowsForDate(prior), fetchRowsForDate(latest)]);
     const priorMap = new Map<string, number>();
-    for (const r of (priorData ?? []) as unknown as NameUnitRow[]) {
+    for (const r of priorData) {
       priorMap.set(String(r.name_norm), Number(r.unit));
     }
     const rows: { name_norm: string; snapshot_date: string; unit: number }[] = [];
-    for (const r of (latestData ?? []) as unknown as NameUnitRow[]) {
+    for (const r of latestData) {
       const n = r.name_norm ? String(r.name_norm) : '';
       if (priorMap.has(n)) {
         rows.push({ name_norm: n, snapshot_date: prior, unit: priorMap.get(n)! });

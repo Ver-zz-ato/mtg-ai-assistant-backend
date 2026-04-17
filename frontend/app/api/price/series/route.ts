@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
 import {
-  normalizeScryfallCacheName,
   scryfallCacheLookupNameKeys,
 } from "@/lib/server/scryfallCacheRow";
 
@@ -92,52 +91,6 @@ export async function GET(req: NextRequest) {
       const distinctNorms = new Set(arr.map((r) => String(r.name_norm)));
       if (distinctNorms.size !== 1) continue;
       byName.set(n, arr.map((r) => ({ snapshot_date: r.snapshot_date, unit: Number(r.unit) })));
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const stillMissing = wanted.filter((n) => !byName.has(n) || byName.get(n)!.length === 0);
-    for (const n of stillMissing) {
-      // 1) price_cache (card_name + usd_price)
-      let pc: { usd_price?: number; eur_price?: number } | null = null;
-      const variants = [n, n.replace(/'/g, "\u2019"), n.replace(/\u2019/g, "'")];
-      for (const v of variants) {
-        const { data } = await db.from("price_cache").select("usd_price, eur_price").eq("card_name", v).maybeSingle();
-        if (data) { pc = data as any; break; }
-      }
-      if (pc) {
-        const usdVal = Number(pc.usd_price) || 0;
-        const eurVal = Number(pc.eur_price) || (usdVal ? usdVal * 0.92 : 0);
-        const unit = currency === "USD" ? usdVal : currency === "EUR" ? eurVal : usdVal * 0.78;
-        if (typeof unit === "number" && isFinite(unit) && unit > 0) {
-          byName.set(n, [{ snapshot_date: today, unit }]);
-        }
-      }
-    }
-    // 2) Scryfall fallback for any still missing (same source as watchlist /api/price)
-    const stillMissing2 = stillMissing.filter((n) => !byName.has(n) || byName.get(n)!.length === 0);
-    if (stillMissing2.length > 0) {
-      try {
-        const res = await fetch("https://api.scryfall.com/cards/collection", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identifiers: stillMissing2.map((name) => ({ name })) }),
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const json = (await res.json()) as { data?: Array<{ name: string; prices?: { usd?: string; eur?: string } }> };
-          const USD_EUR = 0.92;
-          const USD_GBP = 0.78;
-          for (const c of json.data ?? []) {
-            const normName = normalizeScryfallCacheName(c.name);
-            if (!byName.has(normName) || byName.get(normName)!.length === 0) {
-              const usd = c.prices?.usd ? parseFloat(c.prices.usd) : 0;
-              const eur = c.prices?.eur ? parseFloat(c.prices.eur) : usd * USD_EUR;
-              const unit = currency === "USD" ? usd : currency === "EUR" ? eur : usd * USD_GBP;
-              if (unit > 0) byName.set(normName, [{ snapshot_date: today, unit }]);
-            }
-          }
-        }
-      } catch {}
     }
 
     const series = Array.from(byName.entries()).map(([name, rows]) => ({
