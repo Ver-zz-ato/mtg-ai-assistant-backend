@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { DECK_COMPARE_PRO } from "@/lib/feature-limits";
+import { DECK_COMPARE_AI_MOBILE_FREE_DAILY } from "@/lib/feature-limits";
 import {
   buildComparisonSummaryLine,
   buildMobileDeckCompareSystemPrompt,
@@ -45,28 +45,29 @@ export async function POST(req: NextRequest) {
     const { checkProStatus } = await import("@/lib/server-pro-check");
     const isPro = await checkProStatus(user.id);
 
+    // Free: server-enforced daily cap; Pro: no durable limit (client may still hint limits for UX only).
     if (!isPro) {
-      try {
-        const { logOpsEvent } = await import("@/lib/ops-events");
-        await logOpsEvent(supabase, {
-          event_type: "ops_pro_access_denied",
-          route: ROUTE_PATH,
-          status: "ok",
-          reason: "pro_required",
-          user_id: user.id,
-          source: "deck_compare_mobile_ai",
-        });
-      } catch {
-        /* non-fatal */
-      }
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "AI deck comparison is a Pro feature. Upgrade to unlock AI-powered deck analysis!",
-        },
-        { status: 403 }
+      const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
+      const { hashString } = await import("@/lib/guest-tracking");
+      const userKeyHash = `user:${await hashString(user.id)}`;
+      const rateLimit = await checkDurableRateLimit(
+        supabase,
+        userKeyHash,
+        "deck_compare_ai",
+        DECK_COMPARE_AI_MOBILE_FREE_DAILY,
+        1
       );
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "RATE_LIMIT_DAILY",
+            error: "You've reached your daily limit. Contact support if you need higher limits.",
+            resetAt: rateLimit.resetAt,
+          },
+          { status: 429 }
+        );
+      }
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -121,29 +122,6 @@ export async function POST(req: NextRequest) {
       formatLabel,
     });
 
-    const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
-    const { hashString } = await import("@/lib/guest-tracking");
-    const userKeyHash = `user:${await hashString(user.id)}`;
-    /** Share daily quota with web compare — same feature budget. */
-    const rateLimit = await checkDurableRateLimit(
-      supabase,
-      userKeyHash,
-      "/api/deck/compare-ai",
-      DECK_COMPARE_PRO,
-      1
-    );
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          ok: false,
-          code: "RATE_LIMIT_DAILY",
-          error: "You've reached your daily limit. Contact support if you need higher limits.",
-          resetAt: rateLimit.resetAt,
-        },
-        { status: 429 }
-      );
-    }
-
     const model = process.env.MODEL_DECK_COMPARE_MOBILE || process.env.MODEL_DECK_COMPARE || "gpt-4o-mini";
 
     try {
@@ -162,7 +140,7 @@ export async function POST(req: NextRequest) {
           maxTokens: 4096,
           apiType: "chat",
           userId: user.id,
-          isPro: true,
+          isPro,
           source_page: sourcePage,
           source: usageSource ?? null,
           jsonResponse: true,
