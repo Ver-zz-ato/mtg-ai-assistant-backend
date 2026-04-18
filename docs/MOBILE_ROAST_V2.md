@@ -33,11 +33,13 @@ Aligned with existing roast where possible:
 | `deckText` | string | yes | Same as `/api/deck/roast` |
 | `format` | string | no | Default `Commander`; same allowed set as website |
 | `commanderName` | string \| null | no | User override; else extracted for Commander |
-| `heat` | `"mild"` \| `"medium"` \| `"spicy"` | no | Default `medium`. Preferred mobile input. |
+| `heat` | `"mild"` \| `"medium"` \| `"spicy"` | no | Default via `savageness` fallback. **Case-insensitive** string accepted. |
 | `savageness` | number | no | Ignored if `heat` set; else mapped like website (1–10) for internal tone only |
 | `deckName` | string \| null | no | Optional display hint (saved deck title); model may still suggest a snappier label |
 | `sourcePage` / `source_page` | string | no | Mobile attribution (`app_deck_roast`, etc.) |
 | `usageSource` / `usage_source` | string | no | `manatap_app` for `ai_usage.source` |
+
+**Prompt (server-side):** Injects **name-heuristic** deck signals (lands, ramp, wipes, draw, finishers, greedy mana) and a per-request **comedy-angle** line for variety. Model cross-checks counts against the list. Prompt iteration key: `MOBILE_ROAST_AI_PROMPT_VERSION` in `frontend/lib/mobile/roast-ai-prompt.ts`.
 
 ## Success response (JSON)
 

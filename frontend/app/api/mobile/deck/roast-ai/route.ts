@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractCommanderFromDecklistText } from "@/lib/chat/decklistDetector";
 import { prepareDeckCardsForRoast } from "@/lib/roast/deck-roast-prep";
+import { computeRoastDeckSignals, ROAST_COMEDY_ANGLE_POOL } from "@/lib/roast/roast-deck-signals";
 import { buildMobileRoastAiSystemPrompt, buildMobileRoastAiUserPrompt } from "@/lib/mobile/roast-ai-prompt";
 import {
   normalizeMobileRoastAiResponse,
@@ -17,10 +18,13 @@ const ROUTE_PATH = "/api/mobile/deck/roast-ai";
 const VALID_FORMATS = ["Commander", "Modern", "Pioneer", "Standard"] as const;
 
 function resolveHeat(body: Record<string, unknown>): { heat: MobileRoastHeat; roastScore: number } {
-  const h = body.heat;
-  if (h === "mild" || h === "medium" || h === "spicy") {
-    const scores = { mild: 2, medium: 5, spicy: 8 } as const;
-    return { heat: h, roastScore: scores[h] };
+  const hRaw = body.heat;
+  if (typeof hRaw === "string") {
+    const h = hRaw.trim().toLowerCase();
+    if (h === "mild" || h === "medium" || h === "spicy") {
+      const scores = { mild: 2, medium: 5, spicy: 8 } as const;
+      return { heat: h, roastScore: scores[h] };
+    }
   }
   const rawSavageness =
     typeof body.savageness === "number"
@@ -108,6 +112,10 @@ export async function POST(req: NextRequest) {
 
     const { heat, roastScore } = resolveHeat(body);
 
+    const signals = computeRoastDeckSignals(deck.cards);
+    const varietyAngle =
+      ROAST_COMEDY_ANGLE_POOL[Math.floor(Math.random() * ROAST_COMEDY_ANGLE_POOL.length)];
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ ok: false, error: "OpenAI API key not configured" }, { status: 500 });
@@ -119,6 +127,8 @@ export async function POST(req: NextRequest) {
       commander,
       heat,
       deckNameHint,
+      signalsBlock: signals.blockForPrompt,
+      varietyAngle,
     });
     const userPrompt = buildMobileRoastAiUserPrompt();
 
@@ -136,7 +146,7 @@ export async function POST(req: NextRequest) {
           feature: "deck_roast_mobile",
           model,
           fallbackModel: "gpt-4o-mini",
-          maxTokens: 2048,
+          maxTokens: 1536,
           apiType: "chat",
           userId,
           isPro,

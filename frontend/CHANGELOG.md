@@ -1,5 +1,15 @@
 # Frontend changelog
 
+## 2026-04-19
+
+### Mobile Deck Roast — punchier prompts + deck signals
+
+- **`lib/mobile/roast-ai-prompt.ts`:** Tighter mobile roast (~30% shorter target), stronger mild/medium/spicy differentiation, ban repetitive “it’s like X” structures, require screenshot-worthy `share_line`, stronger final verdict closer, server-chosen comedy-angle variety.
+- **`lib/roast/roast-deck-signals.ts`:** Name-heuristic land / ramp / wipe / draw / finisher / greedy mana counts injected into the prompt; model cross-checks against the list.
+- **`lib/mobile/roast-ai-response.ts`:** Shorter field caps; `share_line` deduped from `verdict_summary` when identical.
+- **`app/api/mobile/deck/roast-ai/route.ts`:** Wires signals + variety; `heat` case-insensitive; `maxTokens` 1536.
+- **`MOBILE_ROAST_AI_PROMPT_VERSION`:** `2026-04-19.v1`.
+
 ## 2026-04-18
 
 ### Mobile Deck Roast v2 (structured JSON)

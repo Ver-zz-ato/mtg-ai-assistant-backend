@@ -7,15 +7,15 @@ import type { MobileRoastCardCallout, MobileRoastHeat, MobileRoastIssue, MobileR
 import { MOBILE_ROAST_AI_PROMPT_VERSION } from "./roast-ai-prompt";
 import { parseJsonObjectFromLlmText } from "./deck-compare-mobile-response";
 
-const MAX_VERDICT_SUMMARY = 160;
-const MAX_OPENING = 320;
-const MAX_ISSUE_TITLE = 80;
-const MAX_ISSUE_BODY = 280;
-const MAX_FINAL = 720;
-const MAX_SHARE = 180;
-const MAX_CALLOUT_LINE = 220;
-const MAX_ISSUES = 4;
-const MAX_CALLOUTS = 4;
+const MAX_VERDICT_SUMMARY = 112;
+const MAX_OPENING = 224;
+const MAX_ISSUE_TITLE = 56;
+const MAX_ISSUE_BODY = 196;
+const MAX_FINAL = 500;
+const MAX_SHARE = 126;
+const MAX_CALLOUT_LINE = 154;
+const MAX_ISSUES = 3;
+const MAX_CALLOUTS = 3;
 const MAX_CITED_CARDS = 4;
 
 function trimStr(s: unknown, max: number): string {
@@ -113,6 +113,16 @@ export function normalizeMobileRoastAiResponse(
     (opening_jab ? opening_jab.split(/[.!?]/)[0].trim().slice(0, MAX_VERDICT_SUMMARY) : "") ||
     "Deck roast ready.";
 
+  let share_line =
+    trimStr(o.share_line, MAX_SHARE) ||
+    verdict_summary.slice(0, MAX_SHARE) ||
+    "Roast complete.";
+  const vNorm = verdict_summary.replace(/\s+/g, " ").trim().toLowerCase();
+  if (share_line.replace(/\s+/g, " ").trim().toLowerCase() === vNorm) {
+    const alt = opening_jab.split(/[.!?]/).map((s) => s.trim()).filter(Boolean)[1];
+    if (alt) share_line = trimStr(alt, MAX_SHARE);
+  }
+
   return {
     deck_name,
     heat: args.heat,
@@ -121,10 +131,7 @@ export function normalizeMobileRoastAiResponse(
     biggest_issues: normIssues(o.biggest_issues),
     card_callouts: normCallouts(o.card_callouts),
     final_verdict: trimStr(o.final_verdict, MAX_FINAL) || "Final verdict unavailable.",
-    share_line:
-      trimStr(o.share_line, MAX_SHARE) ||
-      verdict_summary.slice(0, MAX_SHARE) ||
-      "Roast complete.",
+    share_line,
     prompt_version: MOBILE_ROAST_AI_PROMPT_VERSION,
   };
 }
