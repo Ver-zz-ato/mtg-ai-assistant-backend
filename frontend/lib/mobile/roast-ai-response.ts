@@ -9,13 +9,15 @@ import { parseJsonObjectFromLlmText } from "./deck-compare-mobile-response";
 
 /** At-a-glance: short label, not a hook */
 const MAX_VERDICT_SUMMARY = 72;
-const MAX_OPENING = 200;
-const MAX_ISSUE_TITLE = 48;
-const MAX_ISSUE_BODY = 140;
-const MAX_FINAL = 360;
-/** Screenshot line: compact standalone */
-const MAX_SHARE = 100;
-const MAX_CALLOUT_LINE = 120;
+const MAX_OPENING = 180;
+const MAX_ISSUE_TITLE = 44;
+const MAX_ISSUE_BODY = 118;
+/** Two punchy lines max */
+const MAX_FINAL = 240;
+/** Top quote / screenshot caption — ~110 char ideal */
+const MAX_SHARE = 110;
+/** Sniper callouts: 2 short sentences ceiling */
+const MAX_CALLOUT_LINE = 100;
 const MAX_ISSUES = 3;
 const MAX_CALLOUTS = 3;
 const MAX_CITED_CARDS = 4;

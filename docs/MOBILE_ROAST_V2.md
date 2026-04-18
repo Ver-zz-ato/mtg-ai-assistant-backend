@@ -56,7 +56,7 @@ Top-level shape (stable for app integration):
     "biggest_issues": [{ "title": "string", "body": "string", "cards": ["optional"] }],
     "card_callouts": [{ "card_name": "string", "line": "string" }],
     "final_verdict": "string",
-    "share_line": "string",
+    "share_line": "string (screenshot caption; ~≤110 chars ideal)",
     "prompt_version": "string"
   },
   "roastScore": 5,

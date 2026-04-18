@@ -1,5 +1,13 @@
 # Frontend changelog
 
+## 2026-04-21
+
+### Mobile Deck Roast — punchiness & share_line pass
+
+- **`lib/mobile/roast-ai-prompt.ts`:** Strongest issues only (max 3, prefer 2); strict two-sentence issue bodies (joke + proof); share_line as top screenshot quote (~110 chars); sniper callouts; final = two punchy lines; spicy = surgical/terse; **`MOBILE_ROAST_AI_PROMPT_VERSION` → `2026-04-21.v1`**.
+- **`lib/mobile/roast-ai-response.ts`:** Tighter caps (share 110, issues, callouts, final 240, opening 180).
+- **`app/api/mobile/deck/roast-ai/route.ts`:** **`maxTokens` 1150**.
+
 ## 2026-04-20
 
 ### Mobile Deck Roast — less redundancy, clearer field roles
