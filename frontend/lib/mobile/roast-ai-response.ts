@@ -7,13 +7,15 @@ import type { MobileRoastCardCallout, MobileRoastHeat, MobileRoastIssue, MobileR
 import { MOBILE_ROAST_AI_PROMPT_VERSION } from "./roast-ai-prompt";
 import { parseJsonObjectFromLlmText } from "./deck-compare-mobile-response";
 
-const MAX_VERDICT_SUMMARY = 112;
-const MAX_OPENING = 224;
-const MAX_ISSUE_TITLE = 56;
-const MAX_ISSUE_BODY = 196;
-const MAX_FINAL = 500;
-const MAX_SHARE = 126;
-const MAX_CALLOUT_LINE = 154;
+/** At-a-glance: short label, not a hook */
+const MAX_VERDICT_SUMMARY = 72;
+const MAX_OPENING = 200;
+const MAX_ISSUE_TITLE = 48;
+const MAX_ISSUE_BODY = 140;
+const MAX_FINAL = 360;
+/** Screenshot line: compact standalone */
+const MAX_SHARE = 100;
+const MAX_CALLOUT_LINE = 120;
 const MAX_ISSUES = 3;
 const MAX_CALLOUTS = 3;
 const MAX_CITED_CARDS = 4;
@@ -90,6 +92,22 @@ function normCallouts(raw: unknown): MobileRoastCardCallout[] {
   return out;
 }
 
+function normLower(s: string): string {
+  return s.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/** True if b is duplicate or obvious substring overlap of a (redundant screenshot/at-a-glance). */
+function isRedundantWith(a: string, b: string): boolean {
+  const na = normLower(a);
+  const nb = normLower(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const shorter = na.length <= nb.length ? na : nb;
+  const longer = na.length > nb.length ? na : nb;
+  if (shorter.length >= 24 && longer.includes(shorter.slice(0, Math.min(48, shorter.length)))) return true;
+  return false;
+}
+
 export function normalizeMobileRoastAiResponse(
   parsed: unknown,
   args: {
@@ -108,19 +126,42 @@ export function normalizeMobileRoastAiResponse(
   }
 
   const opening_jab = trimStr(o.opening_jab, MAX_OPENING);
-  const verdict_summary =
-    trimStr(o.verdict_summary, MAX_VERDICT_SUMMARY) ||
-    (opening_jab ? opening_jab.split(/[.!?]/)[0].trim().slice(0, MAX_VERDICT_SUMMARY) : "") ||
-    "Deck roast ready.";
+  const openingFirst = opening_jab.split(/[.!?]/)[0]?.trim() ?? "";
 
-  let share_line =
-    trimStr(o.share_line, MAX_SHARE) ||
-    verdict_summary.slice(0, MAX_SHARE) ||
-    "Roast complete.";
-  const vNorm = verdict_summary.replace(/\s+/g, " ").trim().toLowerCase();
-  if (share_line.replace(/\s+/g, " ").trim().toLowerCase() === vNorm) {
-    const alt = opening_jab.split(/[.!?]/).map((s) => s.trim()).filter(Boolean)[1];
+  let verdict_summary = trimStr(o.verdict_summary, MAX_VERDICT_SUMMARY);
+  if (!verdict_summary) {
+    verdict_summary =
+      args.commander != null
+        ? trimStr(`${args.commander} — quick structural read.`, MAX_VERDICT_SUMMARY)
+        : trimStr(`${args.format} list — at a glance.`, MAX_VERDICT_SUMMARY);
+  }
+
+  let share_line = trimStr(o.share_line, MAX_SHARE);
+  if (!share_line) {
+    const fv = trimStr(o.final_verdict, 400);
+    const fvLast = fv.split(/[.!?]/).map((s) => s.trim()).filter(Boolean).pop() ?? "";
+    share_line = fvLast ? trimStr(fvLast, MAX_SHARE) : "Roast complete.";
+  }
+  if (isRedundantWith(verdict_summary, share_line) || isRedundantWith(openingFirst, share_line)) {
+    const fvRaw = trimStr(o.final_verdict, MAX_FINAL);
+    const fvLast = fvRaw.split(/[.!?]/).map((s) => s.trim()).filter(Boolean).pop() ?? "";
+    const alt =
+      opening_jab.split(/[.!?]/).map((s) => s.trim()).filter(Boolean).slice(1).join(". ").trim() ||
+      fvLast ||
+      "";
     if (alt) share_line = trimStr(alt, MAX_SHARE);
+  }
+  if (isRedundantWith(verdict_summary, share_line) || isRedundantWith(openingFirst, share_line)) {
+    const rawCo = o.card_callouts;
+    let fromCallout = "";
+    if (Array.isArray(rawCo) && rawCo[0] && typeof rawCo[0] === "object") {
+      const line = (rawCo[0] as { line?: unknown }).line;
+      if (typeof line === "string") fromCallout = trimStr(line, MAX_SHARE);
+    }
+    share_line =
+      fromCallout && !isRedundantWith(verdict_summary, fromCallout)
+        ? fromCallout
+        : trimStr("The table saw this list coming.", MAX_SHARE);
   }
 
   return {

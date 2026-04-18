@@ -1,5 +1,12 @@
 # Frontend changelog
 
+## 2026-04-20
+
+### Mobile Deck Roast — less redundancy, clearer field roles
+
+- **`lib/mobile/roast-ai-prompt.ts`:** Split **verdict_summary** (at-a-glance structural read) vs **opening_jab** (main roast) vs **share_line** (compact screenshot hook); ban cross-field joke recycling; lighter stat lecturing; tighter issues/callouts/final; **`MOBILE_ROAST_AI_PROMPT_VERSION` → `2026-04-20.v1`**.
+- **`lib/mobile/roast-ai-response.ts`:** Shorter caps; **no** fallback that copies opening into verdict; **share_line** dedup vs glance + opener with callout/generic last resort; **`maxTokens`** on route **1280**.
+
 ## 2026-04-19
 
 ### Mobile Deck Roast — punchier prompts + deck signals

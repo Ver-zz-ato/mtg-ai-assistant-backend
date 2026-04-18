@@ -51,7 +51,7 @@ Top-level shape (stable for app integration):
   "roast": {
     "deck_name": "string | null",
     "heat": "mild | medium | spicy",
-    "verdict_summary": "string",
+    "verdict_summary": "string (at-a-glance deck problem / identity — not the hook)",
     "opening_jab": "string",
     "biggest_issues": [{ "title": "string", "body": "string", "cards": ["optional"] }],
     "card_callouts": [{ "card_name": "string", "line": "string" }],
