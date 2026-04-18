@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       MODEL_DECK_SCAN: process.env.MODEL_DECK_SCAN ?? '(not set)',
       MODEL_AI_TEST: process.env.MODEL_AI_TEST ?? '(not set)',
       MODEL_DECK_ANALYZE_SLOTS: process.env.MODEL_DECK_ANALYZE_SLOTS ?? '(not set)',
+      MODEL_MOBILE_ROAST_AI: process.env.MODEL_MOBILE_ROAST_AI ?? '(not set)',
       LLM_LAYER0: process.env.LLM_LAYER0 ?? '(not set)',
     };
 

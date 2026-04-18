@@ -86,6 +86,7 @@ const DEFAULT_TIMEOUTS: Record<string, number> = {
   'swap_why': 300000,     // 5 minutes - interactive explanation
   'reprint_risk': 300000, // 5 minutes - interactive check
   'deck_roast': 60000,   // 60 seconds - AI deck roast
+  'deck_roast_mobile': 60000, // mobile structured JSON roast
   'debug_ping': 10000,   // 10 seconds - quick health check
   /** Key card selector prepass (JSON-only; fail-open to heuristic if slow) */
   'key_card_selector': 12000,

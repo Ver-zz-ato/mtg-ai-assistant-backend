@@ -185,6 +185,13 @@ export const ROUTE_ORIGINS: Record<string, CallOrigin> = {
     description: "Mobile deck compare JSON",
     costImpact: "medium",
   },
+  deck_roast_mobile: {
+    page: "Deck roast (mobile API)",
+    component: "ManaTap app structured roast",
+    trigger: "user_click",
+    description: "Mobile deck roast JSON",
+    costImpact: "low",
+  },
   reprint_risk: {
     page: "Cards / collections",
     component: "Reprint risk flow",

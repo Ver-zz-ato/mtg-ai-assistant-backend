@@ -19,6 +19,11 @@ export const ROUTE_TO_PAGE: Record<string, { page: string; description: string; 
     description: "Structured JSON compare for ManaTap app",
     apiPath: "/api/mobile/deck/compare-ai",
   },
+  deck_roast_mobile: {
+    page: "Deck Roast (mobile)",
+    description: "Structured JSON roast for ManaTap app",
+    apiPath: "/api/mobile/deck/roast-ai",
+  },
   reprint_risk: { page: "Reprint Risk", description: "Card reprint risk analysis", apiPath: "/api/cards/reprint-risk" },
   debug_ping: { page: "Admin AI Health", description: "Admin probe/ping", apiPath: "/api/admin/ai/health" },
   "/api/chat/stream": { page: "Chat", description: "Streaming chat API", apiPath: "/api/chat/stream" },
@@ -33,6 +38,11 @@ export const ROUTE_TO_PAGE: Record<string, { page: string; description: string; 
     page: "Deck Compare (mobile)",
     description: "Structured mobile deck compare AI",
     apiPath: "/api/mobile/deck/compare-ai",
+  },
+  "/api/mobile/deck/roast-ai": {
+    page: "Deck Roast (mobile)",
+    description: "Structured mobile deck roast AI",
+    apiPath: "/api/mobile/deck/roast-ai",
   },
   "/api/cards/reprint-risk": { page: "Reprint Risk", description: "Reprint risk API", apiPath: "/api/cards/reprint-risk" },
   "/api/admin/ai/health": { page: "Admin Health", description: "Admin AI health probe", apiPath: "/api/admin/ai/health" },

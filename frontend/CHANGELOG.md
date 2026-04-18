@@ -1,5 +1,18 @@
 # Frontend changelog
 
+## 2026-04-18
+
+### Mobile Deck Roast v2 (structured JSON)
+
+- **`POST /api/mobile/deck/roast-ai`:** New route — JSON roast tuned for ManaTap (`heat` mild/medium/spicy, section fields, `share_line`, `prompt_version`). Does **not** change **`POST /api/deck/roast`** or **`lib/prompts/deck-roast.ts`**.
+- **`lib/roast/deck-roast-prep.ts`:** Parse + parse-and-fix-names fetch (same behavior as website roast; website route not refactored yet).
+- **`lib/mobile/roast-ai-prompt.ts`**, **`roast-ai-response.ts`**, **`roast-ai-types.ts`:** Prompt + zod normalization + optional bracket-token strip.
+- **`ai_usage`:** Feature **`deck_roast_mobile`**; timeout + **`call-origin-map`** / **`route-to-page`** / unit test list updated.
+
+### Docs
+
+- **`../docs/MOBILE_ROAST_V2.md`:** Architecture, contract, migration notes.
+
 ## 2026-04-17
 
 ### `ai_usage` write path — use service-role client (RLS fix)
