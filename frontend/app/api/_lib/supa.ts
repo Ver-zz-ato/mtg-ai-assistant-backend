@@ -1,7 +1,7 @@
 // frontend/app/api/_lib/supa.ts
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const runtime = "nodejs";
+// NOTE: Do not export `dynamic` / `runtime` / `revalidate` here. This module is imported by many
+// route handlers AND non-route code; segment config in a shared file can break Next.js bundling
+// and surface as generic HTML 500s on Vercel.
 
 import { cookies as nextCookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
