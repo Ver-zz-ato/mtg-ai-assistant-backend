@@ -46,7 +46,7 @@ npx tsx scripts/run-crons.ts all https://www.manatap.ai
 - **price-snapshot** → writes full daily `price_snapshots` history (USD/EUR/GBP) from Scryfall bulk data, keeps ~60 days.
 - **deck-costs** → populates `deck_costs` from `deck_cards` + `price_cache`
 - **commander-aggregates** → needs `deck_costs`; populates `commander_aggregates` (deck_count, median_deck_cost, top_cards, etc.). **Commander Intelligence** on commander pages reads from this cache — run this cron after bulk-importing decks to refresh deck counts.
-- **meta-signals** → needs `commander_aggregates`; populates `meta_signals` (trending, most-played, budget commanders)
+- **meta-signals** → populates `meta_signals` (blended **Scryfall** EDHREC + ManaTap decks), optional rows in **`meta_commander_daily`** / **`meta_card_daily`** when those tables exist (migration in Manatap-APP `docs/supabase/migrations/20260419_meta_external_daily.sql`). Does **not** require `commander_aggregates`.
 
 Run in order: price-snapshot → deck-costs → commander-aggregates → meta-signals → top-cards.
 

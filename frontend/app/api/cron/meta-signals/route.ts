@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdmin } from "@/app/api/_lib/supa";
-import { getCommanderBySlug } from "@/lib/commanders";
+import {
+  blendCardLists,
+  blendMostPlayedCommanders,
+  blendTrendingCardsWithGlobal,
+  blendTrendingCommanders,
+  toLegacyCardShape,
+  toLegacyCommanderShape,
+} from "@/lib/meta/discoverBlend";
+import {
+  fetchCommanderRanksForDate,
+  upsertCardDaily,
+  upsertCommanderDaily,
+} from "@/lib/meta/persistMetaExternalDaily";
+import {
+  fetchGlobalBudgetCards,
+  fetchGlobalCommanderPopular,
+  fetchGlobalPopularCards,
+  fetchRecentSetPopularCommanders,
+  SCRYFALL_META,
+} from "@/lib/meta/scryfallGlobalMeta";
 import {
   computeTrendingCardsList,
   isLandFromCacheRow,
@@ -19,6 +38,7 @@ const SIGNAL_TYPES = [
   "budget-commanders",
   "trending-cards",
   "most-played-cards",
+  "discover-meta-label",
 ] as const;
 
 function isAuthorized(req: NextRequest): boolean {
@@ -78,11 +98,62 @@ export async function POST(req: NextRequest) {
   return runMetaSignals();
 }
 
+function asNameCountArray(x: unknown): { name: string; count: number }[] {
+  if (!Array.isArray(x)) return [];
+  return x.filter((r): r is { name: string; count: number } => {
+    const o = r as { name?: unknown; count?: unknown };
+    return typeof o?.name === "string" && typeof o?.count === "number";
+  });
+}
+
+/** Older budget rows used commander median cost; normalize to card-shaped entries for fallback. */
+type LegacyCmdRow = ReturnType<typeof toLegacyCommanderShape>[number];
+type LegacyCardRow = ReturnType<typeof toLegacyCardShape>[number];
+
+function cmdFallback(name: string, count: number): LegacyCmdRow {
+  return { name, count, blendedScore: undefined, badge: undefined, dataScope: "internal" };
+}
+
+function cardFallback(name: string, count: number): LegacyCardRow {
+  return { name, count, blendedScore: undefined, badge: undefined, dataScope: "internal" };
+}
+
+function asBudgetCardLikeArray(x: unknown): { name: string; count: number; dataScope: "internal" }[] {
+  if (!Array.isArray(x)) return [];
+  const out: { name: string; count: number; dataScope: "internal" }[] = [];
+  for (const r of x) {
+    const o = r as { name?: string; count?: number };
+    if (typeof o.name === "string") {
+      out.push({
+        name: o.name,
+        count: typeof o.count === "number" ? o.count : 1,
+        dataScope: "internal",
+      });
+    }
+  }
+  return out;
+}
+
+async function loadPreviousSignalData(
+  admin: SupabaseClient,
+  types: readonly string[]
+): Promise<Record<string, unknown>> {
+  const { data } = await admin.from("meta_signals").select("signal_type, data").in("signal_type", [...types]);
+  const out: Record<string, unknown> = {};
+  for (const row of data ?? []) {
+    const r = row as { signal_type: string; data: unknown };
+    out[r.signal_type] = r.data;
+  }
+  return out;
+}
+
 async function runMetaSignals() {
   const admin = getAdmin();
   if (!admin) {
     return NextResponse.json({ ok: false, error: "admin_client_unavailable" }, { status: 500 });
   }
+
+  const prevSignals = await loadPreviousSignalData(admin, SIGNAL_TYPES);
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -90,10 +161,75 @@ async function runMetaSignals() {
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
   const iso60 = sixtyDaysAgo.toISOString();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const iso7 = sevenDaysAgo.toISOString();
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   let updated = 0;
 
-  // trending-commanders: most deck creations in last 30 days
+  // --- External (Scryfall): Commander / card popularity proxies (EDHREC order); parallel fetches. ---
+  let globalPopularCommanders: Awaited<ReturnType<typeof fetchGlobalCommanderPopular>> = [];
+  let recentSetCommanders: Awaited<ReturnType<typeof fetchRecentSetPopularCommanders>> = [];
+  let globalPopularCards: Awaited<ReturnType<typeof fetchGlobalPopularCards>> = [];
+  let globalBudgetCards: Awaited<ReturnType<typeof fetchGlobalBudgetCards>> = [];
+
+  try {
+    const [p1, p2, p3, p4] = await Promise.all([
+      fetchGlobalCommanderPopular(2),
+      fetchRecentSetPopularCommanders(1),
+      fetchGlobalPopularCards(2),
+      fetchGlobalBudgetCards(2),
+    ]);
+    globalPopularCommanders = p1;
+    recentSetCommanders = p2;
+    globalPopularCards = p3;
+    globalBudgetCards = p4;
+  } catch (e) {
+    console.warn("[meta-signals] Scryfall global fetch failed (using internal / prior only):", e);
+  }
+
+  /** Persist daily external snapshots (separate from blended meta_signals; no wipe on partial). */
+  if (globalPopularCommanders.length > 0) {
+    await upsertCommanderDaily(
+      admin,
+      todayStr,
+      globalPopularCommanders,
+      SCRYFALL_META.source,
+      SCRYFALL_META.twPopular
+    );
+  }
+  if (globalPopularCards.length > 0) {
+    await upsertCardDaily(
+      admin,
+      todayStr,
+      globalPopularCards,
+      SCRYFALL_META.source,
+      SCRYFALL_META.twPopular
+    );
+  }
+  if (globalBudgetCards.length > 0) {
+    await upsertCardDaily(
+      admin,
+      todayStr,
+      globalBudgetCards,
+      SCRYFALL_META.source,
+      SCRYFALL_META.twBudget
+    );
+  }
+
+  const yesterdayRanks = await fetchCommanderRanksForDate(
+    admin,
+    yesterdayStr,
+    SCRYFALL_META.source,
+    SCRYFALL_META.twPopular
+  );
+
+  // trending-commanders: internal 30d + Scryfall global / recent momentum
   const { data: recentDecks } = await admin
     .from("decks")
     .select("commander")
@@ -106,73 +242,86 @@ async function runMetaSignals() {
     const c = (d.commander as string)?.trim();
     if (c) trendingCounts[c] = (trendingCounts[c] ?? 0) + 1;
   }
-  const trendingCommanders = Object.entries(trendingCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 20)
-    .map(([name, count]) => ({ name, count }));
+
+  const blendedTrend = blendTrendingCommanders({
+    internal30d: trendingCounts,
+    globalPopular: globalPopularCommanders,
+    recentSet: recentSetCommanders,
+    yesterdayRanks,
+  });
+  let trendingCommandersOut = toLegacyCommanderShape(blendedTrend.rows);
+  if (trendingCommandersOut.length === 0) {
+    trendingCommandersOut = asNameCountArray(prevSignals["trending-commanders"]).map((r) =>
+      cmdFallback(r.name, r.count)
+    );
+  }
+  if (trendingCommandersOut.length === 0) {
+    trendingCommandersOut = Object.entries(trendingCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 20)
+      .map(([name, count]) => cmdFallback(name, count));
+  }
 
   const { error: e1 } = await admin.from("meta_signals").upsert(
     {
       signal_type: "trending-commanders",
-      data: trendingCommanders,
+      data: trendingCommandersOut,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "signal_type" }
   );
   if (!e1) updated++;
 
-  // most-played-commanders: most public decks overall
-  const { data: allDecks } = await admin
+  // most-played-commanders: internal 7d + Scryfall popularity (weekly feel + global priors)
+  const { data: weekDecks } = await admin
     .from("decks")
     .select("commander")
     .eq("is_public", true)
-    .eq("format", "Commander");
+    .eq("format", "Commander")
+    .gte("created_at", iso7);
 
-  const totalCounts: Record<string, number> = {};
-  for (const d of allDecks ?? []) {
+  const weekCounts: Record<string, number> = {};
+  for (const d of weekDecks ?? []) {
     const c = (d.commander as string)?.trim();
-    if (c) totalCounts[c] = (totalCounts[c] ?? 0) + 1;
+    if (c) weekCounts[c] = (weekCounts[c] ?? 0) + 1;
   }
-  const mostPlayedCommanders = Object.entries(totalCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 20)
-    .map(([name, count]) => ({ name, count }));
+
+  const blendedWeekly = blendMostPlayedCommanders({
+    internal7d: weekCounts,
+    globalPopular: globalPopularCommanders,
+  });
+  let mostPlayedCommandersOut = toLegacyCommanderShape(blendedWeekly.rows);
+  if (mostPlayedCommandersOut.length === 0) {
+    mostPlayedCommandersOut = asNameCountArray(prevSignals["most-played-commanders"]).map((r) =>
+      cmdFallback(r.name, r.count)
+    );
+  }
+  if (mostPlayedCommandersOut.length === 0) {
+    const { data: allDecksFallback } = await admin
+      .from("decks")
+      .select("commander")
+      .eq("is_public", true)
+      .eq("format", "Commander");
+    const totalCounts: Record<string, number> = {};
+    for (const d of allDecksFallback ?? []) {
+      const c = (d.commander as string)?.trim();
+      if (c) totalCounts[c] = (totalCounts[c] ?? 0) + 1;
+    }
+    mostPlayedCommandersOut = Object.entries(totalCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 20)
+      .map(([name, count]) => cmdFallback(name, count));
+  }
 
   const { error: e2 } = await admin.from("meta_signals").upsert(
     {
       signal_type: "most-played-commanders",
-      data: mostPlayedCommanders,
+      data: mostPlayedCommandersOut,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "signal_type" }
   );
   if (!e2) updated++;
-
-  // budget-commanders: lowest median deck cost (from commander_aggregates)
-  const { data: agg } = await admin
-    .from("commander_aggregates")
-    .select("commander_slug, median_deck_cost")
-    .not("median_deck_cost", "is", null);
-
-  const budget = (agg ?? [])
-    .filter((r) => (r.median_deck_cost as number) > 0)
-    .map((r) => ({
-      slug: r.commander_slug,
-      name: getCommanderBySlug(r.commander_slug)?.name ?? r.commander_slug,
-      medianCost: Number(r.median_deck_cost),
-    }))
-    .sort((a, b) => a.medianCost - b.medianCost)
-    .slice(0, 20);
-
-  const { error: e3 } = await admin.from("meta_signals").upsert(
-    {
-      signal_type: "budget-commanders",
-      data: budget,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "signal_type" }
-  );
-  if (!e3) updated++;
 
   // Deck sample for global stats (shared: trending inclusion cap + most-played-cards)
   const { data: allDeckRows } = await admin
@@ -183,7 +332,7 @@ async function runMetaSignals() {
     .limit(1000);
   const allIds = (allDeckRows ?? []).map((d) => d.id as string);
 
-  // trending-cards: trend delta vs prior 30d; exclude lands, staples, >40% deck inclusion; min 5 recent decks
+  // trending-cards: internal trend delta + Scryfall global prior (same filters as before)
   const { data: recentDeckRows } = await admin
     .from("decks")
     .select("id")
@@ -219,7 +368,7 @@ async function runMetaSignals() {
     .map(([n]) => n);
   const landKeys = await fetchLandNameKeysLower(admin, namesForLand);
 
-  const trendingCards = computeTrendingCardsList({
+  const trendingCardsRaw = computeTrendingCardsList({
     recentCounts,
     prevCounts,
     globalCounts: globalUniqueCounts,
@@ -229,17 +378,26 @@ async function runMetaSignals() {
     landNamesLower: landKeys,
   });
 
+  const trendingCardsBlended = blendTrendingCardsWithGlobal(trendingCardsRaw, globalPopularCards);
+  let trendingCardsOut = toLegacyCardShape(trendingCardsBlended);
+  if (trendingCardsOut.length === 0) {
+    trendingCardsOut = asNameCountArray(prevSignals["trending-cards"]).map((r) => cardFallback(r.name, r.count));
+  }
+  if (trendingCardsOut.length === 0) {
+    trendingCardsOut = trendingCardsRaw.map((r) => cardFallback(r.name, r.count));
+  }
+
   const { error: e4 } = await admin.from("meta_signals").upsert(
     {
       signal_type: "trending-cards",
-      data: trendingCards,
+      data: trendingCardsOut,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "signal_type" }
   );
   if (!e4) updated++;
 
-  // most-played-cards: row counts across same deck sample (unchanged UI semantics)
+  // most-played-cards: row counts + global popularity
   const cardCountsAll: Record<string, number> = {};
   if (allIds.length > 0) {
     const ROW_CHUNK = 400;
@@ -252,20 +410,74 @@ async function runMetaSignals() {
       }
     }
   }
-  const mostPlayedCards = Object.entries(cardCountsAll)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 30)
-    .map(([name, count]) => ({ name, count }));
+  const mostPlayedCardsBlended = blendCardLists({
+    internalCounts: cardCountsAll,
+    globalRows: globalPopularCards,
+    weightExternal: 0.8,
+  });
+  let mostPlayedCardsOut = toLegacyCardShape(mostPlayedCardsBlended.rows);
+  if (mostPlayedCardsOut.length === 0) {
+    mostPlayedCardsOut = asNameCountArray(prevSignals["most-played-cards"]).map((r) =>
+      cardFallback(r.name, r.count)
+    );
+  }
+  if (mostPlayedCardsOut.length === 0) {
+    mostPlayedCardsOut = Object.entries(cardCountsAll)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 30)
+      .map(([name, count]) => cardFallback(name, count));
+  }
 
   const { error: e5 } = await admin.from("meta_signals").upsert(
     {
       signal_type: "most-played-cards",
-      data: mostPlayedCards,
+      data: mostPlayedCardsOut,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "signal_type" }
   );
   if (!e5) updated++;
+
+  // budget-commanders slug: **cards** — cheap global staples blended with ManaTap inclusion (deck row counts).
+  const budgetBlend = blendCardLists({
+    internalCounts: cardCountsAll,
+    globalRows: globalBudgetCards,
+    weightExternal: 0.85,
+  });
+  let budgetCardsOut = toLegacyCardShape(budgetBlend.rows).slice(0, 24);
+  if (budgetCardsOut.length === 0) {
+    const fromPrev = asBudgetCardLikeArray(prevSignals["budget-commanders"]);
+    budgetCardsOut = fromPrev.length > 0 ? fromPrev.map((r) => cardFallback(r.name, r.count)) : budgetCardsOut;
+  }
+
+  const { error: e3 } = await admin.from("meta_signals").upsert(
+    {
+      signal_type: "budget-commanders",
+      data: budgetCardsOut,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "signal_type" }
+  );
+  if (!e3) updated++;
+
+  const anyExternal =
+    globalPopularCommanders.length > 0 ||
+    globalPopularCards.length > 0 ||
+    globalBudgetCards.length > 0 ||
+    recentSetCommanders.length > 0;
+  const { error: eLabel } = await admin.from("meta_signals").upsert(
+    {
+      signal_type: "discover-meta-label",
+      data: {
+        style: anyExternal ? "global" : "manatap",
+        commandersExternalOk: blendedTrend.externalOk,
+        cardsExternalOk: budgetBlend.externalOk || mostPlayedCardsBlended.externalOk || trendingCardsBlended.some((r) => r.dataScope === "blend"),
+      },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "signal_type" }
+  );
+  if (!eLabel) updated++;
 
   await admin.from("app_config").upsert(
     { key: "job:last:meta-signals", value: new Date().toISOString() },
