@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { isAdmin } from "@/lib/admin-check";
+import type { MetaSignalsJobDetail } from "@/lib/meta/metaSignalsJobStatus";
+import { parseMetaSignalsJobDetail } from "@/lib/meta/metaSignalsJobStatus";
 import {
   computeLeaderboard,
   computeMovers,
@@ -148,6 +150,19 @@ export async function GET() {
 
     const pickTop = (rows: LeaderRow[], n: number) => rows.slice(0, n);
 
+    let newSetBreakoutsJob: MetaSignalsJobDetail["newSetBreakoutsDebug"] = undefined;
+    try {
+      const { data: cfgRow } = await admin
+        .from("app_config")
+        .select("value")
+        .eq("key", "job:meta-signals:detail")
+        .maybeSingle();
+      const job = parseMetaSignalsJobDetail((cfgRow as { value?: string } | null)?.value ?? null);
+      newSetBreakoutsJob = job?.newSetBreakoutsDebug;
+    } catch {
+      /* optional */
+    }
+
     return NextResponse.json(
       {
         ok: true,
@@ -177,9 +192,11 @@ export async function GET() {
           leaders30d: cards30d,
         },
         newSetBreakouts: {
-          available: false,
-          message:
-            "New-set commanders are not tagged in daily snapshot tables; use current meta_signals.new-set-breakouts for the live list. Historical series would need a dedicated column or table.",
+          available: !!newSetBreakoutsJob,
+          message: newSetBreakoutsJob
+            ? `Latest meta-signals job: ${newSetBreakoutsJob.eligibilityDays}d window (cutoff ${newSetBreakoutsJob.cutoffIso}), ${newSetBreakoutsJob.rawCandidates} Scryfall candidates, ${newSetBreakoutsJob.distinctSetCodes} set codes, ${newSetBreakoutsJob.finalRows} rows published.`
+            : "Run the meta-signals cron to populate job:meta-signals:detail with newSetBreakoutsDebug (date-eligible pool + final row count).",
+          debug: newSetBreakoutsJob ?? null,
         },
         commandCenterPreview: {
           topCommanders7d: pickTop(commanders7d, 3),

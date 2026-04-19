@@ -1,0 +1,17 @@
+---
+description: MCP access to PostHog, Sentry, and Supabase; authorization for writes/destructive actions
+alwaysApply: true
+---
+
+# MCP: PostHog, Sentry, and Supabase
+
+This workspace has **MCP (and CLI) access** to **PostHog**, **Sentry**, and **Supabase**. Prefer these integrations when the task needs product analytics, error monitoring, or database/backend operations tied to those services.
+
+## Authorization required (do not skip)
+
+**Do not run destructive or state-changing operations** against PostHog, Sentry, or Supabase **without explicit prior approval** from the user. That includes anything that **creates, updates, deletes, migrates, reconfigures, rotates secrets, drops data, truncates, disables projects, resolves/deletes issues in bulk**, or otherwise **amends production or shared configuration**.
+
+- **Allowed without extra approval**: read-only investigation (queries, listing resources, fetching issues, reading config/schema as needed to answer questions or debug).
+- **Requires explicit user sign-off first**: any write, delete, migration apply, flag/experiment/dashboard changes, alert rule edits, Supabase schema/data changes, or similar.
+
+If unsure whether an action is read-only, **ask before running it**.

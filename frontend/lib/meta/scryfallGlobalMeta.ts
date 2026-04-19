@@ -49,6 +49,9 @@ type ScryfallCardLite = {
   name: string;
   type_line?: string;
   edhrec_rank?: number | null;
+  /** Lowercase three- to five-letter set code for the returned printing */
+  set?: string;
+  prices?: { usd?: string | null; eur?: string | null };
   image_uris?: { art_crop?: string; small?: string };
   card_faces?: { image_uris?: { art_crop?: string; small?: string } }[];
   released_at?: string | null;
@@ -59,6 +62,15 @@ function artCrop(c: ScryfallCardLite): string | undefined {
   if (u) return u;
   const f = c.card_faces?.[0]?.image_uris?.art_crop ?? c.card_faces?.[0]?.image_uris?.small;
   return f;
+}
+
+function parseUsdEurFromCard(c: ScryfallCardLite): { usd?: number; eur?: number } {
+  const rawU = c.prices?.usd != null ? parseFloat(String(c.prices.usd)) : NaN;
+  const rawE = c.prices?.eur != null ? parseFloat(String(c.prices.eur)) : NaN;
+  const o: { usd?: number; eur?: number } = {};
+  if (Number.isFinite(rawU) && rawU > 0) o.usd = rawU;
+  if (Number.isFinite(rawE) && rawE > 0) o.eur = rawE;
+  return o;
 }
 
 function edhrecScore(rank: number | null | undefined): number {
@@ -94,16 +106,108 @@ export async function fetchGlobalCommanderPopular(maxPages = 2): Promise<Normali
   return normalizeCommanderRows(cards, TW_EDHREC_POPULAR, 1);
 }
 
+/** Expand when the tighter window returns too few candidates to rank meaningfully. */
+const RECENT_SET_ELIGIBILITY_DAYS = [180, 270, 365] as const;
+/** Stop at the first window where we have at least this many Scryfall rows after date filter (or use 365d pool). */
+const MIN_RAW_CANDIDATES_TO_PICK_WINDOW = 10;
+
+function isoDateUtcDaysAgo(days: number): string {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** True if the printing's release date is within `days` days of today (UTC date). */
+function isReleasedWithinWindow(releasedAt: string | null | undefined, days: number): boolean {
+  if (!releasedAt) return false;
+  const t = Date.parse(releasedAt);
+  if (!Number.isFinite(t)) return false;
+  const rel = new Date(t);
+  rel.setUTCHours(0, 0, 0, 0);
+  const cutoff = new Date();
+  cutoff.setUTCHours(0, 0, 0, 0);
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  return rel >= cutoff;
+}
+
+export type RecentSetBreakoutFetchResult = {
+  rows: NormalizedGlobalMetaRow[];
+  eligibilityDays: number;
+  rawCandidateCount: number;
+  distinctSetCodes: number;
+  cutoffIso: string;
+};
+
 /**
- * “Rising” global proxy: commanders from recent premier sets with competitive EDHREC rank.
- * (Momentum vs prior day is blended in the cron using meta_commander_daily history.)
+ * Commanders from genuinely recent set releases only (Scryfall `date` + `released_at` check).
+ * Tries 180d → 270d → 365d when each window has too few candidates.
  */
-export async function fetchRecentSetPopularCommanders(maxPages = 1): Promise<NormalizedGlobalMetaRow[]> {
-  const q =
-    "is:commander legal:commander game:paper year>=2023 -type:plane -border:silver -stamp:galaxy";
-  const url = `https://api.scryfall.com/cards/search?q=${ENC(q)}&unique=cards&order=edhrec&dir=asc`;
-  const cards = await fetchScryfallListPages(url, maxPages);
-  return normalizeCommanderRows(cards, "edhrec_recent_sets", 1, { recentSetsBoost: true });
+export async function fetchRecentSetBreakoutCommanders(
+  maxPages = 3
+): Promise<RecentSetBreakoutFetchResult> {
+  const empty = (days: number, cutoff: string): RecentSetBreakoutFetchResult => ({
+    rows: [],
+    eligibilityDays: days,
+    rawCandidateCount: 0,
+    distinctSetCodes: 0,
+    cutoffIso: cutoff,
+  });
+
+  let last: RecentSetBreakoutFetchResult = empty(
+    RECENT_SET_ELIGIBILITY_DAYS[RECENT_SET_ELIGIBILITY_DAYS.length - 1],
+    isoDateUtcDaysAgo(RECENT_SET_ELIGIBILITY_DAYS[RECENT_SET_ELIGIBILITY_DAYS.length - 1])
+  );
+
+  for (const days of RECENT_SET_ELIGIBILITY_DAYS) {
+    const cutoffIso = isoDateUtcDaysAgo(days);
+    const q = `is:commander legal:commander game:paper date>=${cutoffIso} -type:plane -border:silver -stamp:galaxy`;
+    const url = `https://api.scryfall.com/cards/search?q=${ENC(q)}&unique=cards&order=edhrec&dir=asc`;
+
+    let cards: ScryfallCardLite[];
+    try {
+      cards = await fetchScryfallListPages(url, maxPages);
+    } catch {
+      continue;
+    }
+
+    const filtered: ScryfallCardLite[] = [];
+    const seen = new Set<string>();
+    for (const c of cards) {
+      if (!isReleasedWithinWindow(c.released_at, days)) continue;
+      const name = c.name?.trim();
+      if (!name) continue;
+      const nn = normName(name);
+      if (seen.has(nn)) continue;
+      seen.add(nn);
+      filtered.push(c);
+    }
+
+    const setCodes = new Set(filtered.map((c) => c.set).filter(Boolean) as string[]);
+    const rows = normalizeCommanderRows(filtered, "edhrec_recent_set_breakouts", 1);
+    last = {
+      rows,
+      eligibilityDays: days,
+      rawCandidateCount: filtered.length,
+      distinctSetCodes: setCodes.size,
+      cutoffIso,
+    };
+
+    if (filtered.length >= MIN_RAW_CANDIDATES_TO_PICK_WINDOW || days === RECENT_SET_ELIGIBILITY_DAYS[RECENT_SET_ELIGIBILITY_DAYS.length - 1]) {
+      return last;
+    }
+  }
+
+  return last;
+}
+
+/**
+ * Back-compat: recent-set breakout pool (date-eligible only) for trending blend inputs.
+ * Prefer `fetchRecentSetBreakoutCommanders` when you need eligibility metadata.
+ */
+export async function fetchRecentSetPopularCommanders(maxPages = 3): Promise<NormalizedGlobalMetaRow[]> {
+  const r = await fetchRecentSetBreakoutCommanders(maxPages);
+  return r.rows;
 }
 
 function normalizeCommanderRows(
@@ -134,7 +238,12 @@ function normalizeCommanderRows(
       source: SCRYFALL_SOURCE,
       timeWindow,
       imageUri: artCrop(c),
-      meta: { edhrec_rank: er ?? null, type_line: c.type_line },
+      meta: {
+        edhrec_rank: er ?? null,
+        type_line: c.type_line,
+        set: c.set ?? null,
+        released_at: c.released_at ?? null,
+      },
     });
   }
   return rows;
@@ -170,6 +279,7 @@ function normalizeCardRows(cards: ScryfallCardLite[], timeWindow: string, startR
     if (/\bland\b/.test(tl)) continue;
     seen.add(nn);
     const er = c.edhrec_rank;
+    const money = parseUsdEurFromCard(c);
     rows.push({
       entityType: "card",
       name,
@@ -180,7 +290,7 @@ function normalizeCardRows(cards: ScryfallCardLite[], timeWindow: string, startR
       source: SCRYFALL_SOURCE,
       timeWindow,
       imageUri: artCrop(c),
-      meta: { edhrec_rank: er ?? null, type_line: c.type_line },
+      meta: { edhrec_rank: er ?? null, type_line: c.type_line, ...money },
     });
   }
   return rows;

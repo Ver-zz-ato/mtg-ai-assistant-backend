@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { LeaderRow, MoverRow } from '@/lib/meta/discoverMetaRollups';
+import type { MetaSignalsJobDetail } from '@/lib/meta/metaSignalsJobStatus';
 
 export type DiscoverRollupsPayload = {
   ok?: boolean;
@@ -18,7 +19,11 @@ export type DiscoverRollupsPayload = {
     leaders7d: LeaderRow[];
     leaders30d: LeaderRow[];
   };
-  newSetBreakouts?: { available: boolean; message?: string };
+  newSetBreakouts?: {
+    available: boolean;
+    message?: string;
+    debug?: MetaSignalsJobDetail['newSetBreakoutsDebug'];
+  };
   caveats?: string[];
   commandCenterPreview?: {
     topCommanders7d: LeaderRow[];
@@ -203,9 +208,18 @@ export function DiscoverMetaRollupsPanel({ data }: { data: DiscoverRollupsPayloa
       </div>
 
       {data.newSetBreakouts && (
-        <div className="rounded border border-neutral-700/60 bg-neutral-900/30 p-3 text-[11px] text-neutral-400">
-          <span className="text-neutral-300 font-medium">New set breakouts (historical): </span>
-          {data.newSetBreakouts.message}
+        <div className="rounded border border-neutral-700/60 bg-neutral-900/30 p-3 text-[11px] text-neutral-400 space-y-1">
+          <div>
+            <span className="text-neutral-300 font-medium">New set breakouts (live / meta-signals): </span>
+            {data.newSetBreakouts.message}
+          </div>
+          {data.newSetBreakouts.debug && (
+            <div className="font-mono text-[10px] text-neutral-500">
+              window {data.newSetBreakouts.debug.eligibilityDays}d · cutoff {data.newSetBreakouts.debug.cutoffIso} ·
+              candidates {data.newSetBreakouts.debug.rawCandidates} · sets {data.newSetBreakouts.debug.distinctSetCodes}{' '}
+              · published {data.newSetBreakouts.debug.finalRows}
+            </div>
+          )}
         </div>
       )}
     </div>

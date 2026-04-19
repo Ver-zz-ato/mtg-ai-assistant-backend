@@ -157,6 +157,23 @@ export function MetaSignalsJobSummary({
         </div>
       </div>
 
+      {detail.newSetBreakoutsDebug && (
+        <div className="rounded border border-sky-900/40 bg-sky-950/20 p-2">
+          <div className="text-sky-200/90 font-medium text-[11px] mb-1">New set breakouts (date eligibility)</div>
+          <div className="font-mono text-[11px] text-neutral-300 space-y-0.5">
+            <div>
+              Window:{' '}
+              <span className="text-neutral-100">{detail.newSetBreakoutsDebug.eligibilityDays}d</span> · cutoff{' '}
+              {detail.newSetBreakoutsDebug.cutoffIso}
+            </div>
+            <div>
+              Candidates (raw): {detail.newSetBreakoutsDebug.rawCandidates} · distinct set codes:{' '}
+              {detail.newSetBreakoutsDebug.distinctSetCodes} · final rows: {detail.newSetBreakoutsDebug.finalRows}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="text-neutral-500 mb-1">Sections</div>
         <ul className="font-mono text-[11px] text-neutral-300 space-y-0.5">

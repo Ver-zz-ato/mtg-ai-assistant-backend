@@ -29,13 +29,15 @@ import type {
   MetaSignalsSectionEntry,
 } from "@/lib/meta/metaSignalsJobStatus";
 import type { NormalizedGlobalMetaRow } from "@/lib/meta/scryfallGlobalMeta";
+import { rankNewSetBreakoutCommanders } from "@/lib/meta/newSetBreakoutsRank";
 import {
   fetchGlobalBudgetCards,
   fetchGlobalCommanderPopular,
   fetchGlobalPopularCards,
-  fetchRecentSetPopularCommanders,
+  fetchRecentSetBreakoutCommanders,
   normName,
   SCRYFALL_META,
+  type RecentSetBreakoutFetchResult,
 } from "@/lib/meta/scryfallGlobalMeta";
 import {
   computeTrendingCardsList,
@@ -48,6 +50,9 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
+/** Minimum date-eligible commanders required before we publish non-empty new-set-breakouts */
+const MIN_NEW_SET_PUBLISH = 3;
+
 const SIGNAL_TYPES = [
   "trending-commanders",
   "most-played-commanders",
@@ -57,6 +62,15 @@ const SIGNAL_TYPES = [
   "new-set-breakouts",
   "discover-meta-label",
 ] as const;
+
+async function safeFetchRecentSetBreakout(): Promise<RecentSetBreakoutFetchResult | null> {
+  try {
+    return await fetchRecentSetBreakoutCommanders(3);
+  } catch (e) {
+    console.warn("[meta-signals] Recent-set breakout fetch failed:", e);
+    return null;
+  }
+}
 
 function isAuthorized(req: NextRequest): boolean {
   const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
@@ -221,21 +235,26 @@ async function runMetaSignals() {
 
   // --- External (Scryfall): Commander / card popularity proxies (EDHREC order); parallel fetches. ---
   let globalPopularCommanders: Awaited<ReturnType<typeof fetchGlobalCommanderPopular>> = [];
-  let recentSetCommanders: Awaited<ReturnType<typeof fetchRecentSetPopularCommanders>> = [];
+  let recentSetBreakoutFetch: RecentSetBreakoutFetchResult | null = null;
+  let recentSetCommanders: NormalizedGlobalMetaRow[] = [];
   let globalPopularCards: Awaited<ReturnType<typeof fetchGlobalPopularCards>> = [];
   let globalBudgetCards: Awaited<ReturnType<typeof fetchGlobalBudgetCards>> = [];
 
   try {
     const [p1, p2, p3, p4] = await Promise.all([
       fetchGlobalCommanderPopular(2),
-      fetchRecentSetPopularCommanders(1),
+      safeFetchRecentSetBreakout(),
       fetchGlobalPopularCards(2),
       fetchGlobalBudgetCards(2),
     ]);
     globalPopularCommanders = p1;
-    recentSetCommanders = p2;
+    recentSetBreakoutFetch = p2;
+    recentSetCommanders = p2?.rows ?? [];
     globalPopularCards = p3;
     globalBudgetCards = p4;
+    if (!p2) {
+      warnings.push("Recent-set Scryfall breakout fetch failed or returned null — trending blend omits recent-set signal.");
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn("[meta-signals] Scryfall global fetch failed (using internal / prior only):", e);
@@ -389,6 +408,12 @@ async function runMetaSignals() {
       .slice(0, 20)
       .map(([name, count]) => cmdFallback(name, count));
   }
+
+  mostPlayedCommandersOut = attachCommanderMovement(
+    mostPlayedCommandersOut,
+    globalPopularCommanders,
+    yesterdayRanks
+  );
 
   const { error: e2 } = await admin.from("meta_signals").upsert(
     {
@@ -560,22 +585,36 @@ async function runMetaSignals() {
   if (hasCmd && hasCardPop && hasBudget) pillMode = "global";
   else if (anyExternal) pillMode = "blended";
 
-  /** New-set commanders (Scryfall recent-year query) — only publish when list is substantial. */
+  /** New-set breakouts: only commanders from recent set releases (Scryfall date + released_at). Ranked; never backfilled from prior snapshots. */
   let newSetOut: LegacyCmdRow[] = [];
-  if (recentSetCommanders.length >= 6) {
-    newSetOut = recentSetCommanders.slice(0, 8).map((g, i) => ({
-      name: g.name,
-      count: i + 1,
-      blendedScore: g.score,
-      badge: "New" as const,
-      dataScope: "blend" as const,
-    }));
-  } else if (Array.isArray(prevSignals["new-set-breakouts"])) {
-    newSetOut = asNameCountArray(prevSignals["new-set-breakouts"]).map((r) => cmdFallback(r.name, r.count));
-    priorSnapshotUsedFor.push("new-set-breakouts");
+  const eligibleBreakout = recentSetCommanders;
+  if (eligibleBreakout.length >= MIN_NEW_SET_PUBLISH) {
+    newSetOut = rankNewSetBreakoutCommanders({
+      eligible: eligibleBreakout,
+      weekCounts,
+      yesterdayRanks,
+      globalPopular: globalPopularCommanders,
+      maxRows: 8,
+    }) as LegacyCmdRow[];
   }
 
-  if (newSetOut.length > 0) {
+  const newSetBreakoutsDebug: MetaSignalsJobDetail["newSetBreakoutsDebug"] = recentSetBreakoutFetch
+    ? {
+        eligibilityDays: recentSetBreakoutFetch.eligibilityDays,
+        cutoffIso: recentSetBreakoutFetch.cutoffIso,
+        rawCandidates: recentSetBreakoutFetch.rawCandidateCount,
+        distinctSetCodes: recentSetBreakoutFetch.distinctSetCodes,
+        finalRows: newSetOut.length,
+      }
+    : undefined;
+
+  if (newSetOut.length === 0 && (recentSetBreakoutFetch?.rawCandidateCount ?? 0) < MIN_NEW_SET_PUBLISH) {
+    warnings.push(
+      "new-set-breakouts: fewer than minimum date-eligible commanders (section empty; prior snapshot not reused)."
+    );
+  }
+
+  {
     const { error: eNew } = await admin.from("meta_signals").upsert(
       {
         signal_type: "new-set-breakouts",
@@ -679,7 +718,10 @@ async function runMetaSignals() {
         newSetOut.map((r) => r.name),
         newSetOut.length
       ),
-      note: newSetOut.length === 0 ? "not published (insufficient recent-set)" : undefined,
+      note:
+        newSetOut.length === 0
+          ? "hidden (insufficient date-eligible commanders; prior snapshot not used)"
+          : undefined,
     },
     "discover-meta-label": {
       rowCount: 1,
@@ -726,6 +768,7 @@ async function runMetaSignals() {
     snapshotDate: todayStr,
     fallbackUsed: priorSnapshotUsedFor.length > 0,
     priorSnapshotUsedFor: priorSnapshotUsedFor.length > 0 ? [...priorSnapshotUsedFor] : undefined,
+    newSetBreakoutsDebug,
     sectionCounts: {
       "trending-commanders": trendingCommandersOut.length,
       "most-played-commanders": mostPlayedCommandersOut.length,

@@ -45,5 +45,11 @@ export function buildMetaSignalsHumanDetail(d: MetaSignalsJobDetail): string {
     );
   }
   if (d.warnings?.length) lines.push("Warnings:\n- " + d.warnings.join("\n- "));
+  if (d.newSetBreakoutsDebug) {
+    const x = d.newSetBreakoutsDebug;
+    lines.push(
+      `New-set breakouts: ${x.finalRows} rows · window ${x.eligibilityDays}d (cutoff ${x.cutoffIso}) · ${x.rawCandidates} candidates · ${x.distinctSetCodes} sets`
+    );
+  }
   return lines.join("\n");
 }

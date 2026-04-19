@@ -22,6 +22,8 @@ export type BlendedCardRow = {
   count: number;
   blendedScore?: number;
   badge?: "Rising" | "Popular" | "Budget" | "New";
+  /** Formatted USD/EUR from Scryfall prices on the global print */
+  priceLabel?: string;
   dataScope?: "blend" | "internal" | "global";
 };
 
@@ -78,7 +80,8 @@ export function blendMostPlayedCommanders(params: {
     name: s.name,
     count: Math.max(1, Math.round(s.intC) || 1),
     blendedScore: Number(s.blended.toFixed(4)),
-    badge: s.extPart > 0.55 ? "Popular" : s.intC >= 3 ? "Rising" : undefined,
+    /** Badges are applied client-side (Discover) to avoid POPULAR spam */
+    badge: undefined,
     dataScope: extOk ? "blend" : "internal",
   }));
   return { rows, externalOk: extOk };
@@ -147,15 +150,12 @@ export function blendTrendingCommanders(params: {
 
   scored.sort((a, b) => b.blended - a.blended);
   const rows: BlendedCommanderRow[] = scored.slice(0, 24).map((s) => {
-    const prev = yesterdayRanks.get(s.nn);
-    const rk = globalByNorm.get(s.nn)?.rank;
-    const rising = prev != null && rk != null && prev > rk;
-    const isNew = !!recentByNorm.get(s.nn) && !globalByNorm.get(s.nn);
     return {
       name: s.name,
       count: Math.max(1, Math.round(s.intC) || 1),
       blendedScore: Number(s.blended.toFixed(4)),
-      badge: rising ? "Rising" : isNew ? "New" : s.intC >= 4 ? "Popular" : undefined,
+      /** Rising / labels are applied client-side using movement + blend */
+      badge: undefined,
       dataScope: extOk ? "blend" : "internal",
     };
   });
@@ -198,14 +198,22 @@ export function blendCardLists(params: {
     scored.push({ name: displayName, blended, intC, extPart });
   }
   scored.sort((a, b) => b.blended - a.blended);
-  const rows: BlendedCardRow[] = scored.slice(0, 36).map((s) => ({
-    name: s.name,
-    count: Math.max(1, Math.round(s.intC) || 1),
-    blendedScore: Number(s.blended.toFixed(4)),
-    badge:
-      s.extPart > 0.5 ? "Popular" : s.extPart > 0.35 && s.intC < 400 ? "Budget" : undefined,
-    dataScope: extOk ? "blend" : "internal",
-  }));
+  const rows: BlendedCardRow[] = scored.slice(0, 36).map((s) => {
+    const nn = normName(s.name);
+    const g = globalByNorm.get(nn);
+    const m = g?.meta as { usd?: number; eur?: number } | undefined;
+    let priceLabel: string | undefined;
+    if (m?.usd != null && m.usd > 0) priceLabel = `$${m.usd.toFixed(2)}`;
+    else if (m?.eur != null && m.eur > 0) priceLabel = `€${m.eur.toFixed(2)}`;
+    return {
+      name: s.name,
+      count: Math.max(1, Math.round(s.intC) || 1),
+      blendedScore: Number(s.blended.toFixed(4)),
+      badge: undefined,
+      priceLabel,
+      dataScope: extOk ? "blend" : "internal",
+    };
+  });
   return { rows, externalOk: extOk };
 }
 
@@ -225,6 +233,7 @@ export function toLegacyCardShape(rows: BlendedCardRow[]) {
     count: r.count,
     blendedScore: r.blendedScore,
     badge: r.badge,
+    priceLabel: r.priceLabel,
     dataScope: r.dataScope,
   }));
 }

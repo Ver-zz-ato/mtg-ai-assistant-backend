@@ -65,6 +65,14 @@ export type MetaSignalsJobDetail = {
   changedSectionsCount?: number;
   /** Successful meta_signals upsert operations this run */
   metaSignalsUpserts?: number;
+  /** Discover “new-set-breakouts” — date eligibility + pool sizes (admin QA) */
+  newSetBreakoutsDebug?: {
+    eligibilityDays: number;
+    cutoffIso: string;
+    rawCandidates: number;
+    distinctSetCodes: number;
+    finalRows: number;
+  };
 };
 
 export function parseMetaSignalsJobDetail(raw: string | null | undefined): MetaSignalsJobDetail | null {
