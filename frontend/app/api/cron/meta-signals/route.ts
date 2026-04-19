@@ -146,7 +146,14 @@ function cmdFallback(name: string, count: number): LegacyCmdRow {
 }
 
 function cardFallback(name: string, count: number): LegacyCardRow {
-  return { name, count, blendedScore: undefined, badge: undefined, dataScope: "internal" };
+  return {
+    name,
+    count,
+    blendedScore: undefined,
+    badge: undefined,
+    priceLabel: undefined,
+    dataScope: "internal",
+  };
 }
 
 function asBudgetCardLikeArray(x: unknown): { name: string; count: number; dataScope: "internal" }[] {
