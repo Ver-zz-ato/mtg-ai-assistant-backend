@@ -376,11 +376,9 @@ export default function DataPage(){
         <div className="bg-blue-900/20 border border-blue-800 rounded p-3 mb-4">
           <div className="text-sm text-blue-200 space-y-1">
             <div className="font-semibold">🤖 Automated schedule (GitHub Actions)</div>
-            <div>• Job 2 (prices): daily ~3:00 AM UTC — see <code className="bg-black/40 px-1 rounded">daily-price-update.yml</code></div>
-            <div>• Job 3 (snapshots): daily ~2:00 AM UTC — <code className="bg-black/40 px-1 rounded">price-snapshot.yml</code> (<code className="bg-black/40 px-1 rounded">CRON_URL</code>)</div>
-            <div>• Delegation: frontend cron can forward Job 3 to <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> (e.g. <code className="bg-black/40 px-1 rounded">https://mtg-bulk-jobs.onrender.com</code>)</div>
+            <div>• Job 2 (prices) &amp; Job 3 (snapshots): nightly <code className="bg-black/40 px-1 rounded">Nightly Bulk Data Import</code> on GitHub → Render <code className="bg-black/40 px-1 rounded">mtg-bulk-jobs</code> (same paths as the buttons when <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> is set on Vercel)</div>
             <div>• Job 1 (bulk Scryfall): weekly Sunday ~2:00 AM UTC on production — <code className="bg-black/40 px-1 rounded">weekly-scryfall-import.yml</code></div>
-            <div>• RUN NOW below hits your <strong>local</strong> server (dev / manual catch-up)</div>
+            <div>• RUN NOW (Job 2 &amp; 3): <strong>production</strong> uses your Render worker if <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> + <code className="bg-black/40 px-1 rounded">CRON_KEY</code> are set; otherwise the same Next.js routes as local dev.</div>
           </div>
         </div>
 
@@ -458,7 +456,7 @@ export default function DataPage(){
 
           <div className="rounded border border-green-800 bg-green-900/10 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="font-medium text-lg">💰 Job 2: Bulk Price Import (LOCAL)</div>
+              <div className="font-medium text-lg">💰 Job 2: Bulk Price Import</div>
               <button
                 onClick={async () => {
                   const { toast } = await import('@/lib/toast-client');
@@ -476,8 +474,9 @@ export default function DataPage(){
                     
                     toast('💰 Starting bulk price import... (check console for progress)', 'info');
                     
-                    const { data } = await fetchAdminCronJson('/api/cron/bulk-price-import', {
+                    const { data } = await fetchAdminCronJson('/api/admin/essential-bulk-job', {
                       method: 'POST',
+                      body: JSON.stringify({ job: 'bulk_price_import' }),
                     });
                     
                     if (data.ok) {
@@ -503,7 +502,7 @@ export default function DataPage(){
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
               <div className="font-semibold text-green-300">✅ How it works:</div>
-              <div className="text-green-200">Runs directly in your localhost:3000 Next.js server. Watch console logs for progress!</div>
+              <div className="text-green-200">Uses <code className="bg-black/40 px-1 rounded">POST /api/admin/essential-bulk-job</code> (admin only). In production with <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code>, that forwards to Render <code className="bg-black/40 px-1 rounded">/bulk-price-import</code> — same as the nightly GitHub workflow. Without it, runs on this Next server.</div>
               
               <div className="font-semibold text-green-300 mt-2">What it does:</div>
               <div>🔄 Downloads bulk card data from Scryfall, extracts prices for all cards in your scryfall_cache, and updates the price_cache table with live USD, EUR, foil, and MTGO ticket prices.</div>
@@ -519,8 +518,8 @@ export default function DataPage(){
               
               <div className="font-semibold text-green-300 mt-2">Runtime & Schedule:</div>
               <div>• Takes ~3-5 minutes (downloads ~100MB bulk data)</div>
-              <div>• Runs daily ~3:00 AM UTC via GitHub Actions (<code className="bg-black/40 px-1 rounded">daily-price-update.yml</code>)</div>
-              <div>• Also runs locally on demand via this button</div>
+              <div>• Runs daily via GitHub Actions → Render (see <code className="bg-black/40 px-1 rounded">nightly-bulk-imports.yml</code> in the backend repo)</div>
+              <div>• Manual run: this button (or re-run the workflow)</div>
               
               <div className="font-semibold text-green-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_price_import'])}</div>
@@ -529,7 +528,7 @@ export default function DataPage(){
 
           <div className="rounded border border-blue-800 bg-blue-900/10 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="font-medium text-lg">📈 Job 3: Historical Price Snapshots (LOCAL)</div>
+              <div className="font-medium text-lg">📈 Job 3: Historical Price Snapshots</div>
               <button
                 onClick={async () => {
                   const { toast } = await import('@/lib/toast-client');
@@ -538,8 +537,9 @@ export default function DataPage(){
                     toast('📈 Starting price snapshot... (check console for progress)', 'info');
                     
                     // Use bulk snapshot endpoint that processes ALL cards (not just deck cards)
-                    const { data } = await fetchAdminCronJson('/api/bulk-jobs/price-snapshot', {
+                    const { data } = await fetchAdminCronJson('/api/admin/essential-bulk-job', {
                       method: 'POST',
+                      body: JSON.stringify({ job: 'price_snapshot_bulk' }),
                     });
                     
                     if (data.ok) {
@@ -565,7 +565,7 @@ export default function DataPage(){
             </div>
             <div className="mt-3 text-sm text-neutral-300 space-y-1">
               <div className="font-semibold text-blue-300">✅ How it works:</div>
-              <div className="text-blue-200">Runs directly in your localhost:3000 Next.js server. Watch console logs for progress!</div>
+              <div className="text-blue-200">Same admin proxy as Job 2. With <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code>, forwards to Render <code className="bg-black/40 px-1 rounded">/price-snapshot</code>. Otherwise runs <code className="bg-black/40 px-1 rounded">/api/bulk-jobs/price-snapshot</code> on this host.</div>
               
               <div className="font-semibold text-blue-300 mt-2">What it does:</div>
               <div>🔄 Downloads Scryfall bulk <code className="bg-black/40 px-1 rounded">default_cards</code>, median USD/EUR per card name, GBP from FX → rows in <code className="bg-black/40 px-1 rounded">price_snapshots</code> for today. Powers price history for the price tracker and movers (same pipeline as production cron).</div>
@@ -583,7 +583,7 @@ export default function DataPage(){
               <div>• Takes several minutes (downloads Scryfall bulk <code className="bg-black/40 px-1 rounded">default_cards</code>, median prices per name → <code className="bg-black/40 px-1 rounded">price_snapshots</code>)</div>
               <div>• Production: same pipeline — <code className="bg-black/40 px-1 rounded">CRON_URL</code> should hit <code className="bg-black/40 px-1 rounded">/api/cron/price/snapshot</code> (daily ~2:00 AM UTC, <code className="bg-black/40 px-1 rounded">price-snapshot.yml</code>)</div>
               <div>• Recommended prod config: set <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> on Vercel to your Render service (e.g. <code className="bg-black/40 px-1 rounded">https://mtg-bulk-jobs.onrender.com</code>) so cron delegates long runs safely.</div>
-              <div>• Local button: <code className="bg-black/40 px-1 rounded">POST /api/bulk-jobs/price-snapshot</code></div>
+              <div>• Manual button: <code className="bg-black/40 px-1 rounded">POST /api/admin/essential-bulk-job</code> with <code className="bg-black/40 px-1 rounded">job: &quot;price_snapshot_bulk&quot;</code></div>
               
               <div className="font-semibold text-blue-300 mt-2">Dependencies:</div>
               <div>⚠️ Snapshots no longer read <code className="bg-black/40 px-1 rounded">price_cache</code> — Job 3 can run even if Job 2 failed. You still want Job 2 for live deck/collection prices elsewhere.</div>
