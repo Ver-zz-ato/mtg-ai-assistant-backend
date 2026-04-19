@@ -47,6 +47,27 @@ type Mulligan = {
   total_cost_usd?: number;
 };
 
+type DiscoverMetaStatus = {
+  ok?: boolean;
+  health?: string;
+  lastSuccess?: string | null;
+  lastAttempt?: string | null;
+  jobDetail?: {
+    ok?: boolean;
+    pillMode?: string;
+    snapshotDate?: string;
+    fallbackUsed?: boolean;
+    sectionCounts?: Record<string, number>;
+    sources?: Record<string, number>;
+    warnings?: string[];
+    lastError?: string;
+    yesterdayRanksAvailable?: boolean;
+  } | null;
+  samples?: Record<string, { count?: number; updated_at?: string; preview?: unknown[] }>;
+  meta_commander_daily_yesterday_rows?: number;
+  meta_card_daily_today_rows?: number;
+};
+
 type ProGateRange = '24h' | '7d' | '30d';
 type MulliganDays = 1 | 7 | 30;
 
@@ -65,9 +86,10 @@ const CRON_INFO: Record<(typeof CRON_KEYS)[number], { eli5: string; schedule: st
     when: 'Run after deck-costs; needed if commander hub stats are stale',
   },
   'meta-signals': {
-    eli5: 'Trending commanders, budget picks, most-played cards — powers discovery widgets',
+    eli5:
+      'Blends Scryfall (EDHREC order) with ManaTap decks → meta_signals + Discover; status in job:meta-signals:detail',
     schedule: 'Daily 05:15 UTC',
-    when: 'Run after commander-aggregates; refresh if trending/budget widgets look wrong',
+    when: 'Run after commander-aggregates; refresh if Discover meta looks wrong',
   },
   'top-cards': {
     eli5: 'Which cards are in the most decks for each commander (for commander pages)',
@@ -99,6 +121,7 @@ export default function CommandCenterPage() {
   const [reportRunBusy, setReportRunBusy] = useState<'daily' | 'weekly' | null>(null);
   const [opsReports, setOpsReports] = useState<{ latest_daily?: { created_at: string; status: string }; latest_weekly?: { created_at: string; status: string } } | null>(null);
   const [lastRefresh, setLastRefresh] = useState<string>('');
+  const [discoverMeta, setDiscoverMeta] = useState<DiscoverMetaStatus | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,6 +134,7 @@ export default function CommandCenterPage() {
         mullRes,
         configRes,
         reportsRes,
+        discoverMetaRes,
       ] = await Promise.all([
         fetch('/api/admin/audit-pinboard', { cache: 'no-store' }),
         fetch('/api/admin/ai/health', { cache: 'no-store' }),
@@ -119,6 +143,7 @@ export default function CommandCenterPage() {
         fetch(`/api/admin/mulligan/analytics?days=${mulliganDays}`, { cache: 'no-store' }),
         fetch('/api/admin/config?key=job:last:deck-costs&key=job:last:commander-aggregates&key=job:last:meta-signals&key=job:last:top-cards&key=job:last:budget-swaps-update&key=job:last:price_snapshot_bulk', { cache: 'no-store' }),
         fetch('/api/admin/ops-reports/list?limit=5', { cache: 'no-store' }),
+        fetch('/api/admin/discover-meta-status', { cache: 'no-store' }),
       ]);
 
       const pinJ = await pinRes.json().catch(() => ({}));
@@ -128,6 +153,7 @@ export default function CommandCenterPage() {
       const mullJ = await mullRes.json().catch(() => ({}));
       const configJ = await configRes.json().catch(() => ({}));
       const reportsJ = await reportsRes.json().catch(() => ({}));
+      const discoverMetaJ = await discoverMetaRes.json().catch(() => ({}));
 
       if (pinJ?.ok && pinJ?.pinboard) setPinboard(pinJ.pinboard);
       else setPinboard(null);
@@ -153,6 +179,9 @@ export default function CommandCenterPage() {
 
       if (reportsJ?.ok) setOpsReports({ latest_daily: reportsJ.latest_daily, latest_weekly: reportsJ.latest_weekly });
       else setOpsReports(null);
+
+      if (discoverMetaJ?.ok) setDiscoverMeta(discoverMetaJ as DiscoverMetaStatus);
+      else setDiscoverMeta(null);
 
       setLastRefresh(new Date().toLocaleTimeString());
     } catch (e) {
@@ -490,6 +519,96 @@ export default function CommandCenterPage() {
           )}
         </section>
       </div>
+
+      {/* Discover / Meta pipeline (mobile app) */}
+      <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">Discover meta (Commander trends)</h2>
+            <p className="text-[11px] text-neutral-500 mt-0.5">
+              Scryfall EDHREC blend + ManaTap decks → <code className="text-neutral-400">meta_signals</code>. Vercel
+              cron <code className="text-neutral-400">15 5 * * *</code> →{' '}
+              <code className="text-neutral-400">/api/cron/meta-signals</code>.
+            </p>
+          </div>
+          <Link href="/admin/data#discover-meta-inspector" className="text-xs text-blue-400 hover:text-blue-300">
+            Inspector on Data →
+          </Link>
+        </div>
+        {discoverMeta?.ok ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+            <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700">
+              <div className="text-neutral-400">Status</div>
+              <div
+                className={`font-mono mt-1 ${
+                  discoverMeta.health === 'healthy'
+                    ? 'text-emerald-400'
+                    : discoverMeta.health === 'stale'
+                      ? 'text-amber-400'
+                      : 'text-rose-400'
+                }`}
+              >
+                {discoverMeta.health ?? '—'}
+              </div>
+            </div>
+            <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700">
+              <div className="text-neutral-400">Pill mode (app label)</div>
+              <div className="font-mono text-neutral-200 mt-1">{discoverMeta.jobDetail?.pillMode ?? '—'}</div>
+            </div>
+            <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700">
+              <div className="text-neutral-400">Snapshot date</div>
+              <div className="font-mono text-neutral-200 mt-1">{discoverMeta.jobDetail?.snapshotDate ?? '—'}</div>
+            </div>
+            <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700">
+              <div className="text-neutral-400">Last success</div>
+              <div className="text-neutral-300 mt-1">
+                {discoverMeta.lastSuccess ? new Date(discoverMeta.lastSuccess).toLocaleString() : '—'}
+              </div>
+            </div>
+            <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700">
+              <div className="text-neutral-400">Last attempt</div>
+              <div className="text-neutral-300 mt-1">
+                {discoverMeta.lastAttempt ? new Date(discoverMeta.lastAttempt).toLocaleString() : '—'}
+              </div>
+            </div>
+            <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700">
+              <div className="text-neutral-400">Yesterday rank rows (commander_daily)</div>
+              <div className="font-mono text-neutral-200 mt-1">
+                {discoverMeta.meta_commander_daily_yesterday_rows ?? 0}
+              </div>
+            </div>
+            <div className="col-span-full p-2 rounded bg-neutral-800/40 border border-neutral-700">
+              <div className="text-neutral-400 mb-1">Section row counts</div>
+              <pre className="text-[10px] text-neutral-300 whitespace-pre-wrap font-mono">
+                {JSON.stringify(discoverMeta.jobDetail?.sectionCounts ?? {}, null, 0)}
+              </pre>
+            </div>
+            {(discoverMeta.jobDetail?.warnings?.length ?? 0) > 0 && (
+              <div className="col-span-full p-2 rounded border border-amber-700/50 bg-amber-950/30">
+                <div className="text-amber-200/90 font-medium">Warnings</div>
+                <ul className="list-disc list-inside text-[11px] text-amber-100/80 mt-1">
+                  {discoverMeta.jobDetail?.warnings?.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {discoverMeta.jobDetail?.lastError && (
+              <div className="col-span-full p-2 rounded border border-rose-700/50 bg-rose-950/30 text-[11px] text-rose-100">
+                {discoverMeta.jobDetail.lastError}
+              </div>
+            )}
+            <div className="col-span-full p-2 rounded bg-neutral-800/40 border border-neutral-700">
+              <div className="text-neutral-400 mb-1">Rising commanders (preview)</div>
+              <pre className="text-[10px] text-neutral-300 font-mono overflow-auto max-h-24">
+                {JSON.stringify(discoverMeta.samples?.['trending-commanders']?.preview ?? [], null, 2)}
+              </pre>
+            </div>
+          </div>
+        ) : (
+          <div className="text-neutral-500 text-sm">Could not load discover meta status (admin API).</div>
+        )}
+      </section>
 
       {/* Discovery Crons (from Ops) */}
       <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">

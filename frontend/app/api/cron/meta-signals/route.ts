@@ -14,11 +14,14 @@ import {
   upsertCardDaily,
   upsertCommanderDaily,
 } from "@/lib/meta/persistMetaExternalDaily";
+import type { MetaSignalsJobDetail, MetaSignalsPillMode } from "@/lib/meta/metaSignalsJobStatus";
+import type { NormalizedGlobalMetaRow } from "@/lib/meta/scryfallGlobalMeta";
 import {
   fetchGlobalBudgetCards,
   fetchGlobalCommanderPopular,
   fetchGlobalPopularCards,
   fetchRecentSetPopularCommanders,
+  normName,
   SCRYFALL_META,
 } from "@/lib/meta/scryfallGlobalMeta";
 import {
@@ -38,6 +41,7 @@ const SIGNAL_TYPES = [
   "budget-commanders",
   "trending-cards",
   "most-played-cards",
+  "new-set-breakouts",
   "discover-meta-label",
 ] as const;
 
@@ -107,7 +111,7 @@ function asNameCountArray(x: unknown): { name: string; count: number }[] {
 }
 
 /** Older budget rows used commander median cost; normalize to card-shaped entries for fallback. */
-type LegacyCmdRow = ReturnType<typeof toLegacyCommanderShape>[number];
+type LegacyCmdRow = ReturnType<typeof toLegacyCommanderShape>[number] & { movementLabel?: string };
 type LegacyCardRow = ReturnType<typeof toLegacyCardShape>[number];
 
 function cmdFallback(name: string, count: number): LegacyCmdRow {
@@ -147,11 +151,38 @@ async function loadPreviousSignalData(
   return out;
 }
 
+function attachCommanderMovement(
+  rows: LegacyCmdRow[],
+  globalToday: NormalizedGlobalMetaRow[],
+  yesterdayRanks: Map<string, number>
+): LegacyCmdRow[] {
+  const rankToday = new Map(globalToday.map((g) => [g.nameNorm, g.rank]));
+  return rows.map((r) => {
+    const nn = normName(r.name);
+    const prev = yesterdayRanks.get(nn);
+    const cur = rankToday.get(nn);
+    if (prev == null || cur == null || prev <= 0) return r;
+    const delta = prev - cur;
+    if (delta === 0) return r;
+    const movementLabel = delta > 0 ? `▲${delta}` : `▼${Math.abs(delta)}`;
+    return { ...r, movementLabel };
+  });
+}
+
 async function runMetaSignals() {
   const admin = getAdmin();
   if (!admin) {
     return NextResponse.json({ ok: false, error: "admin_client_unavailable" }, { status: 500 });
   }
+
+  const attemptStartedAt = new Date().toISOString();
+  const warnings: string[] = [];
+
+  try {
+  await admin.from("app_config").upsert(
+    { key: "job:meta-signals:attempt", value: attemptStartedAt },
+    { onConflict: "key" }
+  );
 
   const prevSignals = await loadPreviousSignalData(admin, SIGNAL_TYPES);
 
@@ -190,7 +221,18 @@ async function runMetaSignals() {
     globalPopularCards = p3;
     globalBudgetCards = p4;
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.warn("[meta-signals] Scryfall global fetch failed (using internal / prior only):", e);
+    warnings.push(`Scryfall fetch error: ${msg}`);
+  }
+
+  if (
+    globalPopularCommanders.length === 0 &&
+    globalPopularCards.length === 0 &&
+    globalBudgetCards.length === 0 &&
+    recentSetCommanders.length === 0
+  ) {
+    warnings.push("No Scryfall rows this run — blends are ManaTap-only or use prior rows.");
   }
 
   /** Persist daily external snapshots (separate from blended meta_signals; no wipe on partial). */
@@ -261,6 +303,12 @@ async function runMetaSignals() {
       .slice(0, 20)
       .map(([name, count]) => cmdFallback(name, count));
   }
+
+  trendingCommandersOut = attachCommanderMovement(
+    trendingCommandersOut,
+    globalPopularCommanders,
+    yesterdayRanks
+  );
 
   const { error: e1 } = await admin.from("meta_signals").upsert(
     {
@@ -460,18 +508,55 @@ async function runMetaSignals() {
   );
   if (!e3) updated++;
 
-  const anyExternal =
-    globalPopularCommanders.length > 0 ||
-    globalPopularCards.length > 0 ||
-    globalBudgetCards.length > 0 ||
-    recentSetCommanders.length > 0;
+  const hasCmd = globalPopularCommanders.length > 0;
+  const hasCardPop = globalPopularCards.length > 0;
+  const hasBudget = globalBudgetCards.length > 0;
+  const hasRecent = recentSetCommanders.length > 0;
+  const anyExternal = hasCmd || hasCardPop || hasBudget || hasRecent;
+
+  let pillMode: MetaSignalsPillMode = "manatap";
+  if (hasCmd && hasCardPop && hasBudget) pillMode = "global";
+  else if (anyExternal) pillMode = "blended";
+
+  /** New-set commanders (Scryfall recent-year query) — only publish when list is substantial. */
+  let newSetOut: LegacyCmdRow[] = [];
+  if (recentSetCommanders.length >= 6) {
+    newSetOut = recentSetCommanders.slice(0, 8).map((g, i) => ({
+      name: g.name,
+      count: i + 1,
+      blendedScore: g.score,
+      badge: "New" as const,
+      dataScope: "blend" as const,
+    }));
+  } else if (Array.isArray(prevSignals["new-set-breakouts"])) {
+    newSetOut = asNameCountArray(prevSignals["new-set-breakouts"]).map((r) => cmdFallback(r.name, r.count));
+  }
+
+  if (newSetOut.length > 0) {
+    const { error: eNew } = await admin.from("meta_signals").upsert(
+      {
+        signal_type: "new-set-breakouts",
+        data: newSetOut,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "signal_type" }
+    );
+    if (!eNew) updated++;
+  }
+
+  const cardsExternalOk =
+    budgetBlend.externalOk ||
+    mostPlayedCardsBlended.externalOk ||
+    trendingCardsBlended.some((r) => r.dataScope === "blend");
+
   const { error: eLabel } = await admin.from("meta_signals").upsert(
     {
       signal_type: "discover-meta-label",
       data: {
-        style: anyExternal ? "global" : "manatap",
+        style: anyExternal && pillMode !== "manatap" ? "global" : "manatap",
+        pillMode,
         commandersExternalOk: blendedTrend.externalOk,
-        cardsExternalOk: budgetBlend.externalOk || mostPlayedCardsBlended.externalOk || trendingCardsBlended.some((r) => r.dataScope === "blend"),
+        cardsExternalOk,
       },
       updated_at: new Date().toISOString(),
     },
@@ -479,8 +564,39 @@ async function runMetaSignals() {
   );
   if (!eLabel) updated++;
 
+  const finishedAt = new Date().toISOString();
+  const jobDetail: MetaSignalsJobDetail = {
+    ok: true,
+    finishedAt,
+    attemptStartedAt,
+    pillMode,
+    snapshotDate: todayStr,
+    fallbackUsed: warnings.length > 0 && !anyExternal,
+    sectionCounts: {
+      "trending-commanders": trendingCommandersOut.length,
+      "most-played-commanders": mostPlayedCommandersOut.length,
+      "trending-cards": trendingCardsOut.length,
+      "most-played-cards": mostPlayedCardsOut.length,
+      "budget-commanders": budgetCardsOut.length,
+      "new-set-breakouts": newSetOut.length,
+    },
+    sources: {
+      scryfallCommanders: globalPopularCommanders.length,
+      scryfallCards: globalPopularCards.length,
+      scryfallBudget: globalBudgetCards.length,
+      recentSetCommanders: recentSetCommanders.length,
+    },
+    warnings,
+    yesterdayRanksAvailable: yesterdayRanks.size > 0,
+  };
+
   await admin.from("app_config").upsert(
-    { key: "job:last:meta-signals", value: new Date().toISOString() },
+    { key: "job:meta-signals:detail", value: JSON.stringify(jobDetail) },
+    { onConflict: "key" }
+  );
+
+  await admin.from("app_config").upsert(
+    { key: "job:last:meta-signals", value: finishedAt },
     { onConflict: "key" }
   );
 
@@ -496,4 +612,32 @@ async function runMetaSignals() {
     updated,
     signal_types: SIGNAL_TYPES.length,
   });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[meta-signals] fatal:", e);
+    const finishedAt = new Date().toISOString();
+    const failDetail: MetaSignalsJobDetail = {
+      ok: false,
+      finishedAt,
+      attemptStartedAt,
+      pillMode: "manatap",
+      snapshotDate: finishedAt.slice(0, 10),
+      fallbackUsed: true,
+      sectionCounts: {},
+      sources: {
+        scryfallCommanders: 0,
+        scryfallCards: 0,
+        scryfallBudget: 0,
+        recentSetCommanders: 0,
+      },
+      warnings: [],
+      lastError: msg,
+      yesterdayRanksAvailable: false,
+    };
+    await admin.from("app_config").upsert(
+      { key: "job:meta-signals:detail", value: JSON.stringify(failDetail) },
+      { onConflict: "key" }
+    );
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
 }

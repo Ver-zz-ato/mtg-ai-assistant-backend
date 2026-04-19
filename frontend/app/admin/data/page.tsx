@@ -15,8 +15,27 @@ export default function DataPage(){
   const [diagnosticResult, setDiagnosticResult] = React.useState<any>(null);
   const [diagnosticLoading, setDiagnosticLoading] = React.useState(false);
   const [cleanupResult, setCleanupResult] = React.useState<any>(null);
+  const [discoverInspector, setDiscoverInspector] = React.useState<Record<string, unknown> | null>(null);
+  const [metaRunBusy, setMetaRunBusy] = React.useState(false);
   const { user } = useAuth();
   const { isPro } = useProStatus();
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/admin/discover-meta-status', { cache: 'no-store' });
+        const j = await r.json();
+        if (!cancelled && j?.ok) setDiscoverInspector(j);
+        else if (!cancelled) setDiscoverInspector(null);
+      } catch {
+        if (!cancelled) setDiscoverInspector(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     // Fetch last-run timestamps from app_config keys (only the 3 essential jobs)
@@ -107,6 +126,52 @@ export default function DataPage(){
         '⏱️ Typical nightly runtime (jobs 2+3): ~10-15 minutes',
         '💡 Each job shows when it last ran successfully below'
       ]} />
+
+      <section id="discover-meta-inspector" className="rounded border border-emerald-900/40 bg-emerald-950/20 p-3 space-y-3">
+        <div className="font-medium">Discover / Meta signals inspector</div>
+        <p className="text-xs text-neutral-400">
+          Production: Vercel cron runs <code className="bg-black/40 px-1 rounded">/api/cron/meta-signals</code> daily
+          05:15 UTC. Status JSON: <code className="bg-black/40 px-1 rounded">app_config.job:meta-signals:detail</code>.
+          Manual run uses the same auth as other admin crons.
+        </p>
+        <button
+          type="button"
+          disabled={metaRunBusy}
+          onClick={async () => {
+            setMetaRunBusy(true);
+            try {
+              const r = await fetch('/api/admin/cron/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cron: 'meta-signals' }),
+              });
+              const j = await r.json();
+              if (j?.ok) {
+                const rr = await fetch('/api/admin/discover-meta-status', { cache: 'no-store' });
+                const jj = await rr.json();
+                if (jj?.ok) setDiscoverInspector(jj);
+                alert(`Meta refresh completed. Updated: ${j.updated ?? '—'}`);
+              } else {
+                alert(`Meta refresh failed: ${j?.error || r.statusText}`);
+              }
+            } catch (e: unknown) {
+              alert(e instanceof Error ? e.message : 'failed');
+            } finally {
+              setMetaRunBusy(false);
+            }
+          }}
+          className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-sm text-white"
+        >
+          {metaRunBusy ? 'Running meta-signals…' : 'Run meta-signals now (admin)'}
+        </button>
+        {discoverInspector ? (
+          <pre className="text-[11px] bg-black/40 border border-neutral-800 rounded p-2 overflow-auto max-h-96">
+            {JSON.stringify(discoverInspector, null, 2)}
+          </pre>
+        ) : (
+          <div className="text-xs text-neutral-500">Loading status… (must be signed in as admin)</div>
+        )}
+      </section>
 
       {/* Scryfall cache inspector */}
       <section className="rounded border border-neutral-800 p-3 space-y-2">
