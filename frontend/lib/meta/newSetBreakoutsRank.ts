@@ -9,6 +9,8 @@ export type NewSetBreakoutRow = {
   name: string;
   count: number;
   blendedScore?: number;
+  /** Uppercase Scryfall set code (2–8 chars). Prefer this for UI; `badge` remains for human-readable display. */
+  setCode?: string;
   badge?: string;
   movementLabel?: string;
   dataScope?: "blend";
@@ -89,6 +91,7 @@ export function rankNewSetBreakoutCommanders(params: {
       name: s.g.name,
       count: i + 1,
       blendedScore: Number(s.blended.toFixed(4)),
+      setCode: setCode || undefined,
       badge,
       movementLabel,
       dataScope: "blend",

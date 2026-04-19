@@ -138,7 +138,11 @@ function asNameCountArray(x: unknown): { name: string; count: number }[] {
 }
 
 /** Older budget rows used commander median cost; normalize to card-shaped entries for fallback. */
-type LegacyCmdRow = ReturnType<typeof toLegacyCommanderShape>[number] & { movementLabel?: string };
+type LegacyCmdRow = ReturnType<typeof toLegacyCommanderShape>[number] & {
+  movementLabel?: string;
+  /** new-set-breakouts: Scryfall set code for Discover bronze chip */
+  setCode?: string;
+};
 type LegacyCardRow = ReturnType<typeof toLegacyCardShape>[number];
 
 function cmdFallback(name: string, count: number): LegacyCmdRow {

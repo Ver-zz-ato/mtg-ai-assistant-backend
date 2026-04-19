@@ -83,7 +83,13 @@ async function fetchScryfallListPages(startUrl: string, maxPages: number): Promi
   let url: string | undefined = startUrl;
   for (let p = 0; p < maxPages && url; p++) {
     // eslint-disable-next-line no-restricted-globals -- Scryfall cards/search public API (absolute api.scryfall.com URLs)
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        // Scryfall requires User-Agent; omitting can yield 400 in some runtimes.
+        "User-Agent": "ManaTapMetaSignals/1.0 (https://manatap.app)",
+      },
+    });
     if (!res.ok) throw new Error(`scryfall_http_${res.status}`);
     const json = (await res.json()) as ScryfallList;
     if (json.object === "error") throw new Error((json as { details?: string }).details || "scryfall_error");
