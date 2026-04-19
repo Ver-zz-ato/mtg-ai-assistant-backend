@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
+import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+
+const JOB_ID = "bulk_scryfall";
 import {
   buildScryfallCacheRowFromApiCard,
   normalizeScryfallCacheName,
@@ -131,6 +135,7 @@ export async function POST(req: NextRequest) {
   try {
     console.log("🚀 Starting bulk Scryfall import...");
     const startTime = Date.now();
+    const attemptStartedAt = new Date().toISOString();
 
     // Check if this is a test run (quick validation)
     const testMode = req.headers.get('x-test-mode') === 'true';
@@ -155,6 +160,11 @@ export async function POST(req: NextRequest) {
         sample_cache_entries: data?.length || 0,
         message: "Test successful - ready for full import"
       });
+    }
+
+    {
+      const m = getAdmin();
+      if (m) await markAdminJobAttempt(m, JOB_ID);
     }
 
     // Check if we should use streaming mode (recommended)
@@ -358,23 +368,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Record completion
+    // 3. Record completion (job:last + detail handled by persistAdminJobRun when we log this chunk)
     try {
-      // Always update last run timestamp for admin panel
-      const timestamp = new Date().toISOString();
-      console.log(`⏰ Updating last run timestamp: ${timestamp}`);
-      
-      const { error: timestampError } = await admin.from('app_config').upsert(
-        { key: 'job:last:bulk_scryfall', value: timestamp }, 
-        { onConflict: 'key' }
-      );
-      
-      if (timestampError) {
-        console.error('❌ Failed to update timestamp:', timestampError.message);
-      } else {
-        console.log('✅ Timestamp updated successfully');
-      }
-      
       // Update completion status if this is the final chunk
       if (isLastChunk) {
         await admin.from('app_config').upsert(
@@ -441,6 +436,48 @@ export async function POST(req: NextRequest) {
     console.log(`   upserts update existing rows. The final count represents unique card names.`);
     console.log(`\n📈 Image coverage: ${cardsWithImages.toLocaleString()}/${cards.length.toLocaleString()} cards had images (${Math.round(cardsWithImages / cards.length * 100)}%)`);
 
+    const shouldPersist = useStreaming || isLastChunk;
+    if (shouldPersist) {
+      const finishedAt = new Date().toISOString();
+      const durationMs = Date.now() - new Date(attemptStartedAt).getTime();
+      const warnings: string[] = [];
+      if (errors > 0) warnings.push(`${errors} batch upsert error(s) — see server logs`);
+      const chunkLabel = useStreaming
+        ? "full streaming import"
+        : `legacy chunk ${chunkStart}-${chunkStart + chunkSize}${isLastChunk ? " (final)" : ""}`;
+      const detail: AdminJobDetail = {
+        jobId: JOB_ID,
+        attemptStartedAt,
+        finishedAt,
+        ok: true,
+        runResult: errors > 0 ? "partial" : "success",
+        compactLine: `${chunkLabel}: ${inserted.toLocaleString()} rows upserted · ~${finalCount?.toLocaleString() ?? "?"} names in scryfall_cache · ${errors} batch errors`,
+        destination: "scryfall_cache",
+        source: "Scryfall default_cards bulk JSON (streaming or chunked)",
+        durationMs,
+        counts: {
+          rows_upserted_this_request: inserted,
+          cards_processed: processed,
+          batch_errors: errors,
+          final_cache_rows: finalCount ?? undefined,
+          cache_with_images: imageCount,
+        },
+        warnings: warnings.length ? warnings : undefined,
+        labels: {
+          schedule: "Weekly Sunday ~02:00 UTC (prod) / local RUN NOW",
+          local_only:
+            "Admin button runs on your machine — production uses GitHub Actions hitting BASE_URL",
+        },
+        extra: {
+          streaming_mode: useStreaming,
+          is_last_chunk: isLastChunk,
+          chunk_start: useStreaming ? 0 : chunkStart,
+          total_cards_in_bulk: allCardsLength,
+        },
+      };
+      await persistAdminJobRun(admin, JOB_ID, detail);
+    }
+
     return NextResponse.json({ 
       ok: true, 
       imported: inserted, 
@@ -459,9 +496,26 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("❌ Bulk import failed:", error);
+    const msg = error?.message || "bulk_import_failed";
+    try {
+      const a = getAdmin();
+      if (a) {
+        await persistAdminJobRun(a, JOB_ID, {
+          jobId: JOB_ID,
+          finishedAt: new Date().toISOString(),
+          ok: false,
+          runResult: "failed",
+          compactLine: `Failed: ${String(msg).slice(0, 200)}`,
+          destination: "scryfall_cache",
+          lastError: String(msg),
+        });
+      }
+    } catch {
+      /* ignore */
+    }
     return NextResponse.json({ 
       ok: false, 
-      error: error?.message || "bulk_import_failed" 
+      error: msg
     }, { status: 500 });
   }
 }

@@ -1,6 +1,15 @@
 'use client';
 import React from 'react';
+import { MetaSignalsJobSummary } from '@/components/admin/MetaSignalsJobSummary';
+import { MetaSignalsRunHistory } from '@/components/admin/MetaSignalsRunHistory';
+import { AdminJobInspectorHub } from '@/components/admin/AdminJobInspectorHub';
+import {
+  DiscoverMetaRollupsPanel,
+  type DiscoverRollupsPayload,
+} from '@/components/admin/DiscoverMetaRollupsPanel';
+import type { MetaSignalsRunLogRow } from '@/lib/meta/metaSignalsRunHistory';
 import { ELI5, HelpTip } from '@/components/AdminHelp';
+import type { MetaSignalsJobDetail } from '@/lib/meta/metaSignalsJobStatus';
 import { track } from '@/lib/analytics/track';
 import { useAuth } from '@/lib/auth-context';
 import { useProStatus } from '@/hooks/useProStatus';
@@ -17,7 +26,36 @@ export default function DataPage(){
   const [cleanupResult, setCleanupResult] = React.useState<any>(null);
   const [discoverInspector, setDiscoverInspector] = React.useState<Record<string, unknown> | null>(null);
   const [metaRunBusy, setMetaRunBusy] = React.useState(false);
+  const [discoverRollups, setDiscoverRollups] = React.useState<DiscoverRollupsPayload | null>(null);
+  const [metaRunHistory, setMetaRunHistory] = React.useState<MetaSignalsRunLogRow[]>([]);
+  const [metaHistoryTableMissing, setMetaHistoryTableMissing] = React.useState(false);
+  const [metaHistoryMessage, setMetaHistoryMessage] = React.useState<string | undefined>();
+  const [manualMetaNotice, setManualMetaNotice] = React.useState<string | null>(null);
   const { user } = useAuth();
+
+  const loadMetaRunHistory = React.useCallback(async () => {
+    try {
+      const r = await fetch('/api/admin/discover-meta-run-history?limit=12', { cache: 'no-store' });
+      const j = await r.json();
+      if (j?.ok) {
+        setMetaRunHistory((j.runs as MetaSignalsRunLogRow[]) ?? []);
+        setMetaHistoryTableMissing(!!j.tableMissing);
+        setMetaHistoryMessage(j.message as string | undefined);
+      }
+    } catch {
+      setMetaRunHistory([]);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void loadMetaRunHistory();
+  }, [loadMetaRunHistory]);
+
+  React.useEffect(() => {
+    if (!manualMetaNotice) return;
+    const t = setTimeout(() => setManualMetaNotice(null), 45000);
+    return () => clearTimeout(t);
+  }, [manualMetaNotice]);
   const { isPro } = useProStatus();
 
   React.useEffect(() => {
@@ -30,6 +68,23 @@ export default function DataPage(){
         else if (!cancelled) setDiscoverInspector(null);
       } catch {
         if (!cancelled) setDiscoverInspector(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/admin/discover-meta-rollups', { cache: 'no-store' });
+        const j = await r.json();
+        if (!cancelled && j?.ok) setDiscoverRollups(j as DiscoverRollupsPayload);
+        else if (!cancelled) setDiscoverRollups(null);
+      } catch {
+        if (!cancelled) setDiscoverRollups(null);
       }
     })();
     return () => {
@@ -113,7 +168,7 @@ export default function DataPage(){
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
+    <div className="max-w-6xl mx-auto p-4 space-y-6">
       <div className="text-xl font-semibold">Data & Pricing - Consolidated Jobs</div>
       <ELI5 heading="Simplified Cache Management (3 Essential Jobs)" items={[
         '🎯 CONSOLIDATION: Reduced from 6 jobs to 3 essential ones for simplicity and reliability',
@@ -150,9 +205,19 @@ export default function DataPage(){
                 const rr = await fetch('/api/admin/discover-meta-status', { cache: 'no-store' });
                 const jj = await rr.json();
                 if (jj?.ok) setDiscoverInspector(jj);
-                alert(`Meta refresh completed. Updated: ${j.updated ?? '—'}`);
+                const rrRoll = await fetch('/api/admin/discover-meta-rollups', { cache: 'no-store' });
+                const jjRoll = await rrRoll.json();
+                if (jjRoll?.ok) setDiscoverRollups(jjRoll as DiscoverRollupsPayload);
+                void loadMetaRunHistory();
+                setManualMetaNotice(
+                  (typeof j.humanLine === 'string' && j.humanLine) ||
+                    `Done — ${(j.metaSignalsUpserts as number | undefined) ?? j.updated ?? '—'} meta_signals writes.`
+                );
               } else {
-                alert(`Meta refresh failed: ${j?.error || r.statusText}`);
+                setManualMetaNotice(null);
+                alert(
+                  `Meta refresh failed: ${j?.error || r.statusText}${j?.humanLine ? `\n${j.humanLine}` : ''}`
+                );
               }
             } catch (e: unknown) {
               alert(e instanceof Error ? e.message : 'failed');
@@ -164,13 +229,74 @@ export default function DataPage(){
         >
           {metaRunBusy ? 'Running meta-signals…' : 'Run meta-signals now (admin)'}
         </button>
+        {manualMetaNotice && (
+          <div className="rounded border border-emerald-700/50 bg-emerald-950/35 px-3 py-2 text-[11px] text-emerald-100/95 font-mono">
+            {manualMetaNotice}
+          </div>
+        )}
         {discoverInspector ? (
-          <pre className="text-[11px] bg-black/40 border border-neutral-800 rounded p-2 overflow-auto max-h-96">
-            {JSON.stringify(discoverInspector, null, 2)}
-          </pre>
+          <div className="space-y-3">
+            {discoverInspector.jobDetail ? (
+              <div>
+                <div className="text-sm font-medium text-neutral-200 mb-1">Last meta refresh</div>
+                <p className="text-[11px] text-neutral-500 mb-2">
+                  Latest successful or attempted run (from <code className="bg-black/40 px-1 rounded">job:meta-signals:detail</code>
+                  ). Nightly cron and manual runs both update this.
+                </p>
+                <MetaSignalsJobSummary
+                  detail={discoverInspector.jobDetail as MetaSignalsJobDetail}
+                />
+              </div>
+            ) : (
+              <div className="text-xs text-amber-200/80">
+                No <code className="bg-black/40 px-1 rounded">job:meta-signals:detail</code> in app_config yet — run
+                meta-signals once.
+              </div>
+            )}
+            <details className="text-[11px] text-neutral-500">
+              <summary className="cursor-pointer text-neutral-400 hover:text-neutral-300">
+                Raw inspector JSON
+              </summary>
+              <pre className="mt-2 bg-black/40 border border-neutral-800 rounded p-2 overflow-auto max-h-96 text-[11px]">
+                {JSON.stringify(discoverInspector, null, 2)}
+              </pre>
+            </details>
+            <details
+              id="discover-meta-history"
+              className="rounded border border-neutral-800 bg-neutral-950/40"
+            >
+              <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900/60">
+                Recent meta-signals runs (output log, newest first)
+              </summary>
+              <div className="px-3 pb-3 border-t border-neutral-800 pt-2">
+                <p className="text-[11px] text-neutral-500 mb-2">
+                  One row per cron or manual run after migration <code className="bg-black/40 px-1 rounded">098</code> is
+                  applied. Expand a row for full section deltas, daily writes, movers, and warnings.
+                </p>
+                <MetaSignalsRunHistory
+                  runs={metaRunHistory}
+                  tableMissing={metaHistoryTableMissing}
+                  message={metaHistoryMessage}
+                />
+              </div>
+            </details>
+          </div>
         ) : (
           <div className="text-xs text-neutral-500">Loading status… (must be signed in as admin)</div>
         )}
+      </section>
+
+      <section
+        id="discover-meta-rollups"
+        className="rounded border border-sky-900/40 bg-sky-950/15 p-4 space-y-3"
+      >
+        <div className="font-medium">Discover meta — historical rollups (daily snapshots)</div>
+        <p className="text-xs text-neutral-400">
+          Derived from <code className="bg-black/40 px-1 rounded">meta_commander_daily</code> and{' '}
+          <code className="bg-black/40 px-1 rounded">meta_card_daily</code> (Scryfall / EDHREC windows). Does not
+          change live Discover — admin insight only. Refresh rollups after a manual meta run.
+        </p>
+        <DiscoverMetaRollupsPanel data={discoverRollups} />
       </section>
 
       {/* Scryfall cache inspector */}
@@ -444,6 +570,29 @@ export default function DataPage(){
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="rounded border border-violet-900/40 bg-violet-950/15 p-4 space-y-3">
+        <div className="font-medium">Cron &amp; bulk jobs — operational inspector</div>
+        <p className="text-xs text-neutral-400">
+          Latest run summary and recent history (after migration{' '}
+          <code className="bg-black/40 px-1 rounded">099_admin_job_run_log</code>). Readable summary first; expand a run
+          for JSON. Ops reports read from <code className="bg-black/40 px-1 rounded">ops_reports</code>.
+        </p>
+        <AdminJobInspectorHub
+          showCommandCenterHint
+          jobIds={[
+            'bulk_scryfall',
+            'bulk_price_import',
+            'price_snapshot_bulk',
+            'deck-costs',
+            'commander-aggregates',
+            'top-cards',
+            'budget-swaps-update',
+            'daily_ops_report',
+            'weekly_ops_report',
+          ]}
+        />
       </section>
 
       {/* Database Size Management */}

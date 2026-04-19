@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { getFirst50CommanderSlugs, getCommanderBySlug } from "@/lib/commanders";
+import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
+import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+
+const JOB_ID = "commander-aggregates";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes for 50 commanders
@@ -112,56 +116,115 @@ export async function POST(req: NextRequest) {
 }
 
 async function runAggregates() {
-
   const admin = getAdmin();
   if (!admin) {
     return NextResponse.json({ ok: false, error: "admin_client_unavailable" }, { status: 500 });
   }
 
-  const slugs = getFirst50CommanderSlugs();
-  let updated = 0;
-
-  for (const slug of slugs) {
-    const profile = getCommanderBySlug(slug);
-    if (!profile) continue;
-
-    try {
-      const agg = await computeAggregatesForCommander(admin, profile.name, slug);
-      const { error } = await admin
-        .from("commander_aggregates")
-        .upsert(
-          {
-            commander_slug: slug,
-            top_cards: agg.topCards,
-            deck_count: agg.deckCount,
-            recent_decks: agg.recentDecks,
-            median_deck_cost: agg.medianDeckCost,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "commander_slug" }
-        );
-
-      if (!error) updated++;
-    } catch (e) {
-      console.error(`[commander-aggregates] Failed for ${slug}:`, e);
-    }
-  }
-
-  await admin.from("app_config").upsert(
-    { key: "job:last:commander-aggregates", value: new Date().toISOString() },
-    { onConflict: "key" }
-  );
+  const attemptStartedAt = new Date().toISOString();
+  await markAdminJobAttempt(admin, JOB_ID);
 
   try {
-    const { snapshotCommanderAggregates } = await import("@/lib/data-moat/snapshot-commander-aggregates");
-    await snapshotCommanderAggregates();
-  } catch (e) {
-    console.error(`[commander-aggregates] History snapshot failed:`, e);
-  }
+    const slugs = getFirst50CommanderSlugs();
+    let updated = 0;
+    let failed = 0;
+    const failedSlugs: string[] = [];
 
-  return NextResponse.json({
-    ok: true,
-    updated,
-    total: slugs.length,
-  });
+    for (const slug of slugs) {
+      const profile = getCommanderBySlug(slug);
+      if (!profile) continue;
+
+      try {
+        const agg = await computeAggregatesForCommander(admin, profile.name, slug);
+        const { error } = await admin
+          .from("commander_aggregates")
+          .upsert(
+            {
+              commander_slug: slug,
+              top_cards: agg.topCards,
+              deck_count: agg.deckCount,
+              recent_decks: agg.recentDecks,
+              median_deck_cost: agg.medianDeckCost,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "commander_slug" }
+          );
+
+        if (!error) updated++;
+        else {
+          failed++;
+          if (failedSlugs.length < 8) failedSlugs.push(slug);
+        }
+      } catch (e) {
+        console.error(`[commander-aggregates] Failed for ${slug}:`, e);
+        failed++;
+        if (failedSlugs.length < 8) failedSlugs.push(slug);
+      }
+    }
+
+    let snapshotOk = true;
+    try {
+      const { snapshotCommanderAggregates } = await import("@/lib/data-moat/snapshot-commander-aggregates");
+      await snapshotCommanderAggregates();
+    } catch (e) {
+      snapshotOk = false;
+      console.error(`[commander-aggregates] History snapshot failed:`, e);
+    }
+
+    const finishedAt = new Date().toISOString();
+    const durationMs = Date.now() - new Date(attemptStartedAt).getTime();
+    const warnings: string[] = [];
+    if (!snapshotOk) warnings.push("Daily history snapshot (data-moat) failed — check logs");
+    if (failed > 0) warnings.push(`${failed} commander upsert(s) failed`);
+
+    const lowData = updated < slugs.length;
+    const detail: AdminJobDetail = {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: true,
+      runResult: failed > 0 || !snapshotOk ? "partial" : "success",
+      compactLine: `Refreshed ${updated}/${slugs.length} commander_aggregates rows${failed ? ` · ${failed} failed` : ""}${!snapshotOk ? " · snapshot failed" : ""}`,
+      destination: "commander_aggregates",
+      source: "decks → deck_cards → deck_costs (median)",
+      durationMs,
+      counts: {
+        commanders_upserted: updated,
+        commanders_targeted: slugs.length,
+        upsert_failures: failed,
+      },
+      warnings: warnings.length ? warnings : undefined,
+      labels: {
+        schedule: "Daily 05:00 UTC",
+        depends_on: "deck-costs for median deck cost",
+      },
+      extra: {
+        failed_slugs_sample: failedSlugs,
+        snapshot_history_ok: snapshotOk,
+      },
+    };
+    await persistAdminJobRun(admin, JOB_ID, detail);
+
+    return NextResponse.json({
+      ok: true,
+      updated,
+      total: slugs.length,
+      failed,
+      snapshot_history_ok: snapshotOk,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const finishedAt = new Date().toISOString();
+    await persistAdminJobRun(admin, JOB_ID, {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: false,
+      runResult: "failed",
+      compactLine: `Failed: ${msg.slice(0, 200)}`,
+      destination: "commander_aggregates",
+      lastError: msg,
+    });
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
 }

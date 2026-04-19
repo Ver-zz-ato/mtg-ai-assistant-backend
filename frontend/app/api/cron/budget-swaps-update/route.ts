@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { getBudgetSwaps } from "@/lib/data/get-budget-swaps";
 import { callLLM } from "@/lib/ai/unified-llm-client";
+import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
+import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+
+const JOB_ID = "budget-swaps-update";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -44,6 +48,9 @@ async function runBudgetSwapsUpdate() {
   if (!apiKey) {
     return NextResponse.json({ ok: false, error: "OPENAI_API_KEY required" }, { status: 500 });
   }
+
+  const attemptStartedAt = new Date().toISOString();
+  await markAdminJobAttempt(admin, JOB_ID);
 
   try {
     const currentSwaps = await getBudgetSwaps();
@@ -92,6 +99,21 @@ Suggest NEW entries (expensive cards missing from this map). Focus on: newly exp
       if (typeof additions !== "object") additions = {};
     } catch {
       console.warn("[budget-swaps-update] Failed to parse AI response:", text.slice(0, 200));
+      const finishedAt = new Date().toISOString();
+      await persistAdminJobRun(admin, JOB_ID, {
+        jobId: JOB_ID,
+        attemptStartedAt,
+        finishedAt,
+        ok: true,
+        runResult: "partial",
+        compactLine: "AI response not valid JSON — no map changes",
+        destination: "app_config.budget_swaps",
+        source: "OpenAI (MODEL_AI_TEST / MODEL_SWAP_SUGGESTIONS)",
+        durationMs: Date.now() - new Date(attemptStartedAt).getTime(),
+        counts: { map_entries_before: existingKeys.length, added: 0 },
+        warnings: ["Could not parse AI JSON — check logs for response snippet"],
+        labels: { schedule: "Sundays 03:00 UTC", scope: "Commander budget alternatives" },
+      });
       return NextResponse.json({
         ok: true,
         message: "No valid additions parsed",
@@ -115,10 +137,20 @@ Suggest NEW entries (expensive cards missing from this map). Focus on: newly exp
     }
 
     if (added === 0) {
-      await admin.from("app_config").upsert(
-        { key: "job:last:budget-swaps-update", value: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { onConflict: "key" }
-      );
+      const finishedAt = new Date().toISOString();
+      await persistAdminJobRun(admin, JOB_ID, {
+        jobId: JOB_ID,
+        attemptStartedAt,
+        finishedAt,
+        ok: true,
+        runResult: "success",
+        compactLine: `No new swap entries — map still ${Object.keys(merged).length} keys`,
+        destination: "app_config.budget_swaps",
+        source: "OpenAI",
+        durationMs: Date.now() - new Date(attemptStartedAt).getTime(),
+        counts: { map_entries: Object.keys(merged).length, added: 0 },
+        labels: { schedule: "Sundays 03:00 UTC" },
+      });
       return NextResponse.json({
         ok: true,
         message: "No new entries to add",
@@ -143,6 +175,17 @@ Suggest NEW entries (expensive cards missing from this map). Focus on: newly exp
     );
 
     if (error) {
+      const finishedAt = new Date().toISOString();
+      await persistAdminJobRun(admin, JOB_ID, {
+        jobId: JOB_ID,
+        attemptStartedAt,
+        finishedAt,
+        ok: false,
+        runResult: "failed",
+        compactLine: `DB upsert failed: ${error.message}`,
+        destination: "app_config.budget_swaps",
+        lastError: error.message,
+      });
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
@@ -157,10 +200,20 @@ Suggest NEW entries (expensive cards missing from this map). Focus on: newly exp
       // Ignore audit errors
     }
 
-    await admin.from("app_config").upsert(
-      { key: "job:last:budget-swaps-update", value: new Date().toISOString(), updated_at: new Date().toISOString() },
-      { onConflict: "key" }
-    );
+    const finishedAt = new Date().toISOString();
+    await persistAdminJobRun(admin, JOB_ID, {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: true,
+      runResult: "success",
+      compactLine: `Added ${added} swap entries · total map keys ${Object.keys(toStore).length}`,
+      destination: "app_config.budget_swaps",
+      source: "OpenAI",
+      durationMs: Date.now() - new Date(attemptStartedAt).getTime(),
+      counts: { added, map_entries: Object.keys(toStore).length },
+      labels: { schedule: "Sundays 03:00 UTC" },
+    });
 
     return NextResponse.json({
       ok: true,
@@ -170,6 +223,23 @@ Suggest NEW entries (expensive cards missing from this map). Focus on: newly exp
     });
   } catch (e: any) {
     console.error("[budget-swaps-update]", e);
-    return NextResponse.json({ ok: false, error: e?.message || "cron_failed" }, { status: 500 });
+    const msg = e?.message || "cron_failed";
+    try {
+      const admin2 = getAdmin();
+      if (admin2) {
+        await persistAdminJobRun(admin2, JOB_ID, {
+          jobId: JOB_ID,
+          attemptStartedAt,
+          finishedAt: new Date().toISOString(),
+          ok: false,
+          runResult: "failed",
+          compactLine: `Error: ${String(msg).slice(0, 200)}`,
+          lastError: String(msg),
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

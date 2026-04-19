@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { getCommanderBySlug } from "@/lib/commanders";
+import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
+import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+
+const JOB_ID = "top-cards";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -41,6 +45,9 @@ async function runTopCards() {
     return NextResponse.json({ ok: false, error: "admin_client_unavailable" }, { status: 500 });
   }
 
+  const attemptStartedAt = new Date().toISOString();
+  await markAdminJobAttempt(admin, JOB_ID);
+
   const { data: decks } = await admin
     .from("decks")
     .select("id, commander")
@@ -48,6 +55,19 @@ async function runTopCards() {
     .eq("format", "Commander");
 
   if (!decks || decks.length === 0) {
+    const finishedAt = new Date().toISOString();
+    await persistAdminJobRun(admin, JOB_ID, {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: true,
+      runResult: "success",
+      compactLine: "No public Commander decks — top_cards cleared / empty",
+      destination: "top_cards",
+      source: "decks → deck_cards (global top 200 cards)",
+      counts: { top_card_rows: 0, public_commander_decks: 0 },
+      labels: { schedule: "Daily 05:30 UTC", depends_on: "commander pages use this + commander_aggregates" },
+    });
     return NextResponse.json({ ok: true, updated: 0 });
   }
 
@@ -113,14 +133,50 @@ async function runTopCards() {
       }))
     );
     if (insErr) {
+      const finishedAt = new Date().toISOString();
+      await persistAdminJobRun(admin, JOB_ID, {
+        jobId: JOB_ID,
+        attemptStartedAt,
+        finishedAt,
+        ok: false,
+        runResult: "failed",
+        compactLine: `Insert failed: ${insErr.message}`,
+        destination: "top_cards",
+        lastError: insErr.message,
+      });
       return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
     }
   }
 
-  await admin.from("app_config").upsert(
-    { key: "job:last:top-cards", value: new Date().toISOString() },
-    { onConflict: "key" }
-  );
+  const commanderNames = new Set<string>();
+  for (const d of decks) {
+    const c = (d.commander as string)?.trim();
+    if (c) commanderNames.add(c);
+  }
+
+  const finishedAt = new Date().toISOString();
+  const durationMs = Date.now() - new Date(attemptStartedAt).getTime();
+  const detail: AdminJobDetail = {
+    jobId: JOB_ID,
+    attemptStartedAt,
+    finishedAt,
+    ok: true,
+    runResult: "success",
+    compactLine: `Inserted ${rows.length} top_cards rows from ${decks.length} public decks (${commanderNames.size} commander strings)`,
+    destination: "top_cards",
+    source: "decks → deck_cards",
+    durationMs,
+    counts: {
+      top_card_rows: rows.length,
+      public_commander_decks: decks.length,
+      distinct_commander_strings: commanderNames.size,
+    },
+    labels: {
+      schedule: "Daily 05:30 UTC",
+      scope: "Global top 200 cards + commander slug hints",
+    },
+  };
+  await persistAdminJobRun(admin, JOB_ID, detail);
 
   return NextResponse.json({
     ok: true,

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
+import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+
+const JOB_ID = "bulk_price_import";
 
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
@@ -111,6 +115,7 @@ export async function POST(req: NextRequest) {
   try {
     console.log("💰 Starting bulk price import...");
     const startTime = Date.now();
+    const attemptStartedAt = new Date().toISOString();
 
     // Check if this is a test run
     const testMode = req.headers.get('x-test-mode') === 'true';
@@ -148,6 +153,8 @@ export async function POST(req: NextRequest) {
     if (!admin) {
       throw new Error("Admin client not available");
     }
+
+    await markAdminJobAttempt(admin, JOB_ID);
 
     // Step 1: Get the bulk data URL
     console.log("📥 Fetching bulk data info from Scryfall...");
@@ -198,6 +205,20 @@ export async function POST(req: NextRequest) {
 
     if (cachedCards.length === 0) {
       console.log("⚠️ No cached cards found to update prices for");
+      const finishedAt = new Date().toISOString();
+      await persistAdminJobRun(admin, JOB_ID, {
+        jobId: JOB_ID,
+        attemptStartedAt,
+        finishedAt,
+        ok: true,
+        runResult: "success",
+        compactLine: "No rows in scryfall_cache — run bulk Scryfall import first",
+        destination: "price_cache",
+        source: "Scryfall default_cards bulk JSON",
+        durationMs: Date.now() - new Date(attemptStartedAt).getTime(),
+        counts: { price_rows_upserted: 0, cached_cards: 0 },
+        labels: { schedule: "Daily ~03:00 UTC (GitHub Actions)", prerequisite: "bulk_scryfall" },
+      });
       return NextResponse.json({
         ok: true,
         updated: 0,
@@ -278,6 +299,7 @@ export async function POST(req: NextRequest) {
 
     // Step 5: Batch update the price cache
     let updated = 0;
+    let batchFailures = 0;
     const BATCH_SIZE = 1000; // Process in batches to avoid timeouts
 
     console.log(`💾 Updating price cache in batches of ${BATCH_SIZE}...`);
@@ -295,6 +317,7 @@ export async function POST(req: NextRequest) {
 
         if (upsertError) {
           console.error(`❌ Batch ${i}-${i + BATCH_SIZE} failed:`, upsertError.message);
+          batchFailures++;
           // Continue with other batches
         } else {
           const batchUpdated = count || batch.length;
@@ -303,6 +326,7 @@ export async function POST(req: NextRequest) {
         }
       } catch (batchError: any) {
         console.error(`❌ Batch ${i}-${i + BATCH_SIZE} exception:`, batchError.message);
+        batchFailures++;
         // Continue processing
       }
     }
@@ -315,17 +339,43 @@ export async function POST(req: NextRequest) {
         target: updated,
         details: `${uniqueCards}_unique_${found}_matches_${processed}_processed_${fileSize}MB` 
       });
-      
-      // Record last run timestamp for admin panel
-      await admin.from('app_config').upsert(
-        { key: 'job:last:bulk_price_import', value: new Date().toISOString() }, 
-        { onConflict: 'key' }
-      );
     } catch (auditError) {
       console.warn("⚠️ Audit logging failed:", auditError);
     }
 
     const duration = Date.now() - startTime;
+    const finishedAt = new Date().toISOString();
+    const coverage = Math.round(uniqueCards/cachedCards.length*100);
+    const warnings: string[] = [];
+    if (batchFailures > 0) warnings.push(`${batchFailures} upsert batch(es) failed — counts may be partial`);
+    if (coverage < 80) warnings.push(`Coverage ${coverage}% — many cached cards lack prices in bulk`);
+
+    const detail: AdminJobDetail = {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: true,
+      runResult: batchFailures > 0 ? "partial" : "success",
+      compactLine: `Updated ${updated.toLocaleString()} price_cache rows · ${uniqueCards.toLocaleString()} unique cards · ${coverage}% coverage${batchFailures ? ` · ${batchFailures} batch issues` : ""}`,
+      destination: "price_cache",
+      source: `Scryfall bulk default_cards (${fileSize}MB, updated ${lastUpdated})`,
+      durationMs: duration,
+      counts: {
+        price_rows_upserted: updated,
+        unique_cards_with_prices: uniqueCards,
+        cached_cards_total: cachedCards.length,
+        bulk_cards_processed: processed,
+        price_matches_in_bulk: found,
+        batch_failures: batchFailures,
+      },
+      warnings: warnings.length ? warnings : undefined,
+      labels: {
+        schedule: "Daily ~03:00 UTC",
+        currencies: "USD, EUR, foil, TIX fields → usd_price, eur_price, …",
+      },
+    };
+    await persistAdminJobRun(admin, JOB_ID, detail);
+
     console.log(`✅ Bulk price import completed in ${Math.round(duration/1000)}s: ${updated} prices updated`);
 
     return NextResponse.json({ 
@@ -345,9 +395,26 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("❌ Bulk price import failed:", error);
+    const msg = error?.message || "bulk_price_import_failed";
+    try {
+      const admin = getAdmin();
+      if (admin) {
+        await persistAdminJobRun(admin, JOB_ID, {
+          jobId: JOB_ID,
+          finishedAt: new Date().toISOString(),
+          ok: false,
+          runResult: "failed",
+          compactLine: `Failed: ${String(msg).slice(0, 200)}`,
+          destination: "price_cache",
+          lastError: String(msg),
+        });
+      }
+    } catch {
+      /* ignore */
+    }
     return NextResponse.json({ 
       ok: false, 
-      error: error?.message || "bulk_price_import_failed" 
+      error: msg
     }, { status: 500 });
   }
 }

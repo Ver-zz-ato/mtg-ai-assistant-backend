@@ -2,6 +2,13 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { MetaSignalsJobSummary } from '@/components/admin/MetaSignalsJobSummary';
+import {
+  DiscoverMetaRollupsCompact,
+  type DiscoverRollupsPayload,
+} from '@/components/admin/DiscoverMetaRollupsPanel';
+import type { MetaSignalsJobDetail } from '@/lib/meta/metaSignalsJobStatus';
+import type { AdminJobDetail } from '@/lib/admin/adminJobDetail';
 
 type Pinboard = {
   errors: { count_24h: number; recent: { kind: string }[] };
@@ -47,22 +54,20 @@ type Mulligan = {
   total_cost_usd?: number;
 };
 
+type JobInspectorPayload = {
+  health: string;
+  lastSuccess: string | null;
+  lastAttempt: string | null;
+  latest: AdminJobDetail | null;
+  history: unknown[];
+};
+
 type DiscoverMetaStatus = {
   ok?: boolean;
   health?: string;
   lastSuccess?: string | null;
   lastAttempt?: string | null;
-  jobDetail?: {
-    ok?: boolean;
-    pillMode?: string;
-    snapshotDate?: string;
-    fallbackUsed?: boolean;
-    sectionCounts?: Record<string, number>;
-    sources?: Record<string, number>;
-    warnings?: string[];
-    lastError?: string;
-    yesterdayRanksAvailable?: boolean;
-  } | null;
+  jobDetail?: MetaSignalsJobDetail | null;
   samples?: Record<string, { count?: number; updated_at?: string; preview?: unknown[] }>;
   meta_commander_daily_yesterday_rows?: number;
   meta_card_daily_today_rows?: number;
@@ -106,6 +111,22 @@ const OTHER_CRON_INFO: Record<(typeof OTHER_CRON_KEYS)[number], { eli5: string; 
   },
 };
 
+const DATA_JOB_ANCHOR: Record<string, string> = {
+  'deck-costs': 'job-deck-costs',
+  'commander-aggregates': 'job-commander-aggregates',
+  'top-cards': 'job-top-cards',
+  'meta-signals': 'discover-meta-inspector',
+  'budget-swaps-update': 'job-budget-swaps',
+};
+
+function jobHealthClass(h?: string) {
+  if (h === 'healthy') return 'text-emerald-400';
+  if (h === 'stale') return 'text-amber-400';
+  if (h === 'failed') return 'text-rose-400';
+  if (h === 'degraded' || h === 'partial') return 'text-yellow-300';
+  return 'text-neutral-400';
+}
+
 export default function CommandCenterPage() {
   const [loading, setLoading] = useState(true);
   const [pinboard, setPinboard] = useState<Pinboard | null>(null);
@@ -122,6 +143,11 @@ export default function CommandCenterPage() {
   const [opsReports, setOpsReports] = useState<{ latest_daily?: { created_at: string; status: string }; latest_weekly?: { created_at: string; status: string } } | null>(null);
   const [lastRefresh, setLastRefresh] = useState<string>('');
   const [discoverMeta, setDiscoverMeta] = useState<DiscoverMetaStatus | null>(null);
+  const [discoverRollups, setDiscoverRollups] = useState<DiscoverRollupsPayload | null>(null);
+  const [jobInspector, setJobInspector] = useState<{
+    jobs: Record<string, JobInspectorPayload>;
+    tableMissing?: boolean;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,6 +161,8 @@ export default function CommandCenterPage() {
         configRes,
         reportsRes,
         discoverMetaRes,
+        rollupsRes,
+        inspectorRes,
       ] = await Promise.all([
         fetch('/api/admin/audit-pinboard', { cache: 'no-store' }),
         fetch('/api/admin/ai/health', { cache: 'no-store' }),
@@ -144,6 +172,14 @@ export default function CommandCenterPage() {
         fetch('/api/admin/config?key=job:last:deck-costs&key=job:last:commander-aggregates&key=job:last:meta-signals&key=job:last:top-cards&key=job:last:budget-swaps-update&key=job:last:price_snapshot_bulk', { cache: 'no-store' }),
         fetch('/api/admin/ops-reports/list?limit=5', { cache: 'no-store' }),
         fetch('/api/admin/discover-meta-status', { cache: 'no-store' }),
+        fetch('/api/admin/discover-meta-rollups', { cache: 'no-store' }),
+        fetch(
+          '/api/admin/admin-job-inspector?jobs=' +
+            encodeURIComponent(
+              'deck-costs,commander-aggregates,top-cards,budget-swaps-update,price_snapshot_bulk,daily_ops_report,weekly_ops_report'
+            ),
+          { cache: 'no-store' }
+        ),
       ]);
 
       const pinJ = await pinRes.json().catch(() => ({}));
@@ -154,6 +190,8 @@ export default function CommandCenterPage() {
       const configJ = await configRes.json().catch(() => ({}));
       const reportsJ = await reportsRes.json().catch(() => ({}));
       const discoverMetaJ = await discoverMetaRes.json().catch(() => ({}));
+      const rollupsJ = await rollupsRes.json().catch(() => ({}));
+      const inspectorJ = await inspectorRes.json().catch(() => ({}));
 
       if (pinJ?.ok && pinJ?.pinboard) setPinboard(pinJ.pinboard);
       else setPinboard(null);
@@ -183,6 +221,18 @@ export default function CommandCenterPage() {
       if (discoverMetaJ?.ok) setDiscoverMeta(discoverMetaJ as DiscoverMetaStatus);
       else setDiscoverMeta(null);
 
+      if (rollupsJ?.ok) setDiscoverRollups(rollupsJ as DiscoverRollupsPayload);
+      else setDiscoverRollups(null);
+
+      if (inspectorJ?.ok && inspectorJ?.jobs) {
+        setJobInspector({
+          jobs: inspectorJ.jobs as Record<string, JobInspectorPayload>,
+          tableMissing: inspectorJ.tableMissing,
+        });
+      } else {
+        setJobInspector(null);
+      }
+
       setLastRefresh(new Date().toLocaleTimeString());
     } catch (e) {
       console.warn('Command center load error:', e);
@@ -206,7 +256,11 @@ export default function CommandCenterPage() {
       const j = await r.json();
       if (j?.ok) {
         load();
-        alert(`✅ ${name} completed. ${j.updated != null ? `Updated: ${j.updated}` : ''}`);
+        if (name === 'meta-signals' && typeof j.humanLine === 'string') {
+          alert(`✅ meta-signals\n${j.humanLine}`);
+        } else {
+          alert(`✅ ${name} completed. ${j.updated != null ? `Updated: ${j.updated}` : ''}`);
+        }
       } else {
         alert(`❌ ${name} failed: ${j?.error || r.statusText}`);
       }
@@ -531,8 +585,8 @@ export default function CommandCenterPage() {
               <code className="text-neutral-400">/api/cron/meta-signals</code>.
             </p>
           </div>
-          <Link href="/admin/data#discover-meta-inspector" className="text-xs text-blue-400 hover:text-blue-300">
-            Inspector on Data →
+          <Link href="/admin/data#discover-meta-history" className="text-xs text-blue-400 hover:text-blue-300">
+            Full inspector & run history →
           </Link>
         </div>
         {discoverMeta?.ok ? (
@@ -577,32 +631,44 @@ export default function CommandCenterPage() {
                 {discoverMeta.meta_commander_daily_yesterday_rows ?? 0}
               </div>
             </div>
-            <div className="col-span-full p-2 rounded bg-neutral-800/40 border border-neutral-700">
-              <div className="text-neutral-400 mb-1">Section row counts</div>
-              <pre className="text-[10px] text-neutral-300 whitespace-pre-wrap font-mono">
-                {JSON.stringify(discoverMeta.jobDetail?.sectionCounts ?? {}, null, 0)}
-              </pre>
-            </div>
-            {(discoverMeta.jobDetail?.warnings?.length ?? 0) > 0 && (
-              <div className="col-span-full p-2 rounded border border-amber-700/50 bg-amber-950/30">
-                <div className="text-amber-200/90 font-medium">Warnings</div>
-                <ul className="list-disc list-inside text-[11px] text-amber-100/80 mt-1">
-                  {discoverMeta.jobDetail?.warnings?.map((w, i) => (
-                    <li key={i}>{w}</li>
-                  ))}
-                </ul>
+            <div className="p-2 rounded bg-neutral-800/60 border border-neutral-700">
+              <div className="text-neutral-400">Daily card rows (today / meta_card_daily)</div>
+              <div className="font-mono text-neutral-200 mt-1">
+                {discoverMeta.meta_card_daily_today_rows ?? 0}
               </div>
-            )}
+            </div>
+            <div className="col-span-full space-y-2">
+              <div className="text-[11px] text-neutral-400">Last run summary</div>
+              {discoverMeta.jobDetail ? (
+                <>
+                  <MetaSignalsJobSummary detail={discoverMeta.jobDetail} compact />
+                  <details className="rounded border border-neutral-700 bg-neutral-900/50">
+                    <summary className="cursor-pointer text-[11px] text-neutral-500 px-2 py-1.5">
+                      Full summary (diffs, warnings, daily writes)
+                    </summary>
+                    <div className="px-2 pb-2 border-t border-neutral-800">
+                      <MetaSignalsJobSummary detail={discoverMeta.jobDetail} />
+                    </div>
+                  </details>
+                </>
+              ) : (
+                <div className="text-xs text-neutral-500">No job detail in app_config.</div>
+              )}
+            </div>
             {discoverMeta.jobDetail?.lastError && (
               <div className="col-span-full p-2 rounded border border-rose-700/50 bg-rose-950/30 text-[11px] text-rose-100">
                 {discoverMeta.jobDetail.lastError}
               </div>
             )}
             <div className="col-span-full p-2 rounded bg-neutral-800/40 border border-neutral-700">
-              <div className="text-neutral-400 mb-1">Rising commanders (preview)</div>
+              <div className="text-neutral-400 mb-1">Trending commanders (preview)</div>
               <pre className="text-[10px] text-neutral-300 font-mono overflow-auto max-h-24">
                 {JSON.stringify(discoverMeta.samples?.['trending-commanders']?.preview ?? [], null, 2)}
               </pre>
+            </div>
+            <div className="col-span-full p-2 rounded bg-sky-950/25 border border-sky-900/40">
+              <div className="text-[11px] text-neutral-400 mb-1">7d rollup (from daily snapshots)</div>
+              <DiscoverMetaRollupsCompact data={discoverRollups} />
             </div>
           </div>
         ) : (
@@ -637,10 +703,35 @@ export default function CommandCenterPage() {
                 Run when: {CRON_INFO[name].when}
               </div>
               <div className="text-neutral-500">
-                Last: {cronLastRun[`job:last:${name}`]
+                Last success:{' '}
+                {cronLastRun[`job:last:${name}`]
                   ? new Date(cronLastRun[`job:last:${name}`]).toLocaleString()
                   : '—'}
               </div>
+              {name !== 'meta-signals' && jobInspector?.jobs?.[name]?.latest?.compactLine && (
+                <div className="text-[10px] text-neutral-400 leading-snug border border-neutral-800/80 rounded px-1.5 py-1 bg-neutral-950/40">
+                  {jobInspector.jobs[name].latest?.compactLine}
+                </div>
+              )}
+              {name !== 'meta-signals' && jobInspector?.jobs?.[name] && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
+                  <span className="text-neutral-500">Health</span>
+                  <span className={`font-mono ${jobHealthClass(jobInspector.jobs[name].health)}`}>
+                    {jobInspector.jobs[name].health}
+                  </span>
+                  {(jobInspector.jobs[name].latest?.warnings?.length ?? 0) > 0 && (
+                    <span className="text-amber-400/90">
+                      {jobInspector.jobs[name].latest?.warnings?.length} warnings
+                    </span>
+                  )}
+                </div>
+              )}
+              <Link
+                href={`/admin/data#${DATA_JOB_ANCHOR[name] ?? 'admin-job-inspector'}`}
+                className="text-[10px] text-blue-400 hover:text-blue-300 w-fit"
+              >
+                Inspector on Data →
+              </Link>
               <button
                 onClick={() => runCron(name)}
                 disabled={!!cronRunBusy}
@@ -680,10 +771,30 @@ export default function CommandCenterPage() {
                 Run when: {OTHER_CRON_INFO[name].when}
               </div>
               <div className="text-neutral-500">
-                Last: {cronLastRun[`job:last:${name}`]
+                Last success:{' '}
+                {cronLastRun[`job:last:${name}`]
                   ? new Date(cronLastRun[`job:last:${name}`]).toLocaleString()
                   : '—'}
               </div>
+              {jobInspector?.jobs?.[name]?.latest?.compactLine && (
+                <div className="text-[10px] text-neutral-400 leading-snug border border-neutral-800/80 rounded px-1.5 py-1 bg-neutral-950/40">
+                  {jobInspector.jobs[name].latest?.compactLine}
+                </div>
+              )}
+              {jobInspector?.jobs?.[name] && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
+                  <span className="text-neutral-500">Health</span>
+                  <span className={`font-mono ${jobHealthClass(jobInspector.jobs[name].health)}`}>
+                    {jobInspector.jobs[name].health}
+                  </span>
+                </div>
+              )}
+              <Link
+                href="/admin/data#job-budget-swaps"
+                className="text-[10px] text-blue-400 hover:text-blue-300 w-fit"
+              >
+                Inspector on Data →
+              </Link>
               <button
                 onClick={() => runOtherCron(name)}
                 disabled={!!otherCronRunBusy}
@@ -710,13 +821,29 @@ export default function CommandCenterPage() {
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div className="p-3 rounded bg-neutral-800/60 border border-neutral-700">
+          <div className="p-3 rounded bg-neutral-800/60 border border-neutral-700 space-y-2">
             <div className="text-neutral-400">Last snapshot run</div>
             <div className="font-mono text-sm mt-1">
               {cronLastRun['job:last:price_snapshot_bulk']
                 ? new Date(cronLastRun['job:last:price_snapshot_bulk']).toLocaleString()
                 : '—'}
             </div>
+            {jobInspector?.jobs?.price_snapshot_bulk?.latest?.compactLine && (
+              <div className="text-[10px] text-neutral-400 leading-snug border border-neutral-800/80 rounded px-1.5 py-1">
+                {jobInspector.jobs.price_snapshot_bulk.latest.compactLine}
+              </div>
+            )}
+            {jobInspector?.jobs?.price_snapshot_bulk && (
+              <div className="text-[10px]">
+                <span className="text-neutral-500">Health </span>
+                <span className={`font-mono ${jobHealthClass(jobInspector.jobs.price_snapshot_bulk.health)}`}>
+                  {jobInspector.jobs.price_snapshot_bulk.health}
+                </span>
+              </div>
+            )}
+            <Link href="/admin/data#job-price-snapshot" className="text-[10px] text-blue-400 hover:text-blue-300 inline-block">
+              Inspector on Data →
+            </Link>
           </div>
           <div className="p-3 rounded bg-neutral-800/60 border border-neutral-700">
             <div className="text-neutral-400">Expected env wiring</div>
@@ -754,6 +881,14 @@ export default function CommandCenterPage() {
                 Last: {new Date(opsReports.latest_daily.created_at).toLocaleString()} · {opsReports.latest_daily.status}
               </div>
             )}
+            {jobInspector?.jobs?.daily_ops_report?.latest?.compactLine && (
+              <div className="text-[10px] text-neutral-400 border border-neutral-800/80 rounded px-1.5 py-1 leading-snug">
+                {jobInspector.jobs.daily_ops_report.latest.compactLine}
+              </div>
+            )}
+            <Link href="/admin/data#job-daily-ops" className="text-[10px] text-blue-400 hover:text-blue-300 w-fit">
+              History on Data →
+            </Link>
             <button
               onClick={() => runReport('daily')}
               disabled={!!reportRunBusy}
@@ -772,6 +907,14 @@ export default function CommandCenterPage() {
                 Last: {new Date(opsReports.latest_weekly.created_at).toLocaleString()} · {opsReports.latest_weekly.status}
               </div>
             )}
+            {jobInspector?.jobs?.weekly_ops_report?.latest?.compactLine && (
+              <div className="text-[10px] text-neutral-400 border border-neutral-800/80 rounded px-1.5 py-1 leading-snug">
+                {jobInspector.jobs.weekly_ops_report.latest.compactLine}
+              </div>
+            )}
+            <Link href="/admin/data#job-weekly-ops" className="text-[10px] text-blue-400 hover:text-blue-300 w-fit">
+              History on Data →
+            </Link>
             <button
               onClick={() => runReport('weekly')}
               disabled={!!reportRunBusy}

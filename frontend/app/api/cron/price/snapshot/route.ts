@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { runPriceSnapshotFromScryfallBulk } from "@/lib/server/priceSnapshotFromScryfallBulk";
+import { getAdmin } from "@/app/api/_lib/supa";
+import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
+import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+
+const JOB_ID = "price_snapshot_bulk";
 
 export const runtime = "nodejs";
 export const maxDuration = 600; // match bulk download + upsert (was 300; bulk needs more time)
@@ -58,6 +63,7 @@ async function triggerExternalBulkSnapshot(cronKey: string): Promise<{ delegated
 }
 
 async function runSnapshot(req: NextRequest) {
+  const attemptStartedAt = new Date().toISOString();
   try {
     const isVercelCron = !!req.headers.get("x-vercel-cron");
     const key = req.nextUrl.searchParams.get("key") || "";
@@ -69,6 +75,28 @@ async function runSnapshot(req: NextRequest) {
     // Preferred production path: hand off to the long-running bulk-jobs server.
     const delegated = await triggerExternalBulkSnapshot(cronKey);
     if (delegated) {
+      const admin = getAdmin();
+      if (admin) {
+        await markAdminJobAttempt(admin, JOB_ID);
+        await persistAdminJobRun(
+          admin,
+          JOB_ID,
+          {
+            jobId: JOB_ID,
+            attemptStartedAt,
+            finishedAt: new Date().toISOString(),
+            ok: true,
+            runResult: "delegated",
+            compactLine: `Delegated to bulk worker (${delegated.url}) — ${getBulkJobsBaseUrl() || "BULK_JOBS_URL"}; row counts appear when the worker completes`,
+            destination: "price_snapshots (via worker)",
+            labels: {
+              mode: "delegated",
+              worker_url: getBulkJobsBaseUrl() || "",
+            },
+          },
+          { updateLastSuccess: false }
+        );
+      }
       return NextResponse.json({ ok: true, mode: "delegated", ...delegated });
     }
 
@@ -77,15 +105,33 @@ async function runSnapshot(req: NextRequest) {
     if (!url || !sr) return NextResponse.json({ ok: false, error: "missing_service_role" }, { status: 500 });
     const supabase = createAdmin(url, sr, { auth: { persistSession: false } });
 
+    const admin = getAdmin();
+    if (admin) await markAdminJobAttempt(admin, JOB_ID);
+
     const result = await runPriceSnapshotFromScryfallBulk(supabase);
 
     try {
-      await supabase.from("app_config").upsert(
-        { key: "job:last:price_snapshot_bulk", value: new Date().toISOString() },
-        { onConflict: "key" }
-      );
       await supabase.from("admin_audit").insert({ actor_id: "cron", action: "cron_price_snapshot", target: result.snapshot_date });
-    } catch {}
+    } catch {
+      /* ignore */
+    }
+
+    const finishedAt = new Date().toISOString();
+    const durationMs = Date.now() - new Date(attemptStartedAt).getTime();
+    const detail: AdminJobDetail = {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: true,
+      runResult: "success",
+      compactLine: `Snapshot ${result.snapshot_date}: ${result.inserted.toLocaleString()} rows · ${result.unique_cards.toLocaleString()} names (in-process bulk)`,
+      destination: "price_snapshots",
+      source: "Scryfall default_cards bulk",
+      durationMs,
+      counts: { snapshot_rows: result.inserted, unique_card_names: result.unique_cards },
+      labels: { mode: "bulk", route: "GET/POST /api/cron/price/snapshot" },
+    };
+    if (admin) await persistAdminJobRun(admin, JOB_ID, detail);
 
     return NextResponse.json({
       ok: true,
@@ -95,6 +141,22 @@ async function runSnapshot(req: NextRequest) {
       unique_cards: result.unique_cards,
     });
   } catch (e: any) {
+    try {
+      const admin = getAdmin();
+      if (admin) {
+        await persistAdminJobRun(admin, JOB_ID, {
+          jobId: JOB_ID,
+          attemptStartedAt,
+          finishedAt: new Date().toISOString(),
+          ok: false,
+          runResult: "failed",
+          compactLine: `Failed: ${String(e?.message || "server_error").slice(0, 200)}`,
+          lastError: String(e?.message || "server_error"),
+        });
+      }
+    } catch {
+      /* ignore */
+    }
     return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });
   }
 }
@@ -105,6 +167,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   console.log("📈 Price snapshot endpoint called");
+  const attemptStartedAt = new Date().toISOString();
 
   try {
     const cronKey = getCronKey();
@@ -140,6 +203,25 @@ export async function POST(req: NextRequest) {
     // Preferred production path: hand off to the long-running bulk-jobs server.
     const delegated = await triggerExternalBulkSnapshot(cronKey);
     if (delegated) {
+      const admin = getAdmin();
+      if (admin) {
+        await markAdminJobAttempt(admin, JOB_ID);
+        await persistAdminJobRun(
+          admin,
+          JOB_ID,
+          {
+            jobId: JOB_ID,
+            attemptStartedAt,
+            finishedAt: new Date().toISOString(),
+            ok: true,
+            runResult: "delegated",
+            compactLine: `Delegated to ${delegated.url} — check worker + job:last:price_snapshot_bulk when done`,
+            destination: "price_snapshots (via worker)",
+            labels: { mode: "delegated" },
+          },
+          { updateLastSuccess: false }
+        );
+      }
       return NextResponse.json({ ok: true, mode: "delegated", ...delegated });
     }
 
@@ -152,15 +234,33 @@ export async function POST(req: NextRequest) {
     }
     const supabase = createAdmin(url, sr, { auth: { persistSession: false } });
 
+    const admin = getAdmin();
+    if (admin) await markAdminJobAttempt(admin, JOB_ID);
+
     const result = await runPriceSnapshotFromScryfallBulk(supabase);
 
     try {
-      await supabase.from("app_config").upsert(
-        { key: "job:last:price_snapshot_bulk", value: new Date().toISOString() },
-        { onConflict: "key" }
-      );
       await supabase.from("admin_audit").insert({ actor_id: "cron", action: "cron_price_snapshot", target: result.snapshot_date });
-    } catch {}
+    } catch {
+      /* ignore */
+    }
+
+    const finishedAt = new Date().toISOString();
+    const durationMs = Date.now() - new Date(attemptStartedAt).getTime();
+    const detail: AdminJobDetail = {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: true,
+      runResult: "success",
+      compactLine: `Snapshot ${result.snapshot_date}: ${result.inserted.toLocaleString()} rows · ${result.unique_cards.toLocaleString()} names`,
+      destination: "price_snapshots",
+      source: "Scryfall default_cards bulk",
+      durationMs,
+      counts: { snapshot_rows: result.inserted, unique_card_names: result.unique_cards },
+      labels: { mode: "bulk", auth: "cron key or admin user" },
+    };
+    if (admin) await persistAdminJobRun(admin, JOB_ID, detail);
 
     console.log(`✅ Price snapshot completed: ${result.inserted} rows, ${result.unique_cards} unique names`);
 
@@ -173,6 +273,22 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("❌ Price snapshot failed:", error);
+    try {
+      const admin = getAdmin();
+      if (admin) {
+        await persistAdminJobRun(admin, JOB_ID, {
+          jobId: JOB_ID,
+          attemptStartedAt,
+          finishedAt: new Date().toISOString(),
+          ok: false,
+          runResult: "failed",
+          compactLine: `Failed: ${String(error?.message || "snapshot_failed").slice(0, 200)}`,
+          lastError: String(error?.message || "snapshot_failed"),
+        });
+      }
+    } catch {
+      /* ignore */
+    }
     return NextResponse.json(
       {
         ok: false,

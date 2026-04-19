@@ -14,7 +14,20 @@ import {
   upsertCardDaily,
   upsertCommanderDaily,
 } from "@/lib/meta/persistMetaExternalDaily";
-import type { MetaSignalsJobDetail, MetaSignalsPillMode } from "@/lib/meta/metaSignalsJobStatus";
+import {
+  topAdditionsRemovals,
+  topMoversFromRows,
+  namesFromPrevSignal,
+  sectionNamesChanged,
+} from "@/lib/meta/metaSignalsDiff";
+import { buildMetaSignalsHumanDetail, buildMetaSignalsHumanLine } from "@/lib/meta/metaSignalsHumanSummary";
+import { computeChangedSectionsCount, persistMetaSignalsRunLog } from "@/lib/meta/metaSignalsRunHistory";
+import type {
+  MetaSignalsJobDetail,
+  MetaSignalsPillMode,
+  MetaSignalsRunResult,
+  MetaSignalsSectionEntry,
+} from "@/lib/meta/metaSignalsJobStatus";
 import type { NormalizedGlobalMetaRow } from "@/lib/meta/scryfallGlobalMeta";
 import {
   fetchGlobalBudgetCards,
@@ -177,6 +190,9 @@ async function runMetaSignals() {
 
   const attemptStartedAt = new Date().toISOString();
   const warnings: string[] = [];
+  const priorSnapshotUsedFor: string[] = [];
+  let commanderDailyRowsUpserted = 0;
+  let cardDailyRowsUpserted = 0;
 
   try {
   await admin.from("app_config").upsert(
@@ -237,31 +253,34 @@ async function runMetaSignals() {
 
   /** Persist daily external snapshots (separate from blended meta_signals; no wipe on partial). */
   if (globalPopularCommanders.length > 0) {
-    await upsertCommanderDaily(
+    const okCmd = await upsertCommanderDaily(
       admin,
       todayStr,
       globalPopularCommanders,
       SCRYFALL_META.source,
       SCRYFALL_META.twPopular
     );
+    if (okCmd) commanderDailyRowsUpserted = globalPopularCommanders.length;
   }
   if (globalPopularCards.length > 0) {
-    await upsertCardDaily(
+    const okPop = await upsertCardDaily(
       admin,
       todayStr,
       globalPopularCards,
       SCRYFALL_META.source,
       SCRYFALL_META.twPopular
     );
+    if (okPop) cardDailyRowsUpserted += globalPopularCards.length;
   }
   if (globalBudgetCards.length > 0) {
-    await upsertCardDaily(
+    const okB = await upsertCardDaily(
       admin,
       todayStr,
       globalBudgetCards,
       SCRYFALL_META.source,
       SCRYFALL_META.twBudget
     );
+    if (okB) cardDailyRowsUpserted += globalBudgetCards.length;
   }
 
   const yesterdayRanks = await fetchCommanderRanksForDate(
@@ -285,6 +304,8 @@ async function runMetaSignals() {
     if (c) trendingCounts[c] = (trendingCounts[c] ?? 0) + 1;
   }
 
+  const prevTrendingNamesFull = namesFromPrevSignal(prevSignals["trending-commanders"]);
+
   const blendedTrend = blendTrendingCommanders({
     internal30d: trendingCounts,
     globalPopular: globalPopularCommanders,
@@ -293,9 +314,13 @@ async function runMetaSignals() {
   });
   let trendingCommandersOut = toLegacyCommanderShape(blendedTrend.rows);
   if (trendingCommandersOut.length === 0) {
-    trendingCommandersOut = asNameCountArray(prevSignals["trending-commanders"]).map((r) =>
+    const fromPrev = asNameCountArray(prevSignals["trending-commanders"]).map((r) =>
       cmdFallback(r.name, r.count)
     );
+    if (fromPrev.length > 0) {
+      trendingCommandersOut = fromPrev;
+      priorSnapshotUsedFor.push("trending-commanders");
+    }
   }
   if (trendingCommandersOut.length === 0) {
     trendingCommandersOut = Object.entries(trendingCounts)
@@ -340,9 +365,13 @@ async function runMetaSignals() {
   });
   let mostPlayedCommandersOut = toLegacyCommanderShape(blendedWeekly.rows);
   if (mostPlayedCommandersOut.length === 0) {
-    mostPlayedCommandersOut = asNameCountArray(prevSignals["most-played-commanders"]).map((r) =>
+    const fromPrev = asNameCountArray(prevSignals["most-played-commanders"]).map((r) =>
       cmdFallback(r.name, r.count)
     );
+    if (fromPrev.length > 0) {
+      mostPlayedCommandersOut = fromPrev;
+      priorSnapshotUsedFor.push("most-played-commanders");
+    }
   }
   if (mostPlayedCommandersOut.length === 0) {
     const { data: allDecksFallback } = await admin
@@ -429,7 +458,13 @@ async function runMetaSignals() {
   const trendingCardsBlended = blendTrendingCardsWithGlobal(trendingCardsRaw, globalPopularCards);
   let trendingCardsOut = toLegacyCardShape(trendingCardsBlended);
   if (trendingCardsOut.length === 0) {
-    trendingCardsOut = asNameCountArray(prevSignals["trending-cards"]).map((r) => cardFallback(r.name, r.count));
+    const fromPrev = asNameCountArray(prevSignals["trending-cards"]).map((r) =>
+      cardFallback(r.name, r.count)
+    );
+    if (fromPrev.length > 0) {
+      trendingCardsOut = fromPrev;
+      priorSnapshotUsedFor.push("trending-cards");
+    }
   }
   if (trendingCardsOut.length === 0) {
     trendingCardsOut = trendingCardsRaw.map((r) => cardFallback(r.name, r.count));
@@ -465,9 +500,13 @@ async function runMetaSignals() {
   });
   let mostPlayedCardsOut = toLegacyCardShape(mostPlayedCardsBlended.rows);
   if (mostPlayedCardsOut.length === 0) {
-    mostPlayedCardsOut = asNameCountArray(prevSignals["most-played-cards"]).map((r) =>
+    const fromPrev = asNameCountArray(prevSignals["most-played-cards"]).map((r) =>
       cardFallback(r.name, r.count)
     );
+    if (fromPrev.length > 0) {
+      mostPlayedCardsOut = fromPrev;
+      priorSnapshotUsedFor.push("most-played-cards");
+    }
   }
   if (mostPlayedCardsOut.length === 0) {
     mostPlayedCardsOut = Object.entries(cardCountsAll)
@@ -495,7 +534,10 @@ async function runMetaSignals() {
   let budgetCardsOut = toLegacyCardShape(budgetBlend.rows).slice(0, 24);
   if (budgetCardsOut.length === 0) {
     const fromPrev = asBudgetCardLikeArray(prevSignals["budget-commanders"]);
-    budgetCardsOut = fromPrev.length > 0 ? fromPrev.map((r) => cardFallback(r.name, r.count)) : budgetCardsOut;
+    if (fromPrev.length > 0) {
+      budgetCardsOut = fromPrev.map((r) => cardFallback(r.name, r.count));
+      priorSnapshotUsedFor.push("budget-commanders");
+    }
   }
 
   const { error: e3 } = await admin.from("meta_signals").upsert(
@@ -530,6 +572,7 @@ async function runMetaSignals() {
     }));
   } else if (Array.isArray(prevSignals["new-set-breakouts"])) {
     newSetOut = asNameCountArray(prevSignals["new-set-breakouts"]).map((r) => cmdFallback(r.name, r.count));
+    priorSnapshotUsedFor.push("new-set-breakouts");
   }
 
   if (newSetOut.length > 0) {
@@ -564,14 +607,125 @@ async function runMetaSignals() {
   );
   if (!eLabel) updated++;
 
+  if (trendingCardsOut.length === 0) {
+    warnings.push("trending-cards section is empty after compute and fallbacks.");
+  }
+
+  const sourcesObj = {
+    scryfallCommanders: globalPopularCommanders.length,
+    scryfallCards: globalPopularCards.length,
+    scryfallBudget: globalBudgetCards.length,
+    recentSetCommanders: recentSetCommanders.length,
+  };
+
+  const prevMostN = namesFromPrevSignal(prevSignals["most-played-commanders"]);
+  const prevTrendCardsN = namesFromPrevSignal(prevSignals["trending-cards"]);
+  const prevMostCardsN = namesFromPrevSignal(prevSignals["most-played-cards"]);
+  const prevBudgetN = namesFromPrevSignal(prevSignals["budget-commanders"]);
+  const prevNewSetN = namesFromPrevSignal(prevSignals["new-set-breakouts"]);
+
+  const sectionSummaries: Record<string, MetaSignalsSectionEntry> = {
+    "trending-commanders": {
+      rowCount: trendingCommandersOut.length,
+      priorCount: prevTrendingNamesFull.length,
+      changed: sectionNamesChanged(
+        prevTrendingNamesFull,
+        trendingCommandersOut.map((r) => r.name),
+        trendingCommandersOut.length
+      ),
+    },
+    "most-played-commanders": {
+      rowCount: mostPlayedCommandersOut.length,
+      priorCount: prevMostN.length,
+      changed: sectionNamesChanged(
+        prevMostN,
+        mostPlayedCommandersOut.map((r) => r.name),
+        mostPlayedCommandersOut.length
+      ),
+    },
+    "trending-cards": {
+      rowCount: trendingCardsOut.length,
+      priorCount: prevTrendCardsN.length,
+      changed: sectionNamesChanged(
+        prevTrendCardsN,
+        trendingCardsOut.map((r) => r.name),
+        trendingCardsOut.length
+      ),
+      note: trendingCardsOut.length === 0 ? "empty" : undefined,
+    },
+    "most-played-cards": {
+      rowCount: mostPlayedCardsOut.length,
+      priorCount: prevMostCardsN.length,
+      changed: sectionNamesChanged(
+        prevMostCardsN,
+        mostPlayedCardsOut.map((r) => r.name),
+        mostPlayedCardsOut.length
+      ),
+    },
+    "budget-commanders": {
+      rowCount: budgetCardsOut.length,
+      priorCount: prevBudgetN.length,
+      changed: sectionNamesChanged(
+        prevBudgetN,
+        budgetCardsOut.map((r) => r.name),
+        budgetCardsOut.length
+      ),
+    },
+    "new-set-breakouts": {
+      rowCount: newSetOut.length,
+      priorCount: prevNewSetN.length,
+      changed: sectionNamesChanged(
+        prevNewSetN,
+        newSetOut.map((r) => r.name),
+        newSetOut.length
+      ),
+      note: newSetOut.length === 0 ? "not published (insufficient recent-set)" : undefined,
+    },
+    "discover-meta-label": {
+      rowCount: 1,
+      priorCount: 1,
+      changed: true,
+      note: `pillMode=${pillMode}`,
+    },
+  };
+
+  const trendingDiff = {
+    ...topAdditionsRemovals(prevTrendingNamesFull, trendingCommandersOut.map((r) => r.name)),
+    movers: topMoversFromRows(trendingCommandersOut),
+  };
+
+  const sourcesLineParts: string[] = [];
+  if (sourcesObj.scryfallCommanders) {
+    sourcesLineParts.push(`${sourcesObj.scryfallCommanders} cmd (Scryfall)`);
+  }
+  if (sourcesObj.scryfallCards) {
+    sourcesLineParts.push(`${sourcesObj.scryfallCards} cards (popular)`);
+  }
+  if (sourcesObj.scryfallBudget) {
+    sourcesLineParts.push(`${sourcesObj.scryfallBudget} cards (budget)`);
+  }
+  if (sourcesObj.recentSetCommanders) {
+    sourcesLineParts.push(`${sourcesObj.recentSetCommanders} recent-set cmd`);
+  }
+  sourcesLineParts.push("ManaTap public decks (internal deck/card counts)");
+  const sourcesLine = sourcesLineParts.join("; ");
+
+  let runResult: MetaSignalsRunResult = "success";
+  if (priorSnapshotUsedFor.length > 0) runResult = "fallback";
+  if (warnings.length > 0 || trendingCardsOut.length === 0) runResult = "partial";
+
   const finishedAt = new Date().toISOString();
+  const durationMsSuccess = new Date(finishedAt).getTime() - new Date(attemptStartedAt).getTime();
   const jobDetail: MetaSignalsJobDetail = {
     ok: true,
     finishedAt,
     attemptStartedAt,
+    durationMs: Math.max(0, durationMsSuccess),
+    runResult,
     pillMode,
     snapshotDate: todayStr,
-    fallbackUsed: warnings.length > 0 && !anyExternal,
+    fallbackUsed: priorSnapshotUsedFor.length > 0,
+    priorSnapshotUsedFor: priorSnapshotUsedFor.length > 0 ? [...priorSnapshotUsedFor] : undefined,
     sectionCounts: {
       "trending-commanders": trendingCommandersOut.length,
       "most-played-commanders": mostPlayedCommandersOut.length,
@@ -580,15 +734,24 @@ async function runMetaSignals() {
       "budget-commanders": budgetCardsOut.length,
       "new-set-breakouts": newSetOut.length,
     },
-    sources: {
-      scryfallCommanders: globalPopularCommanders.length,
-      scryfallCards: globalPopularCards.length,
-      scryfallBudget: globalBudgetCards.length,
-      recentSetCommanders: recentSetCommanders.length,
-    },
+    sectionSummaries,
+    sources: sourcesObj,
+    sourcesLine,
     warnings,
     yesterdayRanksAvailable: yesterdayRanks.size > 0,
+    dailyHistory: {
+      commanderRowsUpserted: commanderDailyRowsUpserted,
+      cardRowsUpserted: cardDailyRowsUpserted,
+      snapshotDate: todayStr,
+      yesterdayRanksAvailable: yesterdayRanks.size > 0,
+    },
+    trendingDiff,
   };
+
+  jobDetail.changedSectionsCount = computeChangedSectionsCount(jobDetail);
+  jobDetail.metaSignalsUpserts = updated;
+  jobDetail.humanLine = buildMetaSignalsHumanLine(jobDetail);
+  jobDetail.humanDetail = buildMetaSignalsHumanDetail(jobDetail);
 
   await admin.from("app_config").upsert(
     { key: "job:meta-signals:detail", value: JSON.stringify(jobDetail) },
@@ -600,6 +763,8 @@ async function runMetaSignals() {
     { onConflict: "key" }
   );
 
+  await persistMetaSignalsRunLog(admin, jobDetail);
+
   try {
     const { snapshotMetaSignals } = await import("@/lib/data-moat/snapshot-meta-signals");
     await snapshotMetaSignals();
@@ -610,16 +775,23 @@ async function runMetaSignals() {
   return NextResponse.json({
     ok: true,
     updated,
+    metaSignalsUpserts: jobDetail.metaSignalsUpserts ?? updated,
     signal_types: SIGNAL_TYPES.length,
+    summary: jobDetail,
+    humanLine: jobDetail.humanLine,
+    humanDetail: jobDetail.humanDetail,
   });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[meta-signals] fatal:", e);
     const finishedAt = new Date().toISOString();
+    const durationMsFail = new Date(finishedAt).getTime() - new Date(attemptStartedAt).getTime();
     const failDetail: MetaSignalsJobDetail = {
       ok: false,
       finishedAt,
       attemptStartedAt,
+      durationMs: Math.max(0, durationMsFail),
+      runResult: "failed",
       pillMode: "manatap",
       snapshotDate: finishedAt.slice(0, 10),
       fallbackUsed: true,
@@ -630,14 +802,28 @@ async function runMetaSignals() {
         scryfallBudget: 0,
         recentSetCommanders: 0,
       },
-      warnings: [],
+      warnings: [msg],
       lastError: msg,
       yesterdayRanksAvailable: false,
     };
+    failDetail.changedSectionsCount = 0;
+    failDetail.metaSignalsUpserts = 0;
+    failDetail.humanLine = buildMetaSignalsHumanLine(failDetail);
+    failDetail.humanDetail = buildMetaSignalsHumanDetail(failDetail);
     await admin.from("app_config").upsert(
       { key: "job:meta-signals:detail", value: JSON.stringify(failDetail) },
       { onConflict: "key" }
     );
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    await persistMetaSignalsRunLog(admin, failDetail);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: msg,
+        summary: failDetail,
+        humanLine: failDetail.humanLine,
+        humanDetail: failDetail.humanDetail,
+      },
+      { status: 500 }
+    );
   }
 }
