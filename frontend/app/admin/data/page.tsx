@@ -14,6 +14,39 @@ import { track } from '@/lib/analytics/track';
 import { useAuth } from '@/lib/auth-context';
 import { useProStatus } from '@/hooks/useProStatus';
 
+/**
+ * Essential-job buttons must send session cookies (same as Job 1). Otherwise getUser() in the
+ * route sees no user and returns 401 JSON — but some failures (504/502/404) return HTML; parsing
+ * that as JSON yields "Unexpected token '<'".
+ */
+async function fetchAdminCronJson(
+  path: string,
+  init?: RequestInit
+): Promise<{ httpOk: boolean; status: number; data: Record<string, unknown> }> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const res = await fetch(path, {
+    ...init,
+    credentials: 'include',
+    headers,
+  });
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
+    throw new Error(
+      `Server returned HTML instead of JSON (HTTP ${res.status}). Typical causes: gateway timeout, 404, or an error page — open DevTools → Network → ${path} and inspect the response.`
+    );
+  }
+  try {
+    const data = trimmed ? (JSON.parse(text) as Record<string, unknown>) : {};
+    return { httpOk: res.ok, status: res.status, data };
+  } catch {
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 220)}`);
+  }
+}
+
 export default function DataPage(){
   const [name, setName] = React.useState('');
   const [row, setRow] = React.useState<any>(null);
@@ -372,12 +405,9 @@ export default function DataPage(){
                     
                     toast('🚀 Starting bulk Scryfall import... (check console for progress)', 'info');
                     
-                    const response = await fetch('/api/cron/bulk-scryfall', {
+                    const { data } = await fetchAdminCronJson('/api/cron/bulk-scryfall', {
                       method: 'POST',
-                      credentials: 'include',
                     });
-                    
-                    const data = await response.json();
                     
                     if (data.ok) {
                       toast(`✅ Import complete! Imported ${data.imported || 0} cards (${data.processed || 0} processed). Refreshing...`, 'success');
@@ -446,11 +476,9 @@ export default function DataPage(){
                     
                     toast('💰 Starting bulk price import... (check console for progress)', 'info');
                     
-                    const response = await fetch('/api/cron/bulk-price-import', {
+                    const { data } = await fetchAdminCronJson('/api/cron/bulk-price-import', {
                       method: 'POST',
                     });
-                    
-                    const data = await response.json();
                     
                     if (data.ok) {
                       toast(`✅ Import complete! Updated ${data.updated || 0} prices (${data.unique_cards_with_prices || 0} unique cards, ${data.coverage_percent || 0}% coverage). Refreshing...`, 'success');
@@ -510,12 +538,9 @@ export default function DataPage(){
                     toast('📈 Starting price snapshot... (check console for progress)', 'info');
                     
                     // Use bulk snapshot endpoint that processes ALL cards (not just deck cards)
-                    const response = await fetch('/api/bulk-jobs/price-snapshot', {
+                    const { data } = await fetchAdminCronJson('/api/bulk-jobs/price-snapshot', {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
                     });
-                    
-                    const data = await response.json();
                     
                     if (data.ok) {
                       toast(`✅ Snapshot complete! Inserted ${data.inserted || 0} historical price records for ${data.snapshot_date || 'today'}. Refreshing...`, 'success');
