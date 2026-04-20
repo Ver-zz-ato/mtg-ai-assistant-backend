@@ -6,7 +6,7 @@ const GROUPS = [
   {
     label: "Mobile & Client Control",
     eli5:
-      "Remote-control the mobile app from the website: turn features on/off, edit copy and limits, and preview the bootstrap payload without shipping a new build.",
+      "Remote-control the mobile app from the website: turn features on/off and manage in-app update notes without shipping a new build.",
     links: [
       {
         href: "/admin/feature-flags",
@@ -14,24 +14,9 @@ const GROUPS = [
         eli5: "Turn app features on/off without a new release.",
       },
       {
-        href: "/admin/remote-config",
-        label: "Remote Config",
-        eli5: "Edit app text, sections, and behavior from admin.",
-      },
-      {
         href: "/admin/app-whats-new",
         label: "App What's New",
         eli5: "Manage update notes and popup content for mobile users.",
-      },
-      {
-        href: "/admin/tier-limits",
-        label: "Tier & Limits",
-        eli5: "Control guest/free/pro limits and app gating rules (mobile.tiers.limits).",
-      },
-      {
-        href: "/admin/mobile-bootstrap-preview",
-        label: "Mobile Bootstrap Preview",
-        eli5: "See exactly what config the app will receive on launch.",
       },
       {
         href: "/admin/app-scanner",
@@ -49,7 +34,6 @@ const GROUPS = [
       { href: "/admin/ai-reports", label: "AI Reports", eli5: "Review and triage AI report submissions from chat" },
       { href: "/admin/app-ai-feedback", label: "App AI Feedback", eli5: "App-identified structured AI reports (chat corrections with app_* surface); honest limits for generic feedback" },
       { href: "/admin/support", label: "User Support", eli5: "Grant Pro, resend emails, GDPR export/delete" },
-      { href: "/admin/users", label: "User Search", eli5: "Find users by email or ID" },
       { href: "/admin/shoutbox", label: "Shoutbox", eli5: "Moderate messages, ban users, trigger AI posts" },
     ],
   },
@@ -71,21 +55,18 @@ const GROUPS = [
     links: [
       { href: "/admin/monetize", label: "Monetize", eli5: "Stripe sync, subscribers" },
       { href: "/admin/pro-gate", label: "Pro Gate", eli5: "Where users see the Pro paywall, conversion funnel" },
-      { href: "/admin/billing-forensics", label: "Billing Forensics", eli5: "Why is Vercel charging us? Find cost drivers" },
       { href: "/admin/ops", label: "Ops", eli5: "Run crons, edit config, rollback snapshots" },
       { href: "/admin/deploy", label: "Deploy", eli5: "Deploy and release info" },
       { href: "/admin/changelog", label: "Changelog", eli5: "Edit What's New entries (website)" },
-      { href: "/admin/JustForDavy/app-whats-new", label: "APP ONLY What's New", eli5: "Generate SQL for app changelog; paste into Supabase" },
       { href: "/admin/blog", label: "Blog", eli5: "Manage blog listing, art, excerpts on /blog" },
     ],
   },
   {
     label: "Data & Tools",
-    eli5: "Import decks, SEO pages, backups, and debug tools.",
+    eli5: "SEO pages, backups, and debug tools.",
     links: [
       { href: "/admin/datadashboard", label: "Data Dashboard", eli5: "Behaviour & meta data: suggestions accepted, deck snapshots, meta/commander history. Run tests, see counts." },
       { href: "/admin/budget-swaps", label: "Budget Swaps", eli5: "Manage Quick Swaps map; weekly cron adds AI suggestions" },
-      { href: "/admin/decks/import", label: "Decks Import", eli5: "Bulk import decks from URLs" },
       { href: "/admin/precons", label: "Precons", eli5: "Insert precon decks, generate SQL from Westly/CommanderPrecons" },
       { href: "/admin/seo/pages", label: "SEO Pages", eli5: "Manage SEO landing pages" },
       { href: "/admin/data", label: "Data", eli5: "Run bulk jobs, vacuum, snapshot" },
