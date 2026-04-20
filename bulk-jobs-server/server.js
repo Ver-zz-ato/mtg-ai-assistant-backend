@@ -16,13 +16,16 @@ const supabase = createClient(
 
 // Auth middleware
 function checkAuth(req, res, next) {
-  const cronKey = process.env.CRON_KEY;
-  const headerKey = req.headers['x-cron-key'];
-  
+  const cronKey = String(process.env.CRON_KEY || '').trim();
+  const headerKey = String(req.headers['x-cron-key'] || '').trim();
+
   if (!cronKey || !headerKey || headerKey !== cronKey) {
+    if (!cronKey) {
+      console.warn('[checkAuth] CRON_KEY is not set on this server — refusing all protected routes');
+    }
     return res.status(401).json({ ok: false, error: 'unauthorized' });
   }
-  
+
   next();
 }
 

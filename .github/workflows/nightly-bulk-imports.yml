@@ -18,10 +18,24 @@ jobs:
   bulk-import:
     runs-on: ubuntu-latest
     timeout-minutes: 60  # Generous timeout to prevent crashes
-    
+    # If CRON_KEY (and related secrets) live only under Settings → Environments → * → Environment secrets,
+    # uncomment and set the environment name so those secrets are available as ${{ secrets.* }}:
+    # environment: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Repository Actions secrets and Environment secrets are different. This job uses ${{ secrets.CRON_KEY }}.
+      # Environment secrets are ONLY injected when `environment:` is set on the job (see note above).
+      - name: Validate CRON_KEY is available
+        env:
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+        run: |
+          if [ -z "$CRON_KEY" ]; then
+            echo "::error::CRON_KEY is empty for this workflow. Either add CRON_KEY under Repo → Settings → Secrets and variables → Actions → Repository secrets, OR add 'environment: <your-env>' to the bulk-import job if CRON_KEY is stored as an Environment secret."
+            exit 1
+          fi
+          echo "OK: CRON_KEY is set (GitHub will mask it; length is ${#CRON_KEY} characters)"
       
       - name: Set up environment
         run: |
