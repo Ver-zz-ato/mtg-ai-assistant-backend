@@ -23,6 +23,12 @@ import {
 } from "@/lib/guide-api-assembler";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
+import {
+  buildCommanderIdentityCard,
+  buildCommunityBlock,
+  buildHubSectionsVisual,
+  buildIntentActions,
+} from "@/lib/guide-hub-phase2";
 
 /** GET /api/commanders/[slug]/guide — JSON guide content for native mobile app */
 export async function GET(
@@ -57,6 +63,19 @@ export async function GET(
 
     const mergedFaq = mergeCommanderGuideFaqs();
 
+    const medianUsd =
+      aggregates?.medianDeckCost != null && aggregates.medianDeckCost > 0
+        ? Math.round(aggregates.medianDeckCost)
+        : null;
+
+    const commanderIdentity = buildCommanderIdentityCard(profile, snapshot, medianUsd);
+    const intentActions = buildIntentActions();
+    const hubSectionsVisual = buildHubSectionsVisual(profile);
+    const communityPresentation = buildCommunityBlock(
+      aggregates?.deckCount,
+      aggregates?.recentDecks,
+    );
+
     const guide = {
       profile: {
         slug: profile.slug,
@@ -85,6 +104,14 @@ export async function GET(
         featuredGuide: profile.featuredGuide ?? false,
         hasGuide: profile.hasGuide !== false,
       },
+      /** Phase 2 — structured identity (additive; hide empty client-side). */
+      commanderIdentity,
+      /** Phase 2 — compact “what do you want to do?” (client maps ids to deep links). */
+      intentActions,
+      /** Phase 2 — scan-first section shapes; legacy `sections` + long-form fields remain for compatibility. */
+      hubSectionsVisual,
+      /** Phase 2 — richer copy + recency labels for the community block (optional). */
+      communityPresentation,
       howDeckWins: renderHowDeckWins(profile),
       commonMistakes: renderCommonMistakes(profile),
       mulliganGuide: renderMulliganGuideContent(profile),
