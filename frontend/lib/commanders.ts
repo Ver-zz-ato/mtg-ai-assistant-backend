@@ -8,7 +8,21 @@ import commanderProfiles from "@/lib/data/commander_profiles.json";
 /** Soft cap for bundled catalog size (profiles JSON + extra list). Easy to raise without code churn elsewhere. */
 export const MAX_COMMANDERS = 100;
 
-export type GuideTier = "full" | "standard" | "basic";
+/** Hub depth: flagship = curated premium showcase; full/enhanced = richer than standard; basic = lighter hub. */
+export type GuideTier = "flagship" | "full" | "enhanced" | "standard" | "basic";
+
+/** Optional premium fields in commander_profiles.json — only for flagship-tier entries. */
+export type FlagshipGuideContent = {
+  loveReason?: string;
+  bestFor?: string;
+  winPaths?: string[];
+  traps?: string[];
+  upgradePriority?: string[];
+  openingPlan?: string[];
+  tableReputation?: string;
+  communityHeadline?: string;
+  communitySubhead?: string;
+};
 
 export type CommanderProfile = {
   slug: string;
@@ -26,6 +40,8 @@ export type CommanderProfile = {
   featuredGuide?: boolean;
   /** When false, omitted from mobile guide catalog (API list). */
   hasGuide?: boolean;
+  /** Present when guideTier is flagship — editorial modules for premium guides. */
+  flagship?: FlagshipGuideContent;
 };
 
 /** Convert commander name to URL-safe slug */
@@ -100,7 +116,15 @@ function norm(name: string): string {
 function buildCommanders(): CommanderProfile[] {
   const profiles = commanderProfiles as Record<
     string,
-    { plan?: string; preferTags?: string[]; notes?: string; avoid?: string[] }
+    {
+      plan?: string;
+      preferTags?: string[];
+      notes?: string;
+      avoid?: string[];
+      guideTier?: GuideTier;
+      featuredGuide?: boolean;
+      flagship?: FlagshipGuideContent;
+    }
   >;
   const fromProfiles = Object.entries(profiles).map(([name, p]) => ({
     slug: toSlug(name),
@@ -110,6 +134,9 @@ function buildCommanders(): CommanderProfile[] {
     blurb: p.plan ?? undefined,
     coachNotes: typeof p.notes === "string" && p.notes.trim() ? p.notes.trim() : undefined,
     avoid: Array.isArray(p.avoid) && p.avoid.length ? p.avoid : undefined,
+    ...(p.guideTier ? { guideTier: p.guideTier } : {}),
+    ...(p.featuredGuide === true ? { featuredGuide: true } : {}),
+    ...(p.flagship && typeof p.flagship === "object" ? { flagship: p.flagship } : {}),
   }));
 
   // Additional commanders to reach 50 (popular, stable order)

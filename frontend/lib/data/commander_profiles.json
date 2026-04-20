@@ -3,25 +3,145 @@
     "plan": "Dragon tribal ramp with treasure support; curve to high-impact dragons and anthem effects.",
     "preferTags": ["dragons", "treasure", "flying", "anthem"],
     "avoid": ["off-tribe creatures", "lifegain packages without synergy"],
-    "notes": "Prioritise dragon cost reducers, tutors like Sarkhan's Triumph, and board-wide haste enablers." 
+    "notes": "Prioritise dragon cost reducers, tutors like Sarkhan's Triumph, and board-wide haste enablers.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Explosive dragon turns, eminence value from the command zone, and a timeless five-color ‘big flying things’ fantasy that still feels competitive.",
+      "bestFor": "Players who want splashy combat kills, treasure-based fixing, and a recognizable 5-color dragon identity.",
+      "winPaths": [
+        "Overrun the air with dragons after ramping under eminence",
+        "Treasure bursts into a one-shot alpha with haste or mass pump",
+        "Incremental value until a critical mass of fliers closes the game"
+      ],
+      "traps": [
+        "Too many expensive dragons and no bridge turns",
+        "Skipping interaction because curve is ‘already tight’",
+        "Weak mana fixing in real 5-color games"
+      ],
+      "upgradePriority": [
+        "1. Mana base + fixing (lands, treasure, cheap ramp)",
+        "2. Cost reduction and tutors that find dragons on time",
+        "3. Protection and interaction that preserves your engine",
+        "4. Finishers and anthem effects that convert a wide board"
+      ],
+      "openingPlan": [
+        "Turn 1: land + cheap rock or setup where possible",
+        "Turn 2: ramp or early interaction; deploy a clock if safe",
+        "Turn 3+: begin deploying dragons or hold up protection based on table speed"
+      ],
+      "tableReputation": "Often respected as a ‘big mana dragon’ deck — can draw early removal if you goldfish too openly.",
+      "communityHeadline": "How people build The Ur-Dragon now",
+      "communitySubhead": "Explore live ManaTap lists — compare curves, treasures, and dragon density."
+    }
   },
   "Edgar Markov": {
     "plan": "Low-curve vampire aggro with token multipliers and +1/+1 counters.",
     "preferTags": ["vampires", "tokens", "aggro", "anthem"],
     "avoid": ["non-vampire tribal cards", "slow control spells"],
-    "notes": "Maximise vampire ETB token makers and haste support." 
+    "notes": "Maximise vampire ETB token makers and haste support.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Free eminence tokens and an aggressive Mardu clock that looks casual but punishes slow keeps.",
+      "bestFor": "Players who enjoy wide boards, combat pressure from turn one, and tribal sequencing.",
+      "winPaths": [
+        "Snowball tokens into anthems and drain",
+        "Chip damage into a fast lethal swing after a stalled board",
+        "Exploit eminence to never ‘do nothing’ early"
+      ],
+      "traps": [
+        "Too many 5+ mana vampires in a low-land opener",
+        "Skipping protection for your commander in removal-heavy pods",
+        "Diluting tribal density with off-theme ‘goodstuff’"
+      ],
+      "upgradePriority": [
+        "1. Smooth mana + lowcurve vampires",
+        "2. Token multipliers and anthems",
+        "3. Haste and protection",
+        "4. Top-end only after consistency is solved"
+      ],
+      "openingPlan": [
+        "Turn 1: land + one-drop or strong rock",
+        "Turn 2: curve vampires; deploy pressure before answers stabilize",
+        "Turn 3: start converting tokens into real damage or hold interaction"
+      ],
+      "tableReputation": "Reads as aggressive — sometimes underestimated until the board is suddenly lethal.",
+      "communityHeadline": "How people build Edgar now",
+      "communitySubhead": "See popular aggro vs mid lists and card choices on ManaTap."
+    }
   },
   "Atraxa, Praetors' Voice": {
     "plan": "Choose a focused proliferate shell (infect, superfriends, or +1/+1 counters) and double down.",
     "preferTags": ["proliferate", "infect", "planeswalkers", "+1/+1 counters"],
     "avoid": ["mixing incompatible primary plans", "low-impact vanillas"],
-    "notes": "Support with protective spells and repeatable proliferate engines." 
+    "notes": "Support with protective spells and repeatable proliferate engines.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Flexible four-color value with proliferate — one of Commander’s most iconic ‘pick a lane and snowball’ legends.",
+      "bestFor": "Players who want engines, incremental advantage, and a deck that rewards tight synergy choices.",
+      "winPaths": [
+        "Poison / infect closers with repeatable proliferate",
+        "Superfriends ultimates and walkers that stabilize",
+        "+1/+1 counters and combat kills after engine online"
+      ],
+      "traps": [
+        "Split identity — infect cards plus random walkers with no plan",
+        "Too Cute™ value pieces without a finisher",
+        "Greedy mana that can’t cast Atraxa on curve in fast metas"
+      ],
+      "upgradePriority": [
+        "1. Pick ONE primary plan and align lands/interaction",
+        "2. Ramp / fixing that supports four colors reliably",
+        "3. Protection and recursion for key engines",
+        "4. Wincons that close once you are ahead"
+      ],
+      "openingPlan": [
+        "Turn 1: land + setup (rock or cheap enabler)",
+        "Turn 2: deploy an engine piece or interaction",
+        "Turn 3+: land Atraxa when safe; proliferate starts next cycle"
+      ],
+      "tableReputation": "Threat magnet — many tables will try to answer engines early.",
+      "communityHeadline": "How people build Atraxa now",
+      "communitySubhead": "Infect, superfriends, and counters builds — compare real decklists."
+    }
   },
   "Krenko, Mob Boss": {
     "plan": "Explosive goblin token swarm leveraging extra damage on ETB/attack.",
     "preferTags": ["goblins", "tokens", "haste", "sacrifice"],
     "avoid": ["high-CMC spells", "non-goblin filler"],
-    "notes": "Include Impact Tremors effects and haste enablers to snowball." 
+    "notes": "Include Impact Tremors effects and haste enablers to snowball.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Single-card exponential tokens — Krenko turns goblins into a combo-ish swarm that wins out of nowhere.",
+      "bestFor": "Players who love snowball math, combat wins, and mono-red pressure.",
+      "winPaths": [
+        "Tap Krenko for a massive board, then haste alpha",
+        "Ping/ladder damage with ETB/attack payoffs",
+        "Sacrifice lines that convert tokens into lethal drains or damage"
+      ],
+      "traps": [
+        "All-in with zero protection into a wrath",
+        "Too few lands / rocks for a commander-centric plan",
+        "Filler goblins that don’t advance the critical turn"
+      ],
+      "upgradePriority": [
+        "1. Lands + fast mana to deploy Krenko early",
+        "2. Token support and haste enablers",
+        "3. Payoff pieces (damage doublers, impact effects)",
+        "4. Light interaction that protects the combo turn"
+      ],
+      "openingPlan": [
+        "Turn 1: land + one-mana goblin or mana source",
+        "Turn 2: curve or ramp toward Krenko",
+        "Turn 3+: deploy Krenko and start doubling — hold protection if you expect interaction"
+      ],
+      "tableReputation": "Highly targeted — looks scarier the longer it stays up.",
+      "communityHeadline": "How people build Krenko now",
+      "communitySubhead": "Compare swarm vs combo-adjacent goblin lists from the community."
+    }
   },
   "Kaalia of the Vast": {
     "plan": "Cheat massive angels, demons, and dragons into play while protecting Kaalia.",
@@ -45,7 +165,37 @@
     "plan": "Tempo ninjutsu deck leveraging evasive one-drops and top-deck manipulation.",
     "preferTags": ["ninjas", "ninjutsu", "evasion", "topdeck"],
     "avoid": ["high mana costs", "non-ninja creatures lacking synergy"],
-    "notes": "Include bounce/flicker to reuse triggers and keep curve extremely low." 
+    "notes": "Include bounce/flicker to reuse triggers and keep curve extremely low.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Command-zone card advantage that rewards tight curves and sneak-attack sequencing — uniquely Dimir tempo.",
+      "bestFor": "Spikes and spiky-casual players who enjoy micro-decisions, tempo plays, and topdeck manipulation.",
+      "winPaths": [
+        "Drain and chip from Yuriko triggers into a decisive turn",
+        "Leverage unblockable ninjas + extra turns/bounce lines (where legal/fit)",
+        "Value ninjutsu loops with cheap evasive creatures"
+      ],
+      "traps": [
+        "Too many expensive spells ruining curve",
+        "No bounce/flicker to reuse enter-combat triggers",
+        "Greedy keeps without interaction vs faster decks"
+      ],
+      "upgradePriority": [
+        "1. One-drops and reliable enablers (evasion)",
+        "2. Low-CMC interaction and tempo",
+        "3. Top-of-library manipulation where it counts",
+        "4. Finishers that don’t wreck the curve"
+      ],
+      "openingPlan": [
+        "Turn 1: evasive creature or setup",
+        "Turn 2: hold mana for interaction or advanceboard",
+        "Turn 3+: ninjutsu online — prioritize mana efficiency each attack step"
+      ],
+      "tableReputation": "Often respected as fast — can draw removal if you telegraph huge turns.",
+      "communityHeadline": "How people build Yuriko now",
+      "communitySubhead": "See curve choices and interaction suites from real ManaTap decks."
+    }
   },
   "Lathril, Blade of the Elves": {
     "plan": "Elf tribal tokens into overrun finishers with mana engine support.",
@@ -99,7 +249,37 @@
     "plan": "Attack-trigger doubling with token makers, equipment, and extra combats.",
     "preferTags": ["attack triggers", "tokens", "equipment", "extra combat"],
     "avoid": ["slow control pieces", "board wipes that reset your own army"],
-    "notes": "Prioritise creatures with impactful attack triggers and mass haste." 
+    "notes": "Prioritise creatures with impactful attack triggers and mass haste.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Doubles attack triggers — Mardu combat turns go from ‘good’ to ‘unfair’ when sequencing is tight.",
+      "bestFor": "Players who like combat steps, token go-wide, and extra-combat blowouts.",
+      "winPaths": [
+        "Extra combat steps + token producers",
+        "Sublime equipment/sword packages that scale triggers",
+        "Go-wide aggression that punishes tapped-out opponents"
+      ],
+      "traps": [
+        "Too few bodies to reliably attack profitable",
+        "Wraths with no recovery plan",
+        "Trigger density without a way to force meaningful combats"
+      ],
+      "upgradePriority": [
+        "1. Low-CMC creatures with great attack triggers",
+        "2. Token producers and protection",
+        "3. Extra combats / equipment where supported",
+        "4. Finishers that convert wide boards"
+      ],
+      "openingPlan": [
+        "Turn 1: creature or rock",
+        "Turn 2: deploy threat or develop tokens",
+        "Turn 3+: land Isshin when safe and start doubling triggers"
+      ],
+      "tableReputation": "Combat-focused — looks mid-threat until extra combats appear.",
+      "communityHeadline": "How people build Isshin now",
+      "communitySubhead": "Compare token-heavy vs equipment packages in public lists."
+    }
   },
   "Hakbal of the Surging Soul": {
     "plan": "Merfolk tribal with +1/+1 counters, explore, and evasion.",
@@ -129,13 +309,73 @@
     "plan": "Jund sacrifice engine that turns permanents into cards and +1/+1 counters, often combo-finishing through treasure or food loops.",
     "preferTags": ["sacrifice", "treasures", "food", "aristocrats", "combo"],
     "avoid": ["low-permanent spell-heavy builds", "defensive pillowfort strategies"],
-    "notes": "Dockside Extortionist and Mayhem Devil are premium. Include fetchlands and token producers to ensure consistent sacrifice fodder. Avoid too many nonpermanent spells; Korvold thrives on permanents."
+    "notes": "Dockside Extortionist and Mayhem Devil are premium. Include fetchlands and token producers to ensure consistent sacrifice fodder. Avoid too many nonpermanent spells; Korvold thrives on permanents.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "A Commander that rewards smart sacrifice sequencing with massive card flow — the Jund value/combo sweet spot.",
+      "bestFor": "Players who want toolsy gameplay and high synergy with ramp, treasures, and aristocrats.",
+      "winPaths": [
+        "Treasure/food loops with payoffs that close",
+        "Mayhem-style chip damage while drawing ahead",
+        "Combat kills after Korvold grows out of range"
+      ],
+      "traps": [
+        "Too many instants/sorceries with low permanent density",
+        "No fodder — sac outlets without bodies",
+        "Overextending into wraths with no rebuild"
+      ],
+      "upgradePriority": [
+        "1. Lands + cheap artifacts/creatures you’re happy to bin",
+        "2. Token producers and free sac outlets",
+        "3. Payoffs that reward permanents leaving play",
+        "4. Protection/interaction that preserves engine turns"
+      ],
+      "openingPlan": [
+        "Turn 1: land + rock or dork",
+        "Turn 2: develop fodder or interaction",
+        "Turn 3+: Korvold turns fodder into cards — sequence attacks vs protection"
+      ],
+      "tableReputation": "Often treated as a top-tier value deck — expect answers.",
+      "communityHeadline": "How people build Korvold now",
+      "communitySubhead": "See sacrifice density, treasure packages, and finisher choices in decklists."
+    }
   },
   "Meren of Clan Nel Toth": {
     "plan": "Graveyard recursion engine using experience counters to repeatedly reanimate value creatures.",
     "preferTags": ["graveyard", "recursion", "sacrifice", "aristocrats", "self-mill"],
     "avoid": ["exile-based recursion", "low creature count builds"],
-    "notes": "Include Sakura-Tribe Elder, Fleshbag Marauder, and Spore Frog loops. Prioritize cheap creatures that sacrifice themselves. Avoid too many high-CMC threats that don't generate immediate value."
+    "notes": "Include Sakura-Tribe Elder, Fleshbag Marauder, and Spore Frog loops. Prioritize cheap creatures that sacrifice themselves. Avoid too many high-CMC threats that don't generate immediate value.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Repeatable grindy value from the graveyard — experience makes your recursion scale as the game goes long.",
+      "bestFor": "Grindy value players who like aristocrats, sac outlets, and inevitability.",
+      "winPaths": [
+        "Soft locks with ETB denial and grindy drain",
+        "Incremental value creatures looped each end step",
+        "Sacrifice combos once experience is high enough"
+      ],
+      "traps": [
+        "Too few creatures to fuel experience reliably",
+        "Too top-heavy — clunky creatures that don’t ETB",
+        "Weak to graveyard hate with no backup plan"
+      ],
+      "upgradePriority": [
+        "1. Cheap creatures that die for value",
+        "2. Sac outlets and token fodder",
+        "3. Graveyard enablers (mill/reanimation) where needed",
+        "4. Finishers after engine is online"
+      ],
+      "openingPlan": [
+        "Turn 1: dork or setup",
+        "Turn 2: early value creature or ramp",
+        "Turn 3+: Meren + start trading for experience — play for grind"
+      ],
+      "tableReputation": "Looks slow — becomes scary once experience clocks in.",
+      "communityHeadline": "How people build Meren now",
+      "communitySubhead": "See aristocrats density and end-step lines in real lists."
+    }
   },
   "Animar, Soul of Elements": {
     "plan": "Creature combo deck reducing creature costs with +1/+1 counters to enable explosive chains and combo finishes.",
@@ -147,7 +387,37 @@
     "plan": "Rakdos value engine generating Treasures from exile-based card advantage.",
     "preferTags": ["treasures", "impulse draw", "aristocrats", "combo", "spell value"],
     "avoid": ["pure creature aggro", "low exile synergy builds"],
-    "notes": "Include Jeska's Will, Reckless Impulse effects, and Marionette Master as a finisher. Prosper thrives when nearly every turn generates exile value."
+    "notes": "Include Jeska's Will, Reckless Impulse effects, and Marionette Master as a finisher. Prosper thrives when nearly every turn generates exile value.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Treasures from impulse draw — one of the best Rakdos ‘every turn is a mini-game’ commanders for spellslinger value.",
+      "bestFor": "Players who enjoy sequencing exile turns, treasures, and flexible win lines.",
+      "winPaths": [
+        "Treasure payoffs and big mana turns",
+        "Artifact/aristocrat drains once artifacts pile up",
+        "Burn/spell finishes after card advantage accrues"
+      ],
+      "traps": [
+        "Playing like mono-aggro without exile payoffs",
+        "Too few treasures or ways to use them",
+        "Ignoring interaction and dying on key turns"
+      ],
+      "upgradePriority": [
+        "1. Cheap exile/draw that fuels treasures",
+        "2. Mana rocks + treasure payoffs",
+        "3. Flexible removal that keeps you alive",
+        "4. Close-out threats that reward artifacts/tokens"
+      ],
+      "openingPlan": [
+        "Turn 1: land + rock or setup",
+        "Turn 2: impulse/exile or early interaction",
+        "Turn 3+: deploy Prosper and start converting exile into tempo"
+      ],
+      "tableReputation": "Reads as value — can look scary once treasure count ticks up.",
+      "communityHeadline": "How people build Prosper now",
+      "communitySubhead": "Spell vs treasure-focused shells — browse ManaTap lists."
+    }
   },
   "Winota, Joiner of Forces": {
     "plan": "Explosive combat strategy cheating powerful Humans into play via non-Human attackers.",
@@ -225,7 +495,37 @@
     "plan": "Landfall value deck generating incremental advantage and burst mana from land drops.",
     "preferTags": ["landfall", "ramp", "value engine", "elementals", "combo"],
     "avoid": ["low land count", "spell-heavy non-land synergy builds"],
-    "notes": "Fetchlands maximize triggers. Include Scute Swarm and Omnath synergy loops."
+    "notes": "Fetchlands maximize triggers. Include Scute Swarm and Omnath synergy loops.",
+    "guideTier": "flagship",
+    "featuredGuide": true,
+    "flagship": {
+      "loveReason": "Landfall lines that stack advantage every turn — a flagship four-color ‘lands matter’ fantasy with explosive turns.",
+      "bestFor": "Players who love ramp, sequencing lands, and engine-heavy midrange.",
+      "winPaths": [
+        "Elemental/token swarm and landfall payoffs",
+        "Combo-style lines that leverage extra land drops",
+        "Incremental life + board until opponents run out of answers"
+      ],
+      "traps": [
+        "Greedy manabase without enough fixing",
+        "Too few lands for a land-centric plan",
+        "Overcommitting before wraths reset the board"
+      ],
+      "upgradePriority": [
+        "1. Fetchlands + duals/shocks that support four colors",
+        "2. Ramp and land-based card advantage",
+        "3. Landfall payoffs that convert advantage",
+        "4. Interaction to survive fast metas"
+      ],
+      "openingPlan": [
+        "Turn 1: land + dork/rock when possible",
+        "Turn 2: ramp or interaction depending on pod speed",
+        "Turn 3+: deploy Omnath and chain land drops for value triggers"
+      ],
+      "tableReputation": "Often respected as a high-ceiling deck — can be targeted once engines appear.",
+      "communityHeadline": "How people build Omnath (Locus) now",
+      "communitySubhead": "Compare landfall suites and finishers from ManaTap decks."
+    }
   },
   "Tasigur, the Golden Fang": {
     "plan": "Sultai control/combo deck leveraging delve and political recursion.",

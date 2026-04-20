@@ -83,9 +83,10 @@ export function buildCommanderIdentityCard(
 ): CommanderIdentityCard {
   const tags = profile.tags ?? [];
   const bestFor =
-    tags.length > 0
+    profile.flagship?.bestFor?.trim() ||
+    (tags.length > 0
       ? `Great if you enjoy ${tags.slice(0, 3).join(", ")} game play`
-      : undefined;
+      : undefined);
 
   let budgetDifficulty = "Varies — tune to your collection";
   if (medianUsd != null && medianUsd > 0) {
@@ -99,11 +100,12 @@ export function buildCommanderIdentityCard(
   }
 
   const tableFit =
-    snapshot.difficulty === "Advanced"
+    profile.flagship?.tableReputation?.trim() ||
+    (snapshot.difficulty === "Advanced"
       ? "Better when tables expect engines, interaction stacks, and answers"
       : snapshot.difficulty === "Easy"
         ? "Friendly for newer pods & lower-power leagues"
-        : "Fits most casual-to-mid tables — match staples to your meta";
+        : "Fits most casual-to-mid tables — match staples to your meta");
 
   const gp = snapshot.gameplan.trim();
   const primaryPlan = gp.split(/[.!]/)[0]?.trim() || gp;
@@ -125,7 +127,7 @@ export function buildCommanderIdentityCard(
   };
 }
 
-export function buildIntentActions(): IntentActionDef[] {
+export function buildIntentActions(_profile?: CommanderProfile): IntentActionDef[] {
   return [
     { id: "build", label: "New deck", subtitle: "Commander + start in builder", emoji: "⚡" },
     { id: "analyze", label: "Improve a deck", subtitle: "Analyze or paste a list", emoji: "📊" },

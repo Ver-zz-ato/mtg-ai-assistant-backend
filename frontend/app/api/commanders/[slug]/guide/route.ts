@@ -27,8 +27,12 @@ import {
   buildCommanderIdentityCard,
   buildCommunityBlock,
   buildHubSectionsVisual,
-  buildIntentActions,
 } from "@/lib/guide-hub-phase2";
+import {
+  buildFlagshipGuidePayload,
+  buildIntentActionsForGuide,
+  enhanceCommunityBlockForFlagship,
+} from "@/lib/guide-flagship";
 
 /** GET /api/commanders/[slug]/guide — JSON guide content for native mobile app */
 export async function GET(
@@ -69,12 +73,18 @@ export async function GET(
         : null;
 
     const commanderIdentity = buildCommanderIdentityCard(profile, snapshot, medianUsd);
-    const intentActions = buildIntentActions();
+    const intentActions = buildIntentActionsForGuide(profile);
     const hubSectionsVisual = buildHubSectionsVisual(profile);
-    const communityPresentation = buildCommunityBlock(
+    const communityBase = buildCommunityBlock(
       aggregates?.deckCount,
       aggregates?.recentDecks,
     );
+    const communityPresentation = enhanceCommunityBlockForFlagship(
+      profile,
+      communityBase,
+      aggregates,
+    );
+    const flagshipContent = buildFlagshipGuidePayload(profile, aggregates);
 
     const guide = {
       profile: {
@@ -103,6 +113,7 @@ export async function GET(
         guideTier: profile.guideTier ?? "standard",
         featuredGuide: profile.featuredGuide ?? false,
         hasGuide: profile.hasGuide !== false,
+        isFlagshipGuide: profile.guideTier === "flagship",
       },
       /** Phase 2 — structured identity (additive; hide empty client-side). */
       commanderIdentity,
@@ -112,6 +123,8 @@ export async function GET(
       hubSectionsVisual,
       /** Phase 2 — richer copy + recency labels for the community block (optional). */
       communityPresentation,
+      /** Flagship program — premium editorial modules (null when not flagship). */
+      flagshipContent,
       howDeckWins: renderHowDeckWins(profile),
       commonMistakes: renderCommonMistakes(profile),
       mulliganGuide: renderMulliganGuideContent(profile),
