@@ -1,9 +1,14 @@
 /**
  * Single source of truth for Commander SEO content.
- * First 50 commanders ordered by presumed popularity (stable).
+ * Commanders are ordered by presumed popularity (stable). Cap is soft — raise MAX_COMMANDERS as the catalog grows.
  */
 
 import commanderProfiles from "@/lib/data/commander_profiles.json";
+
+/** Soft cap for bundled catalog size (profiles JSON + extra list). Easy to raise without code churn elsewhere. */
+export const MAX_COMMANDERS = 100;
+
+export type GuideTier = "full" | "standard" | "basic";
 
 export type CommanderProfile = {
   slug: string;
@@ -11,6 +16,16 @@ export type CommanderProfile = {
   colors?: string[];
   tags?: string[];
   blurb?: string;
+  /** Longer coaching notes from commander_profiles.json — used for strengths/upgrades when present. */
+  coachNotes?: string;
+  /** “Avoid” pitfalls from JSON — used for weaknesses copy when present. */
+  avoid?: string[];
+  /** Content depth hint for mobile/Discover (default: standard templated hub). */
+  guideTier?: GuideTier;
+  /** Surface in Discover “featured” ordering when true. */
+  featuredGuide?: boolean;
+  /** When false, omitted from mobile guide catalog (API list). */
+  hasGuide?: boolean;
 };
 
 /** Convert commander name to URL-safe slug */
@@ -85,7 +100,7 @@ function norm(name: string): string {
 function buildCommanders(): CommanderProfile[] {
   const profiles = commanderProfiles as Record<
     string,
-    { plan?: string; preferTags?: string[]; notes?: string }
+    { plan?: string; preferTags?: string[]; notes?: string; avoid?: string[] }
   >;
   const fromProfiles = Object.entries(profiles).map(([name, p]) => ({
     slug: toSlug(name),
@@ -93,6 +108,8 @@ function buildCommanders(): CommanderProfile[] {
     colors: COLOR_MAP[norm(name)] ?? undefined,
     tags: p.preferTags ?? undefined,
     blurb: p.plan ?? undefined,
+    coachNotes: typeof p.notes === "string" && p.notes.trim() ? p.notes.trim() : undefined,
+    avoid: Array.isArray(p.avoid) && p.avoid.length ? p.avoid : undefined,
   }));
 
   // Additional commanders to reach 50 (popular, stable order)
@@ -137,7 +154,7 @@ function buildCommanders(): CommanderProfile[] {
     blurb: e.blurb,
   }));
 
-  return [...fromProfiles, ...extraProfiles].slice(0, 50);
+  return [...fromProfiles, ...extraProfiles].slice(0, MAX_COMMANDERS);
 }
 
 export const COMMANDERS: CommanderProfile[] = buildCommanders();
@@ -154,13 +171,18 @@ export function getCommanderSlugByName(name: string): string | null {
   return found?.slug ?? null;
 }
 
-export function getFirst50CommanderSlugs(): string[] {
+export function getCommanderCatalogSlugs(): string[] {
   return COMMANDERS.map((c) => c.slug);
+}
+
+/** @deprecated Use {@link getCommanderCatalogSlugs} */
+export function getFirst50CommanderSlugs(): string[] {
+  return getCommanderCatalogSlugs();
 }
 
 /** Get recently updated commanders from commander_aggregates (for Recent updates block). */
 export async function getRecentlyUpdatedCommanders(limit = 10): Promise<Array<{ slug: string; name: string; updated_at: string }>> {
-  const slugs = getFirst50CommanderSlugs();
+  const slugs = getCommanderCatalogSlugs();
   try {
     const { createClientForStatic } = await import("@/lib/server-supabase");
     const supabase = createClientForStatic();
@@ -186,7 +208,7 @@ export async function getRecentlyUpdatedCommanders(limit = 10): Promise<Array<{ 
 
 /** For sitemap: get commander slugs with updated_at from commander_aggregates. */
 export async function getCommanderSlugsWithUpdatedAt(): Promise<Array<{ slug: string; updated_at: string }>> {
-  const slugs = getFirst50CommanderSlugs();
+  const slugs = getCommanderCatalogSlugs();
   try {
     const { createClientForStatic } = await import("@/lib/server-supabase");
     const supabase = createClientForStatic();

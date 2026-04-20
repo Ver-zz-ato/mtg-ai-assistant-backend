@@ -12,6 +12,15 @@ import {
   BEST_CARDS_FAQ,
   BUDGET_FAQ,
 } from "@/lib/seo/commander-content";
+import {
+  mergeCommanderGuideFaqs,
+  buildMobileGuideSections,
+  renderElevatorPitch,
+  renderStrengthsLine,
+  renderWeaknessesLine,
+  renderUpgradePrioritiesLine,
+  renderMulliganHeuristicsShort,
+} from "@/lib/guide-api-assembler";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 
@@ -46,6 +55,8 @@ export async function GET(
     const artUrl =
       cmdImg?.art_crop || cmdImg?.normal || cmdImg?.small || null;
 
+    const mergedFaq = mergeCommanderGuideFaqs();
+
     const guide = {
       profile: {
         slug: profile.slug,
@@ -59,6 +70,20 @@ export async function GET(
         gameplan: snapshot.gameplan,
         powerStyle: snapshot.powerStyle,
         difficulty: snapshot.difficulty,
+      },
+      /** Short summary for mobile hero — prefer blurb/plan, else strategy snapshot. */
+      elevatorPitch: renderElevatorPitch(profile),
+      strengths: renderStrengthsLine(profile),
+      weaknesses: renderWeaknessesLine(profile),
+      upgradePriorities: renderUpgradePrioritiesLine(profile),
+      mulliganHeuristics: renderMulliganHeuristicsShort(profile),
+      /** Modular sections for Commander Hub (prose vs block groups). Legacy fields below stay for older app builds. */
+      sections: buildMobileGuideSections(profile),
+      faq: mergedFaq,
+      meta: {
+        guideTier: profile.guideTier ?? "standard",
+        featuredGuide: profile.featuredGuide ?? false,
+        hasGuide: profile.hasGuide !== false,
       },
       howDeckWins: renderHowDeckWins(profile),
       commonMistakes: renderCommonMistakes(profile),
@@ -76,8 +101,17 @@ export async function GET(
                 ? Math.round(aggregates.medianDeckCost)
                 : null,
             topCards: (aggregates.topCards ?? []).slice(0, 12),
+            recentDecks: aggregates.recentDecks ?? [],
           }
         : null,
+      /** Top staples as simple names (tappable in app). Mirrors aggregates.topCards when present. */
+      staples:
+        aggregates?.topCards?.map((c) => ({
+          name: c.cardName,
+          count: c.count,
+          percent: c.percent,
+        })) ?? [],
+      recentDecks: aggregates?.recentDecks ?? [],
       artUrl,
     };
 
