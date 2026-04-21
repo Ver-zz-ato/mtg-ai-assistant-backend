@@ -14,6 +14,8 @@ export default function AdminPreconsPage() {
   const [sqlInput, setSqlInput] = useState("");
   const [inserting, setInserting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   async function handleInsert() {
     if (!name || !commander || !deckText || !preconSetName || !releaseYear) {
@@ -23,6 +25,7 @@ export default function AdminPreconsPage() {
     setInserting(true);
     setMsg(null);
     try {
+      // eslint-disable-next-line no-restricted-globals -- intentional: POST /api/admin/*
       const res = await fetch("/api/admin/precons", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,10 +50,41 @@ export default function AdminPreconsPage() {
       } else {
         setMsg(j.error || "Insert failed");
       }
-    } catch (e: any) {
-      setMsg(e?.message || "Request failed");
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : "Request failed");
     } finally {
       setInserting(false);
+    }
+  }
+
+  async function handleWestlySync() {
+    if (
+      !confirm(
+        "Replace ALL precon_decks with the latest catalog from Westly/CommanderPrecons on GitHub? This deletes existing rows and re-imports."
+      )
+    ) {
+      return;
+    }
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      // eslint-disable-next-line no-restricted-globals -- intentional: POST /api/admin/*
+      const res = await fetch("/api/admin/precons/sync", {
+        method: "POST",
+        credentials: "include",
+      });
+      const j = await res.json();
+      if (j.ok) {
+        setSyncMsg(
+          `Synced ${j.inserted} precons (${j.dbCount} in DB). ${j.fileErrors || 0} file errors. ${Math.round(j.durationMs / 1000)}s`
+        );
+      } else {
+        setSyncMsg(j.error || "Sync failed");
+      }
+    } catch (e: unknown) {
+      setSyncMsg(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -62,18 +96,51 @@ export default function AdminPreconsPage() {
         </Link>
         <h1 className="text-xl font-semibold">Precon Decks Admin</h1>
         <p className="text-sm text-neutral-400">
-          Insert precons via form or run generated SQL in Supabase.
+          Insert precons via form, sync the full catalog from GitHub, or run generated SQL in Supabase.
         </p>
       </div>
 
       <ELI5
-        heading="Two ways to add precons"
+        heading="Ways to add precons"
         items={[
+          "Sync from GitHub: One click replaces precon_decks with the latest community catalog (Westly/CommanderPrecons). Same data as the local import script.",
           "Form below: Insert one precon at a time (name, commander, deck list, set, year).",
-          "Generate SQL: Run the script locally to fetch all precons from Westly/CommanderPrecons and output SQL.",
-          "Paste the generated SQL into Supabase Dashboard → SQL Editor and run it.",
+          "Generate SQL: Run the script locally to output precon_decks_all.sql for Supabase SQL Editor.",
         ]}
       />
+
+      {/* Westly sync */}
+      <section className="rounded-xl border border-emerald-900/60 bg-emerald-950/20 p-4 space-y-3">
+        <h2 className="font-medium text-emerald-100">Sync from Westly/CommanderPrecons (GitHub)</h2>
+        <p className="text-sm text-gray-400">
+          Fetches all official Commander precon JSON from the{" "}
+          <a
+            href="https://github.com/Westly/CommanderPrecons"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-400 hover:underline"
+          >
+            Westly/CommanderPrecons
+          </a>{" "}
+          repo (community-maintained; new sets appear there when contributors add decklists), then replaces{" "}
+          <code className="bg-neutral-800 px-1 rounded">precon_decks</code> in Supabase. Browse/clone on{" "}
+          <Link href="/decks/browse" className="text-emerald-400 hover:underline">
+            /decks/browse
+          </Link>{" "}
+          updates immediately.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleWestlySync}
+            disabled={syncing}
+            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 rounded text-sm font-medium"
+          >
+            {syncing ? "Syncing…" : "Sync precons from GitHub"}
+          </button>
+          {syncMsg && <span className="text-sm text-gray-300">{syncMsg}</span>}
+        </div>
+      </section>
 
       {/* Insert form */}
       <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">

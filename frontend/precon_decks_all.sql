@@ -4,7 +4,7 @@
 
 INSERT INTO public.precon_decks (name, commander, colors, format, deck_text, set_name, release_year)
 VALUES
-  ('Abzan Armor', 'Felothar the Steadfast', ARRAY['B','G','W']::text[], 'Commander', $pac4jeeei$1 Felothar the Steadfast
+  ('Abzan Armor', 'Felothar the Steadfast', ARRAY['B','G','W']::text[], 'Commander', $pt983gx5l$1 Felothar the Steadfast
 1 Betor, Ancestor's Voice
 1 Command Tower
 1 Arcane Signet
@@ -88,8 +88,8 @@ VALUES
 1 Rhox Faithmender
 7 Forest
 6 Plains
-5 Swamp$pac4jeeei$, 'Tarkir Dragonstorm Commander', 2026),
-  ('Adaptive Enchantment', 'Estrid, the Masked', ARRAY['G','U','W']::text[], 'Commander', $p276bbx47$1 Estrid, the Masked
+5 Swamp$pt983gx5l$, 'Tarkir Dragonstorm Commander', 2026),
+  ('Adaptive Enchantment', 'Estrid, the Masked', ARRAY['G','U','W']::text[], 'Commander', $p9xjdphi4$1 Estrid, the Masked
 1 Aura Gnarlid
 1 Ajani's Chosen
 1 Archetype of Imagination
@@ -168,8 +168,8 @@ VALUES
 6 Island
 1 Kestia, the Cultivator
 1 Tuvasa the Sunlit
-9 Plains$p276bbx47$, 'Commander 2018', 2018),
-  ('Ahoy Mateys', 'Admiral Brass, Unsinkable', ARRAY['B','R','U']::text[], 'Commander', $p40cuoja3$1 Admiral Brass, Unsinkable
+9 Plains$p9xjdphi4$, 'Commander 2018', 2018),
+  ('Ahoy Mateys', 'Admiral Brass, Unsinkable', ARRAY['B','R','U']::text[], 'Commander', $przm0puyv$1 Admiral Brass, Unsinkable
 6 Island
 5 Mountain
 4 Swamp
@@ -256,8 +256,8 @@ VALUES
 1 Storm Fleet Negotiator
 1 Arm-Mounted Anchor
 1 Gemcutter Buccaneer
-1 Don Andres, the Renegade$p40cuoja3$, 'The Lost Caverns of Ixalan Commander', 2026),
-  ('Angels: They''re Just Like Us, but Cooler and with Wings', 'Bruna, the Fading Light', ARRAY['W']::text[], 'Commander', $pxsez1pe0$1 Bruna, the Fading Light
+1 Don Andres, the Renegade$przm0puyv$, 'The Lost Caverns of Ixalan Commander', 2026),
+  ('Angels: They''re Just Like Us, but Cooler and with Wings', 'Bruna, the Fading Light', ARRAY['W']::text[], 'Commander', $pwbn4enwr$1 Bruna, the Fading Light
 30 Plains
 1 Arcane Signet
 1 Tome of Legends
@@ -327,8 +327,8 @@ VALUES
 1 Righteous Valkyrie
 1 Angel of the Ruins
 1 Breathkeeper Seraph
-1 Gisela, the Broken Blade$pxsez1pe0$, 'Secret Lair Commander 2023', 2023),
-  ('Animated Army', 'Bello, Bard of the Brambles', ARRAY['G','R']::text[], 'Commander', $ppdkcgbnc$1 Bello, Bard of the Brambles
+1 Gisela, the Broken Blade$pwbn4enwr$, 'Secret Lair Commander 2023', 2023),
+  ('Animated Army', 'Bello, Bard of the Brambles', ARRAY['G','R']::text[], 'Commander', $px4nsi4k4$1 Bello, Bard of the Brambles
 1 Wandertale Mentor
 1 Teapot Slinger
 1 Arcane Signet
@@ -411,8 +411,8 @@ VALUES
 10 Forest
 8 Mountain
 1 Wildsear, Scouring Maw
-1 Domri, Anarch of Bolas$ppdkcgbnc$, 'Bloomburrow Commander', 2026),
-  ('Arcane Maelstrom', 'Kalamax, the Stormsire', ARRAY['G','R','U']::text[], 'Commander', $pya4ghwv2$1 Kalamax, the Stormsire
+1 Domri, Anarch of Bolas$px4nsi4k4$, 'Bloomburrow Commander', 2026),
+  ('Arcane Maelstrom', 'Kalamax, the Stormsire', ARRAY['G','R','U']::text[], 'Commander', $p7uoau7i3$1 Kalamax, the Stormsire
 1 Arcane Signet
 1 Artifact Mutation
 1 Bonder's Ornament
@@ -496,8 +496,8 @@ VALUES
 1 Xyris, the Writhing Storm
 8 Forest
 5 Island
-5 Mountain$pya4ghwv2$, 'Commander 2020', 2020),
-  ('Arcane Wizardry', 'Inalla, Archmage Ritualist', ARRAY['B','R','U']::text[], 'Commander', $p7x4a9ldu$1 Inalla, Archmage Ritualist
+5 Mountain$p7uoau7i3$, 'Commander 2020', 2020),
+  ('Arcane Wizardry', 'Inalla, Archmage Ritualist', ARRAY['B','R','U']::text[], 'Commander', $phpi1do45$1 Inalla, Archmage Ritualist
 1 Archaeomancer
 1 Apprentice Necromancer
 1 Azami, Lady of Scrolls
@@ -579,8 +579,8 @@ VALUES
 1 Kess, Dissident Mage
 1 Mairsil, the Pretender
 4 Mountain
-6 Swamp$p7x4a9ldu$, 'Commander 2017', 2017),
-  ('Arm for Battle', 'Wyleth, Soul of Steel', ARRAY['R','W']::text[], 'Commander', $pu88pqjjk$1 Wyleth, Soul of Steel
+6 Swamp$phpi1do45$, 'Commander 2017', 2017),
+  ('Arm for Battle', 'Wyleth, Soul of Steel', ARRAY['R','W']::text[], 'Commander', $p6mv3msjp$1 Wyleth, Soul of Steel
 1 Command Tower
 1 Kor Cartographer
 1 Myriad Landscape
@@ -658,8 +658,8 @@ VALUES
 1 Wind-Scarred Crag
 1 Word of Seizing
 9 Mountain
-14 Plains$pu88pqjjk$, 'Commander Legends', 2026),
-  ('Aura of Courage', 'Galea, Kindler of Hope', ARRAY['G','U','W']::text[], 'Commander', $pw7zp01zn$1 Galea, Kindler of Hope
+14 Plains$p6mv3msjp$, 'Commander Legends', 2026),
+  ('Aura of Courage', 'Galea, Kindler of Hope', ARRAY['G','U','W']::text[], 'Commander', $pzlxbyqlt$1 Galea, Kindler of Hope
 1 Shielding Plax
 1 Serum Visions
 1 Riverwise Augur
@@ -747,8 +747,8 @@ VALUES
 1 Storvald, Frost Giant Jarl
 4 Island
 2 Plains
-8 Forest$pw7zp01zn$, 'Adventures in the Forgotten Realms Commander', 2026),
-  ('Bedecked Brokers', 'Perrie, the Pulverizer', ARRAY['G','U','W']::text[], 'Commander', $pkzs8hc4c$1 Perrie, the Pulverizer
+8 Forest$pzlxbyqlt$, 'Adventures in the Forgotten Realms Commander', 2026),
+  ('Bedecked Brokers', 'Perrie, the Pulverizer', ARRAY['G','U','W']::text[], 'Commander', $ps79d974g$1 Perrie, the Pulverizer
 5 Island
 5 Plains
 5 Forest
@@ -835,8 +835,8 @@ VALUES
 1 Damning Verdict
 1 Angelic Sleuth
 1 Storm of Forms
-1 Kros, Defense Contractor$pkzs8hc4c$, 'Streets of New Capenna Commander', 2026),
-  ('Blame Game', 'Nelly Borca, Impulsive Accuser', ARRAY['R','W']::text[], 'Commander', $pxixd4eya$1 Nelly Borca, Impulsive Accuser
+1 Kros, Defense Contractor$ps79d974g$, 'Streets of New Capenna Commander', 2026),
+  ('Blame Game', 'Nelly Borca, Impulsive Accuser', ARRAY['R','W']::text[], 'Commander', $p0huwqvtf$1 Nelly Borca, Impulsive Accuser
 7 Mountain
 9 Plains
 1 Escape Tunnel
@@ -921,8 +921,8 @@ VALUES
 1 Wall of Omens
 1 Windborn Muse
 1 Winds of Rath
-1 Feather, Radiant Arbiter$pxixd4eya$, 'Murders at Karlov Manor Commander', 2026),
-  ('Blast from the Past', 'The Fourth Doctor', ARRAY['G','U']::text[], 'Commander', $pf1oheiey$1 The Fourth Doctor
+1 Feather, Radiant Arbiter$p0huwqvtf$, 'Murders at Karlov Manor Commander', 2026),
+  ('Blast from the Past', 'The Fourth Doctor', ARRAY['G','U']::text[], 'Commander', $p9xdr3tgm$1 The Fourth Doctor
 2 Island
 2 Plains
 3 Forest
@@ -1016,8 +1016,8 @@ VALUES
 1 Vrestin, Menoptra Leader
 1 Time Wipe
 1 Explore
-1 Return to Dust$pf1oheiey$, 'Doctor Who Commander', 2026),
-  ('Blight Curse', 'Auntie Ool, Cursewretch', ARRAY['B','G','R']::text[], 'Commander', $pro9o4h6w$1 Auntie Ool, Cursewretch
+1 Return to Dust$p9xdr3tgm$, 'Doctor Who Commander', 2026),
+  ('Blight Curse', 'Auntie Ool, Cursewretch', ARRAY['B','G','R']::text[], 'Commander', $pzf8nejqx$1 Auntie Ool, Cursewretch
 6 Forest
 4 Mountain
 8 Swamp
@@ -1101,8 +1101,8 @@ VALUES
 1 Riveteers Overlook
 1 Ifnir Deadlands
 1 Savage Lands
-1 Sheltered Thicket$pro9o4h6w$, 'Lorwyn Eclipsed Commander', 2026),
-  ('Blood Rites', 'Clavileño, First of the Blessed', ARRAY['B','W']::text[], 'Commander', $p2p260ub5$1 Clavileño, First of the Blessed
+1 Sheltered Thicket$pzf8nejqx$, 'Lorwyn Eclipsed Commander', 2026),
+  ('Blood Rites', 'Clavileño, First of the Blessed', ARRAY['B','W']::text[], 'Commander', $pksm7iea5$1 Clavileño, First of the Blessed
 8 Plains
 13 Swamp
 1 Arcane Signet
@@ -1182,8 +1182,8 @@ VALUES
 1 Dusk Legion Sergeant
 1 Master of Dark Rites
 1 Promise of Aclazotz // Foul Rebirth
-1 Carmen, Cruel Skymarcher$p2p260ub5$, 'The Lost Caverns of Ixalan Commander', 2026),
-  ('Breed Lethality', 'Atraxa, Praetors'' Voice', ARRAY['B','G','U','W']::text[], 'Commander', $pwhg595jx$1 Atraxa, Praetors' Voice
+1 Carmen, Cruel Skymarcher$pksm7iea5$, 'The Lost Caverns of Ixalan Commander', 2026),
+  ('Breed Lethality', 'Atraxa, Praetors'' Voice', ARRAY['B','G','U','W']::text[], 'Commander', $p4nivj5se$1 Atraxa, Praetors' Voice
 1 Arcane Sanctum
 1 Ancient Excavation
 1 Ash Barrens
@@ -1265,8 +1265,8 @@ VALUES
 1 Ishai, Ojutai Dragonspeaker
 1 Reyhan, Last of the Abzan
 5 Plains
-5 Swamp$pwhg595jx$, 'Commander 2016', 2016),
-  ('Breed Lethality', 'Atraxa, Praetors'' Voice', ARRAY['B','G','U','W']::text[], 'Commander', $paxa9mcx1$1 Atraxa, Praetors' Voice
+5 Swamp$p4nivj5se$, 'Commander 2016', 2016),
+  ('Breed Lethality', 'Atraxa, Praetors'' Voice', ARRAY['B','G','U','W']::text[], 'Commander', $p7or8uhdk$1 Atraxa, Praetors' Voice
 1 Abzan Falconer
 1 Ash Barrens
 1 Arcane Sanctum
@@ -1348,8 +1348,8 @@ VALUES
 1 Ikra Shidiqi, the Usurper
 1 Reyhan, Last of the Abzan
 5 Plains
-5 Swamp$paxa9mcx1$, 'Commander Anthology 2', 2026),
-  ('Buckle Up', 'Kotori, Pilot Prodigy', ARRAY['U','W']::text[], 'Commander', $pvzjpwogj$1 Kotori, Pilot Prodigy
+5 Swamp$p7or8uhdk$, 'Commander Anthology 2', 2026),
+  ('Buckle Up', 'Kotori, Pilot Prodigy', ARRAY['U','W']::text[], 'Commander', $porfgk43h$1 Kotori, Pilot Prodigy
 1 Surgehacker Mech
 1 Prodigy's Prototype
 1 Mobilizer Mech
@@ -1420,8 +1420,8 @@ VALUES
 1 Vedalken Engineer
 15 Island
 15 Plains
-1 Shorikai, Genesis Engine$pvzjpwogj$, 'Kamigawa: Neon Dynasty Commander', 2026),
-  ('Built from Scratch', 'Daretti, Scrap Savant', ARRAY['R']::text[], 'Commander', $plg6ar3ay$1 Daretti, Scrap Savant
+1 Shorikai, Genesis Engine$porfgk43h$, 'Kamigawa: Neon Dynasty Commander', 2026),
+  ('Built from Scratch', 'Daretti, Scrap Savant', ARRAY['R']::text[], 'Commander', $p50pvw2vs$1 Daretti, Scrap Savant
 1 Arcane Lighthouse
 1 Bogardan Hellkite
 1 Bottle Gnomes
@@ -1492,8 +1492,8 @@ VALUES
 1 Whipflare
 1 Word of Seizing
 1 Wurmcoil Engine
-29 Mountain$plg6ar3ay$, 'Commander 2014', 2014),
-  ('Built from Scratch', 'Daretti, Scrap Savant', ARRAY['R']::text[], 'Commander', $pio7rso74$1 Daretti, Scrap Savant
+29 Mountain$p50pvw2vs$, 'Commander 2014', 2014),
+  ('Built from Scratch', 'Daretti, Scrap Savant', ARRAY['R']::text[], 'Commander', $pc3wqxp3b$1 Daretti, Scrap Savant
 1 Arcane Lighthouse
 1 Beetleback Chief
 1 Bottle Gnomes
@@ -1564,8 +1564,8 @@ VALUES
 1 Word of Seizing
 1 Bosh, Iron Golem
 1 Feldon of the Third Path
-29 Mountain$pio7rso74$, 'Commander Anthology 2', 2026),
-  ('Cabaretti Cacophony', 'Kitt Kanto, Mayhem Diva', ARRAY['G','R','W']::text[], 'Commander', $pwvmrqoey$1 Kitt Kanto, Mayhem Diva
+29 Mountain$pc3wqxp3b$, 'Commander Anthology 2', 2026),
+  ('Cabaretti Cacophony', 'Kitt Kanto, Mayhem Diva', ARRAY['G','R','W']::text[], 'Commander', $pzs3sdaj5$1 Kitt Kanto, Mayhem Diva
 1 Cabaretti Charm
 1 Rumor Gatherer
 1 Sizzling Soloist
@@ -1651,8 +1651,8 @@ VALUES
 8 Forest
 4 Plains
 4 Mountain
-1 Phabine, Boss's Confidant$pwvmrqoey$, 'Streets of New Capenna Commander', 2026),
-  ('Call for Backup', 'Bright-Palm, Soul Awakener', ARRAY['G','R','W']::text[], 'Commander', $p4vji219v$1 Bright-Palm, Soul Awakener
+1 Phabine, Boss's Confidant$pzs3sdaj5$, 'Streets of New Capenna Commander', 2026),
+  ('Call for Backup', 'Bright-Palm, Soul Awakener', ARRAY['G','R','W']::text[], 'Commander', $pvjcou020$1 Bright-Palm, Soul Awakener
 2 Mountain
 5 Plains
 6 Forest
@@ -1741,8 +1741,8 @@ VALUES
 1 Emergent Woodwurm
 1 Conclave Sledge-Captain
 1 Path of the Pyromancer
-1 Shalai and Hallar$p4vji219v$, 'March of the Machine Commander', 2026),
-  ('Call the Spirits', 'Daxos the Returned', ARRAY['B','W']::text[], 'Commander', $pf1zlkdc5$1 Daxos the Returned
+1 Shalai and Hallar$pvjcou020$, 'March of the Machine Commander', 2026),
+  ('Call the Spirits', 'Daxos the Returned', ARRAY['B','W']::text[], 'Commander', $p7vpw5evl$1 Daxos the Returned
 1 Ancient Craving
 1 Ajani's Chosen
 1 Aura of Silence
@@ -1819,8 +1819,8 @@ VALUES
 1 Vivid Marsh
 1 Vow of Malice
 11 Plains
-13 Swamp$pf1zlkdc5$, 'Commander 2015', 2015),
-  ('Cavalry Charge', 'Sidar Jabari of Zhalfir', ARRAY['B','U','W']::text[], 'Commander', $pd1aoef7t$1 Sidar Jabari of Zhalfir
+13 Swamp$p7vpw5evl$, 'Commander 2015', 2015),
+  ('Cavalry Charge', 'Sidar Jabari of Zhalfir', ARRAY['B','U','W']::text[], 'Commander', $p0mgxf104$1 Sidar Jabari of Zhalfir
 8 Plains
 5 Swamp
 6 Island
@@ -1903,8 +1903,8 @@ VALUES
 1 Thriving Moor
 1 Thriving Isle
 1 Maul of the Skyclaves
-1 Elenda and Azor$pd1aoef7t$, 'March of the Machine Commander', 2026),
-  ('Chaos Incarnate', 'Kardur, Doomscourge', ARRAY['B','R']::text[], 'Commander', $pr0r6aopa$1 Kardur, Doomscourge
+1 Elenda and Azor$p0mgxf104$, 'March of the Machine Commander', 2026),
+  ('Chaos Incarnate', 'Kardur, Doomscourge', ARRAY['B','R']::text[], 'Commander', $p9y9gdmmh$1 Kardur, Doomscourge
 1 Hate Mirage
 1 Rakshasa Debaser
 1 Reign of the Pit
@@ -1976,8 +1976,8 @@ VALUES
 1 Wildfire Devils
 1 Worn Powerstone
 14 Mountain
-15 Swamp$pr0r6aopa$, 'Starter Commander Decks', 2026),
-  ('Corrupting Influence', 'Ixhel, Scion of Atraxa', ARRAY['B','G','W']::text[], 'Commander', $p7fgnhlue$1 Ixhel, Scion of Atraxa
+15 Swamp$p9y9gdmmh$, 'Starter Commander Decks', 2026),
+  ('Corrupting Influence', 'Ixhel, Scion of Atraxa', ARRAY['B','G','W']::text[], 'Commander', $pt79z6wpq$1 Ixhel, Scion of Atraxa
 6 Swamp
 6 Plains
 8 Forest
@@ -2059,8 +2059,8 @@ VALUES
 1 Cankerbloom
 1 Venomous Brutalizer
 1 Vraska's Fall
-1 Infectious Inquiry$p7fgnhlue$, 'Phyrexia All Will Be One Commander', 2026),
-  ('Counter Blitz', 'Tidus, Yuna''s Guardian', ARRAY['G','U','W']::text[], 'Commander', $pfw0etts5$1 Tidus, Yuna's Guardian
+1 Infectious Inquiry$pt79z6wpq$, 'Phyrexia All Will Be One Commander', 2026),
+  ('Counter Blitz', 'Tidus, Yuna''s Guardian', ARRAY['G','U','W']::text[], 'Commander', $pf4h4gast$1 Tidus, Yuna's Guardian
 1 Yuna, Grand Summoner
 1 Auron, Venerated Guardian
 1 Chocobo Knights
@@ -2153,8 +2153,8 @@ VALUES
 1 Overflowing Basin
 3 Forest
 3 Island
-3 Plains$pfw0etts5$, 'Final Fantasy Commander', 2026),
-  ('Counter Blitz Collector''s Edition', 'Tidus, Yuna''s Guardian', ARRAY['G','U','W']::text[], 'Commander', $pcphk5a2j$1 Tidus, Yuna's Guardian
+3 Plains$pf4h4gast$, 'Final Fantasy Commander', 2026),
+  ('Counter Blitz Collector''s Edition', 'Tidus, Yuna''s Guardian', ARRAY['G','U','W']::text[], 'Commander', $p6eubxpz5$1 Tidus, Yuna's Guardian
 1 Yuna, Grand Summoner
 1 Auron, Venerated Guardian
 1 Chocobo Knights
@@ -2247,8 +2247,8 @@ VALUES
 3 Forest
 3 Island
 3 Plains
-1 Wakka, Devoted Guardian$pcphk5a2j$, 'Final Fantasy Commander', 2026),
-  ('Counter Intelligence', 'Inspirit, Flagship Vessel', ARRAY['R','U','W']::text[], 'Commander', $pmd172y3k$1 Inspirit, Flagship Vessel
+1 Wakka, Devoted Guardian$p6eubxpz5$, 'Final Fantasy Commander', 2026),
+  ('Counter Intelligence', 'Inspirit, Flagship Vessel', ARRAY['R','U','W']::text[], 'Commander', $pfbmirdc3$1 Inspirit, Flagship Vessel
 1 Kilo, Apogee Mind
 1 Evolving Wilds
 1 Command Tower
@@ -2341,8 +2341,8 @@ VALUES
 1 The Mycosynth Gardens
 3 Mountain
 3 Island
-3 Plains$pmd172y3k$, 'Edge of Eternities Commander', 2026),
-  ('Counterpunch', 'Ghave, Guru of Spores', ARRAY['B','G','W']::text[], 'Commander', $p9g492coh$1 Ghave, Guru of Spores
+3 Plains$pfbmirdc3$, 'Edge of Eternities Commander', 2026),
+  ('Counterpunch', 'Ghave, Guru of Spores', ARRAY['B','G','W']::text[], 'Commander', $p3tk659md$1 Ghave, Guru of Spores
 1 Afterlife
 1 Alliance of Arms
 1 Aquastrand Spider
@@ -2418,8 +2418,8 @@ VALUES
 1 Vow of Wildness
 10 Forest
 8 Plains
-8 Swamp$p9g492coh$, 'Commander 2011', 2011),
-  ('Coven Counters', 'Leinore, Autumn Sovereign', ARRAY['G','W']::text[], 'Commander', $poomh0mvt$1 Leinore, Autumn Sovereign
+8 Swamp$p3tk659md$, 'Commander 2011', 2011),
+  ('Coven Counters', 'Leinore, Autumn Sovereign', ARRAY['G','W']::text[], 'Commander', $pxqhpkqwj$1 Leinore, Autumn Sovereign
 12 Plains
 12 Forest
 1 Dawnhart Wardens
@@ -2496,8 +2496,8 @@ VALUES
 1 Temple of the False God
 1 Yavimaya Elder
 1 Wild Beastmaster
-1 Kyler, Sigardian Emissary$poomh0mvt$, 'Innistrad: Midnight Hunt Commander 2021', 2021),
-  ('Creative Energy', 'Satya, Aetherflux Genius', ARRAY['R','U','W']::text[], 'Commander', $p9e9jdylh$1 Satya, Aetherflux Genius
+1 Kyler, Sigardian Emissary$pxqhpkqwj$, 'Innistrad: Midnight Hunt Commander 2021', 2021),
+  ('Creative Energy', 'Satya, Aetherflux Genius', ARRAY['R','U','W']::text[], 'Commander', $p3kkix4ra$1 Satya, Aetherflux Genius
 1 Scurry of Gremlins
 1 Aether Refinery
 1 Izzet Generatorium
@@ -2579,8 +2579,8 @@ VALUES
 1 Cayth, Famed Mechanist
 5 Island
 5 Mountain
-10 Plains$p9e9jdylh$, 'Modern Horizons 3 Commander', 2026),
-  ('Creative Energy Collector''s Edition', 'Satya, Aetherflux Genius', ARRAY['R','U','W']::text[], 'Commander', $pto2p32ds$1 Satya, Aetherflux Genius
+10 Plains$p3kkix4ra$, 'Modern Horizons 3 Commander', 2026),
+  ('Creative Energy Collector''s Edition', 'Satya, Aetherflux Genius', ARRAY['R','U','W']::text[], 'Commander', $pydjocxms$1 Satya, Aetherflux Genius
 1 Scurry of Gremlins
 1 Aether Refinery
 1 Cayth, Famed Mechanist
@@ -2662,8 +2662,8 @@ VALUES
 1 Frostboil Snarl
 5 Island
 5 Mountain
-10 Plains$pto2p32ds$, 'Modern Horizons 3 Commander', 2026),
-  ('Dance of the Elements', 'Ashling, the Limitless', ARRAY['B','G','R','U','W']::text[], 'Commander', $ph6349a1w$1 Ashling, the Limitless
+10 Plains$pydjocxms$, 'Modern Horizons 3 Commander', 2026),
+  ('Dance of the Elements', 'Ashling, the Limitless', ARRAY['B','G','R','U','W']::text[], 'Commander', $prlzidc0q$1 Ashling, the Limitless
 8 Forest
 2 Island
 2 Mountain
@@ -2751,8 +2751,8 @@ VALUES
 1 Thriving Moor
 1 Thriving Isle
 1 Raging Ravine
-1 Thriving Bluff$ph6349a1w$, 'Lorwyn Eclipsed Commander', 2026),
-  ('Deadly Disguise', 'Kaust, Eyes of the Glade', ARRAY['G','R','W']::text[], 'Commander', $pi34ksw94$1 Kaust, Eyes of the Glade
+1 Thriving Bluff$prlzidc0q$, 'Lorwyn Eclipsed Commander', 2026),
+  ('Deadly Disguise', 'Kaust, Eyes of the Glade', ARRAY['G','R','W']::text[], 'Commander', $pc8wk5vh8$1 Kaust, Eyes of the Glade
 1 Branch of Vitu-Ghazi
 1 Nervous Gardener
 1 Ransom Note
@@ -2843,8 +2843,8 @@ VALUES
 4 Forest
 4 Plains
 3 Mountain
-1 Duskana, the Rage Mother$pi34ksw94$, 'Murders at Karlov Manor Commander', 2026),
-  ('Death Toll', 'Winter, Cynical Opportunist', ARRAY['B','G']::text[], 'Commander', $p1i1cz54z$1 Winter, Cynical Opportunist
+1 Duskana, the Rage Mother$pc8wk5vh8$, 'Murders at Karlov Manor Commander', 2026),
+  ('Death Toll', 'Winter, Cynical Opportunist', ARRAY['B','G']::text[], 'Commander', $p6kgrspbk$1 Winter, Cynical Opportunist
 1 Vile Mutilator
 1 Terramorphic Expanse
 1 Arcane Signet
@@ -2931,8 +2931,8 @@ VALUES
 1 Tranquil Thicket
 1 Whispersilk Cloak
 7 Swamp
-7 Forest$p1i1cz54z$, 'Duskmourn Commander', 2026),
-  ('Deathdancer Xira', 'Xira Arien', ARRAY['B','G','R']::text[], 'Commander', $ps3ll57mi$1 Xira Arien
+7 Forest$p6kgrspbk$, 'Duskmourn Commander', 2026),
+  ('Deathdancer Xira', 'Xira Arien', ARRAY['B','G','R']::text[], 'Commander', $p1hkdseuq$1 Xira Arien
 1 Abyssal Gatekeeper
 1 Anger
 1 Animate Dead
@@ -3009,8 +3009,8 @@ VALUES
 1 Yavimaya Elder
 10 Forest
 7 Mountain
-8 Swamp$ps3ll57mi$, 'Magic Online Theme Deck', 2026),
-  ('Deep Clue Sea', 'Morska, Undersea Sleuth', ARRAY['G','U','W']::text[], 'Commander', $pi61yicbh$1 Morska, Undersea Sleuth
+8 Swamp$p1hkdseuq$, 'Magic Online Theme Deck', 2026),
+  ('Deep Clue Sea', 'Morska, Undersea Sleuth', ARRAY['G','U','W']::text[], 'Commander', $pcd32on10$1 Morska, Undersea Sleuth
 1 Magnifying Glass
 1 Tangletrove Kelp
 1 Ransom Note
@@ -3098,8 +3098,8 @@ VALUES
 5 Forest
 6 Island
 3 Plains
-1 Sophia, Dogged Detective$pi61yicbh$, 'Murders at Karlov Manor Commander', 2026),
-  ('Desert Bloom', 'Yuma, Proud Protector', ARRAY['G','R','W']::text[], 'Commander', $pog81fiuw$1 Yuma, Proud Protector
+1 Sophia, Dogged Detective$pcd32on10$, 'Murders at Karlov Manor Commander', 2026),
+  ('Desert Bloom', 'Yuma, Proud Protector', ARRAY['G','R','W']::text[], 'Commander', $pk8g6ykkj$1 Yuma, Proud Protector
 1 Bristling Backwoods
 1 Abraded Bluffs
 1 Creosote Heath
@@ -3184,8 +3184,8 @@ VALUES
 1 Kirri, Talented Sprout
 7 Forest
 4 Mountain
-6 Plains$pog81fiuw$, 'Outlaws of Thunder Junction Commander', 2026),
-  ('Devour for Power', 'The Mimeoplasm', ARRAY['B','G','U']::text[], 'Commander', $pjumapeqe$1 The Mimeoplasm
+6 Plains$pk8g6ykkj$, 'Outlaws of Thunder Junction Commander', 2026),
+  ('Devour for Power', 'The Mimeoplasm', ARRAY['B','G','U']::text[], 'Commander', $pd5ww1cdx$1 The Mimeoplasm
 1 Acidic Slime
 1 Artisan of Kozilek
 1 Barren Moor
@@ -3260,8 +3260,8 @@ VALUES
 1 Wonder
 8 Forest
 8 Island
-11 Swamp$pjumapeqe$, 'Commander 2011', 2011),
-  ('Devour for Power', 'The Mimeoplasm', ARRAY['B','G','U']::text[], 'Commander', $pbj9aon74$1 The Mimeoplasm
+11 Swamp$pd5ww1cdx$, 'Commander 2011', 2011),
+  ('Devour for Power', 'The Mimeoplasm', ARRAY['B','G','U']::text[], 'Commander', $p35lytj93$1 The Mimeoplasm
 1 Acidic Slime
 1 Avatar of Woe
 1 Barren Moor
@@ -3336,8 +3336,8 @@ VALUES
 1 Vorosh, the Hunter
 8 Forest
 8 Island
-11 Swamp$pbj9aon74$, 'Commander Anthology 2', 2026),
-  ('Divine Convocation', 'Kasla, the Broken Halo', ARRAY['R','U','W']::text[], 'Commander', $pihaz60ne$1 Kasla, the Broken Halo
+11 Swamp$p35lytj93$, 'Commander Anthology 2', 2026),
+  ('Divine Convocation', 'Kasla, the Broken Halo', ARRAY['R','U','W']::text[], 'Commander', $pow3ourgy$1 Kasla, the Broken Halo
 8 Island
 8 Mountain
 8 Plains
@@ -3415,8 +3415,8 @@ VALUES
 1 Cut Short
 1 Temporal Cleansing
 1 Wrenn's Resolve
-1 Saint Traft and Rem Karolus$pihaz60ne$, 'March of the Machine Commander', 2026),
-  ('Draconic Destruction', 'Atarka, World Render', ARRAY['G','R']::text[], 'Commander', $pooqssvjg$1 Atarka, World Render
+1 Saint Traft and Rem Karolus$pow3ourgy$, 'March of the Machine Commander', 2026),
+  ('Draconic Destruction', 'Atarka, World Render', ARRAY['G','R']::text[], 'Commander', $patpqfvvr$1 Atarka, World Render
 1 Beast Within
 1 Dragonkin Berserker
 1 Rapacious Dragon
@@ -3487,8 +3487,8 @@ VALUES
 1 Unleash Fury
 1 Verix Bladewing
 12 Forest
-18 Mountain$pooqssvjg$, 'Starter Commander', 2026),
-  ('Draconic Dissent', 'Firkraag, Cunning Instigator', ARRAY['R','U']::text[], 'Commander', $prbo08nc3$1 Firkraag, Cunning Instigator
+18 Mountain$patpqfvvr$, 'Starter Commander', 2026),
+  ('Draconic Dissent', 'Firkraag, Cunning Instigator', ARRAY['R','U']::text[], 'Commander', $pkjeiaktg$1 Firkraag, Cunning Instigator
 1 Command Tower
 1 Arcane Signet
 1 Wayfarer's Bauble
@@ -3565,8 +3565,8 @@ VALUES
 12 Island
 12 Mountain
 1 Baeloth Barrityl, Entertainer
-1 Clan Crafter$prbo08nc3$, 'Battle for Baldur''s Gate Commander', 2026),
-  ('Draconic Domination', 'The Ur-Dragon', ARRAY['B','G','R','U','W']::text[], 'Commander', $p2cena04m$1 The Ur-Dragon
+1 Clan Crafter$pkjeiaktg$, 'Battle for Baldur''s Gate Commander', 2026),
+  ('Draconic Domination', 'The Ur-Dragon', ARRAY['B','G','R','U','W']::text[], 'Commander', $puddzn6yo$1 The Ur-Dragon
 1 Atarka, World Render
 1 Armillary Sphere
 1 Arcane Sanctum
@@ -3652,8 +3652,8 @@ VALUES
 3 Swamp
 6 Mountain
 1 O-Kagachi, Vengeful Kami
-1 Ramos, Dragon Engine$p2cena04m$, 'Commander 2017', 2017),
-  ('Draconic Rage', 'Vrondiss, Rage of Ancients', ARRAY['G','R']::text[], 'Commander', $pliarvfke$1 Vrondiss, Rage of Ancients
+1 Ramos, Dragon Engine$puddzn6yo$, 'Commander 2017', 2017),
+  ('Draconic Rage', 'Vrondiss, Rage of Ancients', ARRAY['G','R']::text[], 'Commander', $ps4y5rm1l$1 Vrondiss, Rage of Ancients
 12 Mountain
 15 Forest
 1 Arcane Signet
@@ -3727,8 +3727,8 @@ VALUES
 1 Neverwinter Hydra
 1 Bag of Tricks
 1 Wild Endeavor
-1 Klauth, Unrivaled Ancient$pliarvfke$, 'Adventures in the Forgotten Realms Commander', 2026),
-  ('Dungeons of Death', 'Sefris of the Hidden Ways', ARRAY['B','U','W']::text[], 'Commander', $pnjnkvm78$1 Sefris of the Hidden Ways
+1 Klauth, Unrivaled Ancient$ps4y5rm1l$, 'Adventures in the Forgotten Realms Commander', 2026),
+  ('Dungeons of Death', 'Sefris of the Hidden Ways', ARRAY['B','U','W']::text[], 'Commander', $pbsyh15ip$1 Sefris of the Hidden Ways
 7 Swamp
 7 Plains
 5 Island
@@ -3811,8 +3811,8 @@ VALUES
 1 Vanish into Memory
 1 Wayfarer's Bauble
 1 Wall of Omens
-1 Nihiloor$pnjnkvm78$, 'Adventures in the Forgotten Realms Commander', 2026),
-  ('Eldrazi Incursion', 'Ulalek, Fused Atrocity', ARRAY['B','G','R','U','W']::text[], 'Commander', $pnoogwko0$1 Ulalek, Fused Atrocity
+1 Nihiloor$pbsyh15ip$, 'Adventures in the Forgotten Realms Commander', 2026),
+  ('Eldrazi Incursion', 'Ulalek, Fused Atrocity', ARRAY['B','G','R','U','W']::text[], 'Commander', $pzackdpwn$1 Ulalek, Fused Atrocity
 1 Oblivion Sower
 1 Drowner of Hope
 1 Crib Swap
@@ -3911,8 +3911,8 @@ VALUES
 1 Tomb of the Spirit Dragon
 1 Unclaimed Territory
 1 World Breaker
-1 Azlask, the Swelling Scourge$pnoogwko0$, 'Modern Horizons 3 Commander', 2026),
-  ('Eldrazi Incursion Collector''s Edition', 'Ulalek, Fused Atrocity', ARRAY['B','G','R','U','W']::text[], 'Commander', $phzebeolh$1 Ulalek, Fused Atrocity
+1 Azlask, the Swelling Scourge$pzackdpwn$, 'Modern Horizons 3 Commander', 2026),
+  ('Eldrazi Incursion Collector''s Edition', 'Ulalek, Fused Atrocity', ARRAY['B','G','R','U','W']::text[], 'Commander', $pvz4eops4$1 Ulalek, Fused Atrocity
 1 Island
 1 Mountain
 1 Plains
@@ -4011,8 +4011,8 @@ VALUES
 1 Mutated Cultist
 1 Chittering Dispatcher
 1 Awakening Zone
-1 Skittering Invasion$phzebeolh$, 'Modern Horizons 3 Commander', 2026),
-  ('Eldrazi Unbound', 'Zhulodok, Void Gorger', '{}', 'Commander', $pnr3100bt$1 Zhulodok, Void Gorger
+1 Skittering Invasion$pvz4eops4$, 'Modern Horizons 3 Commander', 2026),
+  ('Eldrazi Unbound', 'Zhulodok, Void Gorger', '{}', 'Commander', $pm2vst204$1 Zhulodok, Void Gorger
 1 Sol Ring
 1 Kozilek, the Great Distortion
 1 Thran Dynamo
@@ -4097,8 +4097,8 @@ VALUES
 1 Worn Powerstone
 1 Phyrexian Triniform
 1 Omarthis, Ghostfire Initiate
-15 Wastes$pnr3100bt$, 'Commander Masters', 2026),
-  ('Elven Council', 'Galadriel, Elven-Queen', ARRAY['G','U']::text[], 'Commander', $patzn6h8s$1 Galadriel, Elven-Queen
+15 Wastes$pm2vst204$, 'Commander Masters', 2026),
+  ('Elven Council', 'Galadriel, Elven-Queen', ARRAY['G','U']::text[], 'Commander', $pyrl3zir8$1 Galadriel, Elven-Queen
 1 Radagast, Wizard of Wilds
 1 Sol Ring
 1 Wose Pathfinder
@@ -4173,8 +4173,8 @@ VALUES
 1 Overwhelming Stampede
 15 Forest
 11 Island
-1 Gandalf, Westward Voyager$patzn6h8s$, 'The Lord of the Rings Commander', 2026),
-  ('Elven Empire', 'Lathril, Blade of the Elves', ARRAY['B','G']::text[], 'Commander', $p6xdgoler$1 Lathril, Blade of the Elves
+1 Gandalf, Westward Voyager$pyrl3zir8$, 'The Lord of the Rings Commander', 2026),
+  ('Elven Empire', 'Lathril, Blade of the Elves', ARRAY['B','G']::text[], 'Commander', $p6glp9aoh$1 Lathril, Blade of the Elves
 1 Canopy Tactician
 1 Elven Ambush
 1 Elderfang Ritualist
@@ -4246,8 +4246,8 @@ VALUES
 1 Wirewood Channeler
 1 Wood Elves
 16 Forest
-13 Swamp$p6xdgoler$, 'Kaldheim Commander', 2026),
-  ('Enchantress Rubinia', 'Rubinia Soulsinger', ARRAY['G','U','W']::text[], 'Commander', $ppl0gttkl$1 Rubinia Soulsinger
+13 Swamp$p6glp9aoh$, 'Kaldheim Commander', 2026),
+  ('Enchantress Rubinia', 'Rubinia Soulsinger', ARRAY['G','U','W']::text[], 'Commander', $p75sezz6r$1 Rubinia Soulsinger
 1 Armadillo Cloak
 1 Auramancer
 1 Azorius Guildmage
@@ -4321,8 +4321,8 @@ VALUES
 1 Yavimaya Enchantress
 10 Forest
 9 Island
-9 Plains$ppl0gttkl$, 'Magic Online Theme Deck', 2026),
-  ('Endless Punishment', 'Valgavoth, Harrower of Souls', ARRAY['B','R']::text[], 'Commander', $ph6nbhs3r$1 Valgavoth, Harrower of Souls
+9 Plains$p75sezz6r$, 'Magic Online Theme Deck', 2026),
+  ('Endless Punishment', 'Valgavoth, Harrower of Souls', ARRAY['B','R']::text[], 'Commander', $p330tozb5$1 Valgavoth, Harrower of Souls
 1 Fear of Burning Alive
 1 Grab the Prize
 1 Terramorphic Expanse
@@ -4407,8 +4407,8 @@ VALUES
 1 Theater of Horrors
 1 Witch's Clinic
 8 Swamp
-8 Mountain$ph6nbhs3r$, 'Duskmourn Commander', 2026),
-  ('Enduring Enchantments', 'Anikthea, Hand of Erebos', ARRAY['B','G','W']::text[], 'Commander', $psobc60vx$1 Anikthea, Hand of Erebos
+8 Mountain$p330tozb5$, 'Duskmourn Commander', 2026),
+  ('Enduring Enchantments', 'Anikthea, Hand of Erebos', ARRAY['B','G','W']::text[], 'Commander', $pl7h54tan$1 Anikthea, Hand of Erebos
 1 Sol Ring
 1 Command Tower
 1 Arcane Signet
@@ -4491,8 +4491,8 @@ VALUES
 8 Forest
 6 Plains
 5 Swamp
-1 Narci, Fable Singer$psobc60vx$, 'Commander Masters', 2026),
-  ('Enhanced Evolution', 'Otrimi, the Ever-Playful', ARRAY['B','G','U']::text[], 'Commander', $pcpg81w6x$1 Otrimi, the Ever-Playful
+1 Narci, Fable Singer$pl7h54tan$, 'Commander Masters', 2026),
+  ('Enhanced Evolution', 'Otrimi, the Ever-Playful', ARRAY['B','G','U']::text[], 'Commander', $pabz5ab6u$1 Otrimi, the Ever-Playful
 1 Arcane Signet
 1 Animist's Awakening
 1 Bonder's Ornament
@@ -4576,8 +4576,8 @@ VALUES
 1 Zaxara, the Exemplary
 11 Forest
 2 Island
-5 Swamp$pcpg81w6x$, 'Commander 2020', 2020),
-  ('Entropic Uprising', 'Yidris, Maelstrom Wielder', ARRAY['B','G','R','U']::text[], 'Commander', $pxnapvy74$1 Yidris, Maelstrom Wielder
+5 Swamp$pabz5ab6u$, 'Commander 2020', 2020),
+  ('Entropic Uprising', 'Yidris, Maelstrom Wielder', ARRAY['B','G','R','U']::text[], 'Commander', $pho27vj90$1 Yidris, Maelstrom Wielder
 1 Academy Elite
 1 Aeon Chronicler
 1 Ancient Excavation
@@ -4660,8 +4660,8 @@ VALUES
 5 Swamp
 1 Kydele, Chosen of Kruphix
 1 Thrasios, Triton Hero
-1 Vial Smasher the Fierce$pxnapvy74$, 'Commander 2016', 2016),
-  ('Eternal Bargain', 'Oloro, Ageless Ascetic', ARRAY['B','U','W']::text[], 'Commander', $pu3jfbg46$1 Oloro, Ageless Ascetic
+1 Vial Smasher the Fierce$pho27vj90$, 'Commander 2016', 2016),
+  ('Eternal Bargain', 'Oloro, Ageless Ascetic', ARRAY['B','U','W']::text[], 'Commander', $p8k3wrzhj$1 Oloro, Ageless Ascetic
 1 Ajani's Pridemate
 1 Act of Authority
 1 Arcane Sanctum
@@ -4739,8 +4739,8 @@ VALUES
 1 Well of Lost Dreams
 6 Island
 9 Plains
-9 Swamp$pu3jfbg46$, 'Commander 2013', 2013),
-  ('Eternal Might', 'Temmet, Naktamun''s Will', ARRAY['B','U','W']::text[], 'Commander', $p3vybln28$1 Temmet, Naktamun's Will
+9 Swamp$p8k3wrzhj$, 'Commander 2013', 2013),
+  ('Eternal Might', 'Temmet, Naktamun''s Will', ARRAY['B','U','W']::text[], 'Commander', $ppbp8nfwg$1 Temmet, Naktamun's Will
 4 Island
 5 Plains
 5 Swamp
@@ -4828,8 +4828,8 @@ VALUES
 1 Prophet of the Scarab
 1 Priest of the Crossing
 1 Lost Monarch of Ifnir
-1 Accursed Duneyard$p3vybln28$, 'Aetherdrift Commander', 2026),
-  ('Evasive Maneuvers', 'Derevi, Empyrial Tactician', ARRAY['G','U','W']::text[], 'Commander', $p5sgp3gea$1 Derevi, Empyrial Tactician
+1 Accursed Duneyard$ppbp8nfwg$, 'Aetherdrift Commander', 2026),
+  ('Evasive Maneuvers', 'Derevi, Empyrial Tactician', ARRAY['G','U','W']::text[], 'Commander', $pn2k5orot$1 Derevi, Empyrial Tactician
 7 Island
 7 Plains
 6 Forest
@@ -4911,8 +4911,8 @@ VALUES
 1 Sword of the Paruns
 1 Transguild Promenade
 1 Unexpectedly Absent
-1 Winged Coatl$p5sgp3gea$, 'Commander 2013', 2013),
-  ('Evasive Maneuvers', 'Derevi, Empyrial Tactician', ARRAY['G','U','W']::text[], 'Commander', $pjuv0vt48$1 Derevi, Empyrial Tactician
+1 Winged Coatl$pn2k5orot$, 'Commander 2013', 2013),
+  ('Evasive Maneuvers', 'Derevi, Empyrial Tactician', ARRAY['G','U','W']::text[], 'Commander', $p6z8v2vr6$1 Derevi, Empyrial Tactician
 1 Angel of Finality
 1 Arcane Denial
 1 Acidic Slime
@@ -4994,8 +4994,8 @@ VALUES
 1 Wash Out
 6 Forest
 7 Island
-7 Plains$pjuv0vt48$, 'Commander Anthology', 2026),
-  ('Exit from Exile', 'Faldorn, Dread Wolf Herald', ARRAY['G','R']::text[], 'Commander', $p5grb3y8t$1 Faldorn, Dread Wolf Herald
+7 Plains$p6z8v2vr6$, 'Commander Anthology', 2026),
+  ('Exit from Exile', 'Faldorn, Dread Wolf Herald', ARRAY['G','R']::text[], 'Commander', $p6gky45s9$1 Faldorn, Dread Wolf Herald
 1 Command Tower
 1 Arcane Signet
 1 Nature's Lore
@@ -5073,8 +5073,8 @@ VALUES
 12 Forest
 11 Mountain
 1 Passionate Archaeologist
-1 Durnan of the Yawning Portal$p5grb3y8t$, 'Battle for Baldur''s Gate Commander', 2026),
-  ('Explorers of the Deep', 'Hakbal of the Surging Soul', ARRAY['G','U']::text[], 'Commander', $p6nrp6j66$1 Hakbal of the Surging Soul
+1 Durnan of the Yawning Portal$p6gky45s9$, 'Battle for Baldur''s Gate Commander', 2026),
+  ('Explorers of the Deep', 'Hakbal of the Surging Soul', ARRAY['G','U']::text[], 'Commander', $pha03a1f8$1 Hakbal of the Surging Soul
 13 Island
 7 Forest
 1 Arcane Signet
@@ -5155,8 +5155,8 @@ VALUES
 1 Ripples of Potential
 1 Bygone Marvels
 1 Tributary Instructor
-1 Xolatoyac, the Smiling Flood$p6nrp6j66$, 'The Lost Caverns of Ixalan Commander', 2026),
-  ('Exquisite Invention', 'Saheeli, the Gifted', ARRAY['R','U']::text[], 'Commander', $p5bzp9vpe$1 Saheeli, the Gifted
+1 Xolatoyac, the Smiling Flood$pha03a1f8$, 'The Lost Caverns of Ixalan Commander', 2026),
+  ('Exquisite Invention', 'Saheeli, the Gifted', ARRAY['R','U']::text[], 'Commander', $p2dtwptt6$1 Saheeli, the Gifted
 1 Ancient Stone Idol
 1 Aether Gale
 1 Blasphemous Act
@@ -5230,8 +5230,8 @@ VALUES
 1 Brudiclad, Telchor Engineer
 1 Tawnos, Urza's Apprentice
 15 Island
-12 Mountain$p5bzp9vpe$, 'Commander 2018', 2018),
-  ('Faceless Menace', 'Kadena, Slinking Sorcerer', ARRAY['B','G','U']::text[], 'Commander', $pzmn1ny61$1 Kadena, Slinking Sorcerer
+12 Mountain$p2dtwptt6$, 'Commander 2018', 2018),
+  ('Faceless Menace', 'Kadena, Slinking Sorcerer', ARRAY['B','G','U']::text[], 'Commander', $ppysb624y$1 Kadena, Slinking Sorcerer
 1 Ash Barrens
 1 Ainok Survivalist
 1 Apex Altisaur
@@ -5318,8 +5318,8 @@ VALUES
 5 Island
 1 Rayami, First of the Fallen
 1 Volrath, the Shapestealer
-3 Swamp$pzmn1ny61$, 'Commander 2019', 2019),
-  ('Fae Dominion', 'Tegwyll, Duke of Splendor', ARRAY['B','U']::text[], 'Commander', $piu6pgcc5$1 Tegwyll, Duke of Splendor
+3 Swamp$ppysb624y$, 'Commander 2019', 2019),
+  ('Fae Dominion', 'Tegwyll, Duke of Splendor', ARRAY['B','U']::text[], 'Commander', $pb2o2wdxb$1 Tegwyll, Duke of Splendor
 13 Island
 12 Swamp
 1 Temple of Deceit
@@ -5395,8 +5395,8 @@ VALUES
 1 Malleable Impostor
 1 Shadow Puppeteers
 1 Misleading Signpost
-1 Alela, Cunning Conqueror$piu6pgcc5$, 'Wilds of Eldraine Commander', 2026),
-  ('Family Matters', 'Zinnia, Valley''s Voice', ARRAY['R','U','W']::text[], 'Commander', $p1hngc7vq$1 Zinnia, Valley's Voice
+1 Alela, Cunning Conqueror$pb2o2wdxb$, 'Wilds of Eldraine Commander', 2026),
+  ('Family Matters', 'Zinnia, Valley''s Voice', ARRAY['R','U','W']::text[], 'Commander', $p285jg9xe$1 Zinnia, Valley's Voice
 1 Plumecreed Escort
 1 Arcane Signet
 1 Command Tower
@@ -5485,8 +5485,8 @@ VALUES
 4 Island
 4 Mountain
 5 Plains
-1 Arthur, Marigold Knight$p1hngc7vq$, 'Bloomburrow Commander', 2026),
-  ('Feline Ferocity', 'Arahbo, Roar of the World', ARRAY['G','W']::text[], 'Commander', $p61vttdbt$1 Arahbo, Roar of the World
+1 Arthur, Marigold Knight$p285jg9xe$, 'Bloomburrow Commander', 2026),
+  ('Feline Ferocity', 'Arahbo, Roar of the World', ARRAY['G','W']::text[], 'Commander', $pps7z77h6$1 Arahbo, Roar of the World
 1 Abundance
 1 Behemoth Sledge
 1 Alms Collector
@@ -5574,8 +5574,8 @@ VALUES
 6 Forest
 1 Mirri, Weatherlight Duelist
 1 Nazahn, Revered Bladesmith
-7 Plains$p61vttdbt$, 'Commander 2017', 2017),
-  ('First Flight', 'Isperia, Supreme Judge', ARRAY['U','W']::text[], 'Commander', $phays2t5g$1 Isperia, Supreme Judge
+7 Plains$pps7z77h6$, 'Commander 2017', 2017),
+  ('First Flight', 'Isperia, Supreme Judge', ARRAY['U','W']::text[], 'Commander', $pznnaspk1$1 Isperia, Supreme Judge
 1 Moorland Haunt
 1 Hanged Executioner
 1 Generous Gift
@@ -5646,8 +5646,8 @@ VALUES
 1 Winged Words
 15 Island
 15 Plains
-1 Sphinx of Enlightenment$phays2t5g$, 'Starter Commander', 2026),
-  ('Food and Fellowship', 'Frodo, Adventurous Hobbit', ARRAY['B','W']::text[], 'Commander', $pl8cdf25k$1 Frodo, Adventurous Hobbit
+1 Sphinx of Enlightenment$pznnaspk1$, 'Starter Commander', 2026),
+  ('Food and Fellowship', 'Frodo, Adventurous Hobbit', ARRAY['B','W']::text[], 'Commander', $p95qhzs71$1 Frodo, Adventurous Hobbit
 1 Sol Ring
 1 Mirkwood Bats
 1 Shire Terrace
@@ -5732,8 +5732,8 @@ VALUES
 1 Toxic Deluge
 8 Forest
 4 Plains
-4 Swamp$pl8cdf25k$, 'The Lord of the Rings Commander', 2026),
-  ('Forces of the Imperium', 'Inquisitor Greyfax', ARRAY['B','U','W']::text[], 'Commander', $pr71sxug8$1 Inquisitor Greyfax
+4 Swamp$p95qhzs71$, 'The Lord of the Rings Commander', 2026),
+  ('Forces of the Imperium', 'Inquisitor Greyfax', ARRAY['B','U','W']::text[], 'Commander', $pb93wqrqt$1 Inquisitor Greyfax
 1 Marneus Calgar
 1 Deploy to the Front
 1 Entrapment Maneuver
@@ -5815,8 +5815,8 @@ VALUES
 1 Vexilus Praetor
 5 Island
 8 Plains
-7 Swamp$pr71sxug8$, 'Warhammer 40,000 Commander Collector''s Edition', 2026),
-  ('Forces of the Imperium', 'Inquisitor Greyfax', ARRAY['B','U','W']::text[], 'Commander', $pvlcxniyl$1 Inquisitor Greyfax
+7 Swamp$pb93wqrqt$, 'Warhammer 40,000 Commander Collector''s Edition', 2026),
+  ('Forces of the Imperium', 'Inquisitor Greyfax', ARRAY['B','U','W']::text[], 'Commander', $puqqqpspf$1 Inquisitor Greyfax
 5 Island
 8 Plains
 7 Swamp
@@ -5898,8 +5898,8 @@ VALUES
 1 Thunderwolf Cavalry
 1 Deny the Witch
 1 Exterminatus
-1 Marneus Calgar$pvlcxniyl$, 'Warhammer 40,000 Commander', 2026),
-  ('Forged in Stone', 'Nahiri, the Lithomancer', ARRAY['W']::text[], 'Commander', $pee2yy9mv$1 Nahiri, the Lithomancer
+1 Marneus Calgar$puqqqpspf$, 'Warhammer 40,000 Commander', 2026),
+  ('Forged in Stone', 'Nahiri, the Lithomancer', ARRAY['W']::text[], 'Commander', $pzuanjws5$1 Nahiri, the Lithomancer
 1 Afterlife
 1 Arcane Lighthouse
 1 Argentum Armor
@@ -5967,8 +5967,8 @@ VALUES
 1 White Sun's Zenith
 1 Wing Shards
 1 Whitemane Lion
-32 Plains$pee2yy9mv$, 'Commander 2014', 2014),
-  ('From Cute to Brute', 'Esika, God of the Tree // The Prismatic Bridge', ARRAY['B','G','R','U','W']::text[], 'Commander', $pq4z1hvvs$1 Esika, God of the Tree // The Prismatic Bridge
+32 Plains$pzuanjws5$, 'Commander 2014', 2014),
+  ('From Cute to Brute', 'Esika, God of the Tree // The Prismatic Bridge', ARRAY['B','G','R','U','W']::text[], 'Commander', $pth9396iq$1 Esika, God of the Tree // The Prismatic Bridge
 1 Island
 1 Mountain
 1 Plains
@@ -6065,8 +6065,8 @@ VALUES
 1 Archangel Avacyn // Avacyn, the Purifier
 1 Westvale Abbey // Ormendahl, Profane Prince
 1 Bloodline Keeper // Lord of Lineage
-1 Nicol Bolas, the Ravager // Nicol Bolas, the Arisen$pq4z1hvvs$, 'Secret Lair Commander 2023', 2023),
-  ('Grand Larceny', 'Gonti, Canny Acquisitor', ARRAY['B','G','U']::text[], 'Commander', $p5vpeg5au$1 Gonti, Canny Acquisitor
+1 Nicol Bolas, the Ravager // Nicol Bolas, the Arisen$pth9396iq$, 'Secret Lair Commander 2023', 2023),
+  ('Grand Larceny', 'Gonti, Canny Acquisitor', ARRAY['B','G','U']::text[], 'Commander', $p7vbe5fkh$1 Gonti, Canny Acquisitor
 1 Doc Aurlock, Grizzled Genius
 1 Thieving Varmint
 1 Heartless Conscription
@@ -6153,8 +6153,8 @@ VALUES
 1 Felix Five-Boots
 5 Island
 4 Forest
-6 Swamp$p5vpeg5au$, 'Outlaws of Thunder Junction Commander', 2026),
-  ('Grave Danger', 'Gisa and Geralf', ARRAY['B','U']::text[], 'Commander', $pqa1vpdin$1 Gisa and Geralf
+6 Swamp$p7vbe5fkh$, 'Outlaws of Thunder Junction Commander', 2026),
+  ('Grave Danger', 'Gisa and Geralf', ARRAY['B','U']::text[], 'Commander', $pmhjltv01$1 Gisa and Geralf
 1 Grimoire of the Dead
 1 Sunken Hollow
 1 Gravespawn Sovereign
@@ -6224,8 +6224,8 @@ VALUES
 1 Josu Vess, Lich Knight
 1 Havengul Lich
 18 Swamp
-13 Island$pqa1vpdin$, 'Starter Commander', 2026),
-  ('Graveyard Overdrive', 'Disa the Restless', ARRAY['B','G','R']::text[], 'Commander', $p36kozcbh$1 Disa the Restless
+13 Island$pmhjltv01$, 'Starter Commander', 2026),
+  ('Graveyard Overdrive', 'Disa the Restless', ARRAY['B','G','R']::text[], 'Commander', $pcrojipbq$1 Disa the Restless
 3 Mountain
 5 Forest
 4 Swamp
@@ -6315,8 +6315,8 @@ VALUES
 1 Infested Thrinax
 1 Sawhorn Nemesis
 1 Tarmogoyf Nest
-1 Coram, the Undertaker$p36kozcbh$, 'Modern Horizons 3 Commander', 2026),
-  ('Graveyard Overdrive Collector''s Edition', 'Disa the Restless', ARRAY['B','G','R']::text[], 'Commander', $p1jq8zpat$1 Disa the Restless
+1 Coram, the Undertaker$pcrojipbq$, 'Modern Horizons 3 Commander', 2026),
+  ('Graveyard Overdrive Collector''s Edition', 'Disa the Restless', ARRAY['B','G','R']::text[], 'Commander', $pw54d81jl$1 Disa the Restless
 1 Siege-Gang Lieutenant
 1 Final Act
 1 Bloodbraid Challenger
@@ -6406,8 +6406,8 @@ VALUES
 1 Accursed Marauder
 3 Mountain
 4 Swamp
-5 Forest$p1jq8zpat$, 'Modern Horizons 3 Commander', 2026),
-  ('Growing Threat', 'Brimaz, Blight of Oreskos', ARRAY['B','W']::text[], 'Commander', $po6ep8qzn$1 Brimaz, Blight of Oreskos
+5 Forest$pw54d81jl$, 'Modern Horizons 3 Commander', 2026),
+  ('Growing Threat', 'Brimaz, Blight of Oreskos', ARRAY['B','W']::text[], 'Commander', $pkvihqpfw$1 Brimaz, Blight of Oreskos
 10 Plains
 13 Swamp
 1 Phyrexian Gargantua
@@ -6485,8 +6485,8 @@ VALUES
 1 Terramorphic Expanse
 1 Utter End
 1 Yawgmoth's Vile Offering
-1 Moira and Teshar$po6ep8qzn$, 'March of the Machine Commander', 2026),
-  ('Guided by Nature', 'Freyalise, Llanowar''s Fury', ARRAY['G']::text[], 'Commander', $p8kyr5abv$1 Freyalise, Llanowar's Fury
+1 Moira and Teshar$pkvihqpfw$, 'March of the Machine Commander', 2026),
+  ('Guided by Nature', 'Freyalise, Llanowar''s Fury', ARRAY['G']::text[], 'Commander', $p8hcw0dif$1 Freyalise, Llanowar's Fury
 1 Assault Suit
 1 Beastmaster Ascension
 1 Collective Unconscious
@@ -6561,8 +6561,8 @@ VALUES
 1 Wolfcaller's Howl
 1 Wren's Run Packmaster
 1 Wood Elves
-25 Forest$p8kyr5abv$, 'Commander 2014', 2014),
-  ('Guided by Nature', 'Freyalise, Llanowar''s Fury', ARRAY['G']::text[], 'Commander', $ph45wngei$1 Freyalise, Llanowar's Fury
+25 Forest$p8hcw0dif$, 'Commander 2014', 2014),
+  ('Guided by Nature', 'Freyalise, Llanowar''s Fury', ARRAY['G']::text[], 'Commander', $pna3loo7z$1 Freyalise, Llanowar's Fury
 1 Beastmaster Ascension
 1 Assault Suit
 1 Collective Unconscious
@@ -6637,8 +6637,8 @@ VALUES
 1 Wave of Vitriol
 1 Wolfbriar Elemental
 1 Wolfcaller's Howl
-25 Forest$ph45wngei$, 'Commander Anthology', 2026),
-  ('Hail, Caesar', 'Caesar, Legion''s Emperor', ARRAY['B','R','W']::text[], 'Commander', $paoj4oxcd$1 Caesar, Legion's Emperor
+25 Forest$pna3loo7z$, 'Commander Anthology', 2026),
+  ('Hail, Caesar', 'Caesar, Legion''s Emperor', ARRAY['B','R','W']::text[], 'Commander', $peclq4ti3$1 Caesar, Legion's Emperor
 1 Mr. House, President and CEO
 1 V.A.T.S.
 1 Gary Clone
@@ -6726,8 +6726,8 @@ VALUES
 1 Memorial to Glory
 5 Mountain
 5 Plains
-4 Swamp$paoj4oxcd$, 'Fallout Commander', 2026),
-  ('Heads I Win, Tails You Lose', 'Zndrsplt, Eye of Wisdom', ARRAY['U']::text[], 'Commander', $p8eg5pet3$1 Zndrsplt, Eye of Wisdom
+4 Swamp$peclq4ti3$, 'Fallout Commander', 2026),
+  ('Heads I Win, Tails You Lose', 'Zndrsplt, Eye of Wisdom', ARRAY['U']::text[], 'Commander', $pebrmubgv$1 Zndrsplt, Eye of Wisdom
 1 Fiery Gambit
 1 Krark's Thumb
 1 Propaganda
@@ -6812,8 +6812,8 @@ VALUES
 1 Squee's Revenge
 1 Embercleave
 7 Island
-8 Mountain$p8eg5pet3$, 'Secret Lair Commander 2021', 2021),
-  ('Heavenly Inferno', 'Kaalia of the Vast', ARRAY['B','R','W']::text[], 'Commander', $ptdxa4gfy$1 Kaalia of the Vast
+8 Mountain$pebrmubgv$, 'Secret Lair Commander 2021', 2021),
+  ('Heavenly Inferno', 'Kaalia of the Vast', ARRAY['B','R','W']::text[], 'Commander', $ppabrdyww$1 Kaalia of the Vast
 1 Akroma, Angel of Fury
 1 Angel of Despair
 1 Armillary Sphere
@@ -6891,8 +6891,8 @@ VALUES
 1 Wrecking Ball
 8 Mountain
 8 Plains
-8 Swamp$ptdxa4gfy$, 'Commander 2011', 2011),
-  ('Heavenly Inferno', 'Kaalia of the Vast', ARRAY['B','R','W']::text[], 'Commander', $pqsd5i8tz$1 Kaalia of the Vast
+8 Swamp$ppabrdyww$, 'Commander 2011', 2011),
+  ('Heavenly Inferno', 'Kaalia of the Vast', ARRAY['B','R','W']::text[], 'Commander', $p0syoauuu$1 Kaalia of the Vast
 1 Akroma's Vengeance
 1 Armillary Sphere
 1 Archangel of Strife
@@ -6970,8 +6970,8 @@ VALUES
 1 Vow of Malice
 8 Mountain
 8 Plains
-8 Swamp$pqsd5i8tz$, 'Commander Anthology', 2026),
-  ('Invent Superiority', 'Breya, Etherium Shaper', ARRAY['B','R','U','W']::text[], 'Commander', $pmeosy64s$1 Breya, Etherium Shaper
+8 Swamp$p0syoauuu$, 'Commander Anthology', 2026),
+  ('Invent Superiority', 'Breya, Etherium Shaper', ARRAY['B','R','U','W']::text[], 'Commander', $pxa3kke7t$1 Breya, Etherium Shaper
 1 Arcane Sanctum
 1 Ancient Excavation
 1 Ash Barrens
@@ -7056,8 +7056,8 @@ VALUES
 5 Island
 5 Plains
 4 Mountain
-4 Swamp$pmeosy64s$, 'Commander 2016', 2016),
-  ('Jeskai Striker', 'Shiko and Narset, Unified', ARRAY['R','U','W']::text[], 'Commander', $ptif5k4n6$1 Shiko and Narset, Unified
+4 Swamp$pxa3kke7t$, 'Commander 2016', 2016),
+  ('Jeskai Striker', 'Shiko and Narset, Unified', ARRAY['R','U','W']::text[], 'Commander', $p4v117bmz$1 Shiko and Narset, Unified
 1 Elsha, Threefold Master
 1 Command Tower
 1 Arcane Signet
@@ -7145,8 +7145,8 @@ VALUES
 1 Expansion // Explosion
 5 Mountain
 5 Island
-4 Plains$ptif5k4n6$, 'Tarkir Dragonstorm Commander', 2026),
-  ('Jump Scare!', 'Zimone, Mystery Unraveler', ARRAY['G','U']::text[], 'Commander', $plytzqx86$1 Zimone, Mystery Unraveler
+4 Plains$p4v117bmz$, 'Tarkir Dragonstorm Commander', 2026),
+  ('Jump Scare!', 'Zimone, Mystery Unraveler', ARRAY['G','U']::text[], 'Commander', $pt2ac6ru4$1 Zimone, Mystery Unraveler
 1 Growing Dread
 1 Overgrown Zealot
 1 Terramorphic Expanse
@@ -7229,8 +7229,8 @@ VALUES
 1 Yavimaya Coast
 1 Thunderfoot Baloth
 9 Forest
-9 Island$plytzqx86$, 'Duskmourn Commander', 2026),
-  ('Land''s Wrath', 'Obuun, Mul Daya Ancestor', ARRAY['G','R','W']::text[], 'Commander', $pvs4fj50y$1 Obuun, Mul Daya Ancestor
+9 Island$pt2ac6ru4$, 'Duskmourn Commander', 2026),
+  ('Land''s Wrath', 'Obuun, Mul Daya Ancestor', ARRAY['G','R','W']::text[], 'Commander', $pn0tmdja9$1 Obuun, Mul Daya Ancestor
 1 Murasa Rootgrazer
 1 Roiling Regrowth
 1 Trove Warden
@@ -7311,8 +7311,8 @@ VALUES
 1 Sun Titan
 10 Forest
 4 Mountain
-7 Plains$pvs4fj50y$, 'Zendikar Rising Commander', 2026),
-  ('Legends'' Legacy', 'Dihada, Binder of Wills', ARRAY['B','R','W']::text[], 'Commander', $pmkyp3sdr$1 Dihada, Binder of Wills
+7 Plains$pn0tmdja9$, 'Zendikar Rising Commander', 2026),
+  ('Legends'' Legacy', 'Dihada, Binder of Wills', ARRAY['B','R','W']::text[], 'Commander', $puyb4csg9$1 Dihada, Binder of Wills
 5 Mountain
 5 Swamp
 6 Plains
@@ -7398,8 +7398,8 @@ VALUES
 1 The Reaver Cleaver
 1 The Peregrine Dynamo
 1 Verrak, Warped Sengir
-1 Shanid, Sleepers' Scourge$pmkyp3sdr$, 'Dominaria United Commander', 2026),
-  ('Limit Break', 'Cloud, Ex-SOLDIER', ARRAY['G','R','W']::text[], 'Commander', $pcgt5ghqw$1 Cloud, Ex-SOLDIER
+1 Shanid, Sleepers' Scourge$puyb4csg9$, 'Dominaria United Commander', 2026),
+  ('Limit Break', 'Cloud, Ex-SOLDIER', ARRAY['G','R','W']::text[], 'Commander', $pi94bxhia$1 Cloud, Ex-SOLDIER
 1 Secret Rendezvous
 1 Sephiroth, Fallen Hero
 1 Tifa, Martial Artist
@@ -7492,8 +7492,8 @@ VALUES
 1 Wooded Ridgeline
 3 Mountain
 3 Plains
-3 Forest$pcgt5ghqw$, 'Final Fantasy Commander', 2026),
-  ('Limit Break Collector''s Edition', 'Cloud, Ex-SOLDIER', ARRAY['G','R','W']::text[], 'Commander', $pzlh8kt1z$1 Cloud, Ex-SOLDIER
+3 Forest$pi94bxhia$, 'Final Fantasy Commander', 2026),
+  ('Limit Break Collector''s Edition', 'Cloud, Ex-SOLDIER', ARRAY['G','R','W']::text[], 'Commander', $pyuzqsi2z$1 Cloud, Ex-SOLDIER
 1 Tifa, Martial Artist
 1 Secret Rendezvous
 1 Cloud's Limit Break
@@ -7586,8 +7586,8 @@ VALUES
 1 Sephiroth, Fallen Hero
 3 Mountain
 3 Forest
-3 Plains$pzlh8kt1z$, 'Final Fantasy Commander', 2026),
-  ('Living Energy', 'Saheeli, Radiant Creator', ARRAY['G','R','U']::text[], 'Commander', $pp4iwl6av$1 Saheeli, Radiant Creator
+3 Plains$pyuzqsi2z$, 'Final Fantasy Commander', 2026),
+  ('Living Energy', 'Saheeli, Radiant Creator', ARRAY['G','R','U']::text[], 'Commander', $pfg8ti11i$1 Saheeli, Radiant Creator
 5 Island
 5 Mountain
 6 Forest
@@ -7673,8 +7673,8 @@ VALUES
 1 Aetherflux Conduit
 1 Rampaging Aetherhood
 1 Peema Trailblazer
-1 Territorial Aetherkite$pp4iwl6av$, 'Aetherdrift Commander', 2026),
-  ('Lorehold Legacies', 'Osgir, the Reconstructor', ARRAY['R','W']::text[], 'Commander', $pn6cns21a$1 Osgir, the Reconstructor
+1 Territorial Aetherkite$pfg8ti11i$, 'Aetherdrift Commander', 2026),
+  ('Lorehold Legacies', 'Osgir, the Reconstructor', ARRAY['R','W']::text[], 'Commander', $pstvzs23k$1 Osgir, the Reconstructor
 8 Plains
 12 Mountain
 1 Reconstruct History
@@ -7755,8 +7755,93 @@ VALUES
 1 Rogue's Passage
 1 Secluded Steppe
 1 Temple of the False God
-1 Alibou, Ancient Witness$pn6cns21a$, 'Commander 2021', 2021),
-  ('Maestros Massacre', 'Anhelo, the Painter', ARRAY['B','R','U']::text[], 'Commander', $pyulz9xyw$1 Anhelo, the Painter
+1 Alibou, Ancient Witness$pstvzs23k$, 'Commander 2021', 2021),
+  ('Lorehold Spirit', 'Quintorius, History Chaser', ARRAY['R','W']::text[], 'Commander', $ppts8idg0$1 Quintorius, History Chaser
+1 Lorehold Charm
+1 Kirol, History Buff // Pack a Punch
+1 Excava, the Risen Past
+1 Advanced Reconstruction
+1 Relic Retriever
+1 Vanguard of the Restless
+1 Augusta, Order Returned
+1 Ceaseless Conflict
+1 Turbulent Steppe
+1 Fateful Tempest
+1 Naktamun Lorespinner // Wheel of Fortune
+1 Lorehold Archivist // Restore Relic
+1 Command Tower
+1 Spirit of Resilience
+1 Monologue Tax
+1 Swords to Plowshares
+1 Arcane Signet
+1 Staff of the Storyteller
+1 Path to Exile
+1 Archaeomancer's Map
+1 Sevinne's Reclamation
+1 Sol Ring
+1 Atsushi, the Blazing Sky
+1 Quintorius, Loremaster
+1 Quintorius, Field Historian
+1 Primary Research
+1 Fields of Strife
+1 Moonshaker Cavalry
+1 Fellwar Stone
+1 Anger
+1 Faithless Looting
+1 Fabled Passage
+1 Exotic Orchard
+1 Secret Rendezvous
+1 Guardian of Faith
+1 Drumbellower
+1 Laelia, the Blade Reforged
+1 Karmic Guide
+1 Selfless Spirit
+1 White Orchid Phantom
+1 Venerable Warsinger
+1 Hofri Ghostforge
+1 Seize the Spoils
+1 Currency Converter
+1 Terramorphic Expanse
+1 Mind Stone
+1 Tocasia's Welcome
+1 Millikin
+1 Lotus Field
+1 Perpetual Timepiece
+1 Conspiracy Theorist
+1 Containment Construct
+1 Angel of Indemnity
+1 Balefire Liege
+1 Battlefield Forge
+1 Claim Jumper
+1 Teshar, Ancestor's Apostle
+1 Clifftop Retreat
+1 Emeria, the Sky Ruin
+1 Serra Paragon
+1 Guardian Scalelord
+1 Kami of Ancient Law
+1 Rugged Prairie
+1 Patchwork Banner
+1 Radiant Summit
+1 Temple of Triumph
+1 Furycalm Snarl
+1 Sunscorched Divide
+1 Glittering Massif
+1 Remorseful Cleric
+1 Sacred Peaks
+1 Skyclave Apparition
+1 Squee, Goblin Nabob
+1 Sun Titan
+1 Tragic Arrogance
+1 Wave of Reckoning
+1 Mistveil Plains
+1 Ao, the Dawn Sky
+1 Bitterthorn, Nissa's Animus
+1 Rip Apart
+1 Lorehold Campus
+1 Study Hall
+6 Mountain
+11 Plains$ppts8idg0$, 'Secrets of Strixhaven Commander', 2026),
+  ('Maestros Massacre', 'Anhelo, the Painter', ARRAY['B','R','U']::text[], 'Commander', $pgrq6huyv$1 Anhelo, the Painter
 1 Maestros Charm
 1 A Little Chat
 1 Maestros Theater
@@ -7840,8 +7925,8 @@ VALUES
 6 Swamp
 7 Island
 5 Mountain
-1 Parnesse, the Subtle Brush$pyulz9xyw$, 'Streets of New Capenna Commander', 2026),
-  ('Mardu Surge', 'Zurgo Stormrender', ARRAY['B','R','W']::text[], 'Commander', $pj20d4k2a$1 Zurgo Stormrender
+1 Parnesse, the Subtle Brush$pgrq6huyv$, 'Streets of New Capenna Commander', 2026),
+  ('Mardu Surge', 'Zurgo Stormrender', ARRAY['B','R','W']::text[], 'Commander', $pfrl3zu2u$1 Zurgo Stormrender
 1 Neriv, Crackling Vanguard
 1 Command Tower
 1 Arcane Signet
@@ -7928,8 +8013,8 @@ VALUES
 1 Tempt with Vengeance
 5 Mountain
 5 Plains
-5 Swamp$pj20d4k2a$, 'Tarkir Dragonstorm Commander', 2026),
-  ('Masters of Evil', 'Davros, Dalek Creator', ARRAY['B','R','U']::text[], 'Commander', $ps6s72xeq$1 Davros, Dalek Creator
+5 Swamp$pfrl3zu2u$, 'Tarkir Dragonstorm Commander', 2026),
+  ('Masters of Evil', 'Davros, Dalek Creator', ARRAY['B','R','U']::text[], 'Commander', $pge6ckg5u$1 Davros, Dalek Creator
 2 Island
 2 Mountain
 2 Swamp
@@ -8025,8 +8110,8 @@ VALUES
 1 The Cyber-Controller
 1 The Toymaker's Trap
 1 This Is How It Ends
-1 Missy$ps6s72xeq$, 'Doctor Who Commander', 2026),
-  ('Merciless Rage', 'Anje Falkenrath', ARRAY['B','R']::text[], 'Commander', $pem1wdlcf$1 Anje Falkenrath
+1 Missy$pge6ckg5u$, 'Doctor Who Commander', 2026),
+  ('Merciless Rage', 'Anje Falkenrath', ARRAY['B','R']::text[], 'Commander', $p9bs2vhdk$1 Anje Falkenrath
 1 Ash Barrens
 1 Armillary Sphere
 1 Anje's Ravager
@@ -8107,8 +8192,8 @@ VALUES
 1 Chainer, Nightmare Adept
 1 Greven, Predator Captain
 10 Mountain
-10 Swamp$pem1wdlcf$, 'Commander 2019', 2019),
-  ('Mind Flayarrrs', 'Captain N''ghathrod', ARRAY['B','U']::text[], 'Commander', $pavoaarl8$1 Captain N'ghathrod
+10 Swamp$p9bs2vhdk$, 'Commander 2019', 2019),
+  ('Mind Flayarrrs', 'Captain N''ghathrod', ARRAY['B','U']::text[], 'Commander', $pdf469luo$1 Captain N'ghathrod
 1 Command Tower
 1 Arcane Signet
 1 Mind Stone
@@ -8189,8 +8274,8 @@ VALUES
 11 Swamp
 9 Island
 1 Zellix, Sanity Flayer
-1 Haunted One$pavoaarl8$, 'Battle for Baldur''s Gate Commander', 2026),
-  ('Mind Seize', 'Jeleva, Nephalia''s Scourge', ARRAY['B','R','U']::text[], 'Commander', $paadcuy5l$1 Jeleva, Nephalia's Scourge
+1 Haunted One$pdf469luo$, 'Battle for Baldur''s Gate Commander', 2026),
+  ('Mind Seize', 'Jeleva, Nephalia''s Scourge', ARRAY['B','R','U']::text[], 'Commander', $pa9ri5rtd$1 Jeleva, Nephalia's Scourge
 1 Annihilate
 1 Akoum Refuge
 1 Arcane Melee
@@ -8270,8 +8355,8 @@ VALUES
 1 Wild Ricochet
 9 Island
 5 Mountain
-8 Swamp$paadcuy5l$, 'Commander 2013', 2013),
-  ('Miracle Worker', 'Aminatou, Veil Piercer', ARRAY['B','U','W']::text[], 'Commander', $pcu2fowkj$1 Aminatou, Veil Piercer
+8 Swamp$pa9ri5rtd$, 'Commander 2013', 2013),
+  ('Miracle Worker', 'Aminatou, Veil Piercer', ARRAY['B','U','W']::text[], 'Commander', $p0racauo6$1 Aminatou, Veil Piercer
 1 Bottomless Pool // Locker Room
 1 Terramorphic Expanse
 1 Arcane Signet
@@ -8359,8 +8444,8 @@ VALUES
 5 Swamp
 5 Plains
 4 Island
-1 The Master of Keys$pcu2fowkj$, 'Duskmourn Commander', 2026),
-  ('Mirror Mastery', 'Riku of Two Reflections', ARRAY['G','R','U']::text[], 'Commander', $py08lokv0$1 Riku of Two Reflections
+1 The Master of Keys$p0racauo6$, 'Duskmourn Commander', 2026),
+  ('Mirror Mastery', 'Riku of Two Reflections', ARRAY['G','R','U']::text[], 'Commander', $p5stfihq5$1 Riku of Two Reflections
 1 Aethersnipe
 1 Armillary Sphere
 1 Animar, Soul of Elements
@@ -8434,8 +8519,8 @@ VALUES
 1 Vow of Wildness
 13 Forest
 7 Island
-8 Mountain$py08lokv0$, 'Commander 2011', 2011),
-  ('Mishra''s Burnished Banner', 'Mishra, Eminent One', ARRAY['B','R','U']::text[], 'Commander', $py6glvbun$1 Mishra, Eminent One
+8 Mountain$p5stfihq5$, 'Commander 2011', 2011),
+  ('Mishra''s Burnished Banner', 'Mishra, Eminent One', ARRAY['B','R','U']::text[], 'Commander', $ppf72vz3a$1 Mishra, Eminent One
 5 Island
 4 Mountain
 4 Swamp
@@ -8524,8 +8609,8 @@ VALUES
 1 Scavenged Brawler
 1 Smelting Vat
 1 Wondrous Crucible
-1 Ashnod the Uncaring$py6glvbun$, 'The Brothers'' War Commander', 2026),
-  ('Most Wanted', 'Olivia, Opulent Outlaw', ARRAY['B','R','W']::text[], 'Commander', $pgbn1v2x6$1 Olivia, Opulent Outlaw
+1 Ashnod the Uncaring$ppf72vz3a$, 'The Brothers'' War Commander', 2026),
+  ('Most Wanted', 'Olivia, Opulent Outlaw', ARRAY['B','R','W']::text[], 'Commander', $pmi2ukb2z$1 Olivia, Opulent Outlaw
 2 Mountain
 2 Plains
 4 Swamp
@@ -8619,8 +8704,8 @@ VALUES
 1 Dead Before Sunrise
 1 Bounty Board
 1 Discreet Retreat
-1 Vihaan, Goldwaker$pgbn1v2x6$, 'Outlaws of Thunder Junction Commander', 2026),
-  ('Mutant Menace', 'The Wise Mothman', ARRAY['B','G','U']::text[], 'Commander', $p0glnkj4h$1 The Wise Mothman
+1 Vihaan, Goldwaker$pmi2ukb2z$, 'Outlaws of Thunder Junction Commander', 2026),
+  ('Mutant Menace', 'The Wise Mothman', ARRAY['B','G','U']::text[], 'Commander', $pnh2u7qm9$1 The Wise Mothman
 1 Feral Ghoul
 1 Alpha Deathclaw
 1 Radstorm
@@ -8707,8 +8792,8 @@ VALUES
 5 Forest
 5 Island
 5 Swamp
-1 The Master, Transcendent$p0glnkj4h$, 'Fallout Commander', 2026),
-  ('Mystic Intellect', 'Sevinne, the Chronoclasm', ARRAY['R','U','W']::text[], 'Commander', $ppxqou67w$1 Sevinne, the Chronoclasm
+1 The Master, Transcendent$pnh2u7qm9$, 'Fallout Commander', 2026),
+  ('Mystic Intellect', 'Sevinne, the Chronoclasm', ARRAY['R','U','W']::text[], 'Commander', $p7f8p9v2m$1 Sevinne, the Chronoclasm
 1 Azorius Chancery
 1 Ash Barrens
 1 Armillary Sphere
@@ -8789,8 +8874,8 @@ VALUES
 1 Pramikon, Sky Rampart
 8 Island
 4 Mountain
-9 Plains$ppxqou67w$, 'Commander 2019', 2019),
-  ('Nature of the Beast', 'Marath, Will of the Wild', ARRAY['G','R','W']::text[], 'Commander', $pog5lkdui$1 Marath, Will of the Wild
+9 Plains$p7f8p9v2m$, 'Commander 2019', 2019),
+  ('Nature of the Beast', 'Marath, Will of the Wild', ARRAY['G','R','W']::text[], 'Commander', $pz6i55za8$1 Marath, Will of the Wild
 1 Archangel
 1 Avenger of Zendikar
 1 Baloth Woodcrasher
@@ -8875,8 +8960,8 @@ VALUES
 1 Wrath of God
 8 Forest
 5 Mountain
-4 Plains$pog5lkdui$, 'Commander 2013', 2013),
-  ('Nature''s Vengeance', 'Lord Windgrace', ARRAY['B','G','R']::text[], 'Commander', $pk27dzlr2$1 Lord Windgrace
+4 Plains$pz6i55za8$, 'Commander 2013', 2013),
+  ('Nature''s Vengeance', 'Lord Windgrace', ARRAY['B','G','R']::text[], 'Commander', $pfah7rybm$1 Lord Windgrace
 1 Acidic Slime
 1 Akoum Refuge
 1 Avenger of Zendikar
@@ -8960,8 +9045,8 @@ VALUES
 1 Gyrus, Waker of Corpses
 1 Thantis, the Warweaver
 5 Mountain
-6 Swamp$pk27dzlr2$, 'Commander 2018', 2018),
-  ('Necron Dynasties', 'Szarekh, the Silent King', ARRAY['B']::text[], 'Commander', $plnscdrbn$1 Szarekh, the Silent King
+6 Swamp$pfah7rybm$, 'Commander 2018', 2018),
+  ('Necron Dynasties', 'Szarekh, the Silent King', ARRAY['B']::text[], 'Commander', $p9dj8y6zt$1 Szarekh, the Silent King
 1 Mind Stone
 1 Mask of Memory
 1 Lychguard
@@ -9031,8 +9116,8 @@ VALUES
 1 Unstable Obelisk
 1 Vault of Whispers
 1 Wayfarer's Bauble
-30 Swamp$plnscdrbn$, 'Warhammer 40,000 Commander Collector''s Edition', 2026),
-  ('Necron Dynasties', 'Szarekh, the Silent King', ARRAY['B']::text[], 'Commander', $ptzq9tmv7$1 Szarekh, the Silent King
+30 Swamp$p9dj8y6zt$, 'Warhammer 40,000 Commander Collector''s Edition', 2026),
+  ('Necron Dynasties', 'Szarekh, the Silent King', ARRAY['B']::text[], 'Commander', $p0nqjbwe6$1 Szarekh, the Silent King
 1 Sol Ring
 1 Arcane Signet
 1 Barren Moor
@@ -9102,8 +9187,8 @@ VALUES
 1 Polluted Mire
 1 Unstable Obelisk
 30 Swamp
-1 Imotekh the Stormlord$ptzq9tmv7$, 'Warhammer 40,000 Commander', 2026),
-  ('Obscura Operation', 'Kamiz, Obscura Oculus', ARRAY['B','U','W']::text[], 'Commander', $p2giiggre$1 Kamiz, Obscura Oculus
+1 Imotekh the Stormlord$p0nqjbwe6$, 'Warhammer 40,000 Commander', 2026),
+  ('Obscura Operation', 'Kamiz, Obscura Oculus', ARRAY['B','U','W']::text[], 'Commander', $phrepvwde$1 Kamiz, Obscura Oculus
 1 Obscura Charm
 1 An Offer You Can't Refuse
 1 Obscura Storefront
@@ -9188,8 +9273,8 @@ VALUES
 6 Swamp
 6 Island
 5 Plains
-1 Tivit, Seller of Secrets$p2giiggre$, 'Streets of New Capenna Commander', 2026),
-  ('Open Hostility', 'Saskia the Unyielding', ARRAY['B','G','R','W']::text[], 'Commander', $pgm95f9tg$1 Saskia the Unyielding
+1 Tivit, Seller of Secrets$phrepvwde$, 'Streets of New Capenna Commander', 2026),
+  ('Open Hostility', 'Saskia the Unyielding', ARRAY['B','G','R','W']::text[], 'Commander', $pvh4hg6fv$1 Saskia the Unyielding
 1 Alesha, Who Smiles at Death
 1 Abzan Charm
 1 Ash Barrens
@@ -9276,8 +9361,8 @@ VALUES
 3 Swamp
 1 Ravos, Soultender
 1 Tana, the Bloodsower
-1 Tymna the Weaver$pgm95f9tg$, 'Commander 2016', 2016),
-  ('Painbow', 'Jared Carthalion', ARRAY['B','G','R','U','W']::text[], 'Commander', $p1i4zmdtw$1 Jared Carthalion
+1 Tymna the Weaver$pvh4hg6fv$, 'Commander 2016', 2016),
+  ('Painbow', 'Jared Carthalion', ARRAY['B','G','R','U','W']::text[], 'Commander', $pyf6mtfhy$1 Jared Carthalion
 1 Illuna, Apex of Wishes
 1 Flood Plain
 1 Two-Headed Hellkite
@@ -9370,8 +9455,8 @@ VALUES
 2 Island
 2 Plains
 2 Swamp
-2 Mountain$p1i4zmdtw$, 'Dominaria United Commander', 2026),
-  ('Paradox Power', 'The Thirteenth Doctor', ARRAY['G','U']::text[], 'Commander', $p9n90fgkh$1 The Thirteenth Doctor
+2 Mountain$pyf6mtfhy$, 'Dominaria United Commander', 2026),
+  ('Paradox Power', 'The Thirteenth Doctor', ARRAY['G','U']::text[], 'Commander', $pgskpzwvi$1 The Thirteenth Doctor
 3 Mountain
 4 Forest
 4 Island
@@ -9461,8 +9546,8 @@ VALUES
 1 Strax, Sontaran Nurse
 1 Temple of Abandon
 1 Think Twice
-1 Vineglimmer Snarl$p9n90fgkh$, 'Doctor Who Commander', 2026),
-  ('Party Time', 'Nalia de''Arnise', ARRAY['B','W']::text[], 'Commander', $pq81zcci1$1 Nalia de'Arnise
+1 Vineglimmer Snarl$pgskpzwvi$, 'Doctor Who Commander', 2026),
+  ('Party Time', 'Nalia de''Arnise', ARRAY['B','W']::text[], 'Commander', $p4d84jkma$1 Nalia de'Arnise
 1 Command Tower
 1 Arcane Signet
 1 Deep Gnome Terramancer
@@ -9543,8 +9628,8 @@ VALUES
 10 Plains
 10 Swamp
 1 Burakos, Party Leader
-1 Folk Hero$pq81zcci1$, 'Battle for Baldur''s Gate Commander', 2026),
-  ('Peace Offering', 'Ms. Bumbleflower', ARRAY['G','U','W']::text[], 'Commander', $pghyw4pm4$1 Ms. Bumbleflower
+1 Folk Hero$p4d84jkma$, 'Battle for Baldur''s Gate Commander', 2026),
+  ('Peace Offering', 'Ms. Bumbleflower', ARRAY['G','U','W']::text[], 'Commander', $pdwdwfqch$1 Ms. Bumbleflower
 1 Tamiyo, Field Researcher
 1 Mr. Foxglove
 1 Wear Down
@@ -9634,8 +9719,8 @@ VALUES
 1 Yavimaya Coast
 4 Island
 4 Forest
-4 Plains$pghyw4pm4$, 'Bloomburrow Commander', 2026),
-  ('Peer Through Time', 'Teferi, Temporal Archmage', ARRAY['U']::text[], 'Commander', $p14k78thm$1 Teferi, Temporal Archmage
+4 Plains$pdwdwfqch$, 'Bloomburrow Commander', 2026),
+  ('Peer Through Time', 'Teferi, Temporal Archmage', ARRAY['U']::text[], 'Commander', $pmhm9f2w5$1 Teferi, Temporal Archmage
 1 Aether Gale
 1 Artisan of Kozilek
 1 Assault Suit
@@ -9704,8 +9789,8 @@ VALUES
 1 Worn Powerstone
 1 Willbender
 1 Zoetic Cavern
-31 Island$p14k78thm$, 'Commander 2014', 2014),
-  ('Phantom Premonition', 'Ranar the Ever-Watchful', ARRAY['U','W']::text[], 'Commander', $pvibpzygr$1 Ranar the Ever-Watchful
+31 Island$pmhm9f2w5$, 'Commander 2014', 2014),
+  ('Phantom Premonition', 'Ranar the Ever-Watchful', ARRAY['U','W']::text[], 'Commander', $pt8wvigk4$1 Ranar the Ever-Watchful
 1 Migratory Route
 1 Meteor Golem
 1 Meandering River
@@ -9781,8 +9866,8 @@ VALUES
 1 Wall of Omens
 1 Windfall
 13 Plains
-12 Island$pvibpzygr$, 'Kaldheim Commander', 2026),
-  ('Planar Portal', 'Prosper, Tome-Bound', ARRAY['B','R']::text[], 'Commander', $pji699iqg$1 Prosper, Tome-Bound
+12 Island$pt8wvigk4$, 'Kaldheim Commander', 2026),
+  ('Planar Portal', 'Prosper, Tome-Bound', ARRAY['B','R']::text[], 'Commander', $pvnviq64c$1 Prosper, Tome-Bound
 13 Mountain
 14 Swamp
 1 You Find Some Prisoners
@@ -9856,8 +9941,8 @@ VALUES
 1 Unstable Obelisk
 1 Vandalblast
 1 Zhalfirin Void
-1 Karazikar, the Eye Tyrant$pji699iqg$, 'Adventures in the Forgotten Realms Commander', 2026),
-  ('Planeswalker Party', 'Commodore Guff', ARRAY['R','U','W']::text[], 'Commander', $pcquq5n3o$1 Commodore Guff
+1 Karazikar, the Eye Tyrant$pvnviq64c$, 'Adventures in the Forgotten Realms Commander', 2026),
+  ('Planeswalker Party', 'Commodore Guff', ARRAY['R','U','W']::text[], 'Commander', $pyo7cpd72$1 Commodore Guff
 1 Sol Ring
 1 Command Tower
 1 Fellwar Stone
@@ -9941,8 +10026,8 @@ VALUES
 1 Leori, Sparktouched Hunter
 7 Island
 7 Plains
-4 Mountain$pcquq5n3o$, 'Commander Masters', 2026),
-  ('Plunder the Graves', 'Meren of Clan Nel Toth', ARRAY['B','G']::text[], 'Commander', $pirk9k0v0$1 Meren of Clan Nel Toth
+4 Mountain$pyo7cpd72$, 'Commander Masters', 2026),
+  ('Plunder the Graves', 'Meren of Clan Nel Toth', ARRAY['B','G']::text[], 'Commander', $pkc9fvgpa$1 Meren of Clan Nel Toth
 1 Acidic Slime
 1 Ambition's Cost
 1 Altar's Reap
@@ -10018,8 +10103,8 @@ VALUES
 1 Wood Elves
 1 Wretched Confluence
 12 Forest
-13 Swamp$pirk9k0v0$, 'Commander 2015', 2015),
-  ('Plunder the Graves', 'Meren of Clan Nel Toth', ARRAY['B','G']::text[], 'Commander', $ppqwnkgfw$1 Meren of Clan Nel Toth
+13 Swamp$pkc9fvgpa$, 'Commander 2015', 2015),
+  ('Plunder the Graves', 'Meren of Clan Nel Toth', ARRAY['B','G']::text[], 'Commander', $ptx5v9cdc$1 Meren of Clan Nel Toth
 1 Altar's Reap
 1 Acidic Slime
 1 Ambition's Cost
@@ -10095,8 +10180,8 @@ VALUES
 1 Vulturous Zombie
 1 Wall of Blossoms
 12 Forest
-13 Swamp$ppqwnkgfw$, 'Commander Anthology', 2026),
-  ('Political Puppets', 'Zedruu the Greathearted', ARRAY['R','U','W']::text[], 'Commander', $p8e1z4oai$1 Zedruu the Greathearted
+13 Swamp$ptx5v9cdc$, 'Commander Anthology', 2026),
+  ('Political Puppets', 'Zedruu the Greathearted', ARRAY['R','U','W']::text[], 'Commander', $p56mk2mkp$1 Zedruu the Greathearted
 1 Arbiter of Knollridge
 1 Armillary Sphere
 1 Austere Command
@@ -10170,8 +10255,8 @@ VALUES
 1 Whirlpool Whelm
 12 Island
 8 Mountain
-8 Plains$p8e1z4oai$, 'Commander 2011', 2011),
-  ('Power Hungry', 'Prossh, Skyraider of Kher', ARRAY['B','G','R']::text[], 'Commander', $pbk4d8add$1 Prossh, Skyraider of Kher
+8 Plains$p56mk2mkp$, 'Commander 2011', 2011),
+  ('Power Hungry', 'Prossh, Skyraider of Kher', ARRAY['B','G','R']::text[], 'Commander', $p76xq8xdo$1 Prossh, Skyraider of Kher
 1 Akoum Refuge
 1 Armillary Sphere
 1 Blood Rites
@@ -10253,8 +10338,8 @@ VALUES
 1 Widespread Panic
 7 Forest
 7 Mountain
-6 Swamp$pbk4d8add$, 'Commander 2013', 2013),
-  ('Primal Genesis', 'Ghired, Conclave Exile', ARRAY['G','R','W']::text[], 'Commander', $p59s8h19g$1 Ghired, Conclave Exile
+6 Swamp$p76xq8xdo$, 'Commander 2013', 2013),
+  ('Primal Genesis', 'Ghired, Conclave Exile', ARRAY['G','R','W']::text[], 'Commander', $pmuo39du4$1 Ghired, Conclave Exile
 1 Ash Barrens
 1 Angel of Sanctions
 1 Beast Within
@@ -10337,8 +10422,95 @@ VALUES
 1 Marisi, Breaker of the Coil
 8 Forest
 4 Mountain
-7 Plains$p59s8h19g$, 'Commander 2019', 2019),
-  ('Prismari Performance', 'Zaffai, Thunder Conductor', ARRAY['R','U']::text[], 'Commander', $pvl9xwo6i$1 Zaffai, Thunder Conductor
+7 Plains$pmuo39du4$, 'Commander 2019', 2019),
+  ('Prismari Artistry', 'Rootha, Mastering the Moment', ARRAY['R','U']::text[], 'Commander', $pro1wtq9n$1 Rootha, Mastering the Moment
+1 Prismari Charm
+1 Prismari Pianist
+1 Muddle, the Ever-Changing
+1 Leitmotif Composer
+1 Dirgur Focusmage // Braingeyser
+1 Furygale Flocking
+1 Scorched Geyser
+1 Coastal Peak
+1 Turbulent Springs
+1 Inspired Skypainter // Maestro's Gift
+1 Command Tower
+1 Abstract Performance
+1 Renegade Bull
+1 Replication Technique
+1 Rite of Replication
+1 Arcane Signet
+1 Mana Geyser
+1 Curiosity Crafter
+1 Faerie Mastermind
+1 Sol Ring
+1 Goldspan Dragon
+1 Big Score
+1 Temple of the False God
+1 Plargg and Nassari
+1 Chain Reaction
+1 Thunderclap Drake
+1 Fellwar Stone
+1 Brudiclad, Telchor Engineer
+1 Reality Shift
+1 Storm-Kiln Artist
+1 Throes of Chaos
+1 Spectacle Summit
+1 Creative Technique
+1 Archmage Emeritus
+1 Blasphemous Act
+1 Determined Iteration
+1 Dig Through Time
+1 Magma Opus
+1 Harmonic Prodigy
+1 Manaform Hellkite
+1 Mystic Sanctuary
+1 Reliquary Tower
+1 Prismari Campus
+1 Redoubled Stormsinger
+1 Rootha, Mercurial Artist
+1 Surge to Victory
+1 Sulfur Falls
+1 Fabled Passage
+1 Treasure Cruise
+1 Volcanic Salvo
+1 Frostboil Snarl
+1 Prismari Command
+1 Exotic Orchard
+1 Rousing Refrain
+1 Shivan Reef
+1 Solemn Simulacrum
+1 Talisman of Creativity
+1 Twinflame
+1 Rionya, Fire Dancer
+1 Galazeth Prismari
+1 Terramorphic Expanse
+1 Abrade
+1 Brazen Borrower // Petty Theft
+1 Lightning Greaves
+1 Path of Ancestry
+1 Arcane Denial
+1 Cursed Mirror
+1 Stormcatch Mentor
+1 Cascade Bluffs
+1 Ferrous Lake
+1 Molten Tributary
+1 Temple of Epiphany
+1 Chaos Warp
+1 Volcanic Torrent
+1 Veyran, Voice of Duality
+1 Expressive Iteration
+1 Resculpt
+1 Deep Analysis
+1 Mirrorwing Dragon
+1 Study Hall
+1 Dance with Calamity
+1 Aether Gale
+1 Hall of Oracles
+1 Restless Spire
+8 Island
+7 Mountain$pro1wtq9n$, 'Secrets of Strixhaven Commander', 2026),
+  ('Prismari Performance', 'Zaffai, Thunder Conductor', ARRAY['R','U']::text[], 'Commander', $plmim6hjk$1 Zaffai, Thunder Conductor
 1 Storm-Kiln Artist
 1 Expressive Iteration
 1 Rootha, Mercurial Artist
@@ -10420,8 +10592,97 @@ VALUES
 1 Temple of the False God
 10 Island
 9 Mountain
-1 Veyran, Voice of Duality$pvl9xwo6i$, 'Commander 2021', 2021),
-  ('Quantum Quandrix', 'Adrix and Nev, Twincasters', ARRAY['G','U']::text[], 'Commander', $ppowdfwf4$1 Adrix and Nev, Twincasters
+1 Veyran, Voice of Duality$plmim6hjk$, 'Commander 2021', 2021),
+  ('Quandrix Unlimited', 'Zimone, Infinite Analyst', ARRAY['G','U']::text[], 'Commander', $pzl7xx6ey$1 Zimone, Infinite Analyst
+1 Quandrix Charm
+1 Expansion Algorithm
+1 Nexus Mentality
+1 Primo, the Unbounded
+1 Lattice Library
+1 Kinetic Ooze
+1 Nev, the Practical Dean
+1 Yavimaya Bloomsage // Channel
+1 Brass Infiniscope
+1 Owlin Spiralmancer
+1 Striding Shotcaller // Run the Play
+1 Command Tower
+1 Turbulent Wilderness
+1 Arcane Signet
+1 Elusive Otter // Grove's Bounty
+1 Fractal Harness
+1 Deekah, Fractal Theorist
+1 Sol Ring
+1 Goldvein Hydra
+1 Oversimplify
+1 Temple of the False God
+1 Rapid Hybridization
+1 The Goose Mother
+1 Primal Might
+1 Paradox Gardens
+1 Nature's Lore
+1 Three Visits
+1 Beast Within
+1 Yavimaya Coast
+1 Eureka Moment
+1 Flooded Grove
+1 Reliquary Tower
+1 Perplexing Test
+1 Fabled Passage
+1 Tyvar's Stand
+1 Vineglimmer Snarl
+1 Exotic Orchard
+1 Hangarback Walker
+1 Primordial Hydra
+1 Unbound Flourishing
+1 Terramorphic Expanse
+1 Benevolent Hydra
+1 Lifeblood Hydra
+1 Hinterland Harbor
+1 Pull from Tomorrow
+1 Alchemist's Refuge
+1 Steelbane Hydra
+1 Rogue's Passage
+1 Biomass Mutation
+1 Animist's Awakening
+1 Path of Ancestry
+1 Mana Bloom
+1 Open the Way
+1 Curse of the Swine
+1 Stonecoil Serpent
+1 Ingenious Prodigy
+1 Zimone's Hypothesis
+1 Hydroid Krasis
+1 Silkguard
+1 Forgotten Ancient
+1 Altered Ego
+1 Sodden Verdure
+1 Guardian Augmenter
+1 Overflowing Basin
+1 Rain-Slicked Copse
+1 Temple of Mystery
+1 Quandrix Campus
+1 Troyan, Gutsy Explorer
+1 Quandrix Command
+1 Quandrix Apprentice
+1 Hardened Scales
+1 Decisive Denial
+1 Stroke of Genius
+1 Commander's Insight
+1 Elementalist's Palette
+1 Ozolith, the Shattered Spire
+1 Oran-Rief, the Vastwood
+1 Tangled Islet
+1 Kami of Whispered Hopes
+1 Zimone, Quandrix Prodigy
+1 Study Hall
+1 Zimone, All-Questioning
+1 Tanazir Quandrix
+1 Astral Cornucopia
+1 Entrancing Melody
+1 Opal Palace
+6 Forest
+7 Island$pzl7xx6ey$, 'Secrets of Strixhaven Commander', 2026),
+  ('Quantum Quandrix', 'Adrix and Nev, Twincasters', ARRAY['G','U']::text[], 'Commander', $pfoojx2yd$1 Adrix and Nev, Twincasters
 1 Biomass Mutation
 1 Coiling Oracle
 1 Curse of the Swine
@@ -10501,8 +10762,8 @@ VALUES
 1 Temple of the False God
 1 Esix, Fractal Bloom
 11 Forest
-10 Island$ppowdfwf4$, 'Commander 2021', 2021),
-  ('Quick Draw', 'Stella Lee, Wild Card', ARRAY['R','U']::text[], 'Commander', $poyq72rdu$1 Stella Lee, Wild Card
+10 Island$pfoojx2yd$, 'Commander 2021', 2021),
+  ('Quick Draw', 'Stella Lee, Wild Card', ARRAY['R','U']::text[], 'Commander', $ps4njn9e3$1 Stella Lee, Wild Card
 1 Smoldering Stagecoach
 1 Thunderclap Drake
 1 Pyretic Charge
@@ -10576,8 +10837,8 @@ VALUES
 1 Volcanic Torrent
 1 Eris, Roar of the Storm
 14 Island
-13 Mountain$poyq72rdu$, 'Outlaws of Thunder Junction Commander', 2026),
-  ('Raining Cats and Dogs', 'Rin and Seri, Inseparable', ARRAY['G','R','W']::text[], 'Commander', $pqdaw64am$1 Rin and Seri, Inseparable
+13 Mountain$ps4njn9e3$, 'Outlaws of Thunder Junction Commander', 2026),
+  ('Raining Cats and Dogs', 'Rin and Seri, Inseparable', ARRAY['G','R','W']::text[], 'Commander', $pz1xioa74$1 Rin and Seri, Inseparable
 1 Cast Out
 1 Impact Tremors
 1 Path to Exile
@@ -10657,8 +10918,8 @@ VALUES
 1 Sol Ring
 10 Plains
 7 Forest
-5 Mountain$pqdaw64am$, 'Secret Lair Commander 2024', 2024),
-  ('Reap the Tides', 'Aesi, Tyrant of Gyre Strait', ARRAY['G','U']::text[], 'Commander', $ptr853ka1$1 Aesi, Tyrant of Gyre Strait
+5 Mountain$pz1xioa74$, 'Secret Lair Commander 2024', 2024),
+  ('Reap the Tides', 'Aesi, Tyrant of Gyre Strait', ARRAY['G','U']::text[], 'Commander', $p23ulx78c$1 Aesi, Tyrant of Gyre Strait
 1 Command Tower
 1 Acidic Slime
 1 Reliquary Tower
@@ -10729,8 +10990,8 @@ VALUES
 1 Woodland Stream
 1 Yavimaya Elder
 15 Forest
-15 Island$ptr853ka1$, 'Commander Legends', 2026),
-  ('Rebellion Rising', 'Neyali, Suns'' Vanguard', ARRAY['R','W']::text[], 'Commander', $p7taozgs1$1 Neyali, Suns' Vanguard
+15 Island$p23ulx78c$, 'Commander Legends', 2026),
+  ('Rebellion Rising', 'Neyali, Suns'' Vanguard', ARRAY['R','W']::text[], 'Commander', $puo252jp1$1 Neyali, Suns' Vanguard
 11 Plains
 11 Mountain
 1 Roar of Resistance
@@ -10809,8 +11070,8 @@ VALUES
 1 Temple of the False God
 1 Temple of Triumph
 1 Windbrisk Heights
-1 Otharri, Suns' Glory$p7taozgs1$, 'Phyrexia All Will Be One Commander', 2026),
-  ('Revenant Recon', 'Mirko, Obsessive Theorist', ARRAY['B','U']::text[], 'Commander', $p9cn97qq1$1 Mirko, Obsessive Theorist
+1 Otharri, Suns' Glory$puo252jp1$, 'Phyrexia All Will Be One Commander', 2026),
+  ('Revenant Recon', 'Mirko, Obsessive Theorist', ARRAY['B','U']::text[], 'Commander', $p97fgryxd$1 Mirko, Obsessive Theorist
 9 Island
 9 Swamp
 1 Final-Word Phantom
@@ -10893,8 +11154,8 @@ VALUES
 1 Twilight Prophet
 1 Vizier of Many Faces
 1 Whispering Snitch
-1 Marvo, Deep Operative$p9cn97qq1$, 'Murders at Karlov Manor Commander', 2026),
-  ('Revival Trance', 'Terra, Herald of Hope', ARRAY['B','R','W']::text[], 'Commander', $pza125eci$1 Terra, Herald of Hope
+1 Marvo, Deep Operative$p97fgryxd$, 'Murders at Karlov Manor Commander', 2026),
+  ('Revival Trance', 'Terra, Herald of Hope', ARRAY['B','R','W']::text[], 'Commander', $pw119pvd2$1 Terra, Herald of Hope
 1 Celes, Rune Knight
 1 Summon: Esper Valigarmanda
 1 General Leo Cristophe
@@ -10986,8 +11247,8 @@ VALUES
 1 Sunlit Marsh
 3 Mountain
 3 Swamp
-4 Plains$pza125eci$, 'Final Fantasy Commander', 2026),
-  ('Revival Trance Collector''s Edition', 'Terra, Herald of Hope', ARRAY['B','R','W']::text[], 'Commander', $p3g2takls$1 Terra, Herald of Hope
+4 Plains$pw119pvd2$, 'Final Fantasy Commander', 2026),
+  ('Revival Trance Collector''s Edition', 'Terra, Herald of Hope', ARRAY['B','R','W']::text[], 'Commander', $pdq7echc4$1 Terra, Herald of Hope
 1 Celes, Rune Knight
 1 Summon: Esper Valigarmanda
 1 General Leo Cristophe
@@ -11079,8 +11340,8 @@ VALUES
 1 Sunlit Marsh
 3 Mountain
 3 Swamp
-4 Plains$p3g2takls$, 'Final Fantasy Commander', 2026),
-  ('Riders of Rohan', 'Éowyn, Shieldmaiden', ARRAY['R','U','W']::text[], 'Commander', $piykit6j4$1 Éowyn, Shieldmaiden
+4 Plains$pdq7echc4$, 'Final Fantasy Commander', 2026),
+  ('Riders of Rohan', 'Éowyn, Shieldmaiden', ARRAY['R','U','W']::text[], 'Commander', $pyxt3o3w6$1 Éowyn, Shieldmaiden
 1 Sol Ring
 1 Prince Imrahil the Fair
 1 Field of Ruin
@@ -11163,8 +11424,8 @@ VALUES
 5 Island
 5 Mountain
 9 Plains
-1 Aragorn, King of Gondor$piykit6j4$, 'The Lord of the Rings Commander', 2026),
-  ('Riveteers Rampage', 'Henzie "Toolbox" Torre', ARRAY['B','G','R']::text[], 'Commander', $pxeu9ptbr$1 Henzie "Toolbox" Torre
+1 Aragorn, King of Gondor$pyxt3o3w6$, 'The Lord of the Rings Commander', 2026),
+  ('Riveteers Rampage', 'Henzie "Toolbox" Torre', ARRAY['B','G','R']::text[], 'Commander', $p1w4vpmiu$1 Henzie "Toolbox" Torre
 1 Riveteers Charm
 1 Glittering Stockpile
 1 Riveteers Overlook
@@ -11251,8 +11512,8 @@ VALUES
 4 Swamp
 6 Forest
 5 Mountain
-1 The Beamtown Bullies$pxeu9ptbr$, 'Streets of New Capenna Commander', 2026),
-  ('Ruthless Regiment', 'Jirina Kudro', ARRAY['B','R','W']::text[], 'Commander', $p4f2clmv7$1 Jirina Kudro
+1 The Beamtown Bullies$p1w4vpmiu$, 'Streets of New Capenna Commander', 2026),
+  ('Ruthless Regiment', 'Jirina Kudro', ARRAY['B','R','W']::text[], 'Commander', $p12s6a1w4$1 Jirina Kudro
 1 Ambition's Cost
 1 Adriana, Captain of the Guard
 1 Alesha, Who Smiles at Death
@@ -11338,8 +11599,8 @@ VALUES
 1 Trynn, Champion of Freedom
 4 Mountain
 4 Swamp
-8 Plains$p4f2clmv7$, 'Commander 2020', 2020),
-  ('Science!', 'Dr. Madison Li', ARRAY['R','U','W']::text[], 'Commander', $pgni2t9kg$1 Dr. Madison Li
+8 Plains$p12s6a1w4$, 'Commander 2020', 2020),
+  ('Science!', 'Dr. Madison Li', ARRAY['R','U','W']::text[], 'Commander', $prsdj8mvn$1 Dr. Madison Li
 1 Nuka-Cola Vending Machine
 1 Rex, Cyber-Hound
 1 Command Tower
@@ -11428,8 +11689,8 @@ VALUES
 5 Island
 4 Mountain
 4 Plains
-1 Liberty Prime, Recharged$pgni2t9kg$, 'Fallout Commander', 2026),
-  ('Scions & Spellcraft', 'Y''shtola, Night''s Blessed', ARRAY['B','U','W']::text[], 'Commander', $psad1akxt$1 Y'shtola, Night's Blessed
+1 Liberty Prime, Recharged$prsdj8mvn$, 'Fallout Commander', 2026),
+  ('Scions & Spellcraft', 'Y''shtola, Night''s Blessed', ARRAY['B','U','W']::text[], 'Commander', $pv0gwzzpb$1 Y'shtola, Night's Blessed
 1 Hildibrand Manderville // Gentleman's Rise
 1 G'raha Tia, Scion Reborn
 1 Emet-Selch of the Third Seat
@@ -11520,8 +11781,8 @@ VALUES
 1 Darkwater Catacombs
 4 Swamp
 4 Plains
-3 Island$psad1akxt$, 'Final Fantasy Commander', 2026),
-  ('Scions & Spellcraft Collector''s Edition', 'Y''shtola, Night''s Blessed', ARRAY['B','U','W']::text[], 'Commander', $puuiurfxv$1 Y'shtola, Night's Blessed
+3 Island$pv0gwzzpb$, 'Final Fantasy Commander', 2026),
+  ('Scions & Spellcraft Collector''s Edition', 'Y''shtola, Night''s Blessed', ARRAY['B','U','W']::text[], 'Commander', $p6tamdxo1$1 Y'shtola, Night's Blessed
 1 Hildibrand Manderville // Gentleman's Rise
 1 Hypnotic Sprite // Mesmeric Glare
 1 Murderous Rider // Swift End
@@ -11612,8 +11873,8 @@ VALUES
 1 Darkwater Catacombs
 4 Swamp
 4 Plains
-3 Island$puuiurfxv$, 'Final Fantasy Commander', 2026),
-  ('Scrappy Survivors', 'Dogmeat, Ever Loyal', ARRAY['G','R','W']::text[], 'Commander', $pys5gonhw$1 Dogmeat, Ever Loyal
+3 Island$p6tamdxo1$, 'Final Fantasy Commander', 2026),
+  ('Scrappy Survivors', 'Dogmeat, Ever Loyal', ARRAY['G','R','W']::text[], 'Commander', $pqi16llfl$1 Dogmeat, Ever Loyal
 1 Vault 101: Birthday Party
 1 Idolized
 1 Command Tower
@@ -11703,8 +11964,8 @@ VALUES
 1 Swiftfoot Boots
 4 Forest
 4 Mountain
-4 Plains$pys5gonhw$, 'Fallout Commander', 2026),
-  ('Seize Control', 'Mizzix of the Izmagnus', ARRAY['R','U']::text[], 'Commander', $p6raq22a6$1 Mizzix of the Izmagnus
+4 Plains$pqi16llfl$, 'Fallout Commander', 2026),
+  ('Seize Control', 'Mizzix of the Izmagnus', ARRAY['R','U']::text[], 'Commander', $pz6a01obe$1 Mizzix of the Izmagnus
 1 Act of Aggression
 1 Aethersnatch
 1 Aetherize
@@ -11778,8 +12039,94 @@ VALUES
 1 Word of Seizing
 1 Worn Powerstone
 14 Island
-13 Mountain$p6raq22a6$, 'Commander 2015', 2015),
-  ('Silverquill Statement', 'Breena, the Demagogue', ARRAY['B','W']::text[], 'Commander', $pmhtg0411$1 Breena, the Demagogue
+13 Mountain$pz6a01obe$, 'Commander 2015', 2015),
+  ('Silverquill Influence', 'Killian, Decisive Mentor', ARRAY['B','W']::text[], 'Commander', $pv01b9gcd$1 Killian, Decisive Mentor
+1 Eiganjo Dynastorian // Replenish
+1 Intermediate Chirography
+1 Scriv, the Obligator
+1 Eclipsed Steppe
+1 Umbral Expanse
+1 Forum Filibuster
+1 Coercive Impetus
+1 Changing Loyalty
+1 Turbulent Moor
+1 Defacing Duskmage // Vandal's Edit
+1 Herald of Amity
+1 Command Tower
+1 Redemption Arc
+1 Ghoulish Impetus
+1 Screams from Within
+1 Arcane Signet
+1 Raffine's Guidance
+1 Sage's Reverie
+1 Sentinel's Eyes
+1 Parasitic Impetus
+1 Winds of Rath
+1 Sol Ring
+1 Inkshield
+1 Combat Calligrapher
+1 Hateful Eidolon
+1 Doomwake Giant
+1 Animate Dead
+1 Forum of Amity
+1 Shadrix Silverquill
+1 Arcane Lighthouse
+1 Fellwar Stone
+1 Keen Duelist
+1 Martial Impetus
+1 Sheltered by Ghosts
+1 Fallen Ideal
+1 Gift of Immortality
+1 Shielded by Faith
+1 Eidolon of Countless Battles
+1 Ghostly Prison
+1 Land Tax
+1 Transcendent Envoy
+1 Eriette of the Charmed Apple
+1 Killian, Ink Duelist
+1 Flickering Ward
+1 Tomik, Wielder of Law
+1 Pearl-Ear, Imperial Advisor
+1 Ajani's Chosen
+1 Armored Skyhunter
+1 Darksteel Mutation
+1 Kor Spiritdancer
+1 Chains of Custody
+1 Mangara, the Diplomat
+1 Firemane Commando
+1 Fabled Passage
+1 Songbirds' Blessing
+1 Spirit Mantle
+1 Promise of Loyalty
+1 Nils, Discipline Enforcer
+1 Sram, Senior Edificer
+1 Eldrazi Conscription
+1 Anguished Unmaking
+1 Exotic Orchard
+1 Secret Rendezvous
+1 Vanishing Verse
+1 Fetid Heath
+1 Isolated Chapel
+1 Terramorphic Expanse
+1 Talisman of Hierarchy
+1 Caves of Koilos
+1 Temple of Silence
+1 Fracture
+1 Bojuka Bog
+1 Shineshadow Snarl
+1 Path of Ancestry
+1 Angelic Destiny
+1 Archon of Sun's Grace
+1 Breena, the Demagogue
+1 Desolate Mire
+1 Silverquill Campus
+1 Sunlit Marsh
+1 Study Hall
+1 War Room
+1 Starfield Mystic
+8 Swamp
+8 Plains$pv01b9gcd$, 'Secrets of Strixhaven Commander', 2026),
+  ('Silverquill Statement', 'Breena, the Demagogue', ARRAY['B','W']::text[], 'Commander', $pbl6caek1$1 Breena, the Demagogue
 14 Plains
 10 Swamp
 1 Secret Rendezvous
@@ -11856,8 +12203,8 @@ VALUES
 1 Rogue's Passage
 1 Secluded Steppe
 1 Temple of the False God
-1 Felisa, Fang of Silverquill$pmhtg0411$, 'Commander 2021', 2021),
-  ('Sliver Swarm', 'Sliver Gravemother', ARRAY['B','G','R','U','W']::text[], 'Commander', $p2by6gl7s$1 Sliver Gravemother
+1 Felisa, Fang of Silverquill$pbl6caek1$, 'Commander 2021', 2021),
+  ('Sliver Swarm', 'Sliver Gravemother', ARRAY['B','G','R','U','W']::text[], 'Commander', $p2h4olwtc$1 Sliver Gravemother
 1 Sol Ring
 1 Command Tower
 1 Fellwar Stone
@@ -11950,8 +12297,8 @@ VALUES
 2 Island
 2 Mountain
 2 Plains
-2 Swamp$p2by6gl7s$, 'Commander Masters', 2026),
-  ('Sneak Attack', 'Anowon, the Ruin Thief', ARRAY['B','U']::text[], 'Commander', $psswg4ctg$1 Anowon, the Ruin Thief
+2 Swamp$p2h4olwtc$, 'Commander Masters', 2026),
+  ('Sneak Attack', 'Anowon, the Ruin Thief', ARRAY['B','U']::text[], 'Commander', $pw963n7dg$1 Anowon, the Ruin Thief
 1 Merfolk Windrobber
 1 Sure-Footed Infiltrator
 1 Soaring Thought-Thief
@@ -12022,8 +12369,8 @@ VALUES
 1 Stinkdrinker Bandit
 1 Silumgar's Command
 15 Island
-15 Swamp$psswg4ctg$, 'Zendikar Rising Commander', 2026),
-  ('Spirit Squadron', 'Millicent, Restless Revenant', ARRAY['U','W']::text[], 'Commander', $pks4geyzq$1 Millicent, Restless Revenant
+15 Swamp$pw963n7dg$, 'Zendikar Rising Commander', 2026),
+  ('Spirit Squadron', 'Millicent, Restless Revenant', ARRAY['U','W']::text[], 'Commander', $ptrvzua2a$1 Millicent, Restless Revenant
 11 Island
 12 Plains
 1 Disorder in the Court
@@ -12101,8 +12448,8 @@ VALUES
 1 Twilight Drover
 1 Unclaimed Territory
 1 Verity Circle
-1 Donal, Herald of Wings$pks4geyzq$, 'Innistrad: Crimson Vow Commander', 2026),
-  ('Squirreled Away', 'Hazel of the Rootbloom', ARRAY['B','G']::text[], 'Commander', $pgp8mhc73$1 Hazel of the Rootbloom
+1 Donal, Herald of Wings$ptrvzua2a$, 'Innistrad: Crimson Vow Commander', 2026),
+  ('Squirreled Away', 'Hazel of the Rootbloom', ARRAY['B','G']::text[], 'Commander', $ppf8e4gmx$1 Hazel of the Rootbloom
 1 Cache Grab
 1 Chatterfang, Squirrel General
 1 Honored Dreyleader
@@ -12186,8 +12533,8 @@ VALUES
 9 Forest
 8 Swamp
 1 The Odd Acorn Gang
-1 Garruk, Cursed Huntsman$pgp8mhc73$, 'Bloomburrow Commander', 2026),
-  ('Stalwart Unity', 'Kynaios and Tiro of Meletis', ARRAY['G','R','U','W']::text[], 'Commander', $p4w486wrj$1 Kynaios and Tiro of Meletis
+1 Garruk, Cursed Huntsman$ppf8e4gmx$, 'Bloomburrow Commander', 2026),
+  ('Stalwart Unity', 'Kynaios and Tiro of Meletis', ARRAY['G','R','U','W']::text[], 'Commander', $pzuisige6$1 Kynaios and Tiro of Meletis
 1 Akroan Horse
 1 Assault Suit
 1 Ash Barrens
@@ -12270,8 +12617,8 @@ VALUES
 5 Plains
 1 Kraum, Ludevic's Opus
 1 Ludevic, Necro-Alchemist
-1 Sidar Kondo of Jamuraa$p4w486wrj$, 'Commander 2016', 2016),
-  ('Subjective Reality', 'Aminatou, the Fateshifter', ARRAY['B','U','W']::text[], 'Commander', $pmugi7bqq$1 Aminatou, the Fateshifter
+1 Sidar Kondo of Jamuraa$pzuisige6$, 'Commander 2016', 2016),
+  ('Subjective Reality', 'Aminatou, the Fateshifter', ARRAY['B','U','W']::text[], 'Commander', $pdvyuul8q$1 Aminatou, the Fateshifter
 1 Aethermage's Touch
 1 Aminatou's Augury
 1 Arcane Sanctum
@@ -12357,8 +12704,8 @@ VALUES
 8 Plains
 3 Swamp
 1 Varina, Lich Queen
-1 Yennett, Cryptic Sovereign$pmugi7bqq$, 'Commander 2018', 2018),
-  ('Sultai Arisen', 'Kotis, Sibsig Champion', ARRAY['B','G','U']::text[], 'Commander', $p8snk7m0t$1 Kotis, Sibsig Champion
+1 Yennett, Cryptic Sovereign$pdvyuul8q$, 'Commander 2018', 2018),
+  ('Sultai Arisen', 'Kotis, Sibsig Champion', ARRAY['B','G','U']::text[], 'Commander', $p881m9mdf$1 Kotis, Sibsig Champion
 1 Teval, the Balanced Scale
 1 Command Tower
 1 Arcane Signet
@@ -12445,8 +12792,8 @@ VALUES
 1 Wonder
 6 Forest
 4 Island
-5 Swamp$p8snk7m0t$, 'Tarkir Dragonstorm Commander', 2026),
-  ('Swell the Host', 'Ezuri, Claw of Progress', ARRAY['G','U']::text[], 'Commander', $pw6vo9eq7$1 Ezuri, Claw of Progress
+5 Swamp$p881m9mdf$, 'Tarkir Dragonstorm Commander', 2026),
+  ('Swell the Host', 'Ezuri, Claw of Progress', ARRAY['G','U']::text[], 'Commander', $p9fq9tbb1$1 Ezuri, Claw of Progress
 1 Arachnogenesis
 1 Arbor Colossus
 1 Biomantic Mastery
@@ -12522,8 +12869,8 @@ VALUES
 1 Zoetic Cavern
 1 Wistful Selkie
 14 Forest
-11 Island$pw6vo9eq7$, 'Commander 2015', 2015),
-  ('Sworn to Darkness', 'Ob Nixilis of the Black Oath', ARRAY['B']::text[], 'Commander', $p1ksqzk23$1 Ob Nixilis of the Black Oath
+11 Island$p9fq9tbb1$, 'Commander 2015', 2015),
+  ('Sworn to Darkness', 'Ob Nixilis of the Black Oath', ARRAY['B']::text[], 'Commander', $pk1goz71z$1 Ob Nixilis of the Black Oath
 1 Barren Moor
 1 Arcane Lighthouse
 1 Aether Snap
@@ -12591,8 +12938,8 @@ VALUES
 1 Wake the Dead
 1 Worn Powerstone
 1 Xathrid Demon
-32 Swamp$p1ksqzk23$, 'Commander 2014', 2014),
-  ('Symbiotic Swarm', 'Kathril, Aspect Warper', ARRAY['B','G','W']::text[], 'Commander', $pzfxhog2w$1 Kathril, Aspect Warper
+32 Swamp$pk1goz71z$, 'Commander 2014', 2014),
+  ('Symbiotic Swarm', 'Kathril, Aspect Warper', ARRAY['B','G','W']::text[], 'Commander', $pgbdoj9hu$1 Kathril, Aspect Warper
 1 Abzan Charm
 1 Ajani Unyielding
 1 Acidic Slime
@@ -12676,8 +13023,8 @@ VALUES
 1 Yannik, Scavenging Sentinel
 4 Forest
 7 Plains
-7 Swamp$pzfxhog2w$, 'Commander 2020', 2020),
-  ('Temur Roar', 'Eshki, Temur''s Roar', ARRAY['G','R','U']::text[], 'Commander', $pjs511ulf$1 Eshki, Temur's Roar
+7 Swamp$pgbdoj9hu$, 'Commander 2020', 2020),
+  ('Temur Roar', 'Eshki, Temur''s Roar', ARRAY['G','R','U']::text[], 'Commander', $pf49toxfv$1 Eshki, Temur's Roar
 1 Ureni of the Unwritten
 1 Command Tower
 1 Arcane Signet
@@ -12765,8 +13112,8 @@ VALUES
 1 Temple of Abandon
 5 Forest
 6 Mountain
-3 Island$pjs511ulf$, 'Tarkir Dragonstorm Commander', 2026),
-  ('The Hosts of Mordor', 'Sauron, Lord of the Rings', ARRAY['B','R','U']::text[], 'Commander', $purugawoz$1 Sauron, Lord of the Rings
+3 Island$pf49toxfv$, 'Tarkir Dragonstorm Commander', 2026),
+  ('The Hosts of Mordor', 'Sauron, Lord of the Rings', ARRAY['B','R','U']::text[], 'Commander', $pe0srdj6t$1 Sauron, Lord of the Rings
 7 Mountain
 1 Sol Ring
 1 Voracious Fell Beast
@@ -12849,8 +13196,8 @@ VALUES
 1 Underground River
 6 Island
 6 Swamp
-1 Saruman, the White Hand$purugawoz$, 'The Lord of the Rings Commander', 2026),
-  ('The Ruinous Powers', 'Abaddon the Despoiler', ARRAY['B','R','U']::text[], 'Commander', $psaj958w2$1 Abaddon the Despoiler
+1 Saruman, the White Hand$pe0srdj6t$, 'The Lord of the Rings Commander', 2026),
+  ('The Ruinous Powers', 'Abaddon the Despoiler', ARRAY['B','R','U']::text[], 'Commander', $ptek2oyo7$1 Abaddon the Despoiler
 1 Lucius the Eternal
 1 Lord of Change
 1 Knight Rampager
@@ -12928,8 +13275,8 @@ VALUES
 1 Worn Powerstone
 8 Island
 8 Mountain
-8 Swamp$psaj958w2$, 'Warhammer 40,000 Commander Collector''s Edition', 2026),
-  ('The Ruinous Powers', 'Abaddon the Despoiler', ARRAY['B','R','U']::text[], 'Commander', $p0zba8gsb$1 Abaddon the Despoiler
+8 Swamp$ptek2oyo7$, 'Warhammer 40,000 Commander Collector''s Edition', 2026),
+  ('The Ruinous Powers', 'Abaddon the Despoiler', ARRAY['B','R','U']::text[], 'Commander', $pigfe1ugk$1 Abaddon the Despoiler
 1 Blood for the Blood God!
 1 Sol Ring
 1 Noise Marine
@@ -13007,8 +13354,8 @@ VALUES
 8 Island
 8 Swamp
 8 Mountain
-1 Be'lakor, the Dark Master$p0zba8gsb$, 'Warhammer 40,000 Commander', 2026),
-  ('Timeless Wisdom', 'Gavi, Nest Warden', ARRAY['R','U','W']::text[], 'Commander', $p79hi0oi3$1 Gavi, Nest Warden
+1 Be'lakor, the Dark Master$pigfe1ugk$, 'Warhammer 40,000 Commander', 2026),
+  ('Timeless Wisdom', 'Gavi, Nest Warden', ARRAY['R','U','W']::text[], 'Commander', $p89dprsgz$1 Gavi, Nest Warden
 1 Agitator Ant
 1 Akroma's Vengeance
 1 Azorius Chancery
@@ -13095,8 +13442,8 @@ VALUES
 1 Shabraz, the Skyshark
 5 Island
 6 Mountain
-4 Plains$p79hi0oi3$, 'Commander 2020', 2020),
-  ('Timey-Wimey', 'The Tenth Doctor', ARRAY['R','U']::text[], 'Commander', $p4r83at0c$1 The Tenth Doctor
+4 Plains$p89dprsgz$, 'Commander 2020', 2020),
+  ('Timey-Wimey', 'The Tenth Doctor', ARRAY['R','U']::text[], 'Commander', $pxzui6ssj$1 The Tenth Doctor
 3 Island
 3 Mountain
 3 Plains
@@ -13188,8 +13535,8 @@ VALUES
 1 Rotating Fireplace
 1 Kate Stewart
 1 Psychic Paper
-1 Judoon Enforcers$p4r83at0c$, 'Doctor Who Commander', 2026),
-  ('Tinker Time', 'Gimbal, Gremlin Prodigy', ARRAY['G','R','U']::text[], 'Commander', $pku304fp1$1 Gimbal, Gremlin Prodigy
+1 Judoon Enforcers$pxzui6ssj$, 'Doctor Who Commander', 2026),
+  ('Tinker Time', 'Gimbal, Gremlin Prodigy', ARRAY['G','R','U']::text[], 'Commander', $pllvybp5v$1 Gimbal, Gremlin Prodigy
 7 Forest
 8 Island
 8 Mountain
@@ -13268,8 +13615,8 @@ VALUES
 1 Vampires' Vengeance
 1 Vedalken Humiliator
 1 Workshop Elders
-1 Rashmi and Ragavan$pku304fp1$, 'March of the Machine Commander', 2026),
-  ('Token Triumph', 'Emmara, Soul of the Accord', ARRAY['G','W']::text[], 'Commander', $pu0jhbzp6$1 Emmara, Soul of the Accord
+1 Rashmi and Ragavan$pllvybp5v$, 'March of the Machine Commander', 2026),
+  ('Token Triumph', 'Emmara, Soul of the Accord', ARRAY['G','W']::text[], 'Commander', $px5bnf1jq$1 Emmara, Soul of the Accord
 1 Aura Mutation
 1 Sporemound
 1 Selesnya Evangel
@@ -13341,8 +13688,8 @@ VALUES
 1 Valor in Akros
 1 Voice of Many
 15 Forest
-14 Plains$pu0jhbzp6$, 'Starter Commander', 2026),
-  ('Tricky Terrain', 'Omo, Queen of Vesuva', ARRAY['G','U']::text[], 'Commander', $p3vlaikcs$1 Omo, Queen of Vesuva
+14 Plains$px5bnf1jq$, 'Starter Commander', 2026),
+  ('Tricky Terrain', 'Omo, Queen of Vesuva', ARRAY['G','U']::text[], 'Commander', $p1d6cdn1a$1 Omo, Queen of Vesuva
 3 Island
 4 Forest
 1 Dryad of the Ilysian Grove
@@ -13436,8 +13783,8 @@ VALUES
 1 Sunken Palace
 1 Talon Gates of Madara
 1 Trenchpost
-1 Jyoti, Moag Ancient$p3vlaikcs$, 'Modern Horizons 3 Commander', 2026),
-  ('Tricky Terrain Collector''s Edition', 'Omo, Queen of Vesuva', ARRAY['G','U']::text[], 'Commander', $pry0vxvy3$1 Omo, Queen of Vesuva
+1 Jyoti, Moag Ancient$p1d6cdn1a$, 'Modern Horizons 3 Commander', 2026),
+  ('Tricky Terrain Collector''s Edition', 'Omo, Queen of Vesuva', ARRAY['G','U']::text[], 'Commander', $ppguruzl0$1 Omo, Queen of Vesuva
 1 March from Velis Vel
 1 Planar Nexus
 1 Apex Devastator
@@ -13531,8 +13878,8 @@ VALUES
 1 Talon Gates of Madara
 1 Trenchpost
 3 Island
-4 Forest$pry0vxvy3$, 'Modern Horizons 3 Commander', 2026),
-  ('Tyranid Swarm', 'The Swarmlord', ARRAY['G','R','U']::text[], 'Commander', $pguxdanae$1 The Swarmlord
+4 Forest$ppguruzl0$, 'Modern Horizons 3 Commander', 2026),
+  ('Tyranid Swarm', 'The Swarmlord', ARRAY['G','R','U']::text[], 'Commander', $p59v11nwr$1 The Swarmlord
 1 Magus Lucea Kane
 1 Screamer-Killer
 1 Exotic Orchard
@@ -13612,8 +13959,8 @@ VALUES
 1 Zoanthrope
 8 Forest
 7 Island
-7 Mountain$pguxdanae$, 'Warhammer 40,000 Commander Collector''s Edition', 2026),
-  ('Tyranid Swarm', 'The Swarmlord', ARRAY['G','R','U']::text[], 'Commander', $plwc8debu$1 The Swarmlord
+7 Mountain$p59v11nwr$, 'Warhammer 40,000 Commander Collector''s Edition', 2026),
+  ('Tyranid Swarm', 'The Swarmlord', ARRAY['G','R','U']::text[], 'Commander', $pgf8t0mkg$1 The Swarmlord
 1 Sol Ring
 1 Deathleaper, Terror Weapon
 1 Old One Eye
@@ -13693,8 +14040,8 @@ VALUES
 8 Forest
 7 Mountain
 7 Island
-1 Magus Lucea Kane$plwc8debu$, 'Warhammer 40,000 Commander', 2026),
-  ('Undead Unleashed', 'Wilhelt, the Rotcleaver', ARRAY['B','U']::text[], 'Commander', $phobzuyzz$1 Wilhelt, the Rotcleaver
+1 Magus Lucea Kane$pgf8t0mkg$, 'Warhammer 40,000 Commander', 2026),
+  ('Undead Unleashed', 'Wilhelt, the Rotcleaver', ARRAY['B','U']::text[], 'Commander', $pedw5nuar$1 Wilhelt, the Rotcleaver
 15 Swamp
 12 Island
 1 Curse of the Restless Dead
@@ -13768,8 +14115,8 @@ VALUES
 1 Unclaimed Territory
 1 Undead Alchemist
 1 Undead Augur
-1 Eloise, Nephalia Sleuth$phobzuyzz$, 'Innistrad: Midnight Hunt Commander 2021', 2021),
-  ('Upgrades Unleashed', 'Chishiro, the Shattered Blade', ARRAY['G','R']::text[], 'Commander', $p0sciewsz$1 Chishiro, the Shattered Blade
+1 Eloise, Nephalia Sleuth$pedw5nuar$, 'Innistrad: Midnight Hunt Commander 2021', 2021),
+  ('Upgrades Unleashed', 'Chishiro, the Shattered Blade', ARRAY['G','R']::text[], 'Commander', $pmlask951$1 Chishiro, the Shattered Blade
 1 Walking Skyscraper
 1 Orochi Merge-Keeper
 1 Towashi Guide-Bot
@@ -13843,8 +14190,8 @@ VALUES
 14 Forest
 12 Mountain
 1 Kaima, the Fractured Calm
-2 Mossfire Valley$p0sciewsz$, 'Kamigawa: Neon Dynasty Commander', 2026),
-  ('Urza''s Iron Alliance', 'Urza, Chief Artificer', ARRAY['B','U','W']::text[], 'Commander', $pcsp18lrw$1 Urza, Chief Artificer
+2 Mossfire Valley$pmlask951$, 'Kamigawa: Neon Dynasty Commander', 2026),
+  ('Urza''s Iron Alliance', 'Urza, Chief Artificer', ARRAY['B','U','W']::text[], 'Commander', $p1gpp7oa5$1 Urza, Chief Artificer
 1 Preordain
 1 Baleful Strix
 1 Command Tower
@@ -13935,8 +14282,8 @@ VALUES
 1 Tawnos, Solemn Survivor
 4 Island
 4 Plains
-3 Swamp$pcsp18lrw$, 'The Brothers'' War Commander', 2026),
-  ('Vampiric Bloodline', 'Strefan, Maurer Progenitor', ARRAY['B','R']::text[], 'Commander', $pqkff7r9i$1 Strefan, Maurer Progenitor
+3 Swamp$p1gpp7oa5$, 'The Brothers'' War Commander', 2026),
+  ('Vampiric Bloodline', 'Strefan, Maurer Progenitor', ARRAY['B','R']::text[], 'Commander', $pd5bpgsgb$1 Strefan, Maurer Progenitor
 11 Mountain
 14 Swamp
 1 Bloodtithe Harvester
@@ -14012,8 +14359,8 @@ VALUES
 1 Vampiric Dragon
 1 Vampire Nighthawk
 1 Unclaimed Territory
-1 Timothar, Baron of Bats$pqkff7r9i$, 'Innistrad: Crimson Vow Commander', 2026),
-  ('Vampiric Bloodlust', 'Edgar Markov', ARRAY['B','R','W']::text[], 'Commander', $pcon71dn6$1 Edgar Markov
+1 Timothar, Baron of Bats$pd5bpgsgb$, 'Innistrad: Crimson Vow Commander', 2026),
+  ('Vampiric Bloodlust', 'Edgar Markov', ARRAY['B','R','W']::text[], 'Commander', $pt54wvdek$1 Edgar Markov
 4 Mountain
 3 Plains
 8 Swamp
@@ -14100,8 +14447,8 @@ VALUES
 1 New Blood
 1 Rakish Heir
 1 Licia, Sanguine Tribune
-1 Mathas, Fiend Seeker$pcon71dn6$, 'Commander 2017', 2017),
-  ('Veloci-Ramp-Tor', 'Pantlaza, Sun-Favored', ARRAY['G','R','W']::text[], 'Commander', $pdi3xgqiv$1 Pantlaza, Sun-Favored
+1 Mathas, Fiend Seeker$pt54wvdek$, 'Commander 2017', 2017),
+  ('Veloci-Ramp-Tor', 'Pantlaza, Sun-Favored', ARRAY['G','R','W']::text[], 'Commander', $pkat58vu2$1 Pantlaza, Sun-Favored
 1 Path of Ancestry
 1 Arcane Signet
 1 Thrashing Brontodon
@@ -14187,8 +14534,8 @@ VALUES
 8 Forest
 4 Mountain
 4 Plains
-1 Wayta, Trainer Prodigy$pdi3xgqiv$, 'The Lost Caverns of Ixalan Commander', 2026),
-  ('Virtue and Valor', 'Ellivere of the Wild Court', ARRAY['G','W']::text[], 'Commander', $pitpdkjap$1 Ellivere of the Wild Court
+1 Wayta, Trainer Prodigy$pkat58vu2$, 'The Lost Caverns of Ixalan Commander', 2026),
+  ('Virtue and Valor', 'Ellivere of the Wild Court', ARRAY['G','W']::text[], 'Commander', $pumqit1nl$1 Ellivere of the Wild Court
 14 Plains
 15 Forest
 1 Archon of Sun's Grace
@@ -14260,8 +14607,8 @@ VALUES
 1 Unfinished Business
 1 Timber Paladin
 1 Loamcrafter Faun
-1 Gylwain, Casting Director$pitpdkjap$, 'Wilds of Eldraine Commander', 2026),
-  ('Wade Into Battle', 'Kalemne, Disciple of Iroas', ARRAY['R','W']::text[], 'Commander', $ptf2nx46g$1 Kalemne, Disciple of Iroas
+1 Gylwain, Casting Director$pumqit1nl$, 'Wilds of Eldraine Commander', 2026),
+  ('Wade Into Battle', 'Kalemne, Disciple of Iroas', ARRAY['R','W']::text[], 'Commander', $pq3dxikwl$1 Kalemne, Disciple of Iroas
 1 Ancient Amphitheater
 1 Angel of Serenity
 1 Anya, Merciless Angel
@@ -14337,8 +14684,8 @@ VALUES
 1 Victory's Herald
 1 Worn Powerstone
 14 Mountain
-11 Plains$ptf2nx46g$, 'Commander 2015', 2015),
-  ('Wade Into Battle', 'Kalemne, Disciple of Iroas', ARRAY['R','W']::text[], 'Commander', $pfipmj3x2$1 Kalemne, Disciple of Iroas
+11 Plains$pq3dxikwl$, 'Commander 2015', 2015),
+  ('Wade Into Battle', 'Kalemne, Disciple of Iroas', ARRAY['R','W']::text[], 'Commander', $pay2so4gm$1 Kalemne, Disciple of Iroas
 1 Arbiter of Knollridge
 1 Angel of Serenity
 1 Ancient Amphitheater
@@ -14414,8 +14761,94 @@ VALUES
 1 Anya, Merciless Angel
 1 Gisela, Blade of Goldnight
 14 Mountain
-11 Plains$pfipmj3x2$, 'Commander Anthology 2', 2026),
-  ('Witherbloom Witchcraft', 'Willowdusk, Essence Seer', ARRAY['B','G']::text[], 'Commander', $pncte9jw2$1 Willowdusk, Essence Seer
+11 Plains$pay2so4gm$, 'Commander Anthology 2', 2026),
+  ('Witherbloom Pestilence', 'Dina, Essence Brewer', ARRAY['B','G']::text[], 'Commander', $p3gljbamo$1 Dina, Essence Brewer
+1 Witherbloom Charm
+1 Gorma, the Gullet
+1 Stensian Sanguinist // Exsanguinate
+1 Pest Rescuer
+1 Feral Appetite
+1 Defiling Daemogoth
+1 Turbulent Fen
+1 Ominous Harvest
+1 Command Tower
+1 Merchant of Venom
+1 Ribtruss Roaster
+1 Eccentric Pestfinder // Turn Stones
+1 Immoral Bargain
+1 Tendershoot Dryad
+1 Umbral Collar Zealot
+1 Arcane Signet
+1 Mycoloth
+1 Casualties of War
+1 Dina, Soul Steeper
+1 Zulaport Cutthroat
+1 Jadar, Ghoulcaller of Nephalia
+1 Night's Whisper
+1 Sol Ring
+1 Pest Infestation
+1 Assassin's Trophy
+1 Blight Mound
+1 Elvish Mystic
+1 Toxic Deluge
+1 Culling Ritual
+1 Deadly Brew
+1 Infernal Grasp
+1 Teacher's Pest
+1 Final Act
+1 Gilded Goose
+1 Titan's Grave
+1 Ophiomancer
+1 Cultivate
+1 Veinwitch Coven
+1 Springbloom Druid
+1 Mazirek, Kraul Death Priest
+1 Fabled Passage
+1 Morbid Opportunist
+1 Exotic Orchard
+1 Witch of the Moors
+1 Viscera Seer
+1 Plumb the Forbidden
+1 Nether Traitor
+1 Terramorphic Expanse
+1 Sakura-Tribe Elder
+1 Priest of Forgotten Gods
+1 Woodland Cemetery
+1 Llanowar Wastes
+1 Temple of Malady
+1 Twilight Mire
+1 Bojuka Bog
+1 Woe Strider
+1 Path of Ancestry
+1 Awakening Zone
+1 Pawn of Ulamog
+1 Wight of the Reliquary
+1 Vernal Fen
+1 Gyome, Master Chef
+1 Ohran Frostfang
+1 High Market
+1 Haunted Mire
+1 Witherbloom Campus
+1 Festering Thicket
+1 Bloodghast
+1 Witherbloom Command
+1 Mortality Spear
+1 Creakwood Liege
+1 Trudge Garden
+1 Blood Artist
+1 Viridescent Bog
+1 Haywire Mite
+1 Moldervine Reclamation
+1 Necroblossom Snarl
+1 Beledros Witherbloom
+1 Grim Backwoods
+1 Yahenni, Undying Partisan
+1 Blossoming Bogbeast
+1 Study Hall
+1 Smothering Abomination
+8 Forest
+8 Swamp$p3gljbamo$, 'Secrets of Strixhaven Commander', 2026),
+  ('Witherbloom Witchcraft', 'Willowdusk, Essence Seer', ARRAY['B','G']::text[], 'Commander', $p5okex3ct$1 Willowdusk, Essence Seer
 11 Swamp
 11 Forest
 1 Dina, Soul Steeper
@@ -14494,8 +14927,8 @@ VALUES
 1 Venser's Journal
 1 Verdant Sun's Avatar
 1 Well of Lost Dreams
-1 Gyome, Master Chef$pncte9jw2$, 'Commander 2021', 2021),
-  ('World Shaper', 'Hearthhull, the Worldseed', ARRAY['B','G','R']::text[], 'Commander', $pkc37l23q$1 Hearthhull, the Worldseed
+1 Gyome, Master Chef$p5okex3ct$, 'Commander 2021', 2021),
+  ('World Shaper', 'Hearthhull, the Worldseed', ARRAY['B','G','R']::text[], 'Commander', $papegnen2$1 Hearthhull, the Worldseed
 1 Szarel, Genesis Shepherd
 1 Baloth Prime
 1 Eumidian Hatchery
@@ -14581,7 +15014,7 @@ VALUES
 1 Uurg, Spawn of Turg
 5 Swamp
 8 Forest
-3 Mountain$pkc37l23q$, 'Edge of Eternities Commander', 2026);
+3 Mountain$papegnen2$, 'Edge of Eternities Commander', 2026);
 
--- 175 precons generated. 0 errors.
+-- 180 precons generated. 0 errors.
 -- To avoid duplicates, run: DELETE FROM precon_decks; before re-importing.

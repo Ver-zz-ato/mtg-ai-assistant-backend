@@ -51,7 +51,8 @@
     "export:scryfall-cache-remaining-ai-review": "node scripts/export-scryfall-cache-remaining-ai-review.mjs",
     "generate:preview-scryfall-cache-remaining-ai-reviewed-sql": "node scripts/generate-preview-scryfall-cache-remaining-ai-reviewed-sql.mjs",
     "build:scryfall-cache-remaining-ai-reviewed": "node scripts/build-scryfall-cache-remaining-ai-reviewed.mjs",
-    "generate:scryfall-cache-final-small-bucket": "node scripts/generate-scryfall-cache-final-small-bucket.mjs"
+    "generate:scryfall-cache-final-small-bucket": "node scripts/generate-scryfall-cache-final-small-bucket.mjs",
+    "import:precons": "node --env-file=.env.local ./node_modules/tsx/dist/cli.mjs scripts/import-precons-supabase.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.21.0",

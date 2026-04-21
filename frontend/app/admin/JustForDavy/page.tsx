@@ -67,7 +67,7 @@ const GROUPS = [
     links: [
       { href: "/admin/datadashboard", label: "Data Dashboard", eli5: "Behaviour & meta data: suggestions accepted, deck snapshots, meta/commander history. Run tests, see counts." },
       { href: "/admin/budget-swaps", label: "Budget Swaps", eli5: "Manage Quick Swaps map; weekly cron adds AI suggestions" },
-      { href: "/admin/precons", label: "Precons", eli5: "Insert precon decks, generate SQL from Westly/CommanderPrecons" },
+      { href: "/admin/precons", label: "Precons", eli5: "Sync Westly/CommanderPrecons from GitHub, insert one-off, or generate SQL" },
       { href: "/admin/seo/pages", label: "SEO Pages", eli5: "Manage SEO landing pages" },
       { href: "/admin/data", label: "Data", eli5: "Run bulk jobs, vacuum, snapshot" },
       { href: "/admin/analytics-seed", label: "Analytics Seed", eli5: "Seed or debug analytics data" },
