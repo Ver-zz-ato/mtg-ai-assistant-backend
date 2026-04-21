@@ -80,7 +80,7 @@ function BrowseDecksContent() {
   const [showBackToTop, setShowBackToTop] = useState(false);
 
   // Precon-specific
-  const [preconSort, setPreconSort] = useState('recent');
+  const [preconSort, setPreconSort] = useState('set');
   const [preconSetFilter, setPreconSetFilter] = useState('');
   const [selectedPrecon, setSelectedPrecon] = useState<Deck | null>(null);
   const [cloningPrecon, setCloningPrecon] = useState(false);
