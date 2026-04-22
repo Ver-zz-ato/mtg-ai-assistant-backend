@@ -107,6 +107,14 @@ export async function getServerSupabase() {
 // Alias exported name expected by some legacy routes
 export const getSupabaseServer = getServerSupabase;
 
+/** Server-only: bypass RLS. Use only for trusted reads/writes (e.g. public profile rows with app-side guards). */
+export function getServiceRoleClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
+  if (!url || !key) return null;
+  return createSupabaseClient(url, key, { auth: { persistSession: false } });
+}
+
 /**
  * Create a Supabase client authenticated with a Bearer token.
  * Used by mobile app and other clients that pass Authorization: Bearer <access_token>.

@@ -1,21 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/server-supabase";
+import { getServerSupabase, createClientWithBearerToken } from "@/lib/server-supabase";
 import { captureServer } from "@/lib/server/analytics";
-import { sameOriginOk } from "@/lib/api/csrf";
+import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!sameOriginOrBearerPresent(req)) {
+      return NextResponse.json({ ok: false, error: "bad_origin" }, { status: 403 });
+    }
+
+    let supabase = await getServerSupabase();
+    let {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        supabase = createClientWithBearerToken(bearerToken);
+        ({
+          data: { user },
+        } = await supabase.auth.getUser());
+      }
+    }
+
     if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-    if (!sameOriginOk(req)) return NextResponse.json({ ok: false, error: 'bad_origin' }, { status: 403 });
+
     const body = await req.json().catch(()=>({}));
     const is_public = body?.is_public !== false; // default true
 
     // upsert row in profiles_public from user metadata + computed stats
     const md: any = user.user_metadata || {};
+    let profileUsername: string | null = typeof md.username === "string" && md.username.trim() ? md.username.trim() : null;
+    if (!profileUsername) {
+      try {
+        const { data: pr } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle();
+        const u = pr?.username;
+        if (typeof u === "string" && u.trim()) profileUsername = u.trim();
+      } catch {}
+    }
 
     // counts
     let deck_count = 0, collection_count = 0, messages_30d = 0;
@@ -43,8 +69,8 @@ export async function POST(req: NextRequest) {
 
     const row = {
       id: user.id,
-      username: md.username || null,
-      display_name: md.username || (user.email || null),
+      username: profileUsername,
+      display_name: profileUsername || (user.email || null),
       avatar: md.avatar || null,
       colors: Array.isArray(md.profile_colors) ? md.profile_colors : null,
       favorite_formats: Array.isArray(md.favorite_formats) ? md.favorite_formats : null,
@@ -62,7 +88,7 @@ export async function POST(req: NextRequest) {
     try { await captureServer('profile_share', { user_id: user.id, is_public }); } catch {}
 
     // Use production domain or explicit base URL (never use preview URLs for sharing)
-    const slug = row.username || user.id;
+    const slug = profileUsername || user.id;
     let base: string;
     
     if (process.env.NODE_ENV === 'production') {

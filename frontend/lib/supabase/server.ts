@@ -4,4 +4,5 @@ export {
   getServerSupabase as getSupabaseServerClient,
   createClient,
   createClientForStatic,
+  getServiceRoleClient,
 } from "@/lib/server-supabase";
