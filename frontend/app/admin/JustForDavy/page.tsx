@@ -95,12 +95,20 @@ export default function AdminDashboardPage() {
             Grouped by purpose. Each section has an ELI5 (Explain Like I'm 5) so you know what it does.
           </p>
         </div>
-        <Link
-          href="/admin/JustForDavy/command-center"
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium text-sm"
-        >
-          Daily Command Center
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/JustForDavy/cost-audit"
+            className="px-4 py-2 rounded-lg border border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700 text-sm"
+          >
+            Cost audit (Vercel)
+          </Link>
+          <Link
+            href="/admin/JustForDavy/command-center"
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium text-sm"
+          >
+            Daily Command Center
+          </Link>
+        </div>
       </div>
       {GROUPS.map((group) => (
         <section key={group.label} className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">

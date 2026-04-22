@@ -1,9 +1,21 @@
 import { getHistory, type Shout } from "../hub";
 import { createClient } from "@/lib/supabase/server";
+import {
+  costAuditRequestId,
+  costAuditSafeErr,
+  isCostAuditStorageEnabled,
+} from "@/lib/observability/cost-audit";
+import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
 
 const RETENTION_MS = 48 * 60 * 60 * 1000; // 48 hours
 
 export async function GET() {
+  const t0 = Date.now();
+  const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : "";
+  let cleanupDeleted: number | null = null;
+  let cleanupError: string | undefined;
+  let cleanupRan = false;
+
   const cutoffTime = Date.now() - RETENTION_MS;
   const cutoffISO = new Date(cutoffTime).toISOString();
   
@@ -11,6 +23,7 @@ export async function GET() {
   
   // Auto-delete old messages (older than 48 hours)
   try {
+    cleanupRan = true;
     const { error: deleteError, count } = await supabase
       .from('shoutbox_messages')
       .delete({ count: 'exact' })
@@ -18,11 +31,16 @@ export async function GET() {
     
     if (deleteError) {
       console.error('Failed to cleanup old shoutbox messages:', deleteError.message);
+      cleanupError = deleteError.message;
     } else if (count && count > 0) {
       console.log(`[Shoutbox] Cleaned up ${count} message(s) older than 48 hours`);
+      cleanupDeleted = count;
+    } else {
+      cleanupDeleted = count ?? 0;
     }
   } catch (err) {
     console.error('Shoutbox cleanup error:', err);
+    cleanupError = costAuditSafeErr(err);
   }
   
   // Get messages from database (only within retention window)
@@ -69,5 +87,18 @@ export async function GET() {
     .sort((a, b) => a.ts - b.ts)
     .slice(-100);
   
+  costAuditServerLog({
+    route: "/api/shout/history",
+    method: "GET",
+    reqId,
+    event: "shout.history",
+    durationMs: Date.now() - t0,
+    messageCount: allMessages.length,
+    cleanupRan,
+    cleanupDeleted,
+    cleanupError,
+    ok: !cleanupError,
+  });
+
   return Response.json({ items: allMessages });
 }

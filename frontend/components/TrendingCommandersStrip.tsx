@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  costAuditClientLog,
+  costAuditRequestId,
+  isCostAuditClientEnabled,
+} from "@/lib/observability/cost-audit";
 
 type TrendingCommander = {
   name: string;
@@ -17,13 +22,35 @@ export function TrendingCommandersStrip() {
   useEffect(() => {
     let cancelled = false;
     async function fetchTrending() {
+      const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
+      const t0 = Date.now();
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: "client.meta.trending_start",
+          component: "TrendingCommandersStrip",
+          session,
+          path: "/api/meta/trending?window=today",
+        });
+      }
       try {
         const res = await fetch("/api/meta/trending?window=today", { cache: "no-store" });
         const data = await res.json();
+        if (isCostAuditClientEnabled()) {
+          costAuditClientLog({
+            event: "client.meta.trending_done",
+            component: "TrendingCommandersStrip",
+            session,
+            durationMs: Date.now() - t0,
+            ok: res.ok && data?.ok,
+            status: res.status,
+            commanderRows: Array.isArray(data?.topCommanders) ? data.topCommanders.length : 0,
+          });
+        }
         if (!cancelled && data?.ok && Array.isArray(data.topCommanders)) {
           const list = data.topCommanders.slice(0, 12);
           setCommanders(list);
           const map: Record<string, string> = {};
+          const tArt = Date.now();
           await Promise.all(
             list.map(async (cmd: TrendingCommander) => {
               try {
@@ -36,9 +63,29 @@ export function TrendingCommandersStrip() {
               } catch {}
             })
           );
+          if (isCostAuditClientEnabled()) {
+            costAuditClientLog({
+              event: "client.commander_art.batch_done",
+              component: "TrendingCommandersStrip",
+              session,
+              durationMs: Date.now() - tArt,
+              artRequests: list.length,
+              artHits: Object.keys(map).length,
+            });
+          }
           if (!cancelled) setArtMap(map);
         }
       } catch {
+        if (isCostAuditClientEnabled()) {
+          costAuditClientLog({
+            event: "client.meta.trending_done",
+            component: "TrendingCommandersStrip",
+            session,
+            durationMs: Date.now() - t0,
+            ok: false,
+            err: "exception",
+          });
+        }
         // Silently fail
       } finally {
         if (!cancelled) setLoading(false);

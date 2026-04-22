@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 import { notifyOwnerNewComment } from "@/lib/notify-comment-owner";
+import {
+  costAuditRequestId,
+  costAuditSafeErr,
+  isCostAuditStorageEnabled,
+} from "@/lib/observability/cost-audit";
+import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +24,8 @@ function isProfane(text: string): boolean {
  * Get all comments for a public deck
  */
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const t0 = Date.now();
+  const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : "";
   try {
     const supabase = await createClient();
     const { id: deckId } = await context.params;
@@ -30,6 +38,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       .single();
 
     if (deckError || !deck) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: "/api/decks/[id]/comments",
+          method: "GET",
+          reqId,
+          event: "deck.comments",
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: "deck not found",
+          deckId,
+        });
+      }
       return NextResponse.json(
         { ok: false, error: "Deck not found" },
         { status: 404 }
@@ -37,6 +57,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     if (!deck.is_public) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: "/api/decks/[id]/comments",
+          method: "GET",
+          reqId,
+          event: "deck.comments",
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: "not public",
+          deckId,
+        });
+      }
       return NextResponse.json(
         { ok: false, error: "Comments only available on public decks" },
         { status: 403 }
@@ -59,11 +91,25 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     if (commentsError) {
       console.error("Error fetching comments:", commentsError);
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: "/api/decks/[id]/comments",
+          method: "GET",
+          reqId,
+          event: "deck.comments",
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: commentsError.message,
+          deckId,
+        });
+      }
       return NextResponse.json(
         { ok: false, error: "Failed to fetch comments" },
         { status: 500 }
       );
     }
+
+    const rawCount = (comments || []).length;
 
     // Get user metadata for each comment (username/avatar)
     const enrichedComments = await Promise.all(
@@ -82,6 +128,20 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       })
     );
 
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: "/api/decks/[id]/comments",
+        method: "GET",
+        reqId,
+        event: "deck.comments",
+        durationMs: Date.now() - t0,
+        ok: true,
+        deckId,
+        commentCount: enrichedComments.length,
+        adminLookupCount: rawCount,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       comments: enrichedComments,
@@ -89,6 +149,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     });
   } catch (error: any) {
     console.error("Error in comments GET:", error);
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: "/api/decks/[id]/comments",
+        method: "GET",
+        reqId,
+        event: "deck.comments",
+        durationMs: Date.now() - t0,
+        ok: false,
+        err: costAuditSafeErr(error),
+      });
+    }
     return NextResponse.json(
       { ok: false, error: error.message || "Internal server error" },
       { status: 500 }

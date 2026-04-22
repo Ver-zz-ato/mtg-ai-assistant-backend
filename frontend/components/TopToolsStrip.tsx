@@ -3,6 +3,11 @@ import React from "react";
 import { track } from "@/lib/analytics/track";
 import { useAuth } from "@/lib/auth-context";
 import { useProStatus } from "@/hooks/useProStatus";
+import {
+  costAuditClientLog,
+  costAuditRequestId,
+  isCostAuditClientEnabled,
+} from "@/lib/observability/cost-audit";
 
 export default function TopToolsStrip() {
   const [flags, setFlags] = React.useState<any>(null);
@@ -10,7 +15,40 @@ export default function TopToolsStrip() {
   const { user } = useAuth();
   const { isPro } = useProStatus();
   
-  React.useEffect(()=>{ (async()=>{ try{ const r=await fetch('/api/config?key=flags',{cache:'no-store'}); const j=await r.json(); if(j?.config?.flags) setFlags(j.config.flags);} catch{} })(); },[]);
+  React.useEffect(()=>{ (async()=>{
+    const session = isCostAuditClientEnabled() ? costAuditRequestId() : '';
+    const t0 = Date.now();
+    if (isCostAuditClientEnabled()) {
+      costAuditClientLog({ event: 'client.config.fetch_start', component: 'TopToolsStrip', session, key: 'flags' });
+    }
+    try{
+      const r=await fetch('/api/config?key=flags',{cache:'no-store'});
+      const j=await r.json();
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: 'client.config.fetch_done',
+          component: 'TopToolsStrip',
+          session,
+          durationMs: Date.now() - t0,
+          ok: r.ok,
+          status: r.status,
+          hasFlags: !!j?.config?.flags,
+        });
+      }
+      if(j?.config?.flags) setFlags(j.config.flags);
+    } catch {
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: 'client.config.fetch_done',
+          component: 'TopToolsStrip',
+          session,
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: 'exception',
+        });
+      }
+    }
+  })(); },[]);
   // Price Tracker should always show (not behind risky_betas flag)
   // Only use risky_betas for truly experimental features
   const riskyOn = true; // Always show Price Tracker

@@ -1,6 +1,12 @@
 // frontend/lib/chat/actions/bulk-prices.ts
 // Fetch prices for multiple cards at once
 
+import {
+  costAuditClientLog,
+  costAuditRequestId,
+  isCostAuditClientEnabled,
+} from "@/lib/observability/cost-audit";
+
 export async function getBulkPrices(cardNames: string[]): Promise<Map<string, number>> {
   const priceMap = new Map<string, number>();
   
@@ -11,6 +17,16 @@ export async function getBulkPrices(cardNames: string[]): Promise<Map<string, nu
   try {
     // Batch fetch prices - limit to 20 at a time to avoid overload
     const batch = cardNames.slice(0, 20);
+    const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
+    const t0 = Date.now();
+    if (isCostAuditClientEnabled()) {
+      costAuditClientLog({
+        event: "client.price.bulk_get_start",
+        component: "getBulkPrices",
+        session,
+        namesCount: batch.length,
+      });
+    }
     
     const results = await Promise.all(
       batch.map(async (name) => {
@@ -24,6 +40,18 @@ export async function getBulkPrices(cardNames: string[]): Promise<Map<string, nu
         }
       })
     );
+
+    if (isCostAuditClientEnabled()) {
+      const okCount = results.filter((r) => r.price != null).length;
+      costAuditClientLog({
+        event: "client.price.bulk_get_done",
+        component: "getBulkPrices",
+        session,
+        durationMs: Date.now() - t0,
+        requests: batch.length,
+        pricesResolved: okCount,
+      });
+    }
 
     for (const result of results) {
       if (result.price !== null) {

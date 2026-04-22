@@ -3,6 +3,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { PlaystyleTraits, AvoidItem } from '@/lib/quiz/quiz-data';
+import {
+  costAuditRequestId,
+  costAuditSafeErr,
+  isCostAuditStorageEnabled,
+} from '@/lib/observability/cost-audit';
+import { costAuditServerLog } from '@/lib/observability/cost-audit-server';
 
 export const runtime = 'nodejs';
 
@@ -171,11 +177,25 @@ Format response as JSON:
 }
 
 export async function POST(req: NextRequest) {
+  const t0 = Date.now();
+  const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : '';
   try {
     const body = await req.json() as ExplainRequest;
     
     // Validate request
     if (!body.traits || !body.level) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: '/api/playstyle/explain',
+          method: 'POST',
+          reqId,
+          event: 'playstyle.explain',
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: 'validation: missing traits or level',
+          level: body?.level,
+        });
+      }
       return NextResponse.json(
         { ok: false, error: 'Missing required fields: traits, level' },
         { status: 400 }
@@ -183,6 +203,18 @@ export async function POST(req: NextRequest) {
     }
     
     if (!['short', 'full'].includes(body.level)) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: '/api/playstyle/explain',
+          method: 'POST',
+          reqId,
+          event: 'playstyle.explain',
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: 'validation: bad level',
+          level: body.level,
+        });
+      }
       return NextResponse.json(
         { ok: false, error: 'level must be "short" or "full"' },
         { status: 400 }
@@ -193,20 +225,39 @@ export async function POST(req: NextRequest) {
     const cacheKey = generateCacheKey(body);
     const cached = explainCache.get(cacheKey);
     if (cached && cached.expiry > Date.now()) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: '/api/playstyle/explain',
+          method: 'POST',
+          reqId,
+          event: 'playstyle.explain',
+          durationMs: Date.now() - t0,
+          ok: true,
+          cacheHit: true,
+          cacheKey,
+          level: body.level,
+          archetypeCount: body.topArchetypes?.length ?? 0,
+          avoidCount: body.avoidList?.length ?? 0,
+          source: 'memory_cache',
+        });
+      }
       return NextResponse.json({ ok: true, ...cached.data, cached: true });
     }
     
     // Try AI, fallback to local
     let result: ExplainResult;
+    let source: 'openai' | 'fallback' = 'openai';
     try {
       result = await callOpenAIMini(body);
     } catch (aiError) {
       console.warn('AI explanation failed, using fallback:', aiError);
+      source = 'fallback';
       result = fallbackExplanation(body);
     }
     
     // Ensure we have valid data
     if (!result.paragraph) {
+      source = 'fallback';
       result = fallbackExplanation(body);
     }
     
@@ -226,9 +277,37 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: '/api/playstyle/explain',
+        method: 'POST',
+        reqId,
+        event: 'playstyle.explain',
+        durationMs: Date.now() - t0,
+        ok: true,
+        cacheHit: false,
+        cacheKey,
+        level: body.level,
+        archetypeCount: body.topArchetypes?.length ?? 0,
+        avoidCount: body.avoidList?.length ?? 0,
+        source,
+      });
+    }
+
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     console.error('Playstyle explain error:', error);
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: '/api/playstyle/explain',
+        method: 'POST',
+        reqId,
+        event: 'playstyle.explain',
+        durationMs: Date.now() - t0,
+        ok: false,
+        err: costAuditSafeErr(error),
+      });
+    }
     return NextResponse.json(
       { ok: false, error: 'Server error' },
       { status: 500 }

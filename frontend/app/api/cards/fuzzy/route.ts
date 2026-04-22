@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cleanCardName, stringSimilarity } from "@/lib/deck/cleanCardName";
+import {
+  costAuditRequestId,
+  costAuditSafeErr,
+  isCostAuditStorageEnabled,
+} from "@/lib/observability/cost-audit";
+import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
 
 export const runtime = "nodejs";
 
@@ -35,10 +41,27 @@ function dedupeBestByName(rows: FuzzyMatchRow[]): FuzzyMatchRow[] {
 }
 
 export async function POST(req: NextRequest) {
+  const t0 = Date.now();
+  const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : "";
+  let scryfallHttpCalls = 0; // declared outside try for catch logging
   try {
     const body = await req.json().catch(() => ({}));
     const names: string[] = Array.isArray(body?.names) ? body.names.slice(0, 50) : [];
-    if (!names.length) return NextResponse.json({ ok: false, error: "names required" }, { status: 400 });
+    if (!names.length) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: "/api/cards/fuzzy",
+          method: "POST",
+          reqId,
+          event: "fuzzy.request",
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: "names required",
+          namesCount: 0,
+        });
+      }
+      return NextResponse.json({ ok: false, error: "names required" }, { status: 400 });
+    }
 
     const supabase = await createClient();
     const results: Record<
@@ -139,6 +162,7 @@ export async function POST(req: NextRequest) {
 
       if (scored.length === 0) {
         try {
+          scryfallHttpCalls += 1;
           const r = await fetch(
             `https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(q0)}`,
             { cache: "no-store" }
@@ -156,6 +180,7 @@ export async function POST(req: NextRequest) {
 
       if (scored.length === 0) {
         try {
+          scryfallHttpCalls += 1;
           const r = await fetch(
             `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(q0)}`,
             { cache: "no-store" }
@@ -178,6 +203,7 @@ export async function POST(req: NextRequest) {
         const words = q0.split(/\s+/);
         const firstWords = words.slice(0, Math.min(2, words.length)).join(" ");
         try {
+          scryfallHttpCalls += 1;
           const r = await fetch(
             `https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(firstWords)}`,
             { cache: "no-store" }
@@ -198,6 +224,7 @@ export async function POST(req: NextRequest) {
         const firstWord = q0.split(/\s+/)[0];
         if (firstWord && firstWord.length >= 3) {
           try {
+            scryfallHttpCalls += 1;
             const r = await fetch(
               `https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(firstWord)}`,
               { cache: "no-store" }
@@ -221,8 +248,34 @@ export async function POST(req: NextRequest) {
       results[q] = { suggestion, all, matches: scored };
     }
 
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: "/api/cards/fuzzy",
+        method: "POST",
+        reqId,
+        event: "fuzzy.request",
+        durationMs: Date.now() - t0,
+        ok: true,
+        namesCount: names.length,
+        scryfallHttpCalls,
+        externalLookup: scryfallHttpCalls > 0,
+      });
+    }
+
     return NextResponse.json({ ok: true, results });
   } catch (e: any) {
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: "/api/cards/fuzzy",
+        method: "POST",
+        reqId,
+        event: "fuzzy.request",
+        durationMs: Date.now() - t0,
+        ok: false,
+        err: costAuditSafeErr(e),
+        scryfallHttpCalls,
+      });
+    }
     return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });
   }
 }

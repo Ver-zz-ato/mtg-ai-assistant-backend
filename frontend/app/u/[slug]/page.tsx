@@ -78,51 +78,6 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   // Inline helpers
   function norm(s: string) { return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
 
-  async function getDeckArt(deckId: string) {
-    try {
-      const { data } = await supabase.from('decks').select('title, commander, deck_text').eq('id', deckId).maybeSingle();
-      const list: string[] = [];
-      const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim();
-      if (data?.commander) list.push(clean(String(data.commander)));
-      if (data?.title) list.push(clean(String(data.title)));
-      // Take first up to 5 non-empty lines as candidates too
-      const lines = String(data?.deck_text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,5);
-      for (const line of lines) { const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/); list.push(clean(m ? m[2] : line)); }
-      // Fallback: fetch top few deck_cards for this deck to seed art candidates
-      try {
-        const { data: top } = await supabase.from('deck_cards').select('name, qty').eq('deck_id', deckId).order('qty', { ascending: false }).limit(5);
-        for (const r of (top as any[]) || []) list.push(clean(String(r.name)));
-      } catch {}
-      const candidates = Array.from(new Set(list));
-      console.log(JSON.stringify({ tag: 'public_profile_banner_candidates', deckId, candidates_count: candidates.length }));
-      const imgMap = await getImagesForNamesCached(candidates);
-      for (const n of candidates) { const img = imgMap.get(norm(n)); if (img?.art_crop || img?.normal || img?.small) return img.art_crop || img.normal || img.small; }
-      // Fuzzy fallback (gentle; cap a few requests)
-      for (const n of candidates.slice(0, 20)) {
-        try {
-          const fr = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(n)}`, { cache: 'no-store' });
-          if (!fr.ok) continue;
-          const card: any = await fr.json().catch(()=>({}));
-          const img = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
-          const url = img.art_crop || img.normal || img.small;
-          if (url) return url;
-        } catch {}
-      }
-    } catch {}
-    return undefined;
-  }
-
-  async function SignatureDeckArt({ deckId }: { deckId: string }) {
-    const art = await getDeckArt(deckId);
-    if (!art) return null as any;
-    return (
-      <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: `url(${art})` }} />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
-      </div>
-    );
-  }
-
   async function TopCommanders({ userId }: { userId: string }) {
     let cmds: Record<string, number> = {};
     try {
@@ -269,49 +224,6 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     imgMap = await getImagesForNamesCached(Array.from(nameSet));
   } catch {}
 
-  // Helper: pick first available art from precomputed imgMap and candidates (nameSet + top cards)
-  function pickAnyArt(): string | undefined {
-    const candidates = Array.from(nameSet);
-    for (const n of candidates) {
-      const img = imgMap.get(norm(n));
-      if (img?.art_crop || img?.normal || img?.small) return img.art_crop || img.normal || img.small;
-    }
-    return undefined;
-  }
-
-  // Compute a robust bannerArt with multiple fallbacks (signature deck -> first deck -> favorite commander -> any art)
-  let bannerArt: string | undefined = undefined;
-  try { if (prof.signature_deck_id) bannerArt = await getDeckArt(prof.signature_deck_id); } catch {}
-  if (!bannerArt && decks?.[0]?.id) { try { bannerArt = await getDeckArt(decks[0].id); } catch {} }
-  if (!bannerArt && prof.favorite_commander) {
-    try {
-      const m = await getImagesForNamesCached([String(prof.favorite_commander)]);
-      const v = m.get(norm(String(prof.favorite_commander)));
-      bannerArt = v?.art_crop || v?.normal || v?.small || undefined;
-    } catch {}
-  }
-  if (!bannerArt) {
-    // Try to mirror the exact tile art logic using the first recent deck and the same imgMap order (art_crop -> normal -> small)
-    try {
-      const d = decks?.[0];
-      if (d) {
-        const clean = (s: string) => String(s||'').replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
-        const candidates: string[] = [];
-        if (d.commander) candidates.push(clean(String(d.commander)));
-        if (d.title) candidates.push(clean(String(d.title)));
-        const first = String(d.deck_text||'').split(/\r?\n/).find((l:string)=>!!l?.trim());
-        if (first) { const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/); candidates.push(clean(m ? m[2] : first)); }
-        const tops = (topCardsByDeck.get(d.id) || []).map(s=>s.toLowerCase());
-        candidates.push(...tops);
-        for (const c of candidates) {
-          const img = imgMap.get(norm(c));
-          if (img?.art_crop || img?.normal || img?.small) { bannerArt = img.art_crop || img.normal || img.small; break; }
-        }
-      }
-    } catch {}
-  }
-  if (!bannerArt) bannerArt = pickAnyArt();
-
   // Build color pie from actual deck cards (not just commanders/titles)
   let pieCounts: Record<string, number> = { W:0,U:0,B:0,R:0,G:0 };
   
@@ -407,41 +319,92 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     radarAgg.aggro += w.aggro; radarAgg.control += w.control; radarAgg.combo += w.combo; radarAgg.midrange += w.midrange; radarAgg.stax += w.stax;
   }
 
+  const profileMonogram = (() => {
+    const n = String(prof.display_name || prof.username || 'MT').trim();
+    const parts = n.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+    return n.slice(0, 2).toUpperCase();
+  })();
+
+  /** Public hero: official card art only (favorite → top public commander → first deck list art). */
+  const publicHeroArt = (() => {
+    if (prof.favorite_commander) {
+      const v = imgMap.get(norm(String(prof.favorite_commander)));
+      const u = v?.art_crop || v?.normal || v?.small;
+      if (u) return u;
+    }
+    const cmdCounts: Record<string, number> = {};
+    for (const d of decks) {
+      const n = String(d.commander || '').trim();
+      if (n) cmdCounts[n] = (cmdCounts[n] || 0) + 1;
+    }
+    const topName = Object.entries(cmdCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (topName) {
+      const v = imgMap.get(norm(topName));
+      const u = v?.art_crop || v?.normal || v?.small;
+      if (u) return u;
+    }
+    for (const d of decks) {
+      const clean = (s: string) => String(s || '').replace(/\s*\(.*?\)\s*$/, '').trim().toLowerCase();
+      const candidates: string[] = [];
+      if (d.commander) candidates.push(clean(String(d.commander)));
+      if (d.title) candidates.push(clean(String(d.title)));
+      const first = String(d.deck_text || '')
+        .split(/\r?\n/)
+        .find((l: string) => !!l?.trim());
+      if (first) {
+        const m = first.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+        candidates.push(clean(m ? m[2] : first));
+      }
+      const tops = (topCardsByDeck.get(d.id) || []).map((s) => s.toLowerCase());
+      candidates.push(...tops);
+      for (const c of candidates) {
+        const img = imgMap.get(norm(c));
+        if (img?.art_crop || img?.normal || img?.small) {
+          return img.art_crop || img.normal || img.small;
+        }
+      }
+    }
+    return undefined;
+  })();
+
   return (
 <main className="max-w-5xl mx-auto p-6">
       {/* Enhanced profile header with dramatic banner */}
       <div className="relative overflow-hidden rounded-2xl border-2 border-purple-500/30 shadow-2xl mb-6">
-        {/* Banner background with gradient overlay */}
+        {/* Banner: safe official art + gradients (no user-uploaded media). */}
         <div className="relative h-48 sm:h-56">
-          {bannerArt ? (
-            <>
-              <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bannerArt})` }} />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-900/30 via-transparent to-blue-900/30" />
-            </>
+          {publicHeroArt ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center scale-105"
+              style={{ backgroundImage: `url(${publicHeroArt})` }}
+              aria-hidden
+            />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-blue-900/30 to-pink-900/40" />
           )}
-          
-          {/* Animated gradient border effect */}
-          <div className="absolute inset-0 rounded-2xl" style={{
-            background: gradient,
-            opacity: 0.1,
-            filter: 'blur(40px)'
-          }} />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/45 to-black/88" />
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-900/35 via-transparent to-indigo-900/35" />
+          <div
+            className="absolute inset-0 rounded-2xl"
+            style={{ background: gradient, opacity: 0.12, filter: 'blur(40px)' }}
+          />
         </div>
 
         {/* Profile info overlay */}
         <div className="relative z-10 -mt-20 px-6 pb-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4">
-            {/* Avatar with glow effect */}
+            {/* Monogram: identity seal (not the main hero focal when art is present). */}
             <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 blur-lg opacity-60" />
-              <img 
-                src={prof.avatar || '/next.svg'} 
-                alt="avatar" 
-                className="relative w-32 h-32 rounded-full object-cover border-4 border-neutral-900 shadow-2xl ring-2 ring-purple-500/50" 
-              />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 blur-lg opacity-50 scale-90" />
+              <div
+                className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-neutral-900 shadow-2xl ring-2 ring-purple-500/45 bg-gradient-to-br from-indigo-900 to-slate-900 flex items-center justify-center"
+                aria-hidden
+              >
+                <span className="text-2xl sm:text-3xl font-black text-indigo-100 tracking-tight select-none">
+                  {profileMonogram}
+                </span>
+              </div>
               {prof.is_pro && (
                 <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center border-4 border-neutral-900 shadow-lg">
                   <span className="text-lg">⭐</span>
@@ -486,6 +449,29 @@ export default async function Page({ params }: { params: Promise<Params> }) {
 
       <div className="grid grid-cols-12 gap-6">
         <section className="col-span-12 md:col-span-8 space-y-4">
+          {prof.favorite_commander ? (() => {
+            const fav = String(prof.favorite_commander);
+            const favImg = imgMap.get(norm(fav));
+            const favArt = favImg?.art_crop || favImg?.normal || favImg?.small || '';
+            return (
+              <section className="relative overflow-hidden rounded-xl border border-amber-500/25 bg-gradient-to-br from-amber-950/50 to-violet-950/35 p-5 shadow-lg">
+                {favArt ? (
+                  <div
+                    className="absolute -right-4 -top-4 h-40 w-40 rounded-full opacity-30 blur-sm bg-cover bg-center"
+                    style={{ backgroundImage: `url(${favArt})` }}
+                    aria-hidden
+                  />
+                ) : null}
+                <div className="relative z-[1]">
+                  <div className="text-xs font-bold uppercase tracking-wider text-amber-200/90 mb-1">
+                    Featured commander
+                  </div>
+                  <div className="text-xl font-bold text-neutral-100 pr-4">{fav}</div>
+                </div>
+              </section>
+            );
+          })() : null}
+          <MostLikedDecks userId={prof.id} />
           {/* Deck trends section with enhanced styling */}
           <section className="rounded-xl border-2 border-neutral-800 bg-gradient-to-br from-neutral-900/50 to-neutral-950/50 p-6 hover:border-blue-500/30 transition-colors shadow-xl">
             <div className="flex items-center gap-2 mb-4">
@@ -606,23 +592,8 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             </section>
           )}
 
-          <MostLikedDecks userId={prof.id} />
-
-          <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
-            <div className="text-lg font-semibold">Favorite Commander</div>
-            <div className="text-sm">{prof.favorite_commander || '—'}</div>
-          </section>
         </section>
         <aside className="col-span-12 md:col-span-4 space-y-4">
-          {prof?.custom_card?.art && (
-            <section className="rounded-xl border border-neutral-800 p-3">
-              <div className="text-lg font-semibold mb-2">Featured custom card</div>
-              <div className="flex justify-center">
-{require('react').createElement(require('@/components/AuthenticMTGCard').default, { mode:'view', value: { nameParts: (String(prof.custom_card.name||'Custom Card').split(' ').slice(0,3) as any).concat(['','','']).slice(0,3) as [string,string,string], subtext: String(prof.custom_card.sub||''), typeLine: '—', pt: { p: 1, t: 1 }, cost: 1, manaCost: ['1'], colorHint: (String(prof.custom_card.color||'U') as any), rarity: 'uncommon', setSymbol: 'CCC', art: { url: String(prof.custom_card.art||''), artist: String(prof.custom_card.artist||''), id: String(prof.custom_card.scryfall||'') } } })}
-              </div>
-            </section>
-          )}
-          
           {Array.isArray(prof.pinned_badges) && prof.pinned_badges.length > 0 && (
             <section className="rounded-xl border-2 border-neutral-800 bg-gradient-to-br from-neutral-900/50 to-neutral-950/50 p-4 hover:border-amber-500/30 transition-colors shadow-xl">
               <div className="flex items-center gap-2 mb-3">

@@ -2,7 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-
+import {
+  costAuditClientLog,
+  costAuditRequestId,
+  isCostAuditClientEnabled,
+} from '@/lib/observability/cost-audit';
 
 interface MetaData {
   topCommanders: Array<{ name: string; count: number; slug?: string }>;
@@ -23,14 +27,45 @@ export default function MetaDeckPanel() {
   }, []);
 
   async function fetchMeta() {
+    const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
+    const t0 = Date.now();
+    if (isCostAuditClientEnabled()) {
+      costAuditClientLog({
+        event: 'client.meta.trending_start',
+        component: 'MetaDeckPanel',
+        session,
+        path: '/api/meta/trending',
+      });
+    }
     try {
       const res = await fetch('/api/meta/trending', { cache: 'no-store' });
       const data = await res.json();
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: 'client.meta.trending_done',
+          component: 'MetaDeckPanel',
+          session,
+          durationMs: Date.now() - t0,
+          ok: res.ok && data?.ok,
+          status: res.status,
+          hasMeta: !!data?.ok,
+        });
+      }
       
       if (data.ok) {
         setMeta(data);
       }
-    } catch (e) {
+    } catch {
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: 'client.meta.trending_done',
+          component: 'MetaDeckPanel',
+          session,
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: 'exception',
+        });
+      }
       // Silently fail
     } finally {
       setLoading(false);

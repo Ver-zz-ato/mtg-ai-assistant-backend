@@ -1,5 +1,10 @@
 "use client";
 import React from "react";
+import {
+  costAuditClientLog,
+  costAuditRequestId,
+  isCostAuditClientEnabled,
+} from "@/lib/observability/cost-audit";
 
 export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { deckId: string; initialCurrency?: 'USD'|'EUR'|'GBP' }){
   const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>(initialCurrency);
@@ -20,8 +25,34 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
       const norm=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
       
       // Step 1: Try cache first (via /api/price which uses price_cache table)
+      const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
+      const tPrice = Date.now();
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: 'client.price.post_start',
+          component: 'DeckPriceMini',
+          session,
+          deckId,
+          namesCount: names.length,
+          currency,
+        });
+      }
       const pr = await fetch('/api/price', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }), cache: 'no-store' });
       const pj = await pr.json().catch(()=>({}));
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: 'client.price.post_done',
+          component: 'DeckPriceMini',
+          session,
+          deckId,
+          durationMs: Date.now() - tPrice,
+          ok: pr.ok && pj?.ok,
+          status: pr.status,
+          cacheHits: pj?.cache_stats?.hits,
+          cacheMisses: pj?.cache_stats?.misses,
+          missingCount: Array.isArray(pj?.missing) ? pj.missing.length : undefined,
+        });
+      }
       let prices: Record<string, number> = (pr.ok && pj?.ok && pj?.prices) ? pj.prices : {};
       
       // Step 2: Fallback to Scryfall live prices for missing cards (only if cache didn't have them)

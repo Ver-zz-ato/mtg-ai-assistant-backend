@@ -1,6 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import {
+  costAuditClientLog,
+  costAuditRequestId,
+  isCostAuditClientEnabled,
+} from '@/lib/observability/cost-audit';
 import { useRouter } from 'next/navigation';
 import { PlaystyleProfile, PlaystyleTraits, getTraitLabel, computeAvoidList, AvoidItem } from '@/lib/quiz/quiz-data';
 import { CommanderSuggestion, ArchetypeSuggestion, getCommanderSuggestionsWithMatch, getArchetypeSuggestionsWithMatch } from '@/lib/quiz/commander-suggestions';
@@ -53,6 +58,7 @@ export default function PlaystyleQuizResults({
   const [loadingAI, setLoadingAI] = useState(false);
   const [expandedArchetype, setExpandedArchetype] = useState<string | null>(null);
   const [dailyBuildsUsed, setDailyBuildsUsed] = useState(0);
+  const explainAttemptRef = useRef(0);
 
   // Resolve depth based on tier
   const depth = resolvePlaystyleDepth(modelTier);
@@ -91,9 +97,37 @@ export default function PlaystyleQuizResults({
   useEffect(() => {
     if (!depth.showAiExplanation || depth.aiExplanationLevel === 'none') return;
     if (proLoading || authLoading) return;
+
+    explainAttemptRef.current += 1;
+    const attempt = explainAttemptRef.current;
+    const session = isCostAuditClientEnabled() ? costAuditRequestId() : '';
+    if (isCostAuditClientEnabled()) {
+      costAuditClientLog({
+        event: 'client.playstyle.explain_effect',
+        component: 'PlaystyleQuizResults',
+        session,
+        attempt,
+        level: depth.aiExplanationLevel,
+        archetypeCount: archetypesWithMatch.length,
+        avoidListLen: avoidList.length,
+        avoidSlice: depth.avoidCount,
+        profileLabelLen: (profile.label || '').length,
+        proLoading,
+        authLoading,
+      });
+    }
     
     (async () => {
       setLoadingAI(true);
+      const t0 = Date.now();
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: 'client.playstyle.explain_fetch_start',
+          session,
+          attempt,
+          level: depth.aiExplanationLevel,
+        });
+      }
       try {
         const res = await fetch('/api/playstyle/explain', {
           method: 'POST',
@@ -107,6 +141,17 @@ export default function PlaystyleQuizResults({
           }),
         });
         const data = await res.json();
+        if (isCostAuditClientEnabled()) {
+          costAuditClientLog({
+            event: 'client.playstyle.explain_fetch_done',
+            session,
+            attempt,
+            durationMs: Date.now() - t0,
+            ok: res.ok && data?.ok,
+            status: res.status,
+            cached: data?.cached === true,
+          });
+        }
         if (data.ok) {
           setAiExplanation({
             paragraph: data.paragraph,
@@ -114,6 +159,16 @@ export default function PlaystyleQuizResults({
           });
         }
       } catch {
+        if (isCostAuditClientEnabled()) {
+          costAuditClientLog({
+            event: 'client.playstyle.explain_fetch_done',
+            session,
+            attempt,
+            durationMs: Date.now() - t0,
+            ok: false,
+            err: 'exception',
+          });
+        }
         // Silently fail - fallback UI will show
       } finally {
         setLoadingAI(false);

@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getServiceRoleClient } from "@/lib/supabase/server";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
+import { getCommanderSlugByName } from "@/lib/commanders";
+
+function fallbackCommanderSlug(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 export const runtime = "nodejs";
 
@@ -111,23 +119,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
       decks = Array.isArray(data) ? data : [];
     } catch {}
 
-    let bannerUrl: string | null = null;
-    try {
-      if (prof.signature_deck_id) {
-        const u = await getDeckBannerUrl(db, String(prof.signature_deck_id));
-        if (u) bannerUrl = u;
-      }
-    } catch {}
-    if (!bannerUrl && decks[0]?.id) {
-      const u = await getDeckBannerUrl(db, String(decks[0].id));
-      if (u) bannerUrl = u;
-    }
-    if (!bannerUrl && prof.favorite_commander) {
-      const m = await getImagesForNamesCached([String(prof.favorite_commander)]);
-      const v = m.get(norm(String(prof.favorite_commander)));
-      const u = v?.art_crop || v?.normal || v?.small;
-      if (u) bannerUrl = u;
-    }
+    // Public clients: no user-uploaded banner/avatar URLs (privacy; moderation).
+    const bannerUrl: string | null = null;
 
     const cmdCounts: Record<string, number> = {};
     try {
@@ -148,8 +141,38 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
     const topCommanders = topList.map(([name, count]) => {
       const img = topCmdImgs.get(norm(name));
       const art = img?.art_crop || img?.normal || img?.small || null;
-      return { name, count, artUrl: art };
+      const catalogGuide = getCommanderSlugByName(name);
+      const guideSlug = catalogGuide ?? fallbackCommanderSlug(name);
+      return { name, count, artUrl: art, guideSlug, hasCatalogGuide: catalogGuide != null };
     });
+
+    const favoriteRaw = prof.favorite_commander ? String(prof.favorite_commander).trim() : "";
+    const featuredName = favoriteRaw || (topList[0]?.[0] ?? "");
+    let featuredCommander: {
+      name: string;
+      count: number;
+      artUrl: string | null;
+      guideSlug: string;
+      hasCatalogGuide: boolean;
+    } | null = null;
+    if (featuredName) {
+      const count = (cmdCounts as Record<string, number>)[featuredName] ?? 0;
+      const imgHit = topCmdImgs.get(norm(featuredName));
+      let art: string | null = imgHit?.art_crop || imgHit?.normal || imgHit?.small || null;
+      if (!art) {
+        const extra = await getImagesForNamesCached([featuredName]);
+        const v = extra.get(norm(featuredName));
+        art = v?.art_crop || v?.normal || v?.small || null;
+      }
+      const catalog = getCommanderSlugByName(featuredName);
+      featuredCommander = {
+        name: featuredName,
+        count,
+        artUrl: art,
+        guideSlug: catalog ?? fallbackCommanderSlug(featuredName),
+        hasCatalogGuide: catalog != null,
+      };
+    }
 
     const allNames: string[] = [];
     for (const d of decks) {
@@ -158,7 +181,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
     }
     const deckImgMap = await getImagesForNamesCached(Array.from(new Set(allNames)));
 
-    const recentDecks = await Promise.all(
+    const recentDecksRaw = await Promise.all(
       decks.map(async (d) => {
         const candidates: string[] = [];
         if (d.commander) candidates.push(cleanN(String(d.commander)));
@@ -191,6 +214,27 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
       })
     );
 
+    const likeByDeck: Record<string, number> = {};
+    const deckIdsForLikes = recentDecksRaw.map((x) => x.id).filter(Boolean);
+    if (deckIdsForLikes.length) {
+      try {
+        const { data: likeRows } = await db
+          .from("deck_likes")
+          .select("deck_id")
+          .in("deck_id", deckIdsForLikes);
+        for (const row of (likeRows as any[]) || []) {
+          const id = String((row as any)?.deck_id ?? "");
+          if (!id) continue;
+          likeByDeck[id] = (likeByDeck[id] || 0) + 1;
+        }
+      } catch {}
+    }
+
+    const recentDecks = recentDecksRaw.map((d) => ({
+      ...d,
+      likeCount: likeByDeck[d.id] ?? 0,
+    }));
+
     const pinIds: string[] = Array.isArray(prof.pinned_deck_ids) ? prof.pinned_deck_ids.slice(0, 8) : [];
     let pinnedDecks: { id: string; title: string }[] = [];
     if (pinIds.length) {
@@ -220,7 +264,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
           id: prof.id,
           username: prof.username,
           display_name: prof.display_name,
-          avatar: prof.avatar,
+          avatar: null,
           is_pro: !!prof.is_pro,
           favorite_commander: prof.favorite_commander,
           favorite_formats: prof.favorite_formats,
@@ -230,11 +274,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
           messages_30d: prof.messages_30d,
           badges: Array.isArray(prof.badges) ? prof.badges : [],
           pinned_badges: prof.pinned_badges,
-          custom_card: prof.custom_card || null,
+          custom_card: null,
         },
         bannerUrl,
         recentDecks,
         topCommanders,
+        featuredCommander,
         pinnedDecks,
       },
       { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } }

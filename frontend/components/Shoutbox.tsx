@@ -1,5 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  costAuditClientLog,
+  costAuditRequestId,
+  isCostAuditClientEnabled,
+} from "@/lib/observability/cost-audit";
 
 type Shout = { id: number; user: string; text: string; ts: number };
 
@@ -27,6 +32,7 @@ export default function Shoutbox() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const evRef = useRef<EventSource | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const mountSessionRef = useRef<string | null>(null);
 
   const adjustTextareaHeight = useCallback(() => {
     const ta = textareaRef.current;
@@ -40,23 +46,62 @@ export default function Shoutbox() {
   }, [items.length]);
 
   useEffect(() => {
+    const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
+    mountSessionRef.current = session;
+    if (isCostAuditClientEnabled()) {
+      costAuditClientLog({
+        event: "client.shoutbox.mount",
+        component: "Shoutbox",
+        session,
+      });
+    }
+
     let closed = false;
     const timeoutId = setTimeout(() => {
       (async () => {
         try {
+          if (isCostAuditClientEnabled()) {
+            costAuditClientLog({
+              event: "client.shoutbox.history_start",
+              session: mountSessionRef.current,
+            });
+          }
           const r = await fetch("/api/shout/history", { cache: "no-store" });
           const j = await r.json().catch(() => ({ items: [] }));
+          if (isCostAuditClientEnabled()) {
+            costAuditClientLog({
+              event: "client.shoutbox.history_done",
+              session: mountSessionRef.current,
+              ok: r.ok,
+              status: r.status,
+              itemCount: Array.isArray((j as { items?: unknown }).items)
+                ? (j as { items: unknown[] }).items.length
+                : 0,
+            });
+          }
           if (!closed) {
             const items = (j.items as Shout[]) || [];
             setItems(items.sort((a, b) => a.ts - b.ts)); // oldest first, newest at bottom
             // Seed AI messages when shoutbox is empty (messages arrive via SSE)
             if (items.length === 0) {
+              if (isCostAuditClientEnabled()) {
+                costAuditClientLog({
+                  event: "client.shoutbox.auto_generate_seed",
+                  session: mountSessionRef.current,
+                });
+              }
               fetch("/api/shout/auto-generate?seed=true", { method: "GET" }).catch(() => {});
             }
           }
         } catch {}
 
         const { createSecureEventSource, logConnectionError } = await import('@/lib/secure-connections');
+        if (isCostAuditClientEnabled()) {
+          costAuditClientLog({
+            event: "client.shoutbox.sse_connect",
+            session: mountSessionRef.current,
+          });
+        }
         const ev = createSecureEventSource("/api/shout/stream");
         evRef.current = ev;
 
@@ -82,6 +127,12 @@ export default function Shoutbox() {
     }, 1000);
 
     return () => {
+      if (isCostAuditClientEnabled()) {
+        costAuditClientLog({
+          event: "client.shoutbox.unmount",
+          session: mountSessionRef.current,
+        });
+      }
       clearTimeout(timeoutId);
       closed = true;
       evRef.current?.close();

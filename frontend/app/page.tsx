@@ -21,6 +21,7 @@ import HomepageFAQ from "../components/HomepageFAQ";
 import { TrendingCommandersStrip } from "../components/TrendingCommandersStrip";
 import PopularCommanderGuides from "../components/PopularCommanderGuides";
 import { getHomeVariant } from "../lib/analytics/home-experiment";
+import { costAuditHomepageRender } from "@/lib/observability/cost-audit-server";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
 const RightSidebar = nextDynamic(() => import("../components/RightSidebar"), {
@@ -75,6 +76,7 @@ function jsonLd() {
 
 export default function Page() {
   const variant = getHomeVariant();
+  costAuditHomepageRender({ homeVariant: variant });
   const showVariantB = variant === 'B';
   
   return (

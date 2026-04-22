@@ -12,6 +12,11 @@ import {
   totalMaybeFlexQty,
   type MaybeFlexCard,
 } from "@/lib/deck/maybeFlexCards";
+import {
+  costAuditClientLog,
+  costAuditRequestId,
+  isCostAuditClientEnabled,
+} from "@/lib/observability/cost-audit";
 
 type CardRow = { id: string; deck_id: string; name: string; qty: number; created_at: string };
 
@@ -612,8 +617,34 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         const norm = (s: string) => String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
         
         // Step 1: Try cache first (via /api/price which uses price_cache table)
+        const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
+        const tPrice = Date.now();
+        if (isCostAuditClientEnabled()) {
+          costAuditClientLog({
+            event: 'client.price.post_start',
+            component: 'CardsPane',
+            session,
+            deckId: deckId || '',
+            namesCount: names.length,
+            currency,
+          });
+        }
         const r1 = await fetch('/api/price', { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ names, currency }), cache: 'no-store' });
         const j1 = await r1.json().catch(()=>({ ok:false }));
+        if (isCostAuditClientEnabled()) {
+          costAuditClientLog({
+            event: 'client.price.post_done',
+            component: 'CardsPane',
+            session,
+            deckId: deckId || '',
+            durationMs: Date.now() - tPrice,
+            ok: r1.ok && j1?.ok,
+            status: r1.status,
+            cacheHits: j1?.cache_stats?.hits,
+            cacheMisses: j1?.cache_stats?.misses,
+            missingCount: Array.isArray(j1?.missing) ? j1.missing.length : undefined,
+          });
+        }
         let prices: Record<string, number> = (r1.ok && j1?.ok && j1.prices) ? j1.prices : {};
         
         // Step 2: Find missing cards and fetch from Scryfall (only if cache didn't have them)

@@ -5,6 +5,12 @@ import { ok, err } from "@/lib/api/envelope";
 import { PriceBody } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
+import {
+  costAuditRequestId,
+  costAuditSafeErr,
+  isCostAuditStorageEnabled,
+} from "@/lib/observability/cost-audit";
+import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
 
 /**
  * `price_cache.card_name` lookup key only — keep in sync with shopping-list + bulk price import.
@@ -46,6 +52,14 @@ async function getFxRates(): Promise<{ USD_EUR: number; USD_GBP: number }> {
   const TTL_MS = 4 * 60 * 60 * 1000;
   if (fxCache && Date.now() - fxCache.at < TTL_MS) {
     return { USD_EUR: fxCache.USD_EUR, USD_GBP: fxCache.USD_GBP };
+  }
+
+  if (isCostAuditStorageEnabled()) {
+    costAuditServerLog({
+      route: "/api/price",
+      event: "price.fx.network",
+      ok: true,
+    });
   }
 
   // exchangerate.host is free/anonymous & very reliable
@@ -231,12 +245,26 @@ async function toCurrencyUnit(card: ScryfallCard | undefined, currency: Currency
 }
 
 export const GET = withLogging(async (req: NextRequest) => {
+  const t0 = Date.now();
+  const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : "";
   try {
     const { searchParams } = new URL(req.url);
     const name = searchParams.get('name');
     const currency = (searchParams.get('currency') || 'USD').toUpperCase() as Currency;
 
     if (!name) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: "/api/price",
+          method: "GET",
+          reqId,
+          event: "price.request",
+          durationMs: Date.now() - t0,
+          ok: false,
+          err: "name required",
+          namesCount: 0,
+        });
+      }
       return NextResponse.json({ ok: false, error: 'name required' }, { status: 400 });
     }
 
@@ -247,9 +275,12 @@ export const GET = withLogging(async (req: NextRequest) => {
     const snapshotNorm = normalizeScryfallCacheName(name);
     
     let priceData = cachedPrices[normName];
+    const priceCacheHit = !!priceData;
+    let scryfallUsed = false;
     
     // If not in cache, fetch from Scryfall
     if (!priceData) {
+      scryfallUsed = true;
       const freshPrices = await fetchScryfallPrices([normName]);
       const card = freshPrices[normName];
       
@@ -270,6 +301,21 @@ export const GET = withLogging(async (req: NextRequest) => {
     }
 
     if (!priceData) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: "/api/price",
+          method: "GET",
+          reqId,
+          event: "price.request",
+          durationMs: Date.now() - t0,
+          ok: true,
+          namesCount: 1,
+          priceCacheHit,
+          scryfallUsed,
+          priceResolved: false,
+          currency,
+        });
+      }
       return NextResponse.json({ ok: true, price: 0, delta_24h: 0, delta_7d: 0, delta_30d: 0 });
     }
 
@@ -355,6 +401,22 @@ export const GET = withLogging(async (req: NextRequest) => {
       }
     }
     
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: "/api/price",
+        method: "GET",
+        reqId,
+        event: "price.request",
+        durationMs: Date.now() - t0,
+        ok: true,
+        namesCount: 1,
+        priceCacheHit,
+        scryfallUsed,
+        priceResolved: true,
+        currency,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       price: price,
@@ -364,11 +426,24 @@ export const GET = withLogging(async (req: NextRequest) => {
     });
   } catch (e: any) {
     console.error('GET /api/price error:', e);
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: "/api/price",
+        method: "GET",
+        reqId,
+        event: "price.request",
+        durationMs: Date.now() - t0,
+        ok: false,
+        err: costAuditSafeErr(e),
+      });
+    }
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
   }
 });
 
 export const POST = withLogging(async (req: NextRequest) => {
+  const t0 = Date.now();
+  const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : "";
   try {
     const { names, currency } = (await req.json()) as {
       names: string[];
@@ -376,6 +451,18 @@ export const POST = withLogging(async (req: NextRequest) => {
     };
 
     if (!Array.isArray(names) || names.length === 0) {
+      if (isCostAuditStorageEnabled()) {
+        costAuditServerLog({
+          route: "/api/price",
+          method: "POST",
+          reqId,
+          event: "price.request",
+          durationMs: Date.now() - t0,
+          ok: true,
+          namesCount: 0,
+          note: "empty_names",
+        });
+      }
       return NextResponse.json({ ok: true, prices: {}, currency: currency ?? "USD", missing: [] });
     }
 
@@ -394,6 +481,7 @@ export const POST = withLogging(async (req: NextRequest) => {
     // Step 3: Fetch missing prices from Scryfall
     let freshPrices: Record<string, ScryfallCard> = {};
     let newCacheData: Record<string, { usd?: number; eur?: number; gbp?: number }> = {};
+    const scryfallUsed = needsFresh.length > 0;
     
     if (needsFresh.length > 0) {
       freshPrices = await fetchScryfallPrices(needsFresh);
@@ -445,6 +533,24 @@ export const POST = withLogging(async (req: NextRequest) => {
       prices[norm] = price;
     }
 
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: "/api/price",
+        method: "POST",
+        reqId,
+        event: "price.request",
+        durationMs: Date.now() - t0,
+        ok: true,
+        namesCount: names.length,
+        uniqueNamesCount: uniqueNames.length,
+        cacheHitCount: cacheHits.size,
+        cacheMissCount: needsFresh.length,
+        scryfallUsed,
+        missingCount: missing.length,
+        currency: want,
+      });
+    }
+
     return NextResponse.json({ 
       ok: true, 
       currency: want, 
@@ -458,6 +564,17 @@ export const POST = withLogging(async (req: NextRequest) => {
     });
   } catch (err) {
     console.error('Price API error:', err);
+    if (isCostAuditStorageEnabled()) {
+      costAuditServerLog({
+        route: "/api/price",
+        method: "POST",
+        reqId,
+        event: "price.request",
+        durationMs: Date.now() - t0,
+        ok: false,
+        err: costAuditSafeErr(err),
+      });
+    }
     return NextResponse.json(
       {
         ok: false,
