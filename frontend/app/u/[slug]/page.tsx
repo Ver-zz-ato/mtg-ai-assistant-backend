@@ -1,5 +1,6 @@
 // app/u/[slug]/page.tsx
-import { createClient, getServiceRoleClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+import { loadProfilesPublicBySlug } from "@/lib/server/publicProfile";
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -207,29 +208,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
   const { slug } = await params;
   const supabase = await createClient();
-
-  // Public profile snapshot must load for anonymous visitors. RLS on `profiles_public` often allows
-  // owners to upsert but not unauthenticated SELECT, which produced empty reads here. Prefer service
-  // role when configured; always enforce `is_public` in code below.
-  const profileClient = getServiceRoleClient() ?? supabase;
-
-  let prof: any = null;
-  try {
-    const { data } = await profileClient.from('profiles_public').select('*').eq('username', slug).maybeSingle();
-    prof = data || null;
-  } catch {}
-  if (!prof) {
-    try {
-      const { data: rows } = await profileClient.from('profiles_public').select('*').ilike('username', slug).limit(2);
-      if (Array.isArray(rows) && rows.length === 1) prof = rows[0];
-    } catch {}
-  }
-  if (!prof) {
-    try {
-      const { data } = await profileClient.from('profiles_public').select('*').eq('id', slug).maybeSingle();
-      prof = data || null;
-    } catch {}
-  }
+  const prof: any = await loadProfilesPublicBySlug(slug);
 
   if (!prof || prof.is_public === false) {
     return (
