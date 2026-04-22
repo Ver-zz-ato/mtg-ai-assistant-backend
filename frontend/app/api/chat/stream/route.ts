@@ -147,15 +147,11 @@ export async function POST(req: NextRequest) {
       const userAgent = req.headers.get('user-agent') || 'unknown';
 
       if (guestToken) {
-        const { verifyGuestToken } = await import('@/lib/guest-tracking');
-        const tokenData = await verifyGuestToken(guestToken);
-        if (!tokenData) {
-          return new Response(JSON.stringify({
-            fallback: true, reason: "guest_token_invalid",
-            message: "Please sign in to continue chatting. Invalid or expired guest session.",
-            code: "guest_token_invalid", tier: "guest", requiresAuth: true, guestLimitReached: true
-          }), { status: 200, headers: { "Content-Type": "application/json" } });
-        }
+        // Website uses HMAC-signed tokens; the mobile app sends a persisted UUID in this header
+        // (see Manatap-APP `getGuestToken`). `verifyGuestToken` only accepts signed payloads — do
+        // **not** reject unsigned tokens here, or every mobile guest hits a false "limit" (invalid
+        // token is surfaced as `guestLimitReached` in the client). Limits use `guest_sessions` via
+        // `checkGuestMessageLimit` (hash of the raw token string).
         const { checkGuestMessageLimit } = await import('@/lib/api/guest-limit-check');
         const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
         if (!guestCheck.allowed) {

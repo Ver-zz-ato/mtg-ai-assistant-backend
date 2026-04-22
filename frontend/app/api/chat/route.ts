@@ -350,13 +350,8 @@ export async function POST(req: NextRequest) {
       const userAgent = req.headers.get('user-agent') || 'unknown';
 
       if (guestToken) {
-        // Token present: verify and use guest_sessions path (website or mobile with header)
-        const { verifyGuestToken } = await import('@/lib/guest-tracking');
-        const tokenData = await verifyGuestToken(guestToken);
-        if (!tokenData) {
-          status = 401;
-          return err(`Please sign in to continue chatting. Invalid or expired guest session.`, "guest_token_invalid", 401, { tier: "guest", requiresAuth: true });
-        }
+        // Signed website tokens and mobile `X-Guest-Session-Token` UUIDs both hash into
+        // `guest_sessions` — do not require HMAC `verifyGuestToken` here (mobile would always fail).
         const { checkGuestMessageLimit } = await import('@/lib/api/guest-limit-check');
         const guestCheck = await checkGuestMessageLimit(supabase, guestToken, ip, userAgent);
         if (!guestCheck.allowed) {
