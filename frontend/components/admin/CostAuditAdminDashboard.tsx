@@ -409,6 +409,7 @@ export function CostAuditAdminDashboard() {
         <StatCard label="Events (sample)" value={String(summary.totalEvents ?? "0")} />
         <StatCard label="Shout open" value={String(summary.shoutStreamOpens ?? "0")} />
         <StatCard label="Shout close" value={String(summary.shoutStreamCloses ?? "0")} />
+        <StatCard label="Shout history (server)" value={String(summary.shoutHistoryServer ?? "0")} />
         <StatCard label="Playstyle (server)" value={String(summary.playstyleExplainCalls ?? "0")} />
         <StatCard label="Playstyle cache hit" value={pct(summary.playstyleCacheHitRate as number)} />
         <StatCard label="Price reqs" value={String(summary.priceRequests ?? "0")} />
@@ -465,19 +466,56 @@ export function CostAuditAdminDashboard() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Panel title="Shout stream">
+        <Panel title="Shout (stream + polling)">
+          <p className="text-xs text-neutral-500 mb-2">
+            Deploy env:{" "}
+            <code className="text-neutral-300">
+              NEXT_PUBLIC_SHOUT_REALTIME_MODE={String(shout.deployEnvRealtimeMode ?? "∅ (default poll)")}
+            </code>
+            ,{" "}
+            <code className="text-neutral-300">
+              NEXT_PUBLIC_SHOUT_POLL_MS={String(shout.deployEnvPollMs ?? "∅ (default 18000)")}
+            </code>
+            . Latest client mount:{" "}
+            <span className="text-amber-200/90">
+              {String(shout.latestClientRealtimeMode ?? "—")}
+            </span>
+            {shout.latestClientPollMs != null ? (
+              <span className="text-neutral-400"> @ {String(shout.latestClientPollMs)}ms poll</span>
+            ) : null}
+            .
+          </p>
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-            <dt className="text-neutral-500">Opens</dt>
+            <dt className="text-neutral-500">SSE opens</dt>
             <dd>{String(shout.openCount ?? 0)}</dd>
-            <dt className="text-neutral-500">Closes</dt>
+            <dt className="text-neutral-500">SSE closes</dt>
             <dd>{String(shout.closeCount ?? 0)}</dd>
-            <dt className="text-neutral-500">Avg duration</dt>
+            <dt className="text-neutral-500">Avg SSE duration</dt>
             <dd>{fmtMs(shout.avgDurationMs as number)}</dd>
-            <dt className="text-neutral-500">Median</dt>
+            <dt className="text-neutral-500">Median SSE</dt>
             <dd>{fmtMs(shout.medianDurationMs as number)}</dd>
-            <dt className="text-neutral-500">&lt;10s closes</dt>
+            <dt className="text-neutral-500">&lt;10s SSE closes</dt>
             <dd>{String(shout.shortCloseCount ?? 0)}</dd>
+            <dt className="text-neutral-500">shout.history (server)</dt>
+            <dd>{String(shout.historyServerCount ?? 0)}</dd>
+            <dt className="text-neutral-500">client history_done</dt>
+            <dd>{String(shout.clientHistoryDoneCount ?? 0)}</dd>
+            <dt className="text-neutral-500">Poll refreshes (client)</dt>
+            <dd>{String(shout.clientPollRefreshCount ?? 0)}</dd>
+            <dt className="text-neutral-500">Post refreshes (client)</dt>
+            <dd>{String(shout.clientPostRefreshCount ?? 0)}</dd>
+            <dt className="text-neutral-500">Visibility refreshes</dt>
+            <dd>{String(shout.clientVisibilityRefreshCount ?? 0)}</dd>
+            <dt className="text-neutral-500">SSE connect (client)</dt>
+            <dd>{String(shout.clientSseConnectCount ?? 0)}</dd>
+            <dt className="text-neutral-500">Poll visibility events</dt>
+            <dd>{String(shout.clientPollVisibilityEvents ?? 0)}</dd>
           </dl>
+          <p className="text-[11px] text-neutral-500 mt-2">
+            In <span className="text-neutral-300">poll</span> mode, SSE open/close should drop;{" "}
+            <span className="text-neutral-300">shout.history</span> and poll-driven client refreshes rise. In{" "}
+            <span className="text-neutral-300">sse</span> mode, the opposite.
+          </p>
           <MiniTable
             rows={(shout.recent as ApiRow[]) || []}
             columns={["created_at", "event_name", "duration_ms", "request_id"]}

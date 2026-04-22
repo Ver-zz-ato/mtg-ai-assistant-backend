@@ -5,8 +5,18 @@ import {
   costAuditRequestId,
   isCostAuditClientEnabled,
 } from "@/lib/observability/cost-audit";
+import {
+  getPublicShoutPollMs,
+  getPublicShoutRealtimeMode,
+} from "@/lib/shoutbox/realtime-config";
 
 type Shout = { id: number; user: string; text: string; ts: number };
+
+type HistorySource = "initial" | "poll" | "post" | "visibility";
+
+function shoutsFingerprint(items: Shout[]): string {
+  return items.map((m) => `${m.id}\u0000${m.ts}\u0000${m.user}\u0000${m.text}`).join("\n");
+}
 
 // Format timestamp as relative time (e.g., "2m", "1h", "1d")
 function formatRelativeTime(ts: number): string {
@@ -16,7 +26,7 @@ function formatRelativeTime(ts: number): string {
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
-  
+
   if (diffSec < 60) return "now";
   if (diffMin < 60) return `${diffMin}m`;
   if (diffHour < 24) return `${diffHour}h`;
@@ -33,6 +43,9 @@ export default function Shoutbox() {
   const evRef = useRef<EventSource | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const mountSessionRef = useRef<string | null>(null);
+  const historyReloadRef = useRef<
+    ((source: HistorySource) => Promise<void>) | null
+  >(null);
 
   const adjustTextareaHeight = useCallback(() => {
     const ta = textareaRef.current;
@@ -46,83 +59,166 @@ export default function Shoutbox() {
   }, [items.length]);
 
   useEffect(() => {
+    const realtimeMode = getPublicShoutRealtimeMode();
+    const pollMs = getPublicShoutPollMs();
     const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
     mountSessionRef.current = session;
+
     if (isCostAuditClientEnabled()) {
       costAuditClientLog({
         event: "client.shoutbox.mount",
         component: "Shoutbox",
         session,
+        realtimeMode,
+        pollMs: realtimeMode === "poll" ? pollMs : undefined,
       });
     }
 
     let closed = false;
-    const timeoutId = setTimeout(() => {
-      (async () => {
-        try {
-          if (isCostAuditClientEnabled()) {
-            costAuditClientLog({
-              event: "client.shoutbox.history_start",
-              session: mountSessionRef.current,
-            });
-          }
-          const r = await fetch("/api/shout/history", { cache: "no-store" });
-          const j = await r.json().catch(() => ({ items: [] }));
-          if (isCostAuditClientEnabled()) {
-            costAuditClientLog({
-              event: "client.shoutbox.history_done",
-              session: mountSessionRef.current,
-              ok: r.ok,
-              status: r.status,
-              itemCount: Array.isArray((j as { items?: unknown }).items)
-                ? (j as { items: unknown[] }).items.length
-                : 0,
-            });
-          }
-          if (!closed) {
-            const items = (j.items as Shout[]) || [];
-            setItems(items.sort((a, b) => a.ts - b.ts)); // oldest first, newest at bottom
-            // Seed AI messages when shoutbox is empty (messages arrive via SSE)
-            if (items.length === 0) {
-              if (isCostAuditClientEnabled()) {
-                costAuditClientLog({
-                  event: "client.shoutbox.auto_generate_seed",
-                  session: mountSessionRef.current,
-                });
-              }
-              fetch("/api/shout/auto-generate?seed=true", { method: "GET" }).catch(() => {});
-            }
-          }
-        } catch {}
+    let inFlightBusy = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let onVis: (() => void) | null = null;
 
-        const { createSecureEventSource, logConnectionError } = await import('@/lib/secure-connections');
-        if (isCostAuditClientEnabled()) {
+    async function loadHistory(historySource: HistorySource) {
+      if (closed) return;
+      if (inFlightBusy) {
+        if (historySource === "poll") return;
+        while (inFlightBusy) {
+          await new Promise((r) => setTimeout(r, 25));
+          if (closed) return;
+        }
+      }
+      inFlightBusy = true;
+      try {
+        if (isCostAuditClientEnabled() && historySource === "initial") {
           costAuditClientLog({
-            event: "client.shoutbox.sse_connect",
+            event: "client.shoutbox.history_start",
             session: mountSessionRef.current,
+            historySource,
           });
         }
-        const ev = createSecureEventSource("/api/shout/stream");
-        evRef.current = ev;
+        const r = await fetch("/api/shout/history", { cache: "no-store" });
+        const j = await r.json().catch(() => ({ items: [] }));
+        const sorted = (((j.items as Shout[]) || []) as Shout[]).slice().sort((a, b) => a.ts - b.ts);
+        if (isCostAuditClientEnabled()) {
+          costAuditClientLog({
+            event: "client.shoutbox.history_done",
+            session: mountSessionRef.current,
+            ok: r.ok,
+            status: r.status,
+            itemCount: sorted.length,
+            historySource,
+            realtimeMode,
+          });
+        }
+        if (!closed) {
+          setItems((prev) => {
+            if (shoutsFingerprint(prev) === shoutsFingerprint(sorted)) return prev;
+            return sorted;
+          });
+          if (historySource === "initial" && sorted.length === 0) {
+            if (isCostAuditClientEnabled()) {
+              costAuditClientLog({
+                event: "client.shoutbox.auto_generate_seed",
+                session: mountSessionRef.current,
+              });
+            }
+            fetch("/api/shout/auto-generate?seed=true", { method: "GET" }).catch(() => {});
+          }
+        }
+      } catch {
+        /* keep prior items */
+      } finally {
+        inFlightBusy = false;
+      }
+    }
 
-        ev.onmessage = (e) => {
-          try {
-            const msg = JSON.parse((e as MessageEvent).data) as Shout;
-            setItems((prev) =>
-              [...prev, msg].sort((a, b) => a.ts - b.ts).slice(-100) // oldest first, newest at bottom
-            );
-          } catch {}
-        };
+    historyReloadRef.current = loadHistory;
 
-        ev.onerror = () => {
-          if (ev.readyState === EventSource.CLOSED) {
-            logConnectionError('EventSource connection closed', {
-              type: 'eventsource',
-              url: '/api/shout/stream',
-              readyState: ev.readyState,
+    const timeoutId = setTimeout(() => {
+      void (async () => {
+        await loadHistory("initial");
+        if (closed) return;
+
+        if (realtimeMode === "sse") {
+          const { createSecureEventSource, logConnectionError } = await import("@/lib/secure-connections");
+          if (isCostAuditClientEnabled()) {
+            costAuditClientLog({
+              event: "client.shoutbox.sse_connect",
+              session: mountSessionRef.current,
+              realtimeMode: "sse",
             });
           }
+          const ev = createSecureEventSource("/api/shout/stream");
+          evRef.current = ev;
+
+          ev.onmessage = (e) => {
+            try {
+              const msg = JSON.parse((e as MessageEvent).data) as Shout;
+              setItems((prev) =>
+                [...prev, msg].sort((a, b) => a.ts - b.ts).slice(-100)
+              );
+            } catch {
+              /* ignore */
+            }
+          };
+
+          ev.onerror = () => {
+            if (ev.readyState === EventSource.CLOSED) {
+              logConnectionError("EventSource connection closed", {
+                type: "eventsource",
+                url: "/api/shout/stream",
+                readyState: ev.readyState,
+              });
+            }
+          };
+          return;
+        }
+
+        const scheduleInterval = () => {
+          if (intervalId != null) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+          intervalId = setInterval(() => {
+            if (closed || document.visibilityState !== "visible") return;
+            void loadHistory("poll");
+          }, pollMs);
         };
+
+        onVis = () => {
+          if (closed) return;
+          if (document.visibilityState === "hidden") {
+            if (intervalId != null) {
+              clearInterval(intervalId);
+              intervalId = null;
+            }
+            if (isCostAuditClientEnabled()) {
+              costAuditClientLog({
+                event: "client.shoutbox.poll_visibility",
+                session: mountSessionRef.current,
+                state: "hidden",
+                realtimeMode: "poll",
+              });
+            }
+          } else {
+            if (isCostAuditClientEnabled()) {
+              costAuditClientLog({
+                event: "client.shoutbox.poll_visibility",
+                session: mountSessionRef.current,
+                state: "visible",
+                realtimeMode: "poll",
+              });
+            }
+            void loadHistory("visibility");
+            scheduleInterval();
+          }
+        };
+
+        document.addEventListener("visibilitychange", onVis);
+        if (document.visibilityState === "visible") {
+          scheduleInterval();
+        }
       })();
     }, 1000);
 
@@ -131,10 +227,14 @@ export default function Shoutbox() {
         costAuditClientLog({
           event: "client.shoutbox.unmount",
           session: mountSessionRef.current,
+          realtimeMode,
         });
       }
       clearTimeout(timeoutId);
       closed = true;
+      historyReloadRef.current = null;
+      if (onVis) document.removeEventListener("visibilitychange", onVis);
+      if (intervalId != null) clearInterval(intervalId);
       evRef.current?.close();
       evRef.current = null;
     };
@@ -169,6 +269,7 @@ export default function Shoutbox() {
         throw new Error(j?.error || "Post failed");
       }
       setToast(null);
+      await historyReloadRef.current?.("post");
     } catch (e: any) {
       setText(originalText);
       setToast(e?.message || "Post failed. Please try again.");

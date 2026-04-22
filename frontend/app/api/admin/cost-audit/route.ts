@@ -153,6 +153,33 @@ export async function GET(req: NextRequest) {
 
     const shoutClose = pick((r) => r.event_name === "shout.stream.close");
     const shoutDurations = shoutClose.map((r) => r.duration_ms).filter((n): n is number => n != null);
+    const shoutHistoryServer = pick((r) => r.event_name === "shout.history");
+    const clientShoutMount = pick((r) => r.event_name === "client.shoutbox.mount");
+    const clientHistoryDone = pick((r) => r.event_name === "client.shoutbox.history_done");
+    const clientSseConnect = pick((r) => r.event_name === "client.shoutbox.sse_connect");
+    const clientPollVis = pick((r) => r.event_name === "client.shoutbox.poll_visibility");
+
+    const clientPollRefreshes = clientHistoryDone.filter(
+      (r) => (r.meta as Record<string, unknown> | null)?.historySource === "poll",
+    );
+    const clientPostRefreshes = clientHistoryDone.filter(
+      (r) => (r.meta as Record<string, unknown> | null)?.historySource === "post",
+    );
+    const clientVisibilityRefreshes = clientHistoryDone.filter(
+      (r) => (r.meta as Record<string, unknown> | null)?.historySource === "visibility",
+    );
+
+    let latestShoutMount: Row | null = null;
+    for (const r of clientShoutMount) {
+      if (!latestShoutMount || r.created_at > latestShoutMount.created_at) latestShoutMount = r;
+    }
+    const latestMeta = (latestShoutMount?.meta as Record<string, unknown> | undefined) || undefined;
+    const latestClientRealtimeMode =
+      typeof latestMeta?.realtimeMode === "string" ? latestMeta.realtimeMode : null;
+    const latestClientPollMs =
+      typeof latestMeta?.pollMs === "number" && Number.isFinite(latestMeta.pollMs)
+        ? latestMeta.pollMs
+        : null;
 
     const playstyleSourceCounts: Record<string, number> = {};
     for (const r of playstyleRows) {
@@ -303,6 +330,7 @@ export async function GET(req: NextRequest) {
         homepageRenders: pick((r) => r.event_name === "page.render").length,
         shoutStreamOpens: pick((r) => r.event_name === "shout.stream.open").length,
         shoutStreamCloses: shoutClose.length,
+        shoutHistoryServer: shoutHistoryServer.length,
         playstyleExplainCalls: playstyleRows.length,
         playstyleCacheHitRate: cacheRate(
           playstyleCacheKnown.filter((r) => r.cache_hit === true).length,
@@ -326,6 +354,17 @@ export async function GET(req: NextRequest) {
         medianDurationMs: median(shoutDurations),
         shortCloseCount: shoutClose.filter((r) => (r.duration_ms ?? 0) < 10_000).length,
         recent: shoutRecent,
+        historyServerCount: shoutHistoryServer.length,
+        clientHistoryDoneCount: clientHistoryDone.length,
+        clientPollRefreshCount: clientPollRefreshes.length,
+        clientPostRefreshCount: clientPostRefreshes.length,
+        clientVisibilityRefreshCount: clientVisibilityRefreshes.length,
+        clientSseConnectCount: clientSseConnect.length,
+        clientPollVisibilityEvents: clientPollVis.length,
+        latestClientRealtimeMode,
+        latestClientPollMs,
+        deployEnvRealtimeMode: process.env.NEXT_PUBLIC_SHOUT_REALTIME_MODE ?? null,
+        deployEnvPollMs: process.env.NEXT_PUBLIC_SHOUT_POLL_MS ?? null,
       },
       playstyle: {
         total: playstyleRows.length,
