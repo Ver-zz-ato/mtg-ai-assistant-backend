@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   costAuditClientLog,
   costAuditRequestId,
@@ -60,15 +60,49 @@ export default function PlaystyleQuizResults({
   const [dailyBuildsUsed, setDailyBuildsUsed] = useState(0);
   const explainAttemptRef = useRef(0);
 
-  // Resolve depth based on tier
-  const depth = resolvePlaystyleDepth(modelTier);
-  
-  // Compute avoid list
-  const avoidList = computeAvoidList(traits);
-  
-  // Get enhanced commanders/archetypes with match percentages
-  const commandersWithMatch = getCommanderSuggestionsWithMatch(profile, traits);
-  const archetypesWithMatch = getArchetypeSuggestionsWithMatch(profile, traits);
+  // Resolve depth based on tier (stable per tier — avoids new object identity each render)
+  const depth = useMemo(() => resolvePlaystyleDepth(modelTier), [modelTier]);
+
+  const avoidList = useMemo(() => computeAvoidList(traits), [traits]);
+
+  const commandersWithMatch = useMemo(
+    () => getCommanderSuggestionsWithMatch(profile, traits),
+    [profile, traits],
+  );
+  const archetypesWithMatch = useMemo(
+    () => getArchetypeSuggestionsWithMatch(profile, traits),
+    [profile, traits],
+  );
+
+  /** Stable key for explain POST body — effect deps were unstable array identities (duplicate fetches). */
+  const explainInputFingerprint = useMemo(() => {
+    if (!depth.showAiExplanation || depth.aiExplanationLevel === 'none') return null;
+    const traitEntries = (Object.keys(traits) as (keyof PlaystyleTraits)[])
+      .sort()
+      .map((k) => [k, traits[k]] as const);
+    const topArch = archetypesWithMatch
+      .slice(0, 3)
+      .map((a) => [a.name, a.matchPct ?? 75] as const);
+    const avoid = avoidList
+      .slice(0, depth.avoidCount)
+      .map((x) => [x.label, x.why ?? ''] as const);
+    return JSON.stringify({
+      level: depth.aiExplanationLevel,
+      avoidN: depth.avoidCount,
+      te: traitEntries,
+      arch: topArch,
+      av: avoid,
+      pl: profile.label ?? '',
+    });
+  }, [
+    depth.showAiExplanation,
+    depth.aiExplanationLevel,
+    depth.avoidCount,
+    traits,
+    archetypesWithMatch,
+    avoidList,
+    profile.label,
+  ]);
 
   // Fetch commander images
   useEffect(() => {
@@ -93,19 +127,23 @@ export default function PlaystyleQuizResults({
     })();
   }, [commandersWithMatch, depth.commanderCount]);
 
-  // Fetch AI explanation for free/pro users
+  // Fetch AI explanation for free/pro users — one request per meaningful fingerprint + auth readiness
   useEffect(() => {
     if (!depth.showAiExplanation || depth.aiExplanationLevel === 'none') return;
     if (proLoading || authLoading) return;
+    if (explainInputFingerprint == null) return;
 
+    const ac = new AbortController();
     explainAttemptRef.current += 1;
     const attempt = explainAttemptRef.current;
-    const session = isCostAuditClientEnabled() ? costAuditRequestId() : '';
+    const flowId = isCostAuditClientEnabled() ? costAuditRequestId() : '';
+
     if (isCostAuditClientEnabled()) {
       costAuditClientLog({
         event: 'client.playstyle.explain_effect',
         component: 'PlaystyleQuizResults',
-        session,
+        correlationId: flowId,
+        session: flowId,
         attempt,
         level: depth.aiExplanationLevel,
         archetypeCount: archetypesWithMatch.length,
@@ -116,14 +154,15 @@ export default function PlaystyleQuizResults({
         authLoading,
       });
     }
-    
+
     (async () => {
       setLoadingAI(true);
       const t0 = Date.now();
       if (isCostAuditClientEnabled()) {
         costAuditClientLog({
           event: 'client.playstyle.explain_fetch_start',
-          session,
+          correlationId: flowId,
+          session: flowId,
           attempt,
           level: depth.aiExplanationLevel,
         });
@@ -132,19 +171,24 @@ export default function PlaystyleQuizResults({
         const res = await fetch('/api/playstyle/explain', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: ac.signal,
           body: JSON.stringify({
             traits,
-            topArchetypes: archetypesWithMatch.slice(0, 3).map(a => ({ label: a.name, matchPct: a.matchPct || 75 })),
+            topArchetypes: archetypesWithMatch
+              .slice(0, 3)
+              .map((a) => ({ label: a.name, matchPct: a.matchPct || 75 })),
             avoidList: avoidList.slice(0, depth.avoidCount),
             level: depth.aiExplanationLevel,
             profileLabel: profile.label,
           }),
         });
         const data = await res.json();
+        if (ac.signal.aborted) return;
         if (isCostAuditClientEnabled()) {
           costAuditClientLog({
             event: 'client.playstyle.explain_fetch_done',
-            session,
+            correlationId: flowId,
+            session: flowId,
             attempt,
             durationMs: Date.now() - t0,
             ok: res.ok && data?.ok,
@@ -158,11 +202,13 @@ export default function PlaystyleQuizResults({
             becauseBullets: data.becauseBullets || [],
           });
         }
-      } catch {
+      } catch (e) {
+        if (ac.signal.aborted) return;
         if (isCostAuditClientEnabled()) {
           costAuditClientLog({
             event: 'client.playstyle.explain_fetch_done',
-            session,
+            correlationId: flowId,
+            session: flowId,
             attempt,
             durationMs: Date.now() - t0,
             ok: false,
@@ -171,10 +217,14 @@ export default function PlaystyleQuizResults({
         }
         // Silently fail - fallback UI will show
       } finally {
-        setLoadingAI(false);
+        if (!ac.signal.aborted) {
+          setLoadingAI(false);
+        }
       }
     })();
-  }, [depth.showAiExplanation, depth.aiExplanationLevel, proLoading, authLoading, traits, archetypesWithMatch, avoidList, depth.avoidCount, profile.label]);
+
+    return () => ac.abort();
+  }, [explainInputFingerprint, proLoading, authLoading]);
 
   // Check if user can build a deck (daily limit)
   const userCanBuild = canBuildDeck(depth.dailyDeckBuildLimit);

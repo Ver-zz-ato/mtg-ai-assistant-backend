@@ -36,9 +36,14 @@ export function costAuditRequestId(): string {
 
 export function costAuditClientLog(fields: Record<string, unknown>): void {
   if (!isCostAuditClientEnabled()) return;
+  const pathname =
+    typeof window !== "undefined"
+      ? String(window.location.pathname || "").slice(0, 500)
+      : undefined;
   const line = {
     ts: new Date().toISOString(),
     ...fields,
+    ...(fields.pathname == null && pathname ? { pathname } : {}),
   };
   console.log(PREFIX, JSON.stringify(line));
   if (

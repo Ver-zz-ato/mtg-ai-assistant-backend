@@ -44,6 +44,13 @@ const COLUMN_META_EXCLUDE = new Set([
   "missingCount",
   "cacheMissCount",
   "rawCount",
+  "correlationId",
+  "pathname",
+  "component",
+  "status",
+  "parentEventId",
+  "persistedFrom",
+  "attempt",
 ]);
 
 export function isCostAuditDbPersistEnabled(): boolean {
@@ -128,6 +135,16 @@ export function buildCostAuditInsertRow(
 
   const meta = sanitizeMetaObject(line, 0);
 
+  const component = line.component != null ? truncateStr(String(line.component), 200) : null;
+  const pathname = line.pathname != null ? truncateStr(String(line.pathname), 500) : null;
+  const correlationId =
+    line.correlationId != null
+      ? String(line.correlationId).slice(0, 80)
+      : sessionId;
+  const statusCode = pickInt(line.status);
+  const parentEventId = line.parentEventId != null ? String(line.parentEventId).slice(0, 80) : null;
+  const persistedFrom = source === "client" ? "client_ingest" : "server";
+
   return {
     source,
     event_name: eventName,
@@ -147,6 +164,12 @@ export function buildCostAuditInsertRow(
     count_2: count2,
     count_3: count3,
     meta,
+    component,
+    pathname,
+    correlation_id: correlationId,
+    status_code: statusCode,
+    parent_event_id: parentEventId,
+    persisted_from: persistedFrom,
   };
 }
 
@@ -184,7 +207,6 @@ export async function persistCostAuditEventsBatch(
   lines: Record<string, unknown>[],
 ): Promise<void> {
   if (!isCostAuditDbPersistEnabled() || !lines.length) return;
-  const picked = lines.filter(() => sampleAllows());
-  if (!picked.length) return;
-  await insertCostAuditRows(picked.map((line) => buildCostAuditInsertRow(source, line)));
+  /** Per-batch ingest must not apply independent sampling per row (skews start/done ratios). */
+  await insertCostAuditRows(lines.map((line) => buildCostAuditInsertRow(source, line)));
 }

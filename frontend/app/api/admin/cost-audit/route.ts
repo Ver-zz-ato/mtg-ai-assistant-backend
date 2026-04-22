@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { isAdmin } from "@/lib/admin-check";
+import { computeExtendedSummary } from "@/lib/observability/cost-audit-admin-compute";
+import type { CostAuditAdminRow } from "@/lib/observability/cost-audit-admin-types";
 
 export const runtime = "nodejs";
 
@@ -15,28 +17,7 @@ const WINDOW_MIN: Record<string, number> = {
   "7d": 10080,
 };
 
-type Row = {
-  id: string;
-  created_at: string;
-  source: string;
-  event_name: string;
-  route: string | null;
-  method: string | null;
-  request_id: string | null;
-  session_id: string | null;
-  user_id: string | null;
-  is_anonymous: boolean | null;
-  duration_ms: number | null;
-  success: boolean | null;
-  error_code: string | null;
-  cache_hit: boolean | null;
-  cache_key: string | null;
-  source_detail: string | null;
-  count_1: number | null;
-  count_2: number | null;
-  count_3: number | null;
-  meta: Record<string, unknown>;
-};
+type Row = CostAuditAdminRow;
 
 function p95(values: number[]): number | null {
   if (!values.length) return null;
@@ -90,6 +71,12 @@ export async function GET(req: NextRequest) {
     const sourceFilter = searchParams.get("source") || "";
     const requestIdSearch = searchParams.get("request_id") || "";
     const userIdSearch = searchParams.get("user_id") || "";
+    const componentFilter = searchParams.get("component") || "";
+    const sessionIdFilter = searchParams.get("session_id") || "";
+    const correlationFilter = searchParams.get("correlation_id") || "";
+    const sourceDetailFilter = searchParams.get("source_detail") || "";
+    const cacheHitParam = searchParams.get("cache_hit");
+    const sort = searchParams.get("sort") || "newest";
 
     const page = Math.max(0, parseInt(searchParams.get("page") || "0", 10) || 0);
     const pageSize = Math.min(100, Math.max(10, parseInt(searchParams.get("pageSize") || "40", 10) || 40));
@@ -101,6 +88,12 @@ export async function GET(req: NextRequest) {
       if (sourceFilter) x = x.eq("source", sourceFilter);
       if (requestIdSearch) x = x.ilike("request_id", `%${requestIdSearch}%`);
       if (userIdSearch) x = x.ilike("user_id", `%${userIdSearch}%`);
+      if (componentFilter) x = x.ilike("component", `%${componentFilter}%`);
+      if (sessionIdFilter) x = x.ilike("session_id", `%${sessionIdFilter}%`);
+      if (correlationFilter) x = x.ilike("correlation_id", `%${correlationFilter}%`);
+      if (sourceDetailFilter) x = x.ilike("source_detail", `%${sourceDetailFilter}%`);
+      if (cacheHitParam === "true") x = x.eq("cache_hit", true);
+      if (cacheHitParam === "false") x = x.eq("cache_hit", false);
       return x;
     };
 
@@ -122,15 +115,21 @@ export async function GET(req: NextRequest) {
     const aggRows = (aggRowsRaw || []) as Row[];
 
     const off = page * pageSize;
-    const recentQ = applyFilters(
+    let recentBase = applyFilters(
       admin
         .from("observability_cost_events")
         .select("*")
         .gte("created_at", fromIso)
-        .lte("created_at", toIso)
-        .order("created_at", { ascending: false })
-        .range(off, off + pageSize - 1),
+        .lte("created_at", toIso),
     );
+    if (sort === "oldest") {
+      recentBase = recentBase.order("created_at", { ascending: true });
+    } else if (sort === "duration_desc") {
+      recentBase = recentBase.order("duration_ms", { ascending: false });
+    } else {
+      recentBase = recentBase.order("created_at", { ascending: false });
+    }
+    const recentQ = recentBase.range(off, off + pageSize - 1);
 
     const { data: recentRaw, error: recentErr } = await recentQ;
     if (recentErr) {
@@ -290,11 +289,14 @@ export async function GET(req: NextRequest) {
       duration_ms: r.duration_ms,
     }));
 
+    const forensics = computeExtendedSummary(aggRows as CostAuditAdminRow[]);
+
     return NextResponse.json({
       ok: true,
       window: windowKey,
       from: fromIso,
       to: toIso,
+      sort,
       summary: {
         totalEvents: totalInSample,
         truncatedSample: truncated,
@@ -315,6 +317,7 @@ export async function GET(req: NextRequest) {
         fuzzyExternalLookupRate: fuzzyRows.length ? fuzzyExternal / fuzzyRows.length : null,
         commentRequests: pick((r) => r.event_name === "deck.comments").length,
       },
+      forensics,
       leaderboard,
       shout: {
         openCount: pick((r) => r.event_name === "shout.stream.open").length,
@@ -333,6 +336,7 @@ export async function GET(req: NextRequest) {
         sourceBreakdown: playstyleSourceCounts,
         repeatedCacheKeys,
         recent: playstyleRecent,
+        deepDive: forensics.playstyle,
       },
       price: {
         getCount: priceGet.length,
