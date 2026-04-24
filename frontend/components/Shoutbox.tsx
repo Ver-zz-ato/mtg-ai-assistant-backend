@@ -5,10 +5,7 @@ import {
   costAuditRequestId,
   isCostAuditClientEnabled,
 } from "@/lib/observability/cost-audit";
-import {
-  getPublicShoutPollMs,
-  getPublicShoutRealtimeMode,
-} from "@/lib/shoutbox/realtime-config";
+import { getPublicShoutPollMs } from "@/lib/shoutbox/realtime-config";
 
 type Shout = { id: number; user: string; text: string; ts: number };
 
@@ -40,7 +37,6 @@ export default function Shoutbox() {
   const [toast, setToast] = useState<string | null>(null);
   const [posting, setPosting] = useState<boolean>(false);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const evRef = useRef<EventSource | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const mountSessionRef = useRef<string | null>(null);
   const historyReloadRef = useRef<
@@ -59,8 +55,8 @@ export default function Shoutbox() {
   }, [items.length]);
 
   useEffect(() => {
-    const realtimeMode = getPublicShoutRealtimeMode();
     const pollMs = getPublicShoutPollMs();
+    const realtimeMode = "poll";
     const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
     mountSessionRef.current = session;
 
@@ -140,41 +136,6 @@ export default function Shoutbox() {
         await loadHistory("initial");
         if (closed) return;
 
-        if (realtimeMode === "sse") {
-          const { createSecureEventSource, logConnectionError } = await import("@/lib/secure-connections");
-          if (isCostAuditClientEnabled()) {
-            costAuditClientLog({
-              event: "client.shoutbox.sse_connect",
-              session: mountSessionRef.current,
-              realtimeMode: "sse",
-            });
-          }
-          const ev = createSecureEventSource("/api/shout/stream");
-          evRef.current = ev;
-
-          ev.onmessage = (e) => {
-            try {
-              const msg = JSON.parse((e as MessageEvent).data) as Shout;
-              setItems((prev) =>
-                [...prev, msg].sort((a, b) => a.ts - b.ts).slice(-100)
-              );
-            } catch {
-              /* ignore */
-            }
-          };
-
-          ev.onerror = () => {
-            if (ev.readyState === EventSource.CLOSED) {
-              logConnectionError("EventSource connection closed", {
-                type: "eventsource",
-                url: "/api/shout/stream",
-                readyState: ev.readyState,
-              });
-            }
-          };
-          return;
-        }
-
         const scheduleInterval = () => {
           if (intervalId != null) {
             clearInterval(intervalId);
@@ -235,8 +196,6 @@ export default function Shoutbox() {
       historyReloadRef.current = null;
       if (onVis) document.removeEventListener("visibilitychange", onVis);
       if (intervalId != null) clearInterval(intervalId);
-      evRef.current?.close();
-      evRef.current = null;
     };
   }, []);
 

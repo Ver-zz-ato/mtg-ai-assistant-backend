@@ -466,7 +466,7 @@ export function CostAuditAdminDashboard() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Panel title="Shout (stream + polling)">
+        <Panel title="Shout (polling + retired stream metrics)">
           <p className="text-xs text-neutral-500 mb-2">
             Deploy env:{" "}
             <code className="text-neutral-300">
@@ -474,7 +474,7 @@ export function CostAuditAdminDashboard() {
             </code>
             ,{" "}
             <code className="text-neutral-300">
-              NEXT_PUBLIC_SHOUT_POLL_MS={String(shout.deployEnvPollMs ?? "∅ (default 18000)")}
+              NEXT_PUBLIC_SHOUT_POLL_MS={String(shout.deployEnvPollMs ?? "∅ (default 15000)")}
             </code>
             . Latest client mount:{" "}
             <span className="text-amber-200/90">
@@ -490,6 +490,8 @@ export function CostAuditAdminDashboard() {
             <dd>{String(shout.openCount ?? 0)}</dd>
             <dt className="text-neutral-500">SSE closes</dt>
             <dd>{String(shout.closeCount ?? 0)}</dd>
+            <dt className="text-neutral-500">Retired stream hits</dt>
+            <dd>{String(shout.retiredHitCount ?? 0)}</dd>
             <dt className="text-neutral-500">Avg SSE duration</dt>
             <dd>{fmtMs(shout.avgDurationMs as number)}</dd>
             <dt className="text-neutral-500">Median SSE</dt>
@@ -512,9 +514,8 @@ export function CostAuditAdminDashboard() {
             <dd>{String(shout.clientPollVisibilityEvents ?? 0)}</dd>
           </dl>
           <p className="text-[11px] text-neutral-500 mt-2">
-            In <span className="text-neutral-300">poll</span> mode, SSE open/close should drop;{" "}
-            <span className="text-neutral-300">shout.history</span> and poll-driven client refreshes rise. In{" "}
-            <span className="text-neutral-300">sse</span> mode, the opposite.
+            SSE is retired; any new stream hits indicate stale clients or unexpected callers.{" "}
+            <span className="text-neutral-300">shout.history</span> and poll-driven client refreshes should carry active traffic.
           </p>
           <MiniTable
             rows={(shout.recent as ApiRow[]) || []}

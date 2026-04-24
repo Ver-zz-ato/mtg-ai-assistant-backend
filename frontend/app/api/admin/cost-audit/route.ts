@@ -152,6 +152,7 @@ export async function GET(req: NextRequest) {
     const fuzzyRows = pick((r) => r.event_name === "fuzzy.request");
 
     const shoutClose = pick((r) => r.event_name === "shout.stream.close");
+    const shoutRetiredHits = pick((r) => r.event_name === "shout.stream.retired_hit");
     const shoutDurations = shoutClose.map((r) => r.duration_ms).filter((n): n is number => n != null);
     const shoutHistoryServer = pick((r) => r.event_name === "shout.history");
     const clientShoutMount = pick((r) => r.event_name === "client.shoutbox.mount");
@@ -280,7 +281,12 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.calls - a.calls)
       .slice(0, 40);
 
-    const shoutRecent = pick((r) => r.event_name === "shout.stream.open" || r.event_name === "shout.stream.close")
+    const shoutRecent = pick(
+      (r) =>
+        r.event_name === "shout.stream.open" ||
+        r.event_name === "shout.stream.close" ||
+        r.event_name === "shout.stream.retired_hit",
+    )
       .slice(0, 15)
       .map((r) => ({
         created_at: r.created_at,
@@ -350,6 +356,7 @@ export async function GET(req: NextRequest) {
       shout: {
         openCount: pick((r) => r.event_name === "shout.stream.open").length,
         closeCount: shoutClose.length,
+        retiredHitCount: shoutRetiredHits.length,
         avgDurationMs: avg(shoutDurations),
         medianDurationMs: median(shoutDurations),
         shortCloseCount: shoutClose.filter((r) => (r.duration_ms ?? 0) < 10_000).length,
