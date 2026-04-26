@@ -15,6 +15,9 @@ const ROUTE_PATH = "/api/mobile/card/explain";
 const FEATURE = "card_explain_mobile";
 const VALID_MODES = new Set(["eli5", "tactics"]);
 const MAX_CARD_FIELD_CHARS = 4_000;
+const PROD_ORIGINS = new Set(["https://www.manatap.ai", "https://manatap.ai"]);
+const CORS_ALLOW_HEADERS = "Content-Type, Authorization, X-Guest-Session-Token, X-ManaTap-Client";
+const CORS_ALLOW_METHODS = "POST, OPTIONS";
 
 type ExplainMode = "eli5" | "tactics";
 type Tier = "guest" | "free" | "pro";
@@ -40,7 +43,36 @@ function trimmedString(value: unknown, maxLength = MAX_CARD_FIELD_CHARS): string
   return value.trim().slice(0, maxLength);
 }
 
+function allowedOrigin(req: NextRequest): string | null {
+  const origin = req.headers.get("origin")?.trim() ?? "";
+  if (!origin) return null;
+  if (PROD_ORIGINS.has(origin)) return origin;
+  if (/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)) return origin;
+  return null;
+}
+
+function corsHeaders(req: NextRequest): HeadersInit {
+  const origin = allowedOrigin(req);
+  return {
+    ...(origin ? { "Access-Control-Allow-Origin": origin } : {}),
+    "Access-Control-Allow-Methods": CORS_ALLOW_METHODS,
+    "Access-Control-Allow-Headers": CORS_ALLOW_HEADERS,
+    "Vary": "Origin",
+  };
+}
+
+function jsonResponse(req: NextRequest, payload: unknown, init?: ResponseInit) {
+  return NextResponse.json(payload, {
+    ...init,
+    headers: {
+      ...corsHeaders(req),
+      ...(init?.headers ?? {}),
+    },
+  });
+}
+
 function jsonError(
+  req: NextRequest,
   status: number,
   payload: {
     code: string;
@@ -53,7 +85,7 @@ function jsonError(
     proRequired?: boolean;
   }
 ) {
-  return NextResponse.json({ ok: false, ...payload }, { status });
+  return jsonResponse(req, { ok: false, ...payload }, { status });
 }
 
 function getIp(req: NextRequest): string {
@@ -116,6 +148,24 @@ Give deeper tactics and use-cases for this card. Keep the answer useful inside a
 Explain this card in simple terms for a newer player. Keep the answer short enough for a mobile card detail modal.`;
 }
 
+export async function OPTIONS(req: NextRequest) {
+  if (req.headers.get("origin") && !allowedOrigin(req)) {
+    return new NextResponse(null, {
+      status: 403,
+      headers: {
+        "Access-Control-Allow-Methods": CORS_ALLOW_METHODS,
+        "Access-Control-Allow-Headers": CORS_ALLOW_HEADERS,
+        "Vary": "Origin",
+      },
+    });
+  }
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders(req),
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     let supabase = await createClient();
@@ -141,7 +191,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json().catch(() => ({}))) as CardExplainRequestBody;
     const modeRaw = trimmedString(body.mode, 20).toLowerCase();
     if (!VALID_MODES.has(modeRaw)) {
-      return jsonError(400, {
+      return jsonError(req, 400, {
         code: "VALIDATION_ERROR",
         error: "mode must be eli5 or tactics",
       });
@@ -152,13 +202,13 @@ export async function POST(req: NextRequest) {
     const name = trimmedString(card?.name, 240);
     const oracleText = trimmedString(card?.oracleText);
     if (!name) {
-      return jsonError(400, {
+      return jsonError(req, 400, {
         code: "VALIDATION_ERROR",
         error: "card.name required",
       });
     }
     if (!oracleText) {
-      return jsonError(400, {
+      return jsonError(req, 400, {
         code: "MISSING_ORACLE_TEXT",
         error: "card.oracleText required",
       });
@@ -177,7 +227,7 @@ export async function POST(req: NextRequest) {
       tier === "pro" ? CARD_EXPLAIN_PRO : tier === "free" ? CARD_EXPLAIN_FREE : CARD_EXPLAIN_GUEST;
 
     if (mode === "tactics" && !isPro) {
-      return jsonError(403, {
+      return jsonError(req, 403, {
         code: "PRO_REQUIRED",
         error: "Deeper tactics are a Pro feature.",
         tier,
@@ -201,7 +251,7 @@ export async function POST(req: NextRequest) {
 
     const rateLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1);
     if (!rateLimit.allowed) {
-      return jsonError(429, {
+      return jsonError(req, 429, {
         code: "RATE_LIMIT_DAILY",
         error: "Daily card explanation limit reached. Try again tomorrow.",
         tier,
@@ -215,7 +265,7 @@ export async function POST(req: NextRequest) {
     const { allowAIRequest } = await import("@/lib/server/budgetEnforcement");
     const budgetCheck = await allowAIRequest(supabase);
     if (!budgetCheck.allow) {
-      return jsonError(429, {
+      return jsonError(req, 429, {
         code: "BUDGET_LIMIT",
         error: budgetCheck.reason || "Server AI budget limit reached. Try again later.",
         tier,
@@ -227,7 +277,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      return jsonError(500, {
+      return jsonError(req, 500, {
         code: "AI_UNAVAILABLE",
         error: "OpenAI API key not configured",
         tier,
@@ -307,7 +357,7 @@ export async function POST(req: NextRequest) {
         }
       );
 
-      return NextResponse.json({
+      return jsonResponse(req, {
         ok: true,
         mode,
         tier,
@@ -319,7 +369,7 @@ export async function POST(req: NextRequest) {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to explain card";
       console.error("[mobile/card/explain] AI error:", e);
-      return jsonError(500, {
+      return jsonError(req, 500, {
         code: "AI_UNAVAILABLE",
         error: message,
         tier,
@@ -332,7 +382,7 @@ export async function POST(req: NextRequest) {
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Server error";
     console.error("[mobile/card/explain] route error:", e);
-    return jsonError(500, {
+    return jsonError(req, 500, {
       code: "SERVER_ERROR",
       error: message,
     });
