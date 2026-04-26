@@ -56,6 +56,11 @@ export const MULLIGAN_ADVICE_GUEST = 2;
 export const MULLIGAN_ADVICE_FREE = 10;
 export const MULLIGAN_ADVICE_PRO = 50;
 
+/** Mobile Card Explain: guest 5/day, free 10/day, Pro 50/day. */
+export const CARD_EXPLAIN_GUEST = 5;
+export const CARD_EXPLAIN_FREE = 10;
+export const CARD_EXPLAIN_PRO = 50;
+
 /** Probability Tool: free 5/day, Pro 50/day. */
 export const PROBABILITY_FREE = 5;
 export const PROBABILITY_PRO = 50;
