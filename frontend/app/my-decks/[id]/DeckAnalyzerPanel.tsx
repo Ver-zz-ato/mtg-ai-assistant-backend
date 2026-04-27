@@ -634,7 +634,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                             await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
                                               method: 'DELETE',
                                               headers: { 'content-type': 'application/json' },
-                                              body: JSON.stringify({ name: s.card, qty: 1 })
+                                              body: JSON.stringify({ name: s.card, qty: 1, zone: "mainboard" })
                                             });
                                           }
                                           window.dispatchEvent(new Event('deck:changed'));
@@ -791,7 +791,7 @@ body: JSON.stringify({ name: s.card, qty: 1, suggestion_id: s.id, category: s.ca
                                             await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
                                               method: 'DELETE',
                                               headers: { 'content-type': 'application/json' },
-                                              body: JSON.stringify({ name: s.card, qty: 1 })
+                                              body: JSON.stringify({ name: s.card, qty: 1, zone: "mainboard" })
                                             });
                                           }
                                           window.dispatchEvent(new Event('deck:changed'));

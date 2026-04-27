@@ -701,7 +701,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
         method: 'DELETE',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, qty })
+        body: JSON.stringify({ name, qty, zone: "mainboard" })
       });
       
       if (!res.ok) {
@@ -758,7 +758,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
               await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
                 method: 'DELETE',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ name, qty })
+                body: JSON.stringify({ name, qty, zone: "mainboard" })
               });
             }
             try { window.dispatchEvent(new Event('deck:changed')); } catch {}

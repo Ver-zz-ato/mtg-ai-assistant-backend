@@ -334,7 +334,7 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
             await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: n, qty: q }),
+              body: JSON.stringify({ name: n, qty: q, zone: effectiveZone }),
             });
           }
           await load();

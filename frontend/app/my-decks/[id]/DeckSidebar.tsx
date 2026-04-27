@@ -353,7 +353,7 @@ export default function DeckSidebar({
             await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`, {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: cardName, qty: 1 })
+              body: JSON.stringify({ name: cardName, qty: 1, zone: "mainboard" })
             });
           }
           window.dispatchEvent(new Event('deck:changed'));

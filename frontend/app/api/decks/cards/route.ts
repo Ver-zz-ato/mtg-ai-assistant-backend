@@ -423,18 +423,23 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const name = String(body?.name ?? "").trim();
     const qty = Math.max(1, Number(body?.qty ?? 1) || 1);
-    
+    const rawZone = String(body?.zone ?? "mainboard").toLowerCase();
+    const zone = rawZone === "sideboard" ? "sideboard" : "mainboard";
+
     if (!deckId || !name) {
       return NextResponse.json({ ok: false, error: "deckId and name required" }, { status: 400 });
     }
 
     const supabase = await createClient();
-    const { data: existing } = await supabase
+    const { data: existingRows } = await supabase
       .from("deck_cards")
-      .select("id, qty")
-      .eq("deck_id", deckId)
-      .eq("name", name)
-      .maybeSingle();
+      .select("id, qty, name, zone")
+      .eq("deck_id", deckId);
+    const nameLower = name.toLowerCase();
+    const existing = (existingRows ?? []).find((r) => {
+      const z = String((r as { zone?: string }).zone || "mainboard").toLowerCase();
+      return (r.name || "").toLowerCase() === nameLower && z === zone;
+    });
 
     if (!existing?.id) {
       return NextResponse.json({ ok: false, error: "Card not found in deck" }, { status: 404 });
