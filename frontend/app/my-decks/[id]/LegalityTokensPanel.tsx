@@ -1,5 +1,7 @@
 "use client";
 import React from "react";
+import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 
 export default function LegalityTokensPanel({ deckId, format }: { deckId: string; format?: string }) {
   const [open, setOpen] = React.useState(false);
@@ -31,8 +33,8 @@ export default function LegalityTokensPanel({ deckId, format }: { deckId: string
       const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: "no-store" });
       const j = await res.json().catch(()=>({ ok:false }));
       if (!res.ok || j?.ok === false) throw new Error(j?.error || res.statusText);
-      const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: number }> : [];
-      const text = rows.map(it => `${it.qty} ${it.name}`).join("\n");
+      const rows = Array.isArray(j.cards) ? (j.cards as Array<{ name: string; qty: number; zone?: string | null }>) : [];
+      const text = rowsToDeckTextForAnalysis(rows, format);
       setDeckText(text);
       return text;
     } catch (e: any) {
@@ -46,8 +48,8 @@ export default function LegalityTokensPanel({ deckId, format }: { deckId: string
       setLoading(true);
       setError(null);
       const ensureText = deckText || await loadDeckText();
-      const deckFormat = format || 'commander'; // Use provided format or default to commander
-      const body: any = { deckText: ensureText, format: deckFormat.charAt(0).toUpperCase() + deckFormat.slice(1), useScryfall: true, sourcePage: 'deck_page_legality' };
+      // `deckFormatStringToAnalyzeFormat` maps stored strings (e.g. pioneer) to analyze payloads; when `format` is missing we default to Commander the same way as the rest of the deck page.
+      const body: any = { deckText: ensureText, format: deckFormatStringToAnalyzeFormat(format), useScryfall: true, sourcePage: 'deck_page_legality' };
       if (colors.length) body.colors = colors;
       
       // Add timeout to prevent hanging (120 seconds)

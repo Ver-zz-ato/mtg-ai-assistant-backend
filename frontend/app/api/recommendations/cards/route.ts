@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAllSupabaseRows } from '@/lib/supabase/fetchAllRows';
 import { normalizeScryfallCacheName } from '@/lib/server/scryfallCacheRow';
 import { normalizeName } from '@/lib/mtg/normalize';
 
@@ -71,14 +72,14 @@ export async function GET(request: NextRequest) {
 
     let collectionCards = new Set<string>();
     if (collections && collections.length > 0) {
-      const { data: items } = await supabase
-        .from('collection_cards')
-        .select('name')
-        .eq('collection_id', collections[0].id);
-      
-      if (items) {
-        items.forEach(item => collectionCards.add(item.name));
-      }
+      const items = await fetchAllSupabaseRows<{ name: string }>(() =>
+        supabase
+          .from("collection_cards")
+          .select("name")
+          .eq("collection_id", collections[0].id)
+          .order("id", { ascending: true }),
+      );
+      items.forEach((item) => collectionCards.add(item.name));
     }
 
     // Step 4: Find cards in decks but not in collection

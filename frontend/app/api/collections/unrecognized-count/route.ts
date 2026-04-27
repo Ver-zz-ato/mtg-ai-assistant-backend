@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 import { cleanCardName, stringSimilarity } from "@/lib/deck/cleanCardName";
 
 function norm(s: string) { 
@@ -21,14 +22,13 @@ export async function GET(req: NextRequest) {
 
     const supabase = await createClient();
     
-    // Get all card names from collection
-    const { data: rows } = await supabase
-      .from('collection_cards')
-      .select('name')
-      .eq('collection_id', collectionId)
-      .limit(1000);
-    
-    const cards = Array.isArray(rows) ? rows : [];
+    const cards = await fetchAllSupabaseRows<{ name: string }>(() =>
+      supabase
+        .from("collection_cards")
+        .select("name")
+        .eq("collection_id", collectionId)
+        .order("id", { ascending: true }),
+    );
     if (cards.length === 0) {
       return NextResponse.json({ ok: true, count: 0 });
     }

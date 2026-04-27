@@ -2,10 +2,29 @@
 import React from "react";
 import { ProTagLink } from "@/components/ProBadge";
 import { hypergeomCDFAtLeast, buildProbabilityNarrative } from "@/lib/math/hypergeometric";
+import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 
-export default function DeckProbabilityPanel({ deckId, isPro }: { deckId: string; isPro: boolean }) {
+type CardRow = { name: string; qty: number; zone?: string | null };
+
+function mainboardQtySum(rows: CardRow[]): number {
+  return rows
+    .filter((r) => String(r.zone || "mainboard").toLowerCase() !== "sideboard")
+    .reduce((s, it) => s + Math.max(0, Number(it.qty) || 0), 0);
+}
+
+export default function DeckProbabilityPanel({
+  deckId,
+  isPro,
+  format: deckFormat,
+}: {
+  deckId: string;
+  isPro: boolean;
+  /** Raw deck `format` from DB (e.g. pioneer). When missing, K-from-tag uses Commander-shaped analysis. */
+  format?: string;
+}) {
   const [N, setN] = React.useState(99);
-  // Derive deck size from current deck
+  // Derive deck size (mainboard) from current deck
   React.useEffect(() => {
     (async () => {
       try {
@@ -13,8 +32,8 @@ export default function DeckProbabilityPanel({ deckId, isPro }: { deckId: string
         const r = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: 'no-store' });
         const j = await r.json().catch(()=>({ ok:false }));
         if (!r.ok || j?.ok===false) return;
-const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: number }> : [];
-        const total = rows.reduce((s, it) => s + Math.max(0, Number(it.qty)||0), 0);
+        const rows = Array.isArray(j.cards) ? (j.cards as CardRow[]) : [];
+        const total = mainboardQtySum(rows);
         if (total > 0) setN(total);
       } catch {}
     })();
@@ -63,12 +82,13 @@ const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: numb
       const r = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache:'no-store' });
       const j = await r.json().catch(()=>({ ok:false }));
       if (!r.ok || j?.ok===false) return;
-const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: number }> : [];
-      const deckText = rows.map(it => `${it.qty} ${it.name}`).join('\n');
-      const a = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format:'Commander', useScryfall:true, sourcePage: 'deck_page_probability' }) });
+      const rows = Array.isArray(j.cards) ? (j.cards as CardRow[]) : [];
+      const deckText = rowsToDeckTextForAnalysis(rows, deckFormat);
+      const analyzeFormat = deckFormatStringToAnalyzeFormat(deckFormat);
+      const a = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format: analyzeFormat, useScryfall:true, sourcePage: 'deck_page_probability' }) });
       const aj = await a.json().catch(()=>({}));
       const c = aj?.counts || {};
-      const map: any = { lands: c.lands||0, ramp: c.ramp||0, draw: c.draw||0, removal: c.removal||0 };
+      const map: Record<typeof tag, number> = { lands: c.lands||0, ramp: c.ramp||0, draw: c.draw||0, removal: c.removal||0 };
       const val = Number(map[tag] || 0);
       if (val>0) setK(val);
     } catch {}

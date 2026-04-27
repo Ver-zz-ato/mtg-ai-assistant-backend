@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 
 function norm(s: string) { return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
 
@@ -12,12 +13,13 @@ export async function GET(req: NextRequest) {
     if (!collectionId) return NextResponse.json({ ok:false, error:'collectionId required' }, { status:400 });
 
     const supabase = await createClient();
-    const { data: rows } = await supabase
-      .from('collection_cards')
-      .select('id, name')
-      .eq('collection_id', collectionId)
-      .limit(1000);
-    const cards = Array.isArray(rows) ? rows as any[] : [];
+    const cards = (await fetchAllSupabaseRows<{ id: string; name: string }>(() =>
+      supabase
+        .from("collection_cards")
+        .select("id, name")
+        .eq("collection_id", collectionId)
+        .order("id", { ascending: true }),
+    )) as any[];
 
     // Find names not present in scryfall_cache
     const names = Array.from(new Set(cards.map(r=>r.name)));

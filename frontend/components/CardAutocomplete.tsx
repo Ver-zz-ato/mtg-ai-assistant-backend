@@ -1,13 +1,10 @@
 // components/CardAutocomplete.tsx
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { trackCardSearch, trackCardSelected } from '@/lib/analytics-enhanced';
-import { aiMemory } from '@/lib/ai-memory';
-
-type Item = { name: string } | string;
+import React, { useEffect, useRef, useState } from "react";
+import { trackCardSearch, trackCardSelected } from "@/lib/analytics-enhanced";
+import { aiMemory } from "@/lib/ai-memory";
 
 function norm(items: any): string[] {
-  // Accepts: {data:[{name}]}, {cards:[{name}]}, string[], [{name}], etc.
   if (!items) return [];
   if (Array.isArray(items)) {
     return items.map((v) => (typeof v === "string" ? v : v?.name)).filter(Boolean);
@@ -42,7 +39,6 @@ export default function CardAutocomplete({
   const [hi, setHi] = useState(0);
   const latestQ = useRef("");
 
-  // Debounced search
   const q = value.trim();
   useEffect(() => {
     if (q.length < minChars) {
@@ -58,15 +54,9 @@ export default function CardAutocomplete({
         const json = await res.json().catch(() => ({}));
         if (latestQ.current !== q) return;
         const list = norm(json);
-        
-        // Track search analytics
-        trackCardSearch(q, list.length, 'autocomplete');
-        
+        trackCardSearch(q, list.length, "autocomplete");
         setItems(list.slice(0, 20));
-        // Don't reopen when current value exactly matches a result (user just picked)
-        const exactMatch = list.some(
-          (n) => n.toLowerCase().trim() === value.trim().toLowerCase()
-        );
+        const exactMatch = list.some((n) => n.toLowerCase().trim() === q.toLowerCase());
         setOpen(list.length > 0 && !exactMatch);
         setHi(0);
       } catch {
@@ -79,7 +69,6 @@ export default function CardAutocomplete({
     return () => clearTimeout(t);
   }, [q, minChars, searchUrl, debounceMs]);
 
-  // Close on blur (but let mousedown on items run first)
   const wrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -98,28 +87,25 @@ export default function CardAutocomplete({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHi((i) => (i - 1 + items.length) % items.length);
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        const pick = items[hi];
-        if (pick) {
-          trackCardSelected(pick, q, hi);
-          
-          // Track card in AI memory
-          try {
-            if (localStorage.getItem('ai_memory_consent') === 'true') {
-              aiMemory.addRecentCard(pick);
-            }
-          } catch {}
-          
-          // If onPickValidated is provided, use it (name came from validated dropdown)
-          // Otherwise use regular onPick
-          if (onPickValidated) {
-            onPickValidated(pick);
-          } else {
-            onPick(pick);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const pick = items[hi];
+      if (pick) {
+        trackCardSelected(pick, q, hi);
+        try {
+          if (localStorage.getItem("ai_memory_consent") === "true") {
+            aiMemory.addRecentCard(pick);
           }
-          setOpen(false);
+        } catch {
+          /* ignore */
         }
+        if (onPickValidated) {
+          onPickValidated(pick);
+        } else {
+          onPick(pick);
+        }
+        setOpen(false);
+      }
     } else if (e.key === "Escape") {
       setOpen(false);
     }
@@ -137,28 +123,22 @@ export default function CardAutocomplete({
       />
       {open && (
         <div className="absolute z-[100] mt-1 max-h-64 w-full overflow-auto rounded border border-gray-700 bg-black/90 shadow-lg backdrop-blur">
-          {loading && (
-            <div className="px-3 py-2 text-sm text-gray-400">Searching…</div>
-          )}
+          {loading && <div className="px-3 py-2 text-sm text-gray-400">Searching…</div>}
           {!loading &&
             items.map((name, i) => (
               <div
                 key={`${name}-${i}`}
-                // Use mousedown so blur on input doesn't swallow the click.
                 onMouseDown={(e) => {
                   e.preventDefault();
                   trackCardSelected(name, q, i);
-                  
-                  // Track card in AI memory
                   try {
-                    if (localStorage.getItem('ai_memory_consent') === 'true') {
+                    if (localStorage.getItem("ai_memory_consent") === "true") {
                       aiMemory.addRecentCard(name);
                     }
-                  } catch {}
-                  
+                  } catch {
+                    /* ignore */
+                  }
                   onChange(name);
-                  // If onPickValidated is provided, use it (name came from validated dropdown)
-                  // Otherwise use regular onPick
                   if (onPickValidated) {
                     onPickValidated(name);
                   } else {

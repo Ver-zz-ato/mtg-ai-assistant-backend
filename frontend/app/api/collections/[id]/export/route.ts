@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/server-supabase";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 import { normalizeScryfallCacheName, scryfallCacheLookupNameKeys } from "@/lib/server/scryfallCacheRow";
 import { cleanCardName } from "@/lib/deck/cleanCardName";
 
@@ -42,14 +43,24 @@ export async function GET(req: Request, ctx: { params: Promise<Params> }) {
   const format = (searchParams.get('format') || 'csv').toLowerCase();
   const { id } = await ctx.params;
 
-  const { data: cards, error } = await supabase
-    .from('collection_cards')
-    .select('name,qty')
-    .eq('collection_id', id)
-    .order('name', { ascending: true });
-  if (error) return new Response(JSON.stringify({ ok:false, error: error.message }), { status: 500, headers:{'content-type':'application/json'} });
-
-  const rows = (cards||[]).map(c => ({ name: c.name as string, qty: Number((c as any).qty)||0 }));
+  let rows: Array<{ name: string; qty: number }>;
+  try {
+    const cards = await fetchAllSupabaseRows<{ name: string; qty: number | null }>(() =>
+      supabase
+        .from("collection_cards")
+        .select("name, qty")
+        .eq("collection_id", id)
+        .order("id", { ascending: true }),
+    );
+    rows = cards
+      .map((c) => ({ name: c.name as string, qty: Number((c as any).qty) || 0 }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: e?.message || "query failed" }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   if (format === 'csv') return asAttachment(formatCSV(rows), `collection-${id}.csv`, 'text/csv');
   if (format === 'mtga') return asAttachment(formatMTGA(rows), `collection-${id}.mtga`);

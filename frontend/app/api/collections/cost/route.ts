@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 // frontend/app/api/collections/cost/route.ts
 // Node runtime so we can use supabase-js + normal fetch without Edge errors.
 export const runtime = "nodejs";
@@ -137,17 +138,28 @@ export const POST = withLogging(async (req: Request) => {
       let lastErr: string | null = null;
 
       for (const t of candidateTables) {
-        const { data, error } = await supabase
+        const { error: probeErr } = await supabase
           .from(t)
           .select("*")
-          .eq("collection_id", collectionId);
-
-        if (!error && Array.isArray(data)) {
-          rows = data;
-          break;
-        } else {
-          lastErr = error?.message || `table ${t} not accessible`;
+          .eq("collection_id", collectionId)
+          .limit(1);
+        if (probeErr) {
+          lastErr = probeErr.message || `table ${t} not accessible`;
+          continue;
         }
+        try {
+          rows = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+            supabase
+              .from(t)
+              .select("*")
+              .eq("collection_id", collectionId)
+              .order("id", { ascending: true }),
+          );
+        } catch (e) {
+          lastErr = e instanceof Error ? e.message : String(e);
+          rows = null;
+        }
+        if (rows) break;
       }
 
       if (!rows) {

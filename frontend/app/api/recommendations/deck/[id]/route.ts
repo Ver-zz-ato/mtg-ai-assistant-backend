@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAllSupabaseRows } from '@/lib/supabase/fetchAllRows';
 import { getDetailsForNamesCached } from '@/lib/server/scryfallCache';
 import { isWithinColorIdentity } from '@/lib/deck/mtgValidators';
 import { parseDeckText } from '@/lib/deck/parseDeckText';
@@ -86,14 +87,14 @@ export async function GET(
 
     let collectionCards = new Set<string>();
     if (collections && collections.length > 0) {
-      const { data: items } = await supabase
-        .from('collection_cards')
-        .select('name')
-        .eq('collection_id', collections[0].id);
-      
-      if (items) {
-        items.forEach(item => collectionCards.add(cacheNameNorm(item.name)));
-      }
+      const items = await fetchAllSupabaseRows<{ name: string }>(() =>
+        supabase
+          .from("collection_cards")
+          .select("name")
+          .eq("collection_id", collections[0].id)
+          .order("id", { ascending: true }),
+      );
+      items.forEach((item) => collectionCards.add(cacheNameNorm(item.name)));
     }
 
     // Commander: use deck colors (commander identity). 60-card: allow broader for suggestions.

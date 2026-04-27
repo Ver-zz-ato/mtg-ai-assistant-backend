@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 
 export const runtime = "nodejs";
 
@@ -67,71 +68,67 @@ export async function POST(req: NextRequest) {
     exportData.profile = profile;
 
     // Get decks
-    const { data: decks } = await admin
-      .from('decks')
-      .select('*')
-      .eq('user_id', targetUserId);
-    exportData.decks = decks || [];
+    const decks = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+      admin.from("decks").select("*").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    exportData.decks = decks;
 
     // Get deck cards
     if (exportData.decks.length > 0) {
       const deckIds = exportData.decks.map((d: any) => d.id);
-      const { data: deckCards } = await admin
-        .from('deck_cards')
-        .select('*')
-        .in('deck_id', deckIds);
-      exportData.deck_cards = deckCards || [];
+      exportData.deck_cards = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+        admin.from("deck_cards").select("*").in("deck_id", deckIds).order("id", { ascending: true }),
+      );
     }
 
     // Get collections
-    const { data: collections } = await admin
-      .from('collections')
-      .select('*')
-      .eq('user_id', targetUserId);
-    exportData.collections = collections || [];
+    const collections = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+      admin.from("collections").select("*").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    exportData.collections = collections;
 
     // Get collection cards
     if (exportData.collections.length > 0) {
       const collectionIds = exportData.collections.map((c: any) => c.id);
-      const { data: collectionCards } = await admin
-        .from('collection_cards')
-        .select('*')
-        .in('collection_id', collectionIds);
-      exportData.collection_cards = collectionCards || [];
+      exportData.collection_cards = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+        admin
+          .from("collection_cards")
+          .select("*")
+          .in("collection_id", collectionIds)
+          .order("id", { ascending: true }),
+      );
     }
 
     // Get chat threads
-    const { data: threads } = await admin
-      .from('chat_threads')
-      .select('*')
-      .eq('user_id', targetUserId);
-    exportData.chat_threads = threads || [];
+    const threads = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+      admin.from("chat_threads").select("*").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    exportData.chat_threads = threads;
 
     // Get chat messages
     if (exportData.chat_threads.length > 0) {
       const threadIds = exportData.chat_threads.map((t: any) => t.id);
-      const { data: messages } = await admin
-        .from('chat_messages')
-        .select('*')
-        .in('thread_id', threadIds);
-      exportData.chat_messages = messages || [];
+      exportData.chat_messages = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+        admin.from("chat_messages").select("*").in("thread_id", threadIds).order("id", { ascending: true }),
+      );
     }
 
     // Get wishlists
-    const { data: wishlists } = await admin
-      .from('wishlists')
-      .select('*')
-      .eq('user_id', targetUserId);
-    exportData.wishlists = wishlists || [];
+    const wishlists = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+      admin.from("wishlists").select("*").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    exportData.wishlists = wishlists;
 
     // Get wishlist items
     if (exportData.wishlists.length > 0) {
       const wishlistIds = exportData.wishlists.map((w: any) => w.id);
-      const { data: wishlistItems } = await admin
-        .from('wishlist_items')
-        .select('*')
-        .in('wishlist_id', wishlistIds);
-      exportData.wishlist_items = wishlistItems || [];
+      exportData.wishlist_items = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+        admin
+          .from("wishlist_items")
+          .select("*")
+          .in("wishlist_id", wishlistIds)
+          .order("id", { ascending: true }),
+      );
     }
 
     // Get watchlist

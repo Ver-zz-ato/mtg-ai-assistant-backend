@@ -1,11 +1,9 @@
 // app/api/collections/cards/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import {
-  costAuditRequestId,
-  costAuditSafeErr,
-  isCostAuditStorageEnabled,
-} from "@/lib/observability/cost-audit";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
+import { costAuditRequestId, isCostAuditStorageEnabled } from "@/lib/observability/cost-audit";
 import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
 
 export async function GET(req: NextRequest) {
@@ -51,10 +49,10 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
   
   // If collection is public, use service role client to bypass RLS for fetching cards
-  let client = supabase;
+  let client: SupabaseClient = supabase;
   if (meta && (meta.is_public === true || meta.visibility === 'public')) {
     if (serviceKey) {
-      client = createServiceClient(url, serviceKey, { auth: { persistSession: false } }) as any;
+      client = createServiceClient(url, serviceKey, { auth: { persistSession: false } });
     }
   } else {
     // If not public, require authentication
@@ -77,13 +75,25 @@ export async function GET(req: NextRequest) {
     userId = user.id;
   }
 
-  const { data, error } = await client
-    .from("collection_cards")
-    .select("id, name, qty, created_at")
-    .eq("collection_id", collectionId)
-    .order("name", { ascending: true });
-
-  if (error) {
+  let items: Array<{ id: string; name: string; qty: number; created_at?: string }> = [];
+  try {
+    const data = await fetchAllSupabaseRows<{
+      id: string;
+      name: string;
+      qty: number;
+      created_at?: string;
+    }>(() =>
+      client
+        .from("collection_cards")
+        .select("id, name, qty, created_at")
+        .eq("collection_id", collectionId)
+        .order("id", { ascending: true }),
+    );
+    items = data
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : String(e);
     if (isCostAuditStorageEnabled()) {
       costAuditServerLog({
         route: "/api/collections/cards",
@@ -92,14 +102,13 @@ export async function GET(req: NextRequest) {
         event: "collections.cards",
         durationMs: Date.now() - t0,
         ok: false,
-        err: error.message,
+        err: errMsg,
         collectionId,
         userId,
       });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: errMsg }, { status: 500 });
   }
-  const items = data ?? [];
   if (isCostAuditStorageEnabled()) {
     costAuditServerLog({
       route: "/api/collections/cards",
@@ -120,8 +129,15 @@ export async function POST(req: NextRequest) {
   const t0 = Date.now();
   const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : "";
   const supabase = await createClient();
-  const body = await req.json().catch(() => ({}));
-  let { collectionId, name, qty } = body;
+  const body = (await req.json().catch(() => ({}))) as {
+    collectionId?: string;
+    name?: string;
+    qty?: unknown;
+    skipValidation?: boolean;
+  };
+  const collectionId = body.collectionId;
+  const qty = body.qty;
+  let name = body.name;
 
   if (!collectionId || !name) {
     if (isCostAuditStorageEnabled()) {
@@ -141,6 +157,7 @@ export async function POST(req: NextRequest) {
   // Validate and fix card name before adding (unless skipValidation is true)
   if (!body.skipValidation) {
     try {
+      // eslint-disable-next-line no-restricted-globals -- same-origin /api/cards/fuzzy; not a public URL fetch
       const fuzzyRes = await fetch(`${req.nextUrl.origin}/api/cards/fuzzy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

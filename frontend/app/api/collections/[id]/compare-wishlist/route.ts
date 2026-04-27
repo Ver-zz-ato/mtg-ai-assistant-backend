@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { fetchAllSupabaseRows } from '@/lib/supabase/fetchAllRows';
 
 export const runtime = 'nodejs';
 
@@ -46,17 +47,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<Params> }) {
       return NextResponse.json({ ok: false, error: 'Wishlist not found' }, { status: 404 });
     }
 
-    // Get collection cards
-    const { data: collectionCards } = await supabase
-      .from('collection_cards')
-      .select('name, qty')
-      .eq('collection_id', collectionId);
+    const collectionCards = await fetchAllSupabaseRows<{ name: string; qty: number | null }>(() =>
+      supabase
+        .from("collection_cards")
+        .select("name, qty")
+        .eq("collection_id", collectionId)
+        .order("id", { ascending: true }),
+    );
 
-    // Get wishlist items
-    const { data: wishlistItems } = await supabase
-      .from('wishlist_items')
-      .select('name, qty')
-      .eq('wishlist_id', wishlistId);
+    const wishlistItems = await fetchAllSupabaseRows<{ name: string; qty: number | null }>(() =>
+      supabase
+        .from("wishlist_items")
+        .select("name, qty")
+        .eq("wishlist_id", wishlistId)
+        .order("id", { ascending: true }),
+    );
 
     // Build maps for comparison
     const collectionMap = new Map<string, number>();

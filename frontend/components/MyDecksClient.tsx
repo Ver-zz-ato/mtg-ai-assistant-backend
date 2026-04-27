@@ -1,6 +1,8 @@
 "use client";
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 
 export default function MyDecksClient({ decks }: { decks: Array<{ id:string; title:string; art?:string; is_public?:boolean; updated_at?:string; created_at?:string }> }){
   const router = useRouter();
@@ -17,13 +19,19 @@ export default function MyDecksClient({ decks }: { decks: Array<{ id:string; tit
     if (!deckId) return;
     (async()=>{
       try{
-        // Fetch cards -> analyze -> compute lights
-        const r = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache:'no-store' });
+        // Fetch cards + deck format -> analyze -> compute lights
+        const [r, deckMetaRes] = await Promise.all([
+          fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache:'no-store' }),
+          fetch(`/api/decks/get?id=${encodeURIComponent(deckId)}`, { cache:'no-store' }),
+        ]);
         const j = await r.json().catch(()=>({}));
-        const cards: Array<{ name:string; qty:number }> = Array.isArray(j?.cards)? j.cards : [];
-        if(cards.length){
-          const deckText = cards.map(c=>`${c.qty||1} ${c.name}`).join('\n');
-          const a = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format:'Commander', useScryfall:true, sourcePage: 'my_decks_list' }) });
+        const deckMeta = await deckMetaRes.json().catch(()=>({}));
+        const formatRaw = deckMeta?.deck?.format as string | null | undefined;
+        const cards: Array<{ name: string; qty: number; zone?: string | null }> = Array.isArray(j?.cards) ? j.cards : [];
+        if (cards.length) {
+          const deckText = rowsToDeckTextForAnalysis(cards, formatRaw);
+          const analyzeFormat = deckFormatStringToAnalyzeFormat(formatRaw);
+          const a = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format: analyzeFormat, useScryfall:true, sourcePage: 'my_decks_list' }) });
           const aj = await a.json().catch(()=>({}));
           const score = Number(aj?.result?.score||0);
           const bands = aj?.result?.bands||{};

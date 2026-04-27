@@ -4,7 +4,8 @@
 declare module "@/components/EditorAddBar" {
   import * as React from "react";
   export interface EditorAddBarProps {
-    onAdd?: (name: string, qty: number) => void | Promise<void>;
+    onAdd?: (name: string, qty: number, validatedName?: string, zone?: "mainboard" | "sideboard") => void | Promise<void>;
+    addTargetZone?: "mainboard" | "sideboard";
     placeholder?: string;
     deckId?: any;
     onAdded?: any;

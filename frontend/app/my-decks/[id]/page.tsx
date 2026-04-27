@@ -8,8 +8,6 @@ import RecomputeButton from "./RecomputeButton";
 import InlineDeckTitle from "@/components/InlineDeckTitle";
 import DeckPublicToggle from "@/components/DeckPublicToggle";
 import FunctionsPanel from "./FunctionsPanel";
-import NextDynamic from "next/dynamic";
-import DeckProbabilityPanel from "./DeckProbabilityPanel";
 import HandTestingWidget from "@/components/HandTestingWidget";
 import Link from "next/link";
 import FormatSelector from "./FormatSelector";

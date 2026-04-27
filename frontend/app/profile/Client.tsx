@@ -16,6 +16,8 @@ import BadgeShareBanner from "@/components/BadgeShareBanner";
 import { ProTagLink } from "@/components/ProBadge";
 import { showProToast } from "@/lib/pro-ux";
 import { WEBSITE_APP_PRICING_NOTE } from "@/lib/pricing-copy";
+import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
@@ -136,7 +138,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
   const [usage, setUsage] = useState<Usage | null>(null);
   const [deckCount, setDeckCount] = useState<number>(0);
   const [collectionCount, setCollectionCount] = useState<number>(0);
-  const [recentDecks, setRecentDecks] = useState<Array<{ id:string; title:string; commander?: string|null; deck_text?: string|null }>>([]);
+  const [recentDecks, setRecentDecks] = useState<Array<{ id:string; title:string; commander?: string|null; deck_text?: string|null; format?: string|null }>>([]);
   const [pinnedDeckIds, setPinnedDeckIds] = useState<string[]>([]);
   const [deckBg, setDeckBg] = useState<Record<string, string>>({});
   const [likes, setLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
@@ -217,8 +219,8 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           
           const { count: ccount } = await sb.from("collections").select("id", { count: 'exact', head: true }).eq("user_id", u.id);
           setCollectionCount(ccount ?? 0);
-          const { data: rdecks } = await sb.from("decks").select("id,title,deck_text,commander").eq("user_id", u.id).order("created_at", { ascending: false }).limit(10);
-          const list = (rdecks as any[])?.map(d => ({ id: d.id, title: d.title || 'Untitled', deck_text: d.deck_text || '', commander: d.commander || null })) || [];
+          const { data: rdecks } = await sb.from("decks").select("id,title,deck_text,commander,format").eq("user_id", u.id).order("created_at", { ascending: false }).limit(10);
+          const list = (rdecks as any[])?.map(d => ({ id: d.id, title: d.title || 'Untitled', deck_text: d.deck_text || '', commander: d.commander || null, format: d.format ?? null })) || [];
           setRecentDecks(list);
           // Load current pinned list from public profile
           try {
@@ -518,13 +520,26 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           function comb(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; }
           function hyperAtLeast(k:number,K:number,N:number,n:number){ let p=0; for(let i=k;i<=Math.min(n,K);i++){ const a=comb(K,i), b=comb(N-K, n-i), c=comb(N,n); p+= c===0?0:(a*b)/c; } return Math.max(0, Math.min(1,p)); }
           const opts = { signal: ac.signal };
-          async function landCount(deckId:string){ const cardsRes=await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, opts); const cardsJ=await cardsRes.json().catch(()=>({})); const cards=Array.isArray(cardsJ?.cards)?cardsJ.cards:[]; const deckText=cards.map((c:any)=>`${c.qty} ${c.name}`).join('\n'); const r=await fetch(`/api/deck/analyze`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format:'Commander', useScryfall:true, sourcePage: 'profile' }), ...opts }); const j=await r.json().catch(()=>({})); return { lands:Number(j?.counts?.lands||0), total: cards.reduce((s:any,c:any)=>s+Number(c.qty||0),0)||99 }; }
+          async function landCount(deckId: string, formatFromDeck?: string | null) {
+            const cardsRes = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, opts);
+            const cardsJ = await cardsRes.json().catch(() => ({}));
+            const cards = Array.isArray(cardsJ?.cards) ? (cardsJ.cards as Array<{ name: string; qty: number; zone?: string | null }>) : [];
+            const deckText = rowsToDeckTextForAnalysis(cards, formatFromDeck);
+            // When `format` is missing on the row, we still need an analyze target; `deckFormatStringToAnalyzeFormat` defaults to Commander (same as getFormatRules).
+            const analyzeFormat = deckFormatStringToAnalyzeFormat(formatFromDeck);
+            const r = await fetch(`/api/deck/analyze`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deckText, format: analyzeFormat, useScryfall: true, sourcePage: 'profile' }), ...opts });
+            const j = await r.json().catch(() => ({}));
+            const mainTotal = cards
+              .filter((c) => String(c.zone || 'mainboard').toLowerCase() !== 'sideboard')
+              .reduce((s, c) => s + Number(c.qty || 0), 0);
+            return { lands: Number(j?.counts?.lands || 0), total: mainTotal || 99 };
+          }
           async function colorSources(deckId:string){ const jr=await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, opts); const jj=await jr.json().catch(()=>({})); const cards:Array<{name:string;qty:number}>=Array.isArray(jj?.cards)?jj.cards:[]; const sr=await fetch('/api/deck/color-sources',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({cards}), ...opts}); const sj=await sr.json().catch(()=>({})); const src=sj?.sources||{W:0,U:0,B:0,R:0,G:0}; return src; }
           async function hasCombo(deckId:string){ const r=await fetch('/api/deck/combos',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deckId}), ...opts}); const j=await r.json().catch(()=>({})); return Array.isArray(j?.present) && j.present.length>0; }
           let onCurve=false, maestro=false, combo=false;
           for (const d of picks){
             if (ac.signal.aborted) break;
-            try{ const { lands, total } = await landCount(d.id); const p4 = hyperAtLeast(4, lands, total||99, 7+3); if (p4>=0.90) onCurve = true; } catch{}
+            try{ const { lands, total } = await landCount(d.id, d.format); const p4 = hyperAtLeast(4, lands, total||99, 7+3); if (p4>=0.90) onCurve = true; } catch{}
             if (ac.signal.aborted) break;
             try{ const src = await colorSources(d.id); const cols = ['W','U','B','R','G'].filter(k=> (src as any)[k]>0); if (cols.length>=1){ const counts = cols.map(k=>(src as any)[k]); const jr2=await fetch(`/api/decks/cards?deckId=${encodeURIComponent(d.id)}`, opts); const jj2=await jr2.json().catch(()=>({})); const N = (Array.isArray(jj2?.cards)?jj2.cards:[]).reduce((s:any,c:any)=>s+Number(c.qty||0),0)||99; const draws=7+2; const others = Math.max(0, N - counts.reduce((a,b)=>a+b,0)); function prob(){ function c(n:number,k:number){ if(k<0||k>n) return 0; if(k===0||k===n) return 1; k=Math.min(k,n-k); let r=1; for(let i=1;i<=k;i++){ r=r*(n-k+i)/i; } return r; } const bounds = counts.map(cn=>Math.min(cn, draws)); let totalP=0; function loop(i:number, acc:number[], left:number){ if(i===counts.length){ const sx=acc.reduce((a,b)=>a+b,0); if (sx>draws) return; const rest=draws-sx; const top=acc.reduce((accu,x,ii)=>accu*c(counts[ii],x),1)*c(others,rest); const bot=c(N,draws); totalP += bot===0?0:top/bot; return;} const min=1; for(let x=min;x<=Math.min(bounds[i], left); x++) loop(i+1,[...acc,x], left-x); } loop(0,[],draws); return Math.max(0, Math.min(1,totalP)); } const p=prob(); if (p>=0.85) maestro=true; } } catch{}
             try{ if (await hasCombo(d.id)) combo=true; } catch{}
@@ -540,7 +555,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       })();
     }, 1500);
     return ()=>{ ac.abort(); clearTimeout(t); };
-  }, [tab, recentDecks.map(d=>d.id).join(',')]);
+  }, [tab, recentDecks.map(d => `${d.id}:${d.format ?? ''}`).join(',')]);
 
   return (
     <div className="space-y-6 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
@@ -1445,7 +1460,7 @@ function Wallet(){
 // Lightweight charts: playstyle radar and color pie
 type StatsChartsProps = { sb: any; userEmail: string };
 
-function SignatureBanner({ sb, signatureDeckId, favCommander, recentDecks }: { sb: any; signatureDeckId: string; favCommander: string; recentDecks: Array<{id:string; title:string; commander?:string|null; deck_text?:string|null}> }){
+function SignatureBanner({ sb, signatureDeckId, favCommander, recentDecks }: { sb: any; signatureDeckId: string; favCommander: string; recentDecks: Array<{id:string; title:string; commander?:string|null; deck_text?:string|null; format?:string|null}> }){
   const [art, setArt] = React.useState<string | null>(null);
   React.useEffect(()=>{
     (async()=>{
@@ -1550,18 +1565,18 @@ function StatsCharts(props: StatsChartsProps) {
         const { data: ures } = await sb.auth.getUser();
         const u = ures?.user; if (!u) return;
         // Pull user's decks (ids, commanders, titles)
-        const { data: decks } = await sb.from('decks').select('id, commander, title').eq('user_id', u.id).limit(30);
+        const { data: decks } = await sb.from('decks').select('id, commander, title, format').eq('user_id', u.id).limit(30);
         const list = Array.isArray(decks) ? decks as any[] : [];
         const titleCmdPool = list.flatMap(x=>[String(x.commander||''), String(x.title||'')]).filter(Boolean);
         setCmdrs(titleCmdPool); // Keep for backward compatibility
 
         // Get actual deck cards for pie chart (same as radar below)
-        const cardsByDeck = new Map<string, { name: string; qty: number }[]>();
+        const cardsByDeck = new Map<string, { name: string; qty: number; zone?: string | null }[]>();
         const uniqueCardNames = new Set<string>();
         await Promise.all(list.map(async d => {
-          const { data } = await sb.from('deck_cards').select('name, qty').eq('deck_id', d.id).limit(100); // Limit per deck to manage load
+          const { data } = await sb.from('deck_cards').select('name, qty, zone').eq('deck_id', d.id).limit(100); // Limit per deck to manage load
           const rows = Array.isArray(data) ? (data as any[]) : [];
-          const arr = rows.map(x => ({ name: String(x.name), qty: Number(x.qty||1) }));
+          const arr = rows.map(x => ({ name: String(x.name), qty: Number(x.qty||1), zone: x.zone as string | null | undefined }));
           cardsByDeck.set(d.id, arr);
           for (const r of arr) uniqueCardNames.add(r.name);
         }));
@@ -1684,8 +1699,10 @@ function StatsCharts(props: StatsChartsProps) {
             for (const d of list.slice(0,5)){
               const jr = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(d.id)}`);
               const jj = await jr.json().catch(()=>({}));
-              const deckText = (Array.isArray(jj?.cards)?jj.cards:[]).map((c:any)=>`${c.qty} ${c.name}`).join('\n');
-              const ar = await fetch('/api/deck/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deckText, format:'Commander', useScryfall:true, sourcePage: 'profile'})});
+              const cardRows = Array.isArray(jj?.cards) ? (jj.cards as Array<{ name: string; qty: number; zone?: string | null }>) : [];
+              const deckText = rowsToDeckTextForAnalysis(cardRows, d.format);
+              const analyzeFormat = deckFormatStringToAnalyzeFormat(d.format);
+              const ar = await fetch('/api/deck/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deckText, format: analyzeFormat, useScryfall:true, sourcePage: 'profile'})});
               const a = await ar.json().catch(()=>({}));
               const bands = a?.bands||{}; // curve, ramp, draw, removal, mana
               agg.aggro += Math.max(0,(bands.curve||0))/100;

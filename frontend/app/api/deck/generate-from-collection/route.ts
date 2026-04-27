@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/server-supabase";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
@@ -118,11 +119,14 @@ export async function POST(req: NextRequest) {
       if (!col || col.user_id !== user.id) {
         return NextResponse.json({ ok: false, error: "Collection not found or access denied" }, { status: 403 });
       }
-      const { data: cards } = await supabase
-        .from("collection_cards")
-        .select("name, qty")
-        .eq("collection_id", collectionId);
-      collectionItems = (cards ?? []).map((c) => ({ name: c.name, qty: Number(c.qty) || 1 }));
+      const cards = await fetchAllSupabaseRows<{ name: string; qty: number | null }>(() =>
+        supabase
+          .from("collection_cards")
+          .select("name, qty")
+          .eq("collection_id", collectionId)
+          .order("id", { ascending: true }),
+      );
+      collectionItems = cards.map((c) => ({ name: c.name, qty: Number(c.qty) || 1 }));
     }
 
     const collectionList =

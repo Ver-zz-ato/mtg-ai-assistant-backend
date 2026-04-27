@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 
 export const runtime = "nodejs";
 
@@ -51,14 +52,17 @@ export async function GET(
       }
     }
 
-    // Get collection cards
-    const { data: items, error: itemsErr } = await client
-      .from("collection_cards")
-      .select("name, qty")
-      .eq("collection_id", collectionId);
-    
-    if (itemsErr) {
-      return NextResponse.json({ ok: false, error: itemsErr.message }, { status: 500 });
+    let items: { name: string; qty: number | null }[];
+    try {
+      items = await fetchAllSupabaseRows<{ name: string; qty: number | null }>(() =>
+        client
+          .from("collection_cards")
+          .select("name, qty")
+          .eq("collection_id", collectionId)
+          .order("id", { ascending: true }),
+      );
+    } catch (e: any) {
+      return NextResponse.json({ ok: false, error: e?.message || "query failed" }, { status: 500 });
     }
 
     if (!items || items.length === 0) {

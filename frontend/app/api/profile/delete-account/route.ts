@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 
 export const runtime = "nodejs";
 
@@ -86,8 +87,10 @@ export async function POST(req: Request) {
 
     // Delete all user data (order matters due to foreign keys)
     // 1. Deck cards
-    const { data: decks } = await admin.from("decks").select("id").eq("user_id", targetUserId);
-    const deckIds = (decks ?? []).map((d: { id: string }) => d.id);
+    const deckRows = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("decks").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const deckIds = deckRows.map((d) => d.id);
     if (deckIds.length > 0) {
       await admin.from("deck_cards").delete().in("deck_id", deckIds);
       try {
@@ -101,8 +104,10 @@ export async function POST(req: Request) {
     await admin.from("decks").delete().eq("user_id", targetUserId);
 
     // 3. Collection cards
-    const { data: collections } = await admin.from("collections").select("id").eq("user_id", targetUserId);
-    const collectionIds = (collections ?? []).map((c: { id: string }) => c.id);
+    const collectionRows = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("collections").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const collectionIds = collectionRows.map((c) => c.id);
     if (collectionIds.length > 0) {
       await admin.from("collection_cards").delete().in("collection_id", collectionIds);
     }
@@ -111,8 +116,10 @@ export async function POST(req: Request) {
     await admin.from("collections").delete().eq("user_id", targetUserId);
 
     // 5. Chat messages
-    const { data: threads } = await admin.from("chat_threads").select("id").eq("user_id", targetUserId);
-    const threadIds = (threads ?? []).map((t: { id: string }) => t.id);
+    const threadRows = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("chat_threads").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const threadIds = threadRows.map((t) => t.id);
     if (threadIds.length > 0) {
       await admin.from("chat_messages").delete().in("thread_id", threadIds);
     }
@@ -121,8 +128,10 @@ export async function POST(req: Request) {
     await admin.from("chat_threads").delete().eq("user_id", targetUserId);
 
     // 7. Wishlist items
-    const { data: wishlists } = await admin.from("wishlists").select("id").eq("user_id", targetUserId);
-    const wishlistIds = (wishlists ?? []).map((w: { id: string }) => w.id);
+    const wishlistRows = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("wishlists").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const wishlistIds = wishlistRows.map((w) => w.id);
     if (wishlistIds.length > 0) {
       await admin.from("wishlist_items").delete().in("wishlist_id", wishlistIds);
     }

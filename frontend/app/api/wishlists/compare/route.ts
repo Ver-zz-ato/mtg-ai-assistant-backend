@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { fetchAllSupabaseRows } from '@/lib/supabase/fetchAllRows';
 
 export const runtime = 'nodejs';
 
@@ -11,10 +12,20 @@ export async function GET(req: NextRequest){
     const currency = (url.searchParams.get('currency')||'USD').toUpperCase();
     const supabase = await getServerSupabase();
     // get wishlist
-    const { data: items } = await (supabase as any)
-      .from('wishlist_items').select('name,qty').eq('wishlist_id', wishlistId);
-    const { data: col } = await (supabase as any)
-      .from('collection_cards').select('name,qty').eq('collection_id', collectionId);
+    const items = await fetchAllSupabaseRows<{ name: string; qty: number | null }>(() =>
+      (supabase as any)
+        .from("wishlist_items")
+        .select("name, qty")
+        .eq("wishlist_id", wishlistId)
+        .order("id", { ascending: true }),
+    );
+    const col = await fetchAllSupabaseRows<{ name: string; qty: number | null }>(() =>
+      (supabase as any)
+        .from("collection_cards")
+        .select("name, qty")
+        .eq("collection_id", collectionId)
+        .order("id", { ascending: true }),
+    );
     const have = new Map<string, number>((col||[]).map((r:any)=>[String(r.name).toLowerCase(), Number(r.qty||0)]));
     const missing: Array<{ name:string; need:number; unit:number }> = [];
     const names = Array.from(new Set((items||[]).map((i:any)=>i.name)));

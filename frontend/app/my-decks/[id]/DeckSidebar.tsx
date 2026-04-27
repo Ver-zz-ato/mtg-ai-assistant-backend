@@ -196,7 +196,7 @@ function DeckCardRecommendationsWithHide({ deckId, onAddCard }: { deckId: string
   }
 }
 
-function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boolean }) {
+function DeckProbabilityWithHide({ deckId, isPro, format }: { deckId: string; isPro: boolean; format?: string }) {
   const [open, setOpen] = React.useState(false);
   const Prob = NextDynamic(() => import('./DeckProbabilityPanel'), { ssr: false, loading: () => (<div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability…</div>) });
   
@@ -229,7 +229,7 @@ function DeckProbabilityWithHide({ deckId, isPro }: { deckId: string; isPro: boo
       </div>
       {open && (
         <div className="mt-2">
-          <Prob deckId={deckId} isPro={isPro} />
+          <Prob deckId={deckId} isPro={isPro} format={format} />
         </div>
       )}
     </div>
@@ -394,7 +394,7 @@ export default function DeckSidebar({
       </div>
       
       {/* Probability Calculator - SIXTH (default hidden) */}
-      <DeckProbabilityWithHide deckId={deckId} isPro={isPro} />
+      <DeckProbabilityWithHide deckId={deckId} isPro={isPro} format={format} />
     </div>
   );
 }
