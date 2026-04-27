@@ -5,7 +5,7 @@ import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { extractCommanderFromDecklistText } from "@/lib/chat/decklistDetector";
 import { buildDeckRoastSystemPrompt } from "@/lib/prompts/deck-roast";
 
-const VALID_FORMATS = ["Commander", "Modern", "Pioneer", "Standard"] as const;
+const VALID_FORMATS = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"] as const;
 
 export async function POST(req: NextRequest) {
   try {

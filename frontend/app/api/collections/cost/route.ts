@@ -13,7 +13,12 @@ import { CostBody } from "@/lib/validation";
 import { canonicalize } from "@/lib/cards/canonicalize";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { convert } from "@/lib/currency/rates";
-import { parseDeckText as parseDeckLines } from "@/lib/deck/parseDeckText";
+import {
+  aggregateDeckQuantitiesByCanonKey,
+  normalizeNameToCanonKey,
+  normalizedFormatMetadataLabel,
+  resolveDeckLineZone,
+} from "@/lib/collections/costDeckAggregation";
 // ---- Utilities ----
 type Currency = "USD" | "EUR" | "GBP" | "TIX";
 
@@ -33,30 +38,7 @@ function normalizeCurrency(v: any): Currency {
   return "USD";
 }
 
-// very forgiving deck text parser: lines like "1 Sol Ring" or "Sol Ring x1"
-function normalizeName(raw: string): { key: string; canon: string } {
-  const s = String(raw || "").trim();
-  if (!s) return { key: "", canon: "" };
-  // strip punctuation and extra spaces
-  const basic = s
-    .replace(/[,·•]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const { canonicalName } = canonicalize(basic);
-  const canon = canonicalName || basic;
-  const key = canon.toLowerCase();
-  return { key, canon };
-}
-
-function wantQtyByCanonKey(text: string): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const e of parseDeckLines(text)) {
-    const norm = normalizeName(e.name);
-    if (!norm.key) continue;
-    map.set(norm.key, (map.get(norm.key) || 0) + e.qty);
-  }
-  return map;
-}
+// normalizeNameToCanonKey imported from @/lib/collections/costDeckAggregation (same behavior as legacy local helper).
 
 async function priceFromScryfall(name: string, currency: Currency): Promise<number> {
   // we price by cheapest available normal printing
@@ -80,7 +62,7 @@ function readOwnedRow(row: any): { nameKey: string; qty: number } | null {
   const name = String(row?.name || row?.card || row?.card_name || row?.title || '').trim();
   const qtyRaw = row?.qty ?? row?.quantity ?? row?.count ?? row?.owned;
   const qty = Math.max(0, Number(qtyRaw ?? 0));
-  const norm = normalizeName(name);
+  const norm = normalizeNameToCanonKey(name);
   if (!norm.key) return null;
   return { nameKey: norm.key, qty };
 }
@@ -92,6 +74,7 @@ export const POST = withLogging(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
 
     const deckId = pick<string>(body, "deckId", "deck_id");
+    const formatHint = pick<string>(body, "format");
     const collectionId = pick<string>(body, "collectionId", "collection_id");
     const useOwned = Boolean(pick<boolean>(body, "useOwned", "use_owned", false));
     const currency = normalizeCurrency(String(pick<string>(body, "currency", "currency", "USD")).toUpperCase());
@@ -119,8 +102,14 @@ export const POST = withLogging(async (req: Request) => {
       return NextResponse.json({ ok: false, error: "Missing 'deck_text' and no deck found by 'deckId'." }, { status: 400 });
     }
 
-    // parse target deck
-    const want = wantQtyByCanonKey(deckText);
+    /**
+     * Parsed deck quantities by canonical card key (main + side summed per key for pricing).
+     * Optional metadata fields on each row (`inDeckQty`, `zone`, `kind`, `format`) are for newer clients only;
+     * legacy fields `card`, `need`, `unit`, `subtotal`, `source` remain the stable contract. `need` is still
+     * max(0, inDeckQty − owned): quantity to acquire from the market/collection for this line — not AI-suggested extras.
+     */
+    const deckAgg = aggregateDeckQuantitiesByCanonKey(deckText, formatHint);
+    const formatMeta = normalizedFormatMetadataLabel(formatHint);
 
     // read owned (optional)
     const ownedMap = new Map<string, number>();
@@ -177,16 +166,19 @@ export const POST = withLogging(async (req: Request) => {
       }
     }
 
+    const appliedOwnedEffective = useOwned && !!collectionId;
+
     // Build pricing list
-    const rows: Array<{ card: string; need: number; unit: number; subtotal: number; source?: string | null }> = [];
+    const rows: Array<Record<string, unknown>> = [];
     let total = 0;
 
-    for (const [name, qtyWant] of want.entries()) {
-      const owned = ownedMap.get(name) || 0;
+    for (const [nameKey, agg] of deckAgg.entries()) {
+      const qtyWant = agg.total;
+      const owned = ownedMap.get(nameKey) || 0;
       const need = Math.max(0, qtyWant - owned);
       if (need === 0) continue;
 
-      const proper = canonicalize(name).canonicalName || name;
+      const proper = canonicalize(nameKey).canonicalName || nameKey;
       const snapshotNorm = normalizeScryfallCacheName(proper);
 
       let unit = 0;
@@ -213,12 +205,24 @@ export const POST = withLogging(async (req: Request) => {
 
       const subtotal = unit * need;
 
-      rows.push({ card: proper, need, unit, subtotal, source: useSnapshot ? 'Snapshot' : 'Scryfall' });
+      const row: Record<string, unknown> = {
+        card: proper,
+        need,
+        unit,
+        subtotal,
+        source: useSnapshot ? "Snapshot" : "Scryfall",
+        inDeckQty: qtyWant,
+        targetQty: qtyWant,
+        kind: appliedOwnedEffective ? "missing_from_collection" : "deck_contents",
+        zone: resolveDeckLineZone(agg),
+      };
+      if (formatMeta) row.format = formatMeta;
+      rows.push(row);
       total += subtotal;
     }
 
     // sort biggest first
-    rows.sort((a, b) => b.subtotal - a.subtotal);
+    rows.sort((a, b) => Number(b.subtotal) - Number(a.subtotal));
 
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("cost_computed", { currency, total, usedOwned: useOwned && !!collectionId, rows: rows.length, ms: Date.now() - t0 }); } catch {}
 
@@ -229,6 +233,7 @@ export const POST = withLogging(async (req: Request) => {
       total,
       appliedOwned: useOwned && !!collectionId,
       prices_updated_at: new Date().toISOString(),
+      ...(formatMeta ? { format: formatMeta } : {}),
     });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Unhandled error" }, { status: 500 });

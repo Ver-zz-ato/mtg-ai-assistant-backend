@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 
 const ROUTE_PATH = "/api/mobile/deck/roast-ai";
 
-const VALID_FORMATS = ["Commander", "Modern", "Pioneer", "Standard"] as const;
+const VALID_FORMATS = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"] as const;
 
 function resolveHeat(body: Record<string, unknown>): { heat: MobileRoastHeat; roastScore: number } {
   const hRaw = body.heat;

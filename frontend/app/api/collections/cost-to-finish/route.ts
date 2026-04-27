@@ -4,39 +4,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/server-supabase";
 import { convert } from "@/lib/currency/rates";
 import { COST_TO_FINISH_FREE, COST_TO_FINISH_PRO } from "@/lib/feature-limits";
+import { normalizeCostProxyRows } from "@/lib/collections/cost-proxy-rows";
 
-type RawRow = {
-  card?: string; name?: string; card_name?: string; cardName?: string; title?: string;
-  need?: number | string; qty?: number | string; quantity?: number | string; needed?: number | string; count?: number | string;
-  unit?: number | string; price?: number | string; unit_price?: number | string; unitCost?: number | string;
-  subtotal?: number | string; total?: number | string; sum?: number | string; line_total?: number | string; lineTotal?: number | string; extended?: number | string;
-  source?: string; src?: string; price_source?: string;
-};
-
-function toNum(v: unknown, fallback = 0): number {
-  const n =
-    typeof v === "number" ? v :
-    typeof v === "string" ? Number(v) :
-    NaN;
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function normalizeRows(anyRows: unknown) {
-  const rows: RawRow[] = Array.isArray(anyRows) ? (anyRows as RawRow[]) : [];
-  return rows
-    .map((r) => {
-      const card = String(r.card ?? r.name ?? r.card_name ?? r.cardName ?? r.title ?? "");
-      const need = toNum(r.need ?? r.qty ?? r.quantity ?? r.needed ?? r.count, 0);
-      const unit = toNum(r.unit ?? r.price ?? r.unit_price ?? r.unitCost, 0);
-      const subtotal = toNum(
-        r.subtotal ?? r.total ?? r.sum ?? r.line_total ?? r.lineTotal ?? r.extended,
-        need * unit
-      );
-      const source = (r.source ?? r.src ?? r.price_source ?? "Scryfall") as string;
-      return { card, need, unit, subtotal, source };
-    })
-    .filter((r) => r.card.length > 0);
-}
+/**
+ * Row shape: `card`, `need`, `unit`, `subtotal`, `source` are the long-lived contract.
+ * Local `/api/collections/cost` and cooperative upstreams may add optional metadata (`kind`, `inDeckQty`, `zone`, …);
+ * {@link normalizeCostProxyRows} keeps unknown keys so apps can distinguish missing-from-collection vs deck-only pricing.
+ */
 
 export async function POST(req: Request) {
   const t0 = Date.now();
@@ -83,7 +57,7 @@ export async function POST(req: Request) {
       }, { status: 429 });
     }
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       deckId: body.deckId ?? body.deck_id ?? undefined,
       collectionId: body.collectionId ?? body.collection_id ?? undefined,
       deckText: body.deckText ?? body.deck_text ?? undefined,
@@ -92,6 +66,10 @@ export async function POST(req: Request) {
       useSnapshot: Boolean(body.useSnapshot ?? body.use_snapshot ?? false),
       snapshotDate: body.snapshotDate ?? body.snapshot_date ?? undefined,
     };
+    const formatRaw = body.format ?? body.Format;
+    if (typeof formatRaw === "string" && formatRaw.trim()) {
+      payload.format = formatRaw.trim();
+    }
 
     const base =
       process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -167,14 +145,14 @@ export async function POST(req: Request) {
     const upstreamCurrency = String(raw.currency || payload.currency || "USD").toUpperCase();
     const wantCurrency = String(payload.currency || upstreamCurrency || "USD").toUpperCase();
     const usedOwned = Boolean(raw.usedOwned ?? raw.useOwned ?? payload.useOwned ?? false);
-    let rows = normalizeRows(raw.rows ?? raw.items ?? raw.lines);
+    let rows = normalizeCostProxyRows(raw.rows ?? raw.items ?? raw.lines);
 
     // If upstream returned a different currency, convert unit/subtotal/total
     if (upstreamCurrency !== wantCurrency && ["USD","EUR","GBP"].includes(upstreamCurrency) && ["USD","EUR","GBP"].includes(wantCurrency)) {
-      const converted = [] as typeof rows;
+      const converted: typeof rows = [];
       for (const r of rows) {
-        const unit = await convert(r.unit, upstreamCurrency as any, wantCurrency as any);
-        const subtotal = await convert(r.subtotal, upstreamCurrency as any, wantCurrency as any);
+        const unit = await convert(Number(r.unit), upstreamCurrency as any, wantCurrency as any);
+        const subtotal = await convert(Number(r.subtotal), upstreamCurrency as any, wantCurrency as any);
         converted.push({ ...r, unit, subtotal });
       }
       rows = converted;
@@ -185,18 +163,23 @@ export async function POST(req: Request) {
         ? (upstreamCurrency !== wantCurrency && ["USD","EUR","GBP"].includes(upstreamCurrency) && ["USD","EUR","GBP"].includes(wantCurrency)
             ? await convert(raw.total, upstreamCurrency as any, wantCurrency as any)
             : raw.total)
-        : rows.reduce((s, r) => s + r.subtotal, 0);
+        : rows.reduce((s, r) => s + Number(r.subtotal), 0);
 
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("cost_computed", { currency: wantCurrency, total, usedOwned, rows: rows.length, ms: Date.now() - t0 }); } catch {}
 
-    const res = NextResponse.json({
+    const resPayload: Record<string, unknown> = {
       ok: raw.ok !== false,
       currency: wantCurrency,
       usedOwned,
       total,
       rows,
       prices_updated_at: raw.prices_updated_at || new Date().toISOString(),
-    });
+    };
+    if (typeof raw.format === "string" && raw.format.trim()) {
+      resPayload.format = raw.format.trim();
+    }
+
+    const res = NextResponse.json(resPayload);
     res.headers.set('x-debug-currency', JSON.stringify({ upstream: upstreamCurrency, want: wantCurrency }));
     return res;
   } catch (e: any) {
