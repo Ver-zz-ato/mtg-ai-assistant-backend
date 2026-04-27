@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
+import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 
 interface Suggestion {
   card: string;
@@ -12,6 +13,8 @@ interface Suggestion {
 interface FinishDeckPanelProps {
   deckId: string;
   cardCount: number;
+  /** Deck format from parent (e.g. deck row). Defaults to Commander for legacy callers. */
+  format?: string | null;
   onClose: () => void;
   onCardsAdded?: () => void;
 }
@@ -31,6 +34,7 @@ function norm(name: string) {
 export default function FinishDeckPanel({
   deckId,
   cardCount,
+  format,
   onClose,
   onCardsAdded,
 }: FinishDeckPanelProps) {
@@ -68,7 +72,11 @@ export default function FinishDeckPanel({
         const res = await fetch("/api/deck/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ deckId, format: "Commander", useScryfall: true }),
+          body: JSON.stringify({
+            deckId,
+            format: deckFormatStringToAnalyzeFormat(format ?? "Commander"),
+            useScryfall: true,
+          }),
         });
         const json = await res.json();
         if (!res.ok) {

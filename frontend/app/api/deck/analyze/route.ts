@@ -18,6 +18,12 @@ import {
 import { evaluateCardRecommendationLegality, banNormSetForUserFormat } from "@/lib/deck/recommendation-legality";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { deckFormatStringToAnalyzeFormat, type AnalyzeFormat } from "@/lib/deck/formatRules";
+import {
+  rowsToDeckTextForAnalysis,
+  parseMainboardEntriesForAnalysis,
+} from "@/lib/deck/formatCompliance";
+import type { BuildSummaryOptions } from "@/lib/deck/deck-context-summary";
 import roleBaselines from "@/lib/data/role_baselines.json";
 import colorIdentityMap from "@/lib/data/color_identity_map.json";
 import commanderProfiles from "@/lib/data/commander_profiles.json";
@@ -361,10 +367,21 @@ function extractJsonObject(raw: string): any | null {
 /** Compact deterministic deck metrics for LLM user prompts (server-computed in inferDeckContext only). */
 function formatDeckMetricsFromServer(context: InferredDeckContext): string {
   const lines: string[] = [];
-  lines.push("Deck metrics (from server) — use these counts as ground truth; do not contradict them.");
+  const isCommander = context.format === "Commander";
   lines.push(
-    `Lands (inferred): ${context.landCount} | Ramp-role cards: ${context.existingRampCount} | Commander provides ramp: ${context.commanderProvidesRamp ? "yes" : "no"}`
+    isCommander
+      ? "Deck metrics (from server) — use these counts as ground truth; do not contradict them."
+      : "Deck metrics (from server) — use these counts as ground truth for this 60-card main deck; do not contradict them."
   );
+  if (isCommander) {
+    lines.push(
+      `Lands (inferred): ${context.landCount} | Ramp-role cards: ${context.existingRampCount} | Commander provides ramp: ${context.commanderProvidesRamp ? "yes" : "no"}`
+    );
+  } else {
+    lines.push(
+      `Lands (inferred): ${context.landCount} | Early mana / mana rocks (ramp-tagged heuristics): ${context.existingRampCount}`
+    );
+  }
   if (context.isBudget !== undefined) {
     lines.push(`Budget mode: ${context.isBudget ? "yes" : "no"}`);
   }
@@ -397,8 +414,9 @@ function formatDeckMetricsFromServer(context: InferredDeckContext): string {
 
   const rd = context.roleDistribution?.byRole;
   if (rd) {
+    const roleLabel = isCommander ? "commander" : "commander_card";
     lines.push(
-      `Role counts (tagged slots): commander:${rd.commander} ramp:${rd.ramp_fixing} draw:${rd.draw_advantage} removal:${rd.removal_interact} wincon:${rd.wincon_payoff} engine:${rd.engine_enabler} protection:${rd.protection_recursion} land:${rd.land}`
+      `Role counts (tagged slots): ${roleLabel}:${rd.commander} ramp:${rd.ramp_fixing} draw:${rd.draw_advantage} removal:${rd.removal_interact} wincon:${rd.wincon_payoff} engine:${rd.engine_enabler} protection:${rd.protection_recursion} land:${rd.land}`
     );
   }
 
@@ -422,6 +440,12 @@ const DECK_METRICS_INTERPRETATION_GUIDANCE = `Interpretation guidance:
 - Prioritize identifying missing roles, weak card quality, redundancy, and poor synergy over criticizing raw counts alone.
 - Prefer improving card quality and role coverage rather than making recommendations that simply "balance numbers."
 - If a category is high, explain whether those cards are actually low-impact, redundant, or off-plan before recommending cuts.`;
+
+const DECK_METRICS_INTERPRETATION_CONSTRUCTED = `Interpretation guidance (60-card constructed main deck):
+
+- Treat the metrics above as ground truth for the main deck only.
+- There is no commander and no color identity rule; use deck colors as a soft guide for manabase and spell choices.
+- Prioritize curve, interaction, threats, card advantage, consistency, and copy limits over Commander-specific heuristics.`;
 
 /** User-prompt add-on: evidence-led problems and shell-specific recommendations (planner + slot stages). */
 const DECK_ANALYZE_PROBLEM_WEIGHTING = `Problem selection / recommendation weighting:
@@ -482,21 +506,26 @@ async function planSuggestionSlots(
     "Return STRICT JSON: {\"slots\":[{\"role\":\"...\",\"requestedType\":\"permanent|instant|any\",\"colors\":[\"G\",\"R\"],\"notes\":\"short problem description\",\"quantity\":1}]}",
   ].join("\n");
 
-  const profileNoteLines = buildCommanderProfileNotes(profile);
-  const baselineSummary = buildCommanderBaselineSummary(context.format);
-  const colorSummary = buildColorIdentitySummary(context.colors);
+  const isCmd = context.format === "Commander";
+  const profileNoteLines = isCmd ? buildCommanderProfileNotes(profile) : [];
+  const baselineSummary = isCmd ? buildCommanderBaselineSummary(context.format) : "";
+  const colorSummary = buildFormatColorSummary(context.format, context.colors);
 
   const userPrompt = [
     `Format: ${context.format}`,
     `Deck colors: ${context.colors.join(", ") || "Colorless"}`,
-    context.commander ? `Commander: ${context.commander}` : "Commander: (none)",
+    isCmd
+      ? context.commander
+        ? `Commander: ${context.commander}`
+        : "Commander: (none)"
+      : "This is a 60-card constructed deck (no commander).",
     profileNoteLines.length ? profileNoteLines.join("\n") : "",
     baselineSummary || "",
     colorSummary || "",
     formatDeckMetricsFromServer(context),
-    DECK_METRICS_INTERPRETATION_GUIDANCE,
+    isCmd ? DECK_METRICS_INTERPRETATION_GUIDANCE : DECK_METRICS_INTERPRETATION_CONSTRUCTED,
     DECK_ANALYZE_PROBLEM_WEIGHTING,
-    DECK_ANALYZE_SLOT_INTENT_PRECISION,
+    isCmd ? DECK_ANALYZE_SLOT_INTENT_PRECISION : "",
     "",
     context.userIntent ? `User goal: ${context.userIntent}` : "",
     userMessage ? `User message:\n${userMessage}` : "",
@@ -505,7 +534,9 @@ async function planSuggestionSlots(
     "",
     "Plan 3-6 slots that cover ramp, interaction, recursion, win conditions, or meta tech as needed.",
     "For each slot, include a 'notes' field that names the deck problem you're solving.",
-    "Be concise and respect commander colors/type requirements.",
+    isCmd
+      ? "Be concise and respect commander colors/type requirements."
+      : "Be concise; suggestions must be legal in the named format; no commander or color-identity rules.",
     `Prompt version: ${promptVersion}-planner`,
   ].filter(Boolean).join("\n");
 
@@ -584,23 +615,24 @@ async function fetchSlotCandidates(
   ].join("\n");
 
   const slotColors = slot.colors?.length ? slot.colors.join(", ") : context.colors.join(", ");
-  const profileNoteLines = buildCommanderProfileNotes(profile);
-  const baselineSummary = buildCommanderBaselineSummary(context.format);
-  const colorSummary = buildColorIdentitySummary(context.colors);
+  const isCmd = context.format === "Commander";
+  const profileNoteLines = isCmd ? buildCommanderProfileNotes(profile) : [];
+  const baselineSummary = isCmd ? buildCommanderBaselineSummary(context.format) : "";
+  const colorSummary = buildFormatColorSummary(context.format, context.colors);
 
   const userPrompt = [
     `Format: ${context.format}`,
     `Deck colors: ${context.colors.join(", ") || "Colorless"}`,
     slotColors ? `Allowed colors for this slot: ${slotColors}` : "",
     slot.requestedType ? `Requested type: ${slot.requestedType}` : "Requested type: flexible",
-    context.commander ? `Commander: ${context.commander}` : "",
+    isCmd && context.commander ? `Commander: ${context.commander}` : "",
     profileNoteLines.length ? profileNoteLines.join(" | ") : "",
     baselineSummary || "",
     colorSummary || "",
     formatDeckMetricsFromServer(context),
-    DECK_METRICS_INTERPRETATION_GUIDANCE,
+    isCmd ? DECK_METRICS_INTERPRETATION_GUIDANCE : DECK_METRICS_INTERPRETATION_CONSTRUCTED,
     DECK_ANALYZE_PROBLEM_WEIGHTING,
-    DECK_ANALYZE_SLOT_INTENT_PRECISION,
+    isCmd ? DECK_ANALYZE_SLOT_INTENT_PRECISION : "",
     slot.notes ? `Slot note: ${slot.notes}` : "",
     userMessage ? `User prompt: ${userMessage}` : "",
     "Deck excerpt:",
@@ -675,22 +707,23 @@ async function retrySlotCandidates(
 
   const slotColors = slot.colors?.length ? slot.colors.join(", ") : context.colors.join(", ");
   const profile = getCommanderProfileData(context.commander, context);
-  const profileNoteLines = buildCommanderProfileNotes(profile);
-  const baselineSummary = buildCommanderBaselineSummary(context.format);
-  const colorSummary = buildColorIdentitySummary(context.colors);
+  const isCmd = context.format === "Commander";
+  const profileNoteLines = isCmd ? buildCommanderProfileNotes(profile) : [];
+  const baselineSummary = isCmd ? buildCommanderBaselineSummary(context.format) : "";
+  const colorSummary = buildFormatColorSummary(context.format, context.colors);
 
   const userPrompt = [
     `Format: ${context.format}`,
     slotColors ? `Colors EXACT: ${slotColors}` : "",
     slot.requestedType ? `Required type: ${slot.requestedType}` : "",
-    context.commander ? `Commander: ${context.commander}` : "",
+    isCmd && context.commander ? `Commander: ${context.commander}` : "",
     profileNoteLines.length ? profileNoteLines.join(" | ") : "",
     baselineSummary || "",
     colorSummary || "",
     formatDeckMetricsFromServer(context),
-    DECK_METRICS_INTERPRETATION_GUIDANCE,
+    isCmd ? DECK_METRICS_INTERPRETATION_GUIDANCE : DECK_METRICS_INTERPRETATION_CONSTRUCTED,
     DECK_ANALYZE_PROBLEM_WEIGHTING,
-    DECK_ANALYZE_SLOT_INTENT_PRECISION,
+    isCmd ? DECK_ANALYZE_SLOT_INTENT_PRECISION : "",
     "Deck excerpt:",
     deckText.slice(0, 1500),
     userMessage ? `User prompt: ${userMessage}` : "",
@@ -1163,17 +1196,18 @@ async function findFastManaReplacement(
 }
 
 function computeBands(
-  format: "Commander" | "Modern" | "Pioneer",
+  format: AnalyzeFormat,
   totalCards: number,
   lands: number,
   ramp: number,
   draw: number,
   removal: number
 ) {
-  const landTarget = format === "Commander" ? 35 : 24;
+  const isCmd = format === "Commander";
+  const landTarget = isCmd ? 35 : 24;
   const manaBand = lands >= landTarget ? 0.8 : lands >= landTarget - 2 ? 0.7 : 0.55;
   return {
-    curve: Math.min(1, Math.max(0.5, 0.8 - Math.max(0, totalCards - (format === "Commander" ? 100 : 60)) * 0.001)),
+    curve: Math.min(1, Math.max(0.5, 0.8 - Math.max(0, totalCards - (isCmd ? 100 : 60)) * 0.001)),
     ramp: Math.min(1, ramp / 6 + 0.4),
     draw: Math.min(1, draw / 6 + 0.4),
     removal: Math.min(1, removal / 6 + 0.25),
@@ -1331,6 +1365,18 @@ function buildColorIdentitySummary(colors: string[]): string | null {
   const strengths = strengthSet.size ? Array.from(strengthSet).join(", ") : "n/a";
   const weaknesses = weaknessSet.size ? Array.from(weaknessSet).join(", ") : "n/a";
   return `Color identity: ${unique.join("/")}. Strengths: ${strengths}. Weaknesses: ${weaknesses}. Use card choices to cover the gaps.`;
+}
+
+function buildConstructedColorSummary(colors: string[]): string | null {
+  if (!colors?.length) return null;
+  const unique = Array.from(new Set(colors.map((c) => c.toUpperCase()).filter(Boolean)));
+  if (!unique.length) return null;
+  return `Inferred manabase colors from main-deck cards: ${unique.join(", ")}. Prefer cards and lands that support this manabase.`;
+}
+
+function buildFormatColorSummary(format: string, colors: string[]): string | null {
+  if (format === "Commander") return buildColorIdentitySummary(colors);
+  return buildConstructedColorSummary(colors);
 }
 
 function buildCommanderProfileNotes(profile: CommanderProfileEnriched | null): string[] {
@@ -1554,7 +1600,7 @@ export async function runDeckAnalyzeCore(
   const body = rawBody as {
     deckText?: string;
     deckId?: string;
-    format?: "Commander" | "Modern" | "Pioneer";
+    format?: AnalyzeFormat | string;
     plan?: "Budget" | "Optimized";
     colors?: string[];
     currency?: string;
@@ -1583,15 +1629,31 @@ export async function runDeckAnalyzeCore(
     typeof body.eval_run_id === "string" ? body.eval_run_id : null
   );
 
+  let deckRowFormat: string | null = null;
   let deckText = String(body.deckText || "").trim();
-  if (body.deckId && !deckText) {
-    const { data: deckRow } = await supabase.from("decks").select("deck_text, commander, format, colors").eq("id", body.deckId).maybeSingle();
-    if (deckRow?.deck_text) {
-      deckText = String(deckRow.deck_text).trim();
-    } else {
-      const { data: cards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", body.deckId).limit(400);
+  if (body.deckId) {
+    const { data: deckRow } = await supabase
+      .from("decks")
+      .select("deck_text, commander, format, colors")
+      .eq("id", body.deckId)
+      .maybeSingle();
+    if (deckRow?.format != null) {
+      deckRowFormat = String(deckRow.format);
+    }
+    if (!deckText) {
+      const { data: cards } = await supabase
+        .from("deck_cards")
+        .select("name, qty, zone")
+        .eq("deck_id", body.deckId)
+        .limit(400);
       if (cards?.length) {
-        deckText = (cards as Array<{ name: string; qty: number }>).map((c) => `${c.qty} ${c.name}`).join("\n");
+        const fmt = body.format ?? deckRowFormat ?? "commander";
+        deckText = rowsToDeckTextForAnalysis(
+          cards as Array<{ name: string; qty: number; zone?: string | null }>,
+          fmt
+        );
+      } else if (deckRow?.deck_text) {
+        deckText = String(deckRow.deck_text).trim();
       }
     }
   }
@@ -1626,7 +1688,9 @@ export async function runDeckAnalyzeCore(
     );
   }
 
-  const format: "Commander" | "Modern" | "Pioneer" = body.format ?? "Commander";
+  const format: AnalyzeFormat = deckFormatStringToAnalyzeFormat(
+    (body.format as string | undefined) ?? deckRowFormat ?? "Commander"
+  );
   const useScryfall = Boolean(body.useScryfall ?? true);
   const useGPT = Boolean(body.useGPT ?? true);
 
@@ -1673,9 +1737,11 @@ export async function runDeckAnalyzeCore(
     console.warn('[deck/analyze] Name fixing failed, continuing with original names:', e?.message);
   }
 
-  // Re-parse with potentially corrected deckText
-  const correctedParsed = parseDeckText(deckText);
-  const entries = correctedParsed.map(({ name, qty }) => ({ name, count: qty }));
+  // Re-parse with potentially corrected deckText (mainboard only for 60-card formats)
+  let entries = parseMainboardEntriesForAnalysis(deckText, format);
+  if (entries.length === 0 && deckText.trim()) {
+    entries = parseDeckText(deckText).map(({ name, qty }) => ({ name, count: qty }));
+  }
   const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).slice(0, 160);
   const byName = new Map<string, SfCard>();
   const lockedNormalized = new Set<string>();
@@ -1705,7 +1771,7 @@ export async function runDeckAnalyzeCore(
         if (!row?.summary_json) {
           const { data: d } = await supabase.from("decks").select("commander, format, colors").eq("id", deckId).maybeSingle();
           const summary = await buildDeckContextSummary(deckText, {
-            format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? format,
+            format: (d?.format as BuildSummaryOptions["format"]) ?? format,
             commander: d?.commander ?? body.commander ?? null,
             colors: Array.isArray(d?.colors) ? d.colors : (Array.isArray(body.colors) ? body.colors : []),
           });
@@ -1756,12 +1822,7 @@ export async function runDeckAnalyzeCore(
   const whatsGood: string[] = [];
   const quickFixes: string[] = [];
 
-  const landThreshold =
-    format === "Commander"
-      ? 34
-      : format === "Modern" || format === "Pioneer"
-      ? 22
-      : 23;
+  const landThreshold = format === "Commander" ? 34 : 22;
   const landProfileSignature = [
     context.archetype || "",
     commanderProfile?.plan || "",
@@ -1977,12 +2038,9 @@ export async function runDeckAnalyzeCore(
       let analysisText = analysisResult.text;
       if (entries.length > 0 && analysisText) {
         try {
-          const formatKeyAnalyze = (body.format ? String(body.format).toLowerCase().replace(/\s+/g, "") : "commander") as string;
-          const formatKeyVal = (formatKeyAnalyze === "modern" || formatKeyAnalyze === "pioneer" ? formatKeyAnalyze : "commander") as "commander" | "modern" | "pioneer";
           const { validateRecommendations } = await import("@/lib/chat/validateRecommendations");
           const valResult = await validateRecommendations({
             deckCards: entries.map((e) => ({ name: e.name, count: e.count })),
-            formatKey: formatKeyVal,
             colorIdentity: context.colors?.length ? context.colors : null,
             commanderName: context.commander || null,
             rawText: analysisText,

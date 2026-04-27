@@ -2,6 +2,8 @@
 
 import React from "react";
 import FinishDeckPanel from "@/components/FinishDeckPanel";
+import { getMainboardCardCount } from "@/lib/deck/formatRules";
+import { getExpectedCount } from "@/lib/deck/formatCompliance";
 
 type FormatCardCountBannerProps = {
   deckId: string;
@@ -23,8 +25,7 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
   const formatLower = format?.toLowerCase() || '';
   const shouldCheck = formatLower && ['commander', 'standard', 'modern', 'pioneer', 'pauper'].includes(formatLower);
 
-  // Determine expected count based on format
-  const expectedCount = formatLower === 'commander' ? 100 : 60;
+  const expectedCount = getExpectedCount(format) ?? (formatLower === "commander" ? 100 : 60);
 
   // Check card count
   React.useEffect(() => {
@@ -70,7 +71,12 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
         }
 
         const cards = Array.isArray(data.cards) ? data.cards : [];
-        const totalCount = cards.reduce((sum: number, card: any) => sum + (card.qty || 0), 0);
+        const totalCount = getMainboardCardCount(
+          cards.map((card: { qty: number; zone?: string | null }) => ({
+            qty: card.qty || 0,
+            zone: card.zone,
+          }))
+        );
         
         if (mounted) {
           setCardCount(totalCount);
@@ -142,6 +148,7 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
       <FinishDeckPanel
         deckId={deckId}
         cardCount={violation.actual}
+        format={format}
         onClose={() => setShowFinishDeck(false)}
       />
     );

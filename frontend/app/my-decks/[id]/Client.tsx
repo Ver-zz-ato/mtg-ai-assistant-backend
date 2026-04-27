@@ -14,6 +14,7 @@ import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
 import ColorIdentityBanner from "@/components/ColorIdentityBanner";
 import FormatCardCountBanner from "@/components/FormatCardCountBanner";
 import SingletonViolationBanner from "@/components/SingletonViolationBanner";
+import CopyCountWarningBanner from "@/components/CopyCountWarningBanner";
 import BannedCardsBanner from "@/components/BannedCardsBanner";
 import FixNamesModal from "./FixNamesModal";
 
@@ -278,8 +279,11 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
         {format && (
           <>
             <FormatCardCountBanner deckId={deckId!} format={format} />
-            {format.toLowerCase() === 'commander' && (
+            {format.toLowerCase() === "commander" && (
               <SingletonViolationBanner deckId={deckId!} />
+            )}
+            {format.toLowerCase() !== "commander" && (
+              <CopyCountWarningBanner deckId={deckId!} format={format} />
             )}
             <BannedCardsBanner deckId={deckId!} format={format} />
           </>

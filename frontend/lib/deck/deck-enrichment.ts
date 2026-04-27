@@ -55,7 +55,7 @@ export function isCommanderEligible(typeLine: string | undefined, oracleText: st
 }
 
 export type EnrichDeckOptions = {
-  format?: "Commander" | "Modern" | "Pioneer";
+  format?: "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
   commander?: string | null;
 };
 

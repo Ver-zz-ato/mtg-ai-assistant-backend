@@ -4,8 +4,14 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { capture } from "@/lib/ph";
 import AnalysisFeedbackRow from "@/components/AnalysisFeedbackRow";
 import SuggestionReportControl from "@/components/SuggestionReportControl";
+import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 
 export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId: string; proAuto: boolean; format?: string }) {
+  const analyzeFormatLabel = React.useMemo(
+    () => deckFormatStringToAnalyzeFormat(format ?? "Commander"),
+    [format]
+  );
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [score, setScore] = React.useState<number | null>(null);
@@ -16,8 +22,10 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       const r = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, { cache: 'no-store' });
       const j = await r.json().catch(()=>({ ok:false }));
       if (!r.ok || j?.ok===false) throw new Error(j?.error || r.statusText);
-      const rows = Array.isArray(j.cards) ? j.cards as Array<{ name: string; qty: number }> : [];
-      return rows.map(it => `${it.qty} ${it.name}`).join('\n');
+      const rows = Array.isArray(j.cards)
+        ? (j.cards as Array<{ name: string; qty: number; zone?: string | null }>)
+        : [];
+      return rowsToDeckTextForAnalysis(rows, format ?? "commander");
     } catch (e:any) { setError(e?.message || 'Failed to load deck'); return ''; }
   }
 
@@ -53,25 +61,20 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
       setError(null);
       const deckText = await fetchDeckText();
       console.log('Deck Analyzer: Fetched deck text, length:', deckText?.length || 0);
-      
-      if (!deckText) { 
-        setScore(null); 
-        setBands(null); 
-        setRawCounts(null);
-        setError('No deck text found');
-        setBusy(false);
-        return; 
-      }
-      
-      // Store deck context for "Why?" explanations
       setStoredDeckText(deckText);
       
       // Try to get commander from DB for commander-aware includes
       let commander: string | undefined = undefined;
       try { const sb = createBrowserSupabaseClient(); const { data } = await sb.from('decks').select('commander').eq('id', deckId).maybeSingle(); commander = String((data as any)?.commander||'') || undefined; } catch {}
       setStoredCommander(commander);
-      const payload:any = { deckText, format:'Commander', useScryfall:true, sourcePage: 'deck_page_analyze' };
+      const payload: Record<string, unknown> = {
+        deckId,
+        format: analyzeFormatLabel,
+        useScryfall: true,
+        sourcePage: "deck_page_analyze",
+      };
       if (commander) payload.commander = commander;
+      if (deckText.trim()) payload.deckText = deckText;
       
       // Dispatch event to auto-expand AI Assistant when analyzer runs
       try {
@@ -123,7 +126,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
           fetch("/api/deck/suggestion-outcome/batch-ignored", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ suggestion_ids: ids, deck_id: deckId, format: "Commander", commander, prompt_version_id: promptVersion }),
+            body: JSON.stringify({ suggestion_ids: ids, deck_id: deckId, format: analyzeFormatLabel, commander, prompt_version_id: promptVersion }),
           }).catch(() => {});
         }
       }
@@ -138,7 +141,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
           prompt_version: j?.prompt_version ?? null,
           suggestion_count: Array.isArray(j?.suggestions) ? j.suggestions.length : 0,
           commander_name: commander ?? null,
-          format: format ?? "Commander",
+          format: analyzeFormatLabel,
         });
       } catch {}
       // Dispatch event to auto-expand AI Assistant when analyzer completes
@@ -449,7 +452,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                               suggested_card: s.card,
                                               category: s.category ?? "synergy-upgrade",
                                               prompt_version_id: promptVersion,
-                                              format: "Commander",
+                                              format: analyzeFormatLabel,
                                               commander: storedCommander,
                                               rejected: true,
                                               outcome_source: "client_reject",
@@ -568,7 +571,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                               suggested_card: s.card,
                                               category: s.category ?? "synergy-upgrade",
                                               prompt_version_id: promptVersion,
-                                              format: "Commander",
+                                              format: analyzeFormatLabel,
                                               commander: storedCommander,
                                               rejected: true,
                                               outcome_source: "client_reject",
@@ -725,7 +728,7 @@ export default function DeckAnalyzerPanel({ deckId, proAuto, format }: { deckId:
                                               suggested_card: s.card,
                                               category: s.category ?? "optional",
                                               prompt_version_id: promptVersion,
-                                              format: "Commander",
+                                              format: analyzeFormatLabel,
                                               commander: storedCommander,
                                               rejected: true,
                                               outcome_source: "client_reject",

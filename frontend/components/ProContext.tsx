@@ -1,66 +1,146 @@
 'use client';
-import React from 'react';
+
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
+import { useAuth } from '@/lib/auth-context';
+
+export type ModelTier = 'guest' | 'free' | 'pro';
+
+export type ProStatus = {
+  isPro: boolean;
+  hasBillingAccount: boolean;
+  modelTier: ModelTier;
+  modelLabel: string;
+  upgradeMessage: string | null;
+  loading: boolean;
+};
+
+const defaultProStatus: ProStatus = {
+  isPro: false,
+  hasBillingAccount: false,
+  modelTier: 'guest',
+  modelLabel: 'Guest',
+  upgradeMessage: 'Sign in for a better model. Upgrade to Pro for the best.',
+  loading: true,
+};
+
+const ProStatusContext = createContext<ProStatus>(defaultProStatus);
+
+/** Single source of truth for Pro / model tier (one Supabase realtime channel per signed-in user). */
+export function useProStatus(): ProStatus {
+  return useContext(ProStatusContext);
+}
 
 export type ProContextValue = { isPro: boolean };
-const ProContext = React.createContext<ProContextValue>({ isPro: false });
 
 export function usePro(): ProContextValue {
-  return React.useContext(ProContext);
+  const { isPro } = useContext(ProStatusContext);
+  return { isPro };
 }
 
 export default function ProProvider({ children }: { children: React.ReactNode }) {
-  const [isPro, setIsPro] = React.useState(false);
-  const { user, loading } = useAuth();
+  const [status, setStatus] = useState<ProStatus>(defaultProStatus);
+  const { user, loading: authLoading } = useAuth();
 
-  React.useEffect(() => {
-    if (loading) {
-      return; // Wait for auth to be ready
-    }
-    
-    if (!user) {
-      setIsPro(false);
+  useEffect(() => {
+    if (authLoading) {
       return;
     }
-    
+
+    if (!user) {
+      setStatus({
+        isPro: false,
+        hasBillingAccount: false,
+        modelTier: 'guest',
+        modelLabel: 'Guest',
+        upgradeMessage: 'Sign in for a better model. Upgrade to Pro for the best.',
+        loading: false,
+      });
+      return;
+    }
+
     const sb = createBrowserSupabaseClient();
-    
-    // Initial check + real-time subscription for Pro status updates
+
     const checkProStatus = async () => {
       try {
-        const { data: profile, error } = await sb
+        const { data: profile, error: profileError } = await sb
           .from('profiles')
-          .select('is_pro')
+          .select('is_pro, stripe_customer_id')
           .eq('id', user.id)
           .single();
-        
-        // Check both database and metadata for consistency (same as useProStatus)
+
         const isProFromProfile = profile?.is_pro === true;
-        const isProFromMetadata = 
-          user.user_metadata?.is_pro === true || 
-          user.user_metadata?.pro === true;
-        
-        // Use OR logic - true if either source says Pro
-        const isProUser = isProFromProfile || isProFromMetadata;
-        setIsPro(isProUser);
-      } catch (err) {
-        // Fallback to metadata if database query fails
-        const md: any = user.user_metadata || {};
-        const fallbackPro = Boolean(md?.is_pro || md?.pro);
-        setIsPro(fallbackPro);
+        const isProFromMetadata =
+          user?.user_metadata?.is_pro === true || user?.user_metadata?.pro === true;
+        let isProUser = isProFromProfile || isProFromMetadata;
+        let hasBilling = !!(profile as { stripe_customer_id?: string } | null)?.stripe_customer_id;
+        let tier: ModelTier = isProUser ? 'pro' : 'free';
+        let label = isProUser ? 'Pro' : 'Standard';
+        let message: string | null = isProUser ? null : 'Upgrade to Pro for the best model.';
+
+        if (profileError) {
+          try {
+            const apiRes = await fetch('/api/user/pro-status');
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.ok && apiData.isPro !== undefined) {
+                isProUser = apiData.isPro;
+              }
+              if (apiData.ok && apiData.hasBillingAccount !== undefined) {
+                hasBilling = apiData.hasBillingAccount;
+              }
+              if (apiData.ok && apiData.modelTier != null) {
+                tier = apiData.modelTier;
+                label = apiData.modelLabel ?? label;
+                message = apiData.upgradeMessage ?? message;
+              }
+            }
+          } catch {
+            // Fallback to metadata
+          }
+        } else {
+          try {
+            const apiRes = await fetch('/api/user/pro-status');
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.ok && apiData.modelTier != null) {
+                tier = apiData.modelTier;
+                label = apiData.modelLabel ?? label;
+                message = apiData.upgradeMessage ?? message;
+              }
+            }
+          } catch {
+            // Keep tier/label/message from profile
+          }
+        }
+
+        setStatus({
+          isPro: isProUser,
+          hasBillingAccount: hasBilling,
+          modelTier: tier,
+          modelLabel: label,
+          upgradeMessage: message,
+          loading: false,
+        });
+      } catch {
+        const metadataIsPro = Boolean(user.user_metadata?.is_pro || user.user_metadata?.pro);
+        setStatus({
+          isPro: metadataIsPro,
+          hasBillingAccount: false,
+          modelTier: metadataIsPro ? 'pro' : 'free',
+          modelLabel: metadataIsPro ? 'Pro' : 'Standard',
+          upgradeMessage: metadataIsPro ? null : 'Upgrade to Pro for the best model.',
+          loading: false,
+        });
       }
     };
-    
-    // Initial check
-    checkProStatus();
-    
-    // Subscribe to real-time profile changes (e.g., when admin toggles Pro)
-    // Wrap in try-catch to handle WebSocket connection errors gracefully
+
+    void checkProStatus();
+
     let channel: ReturnType<typeof sb.channel> | null = null;
     try {
       channel = sb
-        .channel(`profile-${user.id}`)
+        .channel(`pro-status-${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -70,57 +150,71 @@ export default function ProProvider({ children }: { children: React.ReactNode })
             filter: `id=eq.${user.id}`,
           },
           (payload) => {
-            // Profile was updated - refresh Pro status
-            const newIsPro = Boolean((payload.new as any)?.is_pro);
-            setIsPro(newIsPro);
+            const profileIsPro = Boolean((payload.new as { is_pro?: boolean })?.is_pro);
+            const metadataIsPro = Boolean(
+              user?.user_metadata?.is_pro || user?.user_metadata?.pro
+            );
+            const sid = (payload.new as { stripe_customer_id?: string })?.stripe_customer_id;
+            setStatus((prev) => ({
+              ...prev,
+              isPro: profileIsPro || metadataIsPro,
+              hasBillingAccount:
+                sid !== undefined ? !!sid : prev.hasBillingAccount,
+              modelTier: profileIsPro || metadataIsPro ? 'pro' : 'free',
+              modelLabel: profileIsPro || metadataIsPro ? 'Pro' : 'Standard',
+              upgradeMessage:
+                profileIsPro || metadataIsPro ? null : 'Upgrade to Pro for the best model.',
+              loading: false,
+            }));
           }
         )
-        .subscribe((status) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            // Log error for debugging (throttled to once per session)
+        .subscribe((subStatus) => {
+          if (subStatus === 'CHANNEL_ERROR' || subStatus === 'TIMED_OUT' || subStatus === 'CLOSED') {
             if (typeof window !== 'undefined') {
               try {
-                import('@/lib/secure-connections').then(({ logConnectionError }) => {
-                  logConnectionError(`Subscription ${status}`, {
-                    type: 'supabase-realtime',
-                    channel: `profile-${user.id}`,
-                    status,
-                  });
-                }).catch(() => {});
-              } catch {}
+                import('@/lib/secure-connections')
+                  .then(({ logConnectionError }) => {
+                    logConnectionError(`Subscription ${subStatus}`, {
+                      type: 'supabase-realtime',
+                      channel: `pro-status-${user.id}`,
+                      status: subStatus,
+                    });
+                  })
+                  .catch(() => {});
+              } catch {
+                /* ignore */
+              }
             }
           }
         });
     } catch (error) {
-      // Fallback: subscription failed, but we already have the initial Pro status
-      // The app will continue to work, just without real-time updates
       if (typeof window !== 'undefined') {
         try {
-          import('@/lib/secure-connections').then(({ logConnectionError }) => {
-            logConnectionError(error, {
-              type: 'supabase-realtime',
-              channel: `profile-${user.id}`,
-              operation: 'subscribe',
-            });
-          }).catch(() => {});
-        } catch {}
+          import('@/lib/secure-connections')
+            .then(({ logConnectionError }) => {
+              logConnectionError(error, {
+                type: 'supabase-realtime',
+                channel: `pro-status-${user.id}`,
+                operation: 'subscribe',
+              });
+            })
+            .catch(() => {});
+        } catch {
+          /* ignore */
+        }
       }
     }
-    
+
     return () => {
       if (channel) {
         try {
           sb.removeChannel(channel);
-        } catch (error) {
-          // Silently fail
+        } catch {
+          /* ignore */
         }
       }
     };
-  }, [user, loading]);
+  }, [user, authLoading]);
 
-  return (
-    <ProContext.Provider value={{ isPro }}>
-      {children}
-    </ProContext.Provider>
-  );
+  return <ProStatusContext.Provider value={status}>{children}</ProStatusContext.Provider>;
 }

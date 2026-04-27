@@ -91,7 +91,7 @@ export default function TopToolsStrip() {
             key={idx}
             href={tool.href}
             onClick={() => handleToolClick(tool)}
-            className="block rounded-xl overflow-hidden snap-center flex-shrink-0 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/20 hover:ring-2 hover:ring-blue-400/50"
+            className="block rounded-xl overflow-hidden snap-center flex-shrink-0 lg:transition-[transform,box-shadow] lg:duration-200 lg:hover:scale-[1.02] lg:hover:shadow-xl lg:hover:shadow-blue-500/20 lg:hover:ring-2 lg:hover:ring-blue-400/50"
           >
             {failedImgs.has(idx) ? (
               <div className="w-full md:max-h-[170px] max-h-[102px] min-h-[102px] flex items-center justify-center bg-neutral-800 text-neutral-500 text-sm rounded-xl">
@@ -101,8 +101,9 @@ export default function TopToolsStrip() {
               <img
                 src={tool.img}
                 alt={tool.alt}
-                className="w-full h-auto md:max-h-[170px] max-h-[102px] object-cover transition-transform duration-300"
-                loading="eager"
+                className="w-full h-auto md:max-h-[170px] max-h-[102px] object-cover"
+                loading={idx < 2 ? "eager" : "lazy"}
+                decoding="async"
                 onError={() => setFailedImgs((s) => new Set(s).add(idx))}
               />
             )}

@@ -10,22 +10,21 @@ import { tagCards } from '@/lib/deck/card-role-tags';
 import { buildDeckFacts, type DeckFacts } from '@/lib/deck/deck-facts';
 import { parseDeckText } from '@/lib/deck/parseDeckText';
 import { resolveCommanderFromEnriched } from '@/lib/deck/deck-context-summary';
+import { deckFormatStringToAnalyzeFormat, type AnalyzeFormat } from '@/lib/deck/formatRules';
 
 export const runtime = 'nodejs';
 
-function normalizeFactsFormat(raw: string): 'Commander' | 'Modern' | 'Pioneer' {
-  const lower = String(raw || '').trim().toLowerCase();
-  if (lower === 'modern') return 'Modern';
-  if (lower === 'pioneer') return 'Pioneer';
-  return 'Commander';
+function normalizeFactsFormat(raw: string): AnalyzeFormat {
+  return deckFormatStringToAnalyzeFormat(raw);
 }
 
 function deckEntriesFromDeckCards(
-  deckCards: { name: string; qty: number }[] | null
+  deckCards: { name: string; qty: number; zone?: string | null }[] | null
 ): Array<{ name: string; qty: number }> {
   if (!Array.isArray(deckCards) || deckCards.length === 0) return [];
   const byName = new Map<string, number>();
   for (const c of deckCards) {
+    if (String(c?.zone || 'mainboard').toLowerCase() === 'sideboard') continue;
     const name = String(c?.name ?? '').trim().replace(/\s+/g, ' ');
     const q = Math.max(0, Math.floor(Number(c?.qty) || 0));
     if (!name || q <= 0) continue;
@@ -74,7 +73,7 @@ function deckFactsToPromptJson(facts: DeckFacts): string {
 
 async function computeDeckFactsForHealthReport(
   entries: Array<{ name: string; qty: number }>,
-  format: 'Commander' | 'Modern' | 'Pioneer',
+  format: AnalyzeFormat,
   commanderFromDeck: string
 ): Promise<{ facts: DeckFacts | null; factsNote: string }> {
   if (entries.length === 0) {
@@ -85,9 +84,9 @@ async function computeDeckFactsForHealthReport(
     };
   }
   try {
-    const commander = commanderFromDeck.trim() || null;
+    const commander = format === 'Commander' ? commanderFromDeck.trim() || null : null;
     const enriched = await enrichDeck(entries, { format, commander });
-    const resolvedCommander = resolveCommanderFromEnriched(enriched, commander);
+    const resolvedCommander = format === 'Commander' ? resolveCommanderFromEnriched(enriched, commander) : null;
     const tagged = tagCards(enriched);
     const facts = buildDeckFacts(tagged, { format, commander: resolvedCommander });
     return { facts, factsNote: '' };
@@ -180,7 +179,7 @@ export async function POST(req: NextRequest) {
 
     const { data: deckCards } = await supabase
       .from('deck_cards')
-      .select('name, qty')
+      .select('name, qty, zone')
       .eq('deck_id', deckId)
       .limit(400);
 
@@ -201,6 +200,7 @@ export async function POST(req: NextRequest) {
     const title = String(deck.title ?? 'Untitled');
     const formatRaw = String(deck.format ?? 'Commander');
     const format = normalizeFactsFormat(formatRaw);
+    const isCommanderFormat = format === 'Commander';
 
     const { facts, factsNote } = await computeDeckFactsForHealthReport(entries, format, commander);
     const factsBlock = facts
@@ -217,13 +217,19 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `You are ManaTap AI, an expert Magic: The Gathering deck analyst. Produce a Pro Health Report in the exact format below.
 
-You will receive COMPUTED_DECK_FACTS as JSON from our pipeline (Scryfall cache enrichment, role tags, deterministic counts, curve, archetype/engine/win-pattern candidates, color identity, off-color and banned card lists when available). Treat those facts as the source of truth for numbers and structure unless an "uncertainty_flags" field says otherwise or facts are missing. Do not contradict provided counts when present. Use the decklist text for card-specific reasoning, adds, and cuts.
+You will receive COMPUTED_DECK_FACTS as JSON from our pipeline (Scryfall cache enrichment, role tags, deterministic counts, curve, archetype/engine/win-pattern candidates${
+      isCommanderFormat ? ', color identity, off-color and banned card lists when available' : ', banned card lists when available'
+    }). Treat those facts as the source of truth for numbers and structure unless an "uncertainty_flags" field says otherwise or facts are missing. Do not contradict provided counts when present. Use the decklist text for card-specific reasoning, adds, and cuts.
 
 If facts are partial or unavailable, say so briefly in the overview and avoid asserting precise metrics you were not given.
 
 ${uncertaintyLine}
 
-Stay format-legal and within color identity for suggestions. Use clear, actionable language.
+${
+      isCommanderFormat
+        ? 'Stay format-legal and within color identity for suggestions. Use clear, actionable language.'
+        : 'This is a 60-card constructed context unless the metadata says otherwise: focus on main-deck curve, interaction, consistency, and manabase. Do not use Commander/EDH-specific advice (no color identity rules for generic constructed). Use clear, actionable language.'
+    }
 
 Respond with exactly these sections, each starting with the header on its own line:
 
@@ -244,7 +250,9 @@ Respond with exactly these sections, each starting with the header on its own li
 
 ## SUGGESTED_ADDS
 - Card Name - brief reason
-(5-7 cards to add, with short reason. Only cards legal in format and in color identity.)
+(5-7 cards to add, with short reason. Only cards legal in this format${
+      isCommanderFormat ? ' and in the deck color identity' : ''
+    }.)
 
 ## SUGGESTED_CUTS
 - Card Name - brief reason

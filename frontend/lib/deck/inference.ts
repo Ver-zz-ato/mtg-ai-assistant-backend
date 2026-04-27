@@ -1,4 +1,5 @@
 // Shared deck inference functions for analyze and chat routes
+import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 import { createClient } from "@/lib/supabase/server";
 import { isStale } from "@/lib/server/scryfallTtl";
 import {
@@ -162,7 +163,7 @@ const INFERENCE_CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 function getInferenceCacheKey(
   deckText: string,
   commander: string | null,
-  format: "Commander" | "Modern" | "Pioneer",
+  format: AnalyzeFormat,
   userMessage: string | undefined,
   plan: "Budget" | "Optimized" | undefined
 ): string {
@@ -527,7 +528,7 @@ export type CardRoleInfo = {
 export type InferredDeckContext = {
   commander: string | null;
   colors: string[];
-  format: "Commander" | "Modern" | "Pioneer";
+  format: AnalyzeFormat;
   commanderProvidesRamp: boolean;
   landCount: number;
   existingRampCount: number; // Count of ramp pieces already in deck
@@ -572,32 +573,34 @@ export type InferredDeckContext = {
 export function detectFormat(
   totalCards: number,
   commander: string | null,
-  format: "Commander" | "Modern" | "Pioneer",
+  format: AnalyzeFormat,
   userMessage?: string
-): "Commander" | "Modern" | "Pioneer" {
+): AnalyzeFormat {
   // Check user message for format hints first
   if (userMessage) {
     const msgLower = userMessage.toLowerCase();
     if (/\b(commander|edh)\b/i.test(msgLower)) return "Commander";
+    if (/\bcedh\b/i.test(msgLower)) return "Commander";
     if (/\b(modern)\b/i.test(msgLower)) return "Modern";
-    if (/\b(pioneer|standard)\b/i.test(msgLower)) return "Pioneer";
+    if (/\b(pioneer)\b/i.test(msgLower)) return "Pioneer";
+    if (/\b(standard|std)\b/i.test(msgLower)) return "Standard";
+    if (/\b(pauper)\b/i.test(msgLower)) return "Pauper";
   }
-  
+
   // If format explicitly set, use it
   if (format) return format;
-  
+
   // Commander name present → EDH
   if (commander) return "Commander";
-  
+
   // 100-ish cards → EDH
   if (totalCards >= 95 && totalCards <= 105) return "Commander";
-  
-  // 60-card → standard/pioneer/modern
+
+  // 60-card (±sideboard band) — ambiguous constructed
   if (totalCards >= 55 && totalCards <= 75) {
-    // Default to Modern if ambiguous
     return "Modern";
   }
-  
+
   // Default to Commander for singleton/bigger decks
   return "Commander";
 }
@@ -1317,7 +1320,7 @@ export async function inferDeckContext(
   deckText: string,
   userMessage: string | undefined,
   entries: Array<{ count: number; name: string }>,
-  format: "Commander" | "Modern" | "Pioneer",
+  format: AnalyzeFormat,
   reqCommander: string | null,
   selectedColors: string[],
   byName: Map<string, SfCard>,
@@ -1354,28 +1357,28 @@ export async function inferDeckContext(
     if (sfIsLand(c, t)) context.landCount += count;
   }
 
-  // Try to detect commander
-  let detectedCommander: string | null = reqCommander;
+  // Try to detect commander (Commander / EDH only; never treat a 60-card list as having a "commander")
+  let detectedCommander: string | null = format === "Commander" ? reqCommander : null;
 
-  // Check user message for commander mention
-  if (!detectedCommander && userMessage) {
-    const commanderMatch = userMessage.match(/my commander (?:is|:)\s*([^.?!]+)/i);
-    if (commanderMatch) {
-      detectedCommander = commanderMatch[1].trim();
+  if (format === "Commander") {
+    if (!detectedCommander && userMessage) {
+      const commanderMatch = userMessage.match(/my commander (?:is|:)\s*([^.?!]+)/i);
+      if (commanderMatch) {
+        detectedCommander = commanderMatch[1].trim();
+      }
     }
-  }
 
-  // Check first card in decklist if no commander found
-  if (!detectedCommander && entries.length > 0) {
-    const firstCard = entries[0].name;
-    const isCommander = await checkIfCommander(firstCard);
-    if (isCommander) {
-      detectedCommander = firstCard;
+    if (!detectedCommander && entries.length > 0) {
+      const firstCard = entries[0].name;
+      const isCommander = await checkIfCommander(firstCard);
+      if (isCommander) {
+        detectedCommander = firstCard;
+      }
     }
   }
 
   // If we have a commander, fetch its data
-  if (detectedCommander) {
+  if (format === "Commander" && detectedCommander) {
     const commanderCard = await fetchCard(detectedCommander);
     if (commanderCard) {
       context.commander = commanderCard.name;

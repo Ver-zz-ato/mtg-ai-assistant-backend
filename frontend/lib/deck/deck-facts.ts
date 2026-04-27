@@ -16,7 +16,7 @@ export type UncertaintyFlag =
 
 export type DeckFacts = {
   commander: string | null;
-  format: "Commander" | "Modern" | "Pioneer";
+  format: "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
   color_identity: string[];
   land_count: number;
   nonland_count: number;
@@ -98,7 +98,7 @@ function inferCurveProfile(avgCmc: number, hist: number[]): DeckFacts["curve_pro
 }
 
 export type BuildDeckFactsOptions = {
-  format?: "Commander" | "Modern" | "Pioneer";
+  format?: "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
   commander?: string | null;
   formatLegalities?: Record<string, string>;
 };
@@ -169,13 +169,14 @@ export function buildDeckFacts(
   const bannedCards: string[] = [];
   const formatKey = format.toLowerCase();
   let legalityIncomplete = false;
+  const isCmd = format === "Commander";
   for (const c of taggedCards) {
     if (c.cache_miss) continue;
     const leg = c.legalities?.[formatKey];
     if (!leg) legalityIncomplete = true;
     if (leg === "banned" || leg === "not_legal") bannedCards.push(c.name);
     const ci = new Set((c.color_identity || []).map((x) => x.toUpperCase()));
-    if (commander && colorIdentity.size > 0 && ci.size > 0) {
+    if (isCmd && commander && colorIdentity.size > 0 && ci.size > 0) {
       const allowed = [...colorIdentity];
       const hasOff = [...ci].some((col) => col !== "C" && !allowed.includes(col));
       if (hasOff) offColorCards.push(c.name);

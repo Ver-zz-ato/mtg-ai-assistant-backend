@@ -17,8 +17,9 @@ import {
   costAuditRequestId,
   isCostAuditClientEnabled,
 } from "@/lib/observability/cost-audit";
+import { getMainboardCardCount, getSideboardCardCount } from "@/lib/deck/formatRules";
 
-type CardRow = { id: string; deck_id: string; name: string; qty: number; created_at: string };
+type CardRow = { id: string; deck_id: string; name: string; qty: number; zone?: string | null; created_at: string };
 
 export default function CardsPane({ deckId, format, allowedColors = [] }: { deckId?: string; format?: string; allowedColors?: string[] }) {
   const [cards, setCards] = useState<CardRow[]>([]);
@@ -449,6 +450,30 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     }
   }
 
+  async function moveCardZone(id: string, newZone: "mainboard" | "sideboard") {
+    if (!deckId) return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, new_zone: newZone }),
+      });
+      const json = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !json?.ok) {
+        throw new Error((json as { error?: string })?.error || "Could not move card");
+      }
+      await load();
+      try {
+        window.dispatchEvent(new Event("deck:changed"));
+      } catch {}
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Move failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   function toggleSelect(id: string) {
     setSelected(prev => {
       const next = new Set(prev);
@@ -589,6 +614,20 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
 
   // render each actual row (not grouped), sorted by name for a stable view
   const rows = useMemo(() => [...cards].sort((a, b) => a.name.localeCompare(b.name)), [cards]);
+  const isConstructed60 = useMemo(
+    () => ["modern", "pioneer", "standard", "pauper"].includes((format || "").toLowerCase()),
+    [format]
+  );
+  const orderedRows = useMemo(() => {
+    if (!isConstructed60) return rows;
+    const m = rows.filter(
+      (c) => String((c as CardRow).zone || "mainboard").toLowerCase() !== "sideboard"
+    );
+    const s = rows.filter(
+      (c) => String((c as CardRow).zone || "mainboard").toLowerCase() === "sideboard"
+    );
+    return [...m, ...s];
+  }, [rows, isConstructed60]);
   const flexRows = useMemo(() => [...maybeFlex].sort((a, b) => a.name.localeCompare(b.name)), [maybeFlex]);
   const maybeFlexQtyTotal = useMemo(() => totalMaybeFlexQty(maybeFlex), [maybeFlex]);
 
@@ -907,12 +946,36 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         </div>
       </div>
 
+      {isConstructed60 && (
+        <p className="text-[11px] text-neutral-500 mt-2">
+          Mainboard: {getMainboardCardCount(cards.map((c) => ({ qty: c.qty, zone: c.zone })))} cards · Sideboard:{" "}
+          {getSideboardCardCount(cards.map((c) => ({ qty: c.qty, zone: c.zone })))} cards
+        </p>
+      )}
+
       <div className="mt-3 flex flex-col gap-2 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2" ref={listRef}>
-        {rows.map((c, idx) => {
+        {isConstructed60 &&
+          orderedRows.some(
+            (r) => String((r as CardRow).zone || "mainboard").toLowerCase() !== "sideboard"
+          ) && (
+            <div className="text-xs font-medium text-neutral-500 px-1">Mainboard</div>
+          )}
+        {orderedRows.map((c, idx) => {
           const isOffColor = offColorCards.has(c.name);
+          const z = String(c.zone || "mainboard").toLowerCase();
+          const isFirstSide =
+            isConstructed60 &&
+            z === "sideboard" &&
+            (idx === 0 ||
+              String(orderedRows[idx - 1]?.zone || "mainboard").toLowerCase() !== "sideboard");
           return (
+          <React.Fragment key={c.id}>
+          {isFirstSide && (
+            <div className="text-xs font-medium text-neutral-500 pt-2 border-t border-neutral-800 mt-1 px-1">
+              Sideboard
+            </div>
+          )}
           <div
-            key={c.id}
             data-row-index={idx}
             className={`flex items-center justify-between rounded border px-3 py-2 md:px-4 md:py-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-emerald-600 hover:bg-neutral-800/50 transition-colors cursor-pointer ${
               isOffColor 
@@ -1005,6 +1068,19 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
             </div>
 
             <div className="flex items-center gap-2">
+              {isConstructed60 && (
+                <button
+                  type="button"
+                  className="text-[10px] text-sky-400 hover:text-sky-300 px-1.5 py-0.5 rounded border border-sky-800/60"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void moveCardZone(c.id, z === "sideboard" ? "mainboard" : "sideboard");
+                  }}
+                  disabled={busyId === c.id}
+                >
+                  {z === "sideboard" ? "To main" : "To sideboard"}
+                </button>
+              )}
               {(() => { try { 
                 const normalize = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
                 const key = normalize(c.name); 
@@ -1085,6 +1161,7 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
               </button>
             </div>
           </div>
+          </React.Fragment>
         );})}
 
         {rows.length === 0 && !status && (

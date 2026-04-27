@@ -656,6 +656,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
         <FinishDeckPanel
           deckId={deckId}
           cardCount={cardCount}
+          format={format}
           onClose={() => setShowFinishDeck(false)}
           onCardsAdded={() => {
             try { window.dispatchEvent(new Event('deck:changed')); } catch {}

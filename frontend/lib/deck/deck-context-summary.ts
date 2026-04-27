@@ -17,7 +17,7 @@ import { buildSynergyDiagnostics, type SynergyDiagnostics } from "@/lib/deck/syn
 
 export type DeckContextSummary = {
   deck_hash: string;
-  format: "Commander" | "Modern" | "Pioneer";
+  format: "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
   commander: string | null;
   colors: string[];
   land_count: number;
@@ -42,7 +42,7 @@ export type DeckContextSummary = {
 };
 
 export type BuildSummaryOptions = {
-  format?: "Commander" | "Modern" | "Pioneer";
+  format?: "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
   commander?: string | null;
   colors?: string[];
 };
@@ -147,7 +147,7 @@ function tally(
 }
 
 function inferWarningFlags(
-  format: "Commander" | "Modern" | "Pioneer",
+  format: "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper",
   totalCards: number,
   lands: number,
   ramp: number,
@@ -156,15 +156,16 @@ function inferWarningFlags(
 ): string[] {
   const flags: string[] = [];
   const landRatio = totalCards > 0 ? lands / totalCards : 0;
-  const wantLands = format === "Commander" ? 35 : 24;
-  const wantRamp = format === "Commander" ? 8 : 4;
+  const isCommander = format === "Commander";
+  const wantLands = isCommander ? 35 : 24;
+  const wantRamp = isCommander ? 8 : 4;
   const wantDraw = 8;
   const wantRemoval = 8;
 
-  if (format === "Commander" && totalCards < 98) flags.push("deck_too_small");
+  if (isCommander && totalCards < 98) flags.push("deck_too_small");
   if (totalCards > 0 && landRatio < 0.3) flags.push("mana_low");
   if (lands > 0 && landRatio > 0.45) flags.push("mana_high");
-  if (ramp < wantRamp && format === "Commander") flags.push("ramp_low");
+  if (ramp < wantRamp && isCommander) flags.push("ramp_low");
   if (draw < 6) flags.push("draw_low");
   if (removal < 5) flags.push("removal_low");
 

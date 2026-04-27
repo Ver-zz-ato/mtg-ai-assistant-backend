@@ -1,7 +1,8 @@
 // app/api/decks/cards/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
+import { isCommanderFormatString } from "@/lib/deck/formatRules";
 import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
 import { canonicalize } from "@/lib/cards/canonicalize";
 
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
       }
       const { data: rows, error } = await service
         .from("deck_cards")
-        .select("id, deck_id, name, qty, created_at")
+        .select("id, deck_id, name, qty, zone, created_at")
         .in("deck_id", allowed)
         .order("name", { ascending: true });
       if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
@@ -95,7 +96,7 @@ export async function GET(req: NextRequest) {
     
     const { data, error } = await client
       .from("deck_cards")
-      .select("id, deck_id, name, qty, created_at")
+      .select("id, deck_id, name, qty, zone, created_at")
       .eq("deck_id", deckId)
       .order("name", { ascending: true });
     
@@ -107,94 +108,52 @@ export async function GET(req: NextRequest) {
 }
 
 async function importDeckText(supabase: SupabaseServerClient, deckId: string, deckText: string) {
-  const parsed = parseDeckText(deckText);
-  if (parsed.length === 0) {
+  const { data: deckMeta } = await supabase.from("decks").select("format").eq("id", deckId).maybeSingle();
+  const formatRaw = String(deckMeta?.format ?? "commander");
+
+  const insertBatch: Array<{ deck_id: string; name: string; qty: number; zone: string }> = [];
+
+  if (isCommanderFormatString(formatRaw)) {
+    for (const entry of parseDeckText(deckText)) {
+      const { canonicalName } = canonicalize(entry.name);
+      const name = canonicalName || entry.name.trim();
+      if (!name) continue;
+      insertBatch.push({
+        deck_id: deckId,
+        name,
+        qty: Math.max(1, entry.qty),
+        zone: "mainboard",
+      });
+    }
+  } else {
+    for (const entry of parseDeckTextWithZones(deckText, { isCommanderFormat: false })) {
+      const { canonicalName } = canonicalize(entry.name);
+      const name = canonicalName || entry.name.trim();
+      if (!name) continue;
+      const zone = entry.zone === "sideboard" ? "sideboard" : "mainboard";
+      insertBatch.push({
+        deck_id: deckId,
+        name,
+        qty: Math.max(1, entry.qty),
+        zone,
+      });
+    }
+  }
+
+  if (insertBatch.length === 0) {
     return NextResponse.json({ ok: false, error: "No cards found in decklist" }, { status: 400 });
   }
 
-  const aggregated = new Map<string, number>();
-  for (const entry of parsed) {
-    const { canonicalName } = canonicalize(entry.name);
-    const name = canonicalName || entry.name.trim();
-    if (!name) continue;
-    aggregated.set(name, (aggregated.get(name) ?? 0) + Math.max(1, entry.qty));
+  const { error: delErr } = await supabase.from("deck_cards").delete().eq("deck_id", deckId);
+  if (delErr) {
+    return NextResponse.json({ ok: false, error: delErr.message }, { status: 400 });
   }
 
-  if (aggregated.size === 0) {
-    return NextResponse.json({ ok: false, error: "No recognizable card names found" }, { status: 400 });
+  const { error: insErr } = await supabase.from("deck_cards").insert(insertBatch);
+  if (insErr) {
+    return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 });
   }
 
-  // Fetch existing deck cards
-  const { data: existingRows, error: existingErr } = await supabase
-    .from("deck_cards")
-    .select("id, name, qty")
-    .eq("deck_id", deckId);
-  if (existingErr) {
-    return NextResponse.json({ ok: false, error: existingErr.message }, { status: 400 });
-  }
-
-  const existingMap = new Map<string, { id: string; qty: number }>();
-  for (const row of existingRows ?? []) {
-    existingMap.set(row.name, { id: row.id, qty: row.qty ?? 0 });
-  }
-
-  const insertBatch: Array<{ deck_id: string; name: string; qty: number }> = [];
-  const updateBatch: Array<{ id: string; qty: number }> = [];
-  const renameBatch: Array<{ id: string; name: string; qty: number }> = [];
-
-  for (const [name, qty] of aggregated.entries()) {
-    const existing = existingMap.get(name);
-    if (existing) {
-      if (existing.qty !== qty) {
-        updateBatch.push({ id: existing.id, qty });
-      }
-      existingMap.delete(name);
-      continue;
-    }
-
-    // Check for case-insensitive matches to rename existing entries
-    const fallback = Array.from(existingMap.entries()).find(([key]) => key.toLowerCase() === name.toLowerCase());
-    if (fallback) {
-      const [key, value] = fallback;
-      renameBatch.push({ id: value.id, name, qty });
-      existingMap.delete(key);
-      continue;
-    }
-
-    insertBatch.push({ deck_id: deckId, name, qty });
-  }
-
-  // Delete cards not present in new list
-  const deleteIds = Array.from(existingMap.values()).map((v) => v.id);
-
-  if (deleteIds.length > 0) {
-    const { error } = await supabase.from("deck_cards").delete().in("id", deleteIds);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-  }
-
-  if (renameBatch.length > 0) {
-    for (const item of renameBatch) {
-      const { error } = await supabase
-        .from("deck_cards")
-        .update({ name: item.name, qty: item.qty })
-        .eq("id", item.id);
-      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-    }
-  }
-
-  if (updateBatch.length > 0) {
-    for (const item of updateBatch) {
-      const { error } = await supabase.from("deck_cards").update({ qty: item.qty }).eq("id", item.id);
-      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-    }
-  }
-
-  if (insertBatch.length > 0) {
-    const { error } = await supabase.from("deck_cards").insert(insertBatch);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-  }
-
-  // Update deck_text snapshot for consistency
   const { error: deckUpdateErr } = await supabase
     .from("decks")
     .update({ deck_text: deckText.trim() })
@@ -206,8 +165,8 @@ async function importDeckText(supabase: SupabaseServerClient, deckId: string, de
   return NextResponse.json({
     ok: true,
     inserted: insertBatch.length,
-    updated: updateBatch.length + renameBatch.length,
-    deleted: deleteIds.length,
+    updated: 0,
+    deleted: 0,
   });
 }
 
@@ -249,6 +208,8 @@ export async function POST(req: NextRequest) {
 
     let name = sanitizedNameForDeckPersistence(String(body?.name ?? ""));
     const qty = Math.max(1, Number(body?.qty ?? 1) || 1);
+    const rawZone = String(body?.zone ?? "mainboard").toLowerCase();
+    const zone = rawZone === "sideboard" ? "sideboard" : "mainboard";
 
     if (!name) {
       return NextResponse.json({ ok: false, error: "name required" }, { status: 400 });
@@ -274,13 +235,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Merge by incrementing when card already exists (case-insensitive match)
+    // Merge by incrementing when card already exists (case-insensitive match) within the same zone
     const { data: existingRows } = await supabase
       .from("deck_cards")
-      .select("id, qty, name")
+      .select("id, qty, name, zone")
       .eq("deck_id", deckId);
     const nameLower = name.toLowerCase();
-    const existing = (existingRows ?? []).find((r) => (r.name || "").toLowerCase() === nameLower);
+    const existing = (existingRows ?? []).find((r) => {
+      const z = String((r as { zone?: string }).zone || "mainboard").toLowerCase();
+      return (r.name || "").toLowerCase() === nameLower && z === zone;
+    });
 
     if (existing?.id) {
       const newQty = Math.max(0, (existing.qty || 0) + qty);
@@ -316,7 +280,7 @@ export async function POST(req: NextRequest) {
 
     const { error: insErr, data } = await supabase
       .from("deck_cards")
-      .insert({ deck_id: deckId, name, qty })
+      .insert({ deck_id: deckId, name, qty, zone })
       .select("id, qty")
       .single();
 
@@ -357,11 +321,43 @@ export async function PATCH(req: NextRequest) {
   const supabase = await createClient();
   const { data: row, error: selErr } = await supabase
     .from("deck_cards")
-    .select("id, deck_id, name, qty")
+    .select("id, deck_id, name, qty, zone")
     .eq("id", id)
     .maybeSingle();
   if (selErr) return NextResponse.json({ ok: false, error: selErr.message }, { status: 400 });
   if (!row) return NextResponse.json({ ok: false, error: "Row not found" }, { status: 404 });
+
+  const newZoneRaw = body?.new_zone != null ? String(body.new_zone).trim().toLowerCase() : "";
+  if (newZoneRaw === "mainboard" || newZoneRaw === "sideboard") {
+    const fromZone = String((row as { zone?: string }).zone || "mainboard").toLowerCase();
+    if (fromZone === newZoneRaw) {
+      return NextResponse.json({ ok: true, id: row.id, zone: newZoneRaw, unchanged: true });
+    }
+    const deckIdForRow = String(row.deck_id);
+    const cardName = String(row.name);
+    const qty = Math.max(0, Number(row.qty) || 0);
+    if (qty <= 0) {
+      return NextResponse.json({ ok: false, error: "Invalid quantity" }, { status: 400 });
+    }
+    const { data: target } = await supabase
+      .from("deck_cards")
+      .select("id, qty")
+      .eq("deck_id", deckIdForRow)
+      .eq("name", cardName)
+      .eq("zone", newZoneRaw)
+      .maybeSingle();
+    if (target?.id) {
+      const merged = Math.max(0, (target.qty || 0) + qty);
+      const { error: upT } = await supabase.from("deck_cards").update({ qty: merged }).eq("id", target.id);
+      if (upT) return NextResponse.json({ ok: false, error: upT.message }, { status: 400 });
+      const { error: delM } = await supabase.from("deck_cards").delete().eq("id", row.id);
+      if (delM) return NextResponse.json({ ok: false, error: delM.message }, { status: 400 });
+      return NextResponse.json({ ok: true, id: target.id, qty: merged, merged: true, zone: newZoneRaw });
+    }
+    const { error: upZ } = await supabase.from("deck_cards").update({ zone: newZoneRaw }).eq("id", row.id);
+    if (upZ) return NextResponse.json({ ok: false, error: upZ.message }, { status: 400 });
+    return NextResponse.json({ ok: true, id: row.id, zone: newZoneRaw });
+  }
 
   // Rename path
   if (newNameRaw) {

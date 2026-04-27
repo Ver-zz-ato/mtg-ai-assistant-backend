@@ -28,7 +28,7 @@ export type DeckAnalysisJSON = {
 };
 
 export type ValidationContext = {
-  format: "Commander" | "Modern" | "Pioneer" | "Standard" | "Brawl";
+  format: "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper" | "Brawl";
   commander?: string | null;
   colors: string[];
   deckText: string;
