@@ -13,6 +13,8 @@ import {
   trimDeckToMaxQty,
 } from "@/lib/deck/generation-helpers";
 import { filterDecklistQtyRowsForFormat } from "@/lib/deck/recommendation-legality";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
+import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import {
   buildConstructedSystemPrompt,
   buildConstructedUserPrompt,
@@ -167,6 +169,84 @@ function needsRetry(params: { removedTotal: number; mainQty: number; sideQty: nu
   if (mainQty < 55 || mainQty > 62) return true;
   if (sideQty > 0 && sideQty < 12) return true;
   return false;
+}
+
+type QtyRow = { name: string; qty: number };
+
+/**
+ * null = cache miss / unknown — keep row (best effort).
+ * true = within identity; false = off-color.
+ */
+function rowMatchesDeckColors(
+  details: Map<string, unknown>,
+  cardName: string,
+  allowed: Set<string>
+): boolean | null {
+  const k = normalizeScryfallCacheName(cardName.trim());
+  let raw: unknown = details.get(k);
+  if (!raw) {
+    for (const [key, val] of details.entries()) {
+      if (normalizeScryfallCacheName(key) === k) {
+        raw = val;
+        break;
+      }
+    }
+  }
+  if (!raw || typeof raw !== "object") return null;
+  const ci = (raw as { color_identity?: string[] | null }).color_identity;
+  if (!ci || ci.length === 0) return true;
+  return ci.every((c) => allowed.has(String(c).toUpperCase()));
+}
+
+/**
+ * Drop main/side rows not contained in `allowedLetters` (subset on color_identity).
+ * Only runs when `allowedLetters` is non-empty.
+ */
+async function filterQtyRowsByDeckColors(
+  mainRows: QtyRow[],
+  sideRows: QtyRow[],
+  allowedLetters: string[]
+): Promise<{ mainRows: QtyRow[]; sideRows: QtyRow[]; removedQty: number }> {
+  const allowed = new Set(
+    allowedLetters.map((c) => c.toUpperCase()).filter((c) => "WUBRG".includes(c))
+  );
+  if (allowed.size === 0) {
+    return { mainRows, sideRows, removedQty: 0 };
+  }
+
+  const uniq = [...new Set([...mainRows.map((r) => r.name), ...sideRows.map((r) => r.name)])];
+  const details = await getDetailsForNamesCached(uniq);
+
+  let removedQty = 0;
+
+  function filterRows(rows: QtyRow[]): QtyRow[] {
+    const out: QtyRow[] = [];
+    for (const line of rows) {
+      const m = rowMatchesDeckColors(details, line.name, allowed);
+      if (m === false) {
+        removedQty += Math.max(0, Number(line.qty) || 0);
+        continue;
+      }
+      out.push(line);
+    }
+    return out;
+  }
+
+  return {
+    mainRows: filterRows(mainRows),
+    sideRows: filterRows(sideRows),
+    removedQty,
+  };
+}
+
+function buildColorIdentityRetryUserPrompt(colors: string[]): string {
+  const letters = colors.map((c) => c.toUpperCase()).filter((c) => "WUBRG".includes(c));
+  const disp = letters.join("");
+  return [
+    `STRICTLY obey deck colors: ${letters.join(", ")} (${disp}). Do NOT include off-color cards.`,
+    `Every card must be colorless or have color identity ⊆ {${letters.join(", ")}} only.`,
+    `Reply with ONLY valid JSON using the same schema as before (mainboard + sideboard lines).`,
+  ].join("\n\n");
 }
 
 export async function POST(req: NextRequest) {
@@ -390,6 +470,53 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    /** Subset filter on Scryfall `color_identity` when client supplied deck colors (constructed registration). */
+    const requestDeckColors = normalizeColorLetters(body.colors);
+    let colorIdentityRemovedQty = 0;
+
+    if (requestDeckColors.length > 0) {
+      const beforeIdentityQty = totalDeckQty(mainRows) + totalDeckQty(sideRows);
+      let ciOut = await filterQtyRowsByDeckColors(mainRows, sideRows, requestDeckColors);
+      mainRows = ciOut.mainRows;
+      sideRows = ciOut.sideRows;
+      colorIdentityRemovedQty = ciOut.removedQty;
+      mainQty = totalDeckQty(mainRows);
+      sideQty = totalDeckQty(sideRows);
+
+      const identityRatio = beforeIdentityQty > 0 ? colorIdentityRemovedQty / beforeIdentityQty : 0;
+
+      if (identityRatio > 0.3 && beforeIdentityQty > 0) {
+        const colorRetryMessages: Array<{ role: string; content: string }> = [
+          ...baseMessages,
+          { role: "assistant", content: completion.content },
+          { role: "user", content: buildColorIdentityRetryUserPrompt(requestDeckColors) },
+        ];
+        const colorRetry = await runCompletion(colorRetryMessages);
+        if (colorRetry.ok) {
+          const aiColor = parseConstructedAiJson(colorRetry.content);
+          if (aiColor?.mainboard) {
+            completion = colorRetry;
+            aiParsed = aiColor;
+            mainLines = linesFromAiField(aiColor.mainboard);
+            sideLines = linesFromAiField(aiColor.sideboard);
+            filtered = await filterConstructedLists(formatLabel, mainLines, sideLines);
+            removedTotal = filtered.removedTotal;
+            mainRows = filtered.mainRows;
+            sideRows = filtered.sideRows;
+            mainQty = totalDeckQty(mainRows);
+            sideQty = totalDeckQty(sideRows);
+
+            ciOut = await filterQtyRowsByDeckColors(mainRows, sideRows, requestDeckColors);
+            mainRows = ciOut.mainRows;
+            sideRows = ciOut.sideRows;
+            colorIdentityRemovedQty = ciOut.removedQty;
+            mainQty = totalDeckQty(mainRows);
+            sideQty = totalDeckQty(sideRows);
+          }
+        }
+      }
+    }
+
     if (mainQty < 54) {
       console.error("[generate-constructed] Mainboard too short after validation", { mainQty, removedTotal });
       return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
@@ -434,6 +561,11 @@ export async function POST(req: NextRequest) {
 
     if (removedTotal > 0) {
       warnings.push(`${removedTotal} card line(s) were removed as not legal in ${formatLabel}.`);
+    }
+    if (colorIdentityRemovedQty > 0 && requestDeckColors.length > 0) {
+      warnings.push(
+        `${colorIdentityRemovedQty} card copies removed so every card matches deck colors (${requestDeckColors.join("")}).`
+      );
     }
 
     const allRows = [...mainRows, ...sideRows];

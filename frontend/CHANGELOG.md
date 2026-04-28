@@ -2,6 +2,10 @@
 
 ## 2026-04-28
 
+### Constructed AI color identity fix
+
+- Prevent off-color cards in generated decks based on selected colors (`color_identity` ⊆ request colors via **`getDetailsForNamesCached`**); optional **one** regeneration when **>30%** of quantity would be dropped.
+
 ### POST `/api/deck/generate-constructed` — competitive 60-card AI deck builder
 
 - **`app/api/deck/generate-constructed/route.ts`:** New authenticated + guest-friendly route (rate limits: **`GENERATE_CONSTRUCTED_*`** in **`lib/feature-limits.ts`**). Validates body with **zod**; calls OpenAI **`response_format: json_object`**; parses **`mainboard` / `sideboard`** lines; **`filterDecklistQtyRowsForFormat`** drops illegal cards with optional **retry** prompt; **`price_cache`** USD estimate (best-effort); **`recordAiUsage`** route **`deck_generate_constructed`**; **`getModelForTier`** **`deck_analysis`**. Does **not** modify Commander **`generate-from-collection`**.
