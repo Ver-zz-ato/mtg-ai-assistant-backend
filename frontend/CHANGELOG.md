@@ -1,5 +1,12 @@
 # Frontend changelog
 
+## 2026-04-28
+
+### POST `/api/deck/generate-constructed` — competitive 60-card AI deck builder
+
+- **`app/api/deck/generate-constructed/route.ts`:** New authenticated + guest-friendly route (rate limits: **`GENERATE_CONSTRUCTED_*`** in **`lib/feature-limits.ts`**). Validates body with **zod**; calls OpenAI **`response_format: json_object`**; parses **`mainboard` / `sideboard`** lines; **`filterDecklistQtyRowsForFormat`** drops illegal cards with optional **retry** prompt; **`price_cache`** USD estimate (best-effort); **`recordAiUsage`** route **`deck_generate_constructed`**; **`getModelForTier`** **`deck_analysis`**. Does **not** modify Commander **`generate-from-collection`**.
+- **`lib/prompts/generate-constructed.ts`:** Tournament Magic prompts (curve, interaction, sideboard, no Commander framing).
+
 ## 2026-04-27
 
 ### Format-aware tools — Phases 2–6 (no `Mixed` API enum)

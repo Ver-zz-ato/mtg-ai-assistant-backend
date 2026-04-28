@@ -84,3 +84,10 @@ export const GENERATE_FROM_COLLECTION_PRO = 20;
 /** Deck transform/refine (POST /api/deck/transform): same daily caps as generate-from-collection. */
 export const DECK_TRANSFORM_FREE = GENERATE_FROM_COLLECTION_FREE;
 export const DECK_TRANSFORM_PRO = GENERATE_FROM_COLLECTION_PRO;
+
+/** POST /api/deck/generate-constructed — 60-card competitive formats (guest website / IP bucket). */
+export const GENERATE_CONSTRUCTED_GUEST = 1;
+
+/** Free signed-in users: 1/day; Pro: higher cap (server-side only). */
+export const GENERATE_CONSTRUCTED_FREE = 1;
+export const GENERATE_CONSTRUCTED_PRO = 25;
