@@ -14,6 +14,12 @@
 - Improved Pioneer and Standard reliability without changing Commander routes.
 - Kept response contract unchanged.
 
+### Constructed AI — Standard-only resilience
+
+- **`lib/deck/generate-constructed-standard.ts`:** Standard-wide mainboard padding (**45–59** cards); optional **Azorius Control** validated fallback shell (mostly basics) when AI/repair/padding cannot produce 60; stronger server logs for Standard failure stages (**parse**, **main_below_45**, **padding_failed**, **fallback_unavailable**, etc.).
+- **`app/api/deck/generate-constructed/route.ts`:** Branches **Standard** vs other formats so **Modern/Pioneer/Pauper** keep prior padding floors; Standard attempts fallback before **502** only for **Standard + W/U + Control** body shape.
+- Response JSON keys unchanged; fallback adds the documented warning string when used.
+
 ### Constructed AI color identity fix
 
 - Prevent off-color cards in generated decks based on selected colors (`color_identity` ⊆ request colors via **`getDetailsForNamesCached`**); optional **one** regeneration when **>30%** of quantity would be dropped.

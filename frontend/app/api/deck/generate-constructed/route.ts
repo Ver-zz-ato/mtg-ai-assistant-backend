@@ -41,6 +41,13 @@ import {
   GENERATE_CONSTRUCTED_PRO,
 } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
+import {
+  buildStandardWuFallbackDeck,
+  padStandardMainboardWide,
+  shouldStandardWuControlFallback,
+  STANDARD_MAIN_PAD_MAX,
+  STANDARD_MAIN_PAD_MIN,
+} from "@/lib/deck/generate-constructed-standard";
 
 export const runtime = "nodejs";
 
@@ -407,6 +414,105 @@ export async function POST(req: NextRequest) {
     const systemPrompt = buildConstructedSystemPrompt(formatLabel);
     const userPrompt = buildConstructedUserPrompt(promptInput);
 
+    const respondStandardWuFallback = async (
+      failureStage: string,
+      diagExtra?: Record<string, unknown>
+    ): Promise<NextResponse | null> => {
+      if (formatLabel !== "Standard" || !shouldStandardWuControlFallback(body)) return null;
+      logConstructedDiag({
+        phase: "standard_wu_fallback_attempt",
+        failureStage,
+        standardDiag: true,
+        ...(diagExtra ?? {}),
+      });
+      const fb = await buildStandardWuFallbackDeck();
+      if (!fb) {
+        logConstructedDiag({
+          phase: "standard_wu_fallback_unavailable",
+          failureStage,
+          standardDiag: true,
+          ...(diagExtra ?? {}),
+        });
+        return null;
+      }
+
+      const mainQtyFb = totalDeckQty(fb.mainRows);
+      const sideQtyFb = totalDeckQty(fb.sideRows);
+      const deckTextFb = [`// Mainboard`, ...fb.mainRows.map((c) => `${c.qty} ${c.name}`), ``, `// Sideboard`, ...fb.sideRows.map((c) => `${c.qty} ${c.name}`)].join(
+        "\n"
+      );
+      const allFb = [...fb.mainRows, ...fb.sideRows];
+      const explanationFb = filterExplanationBulletsForDeck(
+        [
+          "Conservative Azorius Standard shell focused on basic lands after automated validation removed too many AI suggestions.",
+          "Use this as a legal starting point and tune spells once you confirm current Standard legality.",
+        ],
+        allFb
+      );
+      const warningsFb = [
+        "Standard fallback shell used after validation removed too many AI suggestions.",
+      ];
+      const priceFb = await estimateDeckPriceUsd(supabase, allFb);
+
+      const rawFb = "[fallback:standard-wu]";
+      const inputTokEstFb = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
+      const outputTokEstFb = Math.ceil(rawFb.length / 4);
+
+      try {
+        let anonId: string | null = null;
+        if (user?.id) {
+          const { hashString } = await import("@/lib/guest-tracking");
+          anonId = await hashString(user.id);
+        } else {
+          const { cookies } = await import("next/headers");
+          const guestToken = (await cookies()).get("guest_session_token")?.value;
+          if (guestToken) {
+            const { hashGuestToken } = await import("@/lib/guest-tracking");
+            anonId = await hashGuestToken(guestToken);
+          }
+        }
+
+        await recordAiUsage({
+          user_id: user?.id ?? null,
+          anon_id: anonId,
+          thread_id: null,
+          model,
+          input_tokens: inputTokEstFb,
+          output_tokens: outputTokEstFb,
+          cost_usd: costUSD(model, inputTokEstFb, outputTokEstFb),
+          route: "deck_generate_constructed",
+          prompt_preview: userPrompt.slice(0, 800),
+          response_preview: rawFb.slice(0, 800),
+          format_key: formatLabel,
+          deck_card_count: mainQtyFb + sideQtyFb,
+          latency_ms: Date.now() - t0,
+          model_tier: tierRes.tier,
+          user_tier: tierRes.tierLabel,
+          is_guest: !user,
+          request_kind: "FULL_LLM",
+          layer0_mode: "FULL_LLM",
+        });
+      } catch (e) {
+        console.warn("[generate-constructed] recordAiUsage fallback failed:", e);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        format: formatLabel,
+        title: "Azorius Control (fallback shell)",
+        colors: ["W", "U"],
+        archetype: body.archetype?.trim().slice(0, 80) || "Control",
+        deckText: deckTextFb,
+        mainboardCount: mainQtyFb,
+        sideboardCount: sideQtyFb,
+        estimatedPriceUsd: priceFb ?? 0,
+        explanation: explanationFb,
+        metaScore: 55,
+        confidence: 0.55,
+        warnings: warningsFb,
+      });
+    };
+
     const baseMessages: Array<{ role: string; content: string }> = [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -440,6 +546,8 @@ export async function POST(req: NextRequest) {
 
     const completionRecord = await runCompletion(baseMessages);
     if (!completionRecord.ok) {
+      const fbOpenAI = await respondStandardWuFallback("openai_initial_failed");
+      if (fbOpenAI) return fbOpenAI;
       return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
     }
 
@@ -479,6 +587,8 @@ export async function POST(req: NextRequest) {
               }
             : {}),
         });
+        const fbParse = await respondStandardWuFallback("parse", { parseError: pr.error });
+        if (fbParse) return fbParse;
         return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
       }
 
@@ -500,6 +610,8 @@ export async function POST(req: NextRequest) {
               }
             : {}),
         });
+        const fbMissing = await respondStandardWuFallback("missing_mainboard");
+        if (fbMissing) return fbMissing;
         return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
       }
 
@@ -574,6 +686,8 @@ export async function POST(req: NextRequest) {
           failureStage: "repair_fetch",
           standardDiag: formatLabel === "Standard" ? true : undefined,
         });
+        const fbRepair = await respondStandardWuFallback("repair_openai_failed");
+        if (fbRepair) return fbRepair;
         return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
       }
 
@@ -587,76 +701,116 @@ export async function POST(req: NextRequest) {
 
     const mainQtyBeforePad = mainQty;
 
-    if (mainQty < mainFloorMin) {
-      logConstructedDiag({
-        phase: "mainboard_floor",
-        format: formatLabel,
-        archetype: body.archetype?.slice(0, 120),
-        requestedColors: requestDeckColors.join("") || undefined,
-        failureStage: "main_floor",
-        mainQtyBeforePad,
-        mainFloorMin,
-        seedPaddingEligible,
-        removedTotal,
-        colorRemovals: colorIdentityRemovedQty,
-        standardDiag: formatLabel === "Standard" ? true : undefined,
-        ...(formatLabel === "Standard" && validatedSeed
-          ? {
-              templateRemovalCount: validatedSeed.removalCount,
-              validatedSeedMainQty: validatedSeed.validatedMainQty,
-              validatedSeedSideQty: validatedSeed.validatedSideQty,
-              seedIncludeCardLines: validatedSeed.includeCardSeedsInPrompt,
-            }
-          : {}),
-        hint:
-          formatLabel === "Standard"
-            ? "Standard failure context: main below floor after legality/color filtering — check parse vs removal counts above."
-            : undefined,
-      });
-      return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
-    }
-
     const paddingColors =
       requestDeckColors.length > 0 ? requestDeckColors : normalizeColorLetters(aiParsed.colors);
 
-    const padMain = padMainboardNearSixty(mainRows, paddingColors, { minBand: mainFloorMin });
-    mainRows = padMain.rows;
-    mainQty = totalDeckQty(mainRows);
+    let padMainAdjusted = false;
+    let padSideAdjusted = false;
 
-    const padSide = padSideboardTowardFifteen(sideRows);
-    sideRows = padSide.rows;
-    sideQty = totalDeckQty(sideRows);
+    if (formatLabel === "Standard") {
+      if (mainQty >= STANDARD_MAIN_PAD_MIN && mainQty <= STANDARD_MAIN_PAD_MAX) {
+        const pw = padStandardMainboardWide(mainRows, paddingColors);
+        mainRows = pw.rows;
+        mainQty = totalDeckQty(mainRows);
+        padMainAdjusted = pw.adjusted;
+      }
 
-    if (padMain.adjusted || padSide.adjusted) {
+      if (mainQty !== 60) {
+        const fbPost = await respondStandardWuFallback(
+          mainQty < STANDARD_MAIN_PAD_MIN ? "standard_main_below_45" : "standard_padding_incomplete",
+          {
+            mainQtyBeforePad,
+            mainQtyAfterPadAttempt: mainQty,
+            standardPadBand: `${STANDARD_MAIN_PAD_MIN}-${STANDARD_MAIN_PAD_MAX}`,
+          }
+        );
+        if (fbPost) return fbPost;
+        logConstructedDiag({
+          phase: "standard_generation_failed",
+          failureStage: mainQty < STANDARD_MAIN_PAD_MIN ? "main_below_45" : "padding_failed",
+          mainQtyBeforePad,
+          mainQtyAfterPad: mainQty,
+          standardDiag: true,
+          ...(validatedSeed
+            ? {
+                templateRemovalCount: validatedSeed.removalCount,
+                validatedSeedMainQty: validatedSeed.validatedMainQty,
+                validatedSeedSideQty: validatedSeed.validatedSideQty,
+              }
+            : {}),
+        });
+        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+      }
+
+      const padSideStd = padSideboardTowardFifteen(sideRows);
+      sideRows = padSideStd.rows;
+      sideQty = totalDeckQty(sideRows);
+      padSideAdjusted = padSideStd.adjusted;
+    } else {
+      if (mainQty < mainFloorMin) {
+        logConstructedDiag({
+          phase: "mainboard_floor",
+          format: formatLabel,
+          archetype: body.archetype?.slice(0, 120),
+          requestedColors: requestDeckColors.join("") || undefined,
+          failureStage: "main_floor",
+          mainQtyBeforePad,
+          mainFloorMin,
+          seedPaddingEligible,
+          removedTotal,
+          colorRemovals: colorIdentityRemovedQty,
+          ...(validatedSeed
+            ? {
+                templateRemovalCount: validatedSeed.removalCount,
+                validatedSeedMainQty: validatedSeed.validatedMainQty,
+                validatedSeedSideQty: validatedSeed.validatedSideQty,
+                seedIncludeCardLines: validatedSeed.includeCardSeedsInPrompt,
+              }
+            : {}),
+        });
+        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+      }
+
+      const padMain = padMainboardNearSixty(mainRows, paddingColors, { minBand: mainFloorMin });
+      mainRows = padMain.rows;
+      mainQty = totalDeckQty(mainRows);
+      padMainAdjusted = padMain.adjusted;
+
+      const padSide = padSideboardTowardFifteen(sideRows);
+      sideRows = padSide.rows;
+      sideQty = totalDeckQty(sideRows);
+      padSideAdjusted = padSide.adjusted;
+
+      if (mainQty < 60 && mainQtyBeforePad >= mainFloorMin && mainQtyBeforePad <= 59) {
+        logConstructedDiag({
+          phase: "padding_incomplete",
+          format: formatLabel,
+          failureStage: "padding_failed",
+          mainQtyBeforePad,
+          mainFloorMin,
+          mainQtyAfterPad: mainQty,
+          seedPaddingEligible,
+          ...(validatedSeed
+            ? {
+                templateRemovalCount: validatedSeed.removalCount,
+                validatedSeedMainQty: validatedSeed.validatedMainQty,
+                validatedSeedSideQty: validatedSeed.validatedSideQty,
+              }
+            : {}),
+        });
+        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+      }
+    }
+
+    if (padMainAdjusted || padSideAdjusted) {
       logConstructedDiag({
         phase: "padding_applied",
         format: formatLabel,
-        mainAdjusted: padMain.adjusted,
-        sideAdjusted: padSide.adjusted,
+        mainAdjusted: padMainAdjusted,
+        sideAdjusted: padSideAdjusted,
         mainQtyAfterPad: mainQty,
         sideQtyAfterPad: sideQty,
       });
-    }
-
-    if (mainQty < 60 && mainQtyBeforePad >= mainFloorMin && mainQtyBeforePad <= 59) {
-      logConstructedDiag({
-        phase: "padding_incomplete",
-        format: formatLabel,
-        failureStage: "padding_failed",
-        mainQtyBeforePad,
-        mainFloorMin,
-        mainQtyAfterPad: mainQty,
-        seedPaddingEligible,
-        standardDiag: formatLabel === "Standard" ? true : undefined,
-        ...(formatLabel === "Standard" && validatedSeed
-          ? {
-              templateRemovalCount: validatedSeed.removalCount,
-              validatedSeedMainQty: validatedSeed.validatedMainQty,
-              validatedSeedSideQty: validatedSeed.validatedSideQty,
-            }
-          : {}),
-      });
-      return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
     }
 
     const deckText = [`// Mainboard`, ...mainRows.map((c) => `${c.qty} ${c.name}`), ``, `// Sideboard`, ...sideRows.map((c) => `${c.qty} ${c.name}`)].join(
@@ -711,7 +865,7 @@ export async function POST(req: NextRequest) {
         `${colorIdentityRemovedQty} card copies removed so every card matches deck colors (${requestDeckColors.join("")}).`
       );
     }
-    if (padMain.adjusted || padSide.adjusted) {
+    if (padMainAdjusted || padSideAdjusted) {
       warnings.push("Adjusted final card counts after validation.");
     }
 
