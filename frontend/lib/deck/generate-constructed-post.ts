@@ -121,10 +121,11 @@ const COMMON_BULLET_PHRASES = new Set([
 
 function textReferencesUnknownMultiWordCard(text: string, deckRows: QtyRow[]): boolean {
   const deckNorms = deckRows.map((r) => normalizeScryfallCacheName(r.name.trim())).filter(Boolean);
-  const matches = text.match(/\b[A-Z][a-z]+(?:\s+[a-z][a-z'-]*){1,5}\b/g) || [];
+  /** Adjacent Title-Case tokens (typical English card names); avoids absorbing trailing lowercase prose. */
+  const matches = text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,4}\b/g) || [];
   for (const m of matches) {
     const n = normalizeScryfallCacheName(m);
-    if (n.length < 8) continue;
+    if (n.length < 6) continue;
     if (COMMON_BULLET_PHRASES.has(n)) continue;
     let ok = false;
     for (const d of deckNorms) {

@@ -49,10 +49,13 @@ const genericFallback = "Solid role alignment with the final card choices for th
 
 {
   const deck = [{ name: "Lightning Bolt", qty: 4 }];
-  const bullets = ["Lightning Bolt clears small creatures.", "Unknown Fake Card Name wins mirrors."];
+  const bullets = [
+    "Lightning Bolt clears early creatures.",
+    "Unknown Fake Card Names Here should not appear verbatim.",
+  ];
   const filtered = filterExplanationBulletsForDeck(bullets, deck);
   assert.ok(filtered.some((b) => b.includes("Lightning Bolt")));
-  assert.ok(filtered.some((b) => b === genericFallback));
+  assert.ok(filtered.includes(genericFallback));
 }
 
 {
