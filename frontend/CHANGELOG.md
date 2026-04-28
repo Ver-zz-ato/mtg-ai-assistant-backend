@@ -8,6 +8,12 @@
 - Tightened retry conditions and prompts.
 - Improved explanation hygiene after validation.
 
+### Constructed AI template seeding
+
+- Added validated seed templates/guidance for constructed deck generation.
+- Improved Pioneer and Standard reliability without changing Commander routes.
+- Kept response contract unchanged.
+
 ### Constructed AI color identity fix
 
 - Prevent off-color cards in generated decks based on selected colors (`color_identity` ⊆ request colors via **`getDetailsForNamesCached`**); optional **one** regeneration when **>30%** of quantity would be dropped.

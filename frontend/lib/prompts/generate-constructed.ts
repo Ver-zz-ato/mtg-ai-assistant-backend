@@ -3,6 +3,8 @@
  * Intentionally different from Commander: tournament Magic, copies, curve, sideboard, legality.
  */
 
+import type { ConstructedSeedPromptPayload } from "@/lib/deck/generate-constructed-templates";
+
 export type ConstructedBudget = "budget" | "balanced" | "premium";
 export type ConstructedPower = "casual" | "strong" | "competitive";
 
@@ -16,6 +18,8 @@ export type ConstructedPromptInput = {
   notes?: string;
   /** When true, append extra emphasis on format legality and exact names */
   strictLegalityRetry?: boolean;
+  /** Validated template shell from {@link getConstructedSeedTemplate} — optional */
+  seedPrompt?: ConstructedSeedPromptPayload | null;
 };
 
 const COMMANDER_FORBIDDEN = `
@@ -75,8 +79,11 @@ export function buildConstructedRepairRetryPrompt(input: ConstructedPromptInput)
       ? input.colors.map((c) => String(c || "").trim()).filter(Boolean).join(", ")
       : null;
 
+  const seed = input.seedPrompt;
+
   const lines = [
     `DECK REPAIR PASS — previous JSON lost too many cards during validation or counts were invalid.`,
+    `Your previous output was too thin or failed validation. Return a complete legal list.`,
     `Reply with ONLY a JSON object using the exact same schema specified in the system message.`,
     `Hard requirements:`,
     `- Mainboard lines must sum to exactly 60 copies by quantity.`,
@@ -89,10 +96,27 @@ export function buildConstructedRepairRetryPrompt(input: ConstructedPromptInput)
     `- Do not mention cards in explanation that are not in the final decklist.`,
     ...(input.format === "Standard"
       ? [
-          `- Standard: avoid older famous non-Standard staples unless legality is certain; prefer conservative, currently Standard-legal picks.`,
+          `- Standard: only include spells you are confident are legal in current Standard; prefer picks aligned with Scryfall legality validation.`,
         ]
       : []),
     `- Use conservative, currently legal card choices.`,
+    ...(seed
+      ? [
+          "",
+          `Seed shell (same as initial request — treat as starting core):`,
+          `- Title hint: ${seed.titleHint}`,
+          `- Archetype hint: ${seed.archetypeHint}`,
+          `- Colors hint: ${seed.colorsHint.join(", ")}`,
+          ...(seed.includeCardSeeds && (seed.mainboardSeedLines.length || seed.sideboardSeedLines.length)
+            ? [
+                `Validated legal seed lines — preserve these unless replacing with strictly better legal options:`,
+                ...seed.mainboardSeedLines.map((l) => `  MAIN: ${l}`),
+                ...seed.sideboardSeedLines.map((l) => `  SIDE: ${l}`),
+                ...(seed.notes.length ? [`Notes:`, ...seed.notes.map((n) => `- ${n}`)] : []),
+              ]
+            : [`Guidance only (named seed cards failed validation filters — follow notes):`, ...seed.notes.map((n) => `- ${n}`)]),
+        ]
+      : []),
     `Output JSON only.`,
   ];
 
@@ -110,6 +134,36 @@ export function buildConstructedUserPrompt(input: ConstructedPromptInput): strin
 
   if (input.archetype?.trim()) {
     lines.push(`Archetype focus: ${input.archetype.trim()}.`);
+  }
+
+  const seed = input.seedPrompt;
+  if (seed) {
+    lines.push(
+      `ManaTap constructed seed: use the following as a starting shell (prompt-only seed — expand into a full tournament deck).`,
+      `Preserve legal seed cards while filling to exactly 60 mainboard and 15 sideboard copies unless a substitution is strictly better and clearly legal.`,
+      `Suggested title hint: ${seed.titleHint}`,
+      `Suggested archetype hint: ${seed.archetypeHint}`,
+      `Suggested colors (ManaTap hint): ${seed.colorsHint.join(", ")}`
+    );
+    if (seed.includeCardSeeds && (seed.mainboardSeedLines.length > 0 || seed.sideboardSeedLines.length > 0)) {
+      lines.push(
+        `Validated legal seed shell — include these lines as part of your JSON mainboard/sideboard arrays (merge with additional cards as needed):`,
+        ...seed.mainboardSeedLines.map((l) => `MAIN SEED: ${l}`),
+        ...seed.sideboardSeedLines.map((l) => `SIDE SEED: ${l}`)
+      );
+    } else {
+      lines.push(`Named seed cards did not all survive legality validation — follow archetype guidance instead:`);
+      lines.push(...seed.notes.map((n) => `- ${n}`));
+    }
+    if (seed.includeCardSeeds && seed.notes.length > 0) {
+      lines.push(`Additional shell notes:`);
+      lines.push(...seed.notes.map((n) => `- ${n}`));
+    }
+    lines.push(
+      input.format === "Standard"
+        ? `Standard: prefer cards you can justify as Standard-legal today; when uncertain, choose conservative suites over nostalgic Constructed staples.`
+        : `Fill curves and sideboard with ${input.format}-legal staples appropriate to the archetype.`
+    );
   }
 
   const budget = input.budget ?? "balanced";

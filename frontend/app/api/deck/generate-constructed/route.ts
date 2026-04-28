@@ -30,6 +30,12 @@ import {
   type ConstructedPromptInput,
 } from "@/lib/prompts/generate-constructed";
 import {
+  buildConstructedSeedPromptPayload,
+  getConstructedSeedTemplate,
+  validateConstructedSeedTemplate,
+  type ValidatedConstructedSeed,
+} from "@/lib/deck/generate-constructed-templates";
+import {
   GENERATE_CONSTRUCTED_FREE,
   GENERATE_CONSTRUCTED_GUEST,
   GENERATE_CONSTRUCTED_PRO,
@@ -360,6 +366,33 @@ export async function POST(req: NextRequest) {
     });
     const model = tierRes.model;
 
+    const rawSeedTemplate = getConstructedSeedTemplate({
+      format: formatLabel,
+      colors: body.colors,
+      archetype: body.archetype,
+      budget: body.budget,
+    });
+
+    let validatedSeed: ValidatedConstructedSeed | null = null;
+    if (rawSeedTemplate) {
+      validatedSeed = await validateConstructedSeedTemplate(formatLabel, rawSeedTemplate);
+      logConstructedDiag({
+        phase: "seed_template_validated",
+        format: formatLabel,
+        archetype: body.archetype?.slice(0, 120),
+        requestedColors: normalizeColorLetters(body.colors).join("") || undefined,
+        templateRemovalCount: validatedSeed.removalCount,
+        validatedSeedMainQty: validatedSeed.validatedMainQty,
+        validatedSeedSideQty: validatedSeed.validatedSideQty,
+        includeCardSeedsInPrompt: validatedSeed.includeCardSeedsInPrompt,
+      });
+    }
+
+    const seedPromptPayload = validatedSeed ? buildConstructedSeedPromptPayload(validatedSeed) : undefined;
+
+    const seedPaddingEligible = Boolean(validatedSeed?.includeCardSeedsInPrompt);
+    const mainFloorMin = seedPaddingEligible ? 52 : 55;
+
     const promptInput: ConstructedPromptInput = {
       format: formatLabel,
       colors: body.colors,
@@ -368,6 +401,7 @@ export async function POST(req: NextRequest) {
       powerLevel: body.powerLevel,
       ownedCards: body.ownedCards,
       notes: body.notes,
+      seedPrompt: seedPromptPayload,
     };
 
     const systemPrompt = buildConstructedSystemPrompt(formatLabel);
@@ -437,6 +471,13 @@ export async function POST(req: NextRequest) {
           parseError: pr.error,
           failureStage: "parse",
           standardDiag: formatLabel === "Standard" ? true : undefined,
+          ...(formatLabel === "Standard" && validatedSeed
+            ? {
+                templateRemovalCount: validatedSeed.removalCount,
+                validatedSeedMainQty: validatedSeed.validatedMainQty,
+                validatedSeedSideQty: validatedSeed.validatedSideQty,
+              }
+            : {}),
         });
         return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
       }
@@ -451,6 +492,13 @@ export async function POST(req: NextRequest) {
           requestedColors: requestDeckColors.join("") || undefined,
           failureStage: "parse",
           standardDiag: formatLabel === "Standard" ? true : undefined,
+          ...(formatLabel === "Standard" && validatedSeed
+            ? {
+                templateRemovalCount: validatedSeed.removalCount,
+                validatedSeedMainQty: validatedSeed.validatedMainQty,
+                validatedSeedSideQty: validatedSeed.validatedSideQty,
+              }
+            : {}),
         });
         return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
       }
@@ -539,7 +587,7 @@ export async function POST(req: NextRequest) {
 
     const mainQtyBeforePad = mainQty;
 
-    if (mainQty < 55) {
+    if (mainQty < mainFloorMin) {
       logConstructedDiag({
         phase: "mainboard_floor",
         format: formatLabel,
@@ -547,9 +595,19 @@ export async function POST(req: NextRequest) {
         requestedColors: requestDeckColors.join("") || undefined,
         failureStage: "main_floor",
         mainQtyBeforePad,
+        mainFloorMin,
+        seedPaddingEligible,
         removedTotal,
         colorRemovals: colorIdentityRemovedQty,
         standardDiag: formatLabel === "Standard" ? true : undefined,
+        ...(formatLabel === "Standard" && validatedSeed
+          ? {
+              templateRemovalCount: validatedSeed.removalCount,
+              validatedSeedMainQty: validatedSeed.validatedMainQty,
+              validatedSeedSideQty: validatedSeed.validatedSideQty,
+              seedIncludeCardLines: validatedSeed.includeCardSeedsInPrompt,
+            }
+          : {}),
         hint:
           formatLabel === "Standard"
             ? "Standard failure context: main below floor after legality/color filtering — check parse vs removal counts above."
@@ -561,7 +619,7 @@ export async function POST(req: NextRequest) {
     const paddingColors =
       requestDeckColors.length > 0 ? requestDeckColors : normalizeColorLetters(aiParsed.colors);
 
-    const padMain = padMainboardNearSixty(mainRows, paddingColors);
+    const padMain = padMainboardNearSixty(mainRows, paddingColors, { minBand: mainFloorMin });
     mainRows = padMain.rows;
     mainQty = totalDeckQty(mainRows);
 
@@ -580,14 +638,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (mainQty < 60 && mainQtyBeforePad >= 55 && mainQtyBeforePad <= 59) {
+    if (mainQty < 60 && mainQtyBeforePad >= mainFloorMin && mainQtyBeforePad <= 59) {
       logConstructedDiag({
         phase: "padding_incomplete",
         format: formatLabel,
         failureStage: "padding_failed",
         mainQtyBeforePad,
+        mainFloorMin,
         mainQtyAfterPad: mainQty,
+        seedPaddingEligible,
         standardDiag: formatLabel === "Standard" ? true : undefined,
+        ...(formatLabel === "Standard" && validatedSeed
+          ? {
+              templateRemovalCount: validatedSeed.removalCount,
+              validatedSeedMainQty: validatedSeed.validatedMainQty,
+              validatedSeedSideQty: validatedSeed.validatedSideQty,
+            }
+          : {}),
       });
       return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
     }

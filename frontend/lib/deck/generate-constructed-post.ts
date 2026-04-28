@@ -17,13 +17,20 @@ const BASIC_BY_COLOR: Record<string, string> = {
   G: "Forest",
 };
 
-/** Pad mainboard when total qty is 55–59 inclusive. Does nothing if outside that band or already 60. */
+export type PadMainboardNearSixtyOpts = {
+  /** Lower bound inclusive for padding band (default 55). Use 52 when a validated seed shell exists. */
+  minBand?: number;
+};
+
+/** Pad mainboard when total qty is within [minBand,59] inclusive (default minBand 55). Does nothing if outside band or already 60. */
 export function padMainboardNearSixty(
   rows: QtyRow[],
-  colorLetters: string[]
+  colorLetters: string[],
+  opts?: PadMainboardNearSixtyOpts
 ): { rows: QtyRow[]; adjusted: boolean } {
+  const low = opts?.minBand ?? 55;
   const q = totalDeckQty(rows);
-  if (q < 55 || q > 59) return { rows: rows.map((r) => ({ ...r })), adjusted: false };
+  if (q < low || q > 59) return { rows: rows.map((r) => ({ ...r })), adjusted: false };
 
   const working = rows.map((r) => ({
     name: String(r.name || "").trim(),
