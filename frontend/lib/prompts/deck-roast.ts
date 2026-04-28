@@ -1,3 +1,9 @@
+import {
+  formatKeyToDisplayTitle,
+  isCommanderFormatKey,
+  normalizeManatapDeckFormatKey,
+} from "@/lib/format/manatap-deck-format";
+
 /**
  * AI Deck Roast – roast-specific system prompt
  * "Your brutally honest friend at the LGS, not a Twitch comedian."
@@ -22,9 +28,13 @@ export function buildDeckRoastSystemPrompt(
     .map((c) => `${c.qty} ${c.name}`)
     .join("\n");
   const totalInfo = `Total: ${deckSummary.totalCards} cards`;
-  const commanderLine = commander
-    ? `\nCommander: ${commander}`
-    : "";
+  const fk = normalizeManatapDeckFormatKey(format);
+  const fmtDisplay = formatKeyToDisplayTitle(fk);
+  const commanderLine =
+    isCommanderFormatKey(fk) && commander?.trim() ? `\nCommander: ${commander.trim()}` : "";
+  const roastLens = isCommanderFormatKey(fk)
+    ? "Commander roast: singleton density, ramp, color identity when obvious, and social-table pacing jokes are fine when grounded in the list."
+    : `${fmtDisplay} roast (60-card): hit curve, interaction, consistency, greedy mana, sideboard gaps if visible — avoid Commander-only framing unless the list is Commander.`;
 
   // Map 1-10 to tone: 1-3 gentle, 4-6 balanced, 7-10 increasingly savage
   let toneBlock: string;
@@ -57,7 +67,9 @@ CRITICAL: Your output must FEEL like a roast:
 - BAD: "I recommend adding more removal." (sounds like a consultant)
 - The advice underneath must be correct; the delivery must be roast-y
 
-Format: ${format}${commanderLine}
+Format: ${fmtDisplay}${commanderLine}
+
+${roastLens}
 
 ${toneBlock}
 

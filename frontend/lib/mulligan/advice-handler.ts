@@ -101,6 +101,7 @@ function buildMulliganSystemPrompt(format: MulliganAdviceFormat): string {
 RULES:
 ${sharedCore}
 - Do NOT reference "average commander land count", "typical commander", or "in commander you usually" at all. Only talk about this deck's landPercent and density.
+- Consider commander synergy, ramp, color access, and that multiplayer games are often slower with more interaction — still ground every claim in handFacts + DeckProfile.
 
 ${MULLIGAN_OUTPUT_FORMAT_BLOCK}`;
   }
@@ -111,6 +112,9 @@ ${MULLIGAN_OUTPUT_FORMAT_BLOCK}`;
 RULES:
 ${sharedCore}
 - Do NOT lean on generic format-wide stereotypes; anchor to this deck's landPercent, velocity, and keep heuristics from DeckProfile.
+- Opponent/deck identity is unknown: judge the opener on consistency, curve, early interaction, and land/spell balance for best-of-one style play unless the user prompt says otherwise.
+- Many healthy openers want about 2–4 lands in seven; still trust handFacts over vibes.
+- Assume London mulligan hand sizes when reasoning about mulliganCount (do not call this "Commander").
 
 ${MULLIGAN_OUTPUT_FORMAT_BLOCK}`;
 }
@@ -339,7 +343,11 @@ deterministicEval:
 
 Hand: ${JSON.stringify(hand)}
 
-Context: playDraw=${playDraw}, mulliganCount=${mulliganCount}
+Context: playDraw=${playDraw}, mulliganCount=${mulliganCount}${
+    playFormat === "commander"
+      ? ""
+      : " (60-card constructed — use London mulligan framing; no multiplayer commander politics)."
+  }
 
 Task: Decide KEEP or MULLIGAN. If deterministic keepBias is KEEP with high confidence, only recommend MULLIGAN if you cite a specific contradictory risk (colors, missing early plays for turbo, etc). If deterministic keepBias is MULLIGAN, only recommend KEEP if you cite specific stabilizers. Address uncertaintyReasons if present. Output JSON only.`;
 

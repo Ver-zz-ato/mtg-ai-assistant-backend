@@ -27,6 +27,8 @@ interface PlaystyleQuizResultsProps {
   colorIdentities: string[];
   onClose: () => void;
   onRestart: () => void;
+  /** Optional API `format` for `/api/playstyle/explain` (default Commander when omitted). */
+  explainFormat?: string;
 }
 
 interface AIExplanation {
@@ -42,6 +44,7 @@ export default function PlaystyleQuizResults({
   colorIdentities,
   onClose,
   onRestart,
+  explainFormat,
 }: PlaystyleQuizResultsProps) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -86,6 +89,10 @@ export default function PlaystyleQuizResults({
     const avoid = avoidList
       .slice(0, depth.avoidCount)
       .map((x) => [x.label, x.why ?? ''] as const);
+    const fmt =
+      explainFormat != null && String(explainFormat).trim() !== ''
+        ? String(explainFormat).trim().toLowerCase()
+        : null;
     return JSON.stringify({
       level: depth.aiExplanationLevel,
       avoidN: depth.avoidCount,
@@ -93,6 +100,7 @@ export default function PlaystyleQuizResults({
       arch: topArch,
       av: avoid,
       pl: profile.label ?? '',
+      ...(fmt ? { fmt } : {}),
     });
   }, [
     depth.showAiExplanation,
@@ -102,6 +110,7 @@ export default function PlaystyleQuizResults({
     archetypesWithMatch,
     avoidList,
     profile.label,
+    explainFormat,
   ]);
 
   // Fetch commander images
@@ -168,6 +177,10 @@ export default function PlaystyleQuizResults({
         });
       }
       try {
+        const fmtTrim =
+          explainFormat != null && String(explainFormat).trim() !== ''
+            ? String(explainFormat).trim()
+            : undefined;
         const res = await fetch('/api/playstyle/explain', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -180,6 +193,7 @@ export default function PlaystyleQuizResults({
             avoidList: avoidList.slice(0, depth.avoidCount),
             level: depth.aiExplanationLevel,
             profileLabel: profile.label,
+            ...(fmtTrim ? { format: fmtTrim } : {}),
           }),
         });
         const data = await res.json();

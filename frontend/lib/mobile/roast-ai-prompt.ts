@@ -4,6 +4,11 @@
  */
 
 import type { PreparedRoastDeck } from "@/lib/roast/deck-roast-prep";
+import {
+  formatKeyToDisplayTitle,
+  isCommanderFormatKey,
+  normalizeManatapDeckFormatKey,
+} from "@/lib/format/manatap-deck-format";
 import type { MobileRoastHeat } from "./roast-ai-types";
 
 /** Bump when instructions or expected JSON shape changes (keep in sync with normalizer). */
@@ -32,7 +37,13 @@ export function buildMobileRoastAiSystemPrompt(args: {
 }): string {
   const { deck, format, commander, heat, deckNameHint, signalsBlock, varietyAngle } = args;
   const cardList = deck.cards.map((c) => `${c.qty} ${c.name}`).join("\n");
-  const commanderLine = commander ? `\nCommander: ${commander}` : "";
+  const fk = normalizeManatapDeckFormatKey(format);
+  const fmtDisplay = formatKeyToDisplayTitle(fk);
+  const commanderLine =
+    isCommanderFormatKey(fk) && commander?.trim() ? `\nCommander: ${commander.trim()}` : "";
+  const formatRoastLens = isCommanderFormatKey(fk)
+    ? "FORMAT: Commander — singleton pile, ramp packages, color/greed, and commander-dependent jokes are fair game when grounded in the list."
+    : `FORMAT: ${fmtDisplay} (60-card) — lean on curve, consistency, interaction, clunky mana, sideboard neglect (only if list hints at it), and “this loses to X” tempo jokes. Do not assume Commander rules or color identity unless format is Commander.`;
   const hintLine = deckNameHint
     ? `\nSuggested deck title (optional — you may improve): ${deckNameHint}`
     : "";
@@ -69,6 +80,8 @@ VOICE
 - Roast, don’t fix. No upgrade lists.
 - Ban "It's like X doing Y" / "if X met Y" (prefer zero uses in the entire JSON).
 
+${formatRoastLens}
+
 biggest_issues — HARD MAX 3; prefer 2 if two issues clearly dominate
 - Pick the STRONGEST problems only. Drop weaker filler.
 - Each title: ≤4 words, stinger headline (not the first words of the body).
@@ -100,7 +113,7 @@ JSON shape (exact keys):
 Omit "heat" and "prompt_version" — the server sets them.
 Plain card names (no [[ ]]). Never cite cards not in the list.
 
-FORMAT: ${format}${commanderLine}${hintLine}
+FORMAT LINE (for metadata only): ${fmtDisplay}${commanderLine}${hintLine}
 
 DECKLIST:
 ${cardList}

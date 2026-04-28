@@ -99,6 +99,14 @@ export function buildMobileDeckCompareUserPrompt(params: {
     "- Prefer game outcomes and play patterns over vague flavor.",
   ].join("\n");
 
+  const constructedLens = isCommanderFormatLabel(fl)
+    ? ""
+    : [
+        "",
+        "Constructed lens (60-card): emphasize speed, curve, interaction density, consistency, sideboard readiness when inferable from lists, and how each deck navigates an unknown matchup — avoid multiplayer politics unless format is Commander.",
+        "",
+      ].join("\n");
+
   return [
     "DECKS AND LISTS:",
     params.decks,
@@ -107,7 +115,7 @@ export function buildMobileDeckCompareUserPrompt(params: {
     params.comparisonSummary,
     "",
     `Format context: ${fl}.`,
-    "",
+    constructedLens,
     schemaHint,
   ].join("\n");
 }

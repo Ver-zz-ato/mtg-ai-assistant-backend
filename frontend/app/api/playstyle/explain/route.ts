@@ -9,6 +9,11 @@ import {
   isCostAuditStorageEnabled,
 } from '@/lib/observability/cost-audit';
 import { costAuditServerLog } from '@/lib/observability/cost-audit-server';
+import {
+  formatKeyToDisplayTitle,
+  isCommanderFormatKey,
+  normalizeManatapDeckFormatKey,
+} from '@/lib/format/manatap-deck-format';
 
 export const runtime = 'nodejs';
 
@@ -25,6 +30,8 @@ interface ExplainRequest {
   avoidList: AvoidItem[];
   level: 'short' | 'full';
   profileLabel?: string;
+  /** Optional deck format (default Commander) — additive for existing website callers. */
+  format?: string;
 }
 
 interface ExplainResult {
@@ -36,12 +43,13 @@ interface ExplainResult {
  * Generate a cache key from traits (rounded to nearest 5) + archetypes + level.
  */
 function generateCacheKey(req: ExplainRequest): string {
+  const fmt = normalizeManatapDeckFormatKey(req.format);
   const roundedTraits = Object.entries(req.traits)
     .map(([k, v]) => `${k}:${Math.round(v / 5) * 5}`)
     .sort()
     .join('|');
   const archetypes = req.topArchetypes.map(a => a.label).sort().join(',');
-  return `${roundedTraits}::${archetypes}::${req.level}`;
+  return `${roundedTraits}::${archetypes}::${req.level}::fmt:${fmt}`;
 }
 
 /**
@@ -49,6 +57,8 @@ function generateCacheKey(req: ExplainRequest): string {
  */
 function fallbackExplanation(req: ExplainRequest): ExplainResult {
   const { traits, topArchetypes, avoidList, level, profileLabel } = req;
+  const fmtKey = normalizeManatapDeckFormatKey(req.format);
+  const fmtTitle = formatKeyToDisplayTitle(fmtKey);
   
   const bullets: string[] = [];
   
@@ -93,7 +103,10 @@ function fallbackExplanation(req: ExplainRequest): ExplainResult {
   const controlDesc = traits.control > 60 ? 'control-leaning' : traits.aggression > 60 ? 'aggressive' : 'balanced';
   const varianceDesc = traits.varianceTolerance > 60 ? 'embraces variance' : traits.varianceTolerance < 40 ? 'values consistency' : 'accepts moderate variance';
   
-  const paragraph = `Your ${profileLabel || 'playstyle'} profile suggests a ${controlDesc} approach that ${varianceDesc}. ${archStr} archetypes likely resonate with how you enjoy Commander. Your preferences indicate you'll thrive with decks that match your interaction style and game length expectations.`;
+  const formatClause = isCommanderFormatKey(fmtKey)
+    ? `how you enjoy Commander`
+    : `how you like to play ${fmtTitle} (verify example card picks in a deckbuilder for legality)`;
+  const paragraph = `Your ${profileLabel || 'playstyle'} profile suggests a ${controlDesc} approach that ${varianceDesc}. ${archStr} archetypes likely resonate with ${formatClause}. Your preferences indicate you'll thrive with decks that match your interaction style and game length expectations.`;
   
   return {
     paragraph,
@@ -110,14 +123,18 @@ async function callOpenAIMini(req: ExplainRequest): Promise<ExplainResult> {
   }
   
   const { traits, topArchetypes, avoidList, level, profileLabel } = req;
+  const fmtKey = normalizeManatapDeckFormatKey(req.format);
+  const fmtTitle = formatKeyToDisplayTitle(fmtKey);
   const bulletCount = level === 'short' ? 3 : 5;
   const wordCount = level === 'short' ? '40-70' : '80-120';
-  
-  const systemPrompt = `You are an expert Magic: The Gathering Commander format analyst. Write personalized playstyle insights that feel computed and data-driven. Be MTG-flavored but not cringe. Avoid claiming certainty—use "suggests", "likely", "tends to".`;
-  
-  const userPrompt = `Based on this Commander player's trait analysis, write a brief playstyle explanation.
 
-Profile: ${profileLabel || 'Commander Player'}
+  const systemPrompt = isCommanderFormatKey(fmtKey)
+    ? `You are an expert Magic: The Gathering Commander format analyst. Write personalized playstyle insights that feel computed and data-driven. Be MTG-flavored but not cringe. Avoid claiming certainty—use "suggests", "likely", "tends to".`
+    : `You are an expert Magic: The Gathering ${fmtTitle} (60-card constructed) deckbuilding analyst. Write personalized playstyle insights that feel computed and data-driven. Avoid Commander-only multiplayer assumptions. Avoid claiming certainty—use "suggests", "likely", "tends to".`;
+
+  const userPrompt = `Based on this ${fmtTitle} player's trait analysis, write a brief playstyle explanation.
+
+Profile: ${profileLabel || `${fmtTitle} Player`}
 Traits (0-100 scale):
 - Control: ${traits.control} (higher = prefers control)
 - Aggression: ${traits.aggression} (higher = more aggressive)

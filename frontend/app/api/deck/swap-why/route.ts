@@ -7,6 +7,60 @@ import { checkDurableRateLimit } from '@/lib/api/durable-rate-limit';
 import { checkProStatus } from '@/lib/server-pro-check';
 import { hashString, hashGuestToken } from '@/lib/guest-tracking';
 import { GUEST_DAILY_FEATURE_LIMIT, SWAP_WHY_FREE, SWAP_WHY_PRO } from '@/lib/feature-limits';
+import {
+  formatKeyToDisplayTitle,
+  isCommanderFormatKey,
+  normalizeManatapDeckFormatKey,
+  type ManatapDeckFormatKey,
+} from '@/lib/format/manatap-deck-format';
+
+function buildSwapWhyPrompts(args: {
+  from: string;
+  to: string;
+  deckText: string;
+  formatKey: ManatapDeckFormatKey;
+  commander: string | null;
+}): { system: string; user: string } {
+  const { from, to, deckText, formatKey, commander } = args;
+  const fmtTitle = formatKeyToDisplayTitle(formatKey);
+  const cmd = commander?.trim() || null;
+
+  if (isCommanderFormatKey(formatKey)) {
+    const system = `You are ManaTap AI, an expert Magic: The Gathering assistant.
+
+Explain clearly and concisely why a cheaper swap preserves deck function in **Commander (singleton, 100-card)**.
+Focus on role/function overlap and synergy preservation. When explaining synergy, name both enabler and payoff cards and describe the mechanical sequence.
+${
+  cmd
+    ? `The deck's commander is "${cmd}". You may reference color identity or commander synergy only when clearly supported by cards named in the list — do not invent bans or legality claims beyond what the list suggests.`
+    : 'Do not assume a specific commander if the list does not name one.'
+}`;
+
+    const userPrompt = `In 1–2 sentences, explain why replacing "${from}" with "${to}" is a sensible, cheaper swap for this **Commander** deck.
+- Focus on role/function and synergy.
+- If synergy is involved, name the enabler and payoff cards and explain the sequence.
+- Do NOT ask questions or request more text.
+
+Deck list:
+${deckText}`;
+
+    return { system, user: userPrompt };
+  }
+
+  const system = `You are ManaTap AI, an expert Magic: The Gathering assistant.
+
+Explain clearly and concisely why a cheaper swap preserves deck function for **${fmtTitle}** (60-card constructed context).
+Focus on role/function overlap, curve, and interaction. Do **not** describe the deck as a Commander singleton list, do not mention "commander" unless that word appears on a **card** in the list, and do not claim a card is legal or banned unless you are certain from context — otherwise stay neutral and suggest verifying in a deckbuilder.`;
+
+  const userPrompt = `In 1–2 sentences, explain why replacing "${from}" with "${to}" is a sensible, cheaper swap for this **${fmtTitle}** list.
+- Focus on role/function, curve, and how the replacement supports the same game plan at lower cost.
+- Do NOT ask questions or request more text.
+
+Deck list:
+${deckText}`;
+
+  return { system, user: userPrompt };
+}
 
 export async function POST(req: NextRequest){
   try{
@@ -21,6 +75,16 @@ export async function POST(req: NextRequest){
     if (!fromRaw || !toRaw) return NextResponse.json({ ok:false, error:'from/to required' }, { status:400 });
     const from = canonicalize(fromRaw).canonicalName || fromRaw;
     const to = canonicalize(toRaw).canonicalName || toRaw;
+
+    // Optional format + commander (additive). Missing format defaults to Commander for existing website/mobile callers.
+    const formatKey = normalizeManatapDeckFormatKey(body?.format ?? body?.deckFormat);
+    const commanderRaw =
+      typeof body?.commander === 'string'
+        ? body.commander
+        : typeof body?.commanderName === 'string'
+          ? body.commanderName
+          : null;
+    const commanderForPrompt = commanderRaw?.trim() ? commanderRaw.trim() : null;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -57,12 +121,13 @@ export async function POST(req: NextRequest){
       }
     }
 
-    const system = `You are ManaTap AI, an expert Magic: The Gathering assistant.
-
-Explain clearly and concisely why a cheaper swap preserves deck function.
-Focus on role/function overlap and synergy preservation. When explaining synergy, name both enabler and payoff cards and describe the mechanical sequence.`;
-    
-    const userPrompt = `In 1–2 sentences, explain why replacing "${from}" with "${to}" is a sensible, cheaper swap for this specific deck.\n- Focus on role/function and synergy.\n- If synergy is involved, name the enabler and payoff cards and explain the sequence (e.g., "Card A enables X; Card B pays off with Y").\n- Mention the key effect overlap or the game plan it supports.\n- Do NOT ask questions or request more text.\n\nDeck list:\n${deckText}`;
+    const { system, user: userPrompt } = buildSwapWhyPrompts({
+      from,
+      to,
+      deckText,
+      formatKey,
+      commander: commanderForPrompt,
+    });
 
     try {
       const { callLLM } = await import('@/lib/ai/unified-llm-client');

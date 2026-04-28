@@ -2,6 +2,18 @@
 
 ## 2026-04-27
 
+### Format-aware tools — Phases 2–6 (no `Mixed` API enum)
+
+- **`lib/format/manatap-deck-format.ts`:** Shared **`MANATAP_DECK_FORMAT_KEYS`**, **`normalizeManatapDeckFormatKey`** (default **commander**), **`isCommanderFormatKey`**, **`formatKeyToDisplayTitle`**.
+- **`POST /api/deck/swap-why`:** Optional **`format`** / **`deckFormat`**, **`commander`** / **`commanderName`**; prompts branch Commander vs 60-card; response shape unchanged.
+- **`app/deck/swap-suggestions/Client.tsx`:** Passes **`format`** / **`commander`** into swap APIs when present from Supabase.
+- **`lib/mulligan/advice-handler.ts`:** Stronger Commander vs 60-card system/user prompts (London mulligan wording for 60-card); output JSON unchanged.
+- **`tests/unit/mulligan-advice-format.test.ts`**, **`package.json`:** **`test:unit`** includes mulligan format coverage.
+- **`lib/mobile/deck-compare-mobile-prompt.ts`:** Extra “constructed lens” paragraph for non-Commander compare **`formatLabel`** (mobile still avoids sending **`Mixed`** to the API; Commander default when mixed).
+- **`lib/mobile/roast-ai-prompt.ts`**, **`lib/prompts/deck-roast.ts`:** Roast prompts branch Commander vs 60-card (commander line + lens); website uses same normalizer as mobile.
+- **`POST /api/playstyle/explain`:** Optional **`format`** (default Commander); **cache key** includes normalized format; OpenAI + **fallback** prompts branch; response **`{ paragraph, becauseBullets }`** unchanged.
+- **`PlaystyleQuizResults` / `PlaystyleQuizModal`:** Optional **`explainFormat`** → request **`format`** when set (omitted = Commander server default).
+
 ### Deck Compare mobile prompt — format-aware wording (Phase 1)
 
 - **`lib/mobile/deck-compare-mobile-prompt.ts`:** System line is Commander-specific only for Commander; other formats use “deck analyst for {format}”. User-prompt rules clarify **faster vs grindier games** for 60-card formats while keeping the **same JSON keys** and **`[[Card]]`** rule.

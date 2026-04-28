@@ -56,6 +56,8 @@ export default function BudgetSwapsClient(){
   const [commanderArt, setCommanderArt] = React.useState<string>('');
   const [commanderName, setCommanderName] = React.useState<string>('');
   const [deckTitle, setDeckTitle] = React.useState<string>('');
+  /** From `decks` row when `deckId` is set — optional for swap-why / swap-suggestions format context. */
+  const [deckFormat, setDeckFormat] = React.useState<string>('');
 
   // Batch selection
   const [selectedSwaps, setSelectedSwaps] = React.useState<Set<number>>(new Set());
@@ -93,6 +95,7 @@ export default function BudgetSwapsClient(){
         setCommanderArt('');
         setCommanderName('');
         setDeckTitle('');
+        setDeckFormat('');
         return; 
       }
       
@@ -108,7 +111,7 @@ export default function BudgetSwapsClient(){
         // Note: color_identity column doesn't exist, removed from query
         let { data, error } = await sb
           .from("decks")
-          .select("deck_text, title, commander")
+          .select("deck_text, title, commander, format")
           .eq("id", deckId)
           .single();
         
@@ -137,6 +140,7 @@ export default function BudgetSwapsClient(){
         
         setDeckTitle(title);
         setCommanderName(commander);
+        setDeckFormat(String((data as { format?: string | null }).format ?? '').trim());
         
         let art: string | undefined;
         
@@ -229,8 +233,14 @@ export default function BudgetSwapsClient(){
     setMeta({});
     
     try{
-      const body: any = { deckText: currentDeckText, currency, budget: threshold, ai: mode==='ai' };
-      
+      const body: Record<string, unknown> = { deckText: currentDeckText, currency, budget: threshold, ai: mode==='ai' };
+      if (deckId && deckFormat) {
+        body.format = deckFormat;
+      }
+      if (deckId && commanderName) {
+        body.commander = commanderName;
+      }
+
       const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
       const j = await r.json().catch(() => ({ ok:false }));
 
@@ -889,7 +899,10 @@ export default function BudgetSwapsClient(){
                               if(!isProFinal){ (async()=>{ try{ const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('Pro feature'); } })(); return; }
                               if(whyBusy[key]) return; setWhyBusy(p=>({ ...p, [key]: true }));
                               try{
-                                const r = await fetch('/api/deck/swap-why', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ from: s.from, to: s.to, deckText }) });
+                                const whyBody: Record<string, unknown> = { from: s.from, to: s.to, deckText };
+                                if (deckFormat) whyBody.format = deckFormat;
+                                if (commanderName) whyBody.commander = commanderName;
+                                const r = await fetch('/api/deck/swap-why', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(whyBody) });
                                 const j = await r.json().catch(()=>({}));
                                 const out = (j?.text || '').toString();
                                 if (out) setWhyMap(m=>({ ...m, [key]: out }));

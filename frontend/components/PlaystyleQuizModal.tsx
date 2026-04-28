@@ -9,9 +9,11 @@ import { AnalyticsEvents } from '@/lib/analytics/events';
 
 interface PlaystyleQuizModalProps {
   onClose: () => void;
+  /** Passed to playstyle explain API when set (default Commander server-side when omitted). */
+  explainFormat?: string;
 }
 
-export default function PlaystyleQuizModal({ onClose }: PlaystyleQuizModalProps) {
+export default function PlaystyleQuizModal({ onClose, explainFormat }: PlaystyleQuizModalProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showResults, setShowResults] = useState(false);
@@ -90,6 +92,7 @@ export default function PlaystyleQuizModal({ onClose }: PlaystyleQuizModalProps)
         colorIdentities={colorIdentities}
         onClose={onClose}
         onRestart={handleRestart}
+        explainFormat={explainFormat}
       />
     );
   }
