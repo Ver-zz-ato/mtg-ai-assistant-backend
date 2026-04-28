@@ -2,6 +2,12 @@
 
 ## 2026-04-28
 
+### Constructed AI generation stability
+
+- Added post-filter repair for near-complete 60-card lists.
+- Tightened retry conditions and prompts.
+- Improved explanation hygiene after validation.
+
 ### Constructed AI color identity fix
 
 - Prevent off-color cards in generated decks based on selected colors (`color_identity` ⊆ request colors via **`getDetailsForNamesCached`**); optional **one** regeneration when **>30%** of quantity would be dropped.

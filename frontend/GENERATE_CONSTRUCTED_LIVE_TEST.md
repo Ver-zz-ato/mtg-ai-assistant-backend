@@ -1,151 +1,139 @@
-# Generate Constructed — Live Production Test Report
+# Generate Constructed — Live Production Test Report (authenticated)
 
-**Environment:** `POST https://www.manatap.ai/api/deck/generate-constructed`  
-**Date:** 2026-04-28 (UTC)  
-**Client:** `curl.exe` / PowerShell `Invoke-WebRequest`, JSON bodies in `%TEMP%\mtg-gen-constructed-live\test*.json`  
-**Auth:** None (guest / IP-style bucket)
+**Endpoint:** `POST https://www.manatap.ai/api/deck/generate-constructed`  
+**Base URL:** `https://www.manatap.ai`  
+**Auth:** `Authorization: Bearer <Supabase user access_token>` (session JWT from Supabase Auth password grant — **token not stored in this file**)  
+**Bodies:** `%TEMP%\mtg-gen-auth-live\test1.json` … `test7.json` (same payloads as prior guest matrix)  
+**Date:** 2026-04-28  
 
 ---
 
 ## Executive summary
 
-| Result | Detail |
-|--------|--------|
-| **Partial pass** | **TEST 1** completed with **HTTP 200** and a valid contract-shaped JSON body. |
-| **Blocked** | **TEST 2–7** returned **HTTP 429** (`RATE_LIMIT_DAILY`) immediately after TEST 1. |
 
-Production enforces a **guest allowance of one AI constructed generation per day** for unauthenticated callers (same bucket as implemented in `GENERATE_CONSTRUCTED_GUEST`). Running the full matrix **without a Bearer token** therefore cannot validate TEST 2–7 in one session.
+| Area                    | Result                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Authenticated quota** | Seven sequential POSTs completed **without** `RATE_LIMIT_DAILY`; Bearer auth bypassed guest caps as expected.                                                                  |
+| **HTTP outcomes**       | **200** on tests **1, 2, 4, 5, 7** (`ok: true`). **400** on test **6** (invalid format). **502** on test **3** (`GENERATION_FAILED`) — **also failed on one immediate retry**. |
+| **Acceptance vs goal**  | Goal was **200 + ok:true** for **1–5 and 7**, and **400** for Legacy — **test 3 (Standard Azorius)** did **not** meet success criteria.                                        |
 
-**Recommendation:** Re-run TEST 2–7 with `Authorization: Bearer <token>` (signed-in user), or after **`resetAt`** (next UTC midnight per response), or from distinct egress IPs if testing guest limits.
 
 ---
 
 ## Test table
 
-| Test | Description | HTTP | `ok` | Notes |
-|------|-------------|------|------|--------|
-| **1** | Modern Rakdos Midrange | **200** | **true** | Full response; main 60 / side 13; price 167.7 USD |
-| **2** | Pioneer Mono Green | **429** | **false** | Rate limit — no deck output |
-| **3** | Standard Azorius Control | **429** | **false** | Rate limit |
-| **4** | Pauper Burn | **429** | **false** | Rate limit |
-| **5** | Modern Aggro (no colors) | **429** | **false** | Not reached (blocked by limiter before body semantics) |
-| **6** | Invalid format Legacy | **429** | **false** | Expected **400** for validation — **not verified** (limiter first) |
-| **7** | Modern Burn + `ownedCards` | **429** | **false** | Rate limit |
+
+| Test  | Scenario                   | HTTP    | `ok`      | Notes                                                  |
+| ----- | -------------------------- | ------- | --------- | ------------------------------------------------------ |
+| **1** | Modern Rakdos Midrange     | **200** | **true**  | Main **60**, side **13**, price **424.95** USD         |
+| **2** | Pioneer Mono Green         | **200** | **true**  | Main **56**, side **14** — **below 60 main**           |
+| **3** | Standard Azorius Control   | **502** | **false** | `**GENERATION_FAILED`** — repeated after retry         |
+| **4** | Pauper Burn                | **200** | **true**  | Main **60**, side **15**, price **92.99** USD          |
+| **5** | Modern Aggro (no colors)   | **200** | **true**  | AI chose **Gruul R/G** shell; main **60**, side **15** |
+| **6** | Invalid `Legacy` format    | **400** | **false** | `**validation_error`** on `format` enum ✓              |
+| **7** | Modern Burn + `ownedCards` | **200** | **true**  | Main **60**, side **13**; includes Bolt / Swiftspear   |
+
 
 ---
 
-## Validation rules (TEST 1 only)
+## Validation checklist (successful responses)
 
-| Rule | Result |
-|------|--------|
-| `ok === true` | Pass |
-| `format` matches request (`Modern`) | Pass |
-| `deckText` present | Pass |
-| `mainboardCount` ≈ 60 | Pass (**60**) |
-| `sideboardCount` ≈ 15 or 0 | **Partial** — **13** (within “≈15” tolerance; spec allows 0; not exactly 15) |
-| No Commander language in `explanation` | Pass (no commander / EDH / singleton wording observed) |
-| `explanation` array exists | Pass (5 bullets) |
-| `metaScore` 0–100 | Pass (**75**) |
-| `confidence` 0–1 | Pass (**0.85**) |
-| `colors` match input `["B","R"]` | Pass |
-| `estimatedPriceUsd` present | Pass (**167.7**); non-zero |
+For `**ok: true`** responses inspected:
 
----
 
-## Sample outputs
+| Check                                  | Result                                                                                        |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `format` matches request               | Pass on all success cases                                                                     |
+| `deckText` present                     | Pass                                                                                          |
+| `mainboardCount` ≈ 60                  | **Fail on test 2** (**56**); others **60**                                                    |
+| `sideboardCount` ≈ 15 (or 0)           | **13–15** observed — documented                                                               |
+| Commander-only staples (e.g. Sol Ring) | **No** `Sol Ring` substring in any success `deckText`                                         |
+| Commander / EDH wording                | No hits for obvious Commander phrases in sampled bodies                                       |
+| `explanation` array                    | Present where `ok: true`                                                                      |
+| `metaScore` / `confidence`             | Present in success payloads                                                                   |
+| `colors` vs request                    | Matches when provided (**1, 2, 4, 7**); **5** had no input colors — AI returned **["R","G"]** |
+| `estimatedPriceUsd`                    | Present on all `**ok: true`** responses (numeric)                                             |
 
-### TEST 1 — trimmed success (`HTTP 200`)
 
-```json
-{
-  "ok": true,
-  "format": "Modern",
-  "title": "Rakdos Midrange",
-  "colors": ["B", "R"],
-  "archetype": "Midrange",
-  "deckText": "// Mainboard\n4 Thoughtseize\n4 Inquisition of Kozilek\n…\n\n// Sideboard\n…",
-  "mainboardCount": 60,
-  "sideboardCount": 13,
-  "estimatedPriceUsd": 167.7,
-  "explanation": [
-    "Utilizes efficient discard spells for early game disruption.",
-    "Strong synergy with powerful threats like Kroxa and Dark Confidant.",
-    "Flexible removal options to deal with a variety of threats in the meta.",
-    "Balanced mana base allows consistent access to both colors.",
-    "Chandra offers card advantage and acceleration for finishing the game."
-  ],
-  "metaScore": 75,
-  "confidence": 0.85,
-  "warnings": []
-}
-```
+### TEST 6 — invalid format (expected failure)
 
-*(Full `deckText` omitted here for length; available in session capture under `%TEMP%\mtg-gen-constructed-live\result1.raw`.)*
-
-### TEST 2 — rate limit (`HTTP 429`)
+- **HTTP 400**
+- Body shape:
 
 ```json
 {
   "ok": false,
-  "code": "RATE_LIMIT_DAILY",
-  "error": "You've used your guest allowance for AI constructed decks. Sign in for more!",
-  "resetAt": "2026-04-29T00:00:00.000Z",
-  "remaining": 0
+  "error": "validation_error",
+  "details": {
+    "formErrors": [],
+    "fieldErrors": {
+      "format": [
+        "Invalid enum value. Expected 'Modern' | 'Pioneer' | 'Standard' | 'Pauper', received 'Legacy'"
+      ]
+    }
+  }
 }
 ```
 
-*(Same shape observed for TEST 3–4; TEST 5–7 expected identical until limit resets or auth is used.)*
+---
+
+## Sample outputs (trimmed)
+
+### TEST 1 — Modern Rakdos (`200`, success)
+
+- `**mainboardCount`:** 60 · `**sideboardCount`:** 13 · `**estimatedPriceUsd`:** 424.95  
+- `**warnings`** included legality removals + **color-identity** removals for **BR**, plus narrative caveats (some boilerplate may reference cards not in the final list — treat as advisory).
+
+### TEST 3 — Standard Azorius (`502`, failure)
+
+```json
+{ "ok": false, "error": "GENERATION_FAILED" }
+```
+
+(Retry once — same `**GENERATION_FAILED**`.)
 
 ---
 
 ## Issues found
 
-### Contract / availability
 
-- **Guest daily cap:** One successful generation per guest/IP/day prevents automated **full** matrix testing without authentication — **by design**, not a regression.
+| Issue                            | Severity   | Detail                                                                                                                                                                 |
+| -------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TEST 3 persistent 502**        | **High**   | Standard Azorius **never** returned `**ok: true`** in two attempts — investigate AI JSON parse, post-filters, or mainboard floor (**54**) server-side.                 |
+| **TEST 2 main = 56**             | **Medium** | Contract emphasizes ~**60** main; model delivered **56** total mainboard quantity — consider stronger prompt constraint or post-validation padding (product decision). |
+| **Explanation vs list (TEST 2)** | **Low**    | Explanation references **Karn, the Great Creator** while `**deckText`** does not list Karn — copy mismatch only.                                                       |
+| **TEST 1 warnings text**         | **Low**    | `**warnings`** may reference hypothetical sideboard tech (e.g. off-color hate) already stripped by filters — confusing but not blocking.                               |
 
-### Legality sanity (TEST 1 decklist review)
 
-- **`Veil of Summer`** appears in the **sideboard** while the deck is **Rakdos (B/R)**. In sanctioned Constructed, sideboard cards must be castable/ coherent with the deck’s colors (green card off-color for BR). This is a **color-identity / registration** problem the model introduced; **format legality filtering by Oracle legality alone would not remove it** because the card is Modern-legal.
+### Color identity (when colors provided)
 
-### Deck shape
-
-- **Sideboard count 13** vs target **15** — acceptable per product notes (“≈15”), but worth tracking if strict 15 is required.
-
-### Not verified in this run
-
-- **TEST 6** invalid `format: "Legacy"` → expected **HTTP 400** with `validation_error` — **not observed** because requests never reached validation after **429**.
+- **TEST 1 (`BR`):** Response `**warnings`** explicitly mention **color filtering** and removed copies for **BR** — aligns with server-side identity enforcement.  
+- **TEST 7 (`R`):** `**warnings`** cite copies removed to match **mono-R**.  
+- Not manually oracle-verified card-by-card; spot checks found **no Sol Ring** and lists stayed within requested colors at a string-review level.
 
 ---
 
 ## Recommendations
 
-1. **Authenticated regression:** Add a CI or manual script using **`Authorization: Bearer $TOKEN`** to run all seven JSON payloads in one pass.
-2. **Post-processing:** Consider **color-identity / registration checks** for Constructed sideboards (especially after Scryfall legality passes), or prompt reinforcement “sideboard must match maindeck colors.”
-3. **QA tooling:** Document that **guest smoke test = one POST per day** per IP for this route; full matrix needs signed-in user or reset window.
-4. **Sideboard target:** If product requires exactly **15**, add a soft validator or retry when `sideboardCount` is not in **[14, 15]** after filtering.
+1. **Investigate TEST 3 / Standard** failures (`GENERATION_FAILED`): add temporary logging or replay with fixed seed to see whether the model returns malformed JSON, fails legality or **main < 54**, or times out.
+2. **Deck size:** If **60 + 15** is mandatory, add a completion retry when `**mainboardCount` < 58** after filtering (without touching Commander routes).
+3. **QA harness:** Keep `**SUPABASE_ACCESS_TOKEN`** (or Supabase password grant) in CI secrets for full-matrix regression; guest-only runs will hit **429** after one call.
+4. **Explanation hygiene:** Optionally strip lines from `**warnings`**/`explanation` that reference cards no longer in `**deckText**`.
 
 ---
 
-## Commands used (replay)
+## How to rerun (authenticated)
 
-From `%TEMP%\mtg-gen-constructed-live`:
+1. Obtain a **Supabase Auth `access_token`** (password login, refresh session, or CI secret).
+2. POST each `testX.json` with:
 
-```bat
-curl.exe -sS -X POST "https://www.manatap.ai/api/deck/generate-constructed" ^
-  -H "Content-Type: application/json" ^
-  --data-binary "@test1.json"
+```http
+Authorization: Bearer <SUPABASE_ACCESS_TOKEN>
+Content-Type: application/json
 ```
 
-With auth (placeholder):
-
-```bat
-curl.exe -sS -X POST "https://www.manatap.ai/api/deck/generate-constructed" ^
-  -H "Content-Type: application/json" ^
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" ^
-  --data-binary "@test2.json"
-```
+1. Expect **400 + validation_error** only for unsupported `**format`** values (e.g. Legacy).
 
 ---
 
-*Report generated from live calls; application source code was not modified for this test.*
+*Test-only report; no application source changes.*

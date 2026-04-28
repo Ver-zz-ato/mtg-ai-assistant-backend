@@ -12,10 +12,19 @@ import {
   totalDeckQty,
   trimDeckToMaxQty,
 } from "@/lib/deck/generation-helpers";
+import {
+  filterExplanationBulletsForDeck,
+  filterWarningsForDeck,
+  logConstructedDiag,
+  padMainboardNearSixty,
+  padSideboardTowardFifteen,
+  parseConstructedAiJsonDetailed,
+} from "@/lib/deck/generate-constructed-post";
 import { filterDecklistQtyRowsForFormat } from "@/lib/deck/recommendation-legality";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import {
+  buildConstructedRepairRetryPrompt,
   buildConstructedSystemPrompt,
   buildConstructedUserPrompt,
   type ConstructedPromptInput,
@@ -51,35 +60,6 @@ function normalizePriceCacheCardName(name: string): string {
     .replace(/[''`]/g, "'")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function unwrapJsonFence(text: string): string {
-  let t = text.trim();
-  const fence = /^```(?:json)?\s*\n?([\s\S]*?)```$/im.exec(t);
-  if (fence) t = fence[1].trim();
-  return t;
-}
-
-type AiDeckJson = {
-  title?: unknown;
-  colors?: unknown;
-  archetype?: unknown;
-  mainboard?: unknown;
-  sideboard?: unknown;
-  explanation?: unknown;
-  metaScore?: unknown;
-  confidence?: unknown;
-  warnings?: unknown;
-};
-
-function parseConstructedAiJson(raw: string): AiDeckJson | null {
-  try {
-    const parsed = JSON.parse(unwrapJsonFence(raw)) as unknown;
-    if (!parsed || typeof parsed !== "object") return null;
-    return parsed as AiDeckJson;
-  } catch {
-    return null;
-  }
 }
 
 function normalizeColorLetters(colors: unknown): string[] {
@@ -163,15 +143,22 @@ async function filterConstructedLists(
   };
 }
 
-function needsRetry(params: { removedTotal: number; mainQty: number; sideQty: number }): boolean {
-  const { removedTotal, mainQty, sideQty } = params;
+type QtyRow = { name: string; qty: number };
+
+function needsUnifiedRepair(params: {
+  mainQty: number;
+  sideQty: number;
+  removedTotal: number;
+  colorRatio: number;
+  requestDeckColorsLen: number;
+}): boolean {
+  const { mainQty, sideQty, removedTotal, colorRatio, requestDeckColorsLen } = params;
+  if (mainQty < 58) return true;
+  if (sideQty < 10) return true;
   if (removedTotal >= 10) return true;
-  if (mainQty < 55 || mainQty > 62) return true;
-  if (sideQty > 0 && sideQty < 12) return true;
+  if (requestDeckColorsLen > 0 && colorRatio > 0.25) return true;
   return false;
 }
-
-type QtyRow = { name: string; qty: number };
 
 /**
  * null = cache miss / unknown — keep row (best effort).
@@ -237,16 +224,6 @@ async function filterQtyRowsByDeckColors(
     sideRows: filterRows(sideRows),
     removedQty,
   };
-}
-
-function buildColorIdentityRetryUserPrompt(colors: string[]): string {
-  const letters = colors.map((c) => c.toUpperCase()).filter((c) => "WUBRG".includes(c));
-  const disp = letters.join("");
-  return [
-    `STRICTLY obey deck colors: ${letters.join(", ")} (${disp}). Do NOT include off-color cards.`,
-    `Every card must be colorless or have color identity ⊆ {${letters.join(", ")}} only.`,
-    `Reply with ONLY valid JSON using the same schema as before (mainboard + sideboard lines).`,
-  ].join("\n\n");
 }
 
 export async function POST(req: NextRequest) {
@@ -426,99 +403,191 @@ export async function POST(req: NextRequest) {
       return { ok: true as const, content: messageContent };
     };
 
-    let completion = await runCompletion(baseMessages);
-    if (!completion.ok) {
+    let completionRecord = await runCompletion(baseMessages);
+    if (!completionRecord.ok) {
       return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
     }
 
-    let aiParsed = parseConstructedAiJson(completion.content);
-    if (!aiParsed?.mainboard) {
-      return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
-    }
+    let rawAiContent = completionRecord.content;
+    let didRepairRetry = false;
 
-    let mainLines = linesFromAiField(aiParsed.mainboard);
-    let sideLines = linesFromAiField(aiParsed.sideboard);
+    /** Final assistant JSON string passed to pricing/recording (possibly repair pass). */
+    let completionContentForUsage = rawAiContent;
 
-    let filtered = await filterConstructedLists(formatLabel, mainLines, sideLines);
-    let removedTotal = filtered.removedTotal;
-    let mainRows = filtered.mainRows;
-    let sideRows = filtered.sideRows;
-    let mainQty = totalDeckQty(mainRows);
-    let sideQty = totalDeckQty(sideRows);
-
-    if (needsRetry({ removedTotal, mainQty, sideQty })) {
-      const retryMessages: Array<{ role: string; content: string }> = [
-        ...baseMessages,
-        { role: "assistant", content: completion.content },
-        { role: "user", content: buildConstructedUserPrompt({ ...promptInput, strictLegalityRetry: true }) },
-      ];
-      const retry = await runCompletion(retryMessages);
-      if (retry.ok) {
-        const ai2 = parseConstructedAiJson(retry.content);
-        if (ai2?.mainboard) {
-          aiParsed = ai2;
-          mainLines = linesFromAiField(ai2.mainboard);
-          sideLines = linesFromAiField(ai2.sideboard);
-          filtered = await filterConstructedLists(formatLabel, mainLines, sideLines);
-          removedTotal = filtered.removedTotal;
-          mainRows = filtered.mainRows;
-          sideRows = filtered.sideRows;
-          mainQty = totalDeckQty(mainRows);
-          sideQty = totalDeckQty(sideRows);
-          completion = retry;
-        }
-      }
-    }
+    let aiParsed: Record<string, unknown>;
+    let mainRows: QtyRow[];
+    let sideRows: QtyRow[];
+    let removedTotal = 0;
+    let colorIdentityRemovedQty = 0;
+    let initialMainQty = 0;
+    let initialSideQty = 0;
 
     /** Subset filter on Scryfall `color_identity` when client supplied deck colors (constructed registration). */
     const requestDeckColors = normalizeColorLetters(body.colors);
-    let colorIdentityRemovedQty = 0;
 
-    if (requestDeckColors.length > 0) {
-      const beforeIdentityQty = totalDeckQty(mainRows) + totalDeckQty(sideRows);
-      let ciOut = await filterQtyRowsByDeckColors(mainRows, sideRows, requestDeckColors);
-      mainRows = ciOut.mainRows;
-      sideRows = ciOut.sideRows;
-      colorIdentityRemovedQty = ciOut.removedQty;
-      mainQty = totalDeckQty(mainRows);
-      sideQty = totalDeckQty(sideRows);
-
-      const identityRatio = beforeIdentityQty > 0 ? colorIdentityRemovedQty / beforeIdentityQty : 0;
-
-      if (identityRatio > 0.3 && beforeIdentityQty > 0) {
-        const colorRetryMessages: Array<{ role: string; content: string }> = [
-          ...baseMessages,
-          { role: "assistant", content: completion.content },
-          { role: "user", content: buildColorIdentityRetryUserPrompt(requestDeckColors) },
-        ];
-        const colorRetry = await runCompletion(colorRetryMessages);
-        if (colorRetry.ok) {
-          const aiColor = parseConstructedAiJson(colorRetry.content);
-          if (aiColor?.mainboard) {
-            completion = colorRetry;
-            aiParsed = aiColor;
-            mainLines = linesFromAiField(aiColor.mainboard);
-            sideLines = linesFromAiField(aiColor.sideboard);
-            filtered = await filterConstructedLists(formatLabel, mainLines, sideLines);
-            removedTotal = filtered.removedTotal;
-            mainRows = filtered.mainRows;
-            sideRows = filtered.sideRows;
-            mainQty = totalDeckQty(mainRows);
-            sideQty = totalDeckQty(sideRows);
-
-            ciOut = await filterQtyRowsByDeckColors(mainRows, sideRows, requestDeckColors);
-            mainRows = ciOut.mainRows;
-            sideRows = ciOut.sideRows;
-            colorIdentityRemovedQty = ciOut.removedQty;
-            mainQty = totalDeckQty(mainRows);
-            sideQty = totalDeckQty(sideRows);
-          }
-        }
+    while (true) {
+      const pr = parseConstructedAiJsonDetailed(rawAiContent);
+      if (!pr.ok) {
+        logConstructedDiag({
+          phase: "parse_failed",
+          format: formatLabel,
+          archetype: body.archetype?.slice(0, 120),
+          requestedColors: requestDeckColors.join("") || undefined,
+          parseError: pr.error,
+          failureStage: "parse",
+          standardDiag: formatLabel === "Standard" ? true : undefined,
+        });
+        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
       }
+
+      aiParsed = pr.data;
+      const mbRaw = aiParsed.mainboard;
+      if (!Array.isArray(mbRaw) || mbRaw.length === 0) {
+        logConstructedDiag({
+          phase: "missing_mainboard_array",
+          format: formatLabel,
+          archetype: body.archetype?.slice(0, 120),
+          requestedColors: requestDeckColors.join("") || undefined,
+          failureStage: "parse",
+          standardDiag: formatLabel === "Standard" ? true : undefined,
+        });
+        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+      }
+
+      const mainLines = linesFromAiField(mbRaw);
+      const sideLines = linesFromAiField(aiParsed.sideboard);
+
+      const initialAggMain = aggregateCards(parseAiDeckOutputLines(mainLines.join("\n")));
+      const initialAggSide = aggregateCards(parseAiDeckOutputLines(sideLines.join("\n")));
+      initialMainQty = totalDeckQty(initialAggMain);
+      initialSideQty = totalDeckQty(initialAggSide);
+
+      let filtered = await filterConstructedLists(formatLabel, mainLines, sideLines);
+      removedTotal = filtered.removedTotal;
+
+      const postLegalityMainQty = totalDeckQty(filtered.mainRows);
+      const postLegalitySideQty = totalDeckQty(filtered.sideRows);
+
+      mainRows = filtered.mainRows;
+      sideRows = filtered.sideRows;
+      colorIdentityRemovedQty = 0;
+
+      let beforeIdentityQty = totalDeckQty(mainRows) + totalDeckQty(sideRows);
+
+      if (requestDeckColors.length > 0) {
+        const ciOut = await filterQtyRowsByDeckColors(mainRows, sideRows, requestDeckColors);
+        mainRows = ciOut.mainRows;
+        sideRows = ciOut.sideRows;
+        colorIdentityRemovedQty = ciOut.removedQty;
+      }
+
+      const snapMainQty = totalDeckQty(mainRows);
+      const snapSideQty = totalDeckQty(sideRows);
+
+      const colorRatio = beforeIdentityQty > 0 ? colorIdentityRemovedQty / beforeIdentityQty : 0;
+
+      logConstructedDiag({
+        phase: "post_filter_snapshot",
+        format: formatLabel,
+        archetype: body.archetype?.slice(0, 120),
+        requestedColors: requestDeckColors.join("") || undefined,
+        initialMainQty,
+        initialSideQty,
+        postLegalityMainQty,
+        postLegalitySideQty,
+        postFilterMainQty: snapMainQty,
+        postFilterSideQty: snapSideQty,
+        legalityRemovals: removedTotal,
+        colorRemovals: colorIdentityRemovedQty,
+        didRepairRetry,
+      });
+
+      const unified = needsUnifiedRepair({
+        mainQty: snapMainQty,
+        sideQty: snapSideQty,
+        removedTotal,
+        colorRatio,
+        requestDeckColorsLen: requestDeckColors.length,
+      });
+
+      if (!unified || didRepairRetry) break;
+
+      const retryMessages: Array<{ role: string; content: string }> = [
+        ...baseMessages,
+        { role: "assistant", content: rawAiContent },
+        { role: "user", content: buildConstructedRepairRetryPrompt(promptInput) },
+      ];
+      const repairAttempt = await runCompletion(retryMessages);
+      if (!repairAttempt.ok) {
+        logConstructedDiag({
+          phase: "repair_openai_failed",
+          format: formatLabel,
+          failureStage: "repair_fetch",
+          standardDiag: formatLabel === "Standard" ? true : undefined,
+        });
+        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+      }
+
+      didRepairRetry = true;
+      rawAiContent = repairAttempt.content;
+      completionContentForUsage = rawAiContent;
     }
 
-    if (mainQty < 54) {
-      console.error("[generate-constructed] Mainboard too short after validation", { mainQty, removedTotal });
+    let mainQty = totalDeckQty(mainRows);
+    let sideQty = totalDeckQty(sideRows);
+
+    const mainQtyBeforePad = mainQty;
+
+    if (mainQty < 55) {
+      logConstructedDiag({
+        phase: "mainboard_floor",
+        format: formatLabel,
+        archetype: body.archetype?.slice(0, 120),
+        requestedColors: requestDeckColors.join("") || undefined,
+        failureStage: "main_floor",
+        mainQtyBeforePad,
+        removedTotal,
+        colorRemovals: colorIdentityRemovedQty,
+        standardDiag: formatLabel === "Standard" ? true : undefined,
+        hint:
+          formatLabel === "Standard"
+            ? "Standard failure context: main below floor after legality/color filtering — check parse vs removal counts above."
+            : undefined,
+      });
+      return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+    }
+
+    const paddingColors =
+      requestDeckColors.length > 0 ? requestDeckColors : normalizeColorLetters(aiParsed.colors);
+
+    const padMain = padMainboardNearSixty(mainRows, paddingColors);
+    mainRows = padMain.rows;
+    mainQty = totalDeckQty(mainRows);
+
+    const padSide = padSideboardTowardFifteen(sideRows);
+    sideRows = padSide.rows;
+    sideQty = totalDeckQty(sideRows);
+
+    if (padMain.adjusted || padSide.adjusted) {
+      logConstructedDiag({
+        phase: "padding_applied",
+        format: formatLabel,
+        mainAdjusted: padMain.adjusted,
+        sideAdjusted: padSide.adjusted,
+        mainQtyAfterPad: mainQty,
+        sideQtyAfterPad: sideQty,
+      });
+    }
+
+    if (mainQty < 60 && mainQtyBeforePad >= 55 && mainQtyBeforePad <= 59) {
+      logConstructedDiag({
+        phase: "padding_incomplete",
+        format: formatLabel,
+        failureStage: "padding_failed",
+        mainQtyBeforePad,
+        mainQtyAfterPad: mainQty,
+        standardDiag: formatLabel === "Standard" ? true : undefined,
+      });
       return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
     }
 
@@ -541,9 +610,13 @@ export async function POST(req: NextRequest) {
         ? aiParsed.archetype.trim().slice(0, 80)
         : body.archetype?.trim() || "Constructed";
 
-    const explanation = Array.isArray(aiParsed.explanation)
+    const allRows = [...mainRows, ...sideRows];
+
+    const explanationRaw = Array.isArray(aiParsed.explanation)
       ? aiParsed.explanation.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 10)
       : [];
+
+    const explanation = filterExplanationBulletsForDeck(explanationRaw, allRows);
 
     const metaScore =
       typeof aiParsed.metaScore === "number" && Number.isFinite(aiParsed.metaScore)
@@ -555,8 +628,11 @@ export async function POST(req: NextRequest) {
         ? Math.max(0, Math.min(1, aiParsed.confidence))
         : 0.75;
 
-    const warnings: string[] = Array.isArray(aiParsed.warnings)
-      ? aiParsed.warnings.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 12)
+    let warnings: string[] = Array.isArray(aiParsed.warnings)
+      ? filterWarningsForDeck(
+          aiParsed.warnings.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 12),
+          allRows
+        )
       : [];
 
     if (removedTotal > 0) {
@@ -567,12 +643,14 @@ export async function POST(req: NextRequest) {
         `${colorIdentityRemovedQty} card copies removed so every card matches deck colors (${requestDeckColors.join("")}).`
       );
     }
+    if (padMain.adjusted || padSide.adjusted) {
+      warnings.push("Adjusted final card counts after validation.");
+    }
 
-    const allRows = [...mainRows, ...sideRows];
     const priceEst = await estimateDeckPriceUsd(supabase, allRows);
     const estimatedPriceUsd = priceEst ?? 0;
 
-    const rawContent = completion.content;
+    const rawContent = completionContentForUsage;
     const inputTokEst = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
     const outputTokEst = Math.ceil(rawContent.length / 4);
 

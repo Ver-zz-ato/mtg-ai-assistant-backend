@@ -35,7 +35,7 @@ Prioritize for this format:
 `.trim();
 
 export function buildConstructedSystemPrompt(format: string): string {
-  return [
+  const parts = [
     `You are ManaTap AI — expert Magic: The Gathering deck designer for competitive ${format} (constructed, 60-card maindeck + 15-card sideboard).`,
     COMMANDER_FORBIDDEN,
     CONSTRUCTED_GOALS.replace(/\{FORMAT\}/g, format),
@@ -55,7 +55,48 @@ export function buildConstructedSystemPrompt(format: string): string {
 }`,
     `Pauper: only commons — deck must obey Pauper deckbuilding.`,
     `Use English card names exactly as printed on the English face.`,
-  ].join("\n\n");
+  ];
+
+  if (format === "Standard") {
+    parts.splice(
+      3,
+      0,
+      `Standard-specific: Anchor choices to the current Standard card pool and official ban list only. Prefer conservative, rotation-safe staples over famous older Constructed cards unless their Standard legality is certain.`
+    );
+  }
+
+  return parts.join("\n\n");
+}
+
+/** Single repair round after validation strips cards or counts fall short — appended after assistant JSON. */
+export function buildConstructedRepairRetryPrompt(input: ConstructedPromptInput): string {
+  const cols =
+    input.colors?.length && input.colors.some((c) => String(c || "").trim())
+      ? input.colors.map((c) => String(c || "").trim()).filter(Boolean).join(", ")
+      : null;
+
+  const lines = [
+    `DECK REPAIR PASS — previous JSON lost too many cards during validation or counts were invalid.`,
+    `Reply with ONLY a JSON object using the exact same schema specified in the system message.`,
+    `Hard requirements:`,
+    `- Mainboard lines must sum to exactly 60 copies by quantity.`,
+    `- Sideboard lines must sum to exactly 15 copies — prefer a full 15.`,
+    `- Use only cards legal in ${input.format}; obey banned/restricted lists.`,
+    ...(cols
+      ? [`- Use only requested deck colors (${cols}); every card's color identity must stay within those colors — do not include off-color cards.`]
+      : []),
+    `- Do not mention card names in "explanation" unless those exact English printed names appear in mainboard or sideboard arrays.`,
+    `- Do not mention cards in explanation that are not in the final decklist.`,
+    ...(input.format === "Standard"
+      ? [
+          `- Standard: avoid older famous non-Standard staples unless legality is certain; prefer conservative, currently Standard-legal picks.`,
+        ]
+      : []),
+    `- Use conservative, currently legal card choices.`,
+    `Output JSON only.`,
+  ];
+
+  return lines.join("\n");
 }
 
 export function buildConstructedUserPrompt(input: ConstructedPromptInput): string {
