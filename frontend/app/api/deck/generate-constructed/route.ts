@@ -385,6 +385,7 @@ export async function POST(req: NextRequest) {
         max_completion_tokens: COMPLETION_TOKENS,
         response_format: { type: "json_object" },
       } as Record<string, unknown>);
+      // eslint-disable-next-line no-restricted-globals -- OpenAI Chat Completions (vendor endpoint; not JSON helpers)
       const resp = await fetch(OPENAI_URL, {
         method: "POST",
         headers: {
@@ -403,7 +404,7 @@ export async function POST(req: NextRequest) {
       return { ok: true as const, content: messageContent };
     };
 
-    let completionRecord = await runCompletion(baseMessages);
+    const completionRecord = await runCompletion(baseMessages);
     if (!completionRecord.ok) {
       return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
     }
@@ -462,7 +463,7 @@ export async function POST(req: NextRequest) {
       initialMainQty = totalDeckQty(initialAggMain);
       initialSideQty = totalDeckQty(initialAggSide);
 
-      let filtered = await filterConstructedLists(formatLabel, mainLines, sideLines);
+      const filtered = await filterConstructedLists(formatLabel, mainLines, sideLines);
       removedTotal = filtered.removedTotal;
 
       const postLegalityMainQty = totalDeckQty(filtered.mainRows);
@@ -472,7 +473,7 @@ export async function POST(req: NextRequest) {
       sideRows = filtered.sideRows;
       colorIdentityRemovedQty = 0;
 
-      let beforeIdentityQty = totalDeckQty(mainRows) + totalDeckQty(sideRows);
+      const beforeIdentityQty = totalDeckQty(mainRows) + totalDeckQty(sideRows);
 
       if (requestDeckColors.length > 0) {
         const ciOut = await filterQtyRowsByDeckColors(mainRows, sideRows, requestDeckColors);
@@ -628,7 +629,7 @@ export async function POST(req: NextRequest) {
         ? Math.max(0, Math.min(1, aiParsed.confidence))
         : 0.75;
 
-    let warnings: string[] = Array.isArray(aiParsed.warnings)
+    const warnings: string[] = Array.isArray(aiParsed.warnings)
       ? filterWarningsForDeck(
           aiParsed.warnings.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 12),
           allRows
