@@ -3,17 +3,42 @@
  * Optimizes for short, skimmable, decision-first JSON for the app.
  */
 
+function isCommanderFormatLabel(formatLabel: string): boolean {
+  return formatLabel.trim().toLowerCase() === "commander";
+}
+
 export function buildMobileDeckCompareSystemPrompt(formatLabel: string): string {
+  const fl = formatLabel.trim();
+  const isCmd = isCommanderFormatLabel(fl);
+  const analystLine = isCmd
+    ? "You are an expert Magic: The Gathering Commander deck analyst."
+    : `You are an expert Magic: The Gathering deck analyst for ${fl}.`;
   return [
-    "You are an expert Magic: The Gathering Commander deck analyst.",
+    analystLine,
     "You output ONLY valid JSON (no markdown, no code fences, no commentary before or after the JSON).",
     "Your audience is a mobile app: prioritize quick decisions, clear deck-vs-deck framing, and concrete play patterns.",
     "Avoid generic filler, apologies, 'As an AI', or long intros.",
     "Do not use markdown headings (no # or ##).",
     "Compare speed, interaction density, finishers, consistency, resilience, tempo, and late-game — not card-by-card essays.",
-    `If you name new cards as ideas, only cards legal in ${formatLabel}; use [[double brackets]] for card names.`,
+    `If you name new cards as ideas, only cards legal in ${fl}; use [[double brackets]] for card names.`,
     "For 3-deck comparisons, keep the same JSON shape; verdict strings may name Deck A, Deck B, or Deck C as appropriate.",
   ].join(" ");
+}
+
+function schemaDimensionHints(formatLabel: string): string {
+  const isCmd = isCommanderFormatLabel(formatLabel);
+  if (isCmd) {
+    return [
+      '- summary.better_for_fast_tables / better_for_slower_pods: compare which list is stronger in fast multiplayer pods vs slower/grindier pods (use the JSON keys exactly as specified).',
+      '- ui.verdict_cards: first two cards conceptually map to "Fast tables" vs "Slower pods" (labels in output can be short synonyms).',
+      '- ui.scenario_cards: may reference slower pods / faster tables where appropriate.',
+    ].join("\n");
+  }
+  return [
+    '- summary.better_for_fast_tables / better_for_slower_pods: use the SAME JSON keys; semantically treat them as "faster games / aggressive metas" vs "grindier games / longer interactive games" for this format (do not mention Commander pods unless the decks are Commander).',
+    '- ui.verdict_cards: first two entries should read like faster-game edge vs grindier-game edge while keeping winner strings aligned with deck list titles/commanders.',
+    '- ui.scenario_cards: prefer "best for grindier games" style labels over "pods" for this format.',
+  ].join("\n");
 }
 
 export function buildMobileDeckCompareUserPrompt(params: {
@@ -21,6 +46,7 @@ export function buildMobileDeckCompareUserPrompt(params: {
   comparisonSummary: string;
   formatLabel: string;
 }): string {
+  const fl = params.formatLabel.trim();
   const schemaHint = [
     "Return a single JSON object with this exact top-level structure:",
     "{",
@@ -63,6 +89,7 @@ export function buildMobileDeckCompareUserPrompt(params: {
     "Rules:",
     "- Always include summary, sections, full_analysis, and ui.",
     "- ui.verdict_cards: exactly 4 objects; short labels; winners must match names from the deck lists.",
+    schemaDimensionHints(fl),
     "- ui.deck_strengths: phrases only (no paragraphs); at most 3 strings per deck_a and deck_b.",
     "- For three-deck comparisons, add optional deck_c array inside deck_strengths only if the third list is meaningfully distinct; otherwise omit deck_c.",
     "- ui.scenario_cards: at most 3 objects; one-sentence reasons; no markdown or ** in ui strings.",
@@ -79,7 +106,7 @@ export function buildMobileDeckCompareUserPrompt(params: {
     "COMPARISON STATS:",
     params.comparisonSummary,
     "",
-    `Format context: ${params.formatLabel}.`,
+    `Format context: ${fl}.`,
     "",
     schemaHint,
   ].join("\n");

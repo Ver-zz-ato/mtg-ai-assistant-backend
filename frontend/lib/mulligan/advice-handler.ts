@@ -75,9 +75,49 @@ function reasonReferencesGenericCommander(reason: string): boolean {
   );
 }
 
+/** Formats accepted by POST /api/mulligan/advice (Phase 1); default remains Commander. */
+export const MULLIGAN_ADVICE_FORMATS = ["commander", "modern", "pioneer", "standard", "pauper"] as const;
+export type MulliganAdviceFormat = (typeof MULLIGAN_ADVICE_FORMATS)[number];
+
+const MULLIGAN_OUTPUT_FORMAT_BLOCK = `Output format:
+{"action":"KEEP"|"MULLIGAN","confidence":0-100,"reasons":["...","..."],"suggestedLine":"...","warnings":["..."],"dependsOn":["..."]}
+- action: KEEP or MULLIGAN
+- confidence: 0-100 (required)
+- reasons: 2-5 bullets, each max 140 chars, each must cite a hand card or profile baseline
+- suggestedLine: 1 short line for ideal first 2 turns (e.g. "T1 dork, T2 Rhystic; hold up Offer")
+- warnings: optional array of caveats
+- dependsOn: optional 0-2 items for matchup / pod speed / play-draw dependencies`;
+
+function buildMulliganSystemPrompt(format: MulliganAdviceFormat): string {
+  const sharedCore = `- Use the DeckProfile and keepHeuristics. Compare the hand RELATIVE to this deck's density only.
+- You MUST NOT claim the hand contains ramp/tutor/draw/interaction/protection/fast mana unless handFacts says so. handFacts is authoritative.
+- deterministicKeepBias is a policy anchor: If KEEP, only output MULLIGAN if you can cite a specific strong reason (e.g. 0 lands, uncastable colors). If MULLIGAN, only output KEEP if you can cite specific stabilizers (e.g. multiple lands + acceleration + engine).
+- Every reason MUST reference either: (a) a specific card actually in the hand, or (b) a profile baseline (e.g. "deck expects early acceleration").
+- Do not invent cards. If uncertain, say so briefly.`;
+
+  if (format === "commander") {
+    return `You are an MTG Commander mulligan coach. Output valid JSON only, no markdown or extra text.
+
+RULES:
+${sharedCore}
+- Do NOT reference "average commander land count", "typical commander", or "in commander you usually" at all. Only talk about this deck's landPercent and density.
+
+${MULLIGAN_OUTPUT_FORMAT_BLOCK}`;
+  }
+
+  const title = format.charAt(0).toUpperCase() + format.slice(1);
+  return `You are an MTG ${title} opening-hand coach for 60-card Constructed. Output valid JSON only, no markdown or extra text.
+
+RULES:
+${sharedCore}
+- Do NOT lean on generic format-wide stereotypes; anchor to this deck's landPercent, velocity, and keep heuristics from DeckProfile.
+
+${MULLIGAN_OUTPUT_FORMAT_BLOCK}`;
+}
+
 export type AdviceInput = {
   modelTier: "mini" | "full";
-  format: "commander";
+  format: MulliganAdviceFormat;
   playDraw: "play" | "draw";
   mulliganCount: number;
   hand: string[];
@@ -103,6 +143,7 @@ export async function runMulliganAdvice(
   context: AdviceContext
 ): Promise<AdviceResult> {
   const { modelTier, playDraw, mulliganCount, hand, deck } = input;
+  const playFormat: MulliganAdviceFormat = input.format;
   const { userId, source, effectiveTier, aiUsageSource, sourcePage } = context;
 
   const effectiveModelTier = effectiveTier !== "pro" ? "mini" : modelTier;
@@ -156,7 +197,13 @@ export async function runMulliganAdvice(
 
   const deckSummary = `${deck.cards.length} cards, ${deck.commander ?? "no commander"}`;
   const handSummary = hand.join(", ");
-  const inputJson = { hand, playDraw, mulliganCount, deck: { cards: deck.cards.length, commander: deck.commander } };
+  const inputJson = {
+    hand,
+    playDraw,
+    mulliganCount,
+    format: playFormat,
+    deck: { cards: deck.cards.length, commander: deck.commander },
+  };
 
   if (gateAction === "SKIP_LLM") {
     const action = deterministicEval.keepBias === "KEEP" ? "KEEP" : "MULLIGAN";
@@ -217,7 +264,7 @@ export async function runMulliganAdvice(
     playDraw,
     mulliganCount,
     effectiveModelTier,
-    "commander"
+    playFormat
   );
 
   const cached = await getMulliganAdviceCache(cacheKey);
@@ -268,26 +315,14 @@ export async function runMulliganAdvice(
     }
   }
 
-  const systemPrompt = `You are an MTG Commander mulligan coach. Output valid JSON only, no markdown or extra text.
+  const systemPrompt = buildMulliganSystemPrompt(playFormat);
 
-RULES:
-- Use the DeckProfile and keepHeuristics. Compare the hand RELATIVE to this deck's density only.
-- Do NOT reference "average commander land count", "typical commander", or "in commander you usually" at all. Only talk about this deck's landPercent and density.
-- You MUST NOT claim the hand contains ramp/tutor/draw/interaction/protection/fast mana unless handFacts says so. handFacts is authoritative.
-- deterministicKeepBias is a policy anchor: If KEEP, only output MULLIGAN if you can cite a specific strong reason (e.g. 0 lands, uncastable colors). If MULLIGAN, only output KEEP if you can cite specific stabilizers (e.g. multiple lands + acceleration + engine).
-- Every reason MUST reference either: (a) a specific card actually in the hand, or (b) a profile baseline (e.g. "deck expects early acceleration").
-- Do not invent cards. If uncertain, say so briefly.
+  const deckProfileIntro =
+    playFormat === "commander"
+      ? "DeckProfile (use these baselines; do not use generic commander stats):"
+      : `DeckProfile (use these baselines; do not use generic ${playFormat} stereotypes):`;
 
-Output format:
-{"action":"KEEP"|"MULLIGAN","confidence":0-100,"reasons":["...","..."],"suggestedLine":"...","warnings":["..."],"dependsOn":["..."]}
-- action: KEEP or MULLIGAN
-- confidence: 0-100 (required)
-- reasons: 2-5 bullets, each max 140 chars, each must cite a hand card or profile baseline
-- suggestedLine: 1 short line for ideal first 2 turns (e.g. "T1 dork, T2 Rhystic; hold up Offer")
-- warnings: optional array of caveats
-- dependsOn: optional 0-2 items for matchup/pod speed dependencies`;
-
-  const userPrompt = `DeckProfile (use these baselines; do not use generic commander stats):
+  const userPrompt = `${deckProfileIntro}
 ${JSON.stringify(profile)}
 
 handFacts (authoritative; do NOT claim hand has ramp/tutor/etc unless handFacts says so):

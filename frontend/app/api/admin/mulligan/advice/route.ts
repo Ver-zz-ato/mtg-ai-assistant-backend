@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminForApi } from "@/lib/server-admin";
-import { runMulliganAdvice } from "@/lib/mulligan/advice-handler";
+import { MULLIGAN_ADVICE_FORMATS, runMulliganAdvice } from "@/lib/mulligan/advice-handler";
 
 export const runtime = "nodejs";
 
 const AdviceSchema = z.object({
   modelTier: z.enum(["mini", "full"]),
-  format: z.literal("commander"),
+  format: z.enum(MULLIGAN_ADVICE_FORMATS).optional(),
   playDraw: z.enum(["play", "draw"]),
   mulliganCount: z.number().min(0).max(7),
   hand: z.array(z.string()).min(1).max(7),
@@ -39,9 +39,10 @@ export async function POST(req: NextRequest) {
 
   const { modelTier, playDraw, mulliganCount, hand, deck, simulatedTier } = parsed.data;
   const effectiveTier = simulatedTier ?? "pro";
+  const resolvedFormat = parsed.data.format ?? "commander";
 
   const result = await runMulliganAdvice(
-    { modelTier, format: "commander", playDraw, mulliganCount, hand, deck },
+    { modelTier, format: resolvedFormat, playDraw, mulliganCount, hand, deck },
     {
       userId: admin.user.id,
       source: "admin_playground",

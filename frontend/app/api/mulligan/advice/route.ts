@@ -9,13 +9,13 @@ import {
   MULLIGAN_ADVICE_FREE,
   MULLIGAN_ADVICE_PRO,
 } from "@/lib/feature-limits";
-import { runMulliganAdvice } from "@/lib/mulligan/advice-handler";
+import { MULLIGAN_ADVICE_FORMATS, runMulliganAdvice } from "@/lib/mulligan/advice-handler";
 
 export const runtime = "nodejs";
 
 const AdviceSchema = z.object({
   modelTier: z.enum(["mini", "full"]).optional(),
-  format: z.literal("commander").optional(),
+  format: z.enum(MULLIGAN_ADVICE_FORMATS).optional(),
   playDraw: z.enum(["play", "draw"]),
   mulliganCount: z.number().min(0).max(7),
   hand: z.array(z.string()).min(1).max(7),
@@ -104,10 +104,11 @@ export async function POST(req: NextRequest) {
   }
 
   const modelTier = effectiveTier === "pro" ? (parsed.data.modelTier ?? "mini") : "mini";
+  const resolvedFormat = parsed.data.format ?? "commander";
   const input = {
     ...parsed.data,
     modelTier: modelTier as "mini" | "full",
-    format: "commander" as const,
+    format: resolvedFormat,
   };
 
   const explicitPage = typeof parsed.data.sourcePage === "string" ? parsed.data.sourcePage.trim() : "";

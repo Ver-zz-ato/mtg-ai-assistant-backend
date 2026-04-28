@@ -1,5 +1,16 @@
 # Frontend changelog
 
+## 2026-04-27
+
+### Deck Compare mobile prompt — format-aware wording (Phase 1)
+
+- **`lib/mobile/deck-compare-mobile-prompt.ts`:** System line is Commander-specific only for Commander; other formats use “deck analyst for {format}”. User-prompt rules clarify **faster vs grindier games** for 60-card formats while keeping the **same JSON keys** and **`[[Card]]`** rule.
+
+### Mulligan advice API — optional format (Phase 1)
+
+- **`POST /api/mulligan/advice`** and **admin** `POST /api/admin/mulligan/advice`:** Optional **`format`** enum **`commander` | `modern` | `pioneer` | `standard` | `pauper`** (default **commander**). Request body **`format`** is passed through to **`runMulliganAdvice`** instead of always forcing Commander.
+- **`lib/mulligan/advice-handler.ts`:** Commander keeps the existing coach prompt; supported 60-card formats use a dedicated opening-hand coach prompt. **Output JSON** unchanged; cache key includes format.
+
 ## 2026-04-21
 
 ### Mobile Deck Roast — punchiness & share_line pass
