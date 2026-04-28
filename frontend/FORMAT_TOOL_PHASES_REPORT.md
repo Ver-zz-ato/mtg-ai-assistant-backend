@@ -28,4 +28,32 @@
 ## Follow-ups (optional)
 
 - Wire **`explainFormat`** from deck-builder or format picker into **`PlaystyleQuizModal`** when product wants non-Commander quiz copy end-to-end.
-- Live smoke **`POST https://www.manatap.ai/api/...`** after deploy (auth/rate limits).
+
+---
+
+## Post-deploy live smoke — production (`https://www.manatap.ai`)
+
+**When:** 2026-04-28 (UTC, ~00:37–00:38). **How:** `curl.exe` from Windows, JSON bodies via temp files, timeouts 60–300s. **Deploy:** HEAD to site returned **200** before POSTs.
+
+| # | Endpoint | Scenario | HTTP | Result |
+|---|----------|----------|------|--------|
+| 1 | `POST /api/deck/finish-suggestions` | Modern, sparse main (~44/60) | 200 | **PASS** — `ok: true`, `format: "Modern"`, `suggestions` non-empty |
+| 2 | `POST /api/deck/finish-suggestions` | Commander, sparse (~58/100), Niv-Mizzet | 200 | **PASS** — `ok: true`, `format: "Commander"`, suggestions + expected `warnings` (off-color skip) |
+| 3 | `POST /api/collections/cost` | Modern list with **Sideboard** (Flusterstorm, Veil, Dress Down) | 200 | **PASS** — `ok: true`, rows include **`zone: "sideboard"`** and **`zone: "mainboard"`**, `format: "Modern"` |
+| 4 | `POST /api/mulligan/advice` | Commander (`format: "commander"`) | 200 | **PASS** — `ok: true`, `action`, `cacheKey` ends with `:commander` |
+| 5 | `POST /api/mulligan/advice` | Modern (`format: "modern"`) | 200 | **PASS** — `ok: true`, `cacheKey` ends with `:modern` |
+| 6 | `POST /api/mobile/deck/roast-ai` | Pauper burn sketch, `format: "Pauper"` | 200 | **PASS** — `ok: true`, structured `roast` object |
+| 7 | `POST /api/playstyle/explain` | `format: "modern"`, `level: "short"` | 200 | **PASS** — `ok: true`, `paragraph` + `becauseBullets`; copy is constructed/Burn-leaning (no Commander-only framing) |
+| 8 | `POST /api/deck/swap-why` | Modern guest, `from`/`to`/`deckText`/`format` | 200 | **PASS** — `ok: true`, LLM `text` (no auth required) |
+| 9 | `POST /api/mobile/deck/compare-ai` | Minimal body, **no session / Bearer** | **401** | **Blocked by auth, not a functional fail** — route requires signed-in user by design |
+
+### Pass/fail notes
+
+- All **guest-accessible** routes returned **200** with **`ok: true`** where expected. No **429** rate limits or **503** maintenance encountered on this IP for this run.
+- **`/api/mobile/deck/compare-ai`:** **401 Unauthorized** without cookies or `Authorization: Bearer` — treat as **auth gate**, not a regression. Automated prod smoke for this route needs a **test user token** or CI secret.
+- **`finish-suggestions`:** One suggestion name in the Commander response was a plausible **model typo** (“Narset, Parter of Veils”); legality filter still marked **`legal`** — optional follow-up is stricter name validation / Scryfall verify on suggestions, separate from format work.
+
+### Recommended follow-ups
+
+- Add an **optional authenticated** step in release QA (or CI with secrets) for **`compare-ai`** and any other **401-by-design** mobile routes.
+- Re-run this matrix after large prompt or rate-limit changes; watch for **429** on shared CI IPs.
