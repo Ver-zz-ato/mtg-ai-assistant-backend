@@ -17,6 +17,10 @@ import {
   aggregateCollectionQtyRows,
   preparePromptCardSample,
 } from "@/lib/deck/collectionConstructedIdeasPrep";
+import {
+  parseCollectionConstructedIdeasFromMessage,
+  stripMarkdownJsonFences,
+} from "@/lib/deck/collectionConstructedIdeasParse";
 
 const ROUTE_PATH = "/api/deck/collection-constructed-ideas";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -42,20 +46,6 @@ const requestSchema = z.object({
       notes: z.string().max(8000).optional(),
     })
     .optional(),
-});
-
-const aiIdeaInner = z.object({
-  title: z.string().max(220),
-  archetype: z.string().max(120).optional(),
-  colors: z.array(z.string().max(4)).optional(),
-  ownedCoreCards: z.array(z.string().max(200)).optional(),
-  missingKeyCards: z.array(z.string().max(200)).optional(),
-  reason: z.string().max(3000).optional(),
-  warnings: z.array(z.string()).optional(),
-});
-
-const aiResponseInner = z.object({
-  ideas: z.array(aiIdeaInner).min(1).max(5),
 });
 
 export type IdeaFormatSlug = "modern" | "pioneer" | "standard" | "pauper";
@@ -263,7 +253,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Not enough format-legal collection cards found for this format.",
+          code: "NOT_ENOUGH_LEGAL_COLLECTION_CARDS",
+          error: `Not enough format-legal cards in this collection for ${formatLabel}.`,
         },
         { status: 400 }
       );
@@ -296,22 +287,25 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `You are an expert Magic: The Gathering deck designer for 60-card constructed formats (mainboard only in this step — no sideboard lists).
 
-Output a single JSON object with key "ideas" (array of exactly 3 objects). No markdown, no commentary outside JSON.
+Return ONLY valid JSON. No markdown code fences. No commentary before or after the JSON.
 
-Each idea must include:
-- title: short deck title
-- archetype: short label
-- colors: array of color letters from the deck (subset of W,U,B,R,G)
-- ownedCoreCards: 4–10 card names that appear in the user's owned list and anchor the strategy
-- missingKeyCards: 0–8 card names NOT in the owned list that would be important purchases or crafts (may be empty if buildMode is collection_only)
-- reason: 2–4 sentences explaining the plan and how it uses their collection
-- warnings: optional strings (e.g. manabase risks)
+The root object MUST be exactly:
+{ "ideas": [ idea, idea, idea ] }
+
+Include exactly 3 objects in "ideas". Each idea object MUST use these keys:
+- "title": string (short deck name)
+- "archetype": string
+- "colors": array of color letters, each one of "W","U","B","R","G"
+- "ownedCoreCards": array of strings (4–10 card names copied EXACTLY from the provided owned list)
+- "missingKeyCards": array of strings (0–8 names not in the owned list; may be empty if buildMode is collection_only)
+- "reason": string (keep under ~600 characters)
+- "warnings": array of strings (optional; may be empty)
 
 Rules:
-- Every name in ownedCoreCards MUST be copied from the provided owned card list (exact Oracle name as listed).
-- Cards in missingKeyCards must NOT appear in the owned list.
-- Respect the format's card pool; use only real MTG card names.
-- Do not include Commander-specific cards or deck construction rules.`;
+- Every string in ownedCoreCards MUST match a line in the provided owned card list (exact Oracle name as listed).
+- Names in missingKeyCards must NOT appear in the owned list.
+- Use only real MTG card names legal in the requested format where possible.
+- Do not describe Commander decks or Commander-only rules.`;
 
     const userPrompt = `Format: ${formatLabel} (60-card constructed; sideboard not generated in this step).
 
@@ -321,10 +315,8 @@ Play direction: ${body.direction}. ${directionHint}
 
 ${prefLines.join("\n")}
 
-Owned cards (PRIORITIZE these — sample of their collection, ordered by importance; total collection may be larger):
-${prep.promptLines}
-
-Respond with JSON: { "ideas": [ {...}, {...}, {...} ] }`;
+Owned cards (prioritize — sample of their collection; full collection may be larger):
+${prep.promptLines}`;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -368,24 +360,79 @@ Respond with JSON: { "ideas": [ {...}, {...}, {...} ] }`;
     }
 
     const data = await resp.json();
-    const messageContent = extractChatCompletionContent(data);
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(messageContent);
-    } catch {
-      return NextResponse.json({ ok: false, error: "Invalid AI response" }, { status: 502 });
+    let messageContent = extractChatCompletionContent(data);
+    let parsedIdeasResult = parseCollectionConstructedIdeasFromMessage(messageContent);
+    let didRepair = false;
+    const firstPassLen = messageContent.length;
+    let repairPromptChars = 0;
+
+    if (!parsedIdeasResult.ok) {
+      console.warn(
+        "[collection-constructed-ideas] Initial JSON parse:",
+        parsedIdeasResult.reason,
+        "contentLen=",
+        firstPassLen
+      );
+      didRepair = true;
+      const repairSystem = `You repair invalid or partial JSON. Return ONLY valid JSON.
+
+The root object MUST be: { "ideas": [ ... ] } with 1 to 3 idea objects.
+Each idea MUST have keys: "title", "archetype", "colors" (array of W/U/B/R/G letters as strings), "ownedCoreCards" (string array), "missingKeyCards" (string array), "reason" (string), "warnings" (string array).
+No markdown. No commentary.`;
+      const repairUser = `Fix the following into valid JSON matching the schema. Use empty strings or empty arrays only when necessary.\n\n${stripMarkdownJsonFences(messageContent).slice(0, 14000)}`;
+      repairPromptChars = repairSystem.length + repairUser.length;
+
+      const repairPayload = prepareOpenAIBody({
+        model,
+        messages: [
+          { role: "system", content: repairSystem },
+          { role: "user", content: repairUser },
+        ],
+        max_completion_tokens: COMPLETION_TOKENS,
+        temperature: 0.15,
+        response_format: { type: "json_object" },
+      } as Record<string, unknown>);
+
+      const repairResp = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(repairPayload),
+      });
+
+      if (!repairResp.ok) {
+        const errText = await repairResp.text();
+        console.error("[collection-constructed-ideas] Repair OpenAI error:", repairResp.status, errText.slice(0, 500));
+        return NextResponse.json(
+          { ok: false, code: "AI_IDEA_PARSE_FAILED", error: "Could not read ideas from the model." },
+          { status: 502 }
+        );
+      }
+
+      const repairData = await repairResp.json();
+      messageContent = extractChatCompletionContent(repairData);
+      parsedIdeasResult = parseCollectionConstructedIdeasFromMessage(messageContent);
     }
 
-    const parsedAi = aiResponseInner.safeParse(parsedJson);
-    if (!parsedAi.success) {
-      return NextResponse.json({ ok: false, error: "Could not parse ideas from AI" }, { status: 502 });
+    if (!parsedIdeasResult.ok) {
+      console.error("[collection-constructed-ideas] Parse failed after repair:", parsedIdeasResult.reason);
+      return NextResponse.json(
+        { ok: false, code: "AI_IDEA_PARSE_FAILED", error: "Could not read ideas from the model." },
+        { status: 502 }
+      );
     }
 
+    const allParsed = parsedIdeasResult.ideas;
     const metaNotes: string[] = [];
-    let ideasRaw = parsedAi.data.ideas.slice(0, 3);
-    if (parsedAi.data.ideas.length < 3) {
+    if (allParsed.length > 3) {
+      metaNotes.push("Showing the first three ideas.");
+    }
+    if (allParsed.length < 3) {
       metaNotes.push("The model returned fewer than three ideas; shorter list returned.");
     }
+    const ideasRaw = allParsed.slice(0, 3);
 
     const fmtSlug = formatToSlug(formatLabel);
     const ideasOut: CollectionDeckIdeaPayload[] = [];
@@ -401,6 +448,7 @@ Respond with JSON: { "ideas": [ {...}, {...}, {...} ] }`;
         formatLabel,
       });
       const title = sanitizeName(idea.title.trim().slice(0, 120), 120);
+      const displayTitle = title || `Deck idea ${ideasOut.length + 1}`;
       const archetype = (idea.archetype ?? "").trim().slice(0, 120) || "General";
       let colors = normalizeColorLetters(idea.colors ?? []);
       if (!colors.length && prefColors.length) colors = prefColors;
@@ -409,7 +457,7 @@ Respond with JSON: { "ideas": [ {...}, {...}, {...} ] }`;
 
       ideasOut.push({
         id: randomUUID(),
-        title,
+        title: displayTitle,
         format: fmtSlug,
         colors,
         archetype,
@@ -423,8 +471,17 @@ Respond with JSON: { "ideas": [ {...}, {...}, {...} ] }`;
       });
     }
 
-    const inputTokEst = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
-    const outputTokEst = Math.ceil(messageContent.length / 4);
+    if (ideasOut.length === 0) {
+      return NextResponse.json(
+        { ok: false, code: "NO_USABLE_IDEAS", error: "No usable deck ideas could be produced." },
+        { status: 502 }
+      );
+    }
+
+    const inputTokEst =
+      Math.ceil((systemPrompt.length + userPrompt.length) / 4) +
+      (didRepair ? Math.ceil(repairPromptChars / 4) : 0);
+    const outputTokEst = Math.ceil((didRepair ? firstPassLen + messageContent.length : messageContent.length) / 4);
     try {
       const { hashString } = await import("@/lib/guest-tracking");
       const anonId = await hashString(user.id);

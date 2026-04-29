@@ -8,7 +8,8 @@ import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { filterSuggestedCardNamesForFormat } from "@/lib/deck/recommendation-legality";
 
 export const LEGAL_OWNED_CARD_MINIMUM = 20;
-export const COLLECTION_PROMPT_CARD_CAP = 1200;
+/** Cap for owned-card lines in the ideas prompt (smaller = more reliable JSON from the model). */
+export const COLLECTION_PROMPT_CARD_CAP = 560;
 
 export type AggregatedRow = { displayName: string; qty: number; normKey: string };
 
