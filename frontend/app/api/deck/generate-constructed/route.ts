@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/server-supabase";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { costUSD } from "@/lib/ai/pricing";
@@ -29,6 +30,31 @@ import {
   buildConstructedUserPrompt,
   type ConstructedPromptInput,
 } from "@/lib/prompts/generate-constructed";
+
+async function loadCollectionOwnedNamesDedup(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  collectionId: string,
+  userId: string
+): Promise<{ ok: true; names: string[] } | { ok: false; http: number }> {
+  const { data: col } = await supabase.from("collections").select("id, user_id").eq("id", collectionId).maybeSingle();
+  if (!col) return { ok: false, http: 403 };
+  if (col.user_id !== userId) return { ok: false, http: 403 };
+  const rows = await fetchAllSupabaseRows<{ name: string }>(() =>
+    supabase.from("collection_cards").select("name").eq("collection_id", collectionId).order("id", { ascending: true }),
+  );
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    const n = String(r.name ?? "").trim();
+    if (!n) continue;
+    const k = n.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(n);
+  }
+  out.sort((a, b) => a.localeCompare(b));
+  return { ok: true, names: out.slice(0, 200) };
+}
 import {
   buildConstructedSeedPromptPayload,
   getConstructedSeedTemplate,
@@ -62,6 +88,15 @@ const constructedBodySchema = z.object({
   powerLevel: z.enum(["casual", "strong", "competitive"]).optional(),
   ownedCards: z.array(z.string().max(200)).max(200).optional(),
   notes: z.string().max(4000).optional(),
+  collectionId: z.string().uuid().optional(),
+  seedFromIdea: z
+    .object({
+      title: z.string().max(200),
+      archetype: z.string().max(200).optional(),
+      colors: z.array(z.string().max(4)).max(8).optional(),
+      coreCards: z.array(z.string().max(200)).max(80).optional(),
+    })
+    .optional(),
 });
 
 /** Same normalization as `app/api/deck/finish-suggestions/route.ts` for `price_cache.card_name`. */
@@ -360,6 +395,42 @@ export async function POST(req: NextRequest) {
     const body = parsed.data;
     const formatLabel = body.format;
 
+    if (body.collectionId && !user) {
+      return NextResponse.json({ ok: false, error: "Sign in to build from a linked collection." }, { status: 401 });
+    }
+
+    let mergedOwnedCards: string[] | undefined =
+      body.ownedCards && body.ownedCards.length > 0 ? [...body.ownedCards] : undefined;
+    if (body.collectionId && user) {
+      const coll = await loadCollectionOwnedNamesDedup(supabase, body.collectionId, user.id);
+      if (!coll.ok) {
+        return NextResponse.json({ ok: false, error: "Collection not found or access denied." }, { status: 403 });
+      }
+      if (coll.names.length === 0) {
+        return NextResponse.json({ ok: false, error: "Collection has no cards to reference." }, { status: 400 });
+      }
+      mergedOwnedCards = coll.names;
+    }
+
+    const sf = body.seedFromIdea;
+    const mergedArche =
+      typeof body.archetype === "string" && body.archetype.trim()
+        ? body.archetype.trim().slice(0, 120)
+        : sf?.archetype?.trim()
+          ? sf.archetype.trim().slice(0, 120)
+          : undefined;
+
+    let mergedColors = normalizeColorLetters(body.colors ?? []);
+    if (!mergedColors.length && sf?.colors?.length) {
+      mergedColors = normalizeColorLetters(sf.colors);
+    }
+
+    const bodyForWu = {
+      ...body,
+      colors: mergedColors.length ? mergedColors : body.colors,
+      archetype: mergedArche ?? body.archetype,
+    };
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ ok: false, error: "AI service not configured" }, { status: 500 });
@@ -375,8 +446,8 @@ export async function POST(req: NextRequest) {
 
     const rawSeedTemplate = getConstructedSeedTemplate({
       format: formatLabel,
-      colors: body.colors,
-      archetype: body.archetype,
+      colors: mergedColors.length ? mergedColors : undefined,
+      archetype: mergedArche,
       budget: body.budget,
     });
 
@@ -386,8 +457,8 @@ export async function POST(req: NextRequest) {
       logConstructedDiag({
         phase: "seed_template_validated",
         format: formatLabel,
-        archetype: body.archetype?.slice(0, 120),
-        requestedColors: normalizeColorLetters(body.colors).join("") || undefined,
+        archetype: mergedArche?.slice(0, 120),
+        requestedColors: mergedColors.join("") || undefined,
         templateRemovalCount: validatedSeed.removalCount,
         validatedSeedMainQty: validatedSeed.validatedMainQty,
         validatedSeedSideQty: validatedSeed.validatedSideQty,
@@ -400,15 +471,34 @@ export async function POST(req: NextRequest) {
     const seedPaddingEligible = Boolean(validatedSeed?.includeCardSeedsInPrompt);
     const mainFloorMin = seedPaddingEligible ? 52 : 55;
 
+    const seedIdeaForPrompt =
+      sf?.title?.trim() != null
+        ? {
+            title: sf.title.trim().slice(0, 200),
+            archetype: (sf.archetype?.trim() ?? mergedArche)?.slice(0, 200),
+            colors:
+              normalizeColorLetters(sf.colors ?? []).length > 0
+                ? normalizeColorLetters(sf.colors ?? [])
+                : mergedColors.length > 0
+                  ? mergedColors
+                  : undefined,
+            coreCards: (sf.coreCards ?? [])
+              .map((x) => String(x ?? "").trim())
+              .filter(Boolean)
+              .slice(0, 80),
+          }
+        : null;
+
     const promptInput: ConstructedPromptInput = {
       format: formatLabel,
-      colors: body.colors,
-      archetype: body.archetype,
+      colors: mergedColors.length ? mergedColors : undefined,
+      archetype: mergedArche,
       budget: body.budget,
       powerLevel: body.powerLevel,
-      ownedCards: body.ownedCards,
+      ownedCards: mergedOwnedCards,
       notes: body.notes,
       seedPrompt: seedPromptPayload,
+      seedFromIdea: seedIdeaForPrompt,
     };
 
     const systemPrompt = buildConstructedSystemPrompt(formatLabel);
@@ -418,7 +508,7 @@ export async function POST(req: NextRequest) {
       failureStage: string,
       diagExtra?: Record<string, unknown>
     ): Promise<NextResponse | null> => {
-      if (formatLabel !== "Standard" || !shouldStandardWuControlFallback(body)) return null;
+      if (formatLabel !== "Standard" || !shouldStandardWuControlFallback(bodyForWu)) return null;
       logConstructedDiag({
         phase: "standard_wu_fallback_attempt",
         failureStage,
@@ -499,7 +589,7 @@ export async function POST(req: NextRequest) {
         format: formatLabel,
         title: "Azorius Control (fallback shell)",
         colors: ["W", "U"],
-        archetype: body.archetype?.trim().slice(0, 80) || "Control",
+        archetype: mergedArche?.trim().slice(0, 80) || "Control",
         deckText: deckTextFb,
         mainboardCount: mainQtyFb,
         sideboardCount: sideQtyFb,
@@ -564,7 +654,7 @@ export async function POST(req: NextRequest) {
     let initialSideQty = 0;
 
     /** Subset filter on Scryfall `color_identity` when client supplied deck colors (constructed registration). */
-    const requestDeckColors = normalizeColorLetters(body.colors);
+    const requestDeckColors = mergedColors;
 
     while (true) {
       const pr = parseConstructedAiJsonDetailed(rawAiContent);
@@ -572,7 +662,7 @@ export async function POST(req: NextRequest) {
         logConstructedDiag({
           phase: "parse_failed",
           format: formatLabel,
-          archetype: body.archetype?.slice(0, 120),
+          archetype: mergedArche?.slice(0, 120),
           requestedColors: requestDeckColors.join("") || undefined,
           parseError: pr.error,
           failureStage: "parse",
@@ -596,7 +686,7 @@ export async function POST(req: NextRequest) {
         logConstructedDiag({
           phase: "missing_mainboard_array",
           format: formatLabel,
-          archetype: body.archetype?.slice(0, 120),
+          archetype: mergedArche?.slice(0, 120),
           requestedColors: requestDeckColors.join("") || undefined,
           failureStage: "parse",
           standardDiag: formatLabel === "Standard" ? true : undefined,
@@ -648,7 +738,7 @@ export async function POST(req: NextRequest) {
       logConstructedDiag({
         phase: "post_filter_snapshot",
         format: formatLabel,
-        archetype: body.archetype?.slice(0, 120),
+        archetype: mergedArche?.slice(0, 120),
         requestedColors: requestDeckColors.join("") || undefined,
         initialMainQty,
         initialSideQty,
@@ -749,7 +839,7 @@ export async function POST(req: NextRequest) {
         logConstructedDiag({
           phase: "mainboard_floor",
           format: formatLabel,
-          archetype: body.archetype?.slice(0, 120),
+          archetype: mergedArche?.slice(0, 120),
           requestedColors: requestDeckColors.join("") || undefined,
           failureStage: "main_floor",
           mainQtyBeforePad,
@@ -819,14 +909,14 @@ export async function POST(req: NextRequest) {
         : `${formatLabel} Deck`;
 
     let colors = normalizeColorLetters(aiParsed.colors);
-    if (!colors.length && body.colors?.length) {
-      colors = normalizeColorLetters(body.colors);
+    if (!colors.length && mergedColors.length) {
+      colors = mergedColors;
     }
 
     const archetype =
       typeof aiParsed.archetype === "string" && aiParsed.archetype.trim()
         ? aiParsed.archetype.trim().slice(0, 80)
-        : body.archetype?.trim() || "Constructed";
+        : mergedArche?.trim() || "Constructed";
 
     const allRows = [...mainRows, ...sideRows];
 

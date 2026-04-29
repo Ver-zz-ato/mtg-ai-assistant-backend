@@ -8,6 +8,14 @@ import type { ConstructedSeedPromptPayload } from "@/lib/deck/generate-construct
 export type ConstructedBudget = "budget" | "balanced" | "premium";
 export type ConstructedPower = "casual" | "strong" | "competitive";
 
+/** Optional anchor from Phase 2C collection “idea → full deck” flow. Does not replace JSON deck shape rules. */
+export type SeedFromIdeaInput = {
+  title: string;
+  archetype?: string;
+  colors?: string[];
+  coreCards?: string[];
+};
+
 export type ConstructedPromptInput = {
   format: "Modern" | "Pioneer" | "Standard" | "Pauper";
   colors?: string[];
@@ -20,6 +28,8 @@ export type ConstructedPromptInput = {
   strictLegalityRetry?: boolean;
   /** Validated template shell from {@link getConstructedSeedTemplate} — optional */
   seedPrompt?: ConstructedSeedPromptPayload | null;
+  /** User chose a labeled idea — reinforce title/archetype and priority cards in prose only */
+  seedFromIdea?: SeedFromIdeaInput | null;
 };
 
 const COMMANDER_FORBIDDEN = `
@@ -100,6 +110,16 @@ export function buildConstructedRepairRetryPrompt(input: ConstructedPromptInput)
         ]
       : []),
     `- Use conservative, currently legal card choices.`,
+    ...(input.seedFromIdea?.title?.trim()
+      ? [
+          `- Stay coherent with the Manatap collection idea titled "${input.seedFromIdea.title.trim()}" and its stated archetype.`,
+          ...(input.seedFromIdea.coreCards?.some((c) => String(c ?? "").trim())
+            ? [
+                `- Prioritize integrating these anchor cards wherever legal for ${input.format}: ${input.seedFromIdea!.coreCards!.slice(0, 24).map((x) => String(x ?? "").trim()).filter(Boolean).join(", ") || "(none)"}.`,
+              ]
+            : []),
+        ]
+      : []),
     ...(seed
       ? [
           "",
@@ -134,6 +154,22 @@ export function buildConstructedUserPrompt(input: ConstructedPromptInput): strin
 
   if (input.archetype?.trim()) {
     lines.push(`Archetype focus: ${input.archetype.trim()}.`);
+  }
+
+  const sf = input.seedFromIdea;
+  if (sf?.title?.trim()) {
+    const core = sf.coreCards?.map((x) => String(x ?? "").trim()).filter(Boolean) ?? [];
+    const sfCols = sf.colors?.length
+      ? ` Idea colors (guidance): ${sf.colors.filter(Boolean).join(", ")}.`
+      : "";
+    lines.push(
+      `ManaTap selected deck idea: "${sf.title.trim()}". Build a complete ${input.format} 60+15 that realizes this deck concept faithfully.${sfCols}`,
+      ...(sf.archetype?.trim() ? [`Idea archetype tag: ${sf.archetype.trim()}.`] : [])
+    );
+    if (core.length) {
+      lines.push(`Priority picks from this idea — include heavily when coherent and legal (not exhaustive):`);
+      lines.push(core.slice(0, 40).map((n) => `- ${n}`).join("\n"));
+    }
   }
 
   const seed = input.seedPrompt;
@@ -189,7 +225,9 @@ export function buildConstructedUserPrompt(input: ConstructedPromptInput): strin
   );
 
   if (input.ownedCards?.length) {
-    lines.push(`The player owns these cards — prefer including several when they fit (not mandatory to use all):`);
+    lines.push(
+      `The player owns these cards — prefer maximizing mainboard overlap with this pool when cohesive (prefer cards from both this list and priority idea anchors when both apply); you do not need to use every owned card:`
+    );
     lines.push(input.ownedCards.slice(0, 80).map((n) => `- ${n}`).join("\n"));
   }
 
