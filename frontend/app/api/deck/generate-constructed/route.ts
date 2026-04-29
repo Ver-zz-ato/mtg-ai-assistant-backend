@@ -438,9 +438,7 @@ export async function POST(req: NextRequest) {
 
       const mainQtyFb = totalDeckQty(fb.mainRows);
       const sideQtyFb = totalDeckQty(fb.sideRows);
-      const deckTextFb = [`// Mainboard`, ...fb.mainRows.map((c) => `${c.qty} ${c.name}`), ``, `// Sideboard`, ...fb.sideRows.map((c) => `${c.qty} ${c.name}`)].join(
-        "\n"
-      );
+      const deckTextFb = [`Mainboard`, ...fb.mainRows.map((c) => `${c.qty} ${c.name}`), ``, `Sideboard`, ...fb.sideRows.map((c) => `${c.qty} ${c.name}`)].join("\n");
       const allFb = [...fb.mainRows, ...fb.sideRows];
       const explanationFb = filterExplanationBulletsForDeck(
         [
@@ -813,9 +811,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const deckText = [`// Mainboard`, ...mainRows.map((c) => `${c.qty} ${c.name}`), ``, `// Sideboard`, ...sideRows.map((c) => `${c.qty} ${c.name}`)].join(
-      "\n"
-    );
+    const deckText = [`Mainboard`, ...mainRows.map((c) => `${c.qty} ${c.name}`), ``, `Sideboard`, ...sideRows.map((c) => `${c.qty} ${c.name}`)].join("\n");
 
     const title =
       typeof aiParsed.title === "string" && aiParsed.title.trim()
