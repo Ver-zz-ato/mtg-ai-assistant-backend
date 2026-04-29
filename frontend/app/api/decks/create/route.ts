@@ -6,7 +6,7 @@ import { withLogging } from "@/lib/api/withLogging";
 
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
-import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -76,17 +76,6 @@ const Req = z.object({
   data: z.any().optional(),
 });
 
-function aggregateCards(cards: Array<{ name: string; qty: number }>): Array<{ name: string; qty: number }> {
-  const map = new Map<string, { name: string; qty: number }>();
-  for (const c of cards) {
-    const key = c.name.trim().toLowerCase();
-    const prev = map.get(key);
-    if (prev) prev.qty += c.qty;
-    else map.set(key, { name: c.name.trim(), qty: c.qty });
-  }
-  return Array.from(map.values());
-}
-
 async function _POST(req: NextRequest) {
   try {
     let supabase = await createClient();
@@ -121,14 +110,15 @@ async function _POST(req: NextRequest) {
     const cleanTitle = sanitizeName(payload.title, 120);
     if (containsProfanity(cleanTitle)) return err("Please choose a different deck name.", "bad_request", 400);
 
-    // Extract commander from deck_text (first valid commander for Commander format)
+    // Extract commander from deck_text (mainboard cards only; Commander format)
     let commander: string | null = null;
     let colors: string[] = payload.colors || [];
     
     if (payload.format === "Commander" && payload.deck_text) {
-      const allCards = parseDeckText(payload.deck_text);
-      // Check each card until we find a valid commander
-      for (const card of allCards.slice(0, 10)) { // Check first 10 cards
+      const zonedForCmd = parseDeckTextWithZones(payload.deck_text);
+      const mainCandidates = zonedForCmd.filter((c) => c.zone === "mainboard");
+      // Check each mainboard card until we find a valid commander
+      for (const card of mainCandidates.slice(0, 10)) {
         const result = await checkIfCommanderWithColors(card.name);
         if (result.isCommander) {
           commander = card.name;
@@ -139,9 +129,9 @@ async function _POST(req: NextRequest) {
           break;
         }
       }
-      // Fallback: if no valid commander found, use first card anyway
-      if (!commander && allCards.length > 0) {
-        commander = allCards[0].name;
+      // Fallback: if no valid commander found, use first mainboard card anyway
+      if (!commander && mainCandidates.length > 0) {
+        commander = mainCandidates[0].name;
         // Try to get colors for the fallback commander
         if (colors.length === 0) {
           colors = await getCommanderColorIdentity(commander);
@@ -169,48 +159,66 @@ async function _POST(req: NextRequest) {
 
     if (error) return err(error.message, "db_error", 500);
 
-    // Parse & upsert deck_cards
-    const cardsRaw = parseDeckText(payload.deck_text || "");
-    const cards = aggregateCards(cardsRaw);
-    if (cards.length) {
-      const rows = cards.map((c) => ({ deck_id: data.id as string, name: c.name, qty: c.qty }));
-      const { error: dcErr } = await supabase
-        .from("deck_cards")
-        .upsert(rows, { onConflict: "deck_id,name" });
+    // Parse & upsert deck_cards — preserve mainboard vs sideboard (UNIQUE deck_id,name,zone)
+    const zonedCards = parseDeckTextWithZones(payload.deck_text || "");
+    let insertedCount = 0;
+
+    if (zonedCards.length) {
+      const rows = zonedCards.map((c) => ({
+        deck_id: data.id as string,
+        name: c.name.trim(),
+        qty: c.qty,
+        zone: c.zone === "sideboard" ? "sideboard" : "mainboard",
+      }));
+      insertedCount = rows.length;
+      const { error: dcErr } = await supabase.from("deck_cards").upsert(rows, {
+        onConflict: "deck_id,name,zone",
+      });
       if (dcErr) {
-        return ok({ id: data.id, warning: `created deck but failed upserting ${rows.length} cards: ${dcErr.message}` });
+        const msg = dcErr.message || String(dcErr);
+        const schemaLikelyMissing =
+          /unique constraint|violates|could not find|on conflict|42703|42P10/i.test(msg) &&
+          /deck_id|name|zone/i.test(msg);
+        return err(
+          schemaLikelyMissing
+            ? `deck_cards upsert failed — ensure migration deck_cards zone + UNIQUE(deck_id,name,zone) is applied: ${msg}`
+            : `deck_cards upsert failed: ${msg}`,
+          "db_error",
+          500,
+        );
       }
     }
 
-    try { 
+    try {
       const { captureServer } = await import("@/lib/server/analytics");
-      // Extract prompt_version from analysis data if present
-      const promptVersion = (payload.data as any)?.analyze?.prompt_version || (payload.data as any)?.analyze?.prompt_version_id || null;
-      await captureServer("deck_saved", { 
-        deck_id: data.id, 
-        inserted: cards.length || 0, 
-        user_id: user.id, 
+      const promptVersion =
+        (payload.data as any)?.analyze?.prompt_version ||
+        (payload.data as any)?.analyze?.prompt_version_id ||
+        null;
+      await captureServer("deck_saved", {
+        deck_id: data.id,
+        inserted: insertedCount,
+        user_id: user.id,
         ms: Date.now() - t0,
         format: payload.format || null,
         commander: commander || null,
-        prompt_version: promptVersion
-      }); 
+        prompt_version: promptVersion,
+      });
     } catch {}
-    
-    // Log activity for live presence banner
+
     try {
       const deckTitle = cleanTitle || "Untitled Deck";
-      await fetch('/api/stats/activity/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/stats/activity/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: 'deck_uploaded',
+          type: "deck_uploaded",
           message: `New deck uploaded: ${deckTitle}`,
         }),
       });
     } catch {}
-    
-    return ok({ id: data.id, inserted: cards.length || 0 });
+
+    return ok({ id: data.id, inserted: insertedCount });
   } catch (e: any) {
     return err(e?.message || "server_error", "internal", 500);
   }

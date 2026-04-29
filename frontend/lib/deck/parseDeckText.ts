@@ -135,7 +135,23 @@ export function parseDeckTextWithZones(
     let line = normalizeChars(rawLine);
     if (!line) continue;
 
-    if (line.startsWith("#") || line.startsWith("//")) continue;
+    // `// Mainboard` / `// Sideboard` (export style) — must run before generic `//` skip
+    if (line.startsWith("//")) {
+      const inner = line.replace(/^\/\/\s*/, "").trim();
+      if (/^(mainboard|sideboard)\s*:?\s*$/i.test(inner)) {
+        lineZone = /^sideboard/i.test(inner) ? "sideboard" : "mainboard";
+        continue;
+      }
+      continue;
+    }
+    if (line.startsWith("#")) {
+      const inner = line.replace(/^#+\s*/, "").trim();
+      if (/^(mainboard|sideboard)\s*:?\s*$/i.test(inner)) {
+        lineZone = /^sideboard/i.test(inner) ? "sideboard" : "mainboard";
+        continue;
+      }
+      continue;
+    }
 
     if (/^sideboard:?\s*$/i.test(line)) {
       lineZone = "sideboard";
