@@ -19,7 +19,9 @@ import {
 } from "@/lib/deck/collectionConstructedIdeasPrep";
 import {
   parseCollectionConstructedIdeasFromMessage,
+  parseCollectionConstructedSkeletonFromMessage,
   stripMarkdownJsonFences,
+  type ParsedCollectionDeckSkeleton,
 } from "@/lib/deck/collectionConstructedIdeasParse";
 
 const ROUTE_PATH = "/api/deck/collection-constructed-ideas";
@@ -37,6 +39,8 @@ const requestSchema = z.object({
   format: formatEnum,
   buildMode: buildEnum,
   direction: directionEnum,
+  /** Default "ideas" — "skeleton" returns one structured deck shell without a full 75. */
+  outputMode: z.enum(["ideas", "skeleton"]).optional(),
   preferences: z
     .object({
       colors: z.array(z.string().max(4)).max(8).optional(),
@@ -156,6 +160,49 @@ async function resolveAndFilterIdeaCards(params: {
   }
 
   return { ownedCoreCards: ownedFinal, missingKeyCards, warnings };
+}
+
+async function refineSkeletonAgainstCollection(params: {
+  skeleton: ParsedCollectionDeckSkeleton;
+  formatLabel: string;
+  fmtSlug: IdeaFormatSlug;
+  ownerNormKeys: Set<string>;
+  ownerNormToDisplay: Map<string, string>;
+  prefColors: string[];
+}): Promise<{ skeleton: ParsedCollectionDeckSkeleton; mergeWarnings: string[] }> {
+  const mergeWarnings = [...(params.skeleton.warnings ?? [])];
+  const coreOut: ParsedCollectionDeckSkeleton["coreCards"] = [];
+  for (const c of params.skeleton.coreCards) {
+    const nk = normalizeScryfallCacheName(c.name);
+    if (params.ownerNormKeys.has(nk)) {
+      coreOut.push({
+        ...c,
+        name: params.ownerNormToDisplay.get(nk) ?? c.name,
+      });
+    } else {
+      mergeWarnings.push(`"${c.name}" is not in this collection sample — removed from core skeleton.`);
+    }
+  }
+  let colors = normalizeColorLetters(params.skeleton.colors);
+  if (!colors.length && params.prefColors.length) colors = params.prefColors;
+
+  const packagesOut: ParsedCollectionDeckSkeleton["suggestedPackages"] = [];
+  for (const p of params.skeleton.suggestedPackages) {
+    const { allowed } = await filterSuggestedCardNamesForFormat(p.cards, params.formatLabel);
+    if (allowed.length) {
+      packagesOut.push({ ...p, cards: allowed });
+    }
+  }
+
+  const skeleton: ParsedCollectionDeckSkeleton = {
+    ...params.skeleton,
+    format: params.fmtSlug,
+    colors,
+    coreCards: coreOut,
+    suggestedPackages: packagesOut,
+    warnings: mergeWarnings,
+  };
+  return { skeleton, mergeWarnings };
 }
 
 export async function POST(req: NextRequest) {
@@ -285,6 +332,225 @@ export async function POST(req: NextRequest) {
             ? "Budget-conscious direction."
             : "Thematic or archetype-first direction.";
 
+    const outputMode = body.outputMode ?? "ideas";
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ ok: false, error: "AI service not configured" }, { status: 500 });
+    }
+
+    const tierRes = getModelForTier({
+      isGuest: false,
+      userId: user.id,
+      isPro,
+      useCase: "deck_analysis",
+    });
+    const { model } = tierRes;
+
+    if (outputMode === "skeleton") {
+      const skeletonSystem = `You are an expert Magic: The Gathering deck designer for 60-card constructed formats.
+
+Return ONLY valid JSON. No markdown code fences. No commentary before or after the JSON.
+
+The root object MUST be exactly:
+{ "skeleton": { ... } }
+
+The "skeleton" object MUST include these keys:
+- "title": string (short deck name)
+- "format": one of "modern","pioneer","standard","pauper" (lowercase)
+- "colors": array of color letters, each one of "W","U","B","R","G"
+- "archetype": string
+- "gamePlan": array of strings (3–8 bullets describing how the deck wins)
+- "coreCards": array of objects, each with "name" (string, Oracle name) and optional "qty" (number), "role" (string). Every "name" MUST be copied EXACTLY from the provided owned card list.
+- "suggestedPackages": array of objects with "title", "cards" (string array of real card names), "reason" (string)
+- "flexSlots": array of strings describing open slots or choices (not full decklists)
+- "sideboardPlan": array of strings (role-based sideboard guidance, not 15 exact card names required)
+- "missingHighlights": array of strings (notable non-owned upgrades or gaps; may be empty if buildMode is collection_only)
+- "warnings": array of strings (optional)
+
+Rules:
+- Do NOT output a full 60-card mainboard or 15-card sideboard — this is a planning skeleton only.
+- coreCards must be 6–18 entries; prioritize the most important pieces from the owned list.
+- Do not describe Commander decks or Commander-only rules.`;
+
+      const skeletonUser = `Format: ${formatLabel} (60-card constructed).
+
+Build mode: ${body.buildMode}. ${buildModeHint}
+
+Play direction: ${body.direction}. ${directionHint}
+
+${prefLines.join("\n")}
+
+Owned cards (core names MUST come from this list only):
+${prep.promptLines}`;
+
+      const messagesSk: Array<{ role: string; content: string }> = [
+        { role: "system", content: skeletonSystem },
+        { role: "user", content: skeletonUser },
+      ];
+
+      const payloadSk = prepareOpenAIBody({
+        model,
+        messages: messagesSk,
+        max_completion_tokens: COMPLETION_TOKENS,
+        temperature: 0.55,
+        response_format: { type: "json_object" },
+      } as Record<string, unknown>);
+
+      const respSk = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payloadSk),
+      });
+
+      if (!respSk.ok) {
+        const errText = await respSk.text();
+        console.error("[collection-constructed-ideas] skeleton OpenAI error:", respSk.status, errText);
+        return NextResponse.json({ ok: false, error: "Skeleton generation failed" }, { status: 502 });
+      }
+
+      const dataSk = await respSk.json();
+      let messageSk = extractChatCompletionContent(dataSk);
+      let parsedSk = parseCollectionConstructedSkeletonFromMessage(messageSk);
+      let didRepairSk = false;
+      const firstPassLenSk = messageSk.length;
+      let repairPromptCharsSk = 0;
+
+      if (!parsedSk.ok) {
+        didRepairSk = true;
+        const repairSystem = `You repair invalid or partial JSON. Return ONLY valid JSON.
+
+The root object MUST be: { "skeleton": { ... } }.
+The skeleton MUST include: "title", "format" (modern|pioneer|standard|pauper), "colors" (W/U/B/R/G strings), "archetype", "gamePlan" (string array), "coreCards" (array of { "name": string }), "suggestedPackages" (array of { "title", "cards", "reason" }), "flexSlots" (string array), "sideboardPlan" (string array), "missingHighlights" (string array), "warnings" (string array).
+No markdown. No commentary.`;
+        const repairUser = `Fix the following into valid JSON matching the schema.\n\n${stripMarkdownJsonFences(messageSk).slice(0, 14000)}`;
+        repairPromptCharsSk = repairSystem.length + repairUser.length;
+
+        const repairPayload = prepareOpenAIBody({
+          model,
+          messages: [
+            { role: "system", content: repairSystem },
+            { role: "user", content: repairUser },
+          ],
+          max_completion_tokens: COMPLETION_TOKENS,
+          temperature: 0.12,
+          response_format: { type: "json_object" },
+        } as Record<string, unknown>);
+
+        const repairResp = await fetch(OPENAI_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(repairPayload),
+        });
+
+        if (!repairResp.ok) {
+          const errText = await repairResp.text();
+          console.error("[collection-constructed-ideas] skeleton repair OpenAI error:", repairResp.status, errText.slice(0, 500));
+          return NextResponse.json(
+            { ok: false, code: "AI_SKELETON_PARSE_FAILED", error: "Could not read skeleton from the model." },
+            { status: 502 }
+          );
+        }
+
+        const repairData = await repairResp.json();
+        messageSk = extractChatCompletionContent(repairData);
+        parsedSk = parseCollectionConstructedSkeletonFromMessage(messageSk);
+      }
+
+      if (!parsedSk.ok) {
+        console.error("[collection-constructed-ideas] Skeleton parse failed after repair:", parsedSk.reason);
+        return NextResponse.json(
+          { ok: false, code: "AI_SKELETON_PARSE_FAILED", error: "Could not read skeleton from the model." },
+          { status: 502 }
+        );
+      }
+
+      const fmtSlug = formatToSlug(formatLabel);
+      const refined = await refineSkeletonAgainstCollection({
+        skeleton: parsedSk.skeleton,
+        formatLabel,
+        fmtSlug,
+        ownerNormKeys: prep.ownerNormKeys,
+        ownerNormToDisplay: prep.ownerNormToDisplay,
+        prefColors,
+      });
+
+      let skFinal = refined.skeleton;
+      if (skFinal.coreCards.length) {
+        const coreNames = skFinal.coreCards.map((c) => c.name);
+        const { allowed } = await filterSuggestedCardNamesForFormat(coreNames, formatLabel);
+        const allowNorm = new Set(allowed.map((n) => normalizeScryfallCacheName(n)));
+        const nextCore: ParsedCollectionDeckSkeleton["coreCards"] = [];
+        const extraWarn: string[] = [...skFinal.warnings];
+        for (const c of skFinal.coreCards) {
+          if (allowNorm.has(normalizeScryfallCacheName(c.name))) {
+            nextCore.push(c);
+          } else {
+            extraWarn.push(`"${c.name}" is not legal in ${formatLabel} (removed from core skeleton).`);
+          }
+        }
+        skFinal = { ...skFinal, coreCards: nextCore, warnings: extraWarn };
+      }
+
+      if (skFinal.coreCards.length === 0) {
+        return NextResponse.json(
+          { ok: false, code: "NO_USABLE_SKELETON", error: "No usable skeleton could be produced from this collection sample." },
+          { status: 502 }
+        );
+      }
+
+      skFinal = {
+        ...skFinal,
+        title: sanitizeName(skFinal.title.trim().slice(0, 120), 120) || "Deck skeleton",
+      };
+
+      const inputTokEstSk =
+        Math.ceil((skeletonSystem.length + skeletonUser.length) / 4) +
+        (didRepairSk ? Math.ceil(repairPromptCharsSk / 4) : 0);
+      const outputTokEstSk = Math.ceil((didRepairSk ? firstPassLenSk + messageSk.length : messageSk.length) / 4);
+      try {
+        const { hashString } = await import("@/lib/guest-tracking");
+        const anonId = await hashString(user.id);
+        await recordAiUsage({
+          user_id: user.id,
+          anon_id: anonId,
+          thread_id: null,
+          model,
+          input_tokens: inputTokEstSk,
+          output_tokens: outputTokEstSk,
+          cost_usd: costUSD(model, inputTokEstSk, outputTokEstSk),
+          route: "deck_collection_constructed_skeleton",
+          prompt_preview: skeletonUser.slice(0, 800),
+          response_preview: messageSk.slice(0, 800),
+          format_key: formatLabel,
+          deck_card_count: skFinal.coreCards.length + 10,
+          latency_ms: Date.now() - t0,
+          model_tier: tierRes.tier,
+          user_tier: tierRes.tierLabel,
+          is_guest: false,
+          request_kind: "FULL_LLM",
+          layer0_mode: "FULL_LLM",
+        });
+      } catch (e) {
+        console.warn("[collection-constructed-ideas] skeleton recordAiUsage failed:", e);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        skeleton: skFinal,
+        meta: {
+          collectionSampleSize: prep.collectionSampleSize,
+          notes: [] as string[],
+        },
+      });
+    }
+
     const systemPrompt = `You are an expert Magic: The Gathering deck designer for 60-card constructed formats (mainboard only in this step — no sideboard lists).
 
 Return ONLY valid JSON. No markdown code fences. No commentary before or after the JSON.
@@ -317,19 +583,6 @@ ${prefLines.join("\n")}
 
 Owned cards (prioritize — sample of their collection; full collection may be larger):
 ${prep.promptLines}`;
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "AI service not configured" }, { status: 500 });
-    }
-
-    const tierRes = getModelForTier({
-      isGuest: false,
-      userId: user.id,
-      isPro,
-      useCase: "deck_analysis",
-    });
-    const { model } = tierRes;
 
     const messages: Array<{ role: string; content: string }> = [
       { role: "system", content: systemPrompt },
