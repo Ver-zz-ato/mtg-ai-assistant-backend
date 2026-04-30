@@ -1,4 +1,4 @@
-﻿{
+{
   "commander": {
     "lands": { "min": 36, "recommended": 38, "max": 42, "notes": "Start at 36-38 lands; Karsten recommends 42 plus Sol Ring, trimming one per 2-3 cheap rocks or 3-4 cantrips, never drop below 37." },
     "ramp": { "min": 8, "recommended": 11, "max": 14, "notes": "EDHRec suggests 8-12 ramp sources; recent surveys average 12.7. Mix land-based ramp, cheap rocks, and mana dorks." },
