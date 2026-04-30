@@ -13,6 +13,7 @@ import Link from "next/link";
 import FormatSelector from "./FormatSelector";
 import PanelWrapper from "./PanelWrapper";
 import DeckPriceMini from "@/components/DeckPriceMini";
+import { getMainboardCardCount } from "@/lib/deck/formatRules";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -39,8 +40,17 @@ export default async function Page({ params, searchParams }: { params: Promise<P
   const format = String(deck?.format || "commander").toLowerCase();
 
   // Fetch cards
-  const { data: cards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", id).limit(400);
-  const arr = Array.isArray(cards) ? (cards as any[]).map(x=>({ name:String(x.name), qty:Number(x.qty||1) })) : [];
+  const { data: cards } = await supabase.from("deck_cards").select("name, qty, zone").eq("deck_id", id).limit(400);
+  const arr = Array.isArray(cards)
+    ? (cards as any[]).map((x) => ({
+        name: String(x.name),
+        qty: Number(x.qty || 1),
+        zone: x.zone ?? null,
+      }))
+    : [];
+  const mainboardCardCount = getMainboardCardCount(
+    arr.map((c) => ({ qty: c.qty, zone: c.zone }))
+  );
 
   // Cache + Scryfall fallback for misses. Profile-trends helper is cache-only; uncached cards
   // had empty type_line so lands/ramp meters undercounted non-basics vs basics that were in DB.
@@ -261,8 +271,8 @@ export default async function Page({ params, searchParams }: { params: Promise<P
       <div className="max-w-[1600px] mx-auto">
         <div className="grid grid-cols-12 gap-6">
         <section className="col-span-12 md:col-span-9">
-          <header className="mb-4 flex items-center justify-between gap-2">
-            <div>
+          <header className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
               <div className="text-xs opacity-70">Deck name:</div>
               <InlineDeckTitle deckId={id} initial={title} />
               <div className="mt-2 mb-2">
@@ -277,13 +287,25 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               </div>
               {/* Deck ID removed per request */}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
               <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
               {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} deckName={title} small redirectTo="/my-decks" />; })()}
             </div>
           </header>
           {/* Build Assistant (sticky) */}
-          {(() => { const BA = require('./BuildAssistantSticky').default; return <BA deckId={id} encodedIntent={i} isPro={isPro} healthMetrics={core} format={format} cardCount={arr.reduce((s,c)=>s+(c.qty||0),0)} />; })()}
+          {(() => {
+            const BA = require("./BuildAssistantSticky").default;
+            return (
+              <BA
+                deckId={id}
+                encodedIntent={i}
+                isPro={isPro}
+                healthMetrics={core}
+                format={format}
+                cardCount={mainboardCardCount}
+              />
+            );
+          })()}
           {/* key forces remount when ?r= changes */}
           {/* Functions panel */}
           <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />

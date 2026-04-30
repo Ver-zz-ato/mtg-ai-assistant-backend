@@ -8,9 +8,11 @@ interface FormatPickerModalProps {
   isOpen: boolean;
   onSelect: (format: Format) => void;
   onClose?: () => void;
+  /** Disable format tiles while submit/navigation is in progress (guards double-click). */
+  busy?: boolean;
 }
 
-export default function FormatPickerModal({ isOpen, onSelect, onClose }: FormatPickerModalProps) {
+export default function FormatPickerModal({ isOpen, onSelect, onClose, busy = false }: FormatPickerModalProps) {
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -70,7 +72,12 @@ export default function FormatPickerModal({ isOpen, onSelect, onClose }: FormatP
           {formats.map((format) => (
             <button
               key={format.value}
-              onClick={() => onSelect(format.value)}
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (busy) return;
+                onSelect(format.value);
+              }}
               className="group relative p-6 rounded-lg border-2 border-neutral-700 bg-neutral-800/50 hover:border-cyan-500 hover:bg-neutral-800 transition-all duration-200 text-left hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/20"
             >
               <div className="text-4xl mb-3">{format.icon}</div>

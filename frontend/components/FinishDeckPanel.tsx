@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
-import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import {
+  deckFormatStringToAnalyzeFormat,
+  getFinishDeckModalCounts,
+} from "@/lib/deck/formatRules";
 
 interface Suggestion {
   card: string;
@@ -74,7 +77,7 @@ export default function FinishDeckPanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             deckId,
-            format: deckFormatStringToAnalyzeFormat(format ?? "Commander"),
+            format: deckFormatStringToAnalyzeFormat(format),
             useScryfall: true,
           }),
         });
@@ -91,7 +94,7 @@ export default function FinishDeckPanel({
         setProgressStage(STAGES.length - 1);
       }
     })();
-  }, [deckId]);
+  }, [deckId, format]);
 
   useEffect(() => {
     if (suggestions.length === 0) return;
@@ -130,8 +133,10 @@ export default function FinishDeckPanel({
     }
   };
 
-  const targetTotal = 100;
-  const needed = Math.max(0, targetTotal - cardCount);
+  const { needed, targetTotal, analyzeLabel } = getFinishDeckModalCounts(
+    format,
+    cardCount
+  );
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 overflow-y-auto">
@@ -185,11 +190,17 @@ export default function FinishDeckPanel({
             <>
               <div className="mb-6 p-4 rounded-xl bg-neutral-900/80 border border-neutral-800">
                 <p className="text-neutral-300 mb-2">
-                  You have <strong className="text-white">{cardCount}</strong> cards.{" "}
+                  You have <strong className="text-white">{cardCount}</strong>{" "}
+                  {cardCount === 1 ? "card" : "cards"}.
                   {needed > 0 ? (
-                    <>Need <strong className="text-amber-400">{needed}</strong> more for a 100-card Commander deck.</>
+                    <>
+                      {" "}
+                      Need{" "}
+                      <strong className="text-amber-400">{needed}</strong> more for a{" "}
+                      {targetTotal}-card {analyzeLabel} deck.
+                    </>
                   ) : (
-                    <>Deck is complete (100 cards).</>
+                    <> Deck is complete ({targetTotal} cards).</>
                   )}
                 </p>
                 {counts && (

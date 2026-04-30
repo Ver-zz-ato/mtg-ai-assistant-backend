@@ -175,7 +175,7 @@ export default function FormatCardCountBanner({ deckId, format }: FormatCardCoun
                 <span> Remove <strong>{difference} card{difference !== 1 ? 's' : ''}</strong> to meet the format requirement.</span>
               )}
             </div>
-            {isTooFew && formatLower === 'commander' && (
+            {isTooFew && shouldCheck && (
               <div className="mt-3">
                 <button
                   onClick={() => setShowFinishDeck(true)}

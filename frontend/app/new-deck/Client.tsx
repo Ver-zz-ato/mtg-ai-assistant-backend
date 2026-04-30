@@ -9,8 +9,11 @@ export default function NewDeckClient() {
   const router = useRouter();
   const [creating, setCreating] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const submitLockRef = React.useRef(false);
 
   async function createDeck(format: Format) {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
     setCreating(true);
     setError(null);
 
@@ -31,16 +34,17 @@ export default function NewDeckClient() {
 
       const data = await response.json();
 
-      if (data.ok && data.deck?.id) {
-        // Redirect to the new deck
-        router.push(`/my-decks/${data.deck.id}`);
-      } else {
-        throw new Error(data.error || "Failed to create deck");
+      if (data.ok && data.id) {
+        router.push(`/my-decks/${data.id}`);
+        return;
       }
-    } catch (err: any) {
+      throw new Error(data.error || "Failed to create deck");
+    } catch (err: unknown) {
       console.error("Error creating deck:", err);
-      setError(err.message || "Failed to create deck");
+      setError(err instanceof Error ? err.message : "Failed to create deck");
       setCreating(false);
+    } finally {
+      submitLockRef.current = false;
     }
   }
 
@@ -48,7 +52,10 @@ export default function NewDeckClient() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <FormatPickerModal
         isOpen={!creating}
-        onSelect={createDeck}
+        busy={creating}
+        onSelect={(f) => {
+          void createDeck(f);
+        }}
         onClose={() => router.push("/my-decks")}
       />
       

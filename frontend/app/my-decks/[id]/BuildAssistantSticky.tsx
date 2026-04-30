@@ -1,13 +1,19 @@
 "use client";
 import React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 import AIDeckScanModal from "@/components/AIDeckScanModal";
 import FinishDeckPanel from "@/components/FinishDeckPanel";
 import { useProStatus } from "@/hooks/useProStatus";
-
+import {
+  FORMAT_LABEL,
+  normalizeDeckFormat,
+  getFormatRules,
+  type DeckFormatCanonical,
+} from "@/lib/deck/formatRules";
 import { encodeBase64Url, decodeBase64Url } from "@/lib/utils/base64url";
+
 function decodeIntentParam(i?: string | null): any {
   if (!i) return null;
   try {
@@ -23,6 +29,32 @@ function encodeIntentParam(obj: any): string {
   } catch { return ''; }
 }
 
+const BUILD_ASSISTANT_FORMAT_ORDER: DeckFormatCanonical[] = [
+  "commander",
+  "standard",
+  "modern",
+  "pioneer",
+  "pauper",
+];
+
+function intentFormatLabelFromDeck(deckFormat?: string): string {
+  const n = normalizeDeckFormat(deckFormat);
+  return n ? FORMAT_LABEL[n] : "Commander";
+}
+
+function mergeIntentFromDeck(
+  encodedIntent: string | null | undefined,
+  deckFormat?: string
+): Record<string, unknown> {
+  const fromUrl = decodeIntentParam(encodedIntent) || {};
+  const deckLabel = intentFormatLabelFromDeck(deckFormat);
+  const fmt =
+    fromUrl.format != null && String(fromUrl.format).trim() !== ""
+      ? String(fromUrl.format)
+      : deckLabel;
+  return { ...fromUrl, format: fmt };
+}
+
 async function toast(msg: string, type: 'success'|'info'|'error' = 'info') {
   try { const { toast, toastError } = await import('@/lib/toast-client'); if (type==='error') toastError(msg); else toast(msg, type==='success'?'success':undefined); }
   catch { try { window.dispatchEvent(new CustomEvent('toast', { detail: msg })); } catch { alert(msg); } }
@@ -30,10 +62,21 @@ async function toast(msg: string, type: 'success'|'info'|'error' = 'info') {
 
 export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, healthMetrics, format, cardCount = 0 }: { deckId: string; encodedIntent?: string | null; isPro: boolean; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null; format?: string; cardCount?: number }){
   const router = useRouter();
-  const sp = useSearchParams();
   const { modelTier, modelLabel, upgradeMessage } = useProStatus();
-  const initial = React.useMemo(()=> decodeIntentParam(encodedIntent), [encodedIntent]);
-  const [intent, setIntent] = React.useState<any>(initial || {});
+  const mergedIntent = React.useMemo(
+    () => mergeIntentFromDeck(encodedIntent, format),
+    [encodedIntent, format]
+  );
+  const [intent, setIntent] = React.useState<any>(mergedIntent);
+  React.useEffect(() => {
+    setIntent(mergedIntent);
+  }, [mergedIntent]);
+
+  const analyzeFormatLabel =
+    intent?.format != null && String(intent.format).trim() !== ""
+      ? String(intent.format)
+      : intentFormatLabelFromDeck(format);
+  const assistantFormatRules = getFormatRules(analyzeFormatLabel);
   const [expanded, setExpanded] = React.useState(false); // Start collapsed
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -87,7 +130,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
     try {
       setBusy('check');
       const { deckText, names } = await getDeckTextAndNames();
-      const body:any = { deckText, format: (intent?.format||'Commander'), useScryfall: true, sourcePage: 'deck_page_legality' };
+      const body:any = { deckText, format: analyzeFormatLabel, useScryfall: true, sourcePage: 'deck_page_legality' };
       if (Array.isArray(intent?.colors) && intent.colors.length>0) body.colors = intent.colors;
       
       // Add timeout to prevent hanging (120 seconds)
@@ -245,7 +288,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   async function runBalanceCurve(ev?: React.MouseEvent) {
     try {
       setBusy('curve');
-      const fmt = String(intent?.format || 'Commander');
+      const fmt = analyzeFormatLabel;
       const { deckText } = await getDeckTextAndNames();
     const r = await fetch('/api/deck/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ deckText, format: fmt, useScryfall: true, colors: Array.isArray(intent?.colors)? intent.colors: [], sourcePage: 'build_assistant' }) });
     const j = await r.json().catch(()=>({}));
@@ -512,10 +555,10 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               <form className="space-y-2" onSubmit={(e)=>{ e.preventDefault(); setEditing(false); saveConstraints(intent); }}>
                 <div className="flex items-center gap-2">
                   <label className="opacity-70 w-20">Format</label>
-                  <select value={intent?.format || 'Commander'} onChange={e=>setIntent((p:any)=>({ ...p, format: e.target.value }))} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
-                    <option>Commander</option>
-                    <option>Modern</option>
-                    <option>Pioneer</option>
+                  <select value={analyzeFormatLabel} onChange={e=>setIntent((p:any)=>({ ...p, format: e.target.value }))} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+                    {BUILD_ASSISTANT_FORMAT_ORDER.map((key) => (
+                      <option key={key} value={FORMAT_LABEL[key]}>{FORMAT_LABEL[key]}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
@@ -553,7 +596,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                   <span className="text-[10px] opacity-70">Only suggest cards with color identity ⊆ deck colors</span>
                 </div>
                 <div className="flex items-center justify-end gap-2">
-                  <button type="button" className="text-xs border rounded px-2 py-1" onClick={()=>{ setEditing(false); setIntent(initial||{}); saveConstraints(initial||{}); }}>Reset</button>
+                  <button type="button" className="text-xs border rounded px-2 py-1" onClick={()=>{ setEditing(false); setIntent(mergedIntent); saveConstraints(mergedIntent); }}>Reset</button>
                   <button type="submit" className="text-xs border rounded px-2 py-1">Save</button>
                 </div>
               </form>
@@ -612,7 +655,10 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 onClick={() => setShowFinishDeck(true)}
               >
                 <div className="font-semibold text-xs">✨ Finish This Deck</div>
-                <div className="text-xs opacity-70">AI suggests cards to reach 100 (Commander) or 60</div>
+                <div className="text-xs opacity-70">
+                  AI suggests cards to reach {assistantFormatRules.mainDeckTarget} (
+                  {assistantFormatRules.analyzeAs})
+                </div>
               </button>
             </div>
           </div>
@@ -656,7 +702,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
         <FinishDeckPanel
           deckId={deckId}
           cardCount={cardCount}
-          format={format}
+          format={analyzeFormatLabel}
           onClose={() => setShowFinishDeck(false)}
           onCardsAdded={() => {
             try { window.dispatchEvent(new Event('deck:changed')); } catch {}

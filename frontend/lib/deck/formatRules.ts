@@ -212,3 +212,18 @@ export function getSideboardCardCount(
   }
   return sum;
 }
+
+/** Finish This Deck modal: targets aligned with FormatCardCountBanner / formatCompliance. */
+export function getFinishDeckModalCounts(
+  format: string | null | undefined,
+  mainboardCardCount: number
+): {
+  targetTotal: number;
+  needed: number;
+  analyzeLabel: AnalyzeFormat;
+} {
+  const rules = getFormatRules(format);
+  const targetTotal = rules.mainDeckTarget;
+  const needed = Math.max(0, targetTotal - mainboardCardCount);
+  return { targetTotal, needed, analyzeLabel: rules.analyzeAs };
+}
