@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 
 /**
  * Expandable Deck Analyzer Panel
@@ -10,7 +11,7 @@ export default function DeckAnalyzerExpandable() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [deckText, setDeckText] = useState("");
-  const [format, setFormat] = useState<"Commander" | "Modern" | "Pioneer">("Commander");
+  const [format, setFormat] = useState<AnalyzeFormat>("Commander");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
@@ -208,7 +209,7 @@ export default function DeckAnalyzerExpandable() {
             <label className="text-xs text-neutral-400">Format:</label>
             <select
               value={format}
-              onChange={(e) => setFormat(e.target.value as any)}
+              onChange={(e) => setFormat(e.target.value as AnalyzeFormat)}
               className="px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-xs text-neutral-200"
               onClick={(e) => e.stopPropagation()}
             >

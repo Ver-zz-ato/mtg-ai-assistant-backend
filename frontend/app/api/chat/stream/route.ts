@@ -644,8 +644,9 @@ export async function POST(req: NextRequest) {
                 v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
                 streamContextSource = "linked_db";
               } else {
+                const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
                 v2Summary = await buildDeckContextSummary(deckTextForV2, {
-                  format: (deckData?.d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+                  format: deckFormatStringToAnalyzeFormat(deckData?.d?.format || null),
                   commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null,
                   colors: Array.isArray(deckData?.d?.colors) ? deckData.d.colors : [],
                 });
@@ -656,8 +657,9 @@ export async function POST(req: NextRequest) {
                 streamContextSource = "linked_db";
               }
             } else {
+              const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
               v2Summary = await buildDeckContextSummary(deckTextForV2, {
-                format: (deckData?.d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+                format: deckFormatStringToAnalyzeFormat(deckData?.d?.format || null),
                 commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null,
                 colors: Array.isArray(deckData?.d?.colors) ? deckData.d.colors : [],
               });

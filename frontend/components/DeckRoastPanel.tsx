@@ -7,6 +7,7 @@ import ComputingModal from "@/components/ComputingModal";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 
 const ROAST_LEVELS = [
   { id: "gentle" as const, label: "Gentle", emoji: "🟢", savageness: 2 },
@@ -40,7 +41,7 @@ export default function DeckRoastPanel({
 }: DeckRoastPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [deckText, setDeckText] = useState("");
-  const [format, setFormat] = useState<"Commander" | "Modern" | "Pioneer" | "Standard">("Commander");
+  const [format, setFormat] = useState<AnalyzeFormat>("Commander");
   const [commander, setCommander] = useState("");
   const [roastLevel, setRoastLevel] = useState<RoastLevelId>("balanced");
   const [modalOpen, setModalOpen] = useState(false);
@@ -269,10 +270,11 @@ export default function DeckRoastPanel({
         <label className="text-xs text-neutral-400">Format:</label>
         <select
           value={format}
-          onChange={(e) => setFormat(e.target.value as any)}
+          onChange={(e) => setFormat(e.target.value as AnalyzeFormat)}
           className="px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-sm text-neutral-200"
         >
           <option value="Commander">Commander</option>
+          <option value="Pauper">Pauper</option>
           <option value="Modern">Modern</option>
           <option value="Pioneer">Pioneer</option>
           <option value="Standard">Standard</option>

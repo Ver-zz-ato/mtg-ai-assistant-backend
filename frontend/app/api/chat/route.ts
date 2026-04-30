@@ -825,8 +825,9 @@ export async function POST(req: NextRequest) {
               v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
               contextSource = "linked_db";
             } else {
+              const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
               v2Summary = await buildDeckContextSummary(deckText, {
-                format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+                format: deckFormatStringToAnalyzeFormat(d?.format || null),
                 commander: d?.commander ?? null,
                 colors: Array.isArray(d?.colors) ? d.colors : [],
               });
@@ -843,8 +844,9 @@ export async function POST(req: NextRequest) {
               } catch (_) {}
             }
           } else {
+            const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
             v2Summary = await buildDeckContextSummary(deckText, {
-              format: (d?.format as "Commander" | "Modern" | "Pioneer") ?? "Commander",
+              format: deckFormatStringToAnalyzeFormat(d?.format || null),
               commander: d?.commander ?? null,
               colors: Array.isArray(d?.colors) ? d.colors : [],
             });
@@ -1193,7 +1195,8 @@ export async function POST(req: NextRequest) {
     if (deckIdToUse && entries.length > 0 && deckText) {
       try {
         const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
-        const format = (d?.format || "Commander") as "Commander" | "Modern" | "Pioneer";
+        const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
+        const format = deckFormatStringToAnalyzeFormat(d?.format || null);
         const commander = d?.commander || null;
         const deckAim = d?.deck_aim || null;
         const selectedColors: string[] = Array.isArray(prefs?.colors) ? prefs.colors : [];
