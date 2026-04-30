@@ -21,6 +21,7 @@ import {
   padSideboardTowardFifteen,
   parseConstructedAiJsonDetailed,
 } from "@/lib/deck/generate-constructed-post";
+import { stripMarkdownJsonFences } from "@/lib/deck/collectionConstructedIdeasParse";
 import { filterDecklistQtyRowsForFormat } from "@/lib/deck/recommendation-legality";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
@@ -404,10 +405,41 @@ export async function POST(req: NextRequest) {
     if (body.collectionId && user) {
       const coll = await loadCollectionOwnedNamesDedup(supabase, body.collectionId, user.id);
       if (!coll.ok) {
-        return NextResponse.json({ ok: false, error: "Collection not found or access denied." }, { status: 403 });
+        console.warn(
+          "[generate-constructed]",
+          JSON.stringify({
+            phase: "collection_denied",
+            code: "COLLECTION_FORBIDDEN",
+            format: formatLabel,
+            hasCollectionId: true,
+          })
+        );
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "COLLECTION_FORBIDDEN",
+            error: "Collection not found or access denied.",
+          },
+          { status: 403 }
+        );
       }
       if (coll.names.length === 0) {
-        return NextResponse.json({ ok: false, error: "Collection has no cards to reference." }, { status: 400 });
+        console.warn(
+          "[generate-constructed]",
+          JSON.stringify({
+            phase: "collection_empty",
+            code: "COLLECTION_EMPTY",
+            format: formatLabel,
+          })
+        );
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "COLLECTION_EMPTY",
+            error: "Collection has no cards to reference.",
+          },
+          { status: 400 }
+        );
       }
       mergedOwnedCards = coll.names;
     }
@@ -469,7 +501,6 @@ export async function POST(req: NextRequest) {
     const seedPromptPayload = validatedSeed ? buildConstructedSeedPromptPayload(validatedSeed) : undefined;
 
     const seedPaddingEligible = Boolean(validatedSeed?.includeCardSeedsInPrompt);
-    const mainFloorMin = seedPaddingEligible ? 52 : 55;
 
     const seedIdeaForPrompt =
       sf?.title?.trim() != null
@@ -485,9 +516,11 @@ export async function POST(req: NextRequest) {
             coreCards: (sf.coreCards ?? [])
               .map((x) => String(x ?? "").trim())
               .filter(Boolean)
-              .slice(0, 80),
+              .slice(0, 24),
           }
         : null;
+
+    const mainFloorMin = seedPaddingEligible ? 52 : seedIdeaForPrompt ? 48 : 55;
 
     const promptInput: ConstructedPromptInput = {
       format: formatLabel,
@@ -636,11 +669,32 @@ export async function POST(req: NextRequest) {
     if (!completionRecord.ok) {
       const fbOpenAI = await respondStandardWuFallback("openai_initial_failed");
       if (fbOpenAI) return fbOpenAI;
-      return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+      console.warn(
+        "[generate-constructed]",
+        JSON.stringify({
+          phase: "openai_initial_failed",
+          code: "GENERATION_FAILED",
+          format: formatLabel,
+          hasSeedFromIdea: Boolean(seedIdeaForPrompt),
+          hasCollectionId: Boolean(body.collectionId),
+        })
+      );
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "GENERATION_FAILED",
+          error: "Deck generation failed (upstream). Try again.",
+        },
+        { status: 502 }
+      );
     }
 
     let rawAiContent = completionRecord.content;
-    let didRepairRetry = false;
+    /** Unified validation repair passes (deck too thin after legality filters). */
+    let unifiedRepairPass = 0;
+    const maxUnifiedRepairs = seedIdeaForPrompt || body.collectionId ? 2 : 1;
+    /** Single JSON-shape repair (malformed output / missing arrays). */
+    let deckJsonRepairAttempts = 0;
 
     /** Final assistant JSON string passed to pricing/recording (possibly repair pass). */
     let completionContentForUsage = rawAiContent;
@@ -653,19 +707,41 @@ export async function POST(req: NextRequest) {
     let initialMainQty = 0;
     let initialSideQty = 0;
 
-    /** Subset filter on Scryfall `color_identity` when client supplied deck colors (constructed registration). */
+    /** Subset filter on Scryfall `color_identity` — skipped for collection idea flow (idea tags are soft guidance). */
     const requestDeckColors = mergedColors;
+    const applyDeckColorIdentityFilter =
+      requestDeckColors.length > 0 && !seedIdeaForPrompt;
+
+    const runMalformedDeckJsonRepair = async (badContent: string) => {
+      const sys = `You repair invalid JSON. Reply with ONLY valid JSON (no markdown fences).
+Required keys: "title" string, "colors" array of W/U/B/R/G letters, "archetype" string,
+"mainboard" array of strings each like "4 Lightning Bolt",
+"sideboard" array of strings each like "2 Veil of Summer",
+"explanation" array of strings, "metaScore" number, "confidence" number, "warnings" array of strings.
+Mainboard quantities must sum to 60; sideboard to 15.`;
+      const usr = `Fix into valid JSON:\n\n${stripMarkdownJsonFences(badContent).slice(0, 14000)}`;
+      return runCompletion([
+        { role: "system", content: sys },
+        { role: "user", content: usr },
+      ]);
+    };
 
     while (true) {
       const pr = parseConstructedAiJsonDetailed(rawAiContent);
       if (!pr.ok) {
         logConstructedDiag({
           phase: "parse_failed",
+          code: "CONSTRUCTED_PARSE_FAILED",
           format: formatLabel,
+          hasSeedFromIdea: Boolean(seedIdeaForPrompt),
+          hasCollectionId: Boolean(body.collectionId),
+          seedTitleLen: seedIdeaForPrompt?.title?.length ?? 0,
+          seedCoreCount: seedIdeaForPrompt?.coreCards?.length ?? 0,
           archetype: mergedArche?.slice(0, 120),
           requestedColors: requestDeckColors.join("") || undefined,
           parseError: pr.error,
           failureStage: "parse",
+          deckJsonRepairAttempts,
           standardDiag: formatLabel === "Standard" ? true : undefined,
           ...(formatLabel === "Standard" && validatedSeed
             ? {
@@ -675,9 +751,25 @@ export async function POST(req: NextRequest) {
               }
             : {}),
         });
+        if (deckJsonRepairAttempts < 1) {
+          deckJsonRepairAttempts++;
+          const jr = await runMalformedDeckJsonRepair(rawAiContent);
+          if (jr.ok && jr.content.trim()) {
+            rawAiContent = jr.content;
+            completionContentForUsage = jr.content;
+            continue;
+          }
+        }
         const fbParse = await respondStandardWuFallback("parse", { parseError: pr.error });
         if (fbParse) return fbParse;
-        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "CONSTRUCTED_PARSE_FAILED",
+            error: "The AI returned an unreadable deck list. Try again.",
+          },
+          { status: 502 }
+        );
       }
 
       aiParsed = pr.data;
@@ -685,10 +777,14 @@ export async function POST(req: NextRequest) {
       if (!Array.isArray(mbRaw) || mbRaw.length === 0) {
         logConstructedDiag({
           phase: "missing_mainboard_array",
+          code: "CONSTRUCTED_PARSE_FAILED",
           format: formatLabel,
+          hasSeedFromIdea: Boolean(seedIdeaForPrompt),
+          hasCollectionId: Boolean(body.collectionId),
           archetype: mergedArche?.slice(0, 120),
           requestedColors: requestDeckColors.join("") || undefined,
           failureStage: "parse",
+          deckJsonRepairAttempts,
           standardDiag: formatLabel === "Standard" ? true : undefined,
           ...(formatLabel === "Standard" && validatedSeed
             ? {
@@ -698,9 +794,25 @@ export async function POST(req: NextRequest) {
               }
             : {}),
         });
+        if (deckJsonRepairAttempts < 1) {
+          deckJsonRepairAttempts++;
+          const jr = await runMalformedDeckJsonRepair(rawAiContent);
+          if (jr.ok && jr.content.trim()) {
+            rawAiContent = jr.content;
+            completionContentForUsage = jr.content;
+            continue;
+          }
+        }
         const fbMissing = await respondStandardWuFallback("missing_mainboard");
         if (fbMissing) return fbMissing;
-        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "CONSTRUCTED_PARSE_FAILED",
+            error: "The AI returned an unreadable deck list. Try again.",
+          },
+          { status: 502 }
+        );
       }
 
       const mainLines = linesFromAiField(mbRaw);
@@ -723,7 +835,7 @@ export async function POST(req: NextRequest) {
 
       const beforeIdentityQty = totalDeckQty(mainRows) + totalDeckQty(sideRows);
 
-      if (requestDeckColors.length > 0) {
+      if (applyDeckColorIdentityFilter) {
         const ciOut = await filterQtyRowsByDeckColors(mainRows, sideRows, requestDeckColors);
         mainRows = ciOut.mainRows;
         sideRows = ciOut.sideRows;
@@ -740,6 +852,7 @@ export async function POST(req: NextRequest) {
         format: formatLabel,
         archetype: mergedArche?.slice(0, 120),
         requestedColors: requestDeckColors.join("") || undefined,
+        applyDeckColorIdentityFilter,
         initialMainQty,
         initialSideQty,
         postLegalityMainQty,
@@ -748,7 +861,7 @@ export async function POST(req: NextRequest) {
         postFilterSideQty: snapSideQty,
         legalityRemovals: removedTotal,
         colorRemovals: colorIdentityRemovedQty,
-        didRepairRetry,
+        unifiedRepairPass,
       });
 
       const unified = needsUnifiedRepair({
@@ -756,10 +869,12 @@ export async function POST(req: NextRequest) {
         sideQty: snapSideQty,
         removedTotal,
         colorRatio,
-        requestDeckColorsLen: requestDeckColors.length,
+        requestDeckColorsLen: applyDeckColorIdentityFilter ? requestDeckColors.length : 0,
       });
 
-      if (!unified || didRepairRetry) break;
+      if (!unified || unifiedRepairPass >= maxUnifiedRepairs) break;
+
+      unifiedRepairPass++;
 
       const retryMessages: Array<{ role: string; content: string }> = [
         ...baseMessages,
@@ -771,15 +886,22 @@ export async function POST(req: NextRequest) {
         logConstructedDiag({
           phase: "repair_openai_failed",
           format: formatLabel,
+          code: "GENERATION_FAILED",
           failureStage: "repair_fetch",
           standardDiag: formatLabel === "Standard" ? true : undefined,
         });
         const fbRepair = await respondStandardWuFallback("repair_openai_failed");
         if (fbRepair) return fbRepair;
-        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "GENERATION_FAILED",
+            error: "Deck generation failed while repairing the list. Try again.",
+          },
+          { status: 502 }
+        );
       }
 
-      didRepairRetry = true;
       rawAiContent = repairAttempt.content;
       completionContentForUsage = rawAiContent;
     }
@@ -827,18 +949,37 @@ export async function POST(req: NextRequest) {
               }
             : {}),
         });
-        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "CONSTRUCTED_VALIDATION_FAILED",
+            error: "Could not assemble a legal 60-card Standard list after validation. Try again.",
+          },
+          { status: 502 }
+        );
       }
 
       const padSideStd = padSideboardTowardFifteen(sideRows);
       sideRows = padSideStd.rows;
       sideQty = totalDeckQty(sideRows);
       padSideAdjusted = padSideStd.adjusted;
+
+      logConstructedDiag({
+        phase: "padding_applied",
+        format: formatLabel,
+        mainAdjusted: padMainAdjusted,
+        sideAdjusted: padSideAdjusted,
+        mainQtyAfterPad: mainQty,
+        sideQtyAfterPad: sideQty,
+      });
     } else {
       if (mainQty < mainFloorMin) {
         logConstructedDiag({
           phase: "mainboard_floor",
+          code: "CONSTRUCTED_VALIDATION_FAILED",
           format: formatLabel,
+          hasSeedFromIdea: Boolean(seedIdeaForPrompt),
+          hasCollectionId: Boolean(body.collectionId),
           archetype: mergedArche?.slice(0, 120),
           requestedColors: requestDeckColors.join("") || undefined,
           failureStage: "main_floor",
@@ -856,7 +997,15 @@ export async function POST(req: NextRequest) {
               }
             : {}),
         });
-        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "CONSTRUCTED_VALIDATION_FAILED",
+            error:
+              "Too few legal cards remained after validation — try again or pick another idea. Your collection is OK; this is usually model output or tight constraints.",
+          },
+          { status: 502 }
+        );
       }
 
       const padMain = padMainboardNearSixty(mainRows, paddingColors, { minBand: mainFloorMin });
@@ -886,11 +1035,16 @@ export async function POST(req: NextRequest) {
               }
             : {}),
         });
-        return NextResponse.json({ ok: false, error: "GENERATION_FAILED" }, { status: 502 });
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "CONSTRUCTED_VALIDATION_FAILED",
+            error: "Could not pad to a complete 60-card mainboard after validation. Try again.",
+          },
+          { status: 502 }
+        );
       }
-    }
 
-    if (padMainAdjusted || padSideAdjusted) {
       logConstructedDiag({
         phase: "padding_applied",
         format: formatLabel,
@@ -946,7 +1100,7 @@ export async function POST(req: NextRequest) {
     if (removedTotal > 0) {
       warnings.push(`${removedTotal} card line(s) were removed as not legal in ${formatLabel}.`);
     }
-    if (colorIdentityRemovedQty > 0 && requestDeckColors.length > 0) {
+    if (colorIdentityRemovedQty > 0 && applyDeckColorIdentityFilter) {
       warnings.push(
         `${colorIdentityRemovedQty} card copies removed so every card matches deck colors (${requestDeckColors.join("")}).`
       );

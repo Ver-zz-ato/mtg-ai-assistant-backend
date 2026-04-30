@@ -115,7 +115,8 @@ export function buildConstructedRepairRetryPrompt(input: ConstructedPromptInput)
           `- Stay coherent with the Manatap collection idea titled "${input.seedFromIdea.title.trim()}" and its stated archetype.`,
           ...(input.seedFromIdea.coreCards?.some((c) => String(c ?? "").trim())
             ? [
-                `- Prioritize integrating these anchor cards wherever legal for ${input.format}: ${input.seedFromIdea!.coreCards!.slice(0, 24).map((x) => String(x ?? "").trim()).filter(Boolean).join(", ") || "(none)"}.`,
+                `- Consider these idea anchors when legal and cohesive for ${input.format} — they are NOT mandatory; omit any that are not legal or would wreck the deck:`,
+                input.seedFromIdea!.coreCards!.slice(0, 24).map((x) => String(x ?? "").trim()).filter(Boolean).join(", ") || "(none)",
               ]
             : []),
         ]
@@ -160,15 +161,17 @@ export function buildConstructedUserPrompt(input: ConstructedPromptInput): strin
   if (sf?.title?.trim()) {
     const core = sf.coreCards?.map((x) => String(x ?? "").trim()).filter(Boolean) ?? [];
     const sfCols = sf.colors?.length
-      ? ` Idea colors (guidance): ${sf.colors.filter(Boolean).join(", ")}.`
+      ? ` Idea colours (soft guidance): ${sf.colors.filter(Boolean).join(", ")}.`
       : "";
     lines.push(
-      `ManaTap selected deck idea: "${sf.title.trim()}". Build a complete ${input.format} 60+15 that realizes this deck concept faithfully.${sfCols}`,
-      ...(sf.archetype?.trim() ? [`Idea archetype tag: ${sf.archetype.trim()}.`] : [])
+      `ManaTap selected deck idea: "${sf.title.trim()}". Build a complete ${input.format} 60+15 that captures this concept.${sfCols}`,
+      ...(sf.archetype?.trim() ? [`Idea archetype tag (guidance): ${sf.archetype.trim()}.`] : [])
     );
     if (core.length) {
-      lines.push(`Priority picks from this idea — include heavily when coherent and legal (not exhaustive):`);
-      lines.push(core.slice(0, 40).map((n) => `- ${n}`).join("\n"));
+      lines.push(
+        `Optional anchor cards from the idea — prefer them when legal and coherent; skip any that are not ${input.format}-legal or would break the deck:`
+      );
+      lines.push(core.slice(0, 24).map((n) => `- ${n}`).join("\n"));
     }
   }
 
@@ -226,7 +229,7 @@ export function buildConstructedUserPrompt(input: ConstructedPromptInput): strin
 
   if (input.ownedCards?.length) {
     lines.push(
-      `The player owns these cards — prefer maximizing mainboard overlap with this pool when cohesive (prefer cards from both this list and priority idea anchors when both apply); you do not need to use every owned card:`
+      `The player owns these cards — prefer overlap with this pool when it improves cohesion; you do not need to use every card; idea anchors and format legality still win:`
     );
     lines.push(input.ownedCards.slice(0, 80).map((n) => `- ${n}`).join("\n"));
   }

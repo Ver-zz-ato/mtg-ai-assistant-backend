@@ -6,6 +6,10 @@
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { isBasicLandName } from "@/lib/deck/formatRules";
 import { aggregateCards, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
+import {
+  sliceFirstBalancedJsonObject,
+  stripMarkdownJsonFences,
+} from "@/lib/deck/collectionConstructedIdeasParse";
 
 export type QtyRow = { name: string; qty: number };
 
@@ -175,22 +179,64 @@ export function logConstructedDiag(payload: Record<string, unknown>): void {
 }
 
 export function unwrapJsonFenceForConstructed(text: string): string {
-  let t = text.trim();
+  let t = stripMarkdownJsonFences(text);
   const fence = /^```(?:json)?\s*\n?([\s\S]*?)```$/im.exec(t);
   if (fence) t = fence[1].trim();
   return t;
+}
+
+/** Normalize alternate LLM keys into mainboard/sideboard string arrays. */
+export function normalizeConstructedDeckShape(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...data };
+
+  function coerceLines(field: unknown): string[] {
+    if (Array.isArray(field)) {
+      return field.map((x) => String(x ?? "").trim()).filter(Boolean);
+    }
+    if (typeof field === "string") {
+      return field
+        .split(/\n+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }
+
+  if (!Array.isArray(out.mainboard)) {
+    const alt = out.main ?? out.Mainboard ?? out.mainDeck ?? out.deck ?? out.cards;
+    const lines = coerceLines(alt);
+    if (lines.length) out.mainboard = lines;
+  }
+  if (!Array.isArray(out.sideboard)) {
+    const alt = out.side ?? out.Sideboard ?? out.side_board ?? out.board;
+    const lines = coerceLines(alt);
+    if (lines.length) out.sideboard = lines;
+  }
+  return out;
 }
 
 /** Safe parse result for diagnostics — never log raw content here; callers log `parseError` only. */
 export function parseConstructedAiJsonDetailed(
   raw: string
 ): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
-  try {
-    const parsed = JSON.parse(unwrapJsonFenceForConstructed(raw)) as unknown;
-    if (!parsed || typeof parsed !== "object") return { ok: false, error: "root_not_object" };
-    return { ok: true, data: parsed as Record<string, unknown> };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "json_parse_error";
-    return { ok: false, error: msg.length > 200 ? msg.slice(0, 200) : msg };
+  const tryParse = (src: string): Record<string, unknown> | null => {
+    try {
+      const parsed = JSON.parse(src) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      return normalizeConstructedDeckShape(parsed as Record<string, unknown>);
+    } catch {
+      return null;
+    }
+  };
+
+  const stripped = unwrapJsonFenceForConstructed(raw);
+  let obj = tryParse(stripped);
+  if (!obj) {
+    const slice = sliceFirstBalancedJsonObject(stripped);
+    if (slice) obj = tryParse(slice);
   }
+  if (!obj) {
+    return { ok: false, error: "json_parse_or_root_invalid" };
+  }
+  return { ok: true, data: obj };
 }
