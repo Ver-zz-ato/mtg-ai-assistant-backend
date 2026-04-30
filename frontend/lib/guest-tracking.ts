@@ -7,7 +7,8 @@
  * Note: Uses Web Crypto API for Edge runtime compatibility (middleware runs on Edge).
  */
 
-const GUEST_TOKEN_SECRET = process.env.GUEST_TOKEN_SECRET || 'default-secret-change-in-production';
+const GUEST_TOKEN_SECRET =
+  process.env.GUEST_TOKEN_SECRET || "default-secret-change-in-production";
 
 /**
  * Hash a string using SHA-256 for secondary tracking (IP, User-Agent)
@@ -15,30 +16,15 @@ const GUEST_TOKEN_SECRET = process.env.GUEST_TOKEN_SECRET || 'default-secret-cha
  * Works in both Node.js and Edge runtime
  */
 export async function hashString(input: string): Promise<string> {
-  if (typeof crypto !== 'undefined' && 'subtle' in crypto) {
-    // Edge runtime - use Web Crypto API
-    const encoder = new TextEncoder();
-    const data = encoder.encode(input);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } else {
-    // Node.js runtime - fallback (shouldn't happen but keep for compatibility)
-    const { createHash } = await import('crypto');
-    return createHash('sha256').update(input).digest('hex');
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    throw new Error("Web Crypto not available (expected in Edge + modern Node).");
   }
-}
-
-/**
- * Synchronous hash for Node.js runtime (for API routes)
- */
-export function hashStringSync(input: string): string {
-  // This will only work in Node.js runtime (API routes), not Edge (middleware)
-  if (typeof process !== 'undefined' && process.versions?.node) {
-    const { createHash } = require('crypto');
-    return createHash('sha256').update(input).digest('hex');
-  }
-  throw new Error('hashStringSync only works in Node.js runtime. Use hashString() for Edge.');
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**

@@ -8,7 +8,7 @@
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { normalizeCardName } from "@/lib/deck/mtgValidators";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
-import { hashStringSync } from "@/lib/guest-tracking";
+import { hashStringSync } from "@/lib/guest-tracking-node";
 import { fetchCardsBatch, type SfCard } from "@/lib/deck/inference";
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
 import { tagCards } from "@/lib/deck/card-role-tags";

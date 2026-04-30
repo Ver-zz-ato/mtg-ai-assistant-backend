@@ -5,7 +5,7 @@
 
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { normalizeCardName } from "@/lib/deck/mtgValidators";
-import { hashStringSync } from "@/lib/guest-tracking";
+import { hashStringSync } from "@/lib/guest-tracking-node";
 
 /**
  * Normalize raw decklist text: trim, normalize line endings, strip comments/blanks,
