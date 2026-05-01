@@ -108,6 +108,12 @@ export default function AdminDashboardPage() {
           >
             Daily Command Center
           </Link>
+          <Link
+            href="/admin/JustForDavy/chat-debug"
+            className="px-4 py-2 rounded-lg border border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700 text-sm"
+          >
+            Chat debug (stream)
+          </Link>
         </div>
       </div>
       {GROUPS.map((group) => (
