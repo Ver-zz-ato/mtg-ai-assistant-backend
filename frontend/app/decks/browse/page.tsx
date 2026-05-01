@@ -27,7 +27,8 @@ interface Deck {
   card_count: number;
   deck_text?: string;
   set_name?: string;
-  release_year?: number;
+  release_year?: number | null;
+  release_date?: string | null;
   is_precon?: boolean;
 }
 
@@ -624,7 +625,18 @@ function BrowseDecksContent() {
             <div className="p-4 space-y-2 text-sm text-gray-300">
               {selectedPrecon.commander && <p><span className="text-gray-500">Commander:</span> {selectedPrecon.commander}</p>}
               {selectedPrecon.set_name && <p><span className="text-gray-500">Set:</span> {selectedPrecon.set_name}</p>}
-              {selectedPrecon.release_year && <p><span className="text-gray-500">Year:</span> {selectedPrecon.release_year}</p>}
+              <p>
+                <span className="text-gray-500">Released:</span>{" "}
+                {selectedPrecon.release_date
+                  ? new Date(`${selectedPrecon.release_date}T12:00:00`).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : selectedPrecon.release_year != null
+                    ? String(selectedPrecon.release_year)
+                    : "Year unknown"}
+              </p>
               <p><span className="text-gray-500">Cards:</span> {selectedPrecon.card_count}</p>
             </div>
             <div className="p-4 bg-neutral-950 flex gap-2">

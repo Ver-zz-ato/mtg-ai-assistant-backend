@@ -11,6 +11,18 @@ const supabase = serviceKey
 export const revalidate = 300; // 5 min - precons change infrequently
 export const dynamic = "force-dynamic";
 
+type PreconDeckRow = {
+  id: string;
+  name: string;
+  commander: string;
+  format: string;
+  colors: string[] | null;
+  deck_text: string;
+  set_name: string;
+  release_year: number | null;
+  release_date: string | null;
+};
+
 function countCards(deckText: string | null | undefined): number {
   if (!deckText) return 0;
   const lines = String(deckText).split(/\r?\n/).filter((l) => l.trim());
@@ -41,7 +53,7 @@ export async function GET(req: Request) {
 
     let query = supabase
       .from("precon_decks")
-      .select("id, name, commander, colors, format, deck_text, set_name, release_year", {
+      .select("id, name, commander, colors, format, deck_text, set_name, release_year, release_date", {
         count: "exact",
       });
 
@@ -69,11 +81,17 @@ export async function GET(req: Request) {
         query = query.order("set_name", { ascending: true }).order("name", { ascending: true });
         break;
       case "oldest":
-        query = query.order("release_year", { ascending: true }).order("name", { ascending: true });
+        query = query
+          .order("release_year", { ascending: true, nullsFirst: false })
+          .order("release_date", { ascending: true, nullsFirst: false })
+          .order("name", { ascending: true });
         break;
       case "recent":
       default:
-        query = query.order("release_year", { ascending: false }).order("name", { ascending: true });
+        query = query
+          .order("release_year", { ascending: false, nullsFirst: false })
+          .order("release_date", { ascending: false, nullsFirst: false })
+          .order("name", { ascending: true });
         break;
     }
 
@@ -85,7 +103,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    const decks = (data || []).map((d: any) => ({
+    const decks = ((data || []) as PreconDeckRow[]).map((d) => ({
       id: d.id,
       title: d.name,
       commander: d.commander,
@@ -93,6 +111,7 @@ export async function GET(req: Request) {
       colors: d.colors,
       set_name: d.set_name,
       release_year: d.release_year,
+      release_date: d.release_date,
       card_count: countCards(d.deck_text),
       deck_text: d.deck_text,
       owner_username: null,
@@ -105,7 +124,8 @@ export async function GET(req: Request) {
       { ok: true, decks, total: count || 0, page, limit, hasMore },
       { headers: CachePresets.MEDIUM }
     );
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Request failed";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

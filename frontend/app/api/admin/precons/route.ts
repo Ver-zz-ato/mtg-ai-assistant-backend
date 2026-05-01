@@ -17,12 +17,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, commander, colors, format, deck_text, set_name, release_year } = body;
+    const { name, commander, colors, format, deck_text, set_name, release_year, release_date } =
+      body;
 
-    if (!name || !commander || !deck_text || !set_name || release_year == null) {
+    if (!name || !commander || !deck_text || !set_name) {
       return NextResponse.json({
         ok: false,
-        error: "Missing required: name, commander, deck_text, set_name, release_year",
+        error: "Missing required: name, commander, deck_text, set_name",
       }, { status: 400 });
     }
 
@@ -31,6 +32,17 @@ export async function POST(req: NextRequest) {
       : typeof colors === "string"
         ? colors.split(/[\s,]+/).filter(Boolean)
         : [];
+
+    let ry: number | null =
+      release_year === undefined || release_year === null || release_year === ""
+        ? null
+        : parseInt(String(release_year), 10);
+    if (ry !== null && Number.isNaN(ry)) ry = null;
+
+    const rd =
+      release_date === undefined || release_date === null || release_date === ""
+        ? null
+        : String(release_date).trim().slice(0, 10);
 
     const { data, error } = await admin
       .from("precon_decks")
@@ -41,9 +53,10 @@ export async function POST(req: NextRequest) {
         format: format?.trim() || "Commander",
         deck_text: String(deck_text).trim(),
         set_name: String(set_name).trim(),
-        release_year: parseInt(String(release_year), 10) || new Date().getFullYear(),
+        release_year: ry,
+        release_date: rd,
       })
-      .select("id, name, commander, set_name, release_year")
+      .select("id, name, commander, set_name, release_year, release_date")
       .single();
 
     if (error) {
@@ -51,7 +64,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, precon: data });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || "Insert failed" }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Insert failed";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

@@ -9,7 +9,7 @@ export default function AdminPreconsPage() {
   const [commander, setCommander] = useState("");
   const [colors, setColors] = useState("");
   const [preconSetName, setPreconSetName] = useState("");
-  const [releaseYear, setReleaseYear] = useState(new Date().getFullYear().toString());
+  const [releaseYear, setReleaseYear] = useState("");
   const [deckText, setDeckText] = useState("");
   const [sqlInput, setSqlInput] = useState("");
   const [inserting, setInserting] = useState(false);
@@ -18,7 +18,7 @@ export default function AdminPreconsPage() {
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   async function handleInsert() {
-    if (!name || !commander || !deckText || !preconSetName || !releaseYear) {
+    if (!name || !commander || !deckText || !preconSetName) {
       setMsg("Fill all required fields");
       return;
     }
@@ -36,7 +36,7 @@ export default function AdminPreconsPage() {
           format: "Commander",
           deck_text: deckText,
           set_name: preconSetName,
-          release_year: parseInt(releaseYear, 10),
+          ...(releaseYear.trim() !== "" ? { release_year: parseInt(releaseYear, 10) } : { release_year: null }),
         }),
       });
       const j = await res.json();
@@ -76,7 +76,7 @@ export default function AdminPreconsPage() {
       const j = await res.json();
       if (j.ok) {
         setSyncMsg(
-          `Synced ${j.inserted} precons (${j.dbCount} in DB). ${j.fileErrors || 0} file errors. ${Math.round(j.durationMs / 1000)}s`
+          `Synced ${j.inserted} precons (${j.dbCount} in DB). Scryfall dates: ${j.scryfallMatched ?? "—"}. ${j.fileErrors || 0} file errors. ${Math.round(j.durationMs / 1000)}s`
         );
       } else {
         setSyncMsg(j.error || "Sync failed");
@@ -175,11 +175,11 @@ export default function AdminPreconsPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Release Year *</label>
+              <label className="text-xs text-gray-500 block mb-1">Release Year (optional)</label>
               <input
                 value={releaseYear}
                 onChange={(e) => setReleaseYear(e.target.value)}
-                placeholder="2024"
+                placeholder="Leave blank if unknown"
                 className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1.5 text-sm"
               />
             </div>
@@ -224,7 +224,7 @@ export default function AdminPreconsPage() {
         </p>
         <pre className="bg-neutral-950 border border-neutral-700 rounded p-3 text-sm overflow-x-auto">
           {`cd mtg_ai_assistant/frontend  # or your frontend root
-node scripts/generate-precon-sql.mjs`}
+npx tsx scripts/generate-precon-sql.ts`}
         </pre>
         <p className="text-sm text-gray-400">
           Output: <code className="bg-neutral-800 px-1 rounded">precon_decks_all.sql</code> in project root.

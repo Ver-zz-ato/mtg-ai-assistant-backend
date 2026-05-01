@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Service role not configured" }, { status: 500 });
     }
 
-    const { rows, fileErrors } = await fetchWestlyPreconRows();
+    const { rows, fileErrors, scryfallMatched } = await fetchWestlyPreconRows();
     if (rows.length === 0) {
       return NextResponse.json(
         {
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
       inserted: rows.length,
       dbCount,
       fileErrors,
+      scryfallMatched,
       source: WESTLY_PRECON_SOURCE,
       durationMs,
     });

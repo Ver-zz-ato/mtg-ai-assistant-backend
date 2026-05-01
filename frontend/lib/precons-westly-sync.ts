@@ -1,9 +1,10 @@
 /**
  * Fetch Commander precon decklists from Westly/CommanderPrecons (GitHub) and replace precon_decks.
- * Same source as scripts/generate-precon-sql.mjs — community-maintained catalog of official WotC precons.
+ * Same source as scripts/generate-precon-sql.ts — community-maintained catalog of official WotC precons.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { enrichPreconRowsFromScryfall } from "@/lib/precons-scryfall-release";
 
 export const WESTLY_PRECON_SOURCE =
   "https://github.com/Westly/CommanderPrecons/tree/main/precon_json";
@@ -20,7 +21,10 @@ export type WestlyPreconRow = {
   format: string;
   deck_text: string;
   set_name: string;
-  release_year: number;
+  /** From deck title (YYYY) or Scryfall; null if unknown before enrichment. */
+  release_year: number | null;
+  /** ISO date YYYY-MM-DD from Scryfall set released_at when matched. */
+  release_date: string | null;
 };
 
 type MoxfieldJson = {
@@ -29,14 +33,14 @@ type MoxfieldJson = {
   mainboard?: Record<string, { quantity?: number; card?: { quantity?: number } }>;
 };
 
-function parseDeckName(name: string) {
+export function parseDeckName(name: string) {
   const match = name.match(/\s*\((.+?)\)\s*$/);
   const setPart = match ? match[1] : "";
   const yearMatch = setPart.match(/\d{4}/);
-  const year = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+  const release_year = yearMatch ? parseInt(yearMatch[0], 10) : null;
   const set_name =
     setPart.replace(/\s*Precon\s*Decklist\s*$/i, "").trim() || setPart || "Unknown";
-  return { set_name, release_year: year };
+  return { set_name, release_year };
 }
 
 function moxfieldToRow(json: MoxfieldJson): WestlyPreconRow | null {
@@ -73,6 +77,7 @@ function moxfieldToRow(json: MoxfieldJson): WestlyPreconRow | null {
     deck_text,
     set_name,
     release_year,
+    release_date: null,
   };
 }
 
@@ -92,7 +97,7 @@ export type FetchWestlyProgress = (stage: "listing" | "fetching", done: number, 
  */
 export async function fetchWestlyPreconRows(
   onProgress?: FetchWestlyProgress
-): Promise<{ rows: WestlyPreconRow[]; fileErrors: number }> {
+): Promise<{ rows: WestlyPreconRow[]; fileErrors: number; scryfallMatched: number }> {
   const files = (await fetchJson(GITHUB_API)) as { name?: string }[];
   const jsonFiles = files.filter((f) => f.name?.endsWith(".json"));
   onProgress?.("listing", jsonFiles.length, jsonFiles.length);
@@ -117,7 +122,15 @@ export async function fetchWestlyPreconRows(
     onProgress?.("fetching", i, jsonFiles.length);
   }
 
-  return { rows, fileErrors };
+  let scryfallMatched = 0;
+  try {
+    const stats = await enrichPreconRowsFromScryfall(rows);
+    scryfallMatched = stats.matched;
+  } catch (e) {
+    console.warn("[precons-westly-sync] Scryfall enrichment failed:", e);
+  }
+
+  return { rows, fileErrors, scryfallMatched };
 }
 
 const DEFAULT_BATCH = 15;

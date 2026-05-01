@@ -24,12 +24,14 @@ async function main() {
   }
 
   console.error("Fetching Westly/CommanderPrecons...");
-  const { rows, fileErrors } = await fetchWestlyPreconRows((stage, done, total) => {
+  const { rows, fileErrors, scryfallMatched } = await fetchWestlyPreconRows((stage, done, total) => {
     if (stage === "fetching" && done % 30 === 0) {
       console.error(`  Parsed ${done}/${total}...`);
     }
   });
-  console.error(`Parsed ${rows.length} precons (${fileErrors} file errors).`);
+  console.error(
+    `Parsed ${rows.length} precons (${fileErrors} file errors). Scryfall dates matched: ${scryfallMatched}.`
+  );
 
   const admin = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
