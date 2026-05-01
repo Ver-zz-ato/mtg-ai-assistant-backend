@@ -15,12 +15,13 @@ export type ProStatus = {
   loading: boolean;
 };
 
+/** Until auth resolves, avoid implying "Guest" (signed-out) — no upsell until we know. */
 const defaultProStatus: ProStatus = {
   isPro: false,
   hasBillingAccount: false,
-  modelTier: 'guest',
-  modelLabel: 'Guest',
-  upgradeMessage: 'Sign in for a better model. Upgrade to Pro for the best.',
+  modelTier: 'free',
+  modelLabel: 'Standard',
+  upgradeMessage: null,
   loading: true,
 };
 
@@ -58,6 +59,16 @@ export default function ProProvider({ children }: { children: React.ReactNode })
       });
       return;
     }
+
+    // Signed in: clear any stale guest UI while profile + API resolve.
+    setStatus({
+      isPro: false,
+      hasBillingAccount: false,
+      modelTier: 'free',
+      modelLabel: 'Standard',
+      upgradeMessage: null,
+      loading: true,
+    });
 
     const sb = createBrowserSupabaseClient();
 
@@ -103,7 +114,8 @@ export default function ProProvider({ children }: { children: React.ReactNode })
             const apiRes = await fetch('/api/user/pro-status');
             if (apiRes.ok) {
               const apiData = await apiRes.json();
-              if (apiData.ok && apiData.modelTier != null) {
+              // Never downgrade Pro resolved from profile if API tier drifts.
+              if (apiData.ok && apiData.modelTier != null && !isProUser) {
                 tier = apiData.modelTier;
                 label = apiData.modelLabel ?? label;
                 message = apiData.upgradeMessage ?? message;
@@ -112,6 +124,16 @@ export default function ProProvider({ children }: { children: React.ReactNode })
           } catch {
             // Keep tier/label/message from profile
           }
+        }
+
+        if (isProUser) {
+          tier = 'pro';
+          label = 'Pro';
+          message = null;
+        } else if (tier === 'pro') {
+          tier = 'free';
+          label = 'Standard';
+          message = message ?? 'Upgrade to Pro for the best model.';
         }
 
         setStatus({

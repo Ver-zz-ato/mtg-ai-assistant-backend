@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import {
   deckFormatStringToAnalyzeFormat,
@@ -54,6 +55,8 @@ export default function FinishDeckPanel({
   const [adding, setAdding] = useState<Set<string>>(new Set());
   const [cardImages, setCardImages] = useState<Map<string, ImageInfo>>(new Map());
   const [hoverCard, setHoverCard] = useState<{ name: string; x: number; y: number; src: string } | null>(null);
+  const [suggestMoreLoading, setSuggestMoreLoading] = useState(false);
+  const [suggestMoreMessage, setSuggestMoreMessage] = useState<string | null>(null);
   const stageInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -107,6 +110,68 @@ export default function FinishDeckPanel({
     })();
   }, [suggestions.map((s) => s.card).join("|")]);
 
+  function mergeSuggestionLists(
+    existing: Suggestion[],
+    incoming: Array<{ card: string; role?: string; reason?: string }>
+  ): Suggestion[] {
+    const seen = new Set(existing.map((s) => norm(s.card)));
+    const out = [...existing];
+    for (const s of incoming) {
+      const k = norm(s.card);
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      out.push({ card: s.card, role: s.role, reason: s.reason });
+    }
+    return out;
+  }
+
+  async function suggestMore() {
+    setSuggestMoreMessage(null);
+    setSuggestMoreLoading(true);
+    try {
+      const res = await fetch("/api/deck/finish-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deckId,
+          format: deckFormatStringToAnalyzeFormat(format),
+          maxSuggestions: 14,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        const msg =
+          typeof json?.error === "string"
+            ? json.error
+            : res.status === 429
+              ? "Daily suggestion limit reached. Try again tomorrow or upgrade."
+              : "Could not fetch more suggestions.";
+        setSuggestMoreMessage(msg);
+        return;
+      }
+      const rows = Array.isArray(json.suggestions)
+        ? json.suggestions.map((r: { card?: string; role?: string; reason?: string }) => ({
+            card: String(r.card || "").trim(),
+            role: typeof r.role === "string" ? r.role : undefined,
+            reason: typeof r.reason === "string" ? r.reason : undefined,
+          }))
+        : [];
+      const usable = rows.filter((r: { card: string }) => r.card);
+      if (usable.length === 0) {
+        setSuggestMoreMessage("No new cards returned — try again in a moment.");
+        return;
+      }
+      setSuggestions((prev) => mergeSuggestionLists(prev, usable));
+      if (Array.isArray(json.warnings) && json.warnings.length) {
+        setSuggestMoreMessage(json.warnings[0]);
+      }
+    } catch {
+      setSuggestMoreMessage("Network error while fetching suggestions.");
+    } finally {
+      setSuggestMoreLoading(false);
+    }
+  }
+
   const handleAdd = async (card: string) => {
     setAdding((prev) => new Set(prev).add(card));
     try {
@@ -138,9 +203,9 @@ export default function FinishDeckPanel({
     cardCount
   );
 
-  return (
+  const overlay = (
     <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">Finish This Deck</h2>
@@ -213,18 +278,31 @@ export default function FinishDeckPanel({
                 )}
               </div>
 
-              <h3 className="text-sm font-semibold text-neutral-300 mb-3">
-                Recommended Cards to Add
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <h3 className="text-sm font-semibold text-neutral-300">
+                  Recommended Cards to Add
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => void suggestMore()}
+                  disabled={loading || suggestMoreLoading}
+                  className="shrink-0 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 disabled:pointer-events-none text-white text-sm font-semibold shadow-md"
+                >
+                  {suggestMoreLoading ? "Fetching…" : "Suggest more"}
+                </button>
+              </div>
+              {suggestMoreMessage && (
+                <p className="text-xs text-amber-300/90 mb-2">{suggestMoreMessage}</p>
+              )}
               {suggestions.length === 0 ? (
                 <p className="text-neutral-500 text-sm">No suggestions right now. Try running analysis from the Build Assistant.</p>
               ) : (
-                <ul className="space-y-2 max-h-[320px] overflow-y-auto">
-                  {suggestions.slice(0, 12).map((s) => {
+                <ul className="space-y-2 max-h-[min(68vh,620px)] overflow-y-auto pr-1">
+                  {suggestions.map((s, idx) => {
                     const img = cardImages.get(norm(s.card));
                     return (
                       <li
-                        key={s.card}
+                        key={`${norm(s.card)}-${idx}`}
                         className="flex items-start justify-between gap-3 p-3 rounded-lg bg-neutral-900 border border-neutral-800"
                       >
                         <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -254,7 +332,7 @@ export default function FinishDeckPanel({
                               <span className="ml-2 text-xs text-neutral-500">{s.role}</span>
                             )}
                             {s.reason && (
-                              <p className="text-xs text-neutral-400 mt-0.5 line-clamp-2">{s.reason}</p>
+                              <p className="text-xs text-neutral-400 mt-0.5 line-clamp-4">{s.reason}</p>
                             )}
                           </div>
                         </div>
@@ -290,4 +368,10 @@ export default function FinishDeckPanel({
       )}
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(overlay, document.body);
 }

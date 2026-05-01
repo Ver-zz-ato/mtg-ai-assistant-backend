@@ -44,8 +44,9 @@ export function usePlaystyleProfile(): UsePlaystyleProfileReturn {
   const [dailyBuildsUsed, setDailyBuildsUsed] = useState(0);
   
   const { user } = useAuth();
-  const { modelTier } = useProStatus();
-  const depth = resolvePlaystyleDepth(modelTier);
+  const { modelTier, isPro } = useProStatus();
+  const tierForDepth = isPro || modelTier === 'pro' ? 'pro' : modelTier;
+  const depth = resolvePlaystyleDepth(tierForDepth);
   
   // Load profile from storage
   const loadProfile = useCallback(async () => {

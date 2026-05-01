@@ -48,7 +48,7 @@ export default function PlaystyleQuizResults({
 }: PlaystyleQuizResultsProps) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { modelTier, loading: proLoading } = useProStatus();
+  const { modelTier, loading: proLoading, isPro } = useProStatus();
   const capture = useCapture();
   
   const [commanderImages, setCommanderImages] = useState<Map<string, string>>(new Map());
@@ -64,7 +64,10 @@ export default function PlaystyleQuizResults({
   const explainAttemptRef = useRef(0);
 
   // Resolve depth based on tier (stable per tier — avoids new object identity each render)
-  const depth = useMemo(() => resolvePlaystyleDepth(modelTier), [modelTier]);
+  const depth = useMemo(() => {
+    const tier = isPro || modelTier === 'pro' ? 'pro' : modelTier;
+    return resolvePlaystyleDepth(tier);
+  }, [modelTier, isPro]);
 
   const avoidList = useMemo(() => computeAvoidList(traits), [traits]);
 

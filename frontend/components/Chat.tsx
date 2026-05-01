@@ -172,7 +172,7 @@ function Chat(props: ChatProps = {}) {
   const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
   const [showGuestLimitModal, setShowGuestLimitModal] = useState<boolean>(false);
   const [showReasoning, setShowReasoning] = useState<boolean>(false);
-  const { isPro, modelTier, modelLabel, upgradeMessage } = useProStatus();
+  const { isPro, modelTier, modelLabel, upgradeMessage, loading: proLoading } = useProStatus();
   const pathname = usePathname() ?? "/";
   const [hasSuggestionShown, setHasSuggestionShown] = useState<boolean>(false);
   const [showQuizModal, setShowQuizModal] = useState<boolean>(false);
@@ -2063,8 +2063,8 @@ function Chat(props: ChatProps = {}) {
           </div>
         </div>
 
-          {/* Model tier reminder - below input, prominent for non-Pro */}
-          {(modelTier === 'guest' || modelTier === 'free' || (isLoggedIn === true && !isPro)) && (
+          {/* Model tier reminder - below input; hide while Pro status loads to avoid false "guest" copy */}
+          {!proLoading && !isPro && modelTier !== 'pro' && (
             <div className="mt-3 pt-3 border-t border-neutral-800 flex flex-wrap items-center justify-center gap-2 text-sm">
               {modelTier === 'guest' && isLoggedIn === false && (
                 <button
@@ -2090,7 +2090,7 @@ function Chat(props: ChatProps = {}) {
               </span>
             </div>
           )}
-          {modelTier === 'pro' && (
+          {!proLoading && (isPro || modelTier === 'pro') && (
             <div className="mt-2 text-center text-sm text-neutral-500">You&apos;re on the best model — thank you!</div>
           )}
         </div>

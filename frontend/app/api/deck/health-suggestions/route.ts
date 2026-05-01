@@ -1,8 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { HEALTH_SCAN_FREE, HEALTH_SCAN_PRO } from '@/lib/feature-limits';
+import { normalizeCardName } from '@/lib/deck/mtgValidators';
+import { deckFormatStringToAnalyzeFormat } from '@/lib/deck/formatRules';
+import { parseMainboardEntriesForAnalysis } from '@/lib/deck/formatCompliance';
 
 export const runtime = 'nodejs';
+
+/** Normalized keys for a deck card name (full card + MDFC face names). */
+function addNormalizedDeckNameKeys(raw: string, into: Set<string>) {
+  const s = String(raw || '').trim();
+  if (!s) return;
+  const full = normalizeCardName(s);
+  if (full) into.add(full);
+  const dual = s.split(/\s*\/\/\s*/).map((p) => p.trim()).filter(Boolean);
+  if (dual.length > 1) {
+    for (const p of dual) {
+      const pn = normalizeCardName(p);
+      if (pn) into.add(pn);
+    }
+  }
+}
+
+function buildDeckNormLookup(
+  deckCards: Array<{ name?: string | null }> | null | undefined,
+  deckText: string,
+  commanderName: string,
+  formatLabel: string
+): Set<string> {
+  const set = new Set<string>();
+  for (const c of deckCards || []) {
+    addNormalizedDeckNameKeys(String(c?.name ?? ''), set);
+  }
+  addNormalizedDeckNameKeys(commanderName, set);
+  try {
+    const analyzeFmt = deckFormatStringToAnalyzeFormat(formatLabel);
+    const entries = parseMainboardEntriesForAnalysis(String(deckText || ''), analyzeFmt);
+    for (const e of entries) {
+      addNormalizedDeckNameKeys(e.name, set);
+    }
+  } catch {
+    /* ignore bad deck_text */
+  }
+  return set;
+}
+
+/** True if this suggestion is not already represented in the deck (any face / MDFC variant). */
+function suggestionIsAbsentFromDeck(cardTitle: string, deckKeys: Set<string>): boolean {
+  const check = new Set<string>();
+  addNormalizedDeckNameKeys(cardTitle, check);
+  if (check.size === 0) return false;
+  for (const k of check) {
+    if (deckKeys.has(k)) return false;
+  }
+  return true;
+}
 
 export async function POST(req: NextRequest) {
   console.log('🚀 [health-suggestions] ==========================================');
@@ -96,6 +148,8 @@ export async function POST(req: NextRequest) {
     const title = String(deck.title || 'Untitled');
     const format = String(deck.format || 'Commander');
 
+    const deckNormInList = buildDeckNormLookup(deckCards ?? null, String(deck.deck_text || ''), commander, format);
+
     // Analyze current deck composition for context
     let compositionContext = '';
     try {
@@ -146,7 +200,7 @@ Use this context to make targeted suggestions that fill gaps. For example, if ra
 
     const prompt = categoryPrompts[category] || `Suggest 5-7 cards to improve ${label.toLowerCase()} for this deck.`;
     const deckContext = `Deck: ${title}${commander ? ` | Commander: ${commander}` : ''} | Format: ${format} | Full Decklist: ${cardList}`;
-    const fullPrompt = `${prompt}\n\n${deckContext}`;
+    const fullPrompt = `${prompt}\n\n${deckContext}\n\n**IMPORTANT**: Do not suggest any card that already appears in the decklist above (including basic lands, MDFC names, and the commander unless the list shows a distinct 99). We reject in-deck suggestions server-side.`;
 
     // Get commander's color identity for the prompt
     let colorIdentityHint = '';
@@ -176,7 +230,8 @@ Example:
 1. Lightning Greaves - Provides haste and protection for key creatures
 2. Sol Ring - Essential mana acceleration
 
-Focus on cards that are: legal in the deck's format, match the deck's color identity, fill the specific role requested, and are commonly played. Do not suggest cards already in the decklist.
+Focus on cards that are: legal in the deck's format, match the deck's color identity, fill the specific role requested, and are commonly played.
+Never suggest a card whose English oracle name is already on the user's list (surplus copies are pointless). Prefer novel cards only.
 Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionContext}`;
 
     // Use gpt-4o-mini for cost efficiency - card suggestions don't need flagship model (~$0.70/call → ~$0.05/call)
@@ -217,7 +272,7 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
       }
 
       // Extract card suggestions from response - flexible parsing for various AI output formats
-      const suggestions: Array<{ card: string; reason: string }> = [];
+      let suggestions: Array<{ card: string; reason: string }> = [];
       const SKIP_PREFIXES = /^(Card|Name|Suggestion|Here|These|Consider|Try|Add|I suggest|I recommend)/i;
       
       const lines = content.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
@@ -270,8 +325,21 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
         
         if (cardName && cardName.length >= 2 && cardName.length < 100 && !SKIP_PREFIXES.test(cardName)) {
           suggestions.push({ card: cardName, reason });
-          if (suggestions.length >= 7) break;
+          if (suggestions.length >= 24) break;
         }
+      }
+
+      const beforeDeckFilter = suggestions.length;
+      suggestions = suggestions.filter((s) => {
+        const ok = suggestionIsAbsentFromDeck(s.card, deckNormInList);
+        if (!ok) console.log(`🚫 [health-suggestions] Dropped (already in deck): ${s.card}`);
+        return ok;
+      });
+      suggestions = suggestions.slice(0, 7);
+      if (beforeDeckFilter > suggestions.length) {
+        console.log(
+          `[health-suggestions] Deck filter: kept ${suggestions.length} / ${beforeDeckFilter} extracted (excluding cards already in list)`
+        );
       }
 
       // Always log extraction results (even in production) for debugging
@@ -356,6 +424,12 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
       } catch (legErr) {
         console.warn("[health-suggestions] Legality filter failed:", legErr);
       }
+
+      validatedSuggestions = validatedSuggestions.filter((s) => {
+        const ok = suggestionIsAbsentFromDeck(s.card, deckNormInList);
+        if (!ok) console.log(`🚫 [health-suggestions] Post-legality drop (already in deck): ${s.card}`);
+        return ok;
+      });
 
       console.log('✅ [health-suggestions] Returning response with', validatedSuggestions.length, 'suggestions');
       return NextResponse.json({ ok: true, suggestions: validatedSuggestions });

@@ -62,7 +62,9 @@ async function toast(msg: string, type: 'success'|'info'|'error' = 'info') {
 
 export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, healthMetrics, format, cardCount = 0 }: { deckId: string; encodedIntent?: string | null; isPro: boolean; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null; format?: string; cardCount?: number }){
   const router = useRouter();
-  const { modelTier, modelLabel, upgradeMessage } = useProStatus();
+  const { modelTier, modelLabel, upgradeMessage, isPro: ctxIsPro } = useProStatus();
+  /** Server deck page already resolved Pro via `checkProStatus`; context may lag (default guest) or disagree after entitlement changes. */
+  const entitledPro = isPro || ctxIsPro;
   const mergedIntent = React.useMemo(
     () => mergeIntentFromDeck(encodedIntent, format),
     [encodedIntent, format]
@@ -95,7 +97,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
 
   function chip(label:string){ return (<span className="px-2 py-0.5 rounded border border-neutral-700 bg-neutral-900/60 text-[11px]">{label}</span>); }
 
-  function proGuard(): boolean { if (isPro) return true; try { const { showProToast } = require('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature. Upgrade to unlock.'); } return false; }
+  function proGuard(): boolean { if (entitledPro) return true; try { const { showProToast } = require('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature. Upgrade to unlock.'); } return false; }
 
   async function fetchDeckRows(): Promise<Array<{ id:string; name:string; qty:number }>> {
     try {
@@ -206,7 +208,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   }
 
   async function undo() {
-    if (!isPro || history.length===0) return;
+    if (!entitledPro || history.length===0) return;
     const last = history[history.length-1];
     await applyDiff(last.after, last.before);
     setHistory(h=>h.slice(0,-1));
@@ -214,7 +216,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
     await toast(`Undid: ${last.label}`, 'info');
   }
   async function redo() {
-    if (!isPro || future.length===0) return;
+    if (!entitledPro || future.length===0) return;
     const next = future[future.length-1];
     await applyDiff(next.before, next.after);
     setFuture(f=>f.slice(0,-1));
@@ -375,13 +377,13 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               Build Assistant
             </div>
             <div className="text-xs text-gray-400 font-medium">AI suggestions available</div>
-            {(modelTier === 'guest' || modelTier === 'free') && upgradeMessage && (
+            {!entitledPro && (modelTier === 'guest' || modelTier === 'free') && upgradeMessage && (
               <div className="text-[10px] text-neutral-400 mt-0.5">
                 Using {modelLabel} model.{' '}
                 <Link href="/pricing" className="text-blue-400 hover:underline">{upgradeMessage}</Link>
               </div>
             )}
-            {modelTier === 'pro' && (
+            {entitledPro && (
               <div className="text-[10px] text-emerald-400/90 mt-0.5">
                 You're on the best model — thank you!
               </div>
@@ -502,7 +504,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                       <div className="text-[10px] text-neutral-400 mt-0.5">Click any category to see AI suggestions</div>
                     </div>
                   </div>
-                  {!isPro && (
+                  {!entitledPro && (
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 font-bold">PRO</span>
                   )}
                 </div>
@@ -518,12 +520,12 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                           ? 'bg-amber-950/20 border-amber-500/30 hover:border-amber-400/50 hover:bg-amber-950/30'
                           : 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-400/50 hover:bg-emerald-950/30'
                       }`}
-                      title={`${item.label}: ${item.status.label}. Click for AI suggestions${!isPro ? ' (5/day free, 50/day Pro)' : ''}`}
+                      title={`${item.label}: ${item.status.label}. Click for AI suggestions${!entitledPro ? ' (5/day free, 50/day Pro)' : ''}`}
                     >
                       <div className="flex items-center gap-1.5 w-full">
                         <span className="text-base">{item.status.icon}</span>
                         <span className={`text-xs font-medium ${item.status.color} group-hover:opacity-90`}>{item.label}</span>
-                        {!isPro && item.status.icon !== '🟢' && (
+                        {!entitledPro && item.status.icon !== '🟢' && (
                           <span className="text-[8px] px-1 py-0.5 rounded bg-amber-600/30 text-amber-300 ml-auto">PRO</span>
                         )}
                       </div>
