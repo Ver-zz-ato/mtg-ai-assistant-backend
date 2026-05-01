@@ -10,6 +10,12 @@ import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/p
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 import { createEmptyAdminPromptPreview, type AdminPromptPreviewPayload } from "@/lib/ai/admin-prompt-preview-types";
 import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
+import {
+  buildDeckTextFromDbRows,
+  chatFormatUsesCommanderLayers,
+  formatKeyForPromptLayers,
+  resolveChatFormat,
+} from "@/lib/chat/resolve-chat-format";
 
 export const runtime = "nodejs";
 
@@ -289,20 +295,43 @@ export async function POST(req: NextRequest) {
     if (deckIdLinked) {
       try {
         const { data: d } = await supabase.from("decks").select("title, commander, format").eq("id", deckIdLinked).maybeSingle();
-        const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdLinked).limit(400);
+        const { data: allCards } = await supabase.from("deck_cards").select("name, qty, zone").eq("deck_id", deckIdLinked).limit(400);
         let entries: Array<{ count: number; name: string }> = [];
         let deckText = "";
         if (allCards && Array.isArray(allCards) && allCards.length > 0) {
           entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
-          deckText = entries.map((e: { count: number; name: string }) => `${e.count} ${e.name}`).join("\n");
+          deckText = buildDeckTextFromDbRows(
+            allCards.map((c: any) => ({ name: String(c.name || "").trim(), qty: c.qty, zone: c.zone }))
+          );
         }
         deckData = { d, entries, deckText };
       } catch (_) {}
     }
 
-    // formatKey: prefs.format is source of truth; do not override with deck.format when deckId present
-    const deckFormat = deckData?.d?.format ? String(deckData.d.format).toLowerCase().replace(/\s+/g, "") : null;
-    const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
+    const prefsFormatStr = typeof prefs?.format === "string" ? prefs.format : null;
+    const ctxFmt =
+      typeof raw?.context === "object" && raw?.context !== null && "format" in (raw.context as object)
+        ? (raw.context as { format?: string }).format
+        : undefined;
+
+    const chatFmtResolved = resolveChatFormat({
+      prefsFormat: prefsFormatStr,
+      contextFormat: ctxFmt,
+      deckFormat: deckData?.d?.format,
+    });
+    const commanderLayersOn = chatFormatUsesCommanderLayers(chatFmtResolved.canonical);
+    const formatKey = formatKeyForPromptLayers(chatFmtResolved.canonical);
+
+    streamDebug("chat_format_resolution", {
+      raw_request: chatFmtResolved.rawRequest,
+      raw_deck: chatFmtResolved.rawDeck,
+      normalized: chatFmtResolved.canonical,
+      format_source: chatFmtResolved.source,
+      prompt_format_key: formatKey,
+    });
+
+    const deckFormatRaw = typeof deckData?.d?.format === "string" ? deckData.d.format.trim() : null;
+    const deckFormat = deckFormatRaw ? String(deckFormatRaw).toLowerCase().replace(/\s+/g, "") : null;
 
     // Phase 5: ActiveDeckContext as single source of truth
     let streamThreadHistoryEarly: Array<{ role: string; content?: string }> = [];
@@ -327,6 +356,7 @@ export async function POST(req: NextRequest) {
       clientConversation,
       isStandaloneRulesQuestion,
       deckData,
+      applyCommanderNameGating: commanderLayersOn,
     });
     streamDebug("active_deck_context", {
       hasDeck: activeDeckContext.hasDeck,
@@ -424,7 +454,18 @@ export async function POST(req: NextRequest) {
       const authForPrompt = isAuthoritativeForPrompt(activeDeckContext);
       const pasteSource = activeDeckContext.source === "current_paste" || activeDeckContext.source === "guest_ephemeral";
       const commanderConfirmedOrCorrected = activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected" || activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander;
-      const mayAnalyze = activeDeckContext.hasDeck && activeDeckContext.commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt);
+      const fullDeckCompose = !!(deckContextForCompose?.deckCards?.length);
+      const linkedWithDeckCards = activeDeckContext.source === "linked" && fullDeckCompose;
+      const threadBackedDeck = activeDeckContext.source === "thread_slot" && fullDeckCompose;
+      let mayAnalyze = false;
+      if (activeDeckContext.hasDeck && fullDeckCompose) {
+        if (commanderLayersOn) {
+          mayAnalyze =
+            !!activeDeckContext.commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt);
+        } else {
+          mayAnalyze = pasteSource || linkedWithDeckCards || threadBackedDeck || authForPrompt;
+        }
+      }
       streamInjected = mayAnalyze ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none";
       streamDecisionReason = mayAnalyze ? "commander_confirmed_or_linked" : activeDeckContext.askReason === "confirm_inference" ? "paste_inferred_ask_confirm" : activeDeckContext.askReason === "need_commander" ? "commander_unknown_ask" : null;
 
@@ -434,7 +475,8 @@ export async function POST(req: NextRequest) {
         streamInjected,
         streamDecisionReason,
         activeDeckContext,
-        hasFullDeckContext: !!(deckContextForCompose?.deckCards?.length),
+        hasFullDeckContext: fullDeckCompose,
+        analyzeAllowedWithoutNamedCommander: !commanderLayersOn,
       });
       streamInjected = normalizedState.streamInjected;
       streamDecisionReason = normalizedState.streamDecisionReason;
@@ -563,7 +605,7 @@ export async function POST(req: NextRequest) {
     if (prefs && (prefs.format || prefs.budget || (Array.isArray(prefs.colors) && prefs.colors.length))) {
       const plan = typeof prefs.budget === "string" ? prefs.budget : (typeof prefs.plan === "string" ? prefs.plan : undefined);
       let colors: string;
-      if (formatKey === "commander") {
+      if (commanderLayersOn) {
         const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
         colors = cols?.length
           ? `${cols.join(",")} (fixed; do NOT violate)`
@@ -647,7 +689,9 @@ export async function POST(req: NextRequest) {
                 const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
                 v2Summary = await buildDeckContextSummary(deckTextForV2, {
                   format: deckFormatStringToAnalyzeFormat(deckData?.d?.format || null),
-                  commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null,
+                  ...(commanderLayersOn
+                    ? { commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null }
+                    : {}),
                   colors: Array.isArray(deckData?.d?.colors) ? deckData.d.colors : [],
                 });
                 await admin.from("deck_context_summary").upsert(
@@ -660,7 +704,9 @@ export async function POST(req: NextRequest) {
               const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
               v2Summary = await buildDeckContextSummary(deckTextForV2, {
                 format: deckFormatStringToAnalyzeFormat(deckData?.d?.format || null),
-                commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null,
+                ...(commanderLayersOn
+                  ? { commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null }
+                  : {}),
                 colors: Array.isArray(deckData?.d?.colors) ? deckData.d.colors : [],
               });
               streamContextSource = "raw_fallback";
@@ -671,9 +717,16 @@ export async function POST(req: NextRequest) {
               v2Summary = cached;
               streamContextSource = "paste_ttl";
             } else {
+              const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
+              const summarizeHint =
+                typeof chatFmtResolved.rawRequest === "string"
+                  ? chatFmtResolved.rawRequest
+                  : typeof chatFmtResolved.rawDeck === "string"
+                    ? chatFmtResolved.rawDeck
+                    : null;
               v2Summary = await buildDeckContextSummary(deckTextForV2, {
-                format: "Commander",
-                commander: activeDeckContext.commanderName ?? undefined,
+                format: deckFormatStringToAnalyzeFormat(summarizeHint),
+                ...(commanderLayersOn ? { commander: activeDeckContext.commanderName ?? undefined } : {}),
               });
               setPasteSummary(hashForV2, v2Summary);
               streamContextSource = "paste_ttl";
@@ -705,7 +758,9 @@ export async function POST(req: NextRequest) {
       const { detectRulesLegalityIntent, extractCardNamesFromMessage, getRulesFactBundle } = await import("@/lib/deck/rules-facts");
       const { formatRulesFactsForLLM } = await import("@/lib/deck/intelligence-formatter");
       if (detectRulesLegalityIntent(text ?? "")) {
-        const rulesCommander = activeDeckContext.commanderName ?? v2Summary?.commander ?? null;
+        const rulesCommander = commanderLayersOn
+          ? activeDeckContext.commanderName ?? v2Summary?.commander ?? null
+          : null;
         const rulesCards = extractCardNamesFromMessage(text ?? "");
         if (rulesCommander || rulesCards.length) {
           try {
@@ -725,7 +780,7 @@ export async function POST(req: NextRequest) {
     let inferredCommanderForConfirmation: string | null = null;
     let commanderCorrectionForPrompt: string | null = null;
     let userConfirmedOrCorrectedCommander = false;
-    if (selectedTier === "full" && v2Summary?.commander && streamContextSource === "paste_ttl") {
+    if (selectedTier === "full" && commanderLayersOn && v2Summary?.commander && streamContextSource === "paste_ttl") {
       inferredCommanderForConfirmation = v2Summary.commander;
     }
     if (inferredCommanderForConfirmation) {
@@ -795,7 +850,8 @@ export async function POST(req: NextRequest) {
         }
         const { formatForLLM, formatDeckPlanProfileForLLM } = await import("@/lib/deck/intelligence-formatter");
         const { buildDeckPlanProfile } = await import("@/lib/deck/deck-plan-profile");
-        const commanderForFacts = activeDeckContext.userJustCorrectedCommander ? activeDeckContext.commanderName : undefined;
+        const commanderForFacts =
+          commanderLayersOn && activeDeckContext.userJustCorrectedCommander ? activeDeckContext.commanderName : undefined;
         const deckFactsProse = formatForLLM(v2Summary.deck_facts, v2Summary.synergy_diagnostics, commanderForFacts ?? undefined);
         const deckIntelA = `\n\n=== DECK INTELLIGENCE (AUTHORITATIVE - DO NOT CONTRADICT) ===\n${deckFactsProse}\n`;
         sys += deckIntelA;
@@ -869,8 +925,9 @@ export async function POST(req: NextRequest) {
       if (adminPv) adminPv.recent_conversation_block_text = recent6Block.trim() || null;
     }
     if (selectedTier === "full" && streamInjected === "analyze") {
-      const commanderForGrounding =
-        activeDeckContext.commanderName ?? v2Summary?.commander ?? deckData?.d?.commander ?? null;
+      const commanderForGrounding = commanderLayersOn
+        ? activeDeckContext.commanderName ?? v2Summary?.commander ?? deckData?.d?.commander ?? null
+        : null;
       if (commanderForGrounding) {
         try {
           const { formatCommanderGroundingForPrompt } = await import("@/lib/deck/commander-grounding");
@@ -922,8 +979,15 @@ export async function POST(req: NextRequest) {
     }
     if (selectedTier === "full" && streamInjected === "analyze" && deckData && deckData.deckText.trim()) {
       const d = deckData.d;
-      const formatDisplay = deckFormat || formatKey;
-      let inferredContext: { format: string; colors: string[]; commander: string | null } = { format: formatDisplay, colors: [], commander: d?.commander ?? null };
+      const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
+      const formatForInfer = deckFormatStringToAnalyzeFormat(
+        chatFmtResolved.rawDeck ?? chatFmtResolved.rawRequest ?? deckFormat ?? d?.format ?? null
+      );
+      let inferredContext: { format: string; colors: string[]; commander: string | null } = {
+        format: formatForInfer,
+        colors: [],
+        commander: d?.commander ?? null,
+      };
       if (deckData.entries.length > 0) {
         try {
           const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
@@ -933,14 +997,23 @@ export async function POST(req: NextRequest) {
           for (const c of looked) {
             if (c) byName.set(c.name.toLowerCase(), c);
           }
-          inferredContext = await inferDeckContext(deckData.deckText, text, deckData.entries, formatDisplay, d?.commander ?? null, [], byName);
+          inferredContext = await inferDeckContext(
+            deckData.deckText,
+            text,
+            deckData.entries,
+            formatForInfer,
+            d?.commander ?? null,
+            [],
+            byName
+          );
         } catch (_) {}
       }
       const { isAuthoritativeForPrompt } = await import("@/lib/chat/active-deck-context");
       const commanderForDeckContext =
-        isAuthoritativeForPrompt(activeDeckContext) && activeDeckContext.commanderName
+        commanderLayersOn &&
+        (isAuthoritativeForPrompt(activeDeckContext) && activeDeckContext.commanderName
           ? activeDeckContext.commanderName
-          : inferredContext.commander;
+          : inferredContext.commander);
       let deckCtxBlock = "";
       deckCtxBlock += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
       deckCtxBlock += `- Format: ${inferredContext.format} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
@@ -987,8 +1060,11 @@ export async function POST(req: NextRequest) {
           const lastDeck = clientConversation.slice().reverse().find((m: { role: string; content?: string }) => m.role === "user" && m.content && isDecklist(m.content));
           return lastDeck?.content ?? text ?? "";
         })() : text ?? ""));
-        const commanderForRaw = deckContextForCompose.commanderName ?? extractCommanderFromDecklistText(deckTextForRaw, text ?? undefined);
-        if (commanderForRaw && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commanderForRaw;
+        const commanderForRaw =
+          deckContextForCompose.commanderName ?? extractCommanderFromDecklistText(deckTextForRaw, text ?? undefined);
+        if (commanderLayersOn && commanderForRaw && !inferredCommanderForConfirmation) {
+          inferredCommanderForConfirmation = commanderForRaw;
+        }
         streamDebug("raw_deck", { deckTextLen: (deckTextForRaw || text || "").length, commanderForRaw, hasTid: !!tid });
         const decklistContext = generateDeckContext(
           tid ? (() => { const m = streamThreadHistory?.slice().reverse().find((x: { role: string; content?: string }) => x.role === "user" && x.content && isDecklist(x.content)); return analyzeDecklistFromText(m?.content ?? deckTextForRaw); })()
@@ -1052,8 +1128,13 @@ export async function POST(req: NextRequest) {
           }
           if (rawDeckText) {
             const commander = threadCommander ?? extractCommanderFromDecklistText(rawDeckText, text ?? undefined);
-            if (commander && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commander;
-            const decklistContext = generateDeckContext(analyzeDecklistFromText(rawDeckText), "Pasted Decklist", rawDeckText, commander);
+            if (commanderLayersOn && commander && !inferredCommanderForConfirmation) inferredCommanderForConfirmation = commander;
+            const decklistContext = generateDeckContext(
+              analyzeDecklistFromText(rawDeckText),
+              "Pasted Decklist",
+              rawDeckText,
+              commanderLayersOn ? commander : null
+            );
             if (decklistContext) {
               const chunk = "\n\n" + decklistContext;
               sys += chunk;
@@ -1130,10 +1211,17 @@ export async function POST(req: NextRequest) {
     let streamContractInjection = "";
     if (streamInjected === "analyze") {
       const a = `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
-      const b = `\n\n=== CRITICAL: COMMANDER CONFIRMED — ANALYZE NOW ===\nCommander is [[${activeDeckContext.commanderName}]]. Deck context is already available above. Begin full analysis immediately.\nFORBIDDEN: Do NOT ask for decklist, commander, format, budget, goals, or "what do you want to focus on?". Do NOT add preamble before Step 1. Your first sentence must be "Step 1:" followed by the first analysis step.`;
+      const forbidCommanderFr = commanderLayersOn ? ", commander," : ",";
+      const b =
+        commanderLayersOn && activeDeckContext.commanderName
+          ? `\n\n=== CRITICAL: COMMANDER CONFIRMED — ANALYZE NOW ===\nCommander is [[${activeDeckContext.commanderName}]]. Deck context is already available above. Begin full analysis immediately.\nFORBIDDEN: Do NOT ask for decklist, commander, format, budget, goals, or "what do you want to focus on?". Do NOT add preamble before Step 1. Your first sentence must be "Step 1:" followed by the first analysis step.`
+          : `\n\n=== CRITICAL: DECK READY — ANALYZE NOW ===\nDeck context is already available above. Begin full analysis immediately.\nFORBIDDEN: Do NOT ask for decklist${forbidCommanderFr} format, budget, goals, or "what do you want to focus on?". Do NOT add preamble before Step 1. Your first sentence must be "Step 1:" followed by the first analysis step.`;
       streamContractInjection = a + b;
       sys += a + b;
-      if (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander) {
+      if (
+        commanderLayersOn &&
+        (activeDeckContext.userJustConfirmedCommander || activeDeckContext.userJustCorrectedCommander)
+      ) {
         if (tid && !isGuest) {
           try {
             const status = activeDeckContext.userJustCorrectedCommander ? "corrected" : "confirmed";
@@ -1141,10 +1229,10 @@ export async function POST(req: NextRequest) {
           } catch (_) {}
         }
       }
-    } else if (streamInjected === "confirm" && activeDeckContext.commanderName) {
+    } else if (streamInjected === "confirm" && commanderLayersOn && activeDeckContext.commanderName) {
       streamContractInjection = `\n\nCRITICAL: Ask only this, nothing else: "Is [[${activeDeckContext.commanderName}]] your commander?" Do not ask for decklist, goals, or provide analysis.`;
       sys += streamContractInjection;
-    } else if (streamInjected === "ask_commander") {
+    } else if (streamInjected === "ask_commander" && commanderLayersOn) {
       const bestCandidate = activeDeckContext.commanderCandidates?.[0]?.name;
       if (bestCandidate) {
         streamContractInjection = `\n\nCRITICAL: Ask only this, nothing else: "Is [[${bestCandidate}]] your commander?" Do not ask for decklist, goals, or provide analysis.`;
@@ -1208,6 +1296,7 @@ export async function POST(req: NextRequest) {
 
     // Layer 0 treats bare card names (e.g. commander replies) as non-MTG via keyword check — must not run before chat + activeDeckContext.
     const awaitingCommanderConfirmation =
+      commanderLayersOn &&
       activeDeckContext.hasDeck &&
       (activeDeckContext.askReason === "confirm_inference" || activeDeckContext.askReason === "need_commander");
     const skipLayer0ForCommanderFlow =

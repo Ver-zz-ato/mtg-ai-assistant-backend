@@ -30,6 +30,11 @@ export type NormalizeCommanderDecisionStateArgs = {
   streamDecisionReason: string | null;
   activeDeckContext: ActiveDeckContext;
   hasFullDeckContext: boolean;
+  /**
+   * When true (constructed or unknown-but-not-commander-chat), pasted/thread analysis does not require a named commander.
+   * Mirrors stream `mayAnalyze` — keeps RULE B from downgrading analyze → confirm when format is non-Commander.
+   */
+  analyzeAllowedWithoutNamedCommander: boolean;
 };
 
 /**
@@ -41,13 +46,16 @@ export type NormalizeCommanderDecisionStateArgs = {
 export function normalizeCommanderDecisionState(
   args: NormalizeCommanderDecisionStateArgs
 ): NormalizedCommanderState {
-  const { streamInjected, streamDecisionReason, activeDeckContext, hasFullDeckContext } = args;
+  const { streamInjected, streamDecisionReason, activeDeckContext, hasFullDeckContext, analyzeAllowedWithoutNamedCommander } =
+    args;
   const source = activeDeckContext.source as DeckSource;
   const hasDeck = activeDeckContext.hasDeck;
   const rawStatus = activeDeckContext.commanderStatus;
   const linkedTrusted = source === "linked" && !!activeDeckContext.commanderName;
   const pasteOrThread =
     source === "current_paste" || source === "guest_ephemeral" || source === "thread_slot";
+  const analyzeTrustWithoutNamedCommander =
+    analyzeAllowedWithoutNamedCommander && hasDeck && hasFullDeckContext;
 
   const explicitlyConfirmed =
     rawStatus === "confirmed" ||
@@ -61,11 +69,16 @@ export function normalizeCommanderDecisionState(
   else if (rawStatus === "inferred" && hasDeck) confirmation_source = "inferred_only";
 
   const trusted_commander_for_analysis =
-    hasDeck && hasFullDeckContext && (linkedTrusted || explicitlyConfirmed);
+    hasDeck &&
+    hasFullDeckContext &&
+    (linkedTrusted || explicitlyConfirmed || analyzeTrustWithoutNamedCommander);
 
   // Detect contradictory state before normalization
   const invalidAnalyzeWithUnconfirmed =
-    streamInjected === "analyze" && !linkedTrusted && !explicitlyConfirmed;
+    streamInjected === "analyze" &&
+    !linkedTrusted &&
+    !explicitlyConfirmed &&
+    !analyzeTrustWithoutNamedCommander;
   const invalidReasonMismatch =
     streamDecisionReason === "commander_confirmed_or_linked" &&
     !linkedTrusted &&
@@ -77,8 +90,14 @@ export function normalizeCommanderDecisionState(
   let effectiveStatus = rawStatus;
   let effectiveReason = streamDecisionReason;
 
-  // RULE B / INVARIANT: analyze turn from paste/thread must have commander confirmed
-  if (streamInjected === "analyze" && pasteOrThread && !explicitlyConfirmed && !linkedTrusted) {
+  // RULE B / INVARIANT: Commander-format paste/thread analyze must have commander confirmed (linked trust or explicit)
+  if (
+    streamInjected === "analyze" &&
+    pasteOrThread &&
+    !explicitlyConfirmed &&
+    !linkedTrusted &&
+    !analyzeTrustWithoutNamedCommander
+  ) {
     // Downgrade to confirm so we don't run analysis with inferred-only
     effectiveInjected = activeDeckContext.askReason === "need_commander" ? "ask_commander" : "confirm";
     effectiveReason =
@@ -104,7 +123,7 @@ export function normalizeCommanderDecisionState(
   const analyze_now_expected =
     effectiveInjected === "analyze" &&
     hasFullDeckContext &&
-    (commander_confirmed || linkedTrusted);
+    (commander_confirmed || linkedTrusted || analyzeTrustWithoutNamedCommander);
 
   const extra_clarification_allowed = !analyze_now_expected;
 

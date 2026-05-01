@@ -103,6 +103,11 @@ export type ResolveActiveDeckContextArgs = {
     entries: Array<{ name: string; count?: number }>;
     deckText: string;
   } | null;
+  /**
+   * When false, do not emit need_commander / confirm_inference (constructed or non-Commander format resolution).
+   * Omit or true preserves legacy Commander-focused behaviour.
+   */
+  applyCommanderNameGating?: boolean;
 };
 
 function detectExplicitOverride(text: string | null): boolean {
@@ -282,6 +287,7 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
     clientConversation,
     isStandaloneRulesQuestion,
     deckData,
+    applyCommanderNameGating,
   } = args;
 
   const path: string[] = [];
@@ -473,16 +479,18 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
   let shouldAskForDeck = false;
   let askReason: AskReason = null;
 
+  const cmdGatingOn = applyCommanderNameGating !== false;
+
   if (!hasDeck) {
     if (!isStandaloneRulesQuestion) {
       shouldAskForDeck = true;
       askReason = "need_deck";
     }
-  } else if (effectiveCommanderStatus === "missing") {
+  } else if (cmdGatingOn && effectiveCommanderStatus === "missing") {
     shouldAskCommanderConfirmation = false;
     shouldAskForDeck = false;
     askReason = "need_commander";
-  } else if (effectiveCommanderStatus === "inferred" && !userRespondedToConfirm) {
+  } else if (cmdGatingOn && effectiveCommanderStatus === "inferred" && !userRespondedToConfirm) {
     shouldAskCommanderConfirmation = true;
     askReason = "confirm_inference";
   }

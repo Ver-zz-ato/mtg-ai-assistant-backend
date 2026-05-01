@@ -12,6 +12,12 @@ import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
+import {
+  buildDeckTextFromDbRows,
+  chatFormatUsesCommanderLayers,
+  formatKeyForPromptLayers,
+  resolveChatFormat,
+} from "@/lib/chat/resolve-chat-format";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -670,12 +676,18 @@ export async function POST(req: NextRequest) {
           // Try to get deck info and cards from deck_cards table (full database, up to 400 cards)
           const { data: deckData } = await supabase.from("decks").select("title, commander, format, deck_aim").eq("id", deckIdToUse).maybeSingle();
           d = deckData;
-          const { data: allCards } = await supabase.from("deck_cards").select("name, qty").eq("deck_id", deckIdToUse).limit(400);
+          const { data: allCards } = await supabase.from("deck_cards").select("name, qty, zone").eq("deck_id", deckIdToUse).limit(400);
           
           if (allCards && Array.isArray(allCards) && allCards.length > 0) {
             // Use deck_cards table (full database, proper structure)
             entries = allCards.map((c: any) => ({ count: c.qty || 1, name: c.name }));
-            deckText = entries.map(e => `${e.count} ${e.name}`).join("\n");
+            deckText = buildDeckTextFromDbRows(
+              allCards.map((c: any) => ({
+                name: String(c.name || "").trim(),
+                qty: c.qty,
+                zone: c.zone,
+              }))
+            );
           } else {
             // Fallback to deck_text field for backward compatibility
             const { data: dFallback } = await supabase.from("decks").select("deck_text,title").eq("id", deckIdToUse).maybeSingle();
@@ -794,6 +806,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const prefsFmtEarly = typeof prefs?.format === "string" ? prefs.format : null;
+    const ctxFmtEarly =
+      typeof context === "object" && context !== null && "format" in context
+        ? (context as { format?: string }).format
+        : undefined;
+
+    let chatFmtResolved = resolveChatFormat({
+      prefsFormat: prefsFmtEarly,
+      contextFormat: ctxFmtEarly,
+      deckFormat: d?.format ?? null,
+    });
+    let commanderLayersOn = chatFormatUsesCommanderLayers(chatFmtResolved.canonical);
+
+    let deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
+    let formatKey = formatKeyForPromptLayers(chatFmtResolved.canonical);
+
+    if (DEV) {
+      logger.info(
+        JSON.stringify({
+          tag: "chat_format_resolution",
+          route: "/api/chat",
+          raw_request: chatFmtResolved.rawRequest,
+          raw_deck: chatFmtResolved.rawDeck,
+          normalized: chatFmtResolved.canonical,
+          format_source: chatFmtResolved.source,
+          prompt_format_key: formatKey,
+        })
+      );
+    }
+
     // LLM v2 context (Phase A): summary instead of full decklist. Kill-switch: LLM_V2_CONTEXT=off or runtime forces raw path.
     let v2Summary: import("@/lib/deck/deck-context-summary").DeckContextSummary | null = null;
     let contextSource: "linked_db" | "paste_ttl" | "raw_fallback" = "raw_fallback";
@@ -828,7 +870,7 @@ export async function POST(req: NextRequest) {
               const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
               v2Summary = await buildDeckContextSummary(deckText, {
                 format: deckFormatStringToAnalyzeFormat(d?.format || null),
-                commander: d?.commander ?? null,
+                ...(commanderLayersOn ? { commander: d?.commander ?? null } : {}),
                 colors: Array.isArray(d?.colors) ? d.colors : [],
               });
               await admin.from("deck_context_summary").upsert(
@@ -847,7 +889,7 @@ export async function POST(req: NextRequest) {
             const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
             v2Summary = await buildDeckContextSummary(deckText, {
               format: deckFormatStringToAnalyzeFormat(d?.format || null),
-              commander: d?.commander ?? null,
+              ...(commanderLayersOn ? { commander: d?.commander ?? null } : {}),
               colors: Array.isArray(d?.colors) ? d.colors : [],
             });
             contextSource = "raw_fallback";
@@ -862,10 +904,19 @@ export async function POST(req: NextRequest) {
             contextSource = "paste_ttl";
           } else {
             const { extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
-            const commander = extractCommanderFromDecklistText(pastedDeckTextRaw, text ?? undefined);
+            const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
+            const summarizeHintPast =
+              typeof chatFmtResolved.rawRequest === "string"
+                ? chatFmtResolved.rawRequest
+                : typeof chatFmtResolved.rawDeck === "string"
+                  ? chatFmtResolved.rawDeck
+                  : null;
+            const commander = commanderLayersOn
+              ? extractCommanderFromDecklistText(pastedDeckTextRaw, text ?? undefined)
+              : null;
             v2Summary = await buildDeckContextSummary(pastedDeckTextRaw, {
-              format: "Commander",
-              commander: commander ?? undefined,
+              format: deckFormatStringToAnalyzeFormat(summarizeHintPast),
+              ...(commander ? { commander } : {}),
             });
             setPasteSummary(hash, v2Summary);
             contextSource = "paste_ttl";
@@ -884,8 +935,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
-    const formatKey = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
+    chatFmtResolved = resolveChatFormat({
+      prefsFormat: prefsFmtEarly,
+      contextFormat: ctxFmtEarly,
+      deckFormat: d?.format ?? null,
+    });
+    commanderLayersOn = chatFormatUsesCommanderLayers(chatFmtResolved.canonical);
+    deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
+    formatKey = formatKeyForPromptLayers(chatFmtResolved.canonical);
     const deckContextForCompose = entries.length && d
       ? { deckCards: entries, commanderName: d.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdToUse ?? undefined }
       : (pastedDecklistForCompose ?? null);
@@ -1030,7 +1087,9 @@ export async function POST(req: NextRequest) {
       if (d && deckText && deckText.trim()) {
         sys += `\n\nDECK CONTEXT (YOU ALREADY KNOW THIS - DO NOT ASK OR ASSUME):\n`;
         sys += `- Format: ${deckFormat || formatKey} (this is the deck's format; do NOT say "Format unclear" or "I'll assume")\n`;
-        sys += `- Commander: ${d.commander || "none"}\n`;
+        if (commanderLayersOn) {
+          sys += `- Commander: ${d.commander || "none"}\n`;
+        }
         sys += `- Deck Title: ${d.title || "Untitled Deck"}\n`;
         sys += `- Full Decklist:\n${deckText}\n`;
         sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
@@ -1042,8 +1101,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (selectedTier === "full") {
-    const commanderForGrounding =
-      v2Summary?.commander ?? d?.commander ?? pastedDecklistForCompose?.commanderName ?? null;
+    const commanderForGrounding = commanderLayersOn
+      ? v2Summary?.commander ?? d?.commander ?? pastedDecklistForCompose?.commanderName ?? null
+      : null;
     if (commanderForGrounding) {
       try {
         const { formatCommanderGroundingForPrompt } = await import("@/lib/deck/commander-grounding");
@@ -1105,8 +1165,13 @@ export async function POST(req: NextRequest) {
     // Add format-specific knowledge
     try {
       const { getFormatKnowledge, formatKnowledgeForPrompt } = await import("@/lib/data/format-knowledge");
-      const format = typeof prefs?.format === 'string' ? prefs.format : undefined;
-      const knowledge = getFormatKnowledge(format);
+      const formatForKnowledge =
+        (typeof prefs?.format === "string" ? prefs.format : null)
+          ?? chatFmtResolved.rawDeck
+          ?? chatFmtResolved.rawRequest
+          ?? deckFormat
+          ?? undefined;
+      const knowledge = getFormatKnowledge(formatForKnowledge);
       if (knowledge) {
         sys += formatKnowledgeForPrompt(knowledge);
       }
@@ -1156,9 +1221,8 @@ export async function POST(req: NextRequest) {
       const fmt = typeof prefs.format === 'string' ? prefs.format : undefined;
       const plan = typeof prefs.budget === 'string' ? prefs.budget : (typeof prefs.plan === 'string' ? prefs.plan : undefined);
       const cols = Array.isArray(prefs.colors) ? prefs.colors : [];
-      const formatKeyForColors = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
       let colors: string;
-      if (formatKeyForColors === "commander") {
+      if (commanderLayersOn) {
         colors = cols?.length
           ? `${cols.join(",")} (fixed; do NOT violate)`
           : "commander color identity (infer from commander; do NOT treat as any)";
@@ -1196,7 +1260,9 @@ export async function POST(req: NextRequest) {
       try {
         const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
         const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
-        const format = deckFormatStringToAnalyzeFormat(d?.format || null);
+        const format = deckFormatStringToAnalyzeFormat(
+          ((typeof prefs?.format === "string" ? prefs.format : null) ?? d?.format ?? null) as string | null | undefined
+        );
         const commander = d?.commander || null;
         const deckAim = d?.deck_aim || null;
         const selectedColors: string[] = Array.isArray(prefs?.colors) ? prefs.colors : [];
@@ -1218,7 +1284,10 @@ export async function POST(req: NextRequest) {
           sys += `\n\nDeck aim/goal (user-specified): ${deckAim}. Use this to guide recommendations and ensure suggestions align with this strategy.`;
         }
         
-        const commanderProfile = inferredContext.commander ? COMMANDER_PROFILES[inferredContext.commander] : undefined;
+        const commanderProfile =
+          commanderLayersOn && inferredContext.commander
+            ? COMMANDER_PROFILES[inferredContext.commander]
+            : undefined;
         if (commanderProfile?.archetypeHint) {
           sys += `\n\nCommander plan: ${commanderProfile.archetypeHint}`;
         }
@@ -1227,7 +1296,7 @@ export async function POST(req: NextRequest) {
         sys += `\n\nINFERRED DECK ANALYSIS:\n`;
         sys += `- Format: ${inferredContext.format}\n`;
         sys += `- Colors: ${inferredContext.colors.join(', ') || 'none'}\n`;
-        if (inferredContext.commander) {
+        if (commanderLayersOn && inferredContext.commander) {
           sys += `- Commander: ${inferredContext.commander}\n`;
           if (inferredContext.commanderProvidesRamp) {
             sys += `- Commander provides ramp - do NOT suggest generic ramp like Cultivate/Kodama's Reach unless for synergy.\n`;
@@ -1242,7 +1311,7 @@ export async function POST(req: NextRequest) {
         if (inferredContext.format !== "Commander") {
           sys += `- WARNING: This is NOT Commander format. Do NOT suggest Commander-only cards like Sol Ring, Command Tower, Arcane Signet.\n`;
           sys += `- Only suggest cards legal in ${inferredContext.format} format.\n`;
-        } else {
+        } else if (commanderLayersOn) {
           sys += `- This is Commander format (100 cards singleton) - do NOT suggest narrow 4-of-y cards. Suggest singleton-viable cards only.\n`;
         }
         sys += `- Do NOT suggest cards that are already in the decklist.\n`;
@@ -1267,7 +1336,7 @@ export async function POST(req: NextRequest) {
 
     // COMMANDER CLARIFICATION: When user pastes a decklist without specifying commander
     // and we're in Commander format, instruct the AI to ask for clarification FIRST
-    const isCommanderFormat = formatKey === "commander" || formatKey === "edh" || !formatKey;
+    const isCommanderFormat = commanderLayersOn;
     const hasLinkedCommander = !!d?.commander;
     const hasPastedDecklist = !!pastedDecklistForCompose?.deckCards?.length;
     const pastedCommanderDetected = !!pastedDecklistForCompose?.commanderName;
@@ -1742,7 +1811,11 @@ Return the corrected answer with concise, user-facing tone.`;
     const deckCardsForValidate = entries.length > 0 ? entries : (pastedDecklistForCompose?.deckCards ?? []);
     if (deckCardsForValidate.length > 0 && outText && typeof outText === "string") {
       try {
-        const formatKeyForValidate = (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander";
+        const formatKeyForValidate =
+          (typeof prefs?.format === "string" ? prefs.format : null)
+          ?? deckFormat
+          ?? chatFmtResolved.canonical
+          ?? "commander";
         const formatKeyVal = (formatKeyForValidate === "modern" || formatKeyForValidate === "pioneer"
           ? formatKeyForValidate
           : "commander") as "commander" | "modern" | "pioneer";
@@ -1842,7 +1915,10 @@ Return the corrected answer with concise, user-facing tone.`;
     } else if (outText && typeof outText === "string" && outText.includes("[[")) {
       try {
         const rawFmt = String(
-          (typeof prefs?.format === "string" ? prefs.format : null) ?? deckFormat ?? "commander"
+          (typeof prefs?.format === "string" ? prefs.format : null)
+            ?? deckFormat
+            ?? chatFmtResolved.canonical
+            ?? "commander"
         );
         const formatForRec =
           rawFmt.length > 0
