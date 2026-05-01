@@ -292,6 +292,8 @@ export async function POST(req: NextRequest) {
     if (contextDeckId) deckIdLinked = contextDeckId;
 
     let deckData: { d: any; entries: Array<{ count: number; name: string }>; deckText: string } | null = null;
+    /** Populated from linked `deck_cards` rows (zone-aware); null if not linked or no rows. */
+    let linkedDeckCardCounts: { deck_card_count: number; mainboard_card_count: number; sideboard_card_count: number } | null = null;
     if (deckIdLinked) {
       try {
         const { data: d } = await supabase.from("decks").select("title, commander, format").eq("id", deckIdLinked).maybeSingle();
@@ -303,6 +305,18 @@ export async function POST(req: NextRequest) {
           deckText = buildDeckTextFromDbRows(
             allCards.map((c: any) => ({ name: String(c.name || "").trim(), qty: c.qty, zone: c.zone }))
           );
+          let mainboardQty = 0;
+          let sideboardQty = 0;
+          for (const c of allCards as { qty?: number | null; zone?: string | null }[]) {
+            const qty = Math.max(1, Math.floor(Number(c.qty) || 0));
+            if (String(c.zone || "mainboard").toLowerCase() === "sideboard") sideboardQty += qty;
+            else mainboardQty += qty;
+          }
+          linkedDeckCardCounts = {
+            deck_card_count: mainboardQty + sideboardQty,
+            mainboard_card_count: mainboardQty,
+            sideboard_card_count: sideboardQty,
+          };
         }
         deckData = { d, entries, deckText };
       } catch (_) {}
@@ -415,6 +429,8 @@ export async function POST(req: NextRequest) {
     let streamInjected: "analyze" | "confirm" | "ask_commander" | "none" = "none";
     let streamDecisionReason: string | null = null;
     let streamNormalizedState: import("@/lib/chat/normalize-commander-decision").NormalizedCommanderState | null = null;
+    /** Full tier only: whether routing chose analyze after normalization; null for micro/standard. */
+    let mayAnalyzeDebug: boolean | null = null;
 
     if (selectedTier === "micro") {
       sys = MICRO_PROMPT + "\n\n" + NO_FILLER_INSTRUCTION;
@@ -481,6 +497,7 @@ export async function POST(req: NextRequest) {
       streamInjected = normalizedState.streamInjected;
       streamDecisionReason = normalizedState.streamDecisionReason;
       streamNormalizedState = normalizedState;
+      mayAnalyzeDebug = streamInjected === "analyze";
 
       const hasDeckContextForPrompt = !!deckContextForCompose;
       let fullTierResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
@@ -1592,6 +1609,16 @@ export async function POST(req: NextRequest) {
                   : streamInjected === "ask_commander"
                     ? "missing_need_commander"
                     : null;
+            const composeQtyTotal =
+              deckContextForCompose?.deckCards?.reduce((acc, e) => {
+                const n = Math.max(1, Math.floor(Number(e.count ?? 1) || 0));
+                return acc + n;
+              }, 0) ?? 0;
+            const debugDeckCardCount =
+              linkedDeckCardCounts?.deck_card_count ?? (composeQtyTotal > 0 ? composeQtyTotal : null);
+            const debugMainboardCardCount = linkedDeckCardCounts?.mainboard_card_count ?? null;
+            const debugSideboardCardCount = linkedDeckCardCounts?.sideboard_card_count ?? null;
+
             const debugPayload = {
               ts: Date.now(),
               phase: "start",
@@ -1632,6 +1659,18 @@ export async function POST(req: NextRequest) {
               prompt_tier: selectedTier,
               prompt_contract: promptContractLog,
               format_key: formatKey,
+              chat_format_resolution: {
+                canonical: chatFmtResolved.canonical,
+                format_source: chatFmtResolved.source,
+                rawRequest: chatFmtResolved.rawRequest,
+                rawDeck: chatFmtResolved.rawDeck,
+              },
+              commanderLayersOn,
+              applyCommanderNameGating: commanderLayersOn,
+              mayAnalyze: mayAnalyzeDebug,
+              deck_card_count: debugDeckCardCount,
+              mainboard_card_count: debugMainboardCardCount,
+              sideboard_card_count: debugSideboardCardCount,
               analyze_now_expected: norm?.analyze_now_expected ?? (selectedTier === "full" && streamInjected === "analyze" && !!(deckContextForCompose?.deckCards?.length) && (promptContractLog.commanderStatus === "confirmed" || promptContractLog.commanderStatus === "corrected")),
               has_full_deck_context: !!(deckContextForCompose?.deckCards?.length),
               extra_clarification_allowed: norm?.extra_clarification_allowed ?? !(selectedTier === "full" && streamInjected === "analyze" && !!(deckContextForCompose?.deckCards?.length) && (promptContractLog.commanderStatus === "confirmed" || promptContractLog.commanderStatus === "corrected")),

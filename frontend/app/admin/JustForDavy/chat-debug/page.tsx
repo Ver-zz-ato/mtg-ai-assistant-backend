@@ -28,6 +28,17 @@ function stringifyVal(v: unknown): React.ReactNode {
   }
 }
 
+function debugField(
+  record: Record<string, unknown> | null | undefined,
+  key: string,
+  opts?: { treatNullAsMissing?: boolean },
+): React.ReactNode {
+  if (!record || !(key in record)) return <NotExposed />;
+  const v = record[key];
+  if (v === undefined || (opts?.treatNullAsMissing && v === null)) return <NotExposed />;
+  return stringifyVal(v);
+}
+
 async function consumeChatStreamDebug(
   response: Response,
   onDelta: (chunk: string) => void,
@@ -171,6 +182,8 @@ export default function AdminChatDebugPage() {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const startDebug = debugPhases.find((p) => p.phase === "start") ?? null;
+  const sd = startDebug as Record<string, unknown> | undefined;
+  const cfr = sd?.chat_format_resolution as Record<string, unknown> | undefined;
   const adc = startDebug?.active_deck_context as Record<string, unknown> | undefined;
   const ppc = startDebug?.prompt_contract as Record<string, unknown> | undefined;
   const promptPreviewPayload = startDebug?.prompt_preview as AdminPromptPreviewPayload | null | undefined;
@@ -330,24 +343,27 @@ export default function AdminChatDebugPage() {
 
           <h3 className="text-sm font-medium text-neutral-300 border-b border-neutral-800 pb-1">Format</h3>
           <div className="space-y-2">
-            <KV label="canonical (normalized format)" value={<NotExposed />} />
-            <KV label="format source" value={<NotExposed />} />
-            <KV label="raw deck format" value={<NotExposed />} />
-            <KV label="raw request format" value={<NotExposed />} />
-            <KV label="format_key (prompt layers)" value={startDebug?.format_key !== undefined ? stringifyVal(startDebug.format_key) : <NotExposed />} />
+            <KV label="canonical (chat_format_resolution)" value={debugField(cfr, "canonical")} />
+            <KV label="format_source" value={debugField(cfr, "format_source")} />
+            <KV label="rawDeck" value={debugField(cfr, "rawDeck")} />
+            <KV label="rawRequest" value={debugField(cfr, "rawRequest")} />
+            <KV label="format_key (prompt layers)" value={debugField(sd, "format_key")} />
           </div>
 
           <h3 className="text-sm font-medium text-neutral-300 border-b border-neutral-800 pb-1 pt-2">Commander / gating</h3>
           <div className="space-y-2">
-            <KV label="commanderLayersOn" value={<NotExposed />} />
-            <KV label="applyCommanderNameGating" value={<NotExposed />} />
+            <KV label="commanderLayersOn" value={debugField(sd, "commanderLayersOn")} />
+            <KV label="applyCommanderNameGating" value={debugField(sd, "applyCommanderNameGating")} />
             <KV label="commanderName" value={adc?.commanderName !== undefined ? stringifyVal(adc.commanderName) : <NotExposed />} />
             <KV label="commanderStatus" value={adc?.commanderStatus !== undefined ? stringifyVal(adc.commanderStatus) : <NotExposed />} />
           </div>
 
           <h3 className="text-sm font-medium text-neutral-300 border-b border-neutral-800 pb-1 pt-2">Decision</h3>
           <div className="space-y-2">
-            <KV label="mayAnalyze" value={<NotExposed />} />
+            <KV
+              label="mayAnalyze"
+              value={debugField(sd, "mayAnalyze", { treatNullAsMissing: true })}
+            />
             <KV label="askReason" value={adc?.askReason !== undefined ? stringifyVal(adc.askReason) : <NotExposed />} />
             <KV label="streamInjected (prompt_mode)" value={startDebug?.prompt_mode !== undefined ? stringifyVal(startDebug.prompt_mode) : <NotExposed />} />
             <KV label="prompt tier (prompt_tier)" value={startDebug?.prompt_tier !== undefined ? stringifyVal(startDebug.prompt_tier) : <NotExposed />} />
@@ -355,12 +371,14 @@ export default function AdminChatDebugPage() {
             <KV label="decision_reason" value={ppc?.decision_reason !== undefined ? stringifyVal(ppc.decision_reason) : <NotExposed />} />
           </div>
 
-          <h3 className="text-sm font-medium text-neutral-300 border-b border-neutral-800 pb-1 pt-2">Deck</h3>
+          <h3 className="text-sm font-medium text-neutral-300 border-b border-neutral-800 pb-1 pt-2">Deck counts</h3>
           <div className="space-y-2">
             <KV label="deck loaded (active_deck_context.hasDeck)" value={adc?.hasDeck !== undefined ? stringifyVal(adc.hasDeck) : <NotExposed />} />
-            <KV label="card count (deck_context_cards)" value={startDebug?.deck_context_cards !== undefined ? stringifyVal(startDebug.deck_context_cards) : <NotExposed />} />
-            <KV label="sideboard count" value={<NotExposed />} />
-            <KV label="v2_card_count" value={startDebug?.v2_card_count !== undefined ? stringifyVal(startDebug.v2_card_count) : <NotExposed />} />
+            <KV label="deck_context_cards (# lines in compose)" value={debugField(sd, "deck_context_cards")} />
+            <KV label="deck_card_count (Σ qty)" value={debugField(sd, "deck_card_count", { treatNullAsMissing: true })} />
+            <KV label="mainboard_card_count" value={debugField(sd, "mainboard_card_count", { treatNullAsMissing: true })} />
+            <KV label="sideboard_card_count" value={debugField(sd, "sideboard_card_count", { treatNullAsMissing: true })} />
+            <KV label="v2_card_count" value={debugField(sd, "v2_card_count", { treatNullAsMissing: true })} />
           </div>
 
           <h3 className="text-sm font-medium text-neutral-300 border-b border-neutral-800 pb-1 pt-2">Prompt preview</h3>
@@ -385,16 +403,15 @@ export default function AdminChatDebugPage() {
         </pre>
       </section>
 
-      <section className="text-xs text-neutral-500 space-y-1 border-t border-neutral-800 pt-4">
+      <section className="text-xs text-neutral-500 space-y-2 border-t border-neutral-800 pt-4">
         <p>
-          <strong className="text-neutral-400">Missing on wire (not in __MANATAP_DEBUG__):</strong> canonical normalized format, format_source, raw deck / request
-          format strings, commanderLayersOn, applyCommanderNameGating, mayAnalyze, sideboard count. Those are logged server-side only via{" "}
-          <code>DEBUG_CHAT_STREAM=1</code> <code>streamDebug(&quot;chat_format_resolution&quot;, …)</code>.
+          <strong className="text-neutral-400">Wire notes:</strong> With <code>x-debug-chat</code>, the start payload includes <code>chat_format_resolution</code>,{" "}
+          <code>commanderLayersOn</code>, <code>applyCommanderNameGating</code>, <code>mayAnalyze</code> (full tier only; otherwise omitted / null treated as &quot;not exposed&quot;
+          above), and zone splits for <strong>linked</strong> decks from <code>deck_cards</code>. Pasted/thread deck text without DB zones does not populate mainboard/sideboard
+          splits (counts stay null server-side → not exposed here).
         </p>
         <p>
-          Add them to <code>debugPayload</code> in <code>app/api/chat/stream/route.ts</code> when <code>x-debug-chat</code> (and admin if needed) —
-          preferably mirroring <code>streamDebug(&quot;chat_format_resolution&quot;, …)</code> plus explicit booleans —
-          or extend <code>x-admin-prompt-preview</code> typed payload.
+          Normal chat responses without <code>x-debug-chat</code> are unchanged (no debug block).
         </p>
       </section>
     </main>
