@@ -142,6 +142,7 @@ export default function DeckSnapshotPanel({ format, plan, colors, currency }: Pr
             format, plan, colors, currency,
             deck_text: deckText,
             data: { analyze: result },
+            is_public: false,
           }),
         });
       });

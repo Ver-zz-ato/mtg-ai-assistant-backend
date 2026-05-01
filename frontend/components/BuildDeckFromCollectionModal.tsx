@@ -194,6 +194,7 @@ export default function BuildDeckFromCollectionModal({
           plan: preview.plan,
           colors: preview.colors,
           deck_text: preview.deckText,
+          is_public: false,
         }),
       });
       const json = await res.json();

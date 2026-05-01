@@ -2,6 +2,7 @@
 
 import React from "react";
 import { AUTH_MESSAGES } from "@/lib/auth-messages";
+import { validatePublicText } from "@/lib/profanity";
 
 export default function SaveDeckButton({ getDeckText }: { getDeckText: () => string }) {
   const [open, setOpen] = React.useState(false);
@@ -15,11 +16,19 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
     setSaving(true);
     setErrorMsg("");
     try {
+      if (isPublic) {
+        const titleCheck = validatePublicText(title, "Deck name");
+        if (!titleCheck.ok) {
+          setErrorMsg(titleCheck.message);
+          setSaving(false);
+          return;
+        }
+      }
       const deck_text = getDeckText();
       const r = await fetch("/api/decks/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, commander, deck_text, is_public: isPublic }),
+        body: JSON.stringify({ title, commander, deck_text, is_public: isPublic === true }),
       });
 
       // Handle non-JSON responses gracefully (HTML error pages, proxies, etc.)
@@ -40,9 +49,9 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
 
       setOpen(false);
       alert(`Saved! Deck ID: ${j.id}`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[SaveDeckButton] error", e);
-      setErrorMsg(e.message || "Unexpected error");
+      setErrorMsg(e instanceof Error ? e.message : "Unexpected error");
     } finally {
       setSaving(false);
     }
@@ -75,9 +84,24 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
               placeholder="e.g., Kaust, Cunning Instigator"
             />
 
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
-              <span>Make public (shareable)</span>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+              <span className="text-sm">
+                <span className="text-neutral-200">Make deck public</span>
+                {!isPublic && (
+                  <span className="block text-xs text-neutral-500 mt-0.5">Only you can see this deck.</span>
+                )}
+                {isPublic && (
+                  <span className="block text-xs text-amber-200/90 mt-0.5">
+                    Public decks can be viewed by others and may appear on your public profile.
+                  </span>
+                )}
+              </span>
             </label>
 
             {errorMsg && <div className="text-red-500 text-sm whitespace-pre-wrap">{errorMsg}</div>}

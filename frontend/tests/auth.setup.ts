@@ -150,6 +150,7 @@ setup('authenticate', async ({ page, request }) => {
           title: 'Test Deck',
           format: 'commander',
           deck_text: '1 Sol Ring\n1 Lightning Bolt\n1 Counterspell\n1 Rhystic Study',
+          is_public: false,
         },
       });
       if (createResponse.ok()) {

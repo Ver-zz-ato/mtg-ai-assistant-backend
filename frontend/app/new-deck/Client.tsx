@@ -1,9 +1,7 @@
 "use client";
 import React from "react";
 import { useRouter } from "next/navigation";
-import FormatPickerModal from "@/components/FormatPickerModal";
-
-type Format = "commander" | "standard" | "modern" | "pioneer" | "pauper";
+import FormatPickerModal, { formatToApiString, type PickedDeckFormat } from "@/components/FormatPickerModal";
 
 export default function NewDeckClient() {
   const router = useRouter();
@@ -11,7 +9,7 @@ export default function NewDeckClient() {
   const [error, setError] = React.useState<string | null>(null);
   const submitLockRef = React.useRef(false);
 
-  async function createDeck(format: Format) {
+  async function createDeck(format: PickedDeckFormat, options: { makePublic: boolean }) {
     if (submitLockRef.current) return;
     submitLockRef.current = true;
     setCreating(true);
@@ -23,12 +21,12 @@ export default function NewDeckClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "Untitled Deck",
-          format: format.charAt(0).toUpperCase() + format.slice(1),
+          format: formatToApiString(format),
           plan: "Optimized",
           colors: [],
           currency: "USD",
           deck_text: "",
-          is_public: false,
+          is_public: options.makePublic === true,
         }),
       });
 
@@ -53,8 +51,8 @@ export default function NewDeckClient() {
       <FormatPickerModal
         isOpen={!creating}
         busy={creating}
-        onSelect={(f) => {
-          void createDeck(f);
+        onSelect={(f, opts) => {
+          void createDeck(f, opts);
         }}
         onClose={() => router.push("/my-decks")}
       />

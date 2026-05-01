@@ -16,7 +16,19 @@ export async function POST(req: Request) {
     if (!body?.id) return NextResponse.json({ ok:false, error: "id required" }, { status: 400 });
     const nextRaw = (body.title ?? "").toString();
     const next = sanitizeName(nextRaw, 120);
-    if (containsProfanity(next)) return NextResponse.json({ ok:false, error: "Please choose a different name." }, { status: 400 });
+
+    const { data: vis } = await supabase
+      .from("decks")
+      .select("is_public")
+      .eq("id", body.id)
+      .eq("user_id", u.user.id)
+      .maybeSingle();
+    if (vis && (vis as { is_public?: boolean }).is_public === true && next && containsProfanity(next)) {
+      return NextResponse.json(
+        { ok: false, error: "Please remove offensive language before making this public." },
+        { status: 400 }
+      );
+    }
 
     const { error } = await supabase
       .from("decks")
@@ -26,7 +38,8 @@ export async function POST(req: Request) {
 
     if (error) return NextResponse.json({ ok:false, error: error.message }, { status: 400 });
     return NextResponse.json({ ok:true });
-  } catch (e:any) {
-    return NextResponse.json({ ok:false, error: e?.message || "Server error" }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server error";
+    return NextResponse.json({ ok:false, error: msg }, { status: 500 });
   }
 }

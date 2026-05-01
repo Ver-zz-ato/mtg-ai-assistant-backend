@@ -113,6 +113,7 @@ export default function CommanderBuilderModules() {
           plan: moduleDPreview.plan,
           colors: moduleDPreview.colors,
           deck_text: moduleDPreview.deckText,
+          is_public: false,
         }),
       });
       const json = await res.json();
@@ -181,6 +182,7 @@ export default function CommanderBuilderModules() {
           plan: moduleCPreview.plan,
           colors: moduleCPreview.colors,
           deck_text: moduleCPreview.deckText,
+          is_public: false,
         }),
       });
       const json = await res.json();

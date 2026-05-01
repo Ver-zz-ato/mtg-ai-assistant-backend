@@ -6,7 +6,8 @@ import { withLogging } from "@/lib/api/withLogging";
 
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
-import { parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
+import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
+import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -73,6 +74,8 @@ const Req = z.object({
   colors: z.array(z.string()).default([]),
   currency: z.string().default("USD"),
   deck_text: z.string().default(""),
+  /** Explicit opt-in; omitted or false keeps the deck private. */
+  is_public: z.boolean().optional(),
   data: z.any().optional(),
 });
 
@@ -106,9 +109,21 @@ async function _POST(req: NextRequest) {
     if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
     const payload = parsed.data;
 
-    // Profanity guard on deck titles (same policy as rename endpoint)
     const cleanTitle = sanitizeName(payload.title, 120);
-    if (containsProfanity(cleanTitle)) return err("Please choose a different deck name.", "bad_request", 400);
+    const makePublic = payload.is_public === true;
+    if (makePublic && cleanTitle && containsProfanity(cleanTitle)) {
+      return err(
+        "Please remove offensive language before making this public.",
+        "bad_request",
+        400
+      );
+    }
+    if (makePublic) {
+      const parsedCount = parseDeckText(payload.deck_text || "");
+      const cardCount = parsedCount.reduce((s, p) => s + (p.qty || 1), 0);
+      const msg = getFormatComplianceMessage(payload.format, cardCount);
+      if (msg) return err(msg, "bad_request", 400);
+    }
 
     // Extract commander from deck_text (mainboard cards only; Commander format)
     let commander: string | null = null;
@@ -152,7 +167,8 @@ async function _POST(req: NextRequest) {
         deck_text: payload.deck_text,
         commander: commander,
         data: payload.data ?? null,
-        is_public: false,
+        is_public: makePublic,
+        public: makePublic,
       })
       .select("id")
       .single();

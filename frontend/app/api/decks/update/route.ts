@@ -11,7 +11,15 @@ type Body = {
   title?: string | null;
   deck_text?: string | null;
   is_public?: boolean | null;
+  /** Optional; same semantics as overview route (trim, max 500). */
+  deck_aim?: string | null;
 };
+
+function normalizeDeckAimInput(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const t = String(raw).trim().slice(0, 500);
+  return t.length ? t : null;
+}
 
 /**
  * Check if a card can be a commander by querying Scryfall
@@ -75,15 +83,61 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing deck id" }, { status: 400 });
     }
 
+    const { containsProfanity, sanitizeName } = await import("@/lib/profanity");
+
+    const { data: existing, error: existErr } = await supabase
+      .from("decks")
+      .select("title, is_public, deck_aim")
+      .eq("id", b.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (existErr || !existing) {
+      return NextResponse.json({ error: "Deck not found" }, { status: 404 });
+    }
+
+    const mergedTitle =
+      typeof b.title === "string"
+        ? sanitizeName(b.title, 120) || "Untitled Deck"
+        : String((existing as { title?: string }).title || "Untitled Deck").trim() || "Untitled Deck";
+
+    const mergedPublic =
+      typeof b.is_public === "boolean"
+        ? b.is_public
+        : (existing as { is_public?: boolean }).is_public === true;
+
+    const existingRow = existing as { deck_aim?: string | null };
+    let mergedDeckAim: string | null;
+    if (typeof b.deck_aim === "string") {
+      mergedDeckAim = normalizeDeckAimInput(b.deck_aim);
+    } else if (b.deck_aim === null) {
+      mergedDeckAim = null;
+    } else {
+      mergedDeckAim = normalizeDeckAimInput(existingRow.deck_aim);
+    }
+
+    if (mergedPublic) {
+      if (mergedTitle && containsProfanity(mergedTitle)) {
+        return NextResponse.json(
+          { error: "Please remove offensive language before making this public." },
+          { status: 400 }
+        );
+      }
+      if (mergedDeckAim && containsProfanity(mergedDeckAim)) {
+        return NextResponse.json(
+          { error: "Please remove offensive language before making this public." },
+          { status: 400 }
+        );
+      }
+    }
+
     // Build a partial update object
     const update: Record<string, unknown> = {};
     if (typeof b.title === "string") {
-      const { containsProfanity, sanitizeName } = await import("@/lib/profanity");
-      const next = sanitizeName(b.title, 120);
-      if (containsProfanity(next)) {
-        return NextResponse.json({ error: "Please choose a different deck name" }, { status: 400 });
-      }
-      update.title = next || "Untitled Deck";
+      update.title = sanitizeName(b.title, 120) || "Untitled Deck";
+    }
+    if (typeof b.deck_aim === "string" || b.deck_aim === null) {
+      update.deck_aim = typeof b.deck_aim === "string" ? mergedDeckAim : null;
     }
     if (typeof b.deck_text === "string") {
       update.deck_text = b.deck_text;
@@ -142,6 +196,7 @@ export async function POST(req: Request) {
         }
       }
       update.is_public = b.is_public;
+      update.public = b.is_public;
     }
 
     if (Object.keys(update).length === 0) {

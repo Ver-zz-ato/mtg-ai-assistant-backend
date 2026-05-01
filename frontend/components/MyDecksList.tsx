@@ -472,34 +472,33 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
       const createRes = await fetch('/api/decks/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: `${deckName} (Copy)` }),
+        body: JSON.stringify({ title: `${deckName} (Copy)`, is_public: false }),
       });
       
       const createJson = await createRes.json();
       
-      if (!createJson.ok || !createJson.deckId) {
+      if (!createJson.ok || !createJson.id) {
         toast('Failed to create duplicate deck', 'error');
         return;
       }
       
-      // Add cards to new deck
-      const newDeckId = createJson.deckId;
-      const deckText = cardsJson.cards.map((c: any) => `${c.qty} ${c.name}`).join('\n');
-      
-      const saveRes = await fetch('/api/decks/save', {
+      const newDeckId = createJson.id as string;
+      const deckText = cardsJson.cards.map((c: { qty: number; name: string }) => `${c.qty} ${c.name}`).join('\n');
+
+      const cardsSaveRes = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(newDeckId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deckId: newDeckId, deckText }),
+        body: JSON.stringify({ deckText }),
       });
       
-      const saveJson = await saveRes.json();
+      const cardsSaveJson = await cardsSaveRes.json();
       
-      if (saveJson.ok) {
+      if (cardsSaveJson.ok) {
         toast('✅ Deck duplicated successfully!', 'success');
         capture('deck_duplicated', { original_id: deckId, new_id: newDeckId });
         setTimeout(() => window.location.reload(), 1000);
       } else {
-        toast('Failed to save cards to duplicate deck', 'error');
+        toast(cardsSaveJson.error || 'Failed to save cards to duplicate deck', 'error');
       }
     } catch (e: any) {
       toast(e.message || 'Failed to duplicate deck', 'error');

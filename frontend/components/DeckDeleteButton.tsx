@@ -52,11 +52,12 @@ export default function DeckDeleteButton({ deckId, deckName, small, redirectTo }
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({
-                  name: deck.name,
+                  title: deck.title || deck.name,
                   format: deck.format,
                   deck_text: deck.deck_text,
                   commander: deck.commander,
                   colors: deck.colors,
+                  is_public: false,
                 }),
               });
               const restoreJson = await restoreRes.json();

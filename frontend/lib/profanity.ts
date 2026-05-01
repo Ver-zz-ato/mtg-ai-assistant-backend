@@ -33,3 +33,23 @@ export function sanitizeName(input: string, max = 120): string {
   if (!s) return s;
   return s;
 }
+
+const PUBLIC_TEXT_ERROR =
+  "Please remove offensive language before making this public.";
+
+/**
+ * Use when saving or publishing user-authored text (deck title, profile name, etc.).
+ * Card names and private-only fields can skip this.
+ */
+export function validatePublicText(
+  input: string,
+  fieldLabel: string
+): { ok: true } | { ok: false; message: string } {
+  void fieldLabel;
+  const s = String(input || "").trim();
+  if (!s) return { ok: true };
+  if (containsProfanity(s)) {
+    return { ok: false, message: PUBLIC_TEXT_ERROR };
+  }
+  return { ok: true };
+}

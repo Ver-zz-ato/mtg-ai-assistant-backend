@@ -288,7 +288,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               {/* Deck ID removed per request */}
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
-              <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} compact />
+              <DeckPublicToggle deckId={id} initialIsPublic={deck?.is_public === true} deckTitle={title} compact />
               {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} deckName={title} small redirectTo="/my-decks" />; })()}
             </div>
           </header>

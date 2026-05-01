@@ -20,7 +20,7 @@ export default function NewDeckInline() {
       const res = await fetch("/api/decks/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t }),
+        body: JSON.stringify({ title: t, is_public: false }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok || !json?.id) throw new Error(json?.error || `HTTP ${res.status}`);

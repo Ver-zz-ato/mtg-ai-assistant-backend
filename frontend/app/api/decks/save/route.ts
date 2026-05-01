@@ -89,14 +89,15 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json().catch(() => ({}))) as SaveBody;
 
-    // Profanity guard for title
     const rawTitle = String(body.title ?? '').trim();
     const cleanTitle = sanitizeName(rawTitle, 120);
-    if (cleanTitle && containsProfanity(cleanTitle)) {
-      return NextResponse.json({ ok: false, error: "Please choose a different deck name." }, { status: 400 });
-    }
-
     const is_public = body.is_public === true;
+    if (is_public && cleanTitle && containsProfanity(cleanTitle)) {
+      return NextResponse.json(
+        { ok: false, error: "Please remove offensive language before making this public." },
+        { status: 400 }
+      );
+    }
     if (is_public) {
       const parsed = parseDeckText(body.deckText);
       const cardCount = parsed.reduce((s, p) => s + (p.qty || 1), 0);

@@ -413,13 +413,16 @@ export default function BudgetSwapsClient(){
         body: JSON.stringify({
           title: `${deckTitle || 'My Deck'} (Budget Swaps)`,
           deck_text: newDeckText,
-          commander: commanderName
+          commander: commanderName,
+          is_public: false,
         })
       });
 
       if (!res.ok) throw new Error('Failed to create deck');
 
-      const { id: newId } = await res.json();
+      const forkJson = await res.json();
+      const newId = forkJson.id ?? forkJson.deckId;
+      if (!newId) throw new Error('Failed to create deck');
       setNewDeckLink(`/my-decks/${newId}`);
       setShowSuccessModal(true);
       clearSelection();
