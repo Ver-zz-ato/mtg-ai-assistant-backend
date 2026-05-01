@@ -29,6 +29,12 @@ function firstString(...vals: Array<unknown>): string | null {
 }
 
 /**
+ * Priority when normalizing **recognized** formats (each step only commits if normalizeDeckFormat succeeds):
+ * 1) prefs.format
+ * 2) context.format (e.g. future mobile passthrough)
+ * 3) linked deck.format
+ * 4) unknown (canonical null — unparseable prefs/context alone never blocks deck fallback)
+ *
  * @param prefsFormat - website prefs or legacy
  * @param contextFormat - optional mobile `context.format` (future-safe)
  * @param deckFormat - `decks.format` when linked
@@ -38,18 +44,34 @@ export function resolveChatFormat(opts: {
   contextFormat?: unknown;
   deckFormat?: unknown;
 }): ResolvedChatFormat {
-  const rawFromRequest = firstString(opts.prefsFormat, opts.contextFormat);
+  const prefsRaw = firstString(opts.prefsFormat);
+  const contextRaw = firstString(opts.contextFormat);
   const rawDeck = firstString(opts.deckFormat);
 
-  if (rawFromRequest) {
-    const canonical = normalizeDeckFormat(rawFromRequest);
-    return {
-      rawRequest: rawFromRequest,
-      rawDeck,
-      canonical,
-      source: canonical ? "request" : "unknown",
-    };
+  if (prefsRaw) {
+    const canonical = normalizeDeckFormat(prefsRaw);
+    if (canonical) {
+      return {
+        rawRequest: prefsRaw,
+        rawDeck,
+        canonical,
+        source: "request",
+      };
+    }
   }
+
+  if (contextRaw) {
+    const canonical = normalizeDeckFormat(contextRaw);
+    if (canonical) {
+      return {
+        rawRequest: contextRaw,
+        rawDeck,
+        canonical,
+        source: "request",
+      };
+    }
+  }
+
   if (rawDeck) {
     const canonical = normalizeDeckFormat(rawDeck);
     return {
@@ -59,6 +81,17 @@ export function resolveChatFormat(opts: {
       source: canonical ? "deck" : "unknown",
     };
   }
+
+  const junkHint = prefsRaw ?? contextRaw;
+  if (junkHint) {
+    return {
+      rawRequest: junkHint,
+      rawDeck: null,
+      canonical: null,
+      source: "unknown",
+    };
+  }
+
   return { rawRequest: null, rawDeck: null, canonical: null, source: "unknown" };
 }
 

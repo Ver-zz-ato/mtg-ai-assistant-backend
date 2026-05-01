@@ -1828,8 +1828,13 @@ export async function POST(req: NextRequest) {
                 if (!flags.feelsHuman || flags.instructionalPhrases.length > 0)
                   console.warn("[stream] humanSanityCheck flags:", flags);
               }
-              // Tiny safety net: ask_commander with full deck context must not re-ask for decklist
-              if (streamInjected === "ask_commander" && outputText && /paste your decklist|provide your decklist|send the full list|share your decklist|full decklist|paste the decklist|provide the decklist/i.test(outputText)) {
+              // Tiny safety net: Commander ask_commander with full deck context must not re-ask for decklist
+              if (
+                commanderLayersOn &&
+                streamInjected === "ask_commander" &&
+                outputText &&
+                /paste your decklist|provide your decklist|send the full list|share your decklist|full decklist|paste the decklist|provide the decklist/i.test(outputText)
+              ) {
                 const candidate = activeDeckContext.commanderCandidates?.[0]?.name ?? activeDeckContext.commanderName ?? null;
                 outputText = candidate ? `Is [[${candidate}]] your commander for this deck?` : "Please name your commander for this deck.";
                 askCommanderSafetyNetUsed = true;
