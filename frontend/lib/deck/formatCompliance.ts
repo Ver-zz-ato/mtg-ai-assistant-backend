@@ -5,12 +5,11 @@
 
 import {
   getFormatRules,
-  getMainboardCardCount,
   normalizeDeckFormat,
   isCommanderFormatString,
   type AnalyzeFormat,
 } from "@/lib/deck/formatRules";
-import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
+import { parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 
 export function getExpectedCount(format: string | null | undefined): number | null {
   const n = normalizeDeckFormat(format);
@@ -48,12 +47,13 @@ export { getMainboardCardCount } from "@/lib/deck/formatRules";
 
 /**
  * Count mainboard cards from raw deck list text.
- * - Commander: same as full parse (sideboard lines are merged into one pool in legacy text).
- * - Constructed: use zoned parse and exclude sideboard.
+ * Commander and constructed: use zoned parse and exclude sideboard rows (do not merge sideboard into main).
  */
 export function mainDeckTextCardCount(deckText: string, format: string | null | undefined): number {
   if (isCommanderFormatString(format)) {
-    return parseDeckText(deckText).reduce((s, c) => s + c.qty, 0);
+    return parseDeckTextWithZones(deckText)
+      .filter((r) => r.zone !== "sideboard")
+      .reduce((s, c) => s + c.qty, 0);
   }
   return parseDeckTextWithZones(deckText, { isCommanderFormat: false })
     .filter((r) => r.zone !== "sideboard")
@@ -82,14 +82,16 @@ export function rowsToDeckTextForAnalysis(
 }
 
 /**
- * Parsed entries for analysis/heuristics: mainboard only (excludes sideboard) for 60-card formats.
+ * Parsed entries for analysis/heuristics: mainboard only (excludes sideboard) for Commander and 60-card formats.
  */
 export function parseMainboardEntriesForAnalysis(
   deckText: string,
   format: AnalyzeFormat
 ): Array<{ name: string; count: number }> {
   if (format === "Commander") {
-    return parseDeckText(deckText).map(({ name, qty }) => ({ name, count: qty }));
+    return parseDeckTextWithZones(deckText)
+      .filter((r) => r.zone !== "sideboard")
+      .map(({ name, qty }) => ({ name, count: qty }));
   }
   return parseDeckTextWithZones(deckText, { isCommanderFormat: false })
     .filter((r) => r.zone !== "sideboard")

@@ -17,7 +17,6 @@ import {
 } from "@/lib/deck/mtgValidators";
 import { evaluateCardRecommendationLegality, banNormSetForUserFormat } from "@/lib/deck/recommendation-legality";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
-import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { deckFormatStringToAnalyzeFormat, type AnalyzeFormat } from "@/lib/deck/formatRules";
 import {
   rowsToDeckTextForAnalysis,
@@ -1694,8 +1693,7 @@ export async function runDeckAnalyzeCore(
   const useScryfall = Boolean(body.useScryfall ?? true);
   const useGPT = Boolean(body.useGPT ?? true);
 
-  const parsed = parseDeckText(deckText);
-  if (parsed.length === 0) {
+  if (parseMainboardEntriesForAnalysis(deckText, format).length === 0) {
     return new Response(
       JSON.stringify({ ok: false, error: "Decklist is empty" }),
       { status: 400, headers: { "content-type": "application/json" } }
@@ -1737,11 +1735,8 @@ export async function runDeckAnalyzeCore(
     console.warn('[deck/analyze] Name fixing failed, continuing with original names:', e?.message);
   }
 
-  // Re-parse with potentially corrected deckText (mainboard only for 60-card formats)
-  let entries = parseMainboardEntriesForAnalysis(deckText, format);
-  if (entries.length === 0 && deckText.trim()) {
-    entries = parseDeckText(deckText).map(({ name, qty }) => ({ name, count: qty }));
-  }
+  // Re-parse with potentially corrected deckText (mainboard only — sideboard excluded for Commander too)
+  const entries = parseMainboardEntriesForAnalysis(deckText, format);
   const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).slice(0, 160);
   const byName = new Map<string, SfCard>();
   const lockedNormalized = new Set<string>();
