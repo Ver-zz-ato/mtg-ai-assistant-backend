@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+import { Readable } from "node:stream";
+import { parser } from "stream-json";
+import { streamArray } from "stream-json/streamers/StreamArray";
 
 const JOB_ID = "bulk_scryfall";
 import {
@@ -171,9 +174,9 @@ export async function POST(req: NextRequest) {
     const useStreaming = req.headers.get('x-use-streaming') !== 'false'; // Default to true
     console.log(`🌊 Using streaming mode: ${useStreaming}`);
     
-    // For non-streaming (legacy chunked mode)
+    // Chunk parameters (used by both modes). Defaults match the old "chunked import" behavior.
     const chunkStart = parseInt(req.headers.get('x-chunk-start') || '0');
-    const chunkSize = parseInt(req.headers.get('x-chunk-size') || '2000'); // Smaller chunks for legacy
+    const chunkSize = parseInt(req.headers.get('x-chunk-size') || '5000');
     
     if (!useStreaming) {
       console.log(`🔧 Legacy chunk mode: ${chunkStart} to ${chunkStart + chunkSize}`);
@@ -200,21 +203,76 @@ export async function POST(req: NextRequest) {
         throw new Error("Could not find default_cards bulk data URL");
       }
 
-      console.log("🌊 Downloading all card data from Scryfall...");
+      console.log("🌊 Downloading all card data from Scryfall (streaming JSON array)...");
       
       const streamResponse = await fetch(defaultCardsUrl);
       if (!streamResponse.ok) {
         throw new Error(`Failed to download cards: ${streamResponse.status} ${streamResponse.statusText}`);
       }
-      
-      // Download all cards at once (Scryfall bulk data is optimized for this)
-      const allCards: ScryfallCard[] = await streamResponse.json();
-      allCardsLength = allCards.length;
-      
-      // Process ALL cards in one go
-      cards = allCards;
-      
-      console.log(`🌊 Downloaded ${cards.length} cards - processing all cards in one batch`);
+
+      if (!streamResponse.body) {
+        throw new Error("Scryfall response has no body to stream");
+      }
+
+      // Scryfall bulk files are a huge JSON array. Use stream-json to parse it
+      // efficiently and only keep the requested chunk.
+      const nodeStream = Readable.fromWeb(streamResponse.body as any);
+      const chunkEndExclusive = chunkStart + chunkSize;
+      let seen = 0;
+
+      await new Promise<void>((resolve, reject) => {
+        const p = parser();
+        const a = streamArray();
+
+        const stopEarly = () => {
+          try {
+            nodeStream.destroy();
+          } catch {
+            /* ignore */
+          }
+          try {
+            // @ts-expect-error stream-json streams are Node streams
+            p.destroy();
+          } catch {
+            /* ignore */
+          }
+          try {
+            // @ts-expect-error stream-json streams are Node streams
+            a.destroy();
+          } catch {
+            /* ignore */
+          }
+        };
+
+        a.on("data", ({ key, value }: { key: number; value: ScryfallCard }) => {
+          seen = key + 1;
+          if (key >= chunkStart && key < chunkEndExclusive) {
+            cards.push(value);
+          }
+          if (seen >= chunkEndExclusive) {
+            isLastChunk = false;
+            stopEarly();
+            resolve();
+          }
+        });
+
+        a.on("end", () => {
+          isLastChunk = true;
+          resolve();
+        });
+
+        a.on("error", reject);
+        // @ts-expect-error stream-json streams are Node streams
+        p.on("error", reject);
+        nodeStream.on("error", reject);
+
+        nodeStream.pipe(p as any).pipe(a as any);
+      });
+
+      allCardsLength = 0; // unknown without reading full stream
+      console.log(
+        `🌊 Streamed chunk: start=${chunkStart} size=${chunkSize} -> parsed=${cards.length} (seen=${seen}) lastChunk=${isLastChunk}`,
+      );
     } else {
       // LEGACY: Chunked approach (fallback)
       console.log("🔄 Using legacy chunked mode");
@@ -484,11 +542,12 @@ export async function POST(req: NextRequest) {
       processed: processed,
       unique_normalized_names: uniqueNormalizedNames,
       streaming_mode: useStreaming,
-      chunk_start: useStreaming ? 0 : chunkStart,
-      chunk_size: useStreaming ? cards.length : chunkSize,
+      chunk_start: chunkStart,
+      chunk_size: chunkSize,
       chunk_cards: cards.length,
-      total_cards: allCardsLength,
+      total_cards: allCardsLength || null,
       is_last_chunk: isLastChunk,
+      next_chunk_start: chunkStart + chunkSize,
       final_cache_count: finalCount,
       cache_entries_with_images: imageCount,
       timestamp: new Date().toISOString()

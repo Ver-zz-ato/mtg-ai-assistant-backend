@@ -141,41 +141,73 @@ try {
             Write-Host "WARNING: No CRON_KEY - will attempt admin session auth" -ForegroundColor Yellow
         }
         
-        # Make the request (with long timeout for the import)
-        $Response = Invoke-WebRequest -Uri $Endpoint -Method POST -Headers $Headers -TimeoutSec 600 -UseBasicParsing -ErrorAction Stop
-        
+        # Chunked loop (old behavior): call the cron endpoint repeatedly
+        # so each request finishes within the timeout window.
+        $ChunkStart = 0
+        $ChunkSize = 5000
+        $TotalImported = 0
+        $TotalProcessed = 0
+        $LastResponse = $null
+
+        while ($true) {
+            $Headers["x-chunk-start"] = "$ChunkStart"
+            $Headers["x-chunk-size"] = "$ChunkSize"
+
+            Write-Host "Requesting chunk $ChunkStart..$($ChunkStart + $ChunkSize) ..." -ForegroundColor Gray
+
+            # Per-chunk timeout (10 minutes)
+            $Response = Invoke-WebRequest -Uri $Endpoint -Method POST -Headers $Headers -TimeoutSec 600 -UseBasicParsing -ErrorAction Stop
+            $Body = $Response.Content | ConvertFrom-Json
+
+            if (-not $Body.ok) {
+                Write-Host "ERROR: Import reported failure" -ForegroundColor Red
+                Write-Host "Error: $($Body.error)" -ForegroundColor Red
+                break
+            }
+
+            $LastResponse = $Body
+            $TotalImported += [int]($Body.imported)
+            $TotalProcessed += [int]($Body.processed)
+
+            Write-Host ("   ✅ Chunk done: processed={0}, imported={1}, next_start={2}, last={3}" -f `
+                $Body.processed, $Body.imported, $Body.next_chunk_start, $Body.is_last_chunk) -ForegroundColor Green
+
+            if ($Body.is_last_chunk) {
+                break
+            }
+
+            $ChunkStart = [int]($Body.next_chunk_start)
+        }
+
         $EndTime = Get-Date
         $Duration = ($EndTime - $StartTime).TotalSeconds
-        
-        $StatusCode = $Response.StatusCode
-        $Body = $Response.Content | ConvertFrom-Json
-        
+        $minutes = [math]::Round($Duration / 60, 1)
+
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Cyan
-        Write-Host "HTTP Status: $StatusCode" -ForegroundColor Green
-        $minutes = [math]::Round($Duration / 60, 1)
+        Write-Host "HTTP Status: 200" -ForegroundColor Green
         Write-Host "Duration: $([math]::Round($Duration))s ($minutes minutes)" -ForegroundColor Gray
         Write-Host ""
-        
-        if ($Body.ok) {
+
+        if ($LastResponse -and $LastResponse.ok) {
             Write-Host "SUCCESS!" -ForegroundColor Green
             Write-Host ""
             Write-Host "Import Results:" -ForegroundColor Cyan
-            Write-Host "   - Cards processed: $($Body.processed)" -ForegroundColor White
-            Write-Host "   - Unique normalized names: $($Body.unique_normalized_names)" -ForegroundColor White
-            Write-Host "   - Final cache entries: $($Body.final_cache_count)" -ForegroundColor White
-            if ($Body.cache_entries_with_images) {
-                Write-Host "   - Entries with images: $($Body.cache_entries_with_images)" -ForegroundColor White
+            Write-Host "   - Cards processed (sum): $TotalProcessed" -ForegroundColor White
+            if ($LastResponse.unique_normalized_names) {
+                Write-Host "   - Unique normalized names (last chunk): $($LastResponse.unique_normalized_names)" -ForegroundColor White
             }
-            Write-Host "   - Timestamp: $($Body.timestamp)" -ForegroundColor Gray
+            if ($LastResponse.final_cache_count) {
+                Write-Host "   - Final cache entries: $($LastResponse.final_cache_count)" -ForegroundColor White
+            }
+            if ($LastResponse.cache_entries_with_images) {
+                Write-Host "   - Entries with images: $($LastResponse.cache_entries_with_images)" -ForegroundColor White
+            }
+            Write-Host "   - Timestamp: $($LastResponse.timestamp)" -ForegroundColor Gray
             Write-Host ""
-            
-            # Show full response
-            Write-Host "Full Response:" -ForegroundColor Cyan
-            $Body | ConvertTo-Json -Depth 10 | Write-Host
-        } else {
-            Write-Host "ERROR: Import reported failure" -ForegroundColor Red
-            Write-Host "Error: $($Body.error)" -ForegroundColor Red
+
+            Write-Host "Full Response (last chunk):" -ForegroundColor Cyan
+            $LastResponse | ConvertTo-Json -Depth 10 | Write-Host
         }
         
     } catch {
