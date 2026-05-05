@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
-import { Readable } from "node:stream";
+import { Readable, type Transform } from "node:stream";
 import { parser } from "stream-json";
 import { streamArray } from "stream-json/streamers/StreamArray";
 
@@ -221,8 +221,8 @@ export async function POST(req: NextRequest) {
       let seen = 0;
 
       await new Promise<void>((resolve, reject) => {
-        const p = parser();
-        const a = streamArray();
+        const p = parser() as Transform;
+        const a = streamArray() as Transform;
 
         const stopEarly = () => {
           try {
@@ -231,13 +231,11 @@ export async function POST(req: NextRequest) {
             /* ignore */
           }
           try {
-            // @ts-expect-error stream-json streams are Node streams
             p.destroy();
           } catch {
             /* ignore */
           }
           try {
-            // @ts-expect-error stream-json streams are Node streams
             a.destroy();
           } catch {
             /* ignore */
@@ -262,11 +260,10 @@ export async function POST(req: NextRequest) {
         });
 
         a.on("error", reject);
-        // @ts-expect-error stream-json streams are Node streams
         p.on("error", reject);
         nodeStream.on("error", reject);
 
-        nodeStream.pipe(p as any).pipe(a as any);
+        nodeStream.pipe(p).pipe(a);
       });
 
       allCardsLength = 0; // unknown without reading full stream
