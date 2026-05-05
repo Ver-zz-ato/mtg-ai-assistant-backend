@@ -52,6 +52,28 @@ export const config = {
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
+  // Retired tooling: AI test suite endpoints + cron were removed/disabled intentionally.
+  if (path === "/admin/ai-test" || path.startsWith("/admin/ai-test/")) {
+    return new NextResponse(
+      "This admin tool has been retired.",
+      { status: 410, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
+
+  if (path.startsWith("/api/admin/ai-test")) {
+    return new NextResponse(
+      JSON.stringify({ ok: false, error: "retired", message: "AI test suite endpoints are disabled." }),
+      { status: 410, headers: { "content-type": "application/json" } },
+    );
+  }
+
+  if (path.startsWith("/api/cron/ai-test-run")) {
+    return new NextResponse(
+      JSON.stringify({ ok: false, error: "retired", message: "ai-test cron is disabled." }),
+      { status: 410, headers: { "content-type": "application/json" } },
+    );
+  }
+
   // B) Canonical URL normalization: trailing slash + lowercase
   // Redirect trailing slash to no-trailing-slash (consistent canonical format)
   if (path !== "/" && path.endsWith("/")) {

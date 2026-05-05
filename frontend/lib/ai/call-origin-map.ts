@@ -76,13 +76,6 @@ export const SOURCE_PAGE_ORIGINS: Record<string, CallOrigin> = {
     description: "My Decks list → deck modal (deckId in URL) → health lights",
     costImpact: "medium",
   },
-  admin_ai_test: {
-    page: "/admin/ai-test",
-    component: "Admin AI test suite",
-    trigger: "user_click",
-    description: "Admin batch/run-eval-set/consistency tests",
-    costImpact: "low",
-  },
   banned_cards_banner: {
     page: "/my-decks/[id]",
     component: "BannedCardsBanner.tsx",

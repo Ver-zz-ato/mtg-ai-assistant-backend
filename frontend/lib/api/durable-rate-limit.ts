@@ -8,6 +8,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getServiceRoleClient } from '@/lib/server-supabase';
 
 export interface DurableRateLimitResult {
   allowed: boolean;
@@ -44,6 +45,17 @@ export async function checkDurableRateLimit(
   windowDays: number = 1
 ): Promise<DurableRateLimitResult> {
   try {
+    // Prefer service role for durable rate limits. This table should never be
+    // readable/writable via the published anon key once RLS + revokes are applied.
+    const service = getServiceRoleClient();
+    const db = service ?? supabase;
+    if (!service) {
+      console.warn(
+        '[checkDurableRateLimit] SUPABASE_SERVICE_ROLE_KEY missing — using caller supabase client. ' +
+          'This is insecure for production once api_usage_rate_limits is locked down.',
+      );
+    }
+
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     
     // Calculate reset time (midnight of next day for daily limits)
@@ -62,7 +74,7 @@ export async function checkDurableRateLimit(
     
     // Try atomic RPC function first (requires migration 026_atomic_rate_limit_increment.sql)
     try {
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_rate_limit', {
+      const { data: rpcResult, error: rpcError } = await db.rpc('increment_rate_limit', {
         p_key_hash: keyHash,
         p_route_path: routePath,
         p_date: today,
@@ -77,12 +89,12 @@ export async function checkDurableRateLimit(
           try {
             const { logRateLimitTriggered } = await import('./security-events');
             logRateLimitTriggered(keyHash, routePath, maxRequests, result.count_after ?? 0, keyHash.startsWith('guest:'));
-          } catch (e) {
+          } catch {
             // Fail silently if security events not available
           }
           try {
             const { logOpsEvent } = await import('@/lib/ops-events');
-            await logOpsEvent(supabase, {
+            await logOpsEvent(db, {
               event_type: 'ops_rate_limit_hit',
               route: routePath,
               status: 'ok',
@@ -107,7 +119,7 @@ export async function checkDurableRateLimit(
       if (rpcError && process.env.NODE_ENV === 'development') {
         console.warn('[checkDurableRateLimit] RPC function not available, using fallback:', rpcError.message);
       }
-    } catch (rpcException) {
+    } catch {
       // RPC function doesn't exist - fall back to non-atomic upsert
       if (process.env.NODE_ENV === 'development') {
         console.warn('[checkDurableRateLimit] RPC call failed, using fallback method');
@@ -119,7 +131,7 @@ export async function checkDurableRateLimit(
     // TODO: Run migration 026_atomic_rate_limit_increment.sql to enable atomic increments
     
     // Check existing record for today
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await db
       .from('api_usage_rate_limits')
       .select('request_count, updated_at')
       .eq('key_hash', keyHash)
@@ -144,12 +156,12 @@ export async function checkDurableRateLimit(
         try {
           const { logRateLimitTriggered } = await import('./security-events');
           logRateLimitTriggered(keyHash, routePath, maxRequests, currentCount, keyHash.startsWith('guest:'));
-        } catch (e) {
+        } catch {
           // Fail silently if security events not available
         }
         try {
           const { logOpsEvent } = await import('@/lib/ops-events');
-          await logOpsEvent(supabase, {
+          await logOpsEvent(db, {
             event_type: 'ops_rate_limit_hit',
             route: routePath,
             status: 'ok',
@@ -169,7 +181,7 @@ export async function checkDurableRateLimit(
       }
 
     // Increment counter (or create new record) - NOT ATOMIC (race condition possible)
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('api_usage_rate_limits')
       .upsert({
         key_hash: keyHash,
@@ -217,7 +229,9 @@ export async function cleanupOldRateLimits(
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
     const cutoff = cutoffDate.toISOString().split('T')[0];
 
-    const { count, error } = await supabase
+    const db = getServiceRoleClient() ?? supabase;
+
+    const { count, error } = await db
       .from('api_usage_rate_limits')
       .delete()
       .lt('date', cutoff);

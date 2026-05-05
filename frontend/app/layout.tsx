@@ -3,6 +3,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import '@/styles/ph-toolbar-fix.css';
 import Providers from "@/components/Providers";
+import ProProvider from "@/components/ProContext";
 import { AuthProvider } from "@/lib/auth-context"; // NEW: Push-based auth state management
 import HashAuthCallbackHandler from "@/components/HashAuthCallbackHandler";
 import AnalyticsProvider from "@/components/AnalyticsProvider";
@@ -106,36 +107,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <CookieConsentProvider>
             <AuthProvider>
-              <HashAuthCallbackHandler />
-              <ActiveUsersProvider>
-              <KeyboardShortcutsProvider>
-                <SecureConnectionsGuard />
-                <TopLoadingBar />
-                <FirstVisitTracker />
-                <AnalyticsAttribution />
-                <AnalyticsProvider />
-                <AnalyticsIdentity />
-                <WorkflowAbandonOnRouteChange />
-                <PromoBar />
-                <MaintenanceBanner />
-                <ErrorBoundary>
-                  <Header />
-                  <main className="flex-1">{children}</main>
-                </ErrorBoundary>
-                <CookieConsentModal />
-                <FeedbackFab />
-                <FounderFeedbackPopup />
-                {/* <PWAProvider /> */} {/* DISABLED: PWA not needed yet */}
-                <TrustFooter />
-                <SupportWidgets />
-                <UndoToast />
-                {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
-                {/* <ServiceWorkerCleanup /> */} {/* DISABLED: Conflicts with Sentry instrumentation */}
-                <GuestExitWarning />
-                {/* <IOSInstallPrompt /> */} {/* DISABLED: Remove install popup per user request */}
-                <EmailVerificationReminder />
-              </KeyboardShortcutsProvider>
-              </ActiveUsersProvider>
+              {/* ProProvider must mount inside AuthProvider — it calls useAuth(); otherwise context defaults to loading:true forever */}
+              <ProProvider>
+                <HashAuthCallbackHandler />
+                <ActiveUsersProvider>
+                  <KeyboardShortcutsProvider>
+                    <SecureConnectionsGuard />
+                    <TopLoadingBar />
+                    <FirstVisitTracker />
+                    <AnalyticsAttribution />
+                    <AnalyticsProvider />
+                    <AnalyticsIdentity />
+                    <WorkflowAbandonOnRouteChange />
+                    <PromoBar />
+                    <MaintenanceBanner />
+                    <ErrorBoundary>
+                      <Header />
+                      <main className="flex-1">{children}</main>
+                    </ErrorBoundary>
+                    <CookieConsentModal />
+                    <FeedbackFab />
+                    <FounderFeedbackPopup />
+                    {/* <PWAProvider /> */} {/* DISABLED: PWA not needed yet */}
+                    <TrustFooter />
+                    <SupportWidgets />
+                    <UndoToast />
+                    {/* <ServiceWorkerRegistration /> */} {/* DISABLED: PWA not needed yet */}
+                    {/* <ServiceWorkerCleanup /> */} {/* DISABLED: Conflicts with Sentry instrumentation */}
+                    <GuestExitWarning />
+                    {/* <IOSInstallPrompt /> */} {/* DISABLED: Remove install popup per user request */}
+                    <EmailVerificationReminder />
+                  </KeyboardShortcutsProvider>
+                </ActiveUsersProvider>
+              </ProProvider>
             </AuthProvider>
           </CookieConsentProvider>
         </Providers>

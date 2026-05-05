@@ -4,7 +4,6 @@ import React from 'react';
 import posthog from 'posthog-js';
 import { PrefsProvider } from '@/components/PrefsContext';
 import ToastProvider from '@/components/ToastProvider';
-import ProProvider from '@/components/ProContext';
 import { getConsentStatus, onConsentChange } from '@/lib/consent';
 import { initWebVitals } from '@/lib/analytics/webVitals';
 import { AnalyticsEvents } from '@/lib/analytics/events';
@@ -138,11 +137,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <PrefsProvider>
-      <ToastProvider>
-        <ProProvider>
-          {children}
-        </ProProvider>
-      </ToastProvider>
+      <ToastProvider>{children}</ToastProvider>
     </PrefsProvider>
   );
 }

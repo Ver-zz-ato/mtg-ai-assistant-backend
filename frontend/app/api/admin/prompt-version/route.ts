@@ -6,7 +6,11 @@ import { getAdmin } from "@/app/api/_lib/supa";
 
 export const runtime = "nodejs";
 
-function isAdmin(user: any): boolean {
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+function isAdmin(user: { id?: string; email?: string } | null): boolean {
   const ids = String(process.env.ADMIN_USER_IDS || '').split(/[\s,]+/).filter(Boolean);
   const emails = String(process.env.ADMIN_EMAILS || '').split(/[\s,]+/).filter(Boolean).map(s=>s.toLowerCase());
   const uid = String(user?.id || '');
@@ -19,7 +23,7 @@ function isAdmin(user: any): boolean {
  * 
  * Returns current active prompt version and available versions
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -40,13 +44,13 @@ export async function GET(req: NextRequest) {
       ok: true,
       active_version: activeVersion,
       versions: versions || [],
-      note: "Prompt versions are now managed through the prompt_versions table. Use /api/admin/ai-test/apply-improvements to create new versions."
+      note: "Prompt versions are managed via the prompt_versions table. Create versions through the Prompt Edit admin UI (/admin/prompt-edit)."
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[admin/prompt-version] Error:', error);
     return NextResponse.json({ 
       ok: false, 
-      error: error.message || "Failed to fetch prompt version" 
+      error: errMsg(error) || "Failed to fetch prompt version" 
     }, { status: 500 });
   }
 }
@@ -132,11 +136,11 @@ export async function POST(req: NextRequest) {
       requested_version: version,
       note: "Database storage not available. Set environment variable for persistence."
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[admin/prompt-version] Error:', error);
     return NextResponse.json({ 
       ok: false, 
-      error: error.message || "Failed to update prompt version" 
+      error: errMsg(error) || "Failed to update prompt version" 
     }, { status: 500 });
   }
 }

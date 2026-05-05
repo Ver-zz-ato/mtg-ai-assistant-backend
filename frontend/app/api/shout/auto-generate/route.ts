@@ -136,31 +136,45 @@ function generateTemplateMessage(): string {
 }
 
 // ============================================================================
-// AI GENERATION
+// AI GENERATION (automated path: rare, single line — not a "bot wave")
 // ============================================================================
 
-const SYSTEM_PROMPT = `You simulate casual MTG community chat for ManaTap AI (a deck-building website).
-Read the recent shoutbox messages and generate 1-3 natural follow-up messages from DIFFERENT users.
+const AUTO_STYLE_HINTS = [
+  "Write like a fast Discord drop: lowercase ok, no greeting, no question-mark spam.",
+  "Dry / deadpan. Zero slang this time (no ngl/tbh/lowkey/fr).",
+  "Slightly tilted at a specific MTG thing; one short vent.",
+  "Hyper-specific (one card, one commander, or one LGS moment).",
+  "Almost shitpost energy but still believable; under 50 chars if you can.",
+  "Typos fine (one small one). Still readable.",
+  "Sounds tired, 2am brew brain — fragment not a full sentence.",
+];
 
-CRITICAL - VARIETY (avoid same-y, AI-sounding output):
-- Each message MUST use a DIFFERENT username. Never repeat a username in this response, and prefer NOT reusing usernames from the recent history you're given (pick fresh ones).
-- Vary username STYLES: real-name style (jake_mtg, sarah_edh), gamer tags (xX_Thraximundar_Xx, BorosMain), meme/silly (scoobert, blorg), numbers (kess99, atraxa420), no single pattern.
-- Vary LANGUAGE: do NOT stuff every message with "ngl", "tbh", "no cap", "lowkey", "fr fr". Use slang in maybe 1 of 3 messages. Others: plain casual, dry one-liners, genuine questions, short reactions ("lol", "same"), or normal sentences. Mix it so it doesn't sound like one person or one template.
-- Vary LENGTH and TONE: one short ("gg"), one medium (question or opinion), one longer if you do 3. Different moods: hype, salt, chill, joke, serious question.
+const AUTO_SYSTEM_PROMPT = `You write exactly ONE line for a Magic: The Gathering / Commander shoutbox on a deck site (ManaTap).
 
-RULES:
-- Sound like real Magic players: a mix of unhinged, funny, chill, and normal—not every line is a meme.
-- Keep messages SHORT - under 100 chars preferred, max 140. Punchy. No essays.
-- Reference MTG/EDH naturally: topdecks, mana screw, wallet pain, proxying, precon upgrades, LGS, commanders.
-- Occasional typos or caps OK. NO corporate speak. Use few or no emojis; at most one per message only if it really fits.
-- Reference site features only sometimes: mulligan sim, deck analyzer, budget swaps.
-- NEVER mention AI, automated, or generated. NEVER copy or closely paraphrase history.
-- Avoid generic filler. If it could apply to any game, make it MTG-specific.
+Goal: indistinguishable from a random player — not helpful, not polished, not "community manager".
 
-OUTPUT: Return ONLY a valid JSON array, no other text:
-[{"user": "username", "text": "message", "delay_seconds": 0}]
+STRICT BANS (do not use these patterns or close variants):
+- Broad audience questions: "anyone else", "does anyone", "am I the only one", "curious", "just wondering", "quick question", "thoughts?", "what do you all think"
+- Assistant / essay openers: "hot take:", "unpopular opinion:", "here's the thing", "I'd argue", "personally I think", "for context"
+- Fake engagement: "love to hear", "drop your", "let's discuss", "curious to know"
+- Generic hype that could be any hobby: keep it MTG-tagged (card, format, table, LGS, rule, staple, commander)
 
-delay_seconds: 0 for first message, 30-90 for subsequent ones.`;
+DO:
+- 1 message only, 1 username only.
+- Length: usually 12–90 characters; hard max 110. No multi-sentence monologues.
+- Often lowercase; missing punctuation ok; a tiny typo occasionally (not every time).
+- Username: one plausible handle; avoid copying names from recent history; mix styles (underscores, numbers, silly, plain).
+- Slang at most light; never stack internet-speak.
+- Site tools (mulligan sim, analyzer): mention rarely, not by default.
+- NEVER mention AI, bots, automation, or "as an AI".
+- Do NOT copy or paraphrase lines from the history you were given.
+
+OUTPUT — ONLY valid JSON, no markdown, no prose around it:
+[{"user":"handle_here","text":"message here","delay_seconds":0}]`;
+
+function pickAutoStyleHint(): string {
+  return pickRandom(AUTO_STYLE_HINTS);
+}
 
 type GeneratedMessage = {
   user: string;
@@ -171,7 +185,7 @@ type GeneratedMessage = {
 function formatHistoryForAI(history: Shout[]): { text: string; recentUsers: string[] } {
   if (history.length === 0) {
     return {
-      text: "(No recent messages - start a fresh conversation about MTG/Commander)",
+      text: "(Shoutbox empty — one mundane MTG line, not a welcome or icebreaker question)",
       recentUsers: [],
     };
   }
@@ -188,9 +202,14 @@ function formatHistoryForAI(history: Shout[]): { text: string; recentUsers: stri
   return { text, recentUsers };
 }
 
-function validateGeneratedMessages(parsed: unknown): GeneratedMessage[] | null {
+type ValidateMsgsOpts = { maxMessages: number; maxTextChars: number };
+
+function validateGeneratedMessages(
+  parsed: unknown,
+  opts: ValidateMsgsOpts = { maxMessages: 3, maxTextChars: 200 }
+): GeneratedMessage[] | null {
   if (!Array.isArray(parsed)) return null;
-  if (parsed.length === 0 || parsed.length > 3) return null;
+  if (parsed.length === 0 || parsed.length > opts.maxMessages) return null;
   
   const valid: GeneratedMessage[] = [];
   const seenUsers = new Set<string>();
@@ -209,7 +228,7 @@ function validateGeneratedMessages(parsed: unknown): GeneratedMessage[] | null {
     
     // Validate text
     if (typeof text !== "string") continue;
-    const cleanText = text.trim().slice(0, 200);
+    const cleanText = text.trim().slice(0, opts.maxTextChars);
     if (cleanText.length < 3) continue;
     
     // Validate delay
@@ -235,13 +254,17 @@ async function generateWithAI(history: Shout[]): Promise<GeneratedMessage[] | nu
   try {
     const { text: historyText, recentUsers } = formatHistoryForAI(history);
     const recentUserHint = recentUsers.length > 0
-      ? `\nRecent usernames (use DIFFERENT ones, do not repeat): ${recentUsers.join(", ")}`
+      ? `\nRecent usernames (pick a NEW one, not in this list): ${recentUsers.join(", ")}`
       : "";
+    const styleHint = `\nStyle direction this run: ${pickAutoStyleHint()}`;
     
     const response = await callLLM(
       [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `Recent shoutbox messages:\n${historyText}${recentUserHint}\n\nGenerate 1-3 new messages with varied usernames and tone:` }
+        { role: "system", content: AUTO_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `Recent shoutbox messages:\n${historyText}${recentUserHint}${styleHint}\n\nProduce exactly ONE new JSON object in the array (exactly one message total).`,
+        },
       ],
       {
         route: "/api/shout/auto-generate",
@@ -249,7 +272,7 @@ async function generateWithAI(history: Shout[]): Promise<GeneratedMessage[] | nu
         model: "gpt-4o-mini",
         fallbackModel: "gpt-4o-mini",
         timeout: 15000,
-        maxTokens: 2048,
+        maxTokens: 320,
         apiType: "chat",
         skipRecordAiUsage: false,
       }
@@ -265,7 +288,10 @@ async function generateWithAI(history: Shout[]): Promise<GeneratedMessage[] | nu
     }
     
     const parsed = JSON.parse(jsonText);
-    const validated = validateGeneratedMessages(parsed);
+    const validated = validateGeneratedMessages(parsed, {
+      maxMessages: 1,
+      maxTextChars: 120,
+    });
     
     if (validated) {
       console.log(`🗣️ Shoutbox AI: Generated ${validated.length} message(s)`);
@@ -288,7 +314,8 @@ declare global {
   var __lastAutoGenTime: number | undefined;
 }
 
-const MIN_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours (1–3 messages per run)
+/** Minimum gap between automated runs (cron is daily; this avoids double-posts across redeploys / manual triggers). */
+const MIN_INTERVAL_MS = 20 * 60 * 60 * 1000; // 20 hours
 const RECENT_TEXT_WINDOW = 30;
 
 let __lastId = 0;
@@ -366,7 +393,7 @@ async function handleGenerate(req: NextRequest) {
     now - m.ts < 30 * 60 * 1000
   );
   
-  if (!isDev && !forceGenerate && !(seedWhenEmpty && isEmpty) && recentRealMessages.length >= 3) {
+  if (!isDev && !forceGenerate && !(seedWhenEmpty && isEmpty) && recentRealMessages.length >= 2) {
     return NextResponse.json({ 
       ok: false, 
       reason: "Enough recent real activity" 

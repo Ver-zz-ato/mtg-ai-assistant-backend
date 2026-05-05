@@ -16,29 +16,26 @@ async function isAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Prom
   return adminEmails.includes(user.email?.toLowerCase() || '') || adminUserIds.includes(user.id);
 }
 
-// AI generation prompt (matches auto-generate - varied names and tone)
-const SYSTEM_PROMPT = `You simulate casual MTG community chat for ManaTap AI (a deck-building website).
-Read the recent shoutbox messages and generate 1-3 natural follow-up messages from DIFFERENT users.
+// AI prompt: admin-triggered bursts can be 2–3 lines, still avoid generic LLM chat patterns
+const SYSTEM_PROMPT = `You simulate chaotic-but-real Magic/EDH shoutbox lines for ManaTap (deck website).
+Read recent messages and add 2-3 SHORT new lines from different users.
 
-CRITICAL - VARIETY (avoid same-y, AI-sounding output):
-- Each message MUST use a DIFFERENT username. Never repeat a username in this response, and prefer NOT reusing usernames from the recent history you're given (pick fresh ones).
-- Vary username STYLES: real-name style (jake_mtg, sarah_edh), gamer tags (xX_Thraximundar_Xx, BorosMain), meme/silly (scoobert, blorg), numbers (kess99, atraxa420), no single pattern.
-- Vary LANGUAGE: do NOT stuff every message with "ngl", "tbh", "no cap", "lowkey", "fr fr". Use slang in maybe 1 of 3 messages. Others: plain casual, dry one-liners, genuine questions, short reactions ("lol", "same"), or normal sentences. Mix it so it doesn't sound like one person or one template.
-- Vary LENGTH and TONE: one short ("gg"), one medium (question or opinion), one longer if you do 3. Different moods: hype, salt, chill, joke, serious question.
+BAN these (they scream "AI chatbot"):
+- "anyone else", "does anyone", "just wondering", "curious", "quick question", "thoughts?", "hot take:", "drop your"
+- Cheerful facilitator tone / essay openers ("here's the thing", "personally I'd say")
 
-RULES:
-- Sound like real Magic players: a mix of unhinged, funny, chill, and normal—not every line is a meme.
-- Keep messages SHORT - under 100 chars preferred, max 140. Punchy. No essays.
-- Reference MTG/EDH naturally: topdecks, mana screw, wallet pain, proxying, precon upgrades, LGS, commanders.
-- Occasional typos or caps OK. NO corporate speak. Use few or no emojis; at most one per message only if it really fits.
-- Reference site features only sometimes: mulligan sim, deck analyzer, budget swaps.
-- NEVER mention AI, automated, or generated. NEVER copy or closely paraphrase history.
-- Avoid generic filler. If it could apply to any game, make it MTG-specific.
+FORCE VARIETY:
+- Different username per line; distinct moods (salt / chill / shitpost / dry / vague).
+- Slang in at most one line; others plain or typo-casual.
+- Under ~100 chars each, max ~130. No paragraphs.
+- MTG-grounded specifics when possible.
 
-OUTPUT: Return ONLY a valid JSON array, no other text:
-[{"user": "username", "text": "message", "delay_seconds": 0}]
+NEVER mention AI/bots/automation; never copy lines from history.
 
-delay_seconds: 0 for first message, 30-90 for subsequent ones.`;
+OUTPUT: ONLY valid JSON (no markdown):
+[{"user":"u1","text":"...","delay_seconds":0},{"user":"u2","text":"...","delay_seconds":45},...]
+
+delay_seconds: first 0, later 30-90.`;
 
 type GeneratedMessage = {
   user: string;
@@ -49,7 +46,7 @@ type GeneratedMessage = {
 function formatHistoryForAI(history: Shout[]): { text: string; recentUsers: string[] } {
   if (history.length === 0) {
     return {
-      text: "(No recent messages - start a fresh conversation about MTG/Commander)",
+      text: "(Shoutbox empty — a few believable player drops, not welcome messages)",
       recentUsers: [],
     };
   }
@@ -68,7 +65,7 @@ function formatHistoryForAI(history: Shout[]): { text: string; recentUsers: stri
 
 function validateGeneratedMessages(parsed: unknown): GeneratedMessage[] | null {
   if (!Array.isArray(parsed)) return null;
-  if (parsed.length === 0 || parsed.length > 3) return null;
+  if (parsed.length < 1 || parsed.length > 3) return null;
   
   const valid: GeneratedMessage[] = [];
   const seenUsers = new Set<string>();
@@ -177,7 +174,7 @@ export async function POST(req: NextRequest) {
         const response = await callLLM(
           [
             { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: `Recent shoutbox messages:\n${historyText}${recentUserHint}\n\nGenerate 1-3 new messages with varied usernames and tone:` }
+            { role: "user", content: `Recent shoutbox messages:\n${historyText}${recentUserHint}\n\nGenerate 2-3 new lines (not generic questions to the room).` }
           ],
           {
             route: "/api/admin/shoutbox/trigger-ai",

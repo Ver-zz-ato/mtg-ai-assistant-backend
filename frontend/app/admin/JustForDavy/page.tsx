@@ -44,7 +44,6 @@ const GROUPS = [
       { href: "/admin/ai-health", label: "AI Health", eli5: "Is the API key working? Run a live test" },
       { href: "/admin/ai-usage", label: "AI Usage", eli5: "Cost, tokens, which models are used" },
       { href: "/admin/ai-usage-app", label: "AI Usage (App)", eli5: "Mobile-only AI cost & tokens by app feature key" },
-      { href: "/admin/ai-test", label: "AI Test Suite", eli5: "Run evals, compare prompts, approve changes" },
       { href: "/admin/chat-test", label: "Chat Test", eli5: "Full chat module in isolation with debug log panel" },
       { href: "/admin/prompt-edit", label: "Prompt Edit", eli5: "Edit base prompts (chat/deck) and tier overlays (guest/free/pro). Stored in DB." },
     ],
@@ -92,7 +91,7 @@ export default function AdminDashboardPage() {
         <div>
           <h1 className="text-xl font-semibold">Admin Dashboard</h1>
           <p className="text-sm text-neutral-400">
-            Grouped by purpose. Each section has an ELI5 (Explain Like I'm 5) so you know what it does.
+            Grouped by purpose. Each section has an ELI5 (Explain Like I am 5) so you know what it does.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

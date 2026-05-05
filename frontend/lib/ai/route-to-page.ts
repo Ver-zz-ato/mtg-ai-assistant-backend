@@ -61,7 +61,6 @@ export const SOURCE_PAGE_LABELS: Record<string, string> = {
   banned_cards_banner: "Banned cards banner",
   color_identity_banner: "Color identity banner",
   my_decks_list: "My Decks list",
-  admin_ai_test: "Admin AI test",
 };
 
 export function getSourcePageLabel(sourcePage: string | null | undefined): string | null {
