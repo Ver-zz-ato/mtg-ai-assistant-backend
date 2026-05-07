@@ -2,6 +2,11 @@
 
 ## 2026-05-07
 
+### Security — lock down SECURITY DEFINER RPCs and ai_eval_* tables
+
+- **`db/migrations/105_revoke_public_exec_security_definer_rpcs.sql`:** `REVOKE` execute on `vacuum_analyze_table`, `migrate_cache_schema`, `cleanup_old_rate_limits`, `get_user_id_by_email`, `admin_search_auth_users` from `PUBLIC` / `anon` / `authenticated`; `GRANT EXECUTE` to `service_role`. Optional block for `handle_new_user` (if present): revoke from clients, grant to `service_role` and `supabase_auth_admin` so auth triggers keep working. **Apply on Supabase** — website callers already use **`getAdmin()` / service role** (including Stripe webhook).
+- **`db/migrations/106_lockdown_ai_eval_tables.sql`:** `ai_eval_sets` / `ai_eval_set_runs` — service-role-only RLS + table `REVOKE` from `anon`/`authenticated` (unused in app code; `eval_runs` admin API unchanged).
+
 ### Security — AI auto-improve tables, analytics, public deck browse
 
 - **`db/migrations/104_lockdown_ai_auto_improve_tables.sql`:** Tighten RLS on `ai_prompt_candidates`, `ai_improvement_reports`, `ai_prompt_history` to **service_role only**; `REVOKE` from `anon`/`authenticated`; `GRANT ALL` to `service_role`. **Apply on Supabase** for production. No admin UI in this repo referenced these tables (engine was DB-only / unused in app code).
