@@ -21,7 +21,7 @@ The following run **regardless of consent**. No PostHog client SDK is loaded; no
 | What | Where | Purpose |
 |------|--------|---------|
 | **First-visit event** | `middleware.ts` | When no `visitor_id` cookie exists, we set one and send `user_first_visit` to PostHog **server-side** via `captureServer()`. Includes `landing_page`, `referrer`, `user_agent` (truncated), `timestamp`. |
-| **Server-side event API** | `POST /api/analytics/track-event` | Generic server-side tracking. Used as **fallback** when client-side PostHog is not used (e.g. consent declined or not yet given). Adds `user_id` from auth when available. |
+| **Server-side event API** | `POST /api/analytics/track-event` | Generic server-side tracking. Used as **fallback** when client-side PostHog is not used (e.g. consent declined or not yet given). **user_id** is derived **only** from the verified auth session (cookies or `Authorization: Bearer`); the request body must not be trusted for user identity. |
 | **Other server-side events** | Various API routes | e.g. `deck_saved`, `collection_created`, `feedback_sent`, etc. Sent via `captureServer()` in API routes. No consent check. |
 
 ### 2.2 Cookies set regardless of consent

@@ -1,13 +1,12 @@
 // tests/chat.smoke.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("chat thread lifecycle + debug endpoints", async ({ page }) => {
+test("chat thread lifecycle", async ({ page }) => {
   await page.goto("/", { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  // Echo debug tells us env + auth status
-  const echo = await page.request.get("/api/chat/debug/echo");
-  expect(echo.ok()).toBeTruthy();
-  const echoJson = await echo.json();
-  expect(echoJson.ok).toBeTruthy();
+  const bootstrap = await page.request.get("/api/mobile/bootstrap?platform=web");
+  expect(bootstrap.ok()).toBeTruthy();
+  const bootJson = await bootstrap.json();
+  expect(bootJson.ok).toBeTruthy();
 
   // Create via messages
   const res = await page.request.post("/api/chat/messages", { data: { message: { role: "user", content: "ping" } } });

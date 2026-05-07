@@ -1,5 +1,18 @@
 # Frontend changelog
 
+## 2026-05-07
+
+### Security — AI auto-improve tables, analytics, public deck browse
+
+- **`db/migrations/104_lockdown_ai_auto_improve_tables.sql`:** Tighten RLS on `ai_prompt_candidates`, `ai_improvement_reports`, `ai_prompt_history` to **service_role only**; `REVOKE` from `anon`/`authenticated`; `GRANT ALL` to `service_role`. **Apply on Supabase** for production. No admin UI in this repo referenced these tables (engine was DB-only / unused in app code).
+- **`app/api/analytics/track-event`:** `user_id` is taken **only** from verified session (cookies or Bearer). Body / `properties.user_id` are ignored (anti-spoofing).
+- **`app/api/decks/browse`:** Returns **503** if service role key or public Supabase URL is missing (no anon-key fallback).
+
+### Security — remove chat debug API
+
+- Removed unused **`/api/chat/debug/*`** routes (env/auth/echo/llm/etc.) to reduce information disclosure in production.
+- **`tests/chat.smoke.spec.ts`:** Preflight check now uses **`GET /api/mobile/bootstrap`** instead of the removed echo endpoint.
+
 ## 2026-04-28
 
 ### Constructed AI generation stability

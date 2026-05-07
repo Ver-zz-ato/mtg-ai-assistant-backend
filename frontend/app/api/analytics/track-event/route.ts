@@ -57,13 +57,16 @@ async function storeProFunnelEvent(
  * Everything else uses this track-event endpoint. Keeps auth funnel props consistent.
  *
  * POST /api/analytics/track-event
- * Body: { event, properties?, userId?, visitor_id? }
+ * Body: { event, properties?, visitor_id? }
+ *
+ * user_id is never taken from the body or from properties.user_id — only from verified session
+ * (cookies or Authorization Bearer). Prevents spoofed attribution.
  */
 export async function POST(req: NextRequest) {
   let body: any = {};
   try {
     body = await req.json().catch(() => ({}));
-    const { event, properties = {}, userId: providedUserId, visitor_id: bodyVisitorId } = body;
+    const { event, properties: rawProperties = {}, visitor_id: bodyVisitorId } = body;
 
     if (!event || typeof event !== 'string') {
       return NextResponse.json({ ok: false, error: 'Event name required' }, { status: 400 });
@@ -71,30 +74,35 @@ export async function POST(req: NextRequest) {
 
     const visitorId = (bodyVisitorId ?? req.cookies.get('visitor_id')?.value ?? null) as string | null;
 
-    let finalUserId = (providedUserId ?? (properties as Record<string, unknown>)?.user_id ?? null) as string | null;
-    if (!finalUserId) {
-      try {
-        let supabase = await createClient();
-        let { data: { user } } = await supabase.auth.getUser();
+    const properties: Record<string, unknown> = {
+      ...(rawProperties as Record<string, unknown>),
+    };
+    delete properties.user_id;
+    delete properties.userId;
 
-        // Bearer fallback for mobile
-        if (!user) {
-          const authHeader = req.headers.get("Authorization");
-          const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-          if (bearerToken) {
-            const { createClientWithBearerToken } = await import("@/lib/server-supabase");
-            const bearerSupabase = createClientWithBearerToken(bearerToken);
-            const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
-            if (bearerUser) user = bearerUser;
-          }
-        }
+    let verifiedUserId: string | null = null;
+    try {
+      let supabase = await createClient();
+      let { data: { user } } = await supabase.auth.getUser();
 
-        if (user) {
-          finalUserId = user.id;
-          (properties as Record<string, unknown>).user_email = user.email;
+      if (!user) {
+        const authHeader = req.headers.get('Authorization');
+        const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        if (bearerToken) {
+          const { createClientWithBearerToken } = await import('@/lib/server-supabase');
+          const bearerSupabase = createClientWithBearerToken(bearerToken);
+          const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+          if (bearerUser) user = bearerUser;
         }
-      } catch {}
-    }
+      }
+
+      if (user) {
+        verifiedUserId = user.id;
+        properties.user_email = user.email;
+      }
+    } catch {}
+
+    const finalUserId = verifiedUserId;
 
     const cookies = { get: (n: string) => req.cookies.get(n) };
     const { distinctId, isFallback, isNew } = ensureDistinctId(finalUserId, visitorId, cookies);

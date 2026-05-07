@@ -6,11 +6,6 @@ import { isFormatCompliant } from "@/lib/deck/formatCompliance";
 
 // Use service role client to bypass RLS for public deck browsing
 // This is safe because we only query decks with is_public = true
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
-const supabase = serviceKey 
-  ? createClient(url, serviceKey, { auth: { persistSession: false } })
-  : createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
 
 export const revalidate = 60; // Cache for 1 minute
 export const dynamic = "force-dynamic";
@@ -55,6 +50,18 @@ function countCards(deckText: string | null | undefined): number {
 
 export async function GET(req: Request) {
   try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const serviceKey = (
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE ||
+      ''
+    ).trim();
+    if (!url || !serviceKey) {
+      logger.error('decks/browse: missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+      return NextResponse.json({ ok: false, error: 'service_unavailable' }, { status: 503 });
+    }
+    const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
+
     const { searchParams } = new URL(req.url);
     
     // Filters
