@@ -116,7 +116,6 @@ export async function POST(req: NextRequest) {
       currency: body.currency ?? "USD",
       deck_text: body.deckText ?? "",
       is_public,
-      public: is_public, // keep legacy flag in sync
     };
 
     // 1) Insert the deck

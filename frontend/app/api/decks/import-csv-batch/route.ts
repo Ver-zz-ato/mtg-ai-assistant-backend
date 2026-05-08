@@ -185,7 +185,6 @@ export async function POST(req: Request) {
             deck_text: deckText.trim(),
             commander: parsed.commander,
             is_public: false,
-            public: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })

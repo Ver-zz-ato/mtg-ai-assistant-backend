@@ -187,7 +187,6 @@ export async function POST(req: Request) {
         }
       }
       update.is_public = b.is_public;
-      update.public = b.is_public;
     }
 
     if (Object.keys(update).length === 0) {
@@ -273,4 +272,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
-

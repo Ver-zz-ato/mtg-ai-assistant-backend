@@ -161,7 +161,6 @@ async function _POST(req: NextRequest) {
         commander: commander,
         data: payload.data ?? null,
         is_public: makePublic,
-        public: makePublic,
       })
       .select("id")
       .single();

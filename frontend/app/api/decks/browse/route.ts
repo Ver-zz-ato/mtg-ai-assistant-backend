@@ -75,12 +75,11 @@ export async function GET(req: Request) {
     const offset = (page - 1) * limit;
     
     // Build query - use service role to bypass RLS for public deck browsing
-    // Check both is_public and public columns to be safe (some decks might only have one set)
     // PERFORMANCE: Use nested select to fetch username in same query (avoid separate query)
     let query = supabase
       .from('decks')
-      .select('id, title, commander, format, colors, created_at, updated_at, user_id, deck_text, is_public, public, profiles(username)', { count: 'exact' })
-      .or('is_public.eq.true,public.eq.true');
+      .select('id, title, commander, format, colors, created_at, updated_at, user_id, deck_text, is_public, profiles(username)', { count: 'exact' })
+      .eq('is_public', true);
 
     // Apply filters
     if (search) {
@@ -139,7 +138,7 @@ export async function GET(req: Request) {
       const cardCount = countCards(sampleDeck.deck_text);
       console.log(`[Browse Decks] Sample deck: "${sampleDeck.title}"`);
       console.log(`[Browse Decks]   - Card count: ${cardCount}`);
-      console.log(`[Browse Decks]   - is_public: ${sampleDeck.is_public}, public: ${(sampleDeck as any).public}`);
+      console.log(`[Browse Decks]   - is_public: ${sampleDeck.is_public}`);
       console.log(`[Browse Decks]   - deck_text length: ${(sampleDeck.deck_text || '').length}`);
       console.log(`[Browse Decks]   - deck_text preview: ${(sampleDeck.deck_text || '').substring(0, 300)}`);
     } else {
@@ -147,14 +146,13 @@ export async function GET(req: Request) {
       // Debug query to see if ANY public decks exist
       const { data: debugData, error: debugError } = await supabase
         .from('decks')
-        .select('id, title, is_public, public', { count: 'exact' })
+        .select('id, title, is_public', { count: 'exact' })
         .limit(5);
       console.log(`[Browse Decks] Debug query: ${debugData?.length || 0} total decks found, error: ${debugError?.message || 'none'}`);
       if (debugData && debugData.length > 0) {
         console.log(`[Browse Decks] Sample decks from debug query:`, debugData.map((d: any) => ({
           title: d.title,
-          is_public: d.is_public,
-          public: d.public
+          is_public: d.is_public
         })));
       }
     }
@@ -220,7 +218,6 @@ export async function GET(req: Request) {
         updated_at: deck.updated_at,
         user_id: deck.user_id,
         is_public: deck.is_public,
-        public: deck.public,
         owner_username: username,
         card_count: cardCount,
         deck_text: deck.deck_text, // Include deck_text for art loading
@@ -247,7 +244,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 }
-
 
 
 

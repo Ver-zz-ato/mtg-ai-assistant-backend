@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 function getDeckAccess(supabase: Awaited<ReturnType<typeof createClient>>, deckId: string, userId: string | undefined) {
-  return supabase.from("decks").select("id, user_id, is_public, public").eq("id", deckId).maybeSingle();
+  return supabase.from("decks").select("id, user_id, is_public").eq("id", deckId).maybeSingle();
 }
 
 export async function POST(req: NextRequest) {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "deck not found" }, { status: 404 });
       }
       const isOwner = user?.id && (deck as { user_id?: string }).user_id === user.id;
-      const isPublic = (deck as { is_public?: boolean; public?: boolean }).is_public || (deck as { public?: boolean }).public;
+      const isPublic = (deck as { is_public?: boolean }).is_public === true;
       if (!isOwner && !isPublic) {
         return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
       }

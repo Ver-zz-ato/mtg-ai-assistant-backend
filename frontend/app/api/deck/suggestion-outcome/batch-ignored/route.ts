@@ -43,12 +43,12 @@ export async function POST(req: NextRequest) {
     const promptVersionId = body?.prompt_version_id != null ? String(body.prompt_version_id).trim() || null : (body?.prompt_version != null ? String(body.prompt_version).trim() || null : null);
 
     if (deckId) {
-      const { data: deck } = await supabase.from("decks").select("id, user_id, is_public, public").eq("id", deckId).maybeSingle();
+      const { data: deck } = await supabase.from("decks").select("id, user_id, is_public").eq("id", deckId).maybeSingle();
       if (!deck) {
         return NextResponse.json({ ok: false, error: "deck not found" }, { status: 404 });
       }
       const isOwner = user?.id && (deck as { user_id?: string }).user_id === user.id;
-      const isPublic = (deck as { is_public?: boolean; public?: boolean }).is_public || (deck as { public?: boolean }).public;
+      const isPublic = (deck as { is_public?: boolean }).is_public === true;
       if (!isOwner && !isPublic) {
         return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
       }

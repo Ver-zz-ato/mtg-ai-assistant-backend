@@ -49,9 +49,9 @@ export async function GET(req: NextRequest) {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
       const service = serviceKey ? createServiceClient(url, serviceKey, { auth: { persistSession: false } }) : supabase;
-      const { data: decks } = await service.from("decks").select("id, is_public, public, user_id").in("id", deckIds);
+      const { data: decks } = await service.from("decks").select("id, is_public, user_id").in("id", deckIds);
       const allowed = (decks ?? []).filter(
-        (d: any) => d.is_public || d.public || d.user_id === user?.id
+        (d: any) => d.is_public || d.user_id === user?.id
       ).map((d: any) => d.id);
       if (allowed.length === 0) {
         return NextResponse.json({ ok: true, decks: {} });
@@ -79,13 +79,13 @@ export async function GET(req: NextRequest) {
     // First check if deck is public - if so, use service role to bypass RLS
     const { data: deck } = await supabase
       .from("decks")
-      .select("is_public, public, user_id")
+      .select("is_public, user_id")
       .eq("id", deckId)
       .maybeSingle();
     
     // If deck is public, use service role client to bypass RLS
     let client = supabase;
-    if (deck && (deck.is_public || deck.public)) {
+    if (deck?.is_public) {
       const { createClient: createServiceClient } = await import("@supabase/supabase-js");
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
