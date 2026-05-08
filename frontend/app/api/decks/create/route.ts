@@ -8,6 +8,7 @@ import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
+import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -24,18 +25,10 @@ async function checkIfCommanderWithColors(cardName: string): Promise<{ isCommand
     
     if (!card) return { isCommander: false, colorIdentity: [] };
     
-    const typeLine = (card.type_line || '').toLowerCase();
-    const oracleText = (card.oracle_text || '').toLowerCase();
     const colorIdentity = Array.isArray(card.color_identity) ? card.color_identity.map((c: string) => c.toUpperCase()) : [];
-    
-    // Check if it's a legendary creature or planeswalker
-    if (typeLine.includes('legendary creature')) return { isCommander: true, colorIdentity };
-    if (typeLine.includes('legendary planeswalker') && oracleText.includes('can be your commander')) return { isCommander: true, colorIdentity };
-    
-    // Check for special commander abilities (Partner, etc.)
-    if (oracleText.includes('can be your commander')) return { isCommander: true, colorIdentity };
-    
-    return { isCommander: false, colorIdentity };
+
+    const isCmd = isCommanderEligible(card.type_line, card.oracle_text);
+    return { isCommander: isCmd, colorIdentity };
   } catch {
     return { isCommander: false, colorIdentity: [] };
   }

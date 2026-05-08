@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 
 export const dynamic = "force-dynamic";
 
@@ -175,15 +176,9 @@ async function fetchCommanderAndColors(cardName: string): Promise<{ isCommander:
       const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(part)}`);
       if (!res.ok) continue;
       const card = await res.json();
-      const typeLine = (card.type_line || "").toLowerCase();
-      const oracleText = (card.oracle_text || "").toLowerCase();
       const ci = Array.isArray(card.color_identity) ? card.color_identity : [];
       ci.forEach((c: string) => allColors.add(c.toUpperCase()));
-      isCommander =
-        isCommander ||
-        typeLine.includes("legendary creature") ||
-        (typeLine.includes("legendary planeswalker") && oracleText.includes("can be your commander")) ||
-        oracleText.includes("can be your commander");
+      isCommander = isCommander || isCommanderEligible(card.type_line, card.oracle_text);
     } catch {
       /* skip */
     }

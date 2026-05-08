@@ -245,7 +245,7 @@ export default function CommanderBuilderModules() {
             Commander Finder
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Browse legendary creatures by colors and archetype. {!user && "Sign in to use My Decks."}
+            Browse cards that can be your commander — by colors and archetype. {!user && "Sign in to use My Decks."}
           </p>
           <Link
             href={user ? "/my-decks" : "/login"}

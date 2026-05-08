@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 
 export const dynamic = "force-dynamic";
 
@@ -34,17 +35,7 @@ async function checkIfCommander(cardName: string): Promise<boolean> {
     if (!response.ok) return false;
     
     const card = await response.json();
-    const typeLine = (card.type_line || '').toLowerCase();
-    const oracleText = (card.oracle_text || '').toLowerCase();
-    
-    // Check if it's a legendary creature or planeswalker
-    if (typeLine.includes('legendary creature')) return true;
-    if (typeLine.includes('legendary planeswalker') && oracleText.includes('can be your commander')) return true;
-    
-    // Check for special commander abilities (Partner, etc.)
-    if (oracleText.includes('can be your commander')) return true;
-    
-    return false;
+    return isCommanderEligible(card.type_line, card.oracle_text);
   } catch {
     return false;
   }

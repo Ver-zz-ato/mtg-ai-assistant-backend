@@ -14,6 +14,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import { config } from "dotenv";
+import { isCommanderEligible } from "../lib/deck/deck-enrichment";
 
 for (const p of [path.join(process.cwd(), ".env.local"), ".env.local"]) {
   if (fs.existsSync(p)) {
@@ -53,16 +54,11 @@ async function batchFromCache(
       .select("name, type_line, oracle_text, color_identity")
       .in("name", batch);
     for (const row of data || []) {
-      const tl = (row.type_line || "").toLowerCase();
-      const ot = (row.oracle_text || "").toLowerCase();
       const ci = Array.isArray(row.color_identity) ? row.color_identity : [];
       const allColors = new Set<string>(ci.map((c: string) => c.toUpperCase()));
-      const isCommander =
-        tl.includes("legendary creature") ||
-        (tl.includes("legendary planeswalker") && ot.includes("can be your commander")) ||
-        ot.includes("can be your commander");
+      const isCommanderCard = isCommanderEligible(row.type_line, row.oracle_text);
       out.set(row.name, {
-        isCommander,
+        isCommander: isCommanderCard,
         colorIdentity: wubrg.filter((c) => allColors.has(c)),
       });
     }
@@ -81,15 +77,9 @@ async function fetchFromScryfall(cardName: string): Promise<CommanderInfo> {
       const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(part)}`);
       if (!res.ok) continue;
       const card = await res.json();
-      const typeLine = (card.type_line || "").toLowerCase();
-      const oracleText = (card.oracle_text || "").toLowerCase();
       const ci = Array.isArray(card.color_identity) ? card.color_identity : [];
       ci.forEach((c: string) => allColors.add(c.toUpperCase()));
-      isCommander =
-        isCommander ||
-        typeLine.includes("legendary creature") ||
-        (typeLine.includes("legendary planeswalker") && oracleText.includes("can be your commander")) ||
-        oracleText.includes("can be your commander");
+      isCommander = isCommander || isCommanderEligible(card.type_line, card.oracle_text);
     } catch {
       /* skip */
     }

@@ -173,7 +173,7 @@ function inferWarningFlags(
 }
 
 /**
- * Resolve commander to only legendary creatures (or special planeswalkers).
+ * Resolve commander to commander-eligible cards (legendary creatures, qualifying planeswalkers, oracle overrides).
  * If extracted commander is not eligible, pick first commander-eligible card from deck.
  */
 /** Resolves commander name against enriched deck rows (eligibility + deck_cards names). Reusable by routes that build deck_facts. */

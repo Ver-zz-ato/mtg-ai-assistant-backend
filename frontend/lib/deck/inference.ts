@@ -1,4 +1,5 @@
 // Shared deck inference functions for analyze and chat routes
+import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 import { createClient } from "@/lib/supabase/server";
 import { isStale } from "@/lib/server/scryfallTtl";
@@ -500,17 +501,7 @@ export async function checkIfCommander(cardName: string): Promise<boolean> {
   try {
     const card = await fetchCard(cardName);
     if (!card) return false;
-    const typeLine = (card.type_line || '').toLowerCase();
-    const oracleText = (card.oracle_text || '').toLowerCase();
-    
-    // Check if it's a legendary creature or planeswalker
-    if (typeLine.includes('legendary creature')) return true;
-    if (typeLine.includes('legendary planeswalker') && oracleText.includes('can be your commander')) return true;
-    
-    // Check for special commander abilities (Partner, etc.)
-    if (oracleText.includes('can be your commander')) return true;
-    
-    return false;
+    return isCommanderEligible(card.type_line ?? undefined, card.oracle_text ?? undefined);
   } catch {
     return false;
   }

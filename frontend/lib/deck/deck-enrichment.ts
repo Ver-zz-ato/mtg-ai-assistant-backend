@@ -39,6 +39,22 @@ function resolveScryfallName(name: string): string {
   return n;
 }
 
+/**
+ * Widens `scryfall_cache` PostgREST queries before JS filtering with `isCommanderEligible`.
+ * Mirrors Manatap-APP/src/lib/commanderEligibility.ts `postgrestCommanderEligibleCatalogOr` — keep aligned.
+ */
+export function postgrestCommanderEligibleCatalogOr(): string {
+  return [
+    "type_line.ilike.%Legendary Creature%",
+    "and(type_line.ilike.%Legendary Planeswalker%,oracle_text.ilike.%can be your commander%)",
+    "oracle_text.ilike.%can be your commander%",
+    "oracle_text.ilike.%choose a background%",
+    "oracle_text.ilike.%friends forever%",
+    "oracle_text.ilike.%partner%",
+    "oracle_text.ilike.%doctor%companion%",
+  ].join(",");
+}
+
 /** Exported for rules-facts module. Checks commander eligibility per MTG rules. */
 export function isCommanderEligible(typeLine: string | undefined, oracleText: string | undefined): boolean {
   if (!typeLine) return false;

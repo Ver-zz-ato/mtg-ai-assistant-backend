@@ -11,6 +11,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import { config } from "dotenv";
+import { isCommanderEligible } from "../lib/deck/deck-enrichment";
 
 for (const p of [path.join(process.cwd(), ".env.local"), ".env.local"]) {
   if (fs.existsSync(p)) {
@@ -51,13 +52,7 @@ async function scryfallIsCommander(cardName: string): Promise<boolean> {
     if (!res.ok) res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(clean.slice(0, 50))}`);
     if (!res.ok) return false;
     const card = await res.json();
-    const typeLine = (card.type_line || "").toLowerCase();
-    const oracleText = (card.oracle_text || "").toLowerCase();
-    return (
-      typeLine.includes("legendary creature") ||
-      (typeLine.includes("legendary planeswalker") && oracleText.includes("can be your commander")) ||
-      oracleText.includes("can be your commander")
-    );
+    return isCommanderEligible(card.type_line, card.oracle_text);
   } catch {
     return false;
   }
