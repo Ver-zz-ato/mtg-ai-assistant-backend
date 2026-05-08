@@ -1,5 +1,13 @@
 # Frontend changelog
 
+## 2026-05-08
+
+### Blog — three new Commander articles
+
+- **`lib/blog-defaults.ts`:** Added `roast-my-deck-funniest-deckbuilding-fails`, `commander-land-count-guide`, `commander-deckbuilding-mistakes` (May 2026) to `DEFAULT_BLOG_POSTS`.
+- **`app/blog/[slug]/page.tsx`:** Full `blogContent` for each slug; metadata title strips additional emoji for SEO (`⚠️🔥🌍`).
+- **`db/migrations/109_blog_may_2026_three_posts.sql`:** Optional Supabase `app_config.blog` listing metadata — apply manually if API should mirror cards.
+
 ## 2026-05-07
 
 ### Security — lock down SECURITY DEFINER RPCs and ai_eval_* tables

@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   // Create SEO-friendly title and description
-  const title = post.title.replace(/[🚀🎉💰📊💎]/g, '').trim() + ' | ManaTap AI';
+  const title = post.title.replace(/[🚀🎉💰📊💎⚠️🔥🌍]/g, '').trim() + ' | ManaTap AI';
   const description = post.content
     .split('\n')
     .find((line: string) => line.trim().length > 50 && !line.startsWith('#') && !line.startsWith('##')) 
@@ -967,6 +967,217 @@ Together, that's how we build better decks.
 ---
 
 *Have thoughts on AI and deck building? Share your experiences in the comments or reach out to us directly. Your feedback shapes how we improve ManaTap AI.*
+    `,
+  },
+  'roast-my-deck-funniest-deckbuilding-fails': {
+    title: '🔥 Roast My Deck: The Funniest Commander Deckbuilding Fails We See All the Time',
+    date: '2026-05-08',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '5 min read',
+    gradient: 'from-orange-600 via-red-600 to-rose-600',
+    icon: '🔥',
+    content: `
+# Roast My Deck: The Funniest Commander Deckbuilding Fails We See All the Time
+
+Some decks are tuned machines. Others look like someone slammed every mythic they owned into Archidekt and called it a strategy.
+
+Roast My Deck exists because honest deck critique can still be fun — but the jokes land because the problems are real. Here are the recurring “themes” we roast (playfully), why they hurt gameplay, and what to do instead.
+
+## “The 9-mana spell museum”
+
+**The joke:** Your curve tops out like you are saving mana for a vacation home.
+
+**Why it hurts:** Commander rewards decks that *do something* before someone combos off or runs away with the board. If your average impactful spell costs seven or more and your early turns are mostly holding up vague interaction, you spend four turns watching other people play Magic.
+
+**Quick fix:** Pick three expensive haymakers you truly love. Cut the rest for two-drops, ramp, and draw that let you reach them on purpose — not by accident.
+
+## “Ramp? Never heard of her”
+
+**The joke:** Thirty-seven forests and a prayer — except sometimes it is thirty-seven *non-basic* lands and still no ramp.
+
+**Why it hurts:** Mana is how you cast spells. If your deck cannot accelerate or chain lands smoothly, you fall behind on board and use interaction too early just to survive.
+
+**Quick fix:** Aim for a real ramp package (often eight to fourteen pieces depending on curve). Rocks, dorks, land ramp — pick what fits colors — then **Roast My Deck** will still make fun of your Sol Ring pile, but at least you will cast your spells.
+
+## “37 themes in one sleeve”
+
+**The joke:** Tokens *and* aristocrats *and* spellslinger *and* Voltron *and* lands-matter — held together by vibes and generic staples.
+
+**Why it hurts:** Synergy decks win when draws line up. Mixed-theme soup draws random half-decks every game: too few payoffs for each plan.
+
+**Quick fix:** Choose one primary win path and one backup. Cut cards that only serve plan three through seventeen.
+
+## “Removal is for cowards”
+
+**The joke:** Interaction is “not on theme,” except the theme is losing.
+
+**Why it hurts:** Commander is multiplayer. Someone will cast something scary. If your answers are “hope they leave me alone,” you become the free resource piñata.
+
+**Quick fix:** Budget three to eight flexible answers (more in faster metas). Destroy/exile/bounce/counter — whatever fits — plus a board wipe or two if your colors allow.
+
+## “The mana base crime scene”
+
+**The joke:** Gates, taplands with no synergy, “cool” utility lands that enter tapped while you die on turn four.
+
+**Why it hurts:** Stumbling on mana is not dramatic flair — it is lost tempo. Bad mana turns clean curves into chaos.
+
+**Quick fix:** Prioritize untapped duals where possible, align taplands with your speed plan, and respect color pips on your commander and payoffs.
+
+## “Win condition: vibes”
+
+**The joke:** You generate value until the table agrees you probably deserve to win.
+
+**Why it hurts:** Value without closure lets someone else end the game. You spent twenty minutes being scary and still lost to Thoracle.
+
+**Quick fix:** Name how you actually close: combo, combat, mill, infect, whatever — then run enough redundancy and protection that it happens sometimes.
+
+## “The commander is just decorative”
+
+**The joke:** Your commander could be a basic land with flavor text and the list would play the same.
+
+**Why it hurts:** Commander tax exists because your commander should pull the deck together. If it never matters, you built a pile with higher variance and worse card quality than a normal sixty-card list.
+
+**Quick fix:** Add cards that synergize with the commander’s abilities, cost reduction, or identity — not just cards that are generically strong.
+
+## Try it (then fix it)
+
+If any of this hit close to home, good — that means there is juice left in your deck.
+
+Try **Roast My Deck** in ManaTap for a spicy-but-grounded roast of your actual list. When you are ready to repair the damage, run **Analyze Deck** to sanity-check ramp, draw, interaction, lands, and curve like an adult who enjoys casting spells.
+
+---
+
+*Roasts are for laughs; upgrading your deck is how you get revenge at the table.*
+    `,
+  },
+  'commander-land-count-guide': {
+    title: 'Commander Land Count: How Many Lands Should You Actually Run?',
+    date: '2026-05-08',
+    author: 'ManaTap Team',
+    category: 'Commander',
+    readTime: '7 min read',
+    gradient: 'from-sky-600 via-blue-600 to-cyan-600',
+    icon: '🌍',
+    content: `
+# Commander Land Count: How Many Lands Should You Actually Run?
+
+Here is the uncomfortable truth nobody wants printed on a fancy chart: **most Commander decks do not lose because they flooded.** They lose because they never got to play Magic in the first four turns.
+
+Land count only matters in context — curve, ramp, card draw, MDFCs, mulligans, and how greedy your spells really are. Use this as practical guidance, not a promise carved in stone.
+
+## A sane starting band for many casual decks
+
+As a rule of thumb, **many casual Commander decks land around 36–38 lands**. Some lean slightly lower when they run more cheap ramp and card advantage; some lean higher when the curve is heavy or the commander demands colored mana early.
+
+If you are newer to tuning, **do not start by cutting lands for “cool cards.”** That trade looks free in the deck builder and costs games at the table.
+
+## Why lower land counts demand discipline
+
+When you run fewer basics and duals, each miss hurts more. Decks that go to **34 lands** (for example) usually compensate with:
+
+- **Cheap ramp** — mana rocks and land ramp that deploy early
+- **Cheap draw** — ways to churn through the deck when you stumble
+- **Modal double-faced cards** — spell on one side, land on the other
+- **A lower curve** — enough one-to-three mana plays that “missing land drop four” is not an auto-loss
+
+If you cut lands without adding those tools, you did not make the deck sleeker — you made it inconsistent.
+
+## Why precons can feel clunky out of the box
+
+Preconstructed decks are built for acquisition and discovery, not perfect mana efficiency. They often include slower lands and higher curves so games feel epic.
+
+That is fine for learning — but if your upgrades are “more splashy spells” without touching lands and ramp, you can accidentally make the deck **slower** while pretending you buffed it.
+
+## Archetype differences (still no fake statistics)
+
+**Battlecruiser / high curve:** You usually want **more lands** and better fixing because your spells cost real mana. Missing early drops is catastrophic when your payoff turns are six-plus.
+
+**Low curve / disciplined lists:** Some streamlined decks can run **fewer lands** because they play cheap spells and cantrip through the deck — but that is a package deal. You cannot steal only the land count without stealing the rest of the infrastructure.
+
+**Landfall and lands-matter:** Often wants **more lands** because lands are both mana and synergy fuel.
+
+## The opening-hand trap
+
+People argue land counts in the abstract, but games start with **seven cards**. You can mathematically run “enough” lands and still keep hands that cannot cast anything meaningful.
+
+Before you blame the decklist for mana flood or screw, **test keeps**: hands with action early, hands that rely on topdecks, hands where one removal spell clears your only plan.
+
+## Improve it with tools (without claiming fake numbers)
+
+Use ManaTap’s **Mulligan** tool to stress-test opening hands: keepable versus secretly a trap.
+
+Then run **Analyze Deck** and actually look at whether your mana base matches your curve — not what you *wish* your curve was.
+
+---
+
+*Mana count is logistics. Win count is what happens when logistics stop apologizing for pretty spells.*
+    `,
+  },
+  'commander-deckbuilding-mistakes': {
+    title: '7 Commander Deckbuilding Mistakes That Secretly Ruin Your Games',
+    date: '2026-05-08',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '6 min read',
+    gradient: 'from-rose-600 via-red-600 to-orange-600',
+    icon: '⚠️',
+    content: `
+# 7 Commander Deckbuilding Mistakes That Secretly Ruin Your Games
+
+Most Commander decks do not fail because of one infamous bad card. They fail because small problems — light ramp, light draw, vague interaction — stack into a deck that only works when the stars align.
+
+Here are seven mistakes we see constantly, phrased bluntly because your sideboard does not care about your intentions.
+
+## 1) Too little ramp
+
+Commander is not Legacy. Games develop; resources compound. If your deck plays like it expects to survive on five mana until someone gives you permission to exist, you will spend too many turns answering other people’s threats with answers that cost more than their threats.
+
+**Fix:** Build a real ramp suite for your colors and speed — not “three rocks because three rocks feels fine.”
+
+## 2) Too little card draw
+
+Drawing cards is how you recover from sweepers, find interaction, and actually assemble synergies. A deck that plays one spell per turn off the top will eventually lose to someone who chains advantage.
+
+**Fix:** Add repeatable draw or efficient burst draw tied to your gameplan — not just one premium draw piece and prayers.
+
+## 3) Weak interaction
+
+“Removal does not fit my theme” is how themes lose. Multiplayer games punish players who cannot answer engines, combo props, or someone’s nonsense Commander.
+
+**Fix:** Pack flexible answers and accept that sometimes you counter the boring card that was about to delete your entire board.
+
+## 4) Mana curve too high
+
+You are allowed to love big spells. You are not allowed to pretend you will naturally survive to deploy six of them without early interaction and acceleration.
+
+**Fix:** Trim top-end repeats. Add early plays that defend your life total and your tempo.
+
+## 5) No clear win condition
+
+You can generate value until you are blue in the face — or blue-green-red — but value without closure is how tables stabilize into someone else’s combo turn.
+
+**Fix:** Pick a realistic finish: combat, combo, storm turns, mill, infect — something repeatable — and build toward it with redundancy.
+
+## 6) Bad opening hands (deckbuilding enables this)
+
+Sometimes the player keeps a slow hand because the deck has too few cheap spells *or* too few lands *or* too few engines that operate on curve.
+
+**Fix:** Adjust land count, ramp, and early interaction until keeps feel honest — then practice mulligans like they matter.
+
+## 7) Trying to do too many things
+
+Commander tempts you to brew everything at once. The deck becomes fifty neat cards with no overlap. You draw random subsets that do not win.
+
+**Fix:** Two-axis decks at most: primary plan + backup plan. Cut the secret third deck hiding in your mana base.
+
+## Put ManaTap on your list before you buy more singles
+
+Paste your deck into **ManaTap Analyze Deck** and actually look at ramp, draw, lands, curve, interaction, and whether your opening patterns make sense — before you spend forty dollars fixing the wrong problem.
+
+---
+
+*Tuning is not about perfection. It is about stopping unforced errors from deciding every match.*
     `,
   },
 };

@@ -213,3 +213,5 @@ END $$;
 ## 4. Reference: Migration Template
 
 See `frontend/db/migrations/085_changelog_and_blog_march_2025.sql` for a complete example that adds both a changelog entry and a blog entry in one file.
+
+For optional **`app_config.blog`** listing metadata only (batch prepend / de-dupe by slug), see `frontend/db/migrations/109_blog_may_2026_three_posts.sql`.
