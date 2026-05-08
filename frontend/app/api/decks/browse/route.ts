@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { CachePresets } from "@/lib/api/cache";
 import { logger } from "@/lib/logger";
-import { isFormatCompliant } from "@/lib/deck/formatCompliance";
+import { isPublicBrowseDeckCompliant } from "@/lib/deck/formatCompliance";
 
 // Use service role client to bypass RLS for public deck browsing
 // This is safe because we only query decks with is_public = true
@@ -165,9 +165,10 @@ export async function GET(req: Request) {
     if (rawDeckIds.length > 0) {
       const { data: cardsData } = await supabase
         .from("deck_cards")
-        .select("deck_id, qty")
+        .select("deck_id, qty, zone")
         .in("deck_id", rawDeckIds);
       for (const c of cardsData || []) {
+        if (String(c.zone ?? "mainboard").toLowerCase() === "sideboard") continue;
         const current = cardCountByDeck.get(c.deck_id) || 0;
         cardCountByDeck.set(c.deck_id, current + (c.qty || 0));
       }
@@ -184,7 +185,7 @@ export async function GET(req: Request) {
     const filteredDecks = (data || []).filter(d => {
       const cardCount = getCardCount(d);
       const format = d.format;
-      if (!isFormatCompliant(format, cardCount)) {
+      if (!isPublicBrowseDeckCompliant(format, cardCount)) {
         logger.debug(`[Browse Decks] Filtered out deck "${d.title}" - ${cardCount} cards for ${format || "unknown"} (incomplete)`);
         return false;
       }
