@@ -38,6 +38,20 @@ export type CardNameMatch = {
   scryfallData?: ResolvedCardName["scryfallData"];
 };
 
+export type StoredCardNameRecord = {
+  id?: string;
+  name: string;
+  qty?: number;
+};
+
+export type StoredCardNameFixItem = {
+  id?: string;
+  name: string;
+  originalName: string;
+  qty?: number;
+  suggestions: string[];
+};
+
 type LookupContext = {
   original: string;
   variants: string[];
@@ -60,9 +74,19 @@ function cleanPreservingFaces(raw: string): string {
 
   const parts = text.split("//").map((part) => cleanCardName(part));
   if (parts.length === 2 && parts[0] && parts[1]) {
+    if (normalizeScryfallCacheName(parts[0]) === normalizeScryfallCacheName(parts[1])) {
+      return parts[0];
+    }
     return `${parts[0]} // ${parts[1]}`;
   }
   return cleanCardName(text);
+}
+
+function isDuplicateDfcName(name: string): boolean {
+  const text = String(name || "").trim();
+  if (!text.includes("//")) return false;
+  const parts = text.split("//").map((part) => normalizeScryfallCacheName(part));
+  return parts.length === 2 && !!parts[0] && parts[0] === parts[1];
 }
 
 function tokenBaseVariants(raw: string): string[] {
@@ -83,7 +107,9 @@ export function cardNameLookupContext(rawName: string): LookupContext {
   const normalizedChars = normalizeChars(original);
   const preservedFaces = cleanPreservingFaces(normalizedChars);
   const cleaned = cleanCardName(normalizedChars);
-  const variants = uniqueStrings([preservedFaces, cleaned, normalizedChars, original]);
+  const variants = uniqueStrings([preservedFaces, cleaned, normalizedChars, original]).filter(
+    (variant) => !isDuplicateDfcName(variant),
+  );
   const keys = uniqueStrings(variants.map((v) => normalizeScryfallCacheName(v)));
   return { original, variants, keys };
 }
@@ -220,6 +246,7 @@ function scoreMatch(ctx: LookupContext, candidateName: string): number {
 function dedupeMatches(rows: CardNameMatch[]): CardNameMatch[] {
   const byKey = new Map<string, CardNameMatch>();
   for (const row of rows) {
+    if (isDuplicateDfcName(row.name)) continue;
     const key = normalizeScryfallCacheName(row.name);
     const prev = byKey.get(key);
     if (!prev || row.score > prev.score) byKey.set(key, row);
@@ -465,4 +492,70 @@ export async function resolveCardNamesForImport(
     if (result) return result;
     return { originalName: contexts[index]?.original || "", matchStatus: "notfound", confidence: 0 };
   });
+}
+
+function sameStoredName(a: string, b: string): boolean {
+  return String(a || "").trim() === String(b || "").trim();
+}
+
+async function suggestionListForName(
+  supabase: SupabaseLike,
+  originalName: string,
+  preferred?: string,
+): Promise<string[]> {
+  const suggestions = new Set<string>();
+  if (preferred && preferred.trim()) suggestions.add(preferred.trim());
+
+  const matches = await findCardNameMatches(supabase, originalName, 10);
+  for (const match of matches) {
+    if (match.name.trim()) suggestions.add(match.name.trim());
+  }
+
+  return [...suggestions];
+}
+
+export async function buildStoredCardNameFixItems(
+  supabase: SupabaseLike,
+  records: StoredCardNameRecord[],
+): Promise<StoredCardNameFixItem[]> {
+  const cleanRecords = records
+    .map((record) => ({ ...record, name: String(record.name || "").trim() }))
+    .filter((record) => record.name);
+  if (!cleanRecords.length) return [];
+
+  const uniqueNames = [...new Set(cleanRecords.map((record) => record.name))];
+  const resolvedByName = new Map<string, ResolvedCardName>();
+
+  for (let i = 0; i < uniqueNames.length; i += 1000) {
+    const chunk = uniqueNames.slice(i, i + 1000);
+    const results = await resolveCardNamesForImport(supabase, chunk, 1000);
+    results.forEach((result) => resolvedByName.set(result.originalName, result));
+  }
+
+  const suggestionsByName = new Map<string, string[]>();
+  for (const name of uniqueNames) {
+    const resolved = resolvedByName.get(name);
+    const suggested = resolved?.suggestedName?.trim();
+    if (!resolved || !suggested) continue;
+
+    const needsFix = resolved.matchStatus === "fuzzy" || !sameStoredName(name, suggested);
+    if (!needsFix) continue;
+
+    const suggestions = await suggestionListForName(supabase, name, suggested);
+    if (suggestions.length) suggestionsByName.set(name, suggestions);
+  }
+
+  const items: StoredCardNameFixItem[] = [];
+  for (const record of cleanRecords) {
+    const suggestions = suggestionsByName.get(record.name);
+    if (!suggestions?.length) continue;
+    items.push({
+      id: record.id,
+      name: record.name,
+      originalName: record.name,
+      qty: record.qty,
+      suggestions,
+    });
+  }
+  return items;
 }

@@ -1,148 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/server-supabase';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSupabase } from "@/lib/server-supabase";
+import { buildStoredCardNameFixItems } from "@/lib/server/cardNameResolution";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
-function norm(s: string){ return String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
-
-export async function GET(req: NextRequest){
-  try{
+export async function GET(req: NextRequest) {
+  try {
     const url = new URL(req.url);
-    const wishlistId = String(url.searchParams.get('wishlistId')||'');
-    if (!wishlistId) return NextResponse.json({ ok:false, error:'wishlistId required' }, { status:400 });
+    const wishlistId = String(url.searchParams.get("wishlistId") || "");
+    if (!wishlistId) return NextResponse.json({ ok: false, error: "wishlistId required" }, { status: 400 });
+
     const supabase = await getServerSupabase();
-    const { data: rows } = await (supabase as any).from('wishlist_items').select('id, name').eq('wishlist_id', wishlistId).limit(1000);
-    const cards = Array.isArray(rows)? (rows as any[]) : [];
-    if (!cards.length) return NextResponse.json({ ok:true, items: [] });
+    const { data: rows, error } = await (supabase as any)
+      .from("wishlist_items")
+      .select("id, name")
+      .eq("wishlist_id", wishlistId)
+      .limit(1000);
 
-    const names = Array.from(new Set(cards.map((r:any)=>String(r.name||''))));
-    const cacheNameMap = new Map<string, string>();
-    const batchSize = 50;
-    
-    for (let i = 0; i < names.length; i += batchSize) {
-      const batch = names.slice(i, i + batchSize);
-      
-      for (const cardName of batch) {
-        const isDFC = cardName.includes('//');
-        
-        // For DFCs with identical front/back faces, flag as needing fix
-        if (isDFC) {
-          const parts = cardName.split('//').map((p: string) => p.trim());
-          const frontNorm = norm(parts[0]);
-          const backNorm = norm(parts[1] || '');
-          if (frontNorm === backNorm) continue;
-        }
-        
-        const { data: exactMatch } = await (supabase as any).from('scryfall_cache').select('name').ilike('name', cardName).limit(1);
-        
-        if (exactMatch && exactMatch.length > 0) {
-          const cacheNorm = norm(exactMatch[0].name);
-          const deckNorm = norm(cardName);
-          
-          if (isDFC) {
-            const cacheParts = exactMatch[0].name.split('//').map((p: string) => p.trim());
-            const cacheFrontNorm = norm(cacheParts[0]);
-            const cacheBackNorm = norm(cacheParts[1] || '');
-            
-            if (cacheFrontNorm === cacheBackNorm) {
-              // Invalid DFC
-            } else if (cacheNorm === deckNorm) {
-              cacheNameMap.set(deckNorm, exactMatch[0].name);
-              continue;
-            }
-          } else {
-            cacheNameMap.set(deckNorm, exactMatch[0].name);
-            continue;
-          }
-        }
-        
-        if (isDFC) {
-          const frontPart = cardName.split('//')[0].trim();
-          const { data: dfcMatches } = await (supabase as any).from('scryfall_cache').select('name').ilike('name', `${frontPart} //%`).limit(10);
-          
-          if (dfcMatches && dfcMatches.length > 0) {
-            const frontNorm = norm(frontPart);
-            const validDFCs = dfcMatches.filter((r: any) => {
-              const cacheParts = r.name.split('//').map((p: string) => p.trim());
-              const cacheFrontNorm = norm(cacheParts[0]);
-              const cacheBackNorm = norm(cacheParts[1] || '');
-              return cacheFrontNorm === frontNorm && cacheFrontNorm !== cacheBackNorm;
-            });
-            
-            if (validDFCs.length > 0 && norm(validDFCs[0].name) === norm(cardName)) {
-              cacheNameMap.set(norm(cardName), validDFCs[0].name);
-            }
-          }
-        }
-      }
-    }
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-    const unknown = cards.filter((r:any) => !cacheNameMap.has(norm(r.name)));
-    if (unknown.length === 0) return NextResponse.json({ ok:true, items: [] });
+    const cards = Array.isArray(rows) ? rows.map((row: any) => ({ id: row.id, name: row.name })) : [];
+    if (!cards.length) return NextResponse.json({ ok: true, items: [] });
 
-    try {
-      const { POST: fuzzy } = await import("@/app/api/cards/fuzzy/route");
-      const fuzzyReq = new (await import('next/server')).NextRequest(new URL('/api/cards/fuzzy', req.url), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' } as any,
-        body: JSON.stringify({ names: Array.from(new Set(unknown.map((r:any)=>r.name))).slice(0,50) }),
-      } as any);
-      const fuzzyRes = await fuzzy(fuzzyReq);
-      const jf:any = await fuzzyRes.json().catch(()=>({}));
-      const map = jf?.results || {};
-
-      const itemsWithProperNames = await Promise.all(
-        unknown.map(async (r:any) => {
-          const all: string[] = Array.isArray(map[r.name]?.all) ? map[r.name].all : [];
-          if (all.length === 0) return null as any;
-          
-          const properSuggestions: string[] = [];
-          for (const suggestion of all.slice(0, 10)) {
-            const { data: cacheMatch } = await (supabase as any).from('scryfall_cache').select('name').ilike('name', suggestion).limit(1);
-            if (cacheMatch && cacheMatch.length > 0) {
-              properSuggestions.push(cacheMatch[0].name);
-            } else {
-              properSuggestions.push(suggestion);
-            }
-          }
-          
-          return { id: r.id, name: r.name, suggestions: properSuggestions };
-        })
-      );
-      
-      // For DFCs, enhance suggestions
-      const enhancedItems = await Promise.all(
-        itemsWithProperNames.filter(Boolean).map(async (item: any) => {
-          if (!item || !item.name.includes('//')) return item;
-          
-          const frontFace = item.name.split('//')[0].trim();
-          const { data: allDFCs } = await (supabase as any).from('scryfall_cache').select('name').ilike('name', `${frontFace} //%`).limit(20);
-          
-          if (allDFCs && allDFCs.length > 1) {
-            const validDFCs = allDFCs.filter((r: any) => {
-              const parts = r.name.split('//').map((p: string) => p.trim());
-              const frontNorm = norm(parts[0]);
-              const backNorm = norm(parts[1] || '');
-              return frontNorm !== backNorm && frontNorm === norm(frontFace);
-            });
-            
-            return {
-              ...item,
-              suggestions: [...validDFCs.map((r: any) => r.name), ...item.suggestions.filter((s: string) => {
-                const isValidDFC = validDFCs.some((r: any) => norm(r.name) === norm(s));
-                return !isValidDFC;
-              })]
-            };
-          }
-          
-          return item;
-        })
-      );
-      
-      const items = enhancedItems.filter(Boolean);
-      return NextResponse.json({ ok:true, items });
-    } catch (e:any) {
-      return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status:500 });
-    }
-  }catch(e:any){ return NextResponse.json({ ok:false, error: e?.message||'server_error' }, { status:500 }); }
+    const items = await buildStoredCardNameFixItems(supabase as any, cards);
+    return NextResponse.json({ ok: true, items });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });
+  }
 }
