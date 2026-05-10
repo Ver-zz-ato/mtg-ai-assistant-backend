@@ -106,19 +106,26 @@ export default function CollectionCsvUpload({
       setStatusText(`Verifying ${parsedCards.length} cards with Scryfall...`);
       
       const cardNames = parsedCards.map((c: any) => c.name);
-      const matchRes = await fetch('/api/collections/fuzzy-match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ names: cardNames }),
-      });
-      
-      const matchJson = await matchRes.json();
-      if (!matchRes.ok || !matchJson?.ok) {
-        throw new Error(matchJson?.error || 'Failed to verify cards');
+      const results: any[] = [];
+      const matchBatchSize = 200;
+      for (let i = 0; i < cardNames.length; i += matchBatchSize) {
+        const batch = cardNames.slice(i, i + matchBatchSize);
+        const matchRes = await fetch('/api/collections/fuzzy-match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: batch }),
+        });
+        
+        const matchJson = await matchRes.json();
+        if (!matchRes.ok || !matchJson?.ok) {
+          throw new Error(matchJson?.error || 'Failed to verify cards');
+        }
+
+        results.push(...(matchJson.results || []));
+        setProgress(40 + Math.floor((Math.min(i + matchBatchSize, cardNames.length) / cardNames.length) * 40));
       }
       
       // Build preview cards
-      const results = matchJson.results || [];
       const preview: PreviewCard[] = parsedCards.map((card: any, index: number) => {
         const matchResult = results[index] || {};
         return {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { withLogging } from "@/lib/api/withLogging";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
 export const runtime = 'nodejs';
 export const revalidate = 3600; // 1 hour
@@ -89,9 +90,9 @@ export const GET = withLogging(async (req: NextRequest) => {
         const { data: row } = await supabase
           .from("scryfall_cache")
           .select("name")
-          .eq("name", fuzzyOne.name)
+          .eq("name", normalizeScryfallCacheName(fuzzyOne.name))
           .maybeSingle();
-        if (row?.name) cards = [{ name: row.name }];
+        if (row?.name) cards = [{ name: fuzzyOne.name }];
       } catch {
         /* keep cards empty — same as missing cache row */
       }
