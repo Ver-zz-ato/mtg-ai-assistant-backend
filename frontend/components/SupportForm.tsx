@@ -11,6 +11,8 @@ export default function SupportForm() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [userInfo, setUserInfo] = useState<{ email: string; pro: boolean } | null>(null);
 
   // Fetch user info on mount
@@ -71,6 +73,8 @@ export default function SupportForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSent(false);
+    setErrorMessage('');
 
     try {
       // Get browser info
@@ -81,14 +85,15 @@ export default function SupportForm() {
         screenResolution: `${window.screen.width}x${window.screen.height}`
       };
 
-      // Construct mailto link with all info
       const proEmail = userInfo?.pro ? 'prosupport@manatap.ai' : 'davy@manatap.ai';
-      const emailSubject = encodeURIComponent(subject || 'Support Request');
-      const emailBody = encodeURIComponent(
+      const emailSubject = subject || 'Support Request';
+      const emailBody = (
+        `Subject: ${emailSubject}\n\n` +
         `${message}\n\n` +
         `---\n` +
         `User Info:\n` +
         `Email: ${email}\n` +
+        `Support inbox: ${proEmail}\n` +
         `Pro Status: ${userInfo?.pro ? 'Yes ⭐' : 'No'}\n` +
         `Browser: ${browserInfo.userAgent}\n` +
         `Language: ${browserInfo.language}\n` +
@@ -96,11 +101,29 @@ export default function SupportForm() {
         `Screen: ${browserInfo.screenResolution}`
       );
 
-      window.location.href = `mailto:${proEmail}?subject=${emailSubject}&body=${emailBody}`;
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          rating: null,
+          source: userInfo?.pro ? 'support_contact_pro' : 'support_contact',
+          text: emailBody,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) {
+        throw new Error(json?.error || 'Failed to send support request');
+      }
+
+      setSent(true);
+      setSubject('');
+      setMessage('');
     } catch (error) {
-      console.error('Error opening email:', error);
-      alert('Failed to open email client. Please email us directly at ' + 
-            (userInfo?.pro ? 'prosupport@manatap.ai' : 'davy@manatap.ai'));
+      console.error('Error sending support request:', error);
+      setErrorMessage(
+        `We couldn't send that through the site. Please email ${userInfo?.pro ? 'prosupport@manatap.ai' : 'davy@manatap.ai'} directly.`
+      );
     } finally {
       setLoading(false);
     }
@@ -127,6 +150,18 @@ export default function SupportForm() {
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
           Contact Support
         </h2>
+
+        {sent && (
+          <div className="mb-4 rounded-lg border border-emerald-600/40 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-200">
+            Thanks, your support request was sent. We'll get back to you as soon as we can.
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mb-4 rounded-lg border border-red-600/40 bg-red-950/30 px-4 py-3 text-sm text-red-200">
+            {errorMessage}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Email */}
@@ -180,7 +215,7 @@ export default function SupportForm() {
 
           {/* Info Notice */}
           <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
-            <span className="font-medium">Note:</span> Your email, Pro status, and browser info will be automatically included to help us assist you better.
+            <span className="font-medium">Note:</span> Your request will be sent through ManaTap, with your email, Pro status, and browser info included to help us assist you better.
           </div>
 
           {/* Submit Button */}
@@ -193,7 +228,7 @@ export default function SupportForm() {
                 : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
             } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            {loading ? 'Opening Email...' : userInfo?.pro ? '⭐ Send Priority Support Request' : '📧 Send Support Request'}
+            {loading ? 'Sending...' : userInfo?.pro ? '⭐ Send Priority Support Request' : '📧 Send Support Request'}
           </button>
 
           {/* Response Time */}
@@ -208,4 +243,3 @@ export default function SupportForm() {
     </div>
   );
 }
-

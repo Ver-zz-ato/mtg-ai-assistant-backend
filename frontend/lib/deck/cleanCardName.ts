@@ -241,8 +241,9 @@ export function looksLikeCardName(s: string): boolean {
   // All numbers
   if (/^\d+$/.test(cleaned)) return false;
   
-  // Contains weird characters that aren't in card names
-  if (/[@#$%^&*+=|\\<>{}[\]~`]/.test(cleaned)) return false;
+  // Contains weird characters that aren't in card names. Ampersands are valid
+  // for Universes Beyond names such as "Bebop, Skull & Crossbones".
+  if (/[@#$%^*+=|\\<>{}[\]~`]/.test(cleaned)) return false;
   
   // Looks like a URL
   if (/^https?:\/\//.test(cleaned)) return false;
