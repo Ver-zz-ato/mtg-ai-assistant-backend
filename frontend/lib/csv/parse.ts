@@ -1,6 +1,6 @@
 // lib/csv/parse.ts
 // Hardened CSV/line parser for card lists (drop-in replacement, same export signature).
-// Accepts CSV with headers: name,qty[,set,collector,foil] (header synonyms supported),
+// Accepts CSV/TSV/table exports with headers: name,qty[,set,collector,foil] (header synonyms supported),
 // or loose lines: "2 Arcane Signet" / "Arcane Signet x2" / "Arcane Signet ×2" / "Arcane Signet - 2"
 // Skips section headings (e.g., LANDS) and comment lines (#, //).
 // Normalizes Unicode (NFKC), smart quotes/dashes, and collapses spaces.
@@ -15,15 +15,32 @@ const HEADER_ALIASES: Record<string, "name" | "qty" | "set" | "collector" | "foi
   card: "name",
   cardname: "name",
   card_name: "name",
+  cardtitle: "name",
+  productname: "name",
   qty: "qty",
   quantity: "qty",
+  quantityx: "qty",
   count: "qty",
+  counts: "qty",
+  totalqty: "qty",
+  totalquantity: "qty",
+  owned: "qty",
+  have: "qty",
+  amount: "qty",
+  number: "qty",
   set: "set",
   set_code: "set",
+  setcode: "set",
+  edition: "set",
+  setname: "set",
   collector: "collector",
   collector_number: "collector",
+  collectornumber: "collector",
+  cardnumber: "collector",
   foil: "foil",
 };
+
+const DELIMITERS = [",", "&", "\t", ";", "|"] as const;
 
 function normalizeText(input: string): string {
   // NFKC, strip BOM, normalize quotes/dashes/x, collapse spaces/newlines
@@ -35,13 +52,13 @@ function normalizeText(input: string): string {
     .replace(/[\u00D7\u2715]/g, "x")
     .replace(/[\u2013\u2014]/g, "-")
     .replace(/\r\n/g, "\n")
-    .replace(/[ \t]+/g, " ")
+    .replace(/[ ]+/g, " ")
     .replace(/[ \t]*\n[ \t]*/g, "\n");
   return s.trim();
 }
 
-function splitCsvLine(line: string): string[] {
-  // CSV split with quote awareness
+function splitDelimitedLine(line: string, delimiter: string): string[] {
+  // CSV/table split with quote awareness
   const out: string[] = [];
   let cur = "";
   let inQ = false;
@@ -50,7 +67,7 @@ function splitCsvLine(line: string): string[] {
     if (ch === '"') {
       if (inQ && line[i+1] === '"') { cur += '"'; i++; }
       else { inQ = !inQ; }
-    } else if (ch === "," && !inQ) {
+    } else if (ch === delimiter && !inQ) {
       out.push(cur.trim());
       cur = "";
     } else {
@@ -59,6 +76,55 @@ function splitCsvLine(line: string): string[] {
   }
   out.push(cur.trim());
   return out;
+}
+
+function splitCsvLine(line: string): string[] {
+  return splitDelimitedLine(line, ",");
+}
+
+function normalizeHeaderKey(header: string): string {
+  return normalizeText(header).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function parseQty(value: string | undefined): number {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^\s*(?:x\s*)?(\d+)\s*x?\s*$/i);
+  if (match) return parseInt(match[1], 10) || 0;
+  const asNumber = Number(raw.replace(/,/g, ""));
+  return Number.isFinite(asNumber) ? Math.floor(asNumber) : 0;
+}
+
+function detectDelimiter(line: string): string {
+  let best = ",";
+  let bestCount = 1;
+  for (const delimiter of DELIMITERS) {
+    const count = splitDelimitedLine(line, delimiter).length;
+    if (count > bestCount) {
+      best = delimiter;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function alignColumnsToHeader(cols: string[], headerKeys: string[], delimiter: string): string[] {
+  if (cols.length <= headerKeys.length) return cols;
+  const nameIdx = headerKeys.findIndex((key) => HEADER_ALIASES[key] === "name");
+  if (nameIdx < 0) return cols;
+
+  const trailingCount = headerKeys.length - nameIdx - 1;
+  const nameEnd = Math.max(nameIdx + 1, cols.length - trailingCount);
+  const joinedName = cols
+    .slice(nameIdx, nameEnd)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(delimiter === "\t" ? " " : ` ${delimiter} `);
+
+  return [
+    ...cols.slice(0, nameIdx),
+    joinedName,
+    ...cols.slice(nameEnd),
+  ];
 }
 
 function isHeadingOrComment(line: string): boolean {
@@ -94,9 +160,10 @@ function parseAdvanced(raw: string): { items: AdvancedItem[]; report: ParseRepor
     items.push({ name, qty, set, collector, foil });
   };
 
-  // CSV header detection
-  const maybeHeader = splitCsvLine(lines[0]);
-  const headerKeys = maybeHeader.map(h => h.toLowerCase().replace(/[^a-z_]/g, ""));
+  // CSV/table header detection
+  const delimiter = detectDelimiter(lines[0]);
+  const maybeHeader = splitDelimitedLine(lines[0], delimiter);
+  const headerKeys = maybeHeader.map(normalizeHeaderKey);
   const hasNameKey = headerKeys.some(k => HEADER_ALIASES[k] === "name");
   const hasQtyKey = headerKeys.some(k => HEADER_ALIASES[k] === "qty");
   const treatAsCsv = maybeHeader.length > 1 && (hasNameKey || hasQtyKey);
@@ -106,15 +173,15 @@ function parseAdvanced(raw: string): { items: AdvancedItem[]; report: ParseRepor
     for (let i = 1; i < lines.length; i++) {
       const raw = lines[i];
       if (isHeadingOrComment(raw)) continue;
-      const cols = splitCsvLine(raw);
+      const cols = alignColumnsToHeader(splitDelimitedLine(raw, delimiter), headerKeys, delimiter);
       let name = "", qty = 0, set: string|undefined, collector: string|undefined, foil: boolean|undefined;
       for (let c = 0; c < cols.length && c < map.length; c++) {
         const key = map[c]; const val = cols[c];
         if (key === "name") name = val.replace(/^"|"$/g, "");
-        else if (key === "qty") qty = parseInt(val || "0", 10) || 0;
+        else if (key === "qty") qty = parseQty(val);
         else if (key === "set") set = val || undefined;
         else if (key === "collector") collector = val || undefined;
-        else if (key === "foil") foil = /^(1|true|yes|y)$/i.test(val);
+        else if (key === "foil") foil = /^(1|true|yes|y|foil)$/i.test(val);
       }
       if (!name) { report.errors.push(`Row ${i+1}: missing name`); continue; }
       pushItem(name, qty || 1, set, collector, foil);
@@ -131,7 +198,7 @@ function parseAdvanced(raw: string): { items: AdvancedItem[]; report: ParseRepor
           // First token can be "10x" or "10"
           const qtok = parts[0]?.toLowerCase() || '';
           const qmatch = qtok.match(/^(\d+)x?$/i);
-          const qty = qmatch ? parseInt(qmatch[1], 10) : (qtok.match(/^(\d+)$/) ? parseInt(qtok, 10) : 0);
+          const qty = qmatch ? parseInt(qmatch[1], 10) : parseQty(qtok);
           const name = parts[1] || '';
           if (name && qty > 0) { pushItem(name, qty); continue; }
         }

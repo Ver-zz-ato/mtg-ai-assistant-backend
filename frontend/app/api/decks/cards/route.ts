@@ -23,35 +23,57 @@ function getDeckIds(url: string): string[] | null {
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
+async function resolveAuthedClient(req: NextRequest): Promise<{
+  supabase: SupabaseServerClient;
+  userId: string | null;
+  authError: string | null;
+}> {
+  let supabase = await createClient();
+  let {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (bearerToken) {
+      const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+      const bearerSupabase = createClientWithBearerToken(bearerToken) as SupabaseServerClient;
+      const {
+        data: { user: bearerUser },
+        error: bearerError,
+      } = await bearerSupabase.auth.getUser();
+      if (bearerUser) {
+        user = bearerUser;
+        supabase = bearerSupabase;
+        error = null;
+      } else if (!error && bearerError) {
+        error = bearerError;
+      }
+    }
+  }
+
+  return {
+    supabase,
+    userId: user?.id ?? null,
+    authError: error?.message ?? null,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const deckIds = getDeckIds(req.url);
     if (deckIds && deckIds.length > 0) {
       // Batch: return cards for multiple decks (e.g. ?deckIds=id1,id2,id3)
-      let supabase = await createClient();
-      let { data: { user } } = await supabase.auth.getUser();
-
-      // Bearer fallback for mobile
-      if (!user) {
-        const authHeader = req.headers.get("Authorization");
-        const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-        if (bearerToken) {
-          const { createClientWithBearerToken } = await import("@/lib/server-supabase");
-          const bearerSupabase = createClientWithBearerToken(bearerToken);
-          const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
-          if (bearerUser) {
-            user = bearerUser;
-            supabase = bearerSupabase;
-          }
-        }
-      }
+      const { supabase, userId } = await resolveAuthedClient(req);
       const { createClient: createServiceClient } = await import("@supabase/supabase-js");
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
       const service = serviceKey ? createServiceClient(url, serviceKey, { auth: { persistSession: false } }) : supabase;
       const { data: decks } = await service.from("decks").select("id, is_public, user_id").in("id", deckIds);
       const allowed = (decks ?? []).filter(
-        (d: any) => d.is_public || d.user_id === user?.id
+        (d: any) => d.is_public || d.user_id === userId
       ).map((d: any) => d.id);
       if (allowed.length === 0) {
         return NextResponse.json({ ok: true, decks: {} });
@@ -74,7 +96,7 @@ export async function GET(req: NextRequest) {
     if (!deckId) {
       return NextResponse.json({ ok: false, error: "deckId or deckIds required" }, { status: 400 });
     }
-    const supabase = await createClient();
+    const { supabase, userId } = await resolveAuthedClient(req);
 
     // First check if deck is public - if so, use service role to bypass RLS
     const { data: deck } = await supabase
@@ -82,6 +104,10 @@ export async function GET(req: NextRequest) {
       .select("is_public, user_id")
       .eq("id", deckId)
       .maybeSingle();
+
+    if (deck?.user_id && !deck.is_public && deck.user_id !== userId) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 403 });
+    }
     
     // If deck is public, use service role client to bypass RLS
     let client = supabase;
@@ -179,27 +205,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "deckId required" }, { status: 400 });
     }
 
-    let supabase = await createClient();
-    let { data: { user }, error: uErr } = await supabase.auth.getUser();
-
-    // Bearer fallback for mobile
-    if (!user && !uErr) {
-      const authHeader = req.headers.get("Authorization");
-      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-      if (bearerToken) {
-        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
-        const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
-        if (bearerUser) {
-          user = bearerUser;
-          supabase = bearerSupabase;
-          uErr = null;
-        }
-      }
-    }
-
-    if (uErr) return NextResponse.json({ ok: false, error: uErr.message }, { status: 401 });
-    if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    const { supabase, userId, authError } = await resolveAuthedClient(req);
+    if (authError && !userId) return NextResponse.json({ ok: false, error: authError }, { status: 401 });
+    if (!userId) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
     const deckText = typeof body?.deckText === "string" ? body.deckText : "";
     if (deckText.trim()) {
@@ -260,11 +268,11 @@ export async function POST(req: NextRequest) {
       try {
         const { logSuggestionOutcome } = await import("@/lib/data-moat/log-suggestion-outcome");
         const sid = body?.suggestion_id ?? body?.suggestionId;
-        if (sid && user?.id) {
+        if (sid && userId) {
           await logSuggestionOutcome({
             suggestion_id: String(sid),
             deck_id: deckId,
-            user_id: user.id,
+            user_id: userId,
             suggested_card: (name || body?.suggested_card) ?? null,
             category: body?.category ?? null,
             prompt_version_id: body?.prompt_version_id ?? body?.prompt_version ?? null,
@@ -288,11 +296,11 @@ export async function POST(req: NextRequest) {
     try {
       const { logSuggestionOutcome } = await import("@/lib/data-moat/log-suggestion-outcome");
       const sid = body?.suggestion_id ?? body?.suggestionId;
-      if (sid && user?.id) {
+      if (sid && userId) {
         await logSuggestionOutcome({
           suggestion_id: String(sid),
           deck_id: deckId,
-          user_id: user.id,
+          user_id: userId,
           suggested_card: (name || body?.suggested_card) ?? null,
           category: body?.category ?? null,
           prompt_version_id: body?.prompt_version_id ?? body?.prompt_version ?? null,

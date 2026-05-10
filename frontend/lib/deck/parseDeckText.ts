@@ -1,6 +1,7 @@
 // @server-only
 
 import { cleanCardName, looksLikeCardName, normalizeChars } from './cleanCardName';
+import { parseDeckOrCollectionCSV } from "../csv/parse";
 import type { DeckCardZone } from "./deckCardZone";
 
 export type ParsedDeckEntry = {
@@ -9,6 +10,38 @@ export type ParsedDeckEntry = {
 };
 
 export type ParsedDeckEntryWithZone = ParsedDeckEntry & { zone: DeckCardZone };
+
+function parseDelimitedCardImport(raw?: string): ParsedDeckEntry[] | null {
+  if (!raw) return null;
+
+  const firstLine = raw
+    .split(/\r?\n/)
+    .map((line) => normalizeChars(line).trim())
+    .find((line) => line && !line.startsWith("#") && !line.startsWith("//"));
+  if (!firstLine || !/[,;&\t|]/.test(firstLine)) return null;
+
+  const normalizedHeader = firstLine.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const hasHeader =
+    /(name|card|productname)/.test(normalizedHeader) &&
+    /(qty|quantity|quantityx|count|owned|amount|number)/.test(normalizedHeader);
+  const hasDelimitedQtyRows = raw
+    .split(/\r?\n/)
+    .some((line) => /^\s*(?:x\s*)?\d+\s*x?\s*[,;&\t|]/i.test(line));
+
+  if (!hasHeader && !hasDelimitedQtyRows) return null;
+
+  const byName = new Map<string, ParsedDeckEntry>();
+  for (const item of parseDeckOrCollectionCSV(raw)) {
+    const name = cleanCardName(item.name);
+    if (!name || !looksLikeCardName(name)) continue;
+    const key = name.toLowerCase();
+    const existing = byName.get(key);
+    if (existing) existing.qty += item.qty;
+    else byName.set(key, { name, qty: item.qty });
+  }
+
+  return byName.size ? Array.from(byName.values()) : null;
+}
 
 /**
  * Parse a raw decklist text block into {name, qty} entries.
@@ -29,6 +62,8 @@ export type ParsedDeckEntryWithZone = ParsedDeckEntry & { zone: DeckCardZone };
  */
 export function parseDeckText(raw?: string): ParsedDeckEntry[] {
   if (!raw) return [];
+  const delimited = parseDelimitedCardImport(raw);
+  if (delimited) return delimited;
 
   const out: Record<string, number> = {};
 
@@ -122,6 +157,8 @@ export function parseDeckTextWithZones(
   }
 
   if (!raw) return [];
+  const delimited = parseDelimitedCardImport(raw);
+  if (delimited) return delimited.map((e) => ({ ...e, zone: "mainboard" as const }));
 
   type AggKey = string;
   const byKey = new Map<

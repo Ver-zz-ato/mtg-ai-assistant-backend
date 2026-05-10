@@ -155,7 +155,7 @@ async function _POST(req: NextRequest) {
         title: cleanTitle || "Untitled Deck",
         format: payload.format,
         plan: payload.plan,
-        colors: colors.length > 0 ? colors : null,
+        colors,
         currency: payload.currency,
         deck_text: payload.deck_text,
         commander: commander,

@@ -106,7 +106,7 @@ export async function POST(
       .from('decks')
       .update({ 
         commander: trimmedCommander,
-        colors: colors.length > 0 ? colors : null,
+        colors,
         updated_at: new Date().toISOString()
       })
       .eq('id', id);
