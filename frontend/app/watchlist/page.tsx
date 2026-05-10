@@ -8,7 +8,7 @@ import { usePrefs } from "@/components/PrefsContext";
 import CardAutocomplete from "@/components/CardAutocomplete";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { useProStatus } from "@/hooks/useProStatus";
-import { getImagesForNames } from "@/lib/scryfall";
+import { getImagesForNames } from "@/lib/scryfall-cache";
 
 export default function WatchlistPage() {
   const { user, loading: authLoading } = useAuth();
@@ -790,4 +790,3 @@ function WatchlistEditor() {
     </div>
   );
 }
-

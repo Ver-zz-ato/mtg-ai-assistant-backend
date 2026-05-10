@@ -9,6 +9,15 @@ type Item = {
 
 type CardImageMap = Record<string, { small?: string; normal?: string }>;
 
+function normalizeCardKey(name: string): string {
+  return String(name || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 interface PublicWishlistCardListProps {
   items: Item[];
   priceMap?: Map<string, number>;
@@ -26,11 +35,11 @@ export default function PublicWishlistCardList({ items, priceMap = new Map() }: 
       try {
         const names = Array.from(new Set(items.map(i => i.name))).slice(0, 300);
         if (!names.length) { setImgMap({}); return; }
-        const { getImagesForNames } = await import("@/lib/scryfall");
+        const { getImagesForNames } = await import("@/lib/scryfall-cache");
         const m = await getImagesForNames(names);
         const obj: CardImageMap = {}; 
         m.forEach((v: any, k: string) => { 
-          obj[k] = { small: v.small, normal: v.normal }; 
+          obj[normalizeCardKey(k)] = { small: v.small, normal: v.normal }; 
         });
         setImgMap(obj);
       } catch { 
@@ -74,13 +83,13 @@ export default function PublicWishlistCardList({ items, priceMap = new Map() }: 
             const valueDisplay = totalValue !== null ? `$${totalValue.toFixed(2)}` : '';
             
             // Get card image
-            let key = item.name.toLowerCase();
+            let key = normalizeCardKey(item.name);
             let src = imgMap[key]?.small;
             let normalSrc = imgMap[key]?.normal;
             
             // Handle DFCs
             if (!src && item.name.includes('//')) {
-              const frontFace = item.name.split('//')[0].trim().toLowerCase();
+              const frontFace = normalizeCardKey(item.name.split('//')[0].trim());
               src = imgMap[frontFace]?.small;
               normalSrc = imgMap[frontFace]?.normal;
               

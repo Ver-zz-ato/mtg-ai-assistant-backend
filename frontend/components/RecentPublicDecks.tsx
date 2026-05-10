@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
+import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 
 type Row = {
   id: string;
@@ -122,10 +123,9 @@ export default async function RecentPublicDecks({ limit = 5 }: { limit?: number 
 
   let imgMap = new Map<string, { small?: string; normal?: string; art_crop?: string }>();
   try {
-    const { getImagesForNames } = await import("@/lib/scryfall");
     // include top card names into prefetch set
     const extra = Array.from(topCardsByDeck.values()).flat().filter(Boolean);
-    imgMap = await getImagesForNames([...names, ...extra]);
+    imgMap = await getImagesForNamesCached([...names, ...extra]);
   } catch {}
 
   return (

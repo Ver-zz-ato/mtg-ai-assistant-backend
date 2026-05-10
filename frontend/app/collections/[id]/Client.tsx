@@ -235,7 +235,7 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
       try {
         const names = Array.from(new Set(items.map(i=>i.name))).slice(0, 400);
         if (!names.length) { setImgMap({}); return; }
-        const { getImagesForNames } = await import("@/lib/scryfall");
+        const { getImagesForNames } = await import("@/lib/scryfall-cache");
         const m = await getImagesForNames(names);
         // Normalize keys to match lookup logic (normalize NFKD, lowercase, trim spaces)
         const normalize = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();

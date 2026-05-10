@@ -58,13 +58,18 @@ export default function PopularCardsPanel({ commander, deckId, onAddCard }: { co
           const cardNames = data.cards.map((c: { card: string; inclusion_rate: string; deck_count: number }) => c.card);
           try {
             // Fetch images using batch API
-            const imgRes = await fetch('/api/cards/batch-images-chat', {
+            const imgRes = await fetch('/api/cards/batch-images', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ names: cardNames })
             });
-            const imgData = await imgRes.json().catch(() => ({ images: {} }));
-            const images = imgData.images || {};
+            const imgData = await imgRes.json().catch(() => ({ data: [] }));
+            const images: Record<string, { small?: string; normal?: string }> = {};
+            for (const card of Array.isArray(imgData.data) ? imgData.data : []) {
+              const key = String(card?.name || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+              if (!key) continue;
+              images[key] = { small: card?.small, normal: card?.normal || card?.small };
+            }
             
             // Fetch metadata (set, rarity) using batch-metadata API
             const metaRes = await fetch('/api/cards/batch-metadata', {

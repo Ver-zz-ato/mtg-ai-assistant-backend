@@ -99,11 +99,11 @@ export default function PublicDeckCardList({
       try {
         const names = imageNameKeys;
         if (!names.length) { setImgMap({}); return; }
-        const { getImagesForNames } = await import("@/lib/scryfall");
+        const { getImagesForNames } = await import("@/lib/scryfall-cache");
         const m = await getImagesForNames(names);
         const obj: CardImageMap = {}; 
         m.forEach((v: any, k: string) => { 
-          obj[k] = { small: v.small, normal: v.normal }; 
+          obj[normalizeScryfallCacheName(k)] = { small: v.small, normal: v.normal }; 
         });
         setImgMap(obj);
       } catch { 
@@ -277,4 +277,3 @@ export default function PublicDeckCardList({
     </>
   );
 }
-

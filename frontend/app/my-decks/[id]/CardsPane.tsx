@@ -895,14 +895,31 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
       try {
         const names = Array.from(new Set(rows.map(r => r.name))).slice(0, 300);
         if (!names.length) { setImgMap({}); return; }
-        const { getImagesForNames } = await import("@/lib/scryfall");
-        const m = await getImagesForNames(names);
-        // getImagesForNames returns Map with normalized keys (NFKD normalized, lowercase, trimmed)
-        // Store with same normalized keys for consistent lookup
-        const obj: any = {}; 
-        m.forEach((v: any, k: string) => { 
-          obj[k] = { small: v.small, normal: v.normal }; 
+        const res = await fetch('/api/cards/batch-images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names }),
+          cache: 'no-store',
         });
+        const json = await res.json().catch(() => ({}));
+        const cards: any[] = Array.isArray(json?.data) ? json.data : [];
+        const normalize = (s: string) =>
+          String(s || '')
+            .toLowerCase()
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const obj: any = {};
+        for (const card of cards) {
+          const key = normalize(String(card?.name || ''));
+          if (!key) continue;
+          const imageUris = card?.image_uris || card?.card_faces?.[0]?.image_uris || {};
+          obj[key] = {
+            small: imageUris.small,
+            normal: imageUris.normal,
+          };
+        }
         setImgMap(obj);
       } catch { setImgMap({}); }
     })();
@@ -1432,4 +1449,3 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     </div>
   );
 }
-

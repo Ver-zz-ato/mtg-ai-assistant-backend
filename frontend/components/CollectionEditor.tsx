@@ -3,7 +3,6 @@
 import React from "react";
 import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
-import { getImagesForNames } from "@/lib/scryfall";
 import Sparkline from "@/components/Sparkline";
 import CollectionPriceHistory from "@/components/CollectionPriceHistory";
 import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
@@ -737,11 +736,15 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
     try{
       const names = Array.from(new Set(items.map(i=>i.name)));
       if(!names.length){ setTopSets([]); setAllSets([]); return; }
-      const chunks: string[][] = []; for(let i=0;i<names.length;i+=75) chunks.push(names.slice(i,i+75));
+      const chunks: string[][] = []; for(let i=0;i<names.length;i+=150) chunks.push(names.slice(i,i+150));
       const counts = new Map<string, number>();
       for(const part of chunks){
-        const body = { identifiers: part.map(n=>({ name:n })) };
-        const r = await fetch('https://api.scryfall.com/cards/collection', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+        const r = await fetch('/api/cards/batch-metadata', {
+          method:'POST',
+          headers:{'content-type':'application/json'},
+          body: JSON.stringify({ names: part }),
+          cache: 'no-store',
+        });
         const j:any = r.ok? await r.json().catch(()=>({})) : {};
         const data:any[] = Array.isArray(j?.data)? j.data : [];
         for(const c of data){

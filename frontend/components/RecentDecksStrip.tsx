@@ -23,9 +23,10 @@ export default function RecentDecksStrip() {
         // Fetch art images
         try {
           const names = Array.from(new Set(list.map(x=>x.commander).filter(Boolean)));
-          const { getImagesForNames } = await import("@/lib/scryfall");
+          const { getImagesForNames } = await import("@/lib/scryfall-cache");
           const m = await getImagesForNames(names as string[]);
-          const withArt = list.map(x => { const key = String(x.commander||'').toLowerCase(); const info = m.get(key); return { ...x, art: info?.art_crop || info?.normal || info?.small }; });
+          const norm = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+          const withArt = list.map(x => { const key = norm(String(x.commander||'')); const info = m.get(key); return { ...x, art: info?.art_crop || info?.normal || info?.small }; });
           if (alive) setItems(withArt);
         } catch { if (alive) setItems(list as any); }
       } catch {}

@@ -10,7 +10,7 @@ import { useHoverPreview } from "@/components/shared/HoverPreview";
 import ExportWishlistCSV from "@/components/ExportWishlistCSV";
 import WishlistCsvUpload from "@/components/WishlistCsvUpload";
 import GuestLandingPage from "@/components/GuestLandingPage";
-import { getImagesForNames } from "@/lib/scryfall";
+import { getImagesForNames } from "@/lib/scryfall-cache";
 import { EmptyWishlistState } from "@/components/EmptyStates";
 import WishlistSkeleton from "@/components/WishlistSkeleton";
 

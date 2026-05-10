@@ -1090,9 +1090,14 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         const norm = (n: string) => n.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
         
         // Fetch images
-        const r1 = await fetch('/api/cards/batch-images-chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names }) });
-        const imgResponse = await r1.json().catch(() => ({ images: {} }));
-        const imgs = imgResponse.images || {}; // Extract images from { ok: true, images: {...} }
+        const r1 = await fetch('/api/cards/batch-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names }) });
+        const imgResponse = await r1.json().catch(() => ({ data: [] }));
+        const imgsByKey: Record<string, { small?: string; normal?: string }> = {};
+        for (const card of Array.isArray(imgResponse.data) ? imgResponse.data : []) {
+          const key = norm(card?.name || '');
+          if (!key) continue;
+          imgsByKey[key] = { small: card?.small, normal: card?.normal || card?.art_crop || card?.small };
+        }
         
         // Fetch prices and deltas - use GET /api/price for each card to get deltas
         const pricePromises = names.map(async (name) => {
@@ -1111,11 +1116,11 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         const priceResults = await Promise.all(pricePromises);
         const pricesMap = new Map(priceResults.map(r => [r.name, r]));
         
-        // Merge into imgMap - imgs is already keyed by normalized name
+        // Merge into imgMap
         const map: Record<string, { small?: string; normal?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }> = {};
         for (const name of names) {
           const key = norm(name);
-          const imgData = imgs[key] || {}; // Use normalized key to look up images
+          const imgData = imgsByKey[key] || {};
           const priceData = pricesMap.get(name) || { price: 0, delta_24h: 0, delta_7d: 0, delta_30d: 0 };
           map[key] = {
             small: imgData.small,
