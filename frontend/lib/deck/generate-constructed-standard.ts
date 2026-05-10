@@ -104,15 +104,97 @@ export function padStandardMainboardWide(rows: QtyRow[], colorLetters: string[])
   return { rows: trimmed, adjusted: totalDeckQty(trimmed) !== q };
 }
 
+async function fetchStandardNames(query: string, max = 40): Promise<string[]> {
+  try {
+    const out: string[] = [];
+    let url: string | null = `https://api.scryfall.com/cards/search?order=edhrec&unique=cards&q=${encodeURIComponent(query)}`;
+    while (url && out.length < max) {
+      const res = await fetch(url, {
+        headers: { "user-agent": "ManaTapAI/standard-fallback" },
+        cache: "no-store",
+      });
+      if (!res.ok) break;
+      const json = await res.json().catch(() => null) as {
+        data?: Array<{ name?: string; type_line?: string }>;
+        has_more?: boolean;
+        next_page?: string;
+      } | null;
+      for (const card of json?.data ?? []) {
+        const name = String(card?.name || "").trim();
+        if (!name || out.some((existing) => existing.toLowerCase() === name.toLowerCase())) continue;
+        out.push(name);
+        if (out.length >= max) break;
+      }
+      url = json?.has_more && json?.next_page ? json.next_page : null;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function addCopiesUntil(
+  rows: QtyRow[],
+  names: string[],
+  targetQty: number,
+  copiesPerCard: number,
+  opts?: { skipBasics?: boolean }
+): void {
+  for (const name of names) {
+    if (totalDeckQty(rows) >= targetQty) return;
+    if (opts?.skipBasics && isBasicLandName(name)) continue;
+    const existing = rows.find((r) => normalizeScryfallCacheName(r.name) === normalizeScryfallCacheName(name));
+    const current = existing?.qty ?? 0;
+    const maxCopies = isBasicLandName(name) ? 99 : 4;
+    const add = Math.min(copiesPerCard, maxCopies - current, targetQty - totalDeckQty(rows));
+    if (add <= 0) continue;
+    if (existing) existing.qty += add;
+    else rows.push({ name, qty: add });
+  }
+}
+
+function addAzoriusBasics(rows: QtyRow[], targetQty: number): void {
+  let i = 0;
+  const basics = ["Plains", "Island"];
+  while (totalDeckQty(rows) < targetQty && i < 120) {
+    const name = basics[i % basics.length];
+    const existing = rows.find((r) => normalizeScryfallCacheName(r.name) === normalizeScryfallCacheName(name));
+    if (existing) existing.qty += 1;
+    else rows.push({ name, qty: 1 });
+    i++;
+  }
+}
+
 /**
- * Conservative Azorius-only Standard fallback: mostly Plains/Island, validated via same filter as AI decks.
+ * Conservative Azorius-only Standard fallback, validated via the same filter as AI decks.
+ * It uses live Scryfall legality to avoid shipping a stale static Standard list.
  */
 export async function buildStandardWuFallbackDeck(): Promise<{ mainRows: QtyRow[]; sideRows: QtyRow[] } | null> {
-  const roughMain: QtyRow[] = [
-    { name: "Plains", qty: 35 },
-    { name: "Island", qty: 35 },
-  ];
-  const roughSide: QtyRow[] = [{ name: "Island", qty: 15 }];
+  const interactionNames = await fetchStandardNames(
+    "f:standard id<=uw (o:counter or o:draw or o:exile or o:destroy or o:return) -t:land",
+    36
+  );
+  const permanentNames = await fetchStandardNames(
+    "f:standard id<=uw (t:creature or t:planeswalker or t:artifact or t:enchantment) -t:land",
+    36
+  );
+  const landNames = await fetchStandardNames("f:standard id<=uw t:land", 24);
+
+  const roughMain: QtyRow[] = [];
+  addCopiesUntil(roughMain, interactionNames, 24, 3);
+  addCopiesUntil(roughMain, permanentNames, 36, 2);
+  addCopiesUntil(roughMain, landNames, 48, 2, { skipBasics: true });
+  addAzoriusBasics(roughMain, 60);
+
+  const roughSide: QtyRow[] = [];
+  addCopiesUntil(
+    roughSide,
+    [...interactionNames.slice(8), ...permanentNames.slice(8)],
+    15,
+    2
+  );
+  if (totalDeckQty(roughSide) < 15) addCopiesUntil(roughSide, interactionNames, 15, 1);
+  if (totalDeckQty(roughSide) < 15) addAzoriusBasics(roughSide, 15);
 
   const fm = await filterDecklistQtyRowsForFormat(aggregateCards(roughMain), "Standard", {
     logPrefix: "/api/deck/generate-constructed standard-fallback main",
@@ -125,6 +207,8 @@ export async function buildStandardWuFallbackDeck(): Promise<{ mainRows: QtyRow[
   let sideRows = trimDeckToMaxQty(fs.lines, 15);
 
   let mq = totalDeckQty(mainRows);
+  const nonlandQty = mainRows.reduce((sum, row) => sum + (isBasicLandName(row.name) ? 0 : row.qty), 0);
+  if (nonlandQty < 20) return null;
   if (mq < STANDARD_MAIN_PAD_MIN) return null;
 
   if (mq <= STANDARD_MAIN_PAD_MAX) {
