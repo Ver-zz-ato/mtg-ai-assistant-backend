@@ -280,6 +280,9 @@ export default function DeckRoastPanel({
           <option value="Standard">Standard</option>
         </select>
       </div>
+      <p className="text-xs text-neutral-500 -mt-1">
+        Roast currently supports Commander, Modern, Pioneer, Standard, and Pauper.
+      </p>
 
       {format === "Commander" && (
         <div>

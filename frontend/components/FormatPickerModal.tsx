@@ -3,9 +3,9 @@ import React from "react";
 import { createPortal } from "react-dom";
 
 /**
- * Formats for /new-deck — must match `normalizeDeckFormat` / `DECK_FORMATS` in lib/deck/formatRules.
- * Legacy & Vintage are intentionally omitted until first-class support (unknown format currently
- * falls back to Commander rules and skips publish compliance — unsafe).
+ * Formats for /new-deck — first-class formats only.
+ * Legacy / Vintage / Brawl / Historic are intentionally omitted here until they
+ * have truthful first-class deck-analysis and publish-validation support.
  */
 export type PickedDeckFormat = "commander" | "standard" | "modern" | "pioneer" | "pauper";
 
@@ -100,6 +100,9 @@ export default function FormatPickerModal({ isOpen, onSelect, onClose, busy = fa
 
           <p className="text-sm text-neutral-400 mb-5 sm:mb-6 leading-snug">
             Pick a format for your new deck. You can change this later in the deck builder.
+          </p>
+          <p className="text-xs text-neutral-500 mb-5 leading-relaxed">
+            Commander, Modern, Pioneer, Standard, and Pauper currently have full AI analysis and validation support.
           </p>
 
           <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-500 mb-3">Format</p>

@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "MTG Tools | Mulligan Simulator, Probability, Cost to Finish | ManaTap AI",
   description:
-    "Free MTG tools for Commander: mulligan simulator, probability calculator, cost to finish, budget swaps, price tracker. Optimize your deck without signup.",
+    "Free MTG tools for Commander plus supported 60-card formats: mulligan simulator, probability calculator, cost to finish, budget swaps, price tracker. Optimize your deck without signup.",
   alternates: { canonical: "https://www.manatap.ai/tools" },
 };
 
@@ -58,7 +58,7 @@ export default function ToolsIndexPage() {
         <div className="text-neutral-300 mb-10 space-y-4 text-lg leading-relaxed">
           <p>
             ManaTap provides free tools to help you build, tune, and optimize
-            your Commander decks. From mulligan simulation to budget planning,
+            your Commander decks and supported 60-card formats. From mulligan simulation to budget planning,
             these calculators and utilities work without signup — paste a
             decklist or load from your account and get instant results.
           </p>
@@ -72,8 +72,9 @@ export default function ToolsIndexPage() {
             time.
           </p>
           <p>
-            All tools are designed for Commander (99-card decks) but support
-            other formats. No signup required to try them.
+            Commander, Modern, Pioneer, Standard, and Pauper are the formats
+            we support most deeply today. Some legality helpers recognize other
+            formats, but deeper AI analysis outside those five is still limited.
           </p>
         </div>
         <div className="space-y-6">

@@ -14,8 +14,11 @@ import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT 
 import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
 import {
   buildDeckTextFromDbRows,
-  chatFormatUsesCommanderLayers,
-  formatKeyForPromptLayers,
+  chatAnalyzeFormat,
+  chatFormatForLegality,
+  chatFormatSupportInstruction,
+  chatResolvedFormatUsesCommanderLayers,
+  formatKeyForChatPromptLayers,
   resolveChatFormat,
 } from "@/lib/chat/resolve-chat-format";
 
@@ -817,10 +820,10 @@ export async function POST(req: NextRequest) {
       contextFormat: ctxFmtEarly,
       deckFormat: d?.format ?? null,
     });
-    let commanderLayersOn = chatFormatUsesCommanderLayers(chatFmtResolved.canonical);
+    let commanderLayersOn = chatResolvedFormatUsesCommanderLayers(chatFmtResolved);
 
     let deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
-    let formatKey = formatKeyForPromptLayers(chatFmtResolved.canonical);
+    let formatKey = formatKeyForChatPromptLayers(chatFmtResolved);
 
     if (DEV) {
       logger.info(
@@ -852,7 +855,8 @@ export async function POST(req: NextRequest) {
           setPasteSummary,
           estimateSummaryTokens,
         } = await import("@/lib/deck/deck-context-summary");
-        if (deckIdToUse && deckText && deckText.trim()) {
+        const summaryAnalyzeFormat = chatAnalyzeFormat(chatFmtResolved);
+        if (deckIdToUse && deckText && deckText.trim() && summaryAnalyzeFormat) {
           const hash = deckHash(deckText);
           deckHashForLog = hash;
           const admin = (await import("@/app/api/_lib/supa")).getAdmin();
@@ -867,9 +871,8 @@ export async function POST(req: NextRequest) {
               v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
               contextSource = "linked_db";
             } else {
-              const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
               v2Summary = await buildDeckContextSummary(deckText, {
-                format: deckFormatStringToAnalyzeFormat(d?.format || null),
+                format: summaryAnalyzeFormat,
                 ...(commanderLayersOn ? { commander: d?.commander ?? null } : {}),
                 colors: Array.isArray(d?.colors) ? d.colors : [],
               });
@@ -886,16 +889,15 @@ export async function POST(req: NextRequest) {
               } catch (_) {}
             }
           } else {
-            const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
             v2Summary = await buildDeckContextSummary(deckText, {
-              format: deckFormatStringToAnalyzeFormat(d?.format || null),
+              format: summaryAnalyzeFormat,
               ...(commanderLayersOn ? { commander: d?.commander ?? null } : {}),
               colors: Array.isArray(d?.colors) ? d.colors : [],
             });
             contextSource = "raw_fallback";
           }
           summaryTokensEstimate = estimateSummaryTokens(v2Summary);
-        } else if (pastedDeckTextRaw && pastedDeckTextRaw.trim()) {
+        } else if (pastedDeckTextRaw && pastedDeckTextRaw.trim() && summaryAnalyzeFormat) {
           const hash = deckHash(pastedDeckTextRaw);
           deckHashForLog = hash;
           const cached = getPasteSummary(hash);
@@ -904,18 +906,11 @@ export async function POST(req: NextRequest) {
             contextSource = "paste_ttl";
           } else {
             const { extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
-            const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
-            const summarizeHintPast =
-              typeof chatFmtResolved.rawRequest === "string"
-                ? chatFmtResolved.rawRequest
-                : typeof chatFmtResolved.rawDeck === "string"
-                  ? chatFmtResolved.rawDeck
-                  : null;
             const commander = commanderLayersOn
               ? extractCommanderFromDecklistText(pastedDeckTextRaw, text ?? undefined)
               : null;
             v2Summary = await buildDeckContextSummary(pastedDeckTextRaw, {
-              format: deckFormatStringToAnalyzeFormat(summarizeHintPast),
+              format: summaryAnalyzeFormat,
               ...(commander ? { commander } : {}),
             });
             setPasteSummary(hash, v2Summary);
@@ -940,12 +935,13 @@ export async function POST(req: NextRequest) {
       contextFormat: ctxFmtEarly,
       deckFormat: d?.format ?? null,
     });
-    commanderLayersOn = chatFormatUsesCommanderLayers(chatFmtResolved.canonical);
+    commanderLayersOn = chatResolvedFormatUsesCommanderLayers(chatFmtResolved);
     deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
-    formatKey = formatKeyForPromptLayers(chatFmtResolved.canonical);
+    formatKey = formatKeyForChatPromptLayers(chatFmtResolved);
     const deckContextForCompose = entries.length && d
       ? { deckCards: entries, commanderName: d.commander ?? null, colorIdentity: null as string[] | null, deckId: deckIdToUse ?? undefined }
       : (pastedDecklistForCompose ?? null);
+    const supportsDeepDeckAnalysis = chatAnalyzeFormat(chatFmtResolved) !== null;
 
     const hasDeckContextForTier = !!v2Summary || !!(deckContextForCompose?.deckCards?.length);
     let inferredContext: any = null;
@@ -995,12 +991,17 @@ export async function POST(req: NextRequest) {
       promptResult = await buildSystemPromptForRequest({
         kind: "chat",
         formatKey,
-        deckContextForCompose,
+        deckContextForCompose: supportsDeepDeckAnalysis ? deckContextForCompose : null,
         supabase,
         hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
       });
       sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
       promptVersionId = promptResult.promptVersionId ?? null;
+    }
+
+    const formatSupportInstruction = selectedTier !== "micro" ? chatFormatSupportInstruction(chatFmtResolved) : null;
+    if (formatSupportInstruction) {
+      sys += "\n\n" + formatSupportInstruction;
     }
 
     // Tool suggestions are now added deterministically after the AI response (see getToolSuggestionsForMessage)
@@ -1092,7 +1093,11 @@ export async function POST(req: NextRequest) {
         }
         sys += `- Deck Title: ${d.title || "Untitled Deck"}\n`;
         sys += `- Full Decklist:\n${deckText}\n`;
-        sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
+        if (supportsDeepDeckAnalysis) {
+          sys += `- IMPORTANT: You already have the complete decklist above. Do NOT ask the user to share or provide the decklist. Start directly with analysis or suggestions.\n`;
+        } else {
+          sys += `- IMPORTANT: You already have the complete decklist above, but this format is not in ManaTap's first-class analysis set. Do not pretend this is Commander; give limited, format-truthful help.\n`;
+        }
         sys += `- Do NOT suggest cards already in the decklist above.\n`;
       }
       if (pastedDecklistContext) {
@@ -1256,13 +1261,11 @@ export async function POST(req: NextRequest) {
     sys += `\n\nFormatting: Use "Step 1", "Step 2" (with a space after Step). Put a space after colons. Keep step-by-step analysis concise; lead with actionable recommendations. Do NOT suggest cards that are already in the decklist.`;
     // Add inference when deck is linked (from thread OR context parameter)
     let inferredContext: any = null;
-    if (deckIdToUse && entries.length > 0 && deckText) {
+    if (supportsDeepDeckAnalysis && deckIdToUse && entries.length > 0 && deckText) {
       try {
         const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
-        const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
-        const format = deckFormatStringToAnalyzeFormat(
-          ((typeof prefs?.format === "string" ? prefs.format : null) ?? d?.format ?? null) as string | null | undefined
-        );
+        const format = chatAnalyzeFormat(chatFmtResolved);
+        if (!format) throw new Error("chat format is not first-class for deck inference");
         const commander = d?.commander || null;
         const deckAim = d?.deck_aim || null;
         const selectedColors: string[] = Array.isArray(prefs?.colors) ? prefs.colors : [];
@@ -1811,14 +1814,11 @@ Return the corrected answer with concise, user-facing tone.`;
     const deckCardsForValidate = entries.length > 0 ? entries : (pastedDecklistForCompose?.deckCards ?? []);
     if (deckCardsForValidate.length > 0 && outText && typeof outText === "string") {
       try {
-        const formatKeyForValidate =
-          (typeof prefs?.format === "string" ? prefs.format : null)
-          ?? deckFormat
-          ?? chatFmtResolved.canonical
-          ?? "commander";
-        const formatKeyVal = (formatKeyForValidate === "modern" || formatKeyForValidate === "pioneer"
-          ? formatKeyForValidate
-          : "commander") as "commander" | "modern" | "pioneer";
+        const formatForLegality = chatFormatForLegality(chatFmtResolved);
+        if (!formatForLegality) {
+          throw new Error("Skipping recommendation legality validation: unknown chat format");
+        }
+        const formatKeyVal = (commanderLayersOn ? "commander" : "modern") as "commander" | "modern" | "pioneer";
         
         // Get color identity from: inferredContext > prefs.colors > null (let validator fetch it)
         const colorIdentityForValidate: string[] | null = 
@@ -1834,7 +1834,7 @@ Return the corrected answer with concise, user-facing tone.`;
           colorIdentity: colorIdentityForValidate,
           commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
           rawText: outText,
-          formatForLegality: formatKeyForValidate,
+          formatForLegality,
         });
         let validationWarning: string | null = null;
         if (!result.valid && result.issues.length > 0) {
@@ -1848,7 +1848,7 @@ Return the corrected answer with concise, user-facing tone.`;
               await supabase.from('ai_human_reviews').insert({
                 source: 'auto_escalation',
                 route: '/api/chat',
-                input: { user_message: text, thread_id: tid, deck_id: deckIdToUse, format: formatKeyVal },
+                input: { user_message: text, thread_id: tid, deck_id: deckIdToUse, format: formatForLegality },
                 output: outText,
                 labels: { issues: result.issues.map(i => ({ kind: i.kind, card: i.card, message: i.message })) },
                 status: 'pending',
@@ -1875,7 +1875,7 @@ Return the corrected answer with concise, user-facing tone.`;
                 commanderName: d?.commander ?? pastedDecklistForCompose?.commanderName ?? null,
                 rawText: outText,
                 isRegenPass: true,
-                formatForLegality: formatKeyForValidate,
+                formatForLegality,
               });
               if (!result.valid && result.issues.length > 0) outText = result.repairedText;
             }
@@ -1887,13 +1887,8 @@ Return the corrected answer with concise, user-facing tone.`;
         outText = applyOutputCleanupFilter(outText);
         outText = applyBracketEnforcement(outText);
         try {
-          const rawFmt = String(formatKeyForValidate || "commander");
-          const formatForRec =
-            rawFmt.length > 0
-              ? rawFmt.charAt(0).toUpperCase() + rawFmt.slice(1).toLowerCase()
-              : "Commander";
           const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
-          outText = await stripIllegalBracketCardTokensFromText(outText, formatForRec, {
+          outText = await stripIllegalBracketCardTokensFromText(outText, formatForLegality, {
             logPrefix: "/api/chat bracket legality",
           });
         } catch {
@@ -1914,18 +1909,10 @@ Return the corrected answer with concise, user-facing tone.`;
       }
     } else if (outText && typeof outText === "string" && outText.includes("[[")) {
       try {
-        const rawFmt = String(
-          (typeof prefs?.format === "string" ? prefs.format : null)
-            ?? deckFormat
-            ?? chatFmtResolved.canonical
-            ?? "commander"
-        );
-        const formatForRec =
-          rawFmt.length > 0
-            ? rawFmt.charAt(0).toUpperCase() + rawFmt.slice(1).toLowerCase()
-            : "Commander";
+        const formatForLegality = chatFormatForLegality(chatFmtResolved);
+        if (!formatForLegality) throw new Error("Skipping bracket legality cleanup: unknown chat format");
         const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
-        outText = await stripIllegalBracketCardTokensFromText(outText, formatForRec, {
+        outText = await stripIllegalBracketCardTokensFromText(outText, formatForLegality, {
           logPrefix: "/api/chat bracket legality (no deck)",
         });
       } catch {
@@ -2192,4 +2179,3 @@ async function checkRateLimit(supabase: any, userId: string) {
   if ((c2 || 0) > 500) return { ok: false, error: "Daily message limit reached (500/day)." };
   return { ok: true };
 }
-

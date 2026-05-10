@@ -24,7 +24,7 @@ export type DeckContextForCompose = {
   deckId?: string;
 };
 
-const FORMAT_KEYS = ["commander", "standard", "modern", "pioneer", "pauper"] as const;
+const FORMAT_KEYS = ["commander", "standard", "modern", "pioneer", "pauper", "generic"] as const;
 type FormatKey = (typeof FORMAT_KEYS)[number];
 
 function normalizeFormatKey(formatKey: string): FormatKey {
@@ -53,7 +53,7 @@ export async function composeSystemPrompt(options: {
   const { formatKey, deckContext, kind, supabase: passedSupabase } = options;
   const db = await getDbForLayers(passedSupabase);
   const fmt = normalizeFormatKey(formatKey);
-  const formatLayerKey = `FORMAT_${fmt.toUpperCase()}` as const;
+  const formatLayerKey = fmt === "generic" ? null : (`FORMAT_${fmt.toUpperCase()}` as const);
 
   const parts: string[] = [];
   const modulesAttached: string[] = [];
@@ -68,12 +68,14 @@ export async function composeSystemPrompt(options: {
   else parts.push("You are ManaTap AI, an expert Magic: The Gathering deck analysis assistant. When referencing cards, wrap names in [[Double Brackets]].");
 
   // 2) FORMAT layer
-  const { data: formatRow } = await db
-    .from("prompt_layers")
-    .select("body")
-    .eq("key", formatLayerKey)
-    .maybeSingle();
-  if (formatRow?.body) parts.push("\n\n" + formatRow.body);
+  if (formatLayerKey) {
+    const { data: formatRow } = await db
+      .from("prompt_layers")
+      .select("body")
+      .eq("key", formatLayerKey)
+      .maybeSingle();
+    if (formatRow?.body) parts.push("\n\n" + formatRow.body);
+  }
 
   // 3) MODULE layers (only if deckContext and we have cached card data for detection).
   // Empty deckCards is intentional: return BASE + FORMAT only (no modules); do not throw.

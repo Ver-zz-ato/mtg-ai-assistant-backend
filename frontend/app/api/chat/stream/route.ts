@@ -12,8 +12,11 @@ import { createEmptyAdminPromptPreview, type AdminPromptPreviewPayload } from "@
 import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
 import {
   buildDeckTextFromDbRows,
-  chatFormatUsesCommanderLayers,
-  formatKeyForPromptLayers,
+  chatAnalyzeFormat,
+  chatFormatForLegality,
+  chatFormatSupportInstruction,
+  chatResolvedFormatUsesCommanderLayers,
+  formatKeyForChatPromptLayers,
   resolveChatFormat,
 } from "@/lib/chat/resolve-chat-format";
 
@@ -333,8 +336,8 @@ export async function POST(req: NextRequest) {
       contextFormat: ctxFmt,
       deckFormat: deckData?.d?.format,
     });
-    const commanderLayersOn = chatFormatUsesCommanderLayers(chatFmtResolved.canonical);
-    const formatKey = formatKeyForPromptLayers(chatFmtResolved.canonical);
+    const commanderLayersOn = chatResolvedFormatUsesCommanderLayers(chatFmtResolved);
+    const formatKey = formatKeyForChatPromptLayers(chatFmtResolved);
 
     streamDebug("chat_format_resolution", {
       raw_request: chatFmtResolved.rawRequest,
@@ -473,8 +476,9 @@ export async function POST(req: NextRequest) {
       const fullDeckCompose = !!(deckContextForCompose?.deckCards?.length);
       const linkedWithDeckCards = activeDeckContext.source === "linked" && fullDeckCompose;
       const threadBackedDeck = activeDeckContext.source === "thread_slot" && fullDeckCompose;
+      const supportsDeepDeckAnalysis = chatAnalyzeFormat(chatFmtResolved) !== null;
       let mayAnalyze = false;
-      if (activeDeckContext.hasDeck && fullDeckCompose) {
+      if (supportsDeepDeckAnalysis && activeDeckContext.hasDeck && fullDeckCompose) {
         if (commanderLayersOn) {
           mayAnalyze =
             !!activeDeckContext.commanderName && (pasteSource ? commanderConfirmedOrCorrected : authForPrompt);
@@ -510,7 +514,7 @@ export async function POST(req: NextRequest) {
           supabase,
           hardcodedDefaultPrompt: CHAT_HARDCODED_DEFAULT,
         });
-      } else if (hasDeckContextForPrompt) {
+      } else if (hasDeckContextForPrompt && supportsDeepDeckAnalysis) {
         const { getPromptVersion } = await import("@/lib/config/prompts");
         const deckAnalysisVersion = await getPromptVersion("deck_analysis", supabase);
         if (deckAnalysisVersion?.system_prompt) {
@@ -542,6 +546,12 @@ export async function POST(req: NextRequest) {
       promptResult = fullTierResult;
       sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
       promptVersionId = promptResult.promptVersionId ?? null;
+    }
+
+    const formatSupportInstruction = selectedTier !== "micro" ? chatFormatSupportInstruction(chatFmtResolved) : null;
+    if (formatSupportInstruction) {
+      sys += "\n\n" + formatSupportInstruction;
+      if (adminPv) adminPv.notes.push(formatSupportInstruction);
     }
 
     if (adminPv) {
@@ -630,7 +640,8 @@ export async function POST(req: NextRequest) {
       } else {
         colors = "not applicable";
       }
-      userPrefsBlock = `\n\nUser preferences: Format=${formatKey}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking. Do NOT say "Format unclear" — use the format above.`;
+      const formatForPrefs = chatFmtResolved.supportEntry?.label ?? chatFmtResolved.canonical ?? formatKey;
+      userPrefsBlock = `\n\nUser preferences: Format=${formatForPrefs}, Value=${plan || "optimized"}, Colors=${colors}. Assume these without asking. Do NOT say "Format unclear" — use the format above.`;
       sys += userPrefsBlock;
     }
     }
@@ -688,7 +699,8 @@ export async function POST(req: NextRequest) {
         // Phase 7: Unify v2/raw behind ActiveDeckContext
         const deckTextForV2 = activeDeckContext.hasDeck && activeDeckContext.decklistText ? activeDeckContext.decklistText.trim() : null;
         const hashForV2 = activeDeckContext.decklistHash;
-        if (deckTextForV2) {
+        const summaryAnalyzeFormat = chatAnalyzeFormat(chatFmtResolved);
+        if (deckTextForV2 && summaryAnalyzeFormat) {
           streamDeckHashForLog = hashForV2 || null;
           if (activeDeckContext.source === "linked" && activeDeckContext.deckId) {
             const admin = (await import("@/app/api/_lib/supa")).getAdmin();
@@ -703,9 +715,8 @@ export async function POST(req: NextRequest) {
                 v2Summary = row.summary_json as import("@/lib/deck/deck-context-summary").DeckContextSummary;
                 streamContextSource = "linked_db";
               } else {
-                const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
                 v2Summary = await buildDeckContextSummary(deckTextForV2, {
-                  format: deckFormatStringToAnalyzeFormat(deckData?.d?.format || null),
+                  format: summaryAnalyzeFormat,
                   ...(commanderLayersOn
                     ? { commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null }
                     : {}),
@@ -718,9 +729,8 @@ export async function POST(req: NextRequest) {
                 streamContextSource = "linked_db";
               }
             } else {
-              const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
               v2Summary = await buildDeckContextSummary(deckTextForV2, {
-                format: deckFormatStringToAnalyzeFormat(deckData?.d?.format || null),
+                format: summaryAnalyzeFormat,
                 ...(commanderLayersOn
                   ? { commander: deckData?.d?.commander ?? activeDeckContext.commanderName ?? null }
                   : {}),
@@ -734,15 +744,8 @@ export async function POST(req: NextRequest) {
               v2Summary = cached;
               streamContextSource = "paste_ttl";
             } else {
-              const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
-              const summarizeHint =
-                typeof chatFmtResolved.rawRequest === "string"
-                  ? chatFmtResolved.rawRequest
-                  : typeof chatFmtResolved.rawDeck === "string"
-                    ? chatFmtResolved.rawDeck
-                    : null;
               v2Summary = await buildDeckContextSummary(deckTextForV2, {
-                format: deckFormatStringToAnalyzeFormat(summarizeHint),
+                format: summaryAnalyzeFormat,
                 ...(commanderLayersOn ? { commander: activeDeckContext.commanderName ?? undefined } : {}),
               });
               setPasteSummary(hashForV2, v2Summary);
@@ -769,6 +772,18 @@ export async function POST(req: NextRequest) {
       }
     }
     streamDebug("v2_result", { hasV2Summary: !!v2Summary, streamContextSource, v2Commander: v2Summary?.commander ?? null, selectedTier });
+
+    if (selectedTier === "full" && !chatAnalyzeFormat(chatFmtResolved) && activeDeckContext.hasDeck && activeDeckContext.decklistText) {
+      const limitedLabel = chatFmtResolved.supportEntry?.label ?? chatFmtResolved.rawRequest ?? chatFmtResolved.rawDeck ?? "Unknown";
+      const limitedDeckText = activeDeckContext.decklistText.length > 16_000
+        ? activeDeckContext.decklistText.slice(0, 16_000) + "\n...[truncated]"
+        : activeDeckContext.decklistText;
+      sys += `\n\nLIMITED FORMAT DECK CONTEXT:\n`;
+      sys += `- Format: ${limitedLabel}\n`;
+      sys += `- Deck context is available, but ManaTap does not have first-class deep analysis for this format yet.\n`;
+      sys += `- Do not use Commander assumptions unless the user explicitly changes the format to Commander.\n`;
+      sys += `- Decklist:\n${limitedDeckText}\n`;
+    }
 
     // ManaTap Intelligence: Rules Facts block when user asks rules/legality questions
     if (selectedTier !== "micro") {
@@ -996,16 +1011,19 @@ export async function POST(req: NextRequest) {
     }
     if (selectedTier === "full" && streamInjected === "analyze" && deckData && deckData.deckText.trim()) {
       const d = deckData.d;
-      const { deckFormatStringToAnalyzeFormat } = await import("@/lib/deck/formatRules");
-      const formatForInfer = deckFormatStringToAnalyzeFormat(
-        chatFmtResolved.rawDeck ?? chatFmtResolved.rawRequest ?? deckFormat ?? d?.format ?? null
-      );
+      const formatForInfer = chatAnalyzeFormat(chatFmtResolved);
+      if (!formatForInfer) {
+        streamDebug("infer_skip_unsupported_format", {
+          raw_request: chatFmtResolved.rawRequest,
+          raw_deck: chatFmtResolved.rawDeck,
+        });
+      }
       let inferredContext: { format: string; colors: string[]; commander: string | null } = {
-        format: formatForInfer,
+        format: formatForInfer ?? (chatFmtResolved.supportEntry?.label ?? chatFmtResolved.rawRequest ?? chatFmtResolved.rawDeck ?? "Unknown"),
         colors: [],
         commander: d?.commander ?? null,
       };
-      if (deckData.entries.length > 0) {
+      if (formatForInfer && deckData.entries.length > 0) {
         try {
           const { inferDeckContext, fetchCard } = await import("@/lib/deck/inference");
           const byName = new Map<string, SfCard>();
@@ -1759,7 +1777,11 @@ export async function POST(req: NextRequest) {
           const deckCards = deckContextForCompose?.deckCards ?? [];
           if (deckCards.length > 0 && outputText) {
             try {
-              const formatKeyVal = (formatKey === "modern" || formatKey === "pioneer" ? formatKey : "commander") as "commander" | "modern" | "pioneer";
+              const formatForLegality = chatFormatForLegality(chatFmtResolved);
+              if (!formatForLegality) {
+                throw new Error("Skipping recommendation legality validation: unknown chat format");
+              }
+              const formatKeyVal = (commanderLayersOn ? "commander" : "modern") as "commander" | "modern" | "pioneer";
               const { validateRecommendations, REPAIR_SYSTEM_MESSAGE, formatValidationWarning, shouldAutoEscalate } = await import("@/lib/chat/validateRecommendations");
               const originalOutputText = outputText; // Save for auto-escalation
               let result = await validateRecommendations({
@@ -1768,7 +1790,7 @@ export async function POST(req: NextRequest) {
                 colorIdentity: deckContextForCompose?.colorIdentity ?? null,
                 commanderName: deckContextForCompose?.commanderName ?? null,
                 rawText: outputText,
-                formatForLegality: formatKey,
+                formatForLegality,
               });
               let validationWarning: string | null = null;
               if (!result.valid && result.issues.length > 0) {
@@ -1826,7 +1848,7 @@ export async function POST(req: NextRequest) {
                         commanderName: deckContextForCompose?.commanderName ?? null,
                         rawText: outputText,
                         isRegenPass: true,
-                        formatForLegality: formatKey,
+                        formatForLegality,
                       });
                       if (!result.valid && result.issues.length > 0) outputText = result.repairedText;
                     }
@@ -1845,13 +1867,8 @@ export async function POST(req: NextRequest) {
               outputText = applyOutputCleanupFilter(outputText);
               outputText = applyBracketEnforcement(outputText);
               try {
-                const rawFmt = String(formatKey || "commander");
-                const formatForRec =
-                  rawFmt.length > 0
-                    ? rawFmt.charAt(0).toUpperCase() + rawFmt.slice(1).toLowerCase()
-                    : "Commander";
                 const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
-                outputText = await stripIllegalBracketCardTokensFromText(outputText, formatForRec, {
+                outputText = await stripIllegalBracketCardTokensFromText(outputText, formatForLegality, {
                   logPrefix: "/api/chat/stream bracket legality",
                 });
               } catch {
@@ -1883,13 +1900,10 @@ export async function POST(req: NextRequest) {
             }
           } else if (outputText && outputText.includes("[[")) {
             try {
-              const rawFmt = String(formatKey || "commander");
-              const formatForRec =
-                rawFmt.length > 0
-                  ? rawFmt.charAt(0).toUpperCase() + rawFmt.slice(1).toLowerCase()
-                  : "Commander";
+              const formatForLegality = chatFormatForLegality(chatFmtResolved);
+              if (!formatForLegality) throw new Error("Skipping bracket legality cleanup: unknown chat format");
               const { stripIllegalBracketCardTokensFromText } = await import("@/lib/deck/recommendation-legality");
-              outputText = await stripIllegalBracketCardTokensFromText(outputText, formatForRec, {
+              outputText = await stripIllegalBracketCardTokensFromText(outputText, formatForLegality, {
                 logPrefix: "/api/chat/stream bracket legality (no deck)",
               });
             } catch {

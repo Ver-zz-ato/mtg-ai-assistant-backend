@@ -10,12 +10,13 @@ import { tagCards } from '@/lib/deck/card-role-tags';
 import { buildDeckFacts, type DeckFacts } from '@/lib/deck/deck-facts';
 import { parseDeckText } from '@/lib/deck/parseDeckText';
 import { resolveCommanderFromEnriched } from '@/lib/deck/deck-context-summary';
-import { deckFormatStringToAnalyzeFormat, type AnalyzeFormat } from '@/lib/deck/formatRules';
+import { tryDeckFormatStringToAnalyzeFormat, type AnalyzeFormat } from '@/lib/deck/formatRules';
+import { getLimitedSupportNote } from '@/lib/deck/formatSupportMatrix';
 
 export const runtime = 'nodejs';
 
-function normalizeFactsFormat(raw: string): AnalyzeFormat {
-  return deckFormatStringToAnalyzeFormat(raw);
+function normalizeFactsFormat(raw: string): AnalyzeFormat | null {
+  return tryDeckFormatStringToAnalyzeFormat(raw);
 }
 
 function deckEntriesFromDeckCards(
@@ -200,6 +201,17 @@ export async function POST(req: NextRequest) {
     const title = String(deck.title ?? 'Untitled');
     const formatRaw = String(deck.format ?? 'Commander');
     const format = normalizeFactsFormat(formatRaw);
+    if (!format) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            getLimitedSupportNote(formatRaw) ??
+            'Pro Health Report currently supports Commander, Modern, Pioneer, Standard, and Pauper.',
+        },
+        { status: 400 }
+      );
+    }
     const isCommanderFormat = format === 'Commander';
 
     const { facts, factsNote } = await computeDeckFactsForHealthReport(entries, format, commander);

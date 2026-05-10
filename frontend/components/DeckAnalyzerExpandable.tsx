@@ -220,6 +220,9 @@ export default function DeckAnalyzerExpandable() {
               <option value="Pauper">Pauper</option>
             </select>
           </div>
+          <p className="text-xs text-neutral-500 -mt-2">
+            AI analysis here currently supports Commander, Modern, Pioneer, Standard, and Pauper.
+          </p>
 
           {/* Input section */}
           <div className="space-y-2">
@@ -406,4 +409,3 @@ export default function DeckAnalyzerExpandable() {
     </div>
   );
 }
-

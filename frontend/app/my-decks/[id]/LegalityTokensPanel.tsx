@@ -1,7 +1,8 @@
 "use client";
 import React from "react";
-import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import { deckFormatStringToAnalyzeFormat, tryDeckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
+import { getLimitedSupportNote } from "@/lib/deck/formatSupportMatrix";
 
 export default function LegalityTokensPanel({ deckId, format }: { deckId: string; format?: string }) {
   const [open, setOpen] = React.useState(false);
@@ -48,8 +49,19 @@ export default function LegalityTokensPanel({ deckId, format }: { deckId: string
       setLoading(true);
       setError(null);
       const ensureText = deckText || await loadDeckText();
-      // `deckFormatStringToAnalyzeFormat` maps stored strings (e.g. pioneer) to analyze payloads; when `format` is missing we default to Commander the same way as the rest of the deck page.
-      const body: any = { deckText: ensureText, format: deckFormatStringToAnalyzeFormat(format), useScryfall: true, sourcePage: 'deck_page_legality' };
+      const supported = tryDeckFormatStringToAnalyzeFormat(format);
+      if (!supported && format?.trim()) {
+        throw new Error(
+          getLimitedSupportNote(format) ??
+            "Legality checks on this panel currently support Commander, Modern, Pioneer, Standard, and Pauper."
+        );
+      }
+      const body: any = {
+        deckText: ensureText,
+        format: supported ?? deckFormatStringToAnalyzeFormat(format),
+        useScryfall: true,
+        sourcePage: 'deck_page_legality'
+      };
       if (colors.length) body.colors = colors;
       
       // Add timeout to prevent hanging (120 seconds)

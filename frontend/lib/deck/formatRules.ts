@@ -2,6 +2,11 @@
  * Central format rules for deck builder + analysis (Phase 1).
  * Not a full legality engine — targets and copy limits for UX + AI context.
  */
+import {
+  FIRST_CLASS_FORMAT_KEYS,
+  normalizeFormatSupportKey,
+  tryFormatSupportKeyToAnalyzeFormat,
+} from "@/lib/deck/formatSupportMatrix";
 
 export const DECK_FORMATS = [
   "commander",
@@ -98,17 +103,10 @@ const RULES_TABLE: Record<DeckFormatCanonical, FormatRules> = {
  * Normalize user / DB / API input to a canonical format key, or null if unknown.
  */
 export function normalizeDeckFormat(input: string | null | undefined): DeckFormatCanonical | null {
-  const s = String(input || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-  if (!s) return null;
-  if (s === "commander" || s === "edh" || s === "cedh") return "commander";
-  if (s === "modern" || s === "mod") return "modern";
-  if (s === "pioneer" || s === "pio") return "pioneer";
-  if (s === "standard" || s === "std") return "standard";
-  if (s === "pauper" || s === "pp") return "pauper";
-  return null;
+  const key = normalizeFormatSupportKey(input);
+  if (!key) return null;
+  if (!(FIRST_CLASS_FORMAT_KEYS as readonly string[]).includes(key)) return null;
+  return key as DeckFormatCanonical;
 }
 
 /**
@@ -125,9 +123,19 @@ export function toAnalyzeFormat(canonical: DeckFormatCanonical | null | undefine
 export function deckFormatStringToAnalyzeFormat(
   format: string | null | undefined
 ): AnalyzeFormat {
-  const n = normalizeDeckFormat(format);
-  if (n) return toAnalyzeFormat(n);
+  const supported = tryFormatSupportKeyToAnalyzeFormat(format);
+  if (supported) return supported;
   return "Commander";
+}
+
+/**
+ * Strict version for routes that should not silently treat unsupported formats as Commander.
+ * Returns null when the format is unknown or only has limited support.
+ */
+export function tryDeckFormatStringToAnalyzeFormat(
+  format: string | null | undefined
+): AnalyzeFormat | null {
+  return tryFormatSupportKeyToAnalyzeFormat(format);
 }
 
 export function getFormatRules(

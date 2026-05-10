@@ -17,7 +17,12 @@ import {
 } from "@/lib/deck/mtgValidators";
 import { evaluateCardRecommendationLegality, banNormSetForUserFormat } from "@/lib/deck/recommendation-legality";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
-import { deckFormatStringToAnalyzeFormat, type AnalyzeFormat } from "@/lib/deck/formatRules";
+import {
+  deckFormatStringToAnalyzeFormat,
+  tryDeckFormatStringToAnalyzeFormat,
+  type AnalyzeFormat,
+} from "@/lib/deck/formatRules";
+import { getLimitedSupportNote, getFormatSupportEntry } from "@/lib/deck/formatSupportMatrix";
 import {
   rowsToDeckTextForAnalysis,
   parseMainboardEntriesForAnalysis,
@@ -1687,9 +1692,31 @@ export async function runDeckAnalyzeCore(
     );
   }
 
-  const format: AnalyzeFormat = deckFormatStringToAnalyzeFormat(
-    (body.format as string | undefined) ?? deckRowFormat ?? "Commander"
-  );
+  const rawFormat = (body.format as string | undefined) ?? deckRowFormat ?? "Commander";
+  const explicitFormat = typeof body.format === "string" && body.format.trim().length > 0;
+  const supportedFormat = tryDeckFormatStringToAnalyzeFormat(rawFormat);
+  if (!supportedFormat) {
+    const supportEntry = getFormatSupportEntry(rawFormat);
+    const detail = getLimitedSupportNote(rawFormat);
+    const error =
+      explicitFormat || supportEntry
+        ? detail ?? "Unsupported format. Use Commander, Modern, Pioneer, Standard, or Pauper."
+        : "Unsupported format. Use Commander, Modern, Pioneer, Standard, or Pauper.";
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error,
+        format_support: supportEntry
+          ? {
+              format: supportEntry.label,
+              supportLevel: supportEntry.supportLevel,
+            }
+          : undefined,
+      }),
+      { status: 400, headers: { "content-type": "application/json" } }
+    );
+  }
+  const format: AnalyzeFormat = supportedFormat;
   const useScryfall = Boolean(body.useScryfall ?? true);
   const useGPT = Boolean(body.useGPT ?? true);
 

@@ -299,6 +299,9 @@ export default function MulliganSimulatorPage() {
           <p className="text-base text-neutral-300 max-w-4xl leading-relaxed">
             Test your deck's consistency with real opening hand simulations. See keep rates for 7/6/5 card hands using London mulligan rules. Customize land requirements, key cards, and mana ratios to optimize your deck's performance.
           </p>
+          <p className="mt-2 text-xs text-neutral-500 max-w-4xl leading-relaxed">
+            Commander, Modern, Pioneer, Standard, and Pauper are the formats we support most directly here. The free first-mulligan toggle is specifically for Commander.
+          </p>
           <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
             <div className="flex items-center gap-1.5 text-amber-400">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { HEALTH_SCAN_FREE, HEALTH_SCAN_PRO } from '@/lib/feature-limits';
 import { normalizeCardName } from '@/lib/deck/mtgValidators';
-import { deckFormatStringToAnalyzeFormat } from '@/lib/deck/formatRules';
+import { tryDeckFormatStringToAnalyzeFormat } from '@/lib/deck/formatRules';
 import { parseMainboardEntriesForAnalysis } from '@/lib/deck/formatCompliance';
+import { getLimitedSupportNote } from '@/lib/deck/formatSupportMatrix';
 
 export const runtime = 'nodejs';
 
@@ -34,7 +35,7 @@ function buildDeckNormLookup(
   }
   addNormalizedDeckNameKeys(commanderName, set);
   try {
-    const analyzeFmt = deckFormatStringToAnalyzeFormat(formatLabel);
+    const analyzeFmt = tryDeckFormatStringToAnalyzeFormat(formatLabel) ?? "Commander";
     const entries = parseMainboardEntriesForAnalysis(String(deckText || ''), analyzeFmt);
     for (const e of entries) {
       addNormalizedDeckNameKeys(e.name, set);
@@ -147,6 +148,18 @@ export async function POST(req: NextRequest) {
     const commander = String(deck.commander || '');
     const title = String(deck.title || 'Untitled');
     const format = String(deck.format || 'Commander');
+    const analyzeFormat = tryDeckFormatStringToAnalyzeFormat(format);
+    if (!analyzeFormat) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            getLimitedSupportNote(format) ??
+            'AI deck health suggestions currently support Commander, Modern, Pioneer, Standard, and Pauper.',
+        },
+        { status: 400 }
+      );
+    }
 
     const deckNormInList = buildDeckNormLookup(deckCards ?? null, String(deck.deck_text || ''), commander, format);
 
@@ -356,7 +369,7 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
 
       // COLOR IDENTITY VALIDATION: Filter out off-color cards for Commander format
       let validatedSuggestions = suggestions;
-      const isCommanderFormat = format.toLowerCase().includes('commander') || format.toLowerCase().includes('edh');
+    const isCommanderFormat = analyzeFormat === 'Commander';
       
       if (isCommanderFormat && commander && suggestions.length > 0) {
         try {
