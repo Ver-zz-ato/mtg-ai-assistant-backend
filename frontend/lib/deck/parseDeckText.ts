@@ -11,6 +11,19 @@ export type ParsedDeckEntry = {
 
 export type ParsedDeckEntryWithZone = ParsedDeckEntry & { zone: DeckCardZone };
 
+function normalizeForKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function cleanParsedCardName(raw: string): string {
+  const normalized = normalizeChars(raw);
+  if (!normalized.includes("//")) return cleanCardName(normalized);
+  const parts = normalized.split("//").map((part) => cleanCardName(part).trim()).filter(Boolean);
+  if (parts.length !== 2) return cleanCardName(normalized);
+  if (normalizeForKey(parts[0]) === normalizeForKey(parts[1])) return parts[0];
+  return `${parts[0]} // ${parts[1]}`;
+}
+
 function parseDelimitedCardImport(raw?: string): ParsedDeckEntry[] | null {
   if (!raw) return null;
 
@@ -32,7 +45,7 @@ function parseDelimitedCardImport(raw?: string): ParsedDeckEntry[] | null {
 
   const byName = new Map<string, ParsedDeckEntry>();
   for (const item of parseDeckOrCollectionCSV(raw)) {
-    const name = cleanCardName(item.name);
+    const name = cleanParsedCardName(item.name);
     if (!name || !looksLikeCardName(name)) continue;
     const key = name.toLowerCase();
     const existing = byName.get(key);
@@ -117,7 +130,7 @@ export function parseDeckText(raw?: string): ParsedDeckEntry[] {
     }
     
     // Clean the card name
-    name = cleanCardName(name);
+    name = cleanParsedCardName(name);
     
     // Validate it looks like a card name
     if (!name || !looksLikeCardName(name)) continue;
@@ -259,7 +272,7 @@ export function parseDeckTextWithZones(
       }
     }
 
-    name = cleanCardName(name);
+    name = cleanParsedCardName(name);
     if (!name || !looksLikeCardName(name)) continue;
 
     const key = `${thisZone}::${name.toLowerCase()}` as AggKey;
