@@ -206,7 +206,7 @@ export async function runChatToolPlanner(input: {
   const wantsCardLookup = extractedNames.length > 0 || /\b(what does|explain|tell me about|oracle text|card details)\b/i.test(text);
   const wantsPrice = /\b(price|worth|cost|market|trend|spike|crash|going up|going down)\b/i.test(text);
   const wantsLegality = /\b(legal|legality|banned|allowed|commander legal|modern legal|standard legal|pioneer legal|pauper legal)\b/i.test(text)
-    || /\bcan\s+(?:this\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\b/i.test(text);
+    || /\bcan\s+(?:this\s+)?(?:(?:commander|modern|pioneer|standard|pauper|legacy|vintage)\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\b/i.test(text);
   const wantsCostToFinish = hasDeck && /\b(cost to finish|finish cost|how much.*(finish|complete)|missing.*cost|need to buy|collection|owned)\b/i.test(text);
   const wantsBudgetSwaps = hasDeck && /\b(budget swap|cheaper|cheap alternative|replace expensive|under\s?(?:usd|gbp|eur|[$])?\s?\d+|save money|budget)\b/i.test(text);
   const wantsFinish = hasDeck && /\b(finish this deck|complete this deck|what should i add|fill the deck|missing cards|what.*(?:deck|list).*missing|upgrade this deck|improve this deck)\b/i.test(text);
@@ -320,6 +320,7 @@ function extractMentionedCardNames(text: string): string[] {
   for (const match of text.matchAll(/\[\[([^\]]+)\]\]/g)) add(match[1]);
   for (const match of text.matchAll(/"([^"]+)"/g)) add(match[1]);
   for (const match of text.matchAll(/\b(?:price of|worth of|is|explain|about|lookup|find|card)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:legal|worth|cost|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
+  for (const match of text.matchAll(/\bcan\s+(?:this\s+)?(?:(?:commander|modern|pioneer|standard|pauper|legacy|vintage)\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
   for (const match of text.matchAll(/\b(?:add|include|run|play)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/g)) add(match[1]);
   return names.slice(0, 12);
 }
