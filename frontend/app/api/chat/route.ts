@@ -23,6 +23,7 @@ import {
 } from "@/lib/chat/resolve-chat-format";
 import {
   buildDirectChatToolAnswer,
+  buildDirectDeckContextAnswer,
   buildToolResultsPrompt,
   isMissingMetadataColumnError,
   persistAssistantMessage,
@@ -1503,6 +1504,30 @@ export async function POST(req: NextRequest) {
       metadata.assistantMessageId = saved.id;
       metadata.persisted = saved.persisted;
       return ok({ text: directToolAnswer, threadId: tid, provider: "tool", metadata, toolResults: metadata.toolResults });
+    }
+    const directDeckAnswer = buildDirectDeckContextAnswer({
+      text,
+      deckText,
+      format: deckFormat || formatKey || null,
+      commander: d?.commander || inferredContext?.commander || null,
+    });
+    if (directDeckAnswer) {
+      const metadata: ChatTurnMetadata = {
+        threadId: tid,
+        persisted: false,
+        toolResults: summarizeToolResults(chatToolResults),
+        pendingDeckAction: null,
+      };
+      const saved = await persistAssistantMessage(supabase, {
+        threadId: tid,
+        content: directDeckAnswer,
+        metadata,
+        suppressInsert,
+        isGuest,
+      });
+      metadata.assistantMessageId = saved.id;
+      metadata.persisted = saved.persisted;
+      return ok({ text: directDeckAnswer, threadId: tid, provider: "deck_context", metadata, toolResults: metadata.toolResults });
     }
     const toolPrompt = buildToolResultsPrompt(chatToolResults);
     if (toolPrompt) sys += `\n\n${toolPrompt}`;

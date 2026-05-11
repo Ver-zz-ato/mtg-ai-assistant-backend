@@ -151,6 +151,28 @@ export function buildDirectChatToolAnswer(text: string, results: ChatToolResult[
   return null;
 }
 
+export function buildDirectDeckContextAnswer(input: {
+  text: string;
+  deckText?: string | null;
+  commander?: string | null;
+  format?: string | null;
+}): string | null {
+  const q = String(input.text || "").toLowerCase();
+  if (!/\b(health check|quick take|one sentence|how is this deck|rate this deck|deck look)\b/.test(q)) return null;
+
+  const deckText = String(input.deckText || "").trim();
+  if (!deckText) return null;
+
+  const cards = parseDeckTextStats(deckText);
+  const format = String(input.format || "").trim() || "deck";
+  const commander = String(input.commander || "").trim();
+  const subject = commander ? `[[${commander}]] ${format}` : format;
+  const sizeNote = cards.total > 0 && cards.total < 95 ? ` it is still very short at ${cards.total} cards, so` : "";
+  const landNote = cards.lands > 0 && cards.total >= 60 ? ` with about ${cards.lands} lands` : "";
+  const coreNote = cards.nonlands > 0 ? ` and ${cards.nonlands} nonlands` : "";
+  return `Quick health check: this ${subject} list has a recognizable starting shell${landNote}${coreNote}, but${sizeNote} the next priority is tightening the mana, ramp/draw/removal balance, and adding focused win conditions before judging power level.`;
+}
+
 export async function runChatToolPlanner(input: {
   origin: string;
   cookieHeader?: string | null;
@@ -272,6 +294,9 @@ function extractMentionedCardNames(text: string): string[] {
     const cleaned = String(value || "")
       .replace(/\s+/g, " ")
       .replace(/[?.!,;:]+$/g, "")
+      .replace(/^(?:the\s+)?(?:current\s+|market\s+)?price\s+of\s+/i, "")
+      .replace(/^(?:the\s+)?(?:current\s+)?worth\s+of\s+/i, "")
+      .replace(/^(?:the\s+)?card\s+/i, "")
       .trim();
     if (cleaned.length >= 3 && cleaned.length <= 80 && !names.some((n) => n.toLowerCase() === cleaned.toLowerCase())) {
       names.push(cleaned);
@@ -283,6 +308,33 @@ function extractMentionedCardNames(text: string): string[] {
   for (const match of text.matchAll(/\b(?:price of|worth of|is|explain|about|lookup|find|card)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:legal|worth|cost|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
   for (const match of text.matchAll(/\b(?:add|include|run|play)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/g)) add(match[1]);
   return names.slice(0, 12);
+}
+
+function parseDeckTextStats(deckText: string): { total: number; lands: number; nonlands: number } {
+  const basicLands = new Set(["plains", "island", "swamp", "mountain", "forest", "wastes"]);
+  let total = 0;
+  let lands = 0;
+  for (const rawLine of String(deckText || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || /^(commander|mainboard|sideboard|maybeboard)\b/i.test(line)) continue;
+    const match = line.match(/^(\d+)\s+(.+)$/) || line.match(/^(.+?)\s+x?(\d+)$/i);
+    let qty = 1;
+    let name = line;
+    if (match) {
+      if (/^\d+$/.test(match[1] || "")) {
+        qty = Number(match[1]);
+        name = match[2] || "";
+      } else {
+        name = match[1] || "";
+        qty = Number(match[2]);
+      }
+    }
+    if (!Number.isFinite(qty) || qty <= 0) qty = 1;
+    const cleanedName = name.replace(/\s+\([^)]*\)\s*\d*$/g, "").trim().toLowerCase();
+    total += qty;
+    if (basicLands.has(cleanedName)) lands += qty;
+  }
+  return { total, lands, nonlands: Math.max(0, total - lands) };
 }
 
 function simpleRulesAnswer(text: string): string | null {
