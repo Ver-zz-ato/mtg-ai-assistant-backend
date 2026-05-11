@@ -32,18 +32,19 @@ import TopLoadingBar from "@/components/TopLoadingBar";
 import GlobalBackground from "@/components/GlobalBackground";
 import SecureConnectionsGuard from "@/components/SecureConnectionsGuard";
 import { ActiveUsersProvider } from "@/lib/active-users-context";
+import { HOME_DESCRIPTION } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.manatap.ai"),
   title: "ManaTap AI — MTG Deck Builder & Assistant",
-  description: "Build smarter decks. Analyze, optimize, explain.",
+  description: HOME_DESCRIPTION,
   keywords: "MTG, Magic The Gathering, deck builder, AI assistant, card prices, budget analysis",
   authors: [{ name: "ManaTap AI" }],
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
     title: "ManaTap AI — MTG Deck Builder & Assistant",
-    description: "Build smarter decks. Analyze, optimize, explain.",
+    description: HOME_DESCRIPTION,
     url: "https://www.manatap.ai",
     siteName: "ManaTap AI",
     type: "website",
@@ -60,7 +61,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ManaTap AI — MTG Deck Builder & Assistant",
-    description: "Build smarter decks. Analyze, optimize, explain.",
+    description: HOME_DESCRIPTION,
     images: ["/twitter-image.jpg"],
   },
   appleWebApp: {

@@ -1,28 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { getAdmin } from "@/app/api/_lib/supa";
 import { costUSD } from "@/lib/ai/pricing";
 import { AI_USAGE_SOURCE_MANATAP_APP, isAppAiUsageRow } from "@/lib/ai/manatap-client-origin";
+import { isAdmin } from "@/lib/admin-check";
 
 const LEGACY_PRICING_CUTOFF = "2026-02-14";
 /** Hard cap on rows read from DB per request (admin-only). */
 const FETCH_CAP = 3000;
-
-function isAdminUser(user: unknown): boolean {
-  const u = user as { id?: string; email?: string } | null;
-  const ids = String(process.env.ADMIN_USER_IDS || "")
-    .split(/[,\s]+/)
-    .filter(Boolean);
-  const emails = String(process.env.ADMIN_EMAILS || "")
-    .split(/[,\s]+/)
-    .filter(Boolean)
-    .map((s) => s.toLowerCase());
-  const uid = String(u?.id || "");
-  const email = String(u?.email || "").toLowerCase();
-  if (!uid && !email) return false;
-  if (ids.includes(uid)) return true;
-  if (email && emails.includes(email)) return true;
-  return false;
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,7 +15,9 @@ export async function GET(req: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user || !isAdminUser(user)) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    if (!user || !isAdmin(user)) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    const admin = getAdmin();
+    if (!admin) return NextResponse.json({ ok: false, error: "missing_service_role_key" }, { status: 500 });
 
     const sp = req.nextUrl.searchParams;
     const daysRaw = parseInt(sp.get("days") || "7", 10);
@@ -39,6 +26,11 @@ export async function GET(req: NextRequest) {
     const offset = Math.max(0, parseInt(sp.get("offset") || "0", 10) || 0);
     const modelFilter = sp.get("model") || undefined;
     const routeFilter = sp.get("route") || undefined;
+    const sourcePageFilter = sp.get("source_page") || undefined;
+    const requestKindFilter = sp.get("request_kind") || undefined;
+    const userIdFilter = sp.get("user_id") || undefined;
+    const cacheHitFilter = sp.get("cache_hit") || undefined;
+    const errorOnly = sp.get("error_only") === "true";
     const excludeLegacyCost = sp.get("exclude_legacy_cost") === "true";
 
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -66,9 +58,13 @@ export async function GET(req: NextRequest) {
       "is_guest",
       "latency_ms",
       "cache_hit",
+      "error_code",
+      "cache_kind",
+      "prompt_path",
+      "format_key",
     ].join(",");
 
-    let q = supabase
+    let q = admin
       .from("ai_usage")
       .select(selectCols)
       .gte("created_at", cutoff)
@@ -78,6 +74,12 @@ export async function GET(req: NextRequest) {
 
     if (modelFilter) q = q.eq("model", modelFilter);
     if (routeFilter) q = q.eq("route", routeFilter);
+    if (sourcePageFilter) q = q.eq("source_page", sourcePageFilter);
+    if (requestKindFilter) q = q.eq("request_kind", requestKindFilter);
+    if (userIdFilter) q = q.eq("user_id", userIdFilter);
+    if (cacheHitFilter === "true") q = q.eq("cache_hit", true);
+    if (cacheHitFilter === "false") q = q.eq("cache_hit", false);
+    if (errorOnly) q = q.not("error_code", "is", null);
     if (excludeLegacyCost) q = q.gte("pricing_version", LEGACY_PRICING_CUTOFF);
 
     const { data: batch, error } = await q;
@@ -96,7 +98,7 @@ export async function GET(req: NextRequest) {
     const userIds = [...new Set(windowRows.map((r) => r.user_id as string).filter(Boolean))];
     const profilesMap = new Map<string, { email?: string; display_name?: string }>();
     if (userIds.length > 0) {
-      const { data: profiles } = await supabase
+      const { data: profiles } = await admin
         .from("profiles")
         .select("id, email, display_name")
         .in("id", userIds);
@@ -129,7 +131,15 @@ export async function GET(req: NextRequest) {
       offset,
       limit: wantLimit,
       days,
-      filters: { model: modelFilter || null, route: routeFilter || null },
+      filters: {
+        model: modelFilter || null,
+        route: routeFilter || null,
+        source_page: sourcePageFilter || null,
+        request_kind: requestKindFilter || null,
+        user_id: userIdFilter || null,
+        cache_hit: cacheHitFilter || null,
+        error_only: errorOnly,
+      },
       truncated: (batch || []).length >= FETCH_CAP,
     });
   } catch (e: unknown) {

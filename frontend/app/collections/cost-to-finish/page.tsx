@@ -4,24 +4,22 @@ import Client from "./Client";
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { PopularCommanders } from "@/components/PopularCommanders";
+import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Cost to Finish • ManaTap AI",
-  description:
-    "Paste a decklist and estimate the cost to finish. Optionally subtract owned from a selected collection.",
+  description: TOOL_DESCRIPTIONS.costToFinish,
   openGraph: {
     title: "Cost to Finish • ManaTap AI",
-    description:
-      "Estimate the cost to finish a deck. Subtract owned from your collection.",
+    description: TOOL_DESCRIPTIONS.costToFinish,
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Cost to Finish • ManaTap AI",
-    description:
-      "Estimate the cost to finish a deck. Subtract owned from your collection.",
+    description: TOOL_DESCRIPTIONS.costToFinish,
   },
   alternates: { canonical: "https://www.manatap.ai/collections/cost-to-finish" },
 };

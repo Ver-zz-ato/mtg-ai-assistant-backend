@@ -4,7 +4,7 @@
  * Server console: VERCEL_COST_AUDIT=1
  * Server DB rows: VERCEL_COST_AUDIT_DB=1 (see cost-audit-server.ts)
  * Client (browser logs): NEXT_PUBLIC_VERCEL_COST_AUDIT=1
- * Client DB ingest: NEXT_PUBLIC_VERCEL_COST_AUDIT_DB=1 (admin session only; see /api/admin/cost-audit/ingest)
+ * Client DB ingest was retired with the admin cost-audit page.
  */
 
 const PREFIX = "[CostAudit]";
@@ -46,17 +46,6 @@ export function costAuditClientLog(fields: Record<string, unknown>): void {
     ...(fields.pathname == null && pathname ? { pathname } : {}),
   };
   console.log(PREFIX, JSON.stringify(line));
-  if (
-    process.env.NEXT_PUBLIC_VERCEL_COST_AUDIT === "1" &&
-    process.env.NEXT_PUBLIC_VERCEL_COST_AUDIT_DB === "1"
-  ) {
-    void fetch("/api/admin/cost-audit/ingest", {
-      method: "POST",
-      credentials: "include",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ events: [line] }),
-    }).catch(() => {});
-  }
 }
 
 export function costAuditSafeErr(e: unknown): string {

@@ -266,6 +266,13 @@ export async function POST(req: Request) {
       }); 
     } catch {}
 
+    if (mergedPublic) {
+      try {
+        const { submitToIndexNow } = await import("@/lib/seo/indexnow");
+        submitToIndexNow(`/decks/${data.id}`).catch(() => {});
+      } catch {}
+    }
+
     return NextResponse.json({ id: data.id }, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unexpected error";

@@ -28,6 +28,13 @@ export async function GET(req: NextRequest) {
     const toParam = sp.get("to") || "";
     const days = Math.min(90, Math.max(1, parseInt(sp.get("days") || "14", 10) || 14));
     const excludeLegacyCost = sp.get("exclude_legacy_cost") === "true";
+    const modelFilter = sp.get("model") || "";
+    const routeFilter = sp.get("route") || "";
+    const sourcePageFilter = sp.get("source_page") || "";
+    const requestKindFilter = sp.get("request_kind") || "";
+    const userIdFilter = sp.get("user_id") || "";
+    const cacheHitFilter = sp.get("cache_hit") || "";
+    const errorOnly = sp.get("error_only") === "true";
     const from =
       fromParam && toParam
         ? new Date(fromParam + "T00:00:00Z").toISOString()
@@ -38,7 +45,7 @@ export async function GET(req: NextRequest) {
         : new Date().toISOString();
 
     const selectCols =
-      "id,created_at,route,model,source,source_page,request_kind,layer0_mode,context_source,used_two_stage,cache_hit,input_tokens,output_tokens,cost_usd,latency_ms,planner_cost_usd,pricing_version";
+      "id,created_at,user_id,route,model,source,source_page,request_kind,layer0_mode,context_source,used_two_stage,cache_hit,input_tokens,output_tokens,cost_usd,latency_ms,planner_cost_usd,pricing_version,error_code,is_guest,user_tier";
     let q = admin
       .from("ai_usage")
       .select(selectCols)
@@ -46,6 +53,14 @@ export async function GET(req: NextRequest) {
       .lte("created_at", to)
       .or(`source.eq.${AI_USAGE_SOURCE_MANATAP_APP},source_page.like.app%`)
       .order("created_at", { ascending: false });
+    if (modelFilter) q = q.eq("model", modelFilter);
+    if (routeFilter) q = q.eq("route", routeFilter);
+    if (sourcePageFilter) q = q.eq("source_page", sourcePageFilter);
+    if (requestKindFilter) q = q.eq("request_kind", requestKindFilter);
+    if (userIdFilter) q = q.eq("user_id", userIdFilter);
+    if (cacheHitFilter === "true") q = q.eq("cache_hit", true);
+    if (cacheHitFilter === "false") q = q.eq("cache_hit", false);
+    if (errorOnly) q = q.not("error_code", "is", null);
     if (excludeLegacyCost) {
       q = q.gte("pricing_version", LEGACY_PRICING_CUTOFF);
     }
@@ -92,11 +107,19 @@ export async function GET(req: NextRequest) {
     >();
     const by_source_page = new Map<string, { cost_usd: number; requests: number }>();
     const by_request_kind = new Map<string, { cost_usd: number; requests: number }>();
+    const by_user = new Map<
+      string,
+      { cost_usd: number; requests: number; tokens_in: number; tokens_out: number; errors: number; is_guest: boolean }
+    >();
+    const by_error = new Map<string, { cost_usd: number; requests: number }>();
     const dailyBuckets = new Map<string, { cost_usd: number; requests: number }>();
     const hourlyBuckets = new Map<string, { cost_usd: number; requests: number }>();
     const latencies: number[] = [];
     let latencySum = 0;
     let latencyN = 0;
+    let cacheHits = 0;
+    let cacheKnown = 0;
+    let errors = 0;
 
     for (const r of list) {
       const cost = Number(r.cost_usd) || 0;
@@ -115,6 +138,11 @@ export async function GET(req: NextRequest) {
       totals.total_requests += 1;
       totals.total_tokens_in += it;
       totals.total_tokens_out += ot;
+      if (typeof r.cache_hit === "boolean") {
+        cacheKnown += 1;
+        if (r.cache_hit) cacheHits += 1;
+      }
+      if (r.error_code) errors += 1;
 
       const model = String(r.model || "unknown");
       if (!by_model.has(model))
@@ -150,6 +178,22 @@ export async function GET(req: NextRequest) {
       if (!by_request_kind.has(kind)) by_request_kind.set(kind, { cost_usd: 0, requests: 0 });
       by_request_kind.get(kind)!.cost_usd += totalCost;
       by_request_kind.get(kind)!.requests += 1;
+
+      const userKey = r.user_id ? String(r.user_id) : r.is_guest ? "(guest)" : "(unknown)";
+      if (!by_user.has(userKey)) {
+        by_user.set(userKey, { cost_usd: 0, requests: 0, tokens_in: 0, tokens_out: 0, errors: 0, is_guest: !!r.is_guest });
+      }
+      const bu = by_user.get(userKey)!;
+      bu.cost_usd += totalCost;
+      bu.requests += 1;
+      bu.tokens_in += it;
+      bu.tokens_out += ot;
+      if (r.error_code) bu.errors += 1;
+
+      const errKey = r.error_code ? String(r.error_code) : "ok";
+      if (!by_error.has(errKey)) by_error.set(errKey, { cost_usd: 0, requests: 0 });
+      by_error.get(errKey)!.cost_usd += totalCost;
+      by_error.get(errKey)!.requests += 1;
 
       const day = String(r.created_at).slice(0, 10);
       if (!dailyBuckets.has(day)) dailyBuckets.set(day, { cost_usd: 0, requests: 0 });
@@ -192,6 +236,11 @@ export async function GET(req: NextRequest) {
         total_cost_usd: round(totals.total_cost_usd),
         avg_cost: round(totals.avg_cost),
         avg_latency_ms: totals.avg_latency_ms != null ? round(totals.avg_latency_ms) : null,
+        errors,
+        error_rate: totals.total_requests ? round(errors / totals.total_requests) : 0,
+        cache_hits: cacheHits,
+        cache_known: cacheKnown,
+        cache_hit_rate: cacheKnown ? round(cacheHits / cacheKnown) : null,
       },
       by_model: Array.from(by_model.entries())
         .map(([id, t]) => ({ id, ...t, cost_usd: round(t.cost_usd), avg_cost: round(t.avg_cost) }))
@@ -210,8 +259,21 @@ export async function GET(req: NextRequest) {
       by_request_kind: Array.from(by_request_kind.entries())
         .map(([id, t]) => ({ id, ...t, cost_usd: round(t.cost_usd) }))
         .sort((a, b) => b.cost_usd - a.cost_usd),
+      by_user: Array.from(by_user.entries())
+        .map(([id, t]) => ({ id, ...t, cost_usd: round(t.cost_usd) }))
+        .sort((a, b) => b.cost_usd - a.cost_usd)
+        .slice(0, 50),
+      by_error: Array.from(by_error.entries())
+        .map(([id, t]) => ({ id, ...t, cost_usd: round(t.cost_usd) }))
+        .sort((a, b) => b.requests - a.requests),
       series_daily,
       series_hourly,
+      options: {
+        source_pages: Array.from(by_source_page.keys()).filter((v) => !v.startsWith("(route:")).sort(),
+        models: Array.from(by_model.keys()).sort(),
+        routes: Array.from(by_route.keys()).sort(),
+        request_kinds: Array.from(by_request_kind.keys()).sort(),
+      },
     });
   } catch (e: unknown) {
     return NextResponse.json({ ok: false, error: (e as Error).message || "server_error" }, { status: 500 });

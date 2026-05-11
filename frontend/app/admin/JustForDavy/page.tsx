@@ -44,7 +44,6 @@ const GROUPS = [
       { href: "/admin/ai-health", label: "AI Health", eli5: "Is the API key working? Run a live test" },
       { href: "/admin/ai-usage", label: "AI Usage", eli5: "Cost, tokens, which models are used" },
       { href: "/admin/ai-usage-app", label: "AI Usage (App)", eli5: "Mobile-only AI cost & tokens by app feature key" },
-      { href: "/admin/chat-test", label: "Chat Test", eli5: "Full chat module in isolation with debug log panel" },
       { href: "/admin/prompt-edit", label: "Prompt Edit", eli5: "Edit base prompts (chat/deck) and tier overlays (guest/free/pro). Stored in DB." },
     ],
   },
@@ -95,12 +94,6 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href="/admin/JustForDavy/cost-audit"
-            className="px-4 py-2 rounded-lg border border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700 text-sm"
-          >
-            Cost audit (Vercel)
-          </Link>
           <Link
             href="/admin/JustForDavy/command-center"
             className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium text-sm"

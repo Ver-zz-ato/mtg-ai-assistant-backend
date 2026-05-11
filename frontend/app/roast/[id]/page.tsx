@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClientForStatic } from "@/lib/server-supabase";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { descriptionFromText } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -35,12 +36,14 @@ export async function generateMetadata({
     .maybeSingle();
 
   const imageUrl = `${OG_IMAGE_BASE}/roast/${id}/opengraph-image`;
+  const fallbackDescription =
+    "Share an AI-powered Commander deck roast from ManaTap. Read funny MTG deck feedback with card choices, strategy jokes, and upgrade context.";
   const fallbackMeta: Metadata = {
     title: "Roast My Deck — ManaTap AI",
-    description: "AI-powered Commander deck roasts",
+    description: fallbackDescription,
     openGraph: {
       title: "Roast My Deck — ManaTap AI",
-      description: "AI-powered Commander deck roasts",
+      description: fallbackDescription,
       url: `${OG_IMAGE_BASE}/roast/${id}`,
       siteName: "ManaTap AI",
       type: "website",
@@ -49,7 +52,7 @@ export async function generateMetadata({
     twitter: {
       card: "summary_large_image",
       title: "Roast My Deck — ManaTap AI",
-      description: "AI-powered Commander deck roasts",
+      description: fallbackDescription,
       images: [imageUrl],
     },
   };
@@ -63,7 +66,10 @@ export async function generateMetadata({
   const commanderName = row.commander || "This deck";
   const excerpt = truncate(row.roast_text || "AI-powered Commander deck roast", 140);
   const title = `${commanderName} got roasted 🔥 | ManaTap AI`;
-  const description = `${heatLabel}: ${excerpt}`;
+  const description = descriptionFromText(
+    `${commanderName} received a ${heatLabel.toLowerCase()} Commander deck roast from ManaTap AI. ${excerpt}`,
+    fallbackDescription
+  );
 
   return {
     title,

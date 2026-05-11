@@ -226,6 +226,13 @@ async function _POST(req: NextRequest) {
       });
     } catch {}
 
+    if (makePublic) {
+      try {
+        const { submitToIndexNow } = await import("@/lib/seo/indexnow");
+        submitToIndexNow(`/decks/${data.id}`).catch(() => {});
+      } catch {}
+    }
+
     return ok({ id: data.id, inserted: insertedCount });
   } catch (e: any) {
     return err(e?.message || "server_error", "internal", 500);

@@ -12,11 +12,11 @@ import { MetaHero } from "@/components/meta/MetaHero";
 import { MetaStatStrip } from "@/components/meta/MetaStatStrip";
 import { MetaTileGrid } from "@/components/meta/MetaTileGrid";
 import { getMetaSnapshot, formatRelative } from "@/lib/meta/getMetaSnapshot";
+import { META_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
   title: "Meta | Trending Commanders & Cards | ManaTap",
-  description:
-    "Discover trending commanders, most-played cards, and budget commanders. Based on public deck data. Updated daily.",
+  description: META_DESCRIPTIONS.index,
   alternates: { canonical: "https://www.manatap.ai/meta" },
 };
 

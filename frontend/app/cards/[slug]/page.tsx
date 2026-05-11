@@ -7,6 +7,7 @@ import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { createClient } from "@/lib/supabase/server";
 import { getDisplayCardName } from "@/lib/cards/displayName";
 import { getCommanderBySlug } from "@/lib/commanders";
+import { buildCardDescription } from "@/lib/seo/metadata";
 
 function norm(name: string): string {
   return String(name || "")
@@ -33,9 +34,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const card = await getCardBySlug(slug);
   if (card) {
+    let typeLine: string | undefined;
+    try {
+      const detailsMap = await getDetailsForNamesCached([card.card_name]);
+      const details = detailsMap.get(norm(card.card_name)) ?? detailsMap.get(card.card_name);
+      typeLine = details?.type_line;
+    } catch {}
     return {
       title: `${card.card_name} | ManaTap`,
-      description: `${card.card_name} — used in ${card.deck_count} Commander decks. Oracle text, price, commanders.`,
+      description: buildCardDescription(card.card_name, typeLine),
       alternates: { canonical: `${BASE}/cards/${slug}` },
     };
   }
@@ -45,7 +52,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const byId = await sb.from("custom_cards").select("title").eq("id", slug).maybeSingle();
     custom = byId.data;
   }
-  if (custom) return { title: `${(custom as { title?: string }).title || "Custom Card"} | ManaTap` };
+  if (custom) {
+    const title = (custom as { title?: string }).title || "Custom Card";
+    return {
+      title: `${title} | ManaTap`,
+      description: `View ${title}, a shared custom Magic: The Gathering card on ManaTap, with card frame details and community deck-building context.`,
+      alternates: { canonical: `${BASE}/cards/${slug}` },
+    };
+  }
   return { title: "Card Not Found | ManaTap AI" };
 }
 

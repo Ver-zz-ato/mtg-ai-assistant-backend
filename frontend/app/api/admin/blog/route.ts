@@ -133,6 +133,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    try {
+      const { submitToIndexNow } = await import("@/lib/seo/indexnow");
+      submitToIndexNow(sortedEntries.map((entry) => `/blog/${entry.slug}`)).catch(() => {});
+    } catch {}
+
     return new Response(JSON.stringify({ ok: true, message: "Blog updated successfully" }), {
       headers: { "Content-Type": "application/json" }
     });

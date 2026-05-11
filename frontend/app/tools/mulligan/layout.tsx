@@ -3,11 +3,11 @@ import Link from "next/link";
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { PopularCommanders } from "@/components/PopularCommanders";
+import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
   title: "Commander Mulligan Simulator | MTG Keep Rate Calculator | ManaTap AI",
-  description:
-    "Simulate Commander mulligans with London rules. Calculate keep rates for lands, ramp, and key cards. Free MTG mulligan calculator for EDH.",
+  description: TOOL_DESCRIPTIONS.mulligan,
   alternates: { canonical: "https://www.manatap.ai/tools/mulligan" },
 };
 
@@ -35,9 +35,9 @@ const IntroBlock = () => (
     className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5 text-neutral-200"
     aria-label="About the Mulligan Simulator"
   >
-    <h1 className="text-xl md:text-2xl font-bold text-white mb-3">
+    <h2 className="text-xl md:text-2xl font-bold text-white mb-3">
       Commander Mulligan Simulator
-    </h1>
+    </h2>
     <p className="text-neutral-300 mb-3 text-sm">
       Simulate thousands of opening hands to see how often you&apos;ll keep or
       mulligan with Commander rules. The London mulligan lets you draw back

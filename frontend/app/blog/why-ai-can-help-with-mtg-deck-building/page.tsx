@@ -319,7 +319,7 @@ export default function BlogPost() {
                     elements.push('</ul>');
                     inList = false;
                   }
-                  elements.push(`<h1 class="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-6 mt-8 leading-tight bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">${trimmed.slice(2)}</h1>`);
+                  elements.push(`<h2 class="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-6 mt-8 leading-tight bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">${trimmed.slice(2)}</h2>`);
                   continue;
                 }
                 if (trimmed.startsWith('### ')) {

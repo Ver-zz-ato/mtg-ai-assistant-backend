@@ -34,6 +34,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
+    if (status === "published") {
+      const { submitToIndexNow } = await import("@/lib/seo/indexnow");
+      submitToIndexNow(`/q/${slug}`).catch(() => {});
+    }
+
     return NextResponse.json({ ok: true, slug, status });
   } catch (e: unknown) {
     const err = e instanceof Error ? e.message : String(e);

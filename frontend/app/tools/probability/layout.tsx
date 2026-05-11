@@ -3,11 +3,11 @@ import Link from "next/link";
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { PopularCommanders } from "@/components/PopularCommanders";
+import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
   title: "MTG Probability Calculator | Commander Draw Odds | ManaTap AI",
-  description:
-    "Calculate probability of drawing lands, ramp, or combo pieces in Magic: The Gathering. Free hypergeometric calculator for Commander and EDH.",
+  description: TOOL_DESCRIPTIONS.probability,
   alternates: { canonical: "https://www.manatap.ai/tools/probability" },
 };
 

@@ -3,10 +3,11 @@ import Link from "next/link";
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { PopularCommanders } from "@/components/PopularCommanders";
+import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
   title: "Budget Swaps • ManaTap AI",
-  description: "Paste a decklist and see cheaper, similar alternatives for expensive cards.",
+  description: TOOL_DESCRIPTIONS.budgetSwaps,
   alternates: { canonical: "https://www.manatap.ai/deck/swap-suggestions" },
 };
 

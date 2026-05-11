@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { PopularCommanders } from "@/components/PopularCommanders";
+import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
   title: "MTG Price Tracker | Card Price History | ManaTap AI",
-  description:
-    "Track Magic: The Gathering card prices over time. View price history and trends for your deck and collection.",
+  description: TOOL_DESCRIPTIONS.priceTracker,
   alternates: { canonical: "https://www.manatap.ai/price-tracker" },
 };
 

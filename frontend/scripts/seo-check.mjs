@@ -11,6 +11,24 @@ function get(path) {
   });
 }
 
+const H1_CHECK_PATHS = [
+  "/tools/mulligan",
+  "/blog/mana-curve-mastery",
+  "/blog/why-ai-can-help-with-mtg-deck-building",
+  "/blog/welcome-to-manatap-ai-soft-launch",
+];
+
+function extractH1Text(html) {
+  return [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)]
+    .map((match) =>
+      match[1]
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
 (async () => {
   console.log("🔍 ManaTap SEO Health Check");
   console.log("============================");
@@ -50,6 +68,25 @@ function get(path) {
 
     if (r.status !== 200 || s.status !== 200 || h.status !== 200) {
       console.log("\n❌ Some SEO essentials are failing!");
+      process.exit(1);
+    }
+
+    let h1Failures = 0;
+    console.log("\nH1 uniqueness checks");
+    for (const path of H1_CHECK_PATHS) {
+      const page = await get(path);
+      if (page.status !== 200) {
+        h1Failures++;
+        console.log(`   - ${path}: FAIL HTTP ${page.status}`);
+        continue;
+      }
+      const h1s = extractH1Text(page.body);
+      const ok = h1s.length === 1;
+      if (!ok) h1Failures++;
+      console.log(`   - ${path}: ${ok ? "OK" : "FAIL"} ${h1s.length} h1${h1s.length === 1 ? "" : "s"}${h1s[0] ? ` (${h1s[0]})` : ""}`);
+    }
+    if (h1Failures > 0) {
+      console.log("\nOne or more pages do not have exactly one h1!");
       process.exit(1);
     }
 

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
+import { DEFAULT_BLOG_POSTS } from '@/lib/blog-defaults';
+import { descriptionFromText } from '@/lib/seo/metadata';
 
 // Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE error
 export const dynamic = 'force-dynamic';
@@ -21,11 +23,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   // Create SEO-friendly title and description
   const title = post.title.replace(/[🚀🎉💰📊💎⚠️🔥🌍]/g, '').trim() + ' | ManaTap AI';
-  const description = post.content
+  const fallbackDescription = `Read ManaTap's MTG deck-building guide for ${post.title.replace(/[^\w\s:,'()-]/g, '').trim()}, with Commander strategy, tools, and upgrade ideas.`;
+  const defaultExcerpt = DEFAULT_BLOG_POSTS.find((entry) => entry.slug === slug)?.excerpt;
+  const intro = post.content
     .split('\n')
-    .find((line: string) => line.trim().length > 50 && !line.startsWith('#') && !line.startsWith('##')) 
-    ?.trim()
-    .slice(0, 160) || `Learn about ${post.title.toLowerCase()} in this comprehensive MTG deck building guide.`;
+    .find((line: string) => {
+      const trimmed = line.trim();
+      return trimmed.length > 50 && !trimmed.startsWith('#') && !trimmed.startsWith('-') && !trimmed.startsWith('*');
+    });
+  const description = descriptionFromText(defaultExcerpt || intro || post.content, fallbackDescription);
 
   return {
     title,
@@ -1317,7 +1323,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
                     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
                   // Check if this is the opening paragraph after H1 - make it tighter
-                  const isOpeningPara = elements.length > 0 && elements[elements.length - 1]?.includes('<h1>');
+                  const isOpeningPara = elements.length > 0 && elements[elements.length - 1]?.includes('<h2');
                   elements.push(`<p class="${isOpeningPara ? 'mb-4 text-lg' : 'mb-4'}">${processed}</p>`);
                   currentParagraph = [];
                 }
@@ -1469,12 +1475,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   
                   if (hasSubtitle) {
                     // Main title
-                    elements.push(`<h1 class="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-2 mt-8 leading-tight text-center bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">${trimmed.slice(2)}</h1>`);
-                    // Subtitle - use h2 with strong inline styles to override prose, different gradient
-                    elements.push(`<h2 class="mb-6 text-center" style="font-size: clamp(2rem, 5vw, 3.5rem) !important; font-weight: 600 !important; line-height: 1.3 !important; margin-top: 0.5rem !important; margin-bottom: 1.5rem !important; background: linear-gradient(to right, #06b6d4, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">${nextLine}</h2>`);
+                    elements.push(`<h2 class="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-2 mt-8 leading-tight text-center bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">${trimmed.slice(2)}</h2>`);
+                    // Subtitle - use a styled paragraph so the hero remains the only h1.
+                    elements.push(`<p class="mb-6 text-center" style="font-size: clamp(2rem, 5vw, 3.5rem) !important; font-weight: 600 !important; line-height: 1.3 !important; margin-top: 0.5rem !important; margin-bottom: 1.5rem !important; background: linear-gradient(to right, #06b6d4, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">${nextLine}</p>`);
                     i = nextLineIndex; // Skip to the subtitle line since we've processed it
                   } else {
-                    elements.push(`<h1 class="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-6 mt-8 leading-tight bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">${trimmed.slice(2)}</h1>`);
+                    elements.push(`<h2 class="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-6 mt-8 leading-tight bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">${trimmed.slice(2)}</h2>`);
                   }
                   continue;
                 }

@@ -35,6 +35,10 @@ export async function POST(_req: Request, ctx: { params: Promise<Params> }) {
   if (upErr) {
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
+  try {
+    const { submitToIndexNow } = await import("@/lib/seo/indexnow");
+    submitToIndexNow(`/decks/${id}`).catch(() => {});
+  } catch {}
   return NextResponse.json({ ok: true, is_public: true });
 }
 

@@ -13,6 +13,7 @@ import { getBudgetCommanders } from "@/lib/meta/getBudgetCommanders";
 import { getTrendingCards } from "@/lib/meta/getTrendingCards";
 import { getMostPlayedCards } from "@/lib/meta/getMostPlayedCards";
 import { formatRelative } from "@/lib/meta/getMetaSnapshot";
+import { META_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 const BASE = "https://www.manatap.ai";
 
@@ -37,7 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Not Found | ManaTap AI" };
   return {
     title: `${getMetaTitle(slug as MetaSlug)} | ManaTap`,
-    description: `Discover ${getMetaTitle(slug as MetaSlug).toLowerCase()} in Commander. Based on public deck data.`,
+    description: META_DESCRIPTIONS[slug as MetaSlug],
     alternates: { canonical: `${BASE}/meta/${slug}` },
   };
 }

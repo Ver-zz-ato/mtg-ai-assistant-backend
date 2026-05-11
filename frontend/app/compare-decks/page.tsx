@@ -3,10 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import DeckComparisonTool from "@/components/DeckComparisonTool";
 import GuestLandingPage from "@/components/GuestLandingPage";
 import { canonicalMeta } from "@/lib/canonical";
+import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 import type { Metadata } from "next";
 
 export function generateMetadata(): Metadata {
-  return canonicalMeta("/compare-decks");
+  return canonicalMeta("/compare-decks", {
+    title: "Compare MTG Decks | ManaTap AI",
+    description: TOOL_DESCRIPTIONS.compareDecks,
+  });
 }
 
 export default async function ComparePage() {

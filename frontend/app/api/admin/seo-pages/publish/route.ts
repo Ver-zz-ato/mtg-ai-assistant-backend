@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
 
     const { pingGoogleSitemap } = await import("@/lib/seo/pingGoogle");
     pingGoogleSitemap().catch(() => {});
+    const { submitToIndexNow } = await import("@/lib/seo/indexnow");
+    submitToIndexNow(slugs.map((slug) => `/q/${slug}`)).catch(() => {});
 
     return NextResponse.json({
       ok: true,

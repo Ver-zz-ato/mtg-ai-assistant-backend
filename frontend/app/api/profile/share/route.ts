@@ -100,6 +100,12 @@ export async function POST(req: NextRequest) {
     }
     
     const url = `${base}/u/${encodeURIComponent(slug)}`;
+    if (is_public) {
+      try {
+        const { submitToIndexNow } = await import("@/lib/seo/indexnow");
+        submitToIndexNow(`/u/${encodeURIComponent(slug)}`).catch(() => {});
+      } catch {}
+    }
     return NextResponse.json({ ok: true, url, is_public });
   } catch (e:any) {
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
