@@ -11,6 +11,11 @@ import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString, hashGuestToken } from "@/lib/guest-tracking";
 import { GUEST_DAILY_FEATURE_LIMIT, SWAP_SUGGESTIONS_FREE, SWAP_SUGGESTIONS_PRO } from "@/lib/feature-limits";
+import {
+  formatKeyToDisplayTitle,
+  isCommanderFormatKey,
+  normalizeManatapDeckFormatKey,
+} from "@/lib/format/manatap-deck-format";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -70,6 +75,7 @@ async function aiSuggest(
   deckText: string, 
   currency: string, 
   budget: number,
+  format: string,
   userId?: string | null,
   isPro?: boolean,
   anonId?: string | null,
@@ -79,13 +85,18 @@ async function aiSuggest(
   sourcePage?: string | null
 ): Promise<Array<{ from: string; to: string; reason?: string }>> {
   const model = process.env.MODEL_SWAP_SUGGESTIONS || 'gpt-4o-mini';
+  const formatKey = normalizeManatapDeckFormatKey(format);
+  const formatTitle = formatKeyToDisplayTitle(formatKey);
+  const isCommander = isCommanderFormatKey(formatKey);
   
   // Build color identity instruction if available
-  let colorIdentityRule = '5. Format & color: All suggestions must be legal and match deck\'s color identity.';
-  if (commander && allowedColors && allowedColors.length > 0) {
+  let formatRule = `5. Format: All replacements must be legal in ${formatTitle}. This is a 60-card constructed context; do not use Commander-only rules, singleton assumptions, color identity, or command-zone language.`;
+  if (isCommander && commander && allowedColors && allowedColors.length > 0) {
     const colorNames: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
     const colorNamesStr = allowedColors.map(c => colorNames[c] || c).join(', ');
-    colorIdentityRule = `5. **COLOR IDENTITY (CRITICAL)**: Commander is ${commander} with color identity ${allowedColors.join('')} (${colorNamesStr}). You MUST ONLY suggest replacement cards within this color identity. Do NOT suggest any cards with mana symbols outside of ${allowedColors.join(', ')}. This is non-negotiable.`;
+    formatRule = `5. **COLOR IDENTITY (CRITICAL)**: This is Commander. Commander is ${commander} with color identity ${allowedColors.join('')} (${colorNamesStr}). You MUST ONLY suggest replacement cards within this color identity. Do NOT suggest any cards with mana symbols outside of ${allowedColors.join(', ')}. This is non-negotiable.`;
+  } else if (isCommander) {
+    formatRule = '5. Format & color: All suggestions must be Commander-legal and match the deck color identity when it is known.';
   }
   
   const system = `You are ManaTap AI, an expert Magic: The Gathering assistant suggesting budget-friendly alternatives.
@@ -104,13 +115,13 @@ CRITICAL RULES:
    - Known combo pieces (Thassa's Oracle, Thoracle, Demonic Consultation, etc.)
    - Cards that reference specific other cards by name
    - Cards with "you win the game" or infinite combo potential
-${colorIdentityRule}
+${formatRule}
 
 RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences explaining role match).
 Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both are lands that tap for mana based on creatures - same ramp role."}]
 Quality over quantity. If no good swaps exist, return empty array [].`;
   
-  const input = `Currency: ${currency}\nThreshold: ${budget}${commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
+  const input = `Format: ${formatTitle}\nCurrency: ${currency}\nThreshold: ${budget}${isCommander && commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
   
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
@@ -286,7 +297,7 @@ export async function POST(req: NextRequest) {
         const guestToken = (await cookies()).get('guest_session_token')?.value;
         if (guestToken) anonId = await hashGuestToken(guestToken);
       }
-      const ai = await aiSuggest(deckText, currency, budget, user?.id || null, isPro, anonId, commander || null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage);
+      const ai = await aiSuggest(deckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage);
       for (const s of ai) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;

@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    const roast = (response.text || "").trim();
+    const roast = (response.text || "").trim().replace(/\{\{([^{}]+)\}\}/g, "[[$1]]");
     return NextResponse.json({ ok: true, roast, roastScore: savageness });
   } catch (e) {
     const message = e instanceof Error ? e.message : "server_error";

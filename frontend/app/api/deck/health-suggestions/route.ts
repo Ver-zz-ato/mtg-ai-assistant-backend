@@ -212,12 +212,17 @@ Use this context to make targeted suggestions that fill gaps. For example, if ra
     };
 
     const prompt = categoryPrompts[category] || `Suggest 5-7 cards to improve ${label.toLowerCase()} for this deck.`;
-    const deckContext = `Deck: ${title}${commander ? ` | Commander: ${commander}` : ''} | Format: ${format} | Full Decklist: ${cardList}`;
-    const fullPrompt = `${prompt}\n\n${deckContext}\n\n**IMPORTANT**: Do not suggest any card that already appears in the decklist above (including basic lands, MDFC names, and the commander unless the list shows a distinct 99). We reject in-deck suggestions server-side.`;
+    const isCommanderFormat = analyzeFormat === 'Commander';
+    const commanderContext = isCommanderFormat && commander ? ` | Commander: ${commander}` : '';
+    const deckContext = `Deck: ${title}${commanderContext} | Format: ${format} | Full Decklist: ${cardList}`;
+    const alreadyInDeckRule = isCommanderFormat
+      ? 'including basic lands, MDFC names, and the commander unless the list shows a distinct 99'
+      : 'including basic lands and MDFC names';
+    const fullPrompt = `${prompt}\n\n${deckContext}\n\n**IMPORTANT**: Do not suggest any card that already appears in the decklist above (${alreadyInDeckRule}). We reject in-deck suggestions server-side.`;
 
     // Get commander's color identity for the prompt
     let colorIdentityHint = '';
-    if (commander && (format.toLowerCase().includes('commander') || format.toLowerCase().includes('edh'))) {
+    if (commander && isCommanderFormat) {
       try {
         const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
         const commanderDetails = await getDetailsForNamesCached([commander]);
@@ -243,7 +248,7 @@ Example:
 1. Lightning Greaves - Provides haste and protection for key creatures
 2. Sol Ring - Essential mana acceleration
 
-Focus on cards that are: legal in the deck's format, match the deck's color identity, fill the specific role requested, and are commonly played.
+Focus on cards that are: legal in the deck's format, ${isCommanderFormat ? "match the deck's color identity, " : ''}fill the specific role requested, and are commonly played.
 Never suggest a card whose English oracle name is already on the user's list (surplus copies are pointless). Prefer novel cards only.
 Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionContext}`;
 
@@ -369,7 +374,6 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
 
       // COLOR IDENTITY VALIDATION: Filter out off-color cards for Commander format
       let validatedSuggestions = suggestions;
-    const isCommanderFormat = analyzeFormat === 'Commander';
       
       if (isCommanderFormat && commander && suggestions.length > 0) {
         try {

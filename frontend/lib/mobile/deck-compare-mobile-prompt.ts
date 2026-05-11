@@ -29,9 +29,9 @@ function schemaDimensionHints(formatLabel: string): string {
   const isCmd = isCommanderFormatLabel(formatLabel);
   if (isCmd) {
     return [
-      '- summary.better_for_fast_tables / better_for_slower_pods: compare which list is stronger in fast multiplayer pods vs slower/grindier pods (use the JSON keys exactly as specified).',
-      '- ui.verdict_cards: first two cards conceptually map to "Fast tables" vs "Slower pods" (labels in output can be short synonyms).',
-      '- ui.scenario_cards: may reference slower pods / faster tables where appropriate.',
+      '- summary.better_for_fast_tables / better_for_slower_pods: compare which list is stronger in fast multiplayer games vs slower/grindier games (use the JSON keys exactly as specified).',
+      '- ui.verdict_cards: first two cards conceptually map to "Fast games" vs "Grindier games" (labels in output can be short synonyms).',
+      '- ui.scenario_cards: may reference faster or grindier games where appropriate.',
     ].join("\n");
   }
   return [
@@ -72,8 +72,8 @@ export function buildMobileDeckCompareUserPrompt(params: {
     "  },",
     '  "ui": {',
     '    "verdict_cards": [',
-    '      { "label": "Fast tables", "winner": "commander or short deck label" },',
-    '      { "label": "Slower pods", "winner": "..." },',
+    '      { "label": "Fast games", "winner": "commander or short deck label" },',
+    '      { "label": "Grindier games", "winner": "..." },',
     '      { "label": "More consistent", "winner": "..." },',
     '      { "label": "Highest ceiling", "winner": "..." }',
     "    ],",
@@ -82,7 +82,7 @@ export function buildMobileDeckCompareUserPrompt(params: {
     '      "deck_b": ["short phrase", "max three"]',
     "    },",
     '    "scenario_cards": [',
-    '      { "label": "Best for slower pods", "winner": "...", "reason": "One sentence, plain text." }',
+    '      { "label": "Best in grindy games", "winner": "...", "reason": "One sentence, plain text." }',
     "    ]",
     "  }",
     "}",

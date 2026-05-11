@@ -157,7 +157,7 @@ const MAX_UI_WINNER_LEN = 80;
 const MAX_UI_REASON_LEN = 180;
 const MAX_STRENGTH_PHRASE_LEN = 100;
 
-const DEFAULT_VERDICT_LABELS = ["Fast tables", "Slower pods", "More consistent", "Highest ceiling"];
+const DEFAULT_VERDICT_LABELS = ["Fast games", "Grindier games", "More consistent", "Highest ceiling"];
 
 function asStrengthPhrases(v: unknown, maxItems: number): string[] {
   if (!Array.isArray(v)) return [];
