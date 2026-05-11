@@ -22,9 +22,12 @@ import {
   resolveChatFormat,
 } from "@/lib/chat/resolve-chat-format";
 import {
+  buildDirectChatToolAnswer,
   buildToolResultsPrompt,
+  isMissingMetadataColumnError,
   persistAssistantMessage,
   runChatToolPlanner,
+  shouldSkipRecommendationCleanupForChatTurn,
   summarizeToolResults,
   type ChatTurnMetadata,
 } from "@/lib/chat/orchestrator";
@@ -1482,6 +1485,25 @@ export async function POST(req: NextRequest) {
       console.warn("[chat] Tool planner failed:", e);
       return [];
     });
+    const directToolAnswer = buildDirectChatToolAnswer(text, chatToolResults);
+    if (directToolAnswer) {
+      const metadata: ChatTurnMetadata = {
+        threadId: tid,
+        persisted: false,
+        toolResults: summarizeToolResults(chatToolResults),
+        pendingDeckAction: null,
+      };
+      const saved = await persistAssistantMessage(supabase, {
+        threadId: tid,
+        content: directToolAnswer,
+        metadata,
+        suppressInsert,
+        isGuest,
+      });
+      metadata.assistantMessageId = saved.id;
+      metadata.persisted = saved.persisted;
+      return ok({ text: directToolAnswer, threadId: tid, provider: "tool", metadata, toolResults: metadata.toolResults });
+    }
     const toolPrompt = buildToolResultsPrompt(chatToolResults);
     if (toolPrompt) sys += `\n\n${toolPrompt}`;
 
@@ -1872,7 +1894,8 @@ Return the corrected answer with concise, user-facing tone.`;
 
     // Runtime validation: format-aware recommendation validator + output cleanup
     const deckCardsForValidate = entries.length > 0 ? entries : (pastedDecklistForCompose?.deckCards ?? []);
-    if (deckCardsForValidate.length > 0 && outText && typeof outText === "string") {
+    const skipRecommendationCleanup = shouldSkipRecommendationCleanupForChatTurn(text);
+    if (!skipRecommendationCleanup && deckCardsForValidate.length > 0 && outText && typeof outText === "string") {
       try {
         const formatForLegality = chatFormatForLegality(chatFmtResolved);
         if (!formatForLegality) {
@@ -1967,7 +1990,7 @@ Return the corrected answer with concise, user-facing tone.`;
       } catch (e) {
         if (DEV) console.warn("[chat] validateRecommendations/cleanup error:", e);
       }
-    } else if (outText && typeof outText === "string" && outText.includes("[[")) {
+    } else if (!skipRecommendationCleanup && outText && typeof outText === "string" && outText.includes("[[")) {
       try {
         const formatForLegality = chatFormatForLegality(chatFmtResolved);
         if (!formatForLegality) throw new Error("Skipping bracket legality cleanup: unknown chat format");
@@ -1975,6 +1998,14 @@ Return the corrected answer with concise, user-facing tone.`;
         outText = await stripIllegalBracketCardTokensFromText(outText, formatForLegality, {
           logPrefix: "/api/chat bracket legality (no deck)",
         });
+      } catch {
+        /* non-fatal */
+      }
+    }
+    if (outText && typeof outText === "string" && outText.includes("[[")) {
+      try {
+        const { stripNonCardRuleTermBrackets } = await import("@/lib/deck/recommendation-legality");
+        outText = stripNonCardRuleTermBrackets(outText);
       } catch {
         /* non-fatal */
       }
@@ -2106,7 +2137,12 @@ Return the corrected answer with concise, user-facing tone.`;
         const asked = typeof last?.content === 'string' && /what format is the deck and roughly what budget/i.test(last.content);
         const isAck = /using your preferences/i.test(outText || '');
         if (last && last.role === 'assistant' && asked && isAck) {
-          await supabase.from("chat_messages").update({ content: outText, metadata: responseMetadata }).eq("id", (last as any).id);
+          const updatePayload: Record<string, unknown> = { content: outText, metadata: responseMetadata };
+          let { error: updateErr } = await supabase.from("chat_messages").update(updatePayload).eq("id", (last as any).id);
+          if (updateErr && isMissingMetadataColumnError(updateErr)) {
+            updateErr = (await supabase.from("chat_messages").update({ content: outText }).eq("id", (last as any).id)).error;
+          }
+          if (updateErr) throw updateErr;
           responseMetadata.assistantMessageId = (last as any).id;
           responseMetadata.persisted = true;
         } else {

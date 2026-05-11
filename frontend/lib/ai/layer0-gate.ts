@@ -96,9 +96,15 @@ const MTG_SCOPE_KEYWORDS = [
   'mtg', 'magic', 'commander', 'edh', 'deck', 'card', 'mana', 'planeswalker',
   'creature', 'sorcery', 'instant', 'artifact', 'enchantment', 'land',
   'trample', 'flying', 'lifelink', 'vigilance', 'first strike', 'double strike', 'hexproof', 'ward', 'sol ring',
-  'format', 'brew', 'list', 'swap', 'ramp', 'draw', 'removal', 'combo', 'synergy', 'suggest', 'improve',
+  'format', 'brew', 'list', 'add', 'remove', 'cut', 'replace', 'swap', 'apply', 'undo', 'cancel', 'ramp', 'draw', 'removal', 'combo', 'synergy', 'suggest', 'improve',
   '[[', 'banned', 'legal', 'cedh', 'wotc', 'scryfall', 'tcg', 'edhrec',
 ];
+
+export function isDeckEditFollowup(text: string): boolean {
+  const q = (text || "").trim();
+  return /^(?:please\s+)?(?:add|remove|cut|swap|replace)\b/i.test(q)
+    || /^(?:apply|undo|cancel|make those changes|do it|yes apply)\b/i.test(q);
+}
 
 /**
  * True if the message contains no MTG-related keyword (conservative: used with FAQ check for off-topic).
@@ -135,6 +141,10 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
   // 1. Empty / whitespace
   if (!q) {
     return { mode: "NO_LLM", reason: "empty_input", handler: "need_more_info" };
+  }
+
+  if (hasDeckContext && isDeckEditFollowup(q)) {
+    return { mode: "FULL_LLM", reason: "deck_edit_or_deck_card_command" };
   }
 
   // 2. Needs deck but missing → ask for deck link or paste

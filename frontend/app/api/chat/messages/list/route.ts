@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isMissingMetadataColumnError } from "@/lib/chat/orchestrator";
 
 const Query = z.object({
   threadId: z.string().uuid(),
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
     const { threadId } = parsed.data;
 
     const cookieStore: any = await cookies();
-    const supabase = createServerClient(
+    let supabase: any = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -34,7 +35,21 @@ export async function GET(req: Request) {
       }
     );
 
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    let { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const bearer = await bearerSupabase.auth.getUser();
+        if (bearer.data.user) {
+          supabase = bearerSupabase;
+          user = bearer.data.user;
+          userErr = null;
+        }
+      }
+    }
     if (userErr || !user) {
       status = 401;
       return NextResponse.json({ ok: false, error: { message: userErr?.message || "Unauthorized" } }, { status });
@@ -56,11 +71,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: { message: "Forbidden" } }, { status });
     }
 
-    const { data: messages, error: msgErr } = await supabase
+    let { data: messages, error: msgErr } = await supabase
       .from("chat_messages")
       .select("id, role, content, metadata, created_at")
       .eq("thread_id", threadId)
       .order("created_at", { ascending: true });
+
+    if (msgErr && isMissingMetadataColumnError(msgErr)) {
+      const fallback = await supabase
+        .from("chat_messages")
+        .select("id, role, content, created_at")
+        .eq("thread_id", threadId)
+        .order("created_at", { ascending: true });
+      messages = (fallback.data ?? []).map((m: any) => ({ ...m, metadata: null }));
+      msgErr = fallback.error;
+    }
 
     if (msgErr) {
       status = 500;

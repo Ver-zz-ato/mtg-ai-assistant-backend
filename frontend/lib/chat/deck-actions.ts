@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { normalizeCardName } from "@/lib/deck/mtgValidators";
 
 export type DeckChangeOperation =
@@ -97,9 +97,21 @@ export async function maybeCreateDeckChangeProposal(input: {
     })
     .select("id,status,operations,expires_at")
     .maybeSingle();
-  if (error) throw error;
+  if (error && !isMissingProposalTableError(error)) throw error;
 
-  const id = String((inserted as any)?.id || "");
+  const id = error
+    ? encodeInlineProposal({
+        user_id: input.userId,
+        thread_id: input.threadId,
+        deck_id: input.deckId,
+        status: "pending",
+        operations: resolvedOps,
+        validation,
+        deck_hash_before: hashBefore,
+        before_rows: beforeRows,
+        expires_at: expiresAt,
+      })
+    : String((inserted as any)?.id || "");
   const proposal: DeckChangeProposal = {
     id,
     deckId: input.deckId,
@@ -128,7 +140,7 @@ export async function applyDeckChangeProposal(input: {
   const p = proposal.row;
   if (p.status !== "pending") return { ok: false, error: "This deck change is no longer pending.", code: "not_pending" };
   if (p.expires_at && new Date(p.expires_at).getTime() < Date.now()) {
-    await input.supabase.from("chat_deck_change_proposals").update({ status: "expired" }).eq("id", input.proposalId);
+    if (!p.__inline) await input.supabase.from("chat_deck_change_proposals").update({ status: "expired" }).eq("id", input.proposalId);
     return { ok: false, error: "This deck change expired. Ask me to prepare it again.", code: "expired" };
   }
 
@@ -147,10 +159,12 @@ export async function applyDeckChangeProposal(input: {
   }
 
   const afterRows = await fetchDeckRows(input.supabase, p.deck_id);
-  await input.supabase
-    .from("chat_deck_change_proposals")
-    .update({ status: "applied", after_rows: afterRows, applied_at: new Date().toISOString() })
-    .eq("id", input.proposalId);
+  if (!p.__inline) {
+    await input.supabase
+      .from("chat_deck_change_proposals")
+      .update({ status: "applied", after_rows: afterRows, applied_at: new Date().toISOString() })
+      .eq("id", input.proposalId);
+  }
 
   return { ok: true, deckId: p.deck_id, summary: summarizeOperations(p.operations as DeckChangeOperation[]) };
 }
@@ -162,6 +176,7 @@ export async function cancelDeckChangeProposal(input: {
 }): Promise<{ ok: true } | { ok: false; error: string; code?: string }> {
   const proposal = await fetchOwnedProposal(input.supabase, input.userId, input.proposalId);
   if (!proposal.ok) return proposal;
+  if (proposal.row.__inline) return { ok: true };
   if (proposal.row.status !== "pending") return { ok: false, error: "This deck change is no longer pending.", code: "not_pending" };
   await input.supabase
     .from("chat_deck_change_proposals")
@@ -178,6 +193,7 @@ export async function undoDeckChangeProposal(input: {
   const proposal = await fetchOwnedProposal(input.supabase, input.userId, input.proposalId);
   if (!proposal.ok) return proposal;
   const p = proposal.row;
+  if (p.__inline) return { ok: false, error: "Inline deck changes can be applied or cancelled, but cannot be undone after applying.", code: "inline_undo_unsupported" };
   if (p.status !== "applied") return { ok: false, error: "Only applied deck changes can be undone.", code: "not_applied" };
   const beforeRows = Array.isArray(p.before_rows) ? p.before_rows.map(normalizeDeckRow) : [];
   await input.supabase.from("deck_cards").delete().eq("deck_id", p.deck_id);
@@ -274,6 +290,13 @@ async function fetchDeckRows(supabase: any, deckId: string): Promise<DeckCardRow
 }
 
 async function fetchOwnedProposal(supabase: any, userId: string, proposalId: string): Promise<{ ok: true; row: any } | { ok: false; error: string; code?: string }> {
+  if (proposalId.startsWith("inline.")) {
+    const decoded = decodeInlineProposal(proposalId);
+    if (!decoded) return { ok: false, error: "Invalid deck change proposal.", code: "invalid_inline_proposal" };
+    if (decoded.user_id !== userId) return { ok: false, error: "Deck change proposal not found.", code: "not_found" };
+    return { ok: true, row: { ...decoded, __inline: true } };
+  }
+
   const { data, error } = await supabase
     .from("chat_deck_change_proposals")
     .select("*")
@@ -282,6 +305,41 @@ async function fetchOwnedProposal(supabase: any, userId: string, proposalId: str
   if (error) return { ok: false, error: error.message, code: "db_error" };
   if (!data || (data as any).user_id !== userId) return { ok: false, error: "Deck change proposal not found.", code: "not_found" };
   return { ok: true, row: data };
+}
+
+function isMissingProposalTableError(error: unknown): boolean {
+  const msg = String((error as any)?.message || (error as any)?.details || error || "").toLowerCase();
+  return msg.includes("chat_deck_change_proposals") && (msg.includes("schema cache") || msg.includes("does not exist") || msg.includes("not find the table"));
+}
+
+function inlineSecret(): string {
+  return String(
+    process.env.CHAT_DECK_ACTION_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    "manatap-inline-deck-action"
+  );
+}
+
+function encodeInlineProposal(row: Record<string, unknown>): string {
+  const payload = Buffer.from(JSON.stringify({ v: 1, ...row }), "utf8").toString("base64url");
+  const sig = createHmac("sha256", inlineSecret()).update(payload).digest("base64url");
+  return `inline.${payload}.${sig}`;
+}
+
+function decodeInlineProposal(proposalId: string): any | null {
+  const parts = proposalId.split(".");
+  if (parts.length !== 3 || parts[0] !== "inline") return null;
+  const [, payload, sig] = parts;
+  const expected = createHmac("sha256", inlineSecret()).update(payload).digest("base64url");
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) return null;
+  try {
+    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
 }
 
 async function addCard(supabase: any, deckId: string, name: string, qty: number, zone: string): Promise<void> {

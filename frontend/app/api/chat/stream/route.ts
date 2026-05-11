@@ -20,10 +20,12 @@ import {
   resolveChatFormat,
 } from "@/lib/chat/resolve-chat-format";
 import {
+  buildDirectChatToolAnswer,
   buildToolResultsPrompt,
   encodeChatMetadata,
   persistAssistantMessage,
   runChatToolPlanner,
+  shouldSkipRecommendationCleanupForChatTurn,
   summarizeToolResults,
   type ChatTurnMetadata,
 } from "@/lib/chat/orchestrator";
@@ -1534,6 +1536,39 @@ export async function POST(req: NextRequest) {
       console.warn("[stream] Tool planner failed:", e);
       return [];
     });
+    const directToolAnswer = buildDirectChatToolAnswer(text, chatToolResults);
+    if (directToolAnswer) {
+      const metadata: ChatTurnMetadata = {
+        threadId: tid,
+        persisted: false,
+        toolResults: summarizeToolResults(chatToolResults),
+        pendingDeckAction: null,
+      };
+      const saved = await persistAssistantMessage(supabase, {
+        threadId: tid,
+        content: directToolAnswer,
+        metadata,
+        isGuest,
+      });
+      metadata.assistantMessageId = saved.id;
+      metadata.persisted = saved.persisted;
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(directToolAnswer));
+          controller.enqueue(encoder.encode(encodeChatMetadata(metadata)));
+          controller.enqueue(encoder.encode("\n[DONE]"));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "Connection": "keep-alive",
+        },
+      });
+    }
     const toolPrompt = buildToolResultsPrompt(chatToolResults);
     if (toolPrompt) sys += `\n\n${toolPrompt}`;
 
@@ -1845,7 +1880,8 @@ export async function POST(req: NextRequest) {
           let truncationRemoved = false;
           let cleanupSynergySkippedForDeckAnalysis = false;
           const deckCards = deckContextForCompose?.deckCards ?? [];
-          if (deckCards.length > 0 && outputText) {
+          const skipRecommendationCleanup = shouldSkipRecommendationCleanupForChatTurn(text);
+          if (!skipRecommendationCleanup && deckCards.length > 0 && outputText) {
             try {
               const formatForLegality = chatFormatForLegality(chatFmtResolved);
               if (!formatForLegality) {
@@ -1968,7 +2004,7 @@ export async function POST(req: NextRequest) {
             } catch (e) {
               if (DEV) console.warn("[stream] validateRecommendations/cleanup error:", e);
             }
-          } else if (outputText && outputText.includes("[[")) {
+          } else if (!skipRecommendationCleanup && outputText && outputText.includes("[[")) {
             try {
               const formatForLegality = chatFormatForLegality(chatFmtResolved);
               if (!formatForLegality) throw new Error("Skipping bracket legality cleanup: unknown chat format");
@@ -1976,6 +2012,14 @@ export async function POST(req: NextRequest) {
               outputText = await stripIllegalBracketCardTokensFromText(outputText, formatForLegality, {
                 logPrefix: "/api/chat/stream bracket legality (no deck)",
               });
+            } catch {
+              /* non-fatal */
+            }
+          }
+          if (outputText && outputText.includes("[[")) {
+            try {
+              const { stripNonCardRuleTermBrackets } = await import("@/lib/deck/recommendation-legality");
+              outputText = stripNonCardRuleTermBrackets(outputText);
             } catch {
               /* non-fatal */
             }

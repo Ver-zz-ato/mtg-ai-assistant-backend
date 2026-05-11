@@ -83,7 +83,25 @@ export const POST = withLogging(async (req: Request) => {
 
     // If deck_text not given, try to fetch from DB by deckId
     let deckText = pick<string>(body, "deckText", "deck_text", "");
-    const supabase = await createClient();
+    let supabase = await createClient();
+
+    // Mobile/tool calls often arrive with Authorization: Bearer instead of cookies.
+    // Use that client for RLS-backed deck/collection reads when no cookie session exists.
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        const authHeader = req.headers.get("Authorization");
+        const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+        if (bearerToken) {
+          const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+          const bearerSupabase = createClientWithBearerToken(bearerToken);
+          const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+          if (bearerUser) supabase = bearerSupabase as any;
+        }
+      }
+    } catch {
+      /* keep cookie client */
+    }
 
     if (!deckText && deckId) {
       const { data, error } = await supabase

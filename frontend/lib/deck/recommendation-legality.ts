@@ -66,6 +66,49 @@ export type RecommendationLegalityRow = {
   legalities?: Record<string, string> | null;
 };
 
+const NON_CARD_BRACKET_TERMS = new Set([
+  "deathtouch",
+  "defender",
+  "double strike",
+  "first strike",
+  "flash",
+  "flying",
+  "haste",
+  "hexproof",
+  "indestructible",
+  "lifelink",
+  "menace",
+  "protection",
+  "prowess",
+  "reach",
+  "trample",
+  "vigilance",
+  "ward",
+  "affinity",
+  "afterlife",
+  "cascade",
+  "convoke",
+  "delve",
+  "escape",
+  "flashback",
+  "kicker",
+  "madness",
+  "morph",
+  "mutate",
+  "suspend",
+  "the stack",
+  "priority",
+  "state-based actions",
+]);
+
+export function stripNonCardRuleTermBrackets(text: string): string {
+  if (!text || !String(text).includes("[[")) return text;
+  return String(text).replace(/\[\[([^\]]+)\]\]/g, (full, inner: string) => {
+    const name = String(inner || "").trim();
+    return NON_CARD_BRACKET_TERMS.has(normalizeScryfallCacheName(name)) ? name : full;
+  });
+}
+
 /**
  * Legality + ban overlay when cache row and normalized PK are known (sync).
  */
@@ -239,7 +282,9 @@ export async function stripIllegalBracketCardTokensFromText(
   out = out.replace(re2, (full, inner: string) => {
     const name = String(inner || "").trim();
     if (!name) return full;
-    if (allowNorm.has(normalizeScryfallCacheName(name))) return full;
+    const norm = normalizeScryfallCacheName(name);
+    if (allowNorm.has(norm)) return full;
+    if (NON_CARD_BRACKET_TERMS.has(norm)) return name;
     return "";
   });
 

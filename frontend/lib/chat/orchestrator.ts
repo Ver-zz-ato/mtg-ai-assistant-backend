@@ -74,13 +74,35 @@ export async function persistAssistantMessage(
     content: input.content,
   };
   if (input.metadata) payload.metadata = input.metadata;
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("chat_messages")
     .insert(payload)
     .select("id")
     .maybeSingle();
+  if (error && input.metadata && isMissingMetadataColumnError(error)) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.metadata;
+    const fallback = await supabase
+      .from("chat_messages")
+      .insert(fallbackPayload)
+      .select("id")
+      .maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+  }
   if (error) throw error;
   return { id: (data as any)?.id ?? null, persisted: true };
+}
+
+export function isMissingMetadataColumnError(error: unknown): boolean {
+  const msg = String((error as any)?.message || (error as any)?.details || error || "").toLowerCase();
+  return msg.includes("metadata") && (msg.includes("schema cache") || msg.includes("does not exist") || msg.includes("column"));
+}
+
+export function shouldSkipRecommendationCleanupForChatTurn(text: string): boolean {
+  const q = String(text || "").trim();
+  if (!q) return false;
+  return /\b(can i add|can i include|can this deck run|is\b.{0,90}\blegal\b|legal in|banned|allowed|rules?|rulings?|how does|how do|what does|what happens|interact|interaction|stack|priority|trample|deathtouch|lifelink|ward|menace|vigilance|flying|haste)\b/i.test(q);
 }
 
 export function buildToolResultsPrompt(results: ChatToolResult[]): string {
@@ -108,6 +130,25 @@ export function summarizeToolResults(results: ChatToolResult[]): ChatToolResult[
     error: r.error,
     data: compactToolData(r.data),
   }));
+}
+
+export function buildDirectChatToolAnswer(text: string, results: ChatToolResult[]): string | null {
+  const simpleRules = simpleRulesAnswer(text);
+  if (simpleRules) return simpleRules;
+
+  const legality = results.find((r) => r.kind === "legality_check" && r.ok && r.data) as ChatToolResult | undefined;
+  if (legality) {
+    const answer = buildLegalityAnswer(text, legality.data);
+    if (answer) return answer;
+  }
+
+  const price = results.find((r) => r.kind === "price_lookup" && r.ok && r.data) as ChatToolResult | undefined;
+  if (price) {
+    const answer = buildPriceAnswer(results, price.data);
+    if (answer) return answer;
+  }
+
+  return null;
 }
 
 export async function runChatToolPlanner(input: {
@@ -145,7 +186,7 @@ export async function runChatToolPlanner(input: {
           const key = normalizeScryfallCacheName(name);
           const row = details.get(key) || Array.from(details.values()).find((v: any) => normalizeScryfallCacheName(v?.name || "") === key);
           return row ? {
-            name: row.name,
+            name: row.name || row.card_name || name,
             type_line: row.type_line,
             mana_cost: row.mana_cost,
             color_identity: row.color_identity,
@@ -194,7 +235,7 @@ export async function runChatToolPlanner(input: {
   if (wantsCostToFinish) {
     results.push(await callJsonTool(input, "cost_to_finish", "Cost to Finish", "/api/collections/cost-to-finish", {
       deckId: input.deckId || undefined,
-      deckText: input.deckId ? undefined : input.deckText,
+      deckText: input.deckText || undefined,
       format: input.format || undefined,
       currency: input.currency || "USD",
       useOwned: true,
@@ -214,7 +255,7 @@ export async function runChatToolPlanner(input: {
   if (wantsFinish) {
     results.push(await callJsonTool(input, "finish_suggestions", "Finish suggestions", "/api/deck/finish-suggestions", {
       deckId: input.deckId || undefined,
-      deckText: input.deckId ? undefined : input.deckText,
+      deckText: input.deckText || undefined,
       commander: input.commander || undefined,
       format: input.format || undefined,
       maxSuggestions: 8,
@@ -239,8 +280,121 @@ function extractMentionedCardNames(text: string): string[] {
 
   for (const match of text.matchAll(/\[\[([^\]]+)\]\]/g)) add(match[1]);
   for (const match of text.matchAll(/"([^"]+)"/g)) add(match[1]);
-  for (const match of text.matchAll(/\b(?:price of|worth of|is|explain|about|lookup|find|card)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:legal|worth|cost|in|for|please|pls)|[?.!,]|$)/g)) add(match[1]);
+  for (const match of text.matchAll(/\b(?:price of|worth of|is|explain|about|lookup|find|card)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:legal|worth|cost|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
+  for (const match of text.matchAll(/\b(?:add|include|run|play)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/g)) add(match[1]);
   return names.slice(0, 12);
+}
+
+function simpleRulesAnswer(text: string): string | null {
+  const q = String(text || "").toLowerCase();
+  if (/\btrample\b/.test(q) && /\bdeathtouch\b/.test(q)) {
+    return "With trample plus deathtouch, you only need to assign 1 damage to each blocking creature because 1 deathtouch damage is lethal. Any remaining combat damage can be assigned to the defending player, planeswalker, or battle.";
+  }
+  const rules: Array<[RegExp, string]> = [
+    [/\bwhat\s+(?:is|does)\s+trample\b|\btrample\s+do\b/, "Trample lets an attacking creature assign excess combat damage beyond its blockers to the defending player, planeswalker, or battle after assigning lethal damage to each blocker."],
+    [/\bwhat\s+(?:is|does)\s+deathtouch\b|\bdeathtouch\s+do\b/, "Deathtouch means any amount of damage this source deals to a creature is lethal damage."],
+    [/\bwhat\s+(?:is|does)\s+ward\b|\bward\s+do\b/, "Ward is a triggered protection ability: when the permanent becomes the target of an opponent's spell or ability, that opponent must pay the ward cost or the spell or ability is countered."],
+    [/\bwhat\s+(?:is|does)\s+lifelink\b|\blifelink\s+do\b/, "Lifelink means damage dealt by that source also causes its controller to gain that much life at the same time."],
+    [/\bwhat\s+(?:is|does)\s+vigilance\b|\bvigilance\s+do\b/, "Vigilance means a creature does not tap when it attacks."],
+    [/\bwhat\s+(?:is|does)\s+haste\b|\bhaste\s+do\b/, "Haste lets a creature attack and use tap or untap abilities as soon as it comes under your control."],
+  ];
+  for (const [re, answer] of rules) {
+    if (re.test(q)) return answer;
+  }
+  return null;
+}
+
+function buildLegalityAnswer(text: string, data: unknown): string | null {
+  const d = data as any;
+  const cards = Array.isArray(d?.cards) ? d.cards : [];
+  if (cards.length === 0) return null;
+  const formats = mentionedLegalityFormats(text, d?.format);
+  if (formats.length === 0) return null;
+
+  const lines: string[] = [];
+  for (const card of cards) {
+    if (card?.missing) {
+      lines.push(`I couldn't resolve ${card.name}.`);
+      continue;
+    }
+    const legalities = card?.legalities || {};
+    const statuses = formats.map(({ key, label }) => `${label}: ${displayLegalityStatus(legalities[key])}`);
+    lines.push(`[[${card.name}]] - ${statuses.join("; ")}.`);
+  }
+  return lines.length ? lines.join("\n") : null;
+}
+
+function mentionedLegalityFormats(text: string, fallback?: string | null): Array<{ key: string; label: string }> {
+  const q = String(text || "").toLowerCase();
+  const known = [
+    ["commander", "Commander"],
+    ["modern", "Modern"],
+    ["standard", "Standard"],
+    ["pioneer", "Pioneer"],
+    ["pauper", "Pauper"],
+    ["legacy", "Legacy"],
+    ["vintage", "Vintage"],
+    ["brawl", "Brawl"],
+    ["historic", "Historic"],
+    ["oathbreaker", "Oathbreaker"],
+  ] as const;
+  const found = known.filter(([key]) => q.includes(key)).map(([key, label]) => ({ key, label }));
+  if (found.length > 0) return found;
+  const f = String(fallback || "").toLowerCase();
+  const match = known.find(([key]) => f.includes(key));
+  return match ? [{ key: match[0], label: match[1] }] : [];
+}
+
+function displayLegalityStatus(value: unknown): string {
+  const s = String(value || "unknown").toLowerCase();
+  if (s === "legal") return "legal";
+  if (s === "not_legal") return "not legal";
+  if (s === "banned") return "banned";
+  if (s === "restricted") return "restricted";
+  return "unknown";
+}
+
+function buildPriceAnswer(results: ChatToolResult[], data: unknown): string | null {
+  const d = data as any;
+  const prices = d?.prices && typeof d.prices === "object" ? d.prices as Record<string, unknown> : null;
+  if (!prices) return null;
+  const currency = String(d?.currency || "USD").toUpperCase();
+  const lookup = results.find((r) => r.kind === "card_lookup" && r.ok && r.data)?.data as any;
+  const cards = Array.isArray(lookup?.cards) ? lookup.cards : [];
+  const displayByNorm = new Map<string, string>();
+  for (const card of cards) {
+    if (card?.name) displayByNorm.set(normalizeScryfallCacheName(card.name), card.name);
+  }
+
+  const lines: string[] = [];
+  const missingNames: string[] = [];
+  for (const [rawName, rawPrice] of Object.entries(prices).slice(0, 6)) {
+    const amount = Number(rawPrice);
+    const display = displayByNorm.get(normalizeScryfallCacheName(rawName)) || titleizePriceKey(rawName);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      missingNames.push(display);
+      continue;
+    }
+    lines.push(`[[${display}]] is about ${formatPrice(amount, currency)} from ManaTap's current Scryfall-backed price cache.`);
+  }
+  if (lines.length > 0) return lines.join("\n");
+  if (missingNames.length > 0) {
+    return `I couldn't find a current nonzero ${currency} price for ${missingNames.map((n) => `[[${n}]]`).join(", ")} in ManaTap's Scryfall-backed price cache.`;
+  }
+  return null;
+}
+
+function titleizePriceKey(value: string): string {
+  return String(value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatPrice(amount: number, currency: string): string {
+  const symbol = currency === "GBP" ? "£" : currency === "EUR" ? "€" : "$";
+  return `${symbol}${amount.toFixed(2)} ${currency}`;
 }
 
 async function callJsonTool(
