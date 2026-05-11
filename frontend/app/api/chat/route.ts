@@ -21,6 +21,14 @@ import {
   formatKeyForChatPromptLayers,
   resolveChatFormat,
 } from "@/lib/chat/resolve-chat-format";
+import {
+  buildToolResultsPrompt,
+  persistAssistantMessage,
+  runChatToolPlanner,
+  summarizeToolResults,
+  type ChatTurnMetadata,
+} from "@/lib/chat/orchestrator";
+import { maybeCreateDeckChangeProposal } from "@/lib/chat/deck-actions";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -730,7 +738,7 @@ export async function POST(req: NextRequest) {
     const runtimeConfig = await (await import('@/lib/ai/runtime-config')).getRuntimeAIConfig(supabase);
     const forceFullRoutes = runtimeConfig.llm_force_full_routes ?? [];
     const forceFullForChat = Array.isArray(forceFullRoutes) && forceFullRoutes.includes("chat");
-    const layer0Enabled = runtimeConfig.flags.llm_layer0 === true && !forceFullForChat;
+    const layer0Enabled = !forceFullForChat;
     if (layer0Enabled) {
       const { layer0Decide } = await import("@/lib/ai/layer0-gate");
       const { getFaqAnswer } = await import("@/lib/ai/static-faq");
@@ -769,7 +777,7 @@ export async function POST(req: NextRequest) {
         } else if (actualHandler === "static_faq") {
           responseText = getFaqAnswer(text) ?? "I don't have a canned answer for that. Try asking in different words or use the full AI.";
         } else if (actualHandler === "off_topic") {
-          responseText = "ManaTap is focused on MTG deckbuilding and rules—ask me MTG stuff or be more specific.";
+          responseText = "ManaTap is focused on MTG deckbuilding and rules - ask me MTG stuff or be more specific.";
         } else {
           responseText = "Please enter your question or paste a decklist.";
         }
@@ -799,7 +807,7 @@ export async function POST(req: NextRequest) {
         return ok({ text: responseText, threadId: tid, provider: "layer0" });
         }
       }
-      if (decision.mode === "MINI_ONLY") {
+      if (decision.mode === "MINI_ONLY" && runtimeConfig.flags.llm_layer0 === true) {
         layer0Mode = "MINI_ONLY";
         layer0Reason = decision.reason;
         layer0MiniOnly = { model: decision.model, max_tokens: decision.max_tokens };
@@ -1425,6 +1433,58 @@ export async function POST(req: NextRequest) {
     const isComplexAnalysis = !isSimpleQuery && (hasDeckContext || complexKeywordCount >= 2);
     
     // Two-tier cache: public (allowlist) or private (scoped). No global shared cache.
+    const deckChange = await maybeCreateDeckChangeProposal({
+      supabase,
+      userId,
+      threadId: tid,
+      deckId: deckIdToUse,
+      text,
+    }).catch((e) => {
+      console.warn("[chat] Deck change proposal failed:", e);
+      return null;
+    });
+    if (deckChange) {
+      const metadata: ChatTurnMetadata = {
+        threadId: tid,
+        persisted: false,
+        pendingDeckAction: deckChange.proposal,
+      };
+      const saved = await persistAssistantMessage(supabase, {
+        threadId: tid,
+        content: deckChange.assistantText,
+        metadata,
+        suppressInsert,
+        isGuest,
+      });
+      metadata.assistantMessageId = saved.id;
+      metadata.persisted = saved.persisted;
+      return ok({
+        text: deckChange.assistantText,
+        threadId: tid,
+        provider: "deck_action",
+        metadata,
+        pendingDeckAction: deckChange.proposal,
+      });
+    }
+
+    const chatToolResults = await runChatToolPlanner({
+      origin: new URL(req.url).origin,
+      cookieHeader: req.headers.get("cookie"),
+      authHeader: req.headers.get("Authorization"),
+      text,
+      deckText,
+      deckId: deckIdToUse,
+      format: deckFormat || formatKey || null,
+      commander: d?.commander || inferredContext?.commander || null,
+      currency: typeof prefs?.currency === "string" ? prefs.currency : "USD",
+      sourcePage,
+    }).catch((e) => {
+      console.warn("[chat] Tool planner failed:", e);
+      return [];
+    });
+    const toolPrompt = buildToolResultsPrompt(chatToolResults);
+    if (toolPrompt) sys += `\n\n${toolPrompt}`;
+
     const { hashString, hashGuestToken } = await import('@/lib/guest-tracking');
     const sysPromptHash = await hashString(sys || '');
     const format = typeof prefs?.format === 'string' ? prefs.format : '';
@@ -2028,6 +2088,12 @@ Return the corrected answer with concise, user-facing tone.`;
       outText += toolText;
     }
     
+    const responseMetadata: ChatTurnMetadata = {
+      threadId: tid,
+      persisted: false,
+      toolResults: summarizeToolResults(chatToolResults),
+      pendingDeckAction: null,
+    };
     try {
       if (!suppressInsert) {
         const { data: last } = await supabase
@@ -2040,14 +2106,32 @@ Return the corrected answer with concise, user-facing tone.`;
         const asked = typeof last?.content === 'string' && /what format is the deck and roughly what budget/i.test(last.content);
         const isAck = /using your preferences/i.test(outText || '');
         if (last && last.role === 'assistant' && asked && isAck) {
-          await supabase.from("chat_messages").update({ content: outText }).eq("id", (last as any).id);
+          await supabase.from("chat_messages").update({ content: outText, metadata: responseMetadata }).eq("id", (last as any).id);
+          responseMetadata.assistantMessageId = (last as any).id;
+          responseMetadata.persisted = true;
         } else {
-          await supabase.from("chat_messages").insert({ thread_id: tid!, role: "assistant", content: outText });
+          const saved = await persistAssistantMessage(supabase, {
+            threadId: tid,
+            content: outText,
+            metadata: responseMetadata,
+            suppressInsert,
+            isGuest,
+          });
+          responseMetadata.assistantMessageId = saved.id;
+          responseMetadata.persisted = saved.persisted;
         }
       }
     } catch {
       if (!suppressInsert) {
-        await supabase.from("chat_messages").insert({ thread_id: tid!, role: "assistant", content: outText });
+        const saved = await persistAssistantMessage(supabase, {
+          threadId: tid,
+          content: outText,
+          metadata: responseMetadata,
+          suppressInsert,
+          isGuest,
+        });
+        responseMetadata.assistantMessageId = saved.id;
+        responseMetadata.persisted = saved.persisted;
       }
     }
 
@@ -2143,7 +2227,7 @@ Return the corrected answer with concise, user-facing tone.`;
       });
     } catch {}
 
-    return ok({ text: outText, threadId: tid, provider });
+    return ok({ text: outText, threadId: tid, provider, metadata: responseMetadata, toolResults: responseMetadata.toolResults });
   } catch (e: any) {
     status = 500;
     return err(e?.message || "server_error", "internal", 500);

@@ -19,6 +19,15 @@ import {
   formatKeyForChatPromptLayers,
   resolveChatFormat,
 } from "@/lib/chat/resolve-chat-format";
+import {
+  buildToolResultsPrompt,
+  encodeChatMetadata,
+  persistAssistantMessage,
+  runChatToolPlanner,
+  summarizeToolResults,
+  type ChatTurnMetadata,
+} from "@/lib/chat/orchestrator";
+import { maybeCreateDeckChangeProposal } from "@/lib/chat/deck-actions";
 
 export const runtime = "nodejs";
 
@@ -1358,7 +1367,7 @@ export async function POST(req: NextRequest) {
     let streamLayer0MiniOnly: { model: string; max_tokens: number } | null = null;
     const streamForceFullRoutes = streamRuntimeConfig.llm_force_full_routes ?? [];
     const streamForceFull = Array.isArray(streamForceFullRoutes) && streamForceFullRoutes.includes("chat_stream");
-    if (streamRuntimeConfig.flags.llm_layer0 === true && !streamForceFull && !skipLayer0ForCommanderFlow) {
+    if (!streamForceFull && !skipLayer0ForCommanderFlow) {
       const { layer0Decide } = await import("@/lib/ai/layer0-gate");
       const { getFaqAnswer } = await import("@/lib/ai/static-faq");
       const status = await checkBudgetStatus(supabase);
@@ -1395,7 +1404,7 @@ export async function POST(req: NextRequest) {
         } else if (decision.handler === "static_faq") {
           responseText = getFaqAnswer(text) ?? "I don't have a canned answer for that. Try asking in different words or use the full AI.";
         } else if (actualHandler === "off_topic") {
-          responseText = "ManaTap is focused on MTG deckbuilding and rules—ask me MTG stuff or be more specific.";
+          responseText = "ManaTap is focused on MTG deckbuilding and rules - ask me MTG stuff or be more specific.";
         } else {
           responseText = "Please enter your question or paste a decklist.";
         }
@@ -1457,7 +1466,7 @@ export async function POST(req: NextRequest) {
         });
         }
       }
-      if (decision.mode === "MINI_ONLY") {
+      if (decision.mode === "MINI_ONLY" && streamRuntimeConfig.flags.llm_layer0 === true) {
         streamLayer0Mode = "MINI_ONLY";
         streamLayer0Reason = decision.reason;
         streamLayer0MiniOnly = { model: decision.model, max_tokens: decision.max_tokens };
@@ -1466,6 +1475,67 @@ export async function POST(req: NextRequest) {
         streamLayer0Reason = decision.reason;
       }
     }
+
+    const deckChange = await maybeCreateDeckChangeProposal({
+      supabase,
+      userId,
+      threadId: tid,
+      deckId: deckIdLinked,
+      text,
+    }).catch((e) => {
+      console.warn("[stream] Deck change proposal failed:", e);
+      return null;
+    });
+    if (deckChange) {
+      const metadata: ChatTurnMetadata = {
+        threadId: tid,
+        persisted: false,
+        pendingDeckAction: deckChange.proposal,
+        toolResults: [],
+      };
+      const saved = await persistAssistantMessage(supabase, {
+        threadId: tid,
+        content: deckChange.assistantText,
+        metadata,
+        isGuest,
+      });
+      metadata.assistantMessageId = saved.id;
+      metadata.persisted = saved.persisted;
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(deckChange.assistantText));
+          controller.enqueue(encoder.encode(encodeChatMetadata(metadata)));
+          controller.enqueue(encoder.encode("\n[DONE]"));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+
+    const chatToolResults = await runChatToolPlanner({
+      origin: new URL(req.url).origin,
+      cookieHeader: req.headers.get("cookie"),
+      authHeader: req.headers.get("Authorization"),
+      text,
+      deckText: deckData?.deckText || null,
+      deckId: deckIdLinked,
+      format: deckData?.d?.format || chatFmtResolved.supportEntry?.label || chatFmtResolved.canonical || null,
+      commander: deckData?.d?.commander || null,
+      currency: typeof prefs?.currency === "string" ? prefs.currency : "USD",
+      sourcePage,
+    }).catch((e) => {
+      console.warn("[stream] Tool planner failed:", e);
+      return [];
+    });
+    const toolPrompt = buildToolResultsPrompt(chatToolResults);
+    if (toolPrompt) sys += `\n\n${toolPrompt}`;
 
     const { hashString, hashGuestToken } = await import('@/lib/guest-tracking');
     const sysPromptHash = await hashString(sys || '');
@@ -2019,11 +2089,31 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          const responseMetadata: ChatTurnMetadata = {
+            threadId: tid,
+            persisted: false,
+            toolResults: summarizeToolResults(chatToolResults),
+            pendingDeckAction: null,
+          };
+          try {
+            const saved = await persistAssistantMessage(supabase, {
+              threadId: tid,
+              content: outputText,
+              metadata: responseMetadata,
+              isGuest,
+            });
+            responseMetadata.assistantMessageId = saved.id;
+            responseMetadata.persisted = saved.persisted;
+          } catch (e) {
+            console.warn("[stream] Failed to persist assistant message:", e);
+          }
+
           const lenFinal = outputText.length;
           const CHUNK_SIZE = 120;
           for (let i = 0; i < outputText.length; i += CHUNK_SIZE) {
             controller.enqueue(encoder.encode(outputText.slice(i, i + CHUNK_SIZE)));
           }
+          controller.enqueue(encoder.encode(encodeChatMetadata(responseMetadata)));
           if (wantDebug) {
             const streamDurationMs = Date.now() - streamStartTime;
             const cleanupCharsSynergy = lenBeforeSynergy != null && lenAfterSynergy != null ? lenBeforeSynergy - lenAfterSynergy : null;

@@ -7,6 +7,7 @@ export type ChatMessage = {
   thread_id: string;
   role: ChatRole;
   content: string;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
 };
 

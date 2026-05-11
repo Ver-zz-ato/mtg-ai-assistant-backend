@@ -151,6 +151,10 @@ export async function postMessage(
 
 export type ChatDebugEntry = { tag: string; ts: number; data: Record<string, unknown> };
 
+function stripChatProtocolMetadata(text: string): string {
+  return String(text || "").replace(/\s*__MANATAP_CHAT_METADATA__(.|\n|\r)*?__MANATAP_CHAT_METADATA_END__\s*/g, "");
+}
+
 /** Same as postMessageStream but adds x-debug-chat header and parses __MANATAP_DEBUG__ block; calls onDebug when present. */
 export async function postMessageStreamWithDebug(
   payload: Parameters<typeof postMessageStream>[0],
@@ -238,7 +242,7 @@ export async function postMessageStreamWithDebug(
           const endStreamEnd = "__MANATAP_DEBUG_END__";
           if (beforeDone.includes(endStreamMarker)) {
             const idx = beforeDone.indexOf(endStreamMarker);
-            const contentPart = beforeDone.slice(0, idx).trimEnd();
+            const contentPart = stripChatProtocolMetadata(beforeDone.slice(0, idx).trimEnd());
             if (contentPart) pacer.addChunk(contentPart);
             const endIdx = beforeDone.indexOf(endStreamEnd, idx);
             if (endIdx >= 0) {
@@ -249,7 +253,7 @@ export async function postMessageStreamWithDebug(
               } catch (_) {}
             }
           } else {
-            pacer.addChunk(beforeDone);
+            pacer.addChunk(stripChatProtocolMetadata(beforeDone));
           }
         }
         pacer.complete();
@@ -261,7 +265,7 @@ export async function postMessageStreamWithDebug(
         buffer = "";
       }
     }
-    if (debugParsed && buffer.length > 0) pacer.addChunk(buffer);
+    if (debugParsed && buffer.length > 0) pacer.addChunk(stripChatProtocolMetadata(buffer));
     pacer.complete();
   } catch (error: unknown) {
     pacer.stop();
@@ -366,9 +370,10 @@ export async function postMessageStream(
       // Check for completion signal
       if (chunk.includes("[DONE]")) {
         const beforeDone = chunk.split("[DONE]")[0];
-        if (beforeDone) {
-          fullResponse += beforeDone;
-          pacer.addChunk(beforeDone);
+        const visible = stripChatProtocolMetadata(beforeDone);
+        if (visible) {
+          fullResponse += visible;
+          pacer.addChunk(visible);
         }
         // Signal completion to pacer
         pacer.complete();
@@ -376,7 +381,7 @@ export async function postMessageStream(
       }
       
       // Filter out heartbeat spaces and add to pacer
-      const filtered = chunk.replace(/^\s+$/, "");
+      const filtered = stripChatProtocolMetadata(chunk).replace(/^\s+$/, "");
       if (filtered) {
         fullResponse += filtered;
         pacer.addChunk(filtered);

@@ -30,6 +30,7 @@ import { ChatErrorFallback, withErrorFallback } from "@/components/ErrorFallback
 import { logger } from "@/lib/logger";
 import SourceReceipts from "@/components/SourceReceipts";
 import ChatCorrectionModal from "@/components/ChatCorrectionModal";
+import DeckActionControls from "@/components/chat/DeckActionControls";
 // Enhanced chat functionality
 import { 
   analyzeDeckProblems, 
@@ -950,13 +951,7 @@ function Chat(props: ChatProps = {}) {
             lastOptimisticUserMsgRef.current = null;
             messageCountRef.current += 1;
             streamStartTimeRef.current = 0;
-            if (isLoggedIn && currentThreadId && accumulatedContent) {
-              fetch("/api/chat/messages", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ threadId: currentThreadId, message: { role: "assistant", content: accumulatedContent } }),
-              }).catch(() => {});
-            }
+            // Assistant persistence is owned by /api/chat/stream.
             if (messageCountRef.current === 1 && accumulatedContent.length > 50) trackValueMomentReached("first_good_chat_response");
             if (!isLoggedIn && messageCountRef.current >= 2) trackGuestValueMoment("chat_engaged", capture, { chat_count: messageCountRef.current });
             capture("chat_stream_stop", enrichChatEvent({ stopped_by: "complete", duration_ms: Date.now() - streamStartTime, tokens_if_known: Math.ceil(accumulatedContent.length / 4), assistant_message_id: streamingMsgId }, { threadId: currentThreadId || threadId || null, userMessage: val || null, assistantMessage: accumulatedContent.slice(0, 200) || null, format: fmt || null }));
@@ -1032,19 +1027,7 @@ function Chat(props: ChatProps = {}) {
           }
           lastOptimisticUserMsgRef.current = null; // User message is now in DB
           
-          // Save assistant's response to the thread (for logged-in users)
-          if (isLoggedIn && currentThreadId && accumulatedContent) {
-            fetch('/api/chat/messages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                threadId: currentThreadId, 
-                message: { role: 'assistant', content: accumulatedContent }
-              })
-            }).catch(() => {
-              // Silently fail - message is already in UI
-            });
-          }
+          // Assistant persistence is owned by /api/chat/stream.
           
           messageCountRef.current += 1;
           
@@ -1800,6 +1783,12 @@ function Chat(props: ChatProps = {}) {
                     <span>{isAssistant ? 'assistant' : (displayName || 'you')}</span>
                   </div>
                   <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
+                  {isAssistant && (
+                    <DeckActionControls
+                      metadata={(m as any).metadata}
+                      onComplete={() => threadId && refreshMessages(threadId)}
+                    />
+                  )}
                   {isAssistant && (
                     <>
                       <SourceReceipts sources={generateSourceAttribution(String(m.content || ''), { deckId: linkedDeckId || undefined })} />

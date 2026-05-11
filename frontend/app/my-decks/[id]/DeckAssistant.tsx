@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 import React from "react";
 import { usePathname } from "next/navigation";
-import { listMessages, postMessage, postMessageStream } from "@/lib/threads";
+import { listMessages, postMessageStream } from "@/lib/threads";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 // Enhanced chat functionality
 import { 
@@ -15,24 +15,12 @@ import {
 import { extractCardsForImages } from "@/lib/chat/cardImageDetector";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { renderMarkdown } from "@/lib/chat/markdownRenderer";
-import { parseDeckCommand } from "@/lib/chat/commandParser";
 import { toast, toastError } from "@/lib/toast-client";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { validateAndNormalizeCardName } from "@/lib/chat/cardValidator";
 import ChatCorrectionModal from "@/components/ChatCorrectionModal";
+import DeckActionControls from "@/components/chat/DeckActionControls";
 
-type Msg = { id: any; role: "user"|"assistant"; content: string };
-
-async function appendAssistant(threadId: string, content: string) {
-  const res = await fetch("/api/chat/messages/append", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ threadId, role: "assistant", content }),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || json?.ok === false) throw new Error(json?.error?.message || "append failed");
-  return true;
-}
+type Msg = { id: any; role: "user"|"assistant"; content: string; metadata?: Record<string, unknown> | null };
 
 export default function DeckAssistant({ deckId, format: initialFormat }: { deckId: string; format?: string }) {
   const pathname = usePathname() ?? "/my-decks/[id]";
@@ -393,74 +381,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       recognitionRef.current.stop();
       setIsListening(false);
     }
-    
-    // Check for direct deck editing commands FIRST (before sending to chat)
-    const command = parseDeckCommand(text);
-    if (command) {
-      // Prevent text from being sent to chat
-      setText('');
-      setBusy(true);
-      try {
-        switch (command.type) {
-          case 'add':
-            for (const card of command.cards) {
-              // Validate and normalize card name
-              const validName = await validateAndNormalizeCardName(card.name);
-              if (!validName) {
-                toast(`❌ Card "${card.name}" not found. Check spelling?`, 'error');
-                setBusy(false);
-                return;
-              }
-              await addCard(validName, card.qty);
-            }
-            toast(`✅ Added ${command.cards[0].name} to deck!`, 'success');
-            setBusy(false);
-            return;
-            
-          case 'remove':
-            for (const card of command.cards) {
-              // Validate and normalize card name
-              const validName = await validateAndNormalizeCardName(card.name);
-              if (!validName) {
-                toast(`❌ Card "${card.name}" not found. Check spelling?`, 'error');
-                setBusy(false);
-                return;
-              }
-              await removeCard(validName, card.qty);
-            }
-            toast(`✅ Removed ${command.cards[0].name} from deck!`, 'success');
-            setBusy(false);
-            return;
-            
-          case 'swap':
-            // Validate both card names
-            const validRemove = await validateAndNormalizeCardName(command.remove);
-            const validAdd = await validateAndNormalizeCardName(command.add);
-            
-            if (!validRemove) {
-              toast(`❌ Card "${command.remove}" not found. Check spelling?`, 'error');
-              setBusy(false);
-              return;
-            }
-            if (!validAdd) {
-              toast(`❌ Card "${command.add}" not found. Check spelling?`, 'error');
-              setBusy(false);
-              return;
-            }
-            
-            await removeCard(validRemove, 1);
-            await addCard(validAdd, 1);
-            toast(`✅ Swapped ${validRemove} for ${validAdd}!`, 'success');
-            setBusy(false);
-            return;
-        }
-      } catch (error: any) {
-        toast(error.message || 'Command failed', 'error');
-      } finally {
-        setBusy(false);
-      }
-    }
-    
+
     // Clear input immediately (optimistic UI)
     const messageText = text;
     setText('');
@@ -497,10 +418,18 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     setStreamingContent('');
     
     try {
-      // Pass deckId via context parameter (not as text) so chat route can fetch deck properly
-      const pm = await postMessage({ text: messageText, threadId });
-      const tid = (pm as any)?.threadId || threadId;
-      if (tid && tid !== threadId) setThreadId(tid);
+      let tid = threadId;
+      if (!tid) {
+        const createRes = await fetch('/api/chat/threads/create', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title: 'Deck chat', deckId })
+        });
+        const created = await createRes.json().catch(() => ({}));
+        tid = created?.data?.id || created?.id || null;
+        if (!createRes.ok || !tid) throw new Error(created?.error?.message || created?.error || 'Failed to create chat thread');
+        setThreadId(tid);
+      }
       
       // Link thread to deck if not already linked
       if (tid && deckId) {
@@ -518,7 +447,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       const context = { deckId }; // Pass deckId via context, not as text
       
       await postMessageStream(
-        { text: messageText, threadId: tid || null, context, prefs, sourcePage: `${pathname} · DeckAssistant.tsx` },
+        { text: messageText, threadId: tid || null, context, prefs, sourcePage: `${pathname} Â· DeckAssistant.tsx` },
         (token: string) => {
           accumulatedContent += token;
           setStreamingContent(accumulatedContent);
@@ -543,8 +472,14 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           });
           setIsStreaming(false);
           setStreamingContent('');
-          // Don't refresh here - it causes duplicate messages since we already have them in state
-          // The server has saved the messages, but we don't need to refetch them
+          if (tid) {
+            listMessages(tid)
+              .then((r: any) => {
+                const next = r?.messages || r?.data || [];
+                if (Array.isArray(next) && next.length > 0) setMsgs(next);
+              })
+              .catch(() => {});
+          }
           
           // Scroll to bottom after streaming completes
           requestAnimationFrame(() => {
@@ -589,7 +524,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     setHoverCard(null);
   }
   
-  // Render message content: inline card names → hover full art (same as main Chat.tsx; no bottom card strip)
+  // Render message content: inline card names â†’ hover full art (same as main Chat.tsx; no bottom card strip)
   function renderMessageContent(content: string, isAssistant: boolean) {
     if (!isAssistant) {
       return renderMarkdown(content);
@@ -815,7 +750,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       } catch(e:any){ alert(e?.message || 'Add failed'); }
     }
 
-    if (loading) return <div className="text-[10px] opacity-70">Filtering suggestions…</div>;
+    if (loading) return <div className="text-[10px] opacity-70">Filtering suggestionsâ€¦</div>;
     if (items.length === 0) return null;
     return (
       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
@@ -841,7 +776,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
             <div className="mb-1"><code className="px-1 py-[1px] rounded bg-neutral-800 border border-neutral-700">{d.nl.scryfall_query}</code></div>
             <ul className="list-disc ml-5">
               {(Array.isArray(d.nl.results)?d.nl.results:[]).slice(0,5).map((c:any,i:number)=> (
-                <li key={i}>{c.name}{c.mana_cost?` (${c.mana_cost})`:''} — {c.type_line}</li>
+                <li key={i}>{c.name}{c.mana_cost?` (${c.mana_cost})`:''} â€” {c.type_line}</li>
               ))}
             </ul>
           </div>
@@ -858,13 +793,13 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
             {Array.isArray(d.combos_detect.present) && d.combos_detect.present.length>0 && (
               <div className="mb-1">
                 <div className="opacity-80 text-[12px]">Present:</div>
-                <ul className="list-disc ml-5">{d.combos_detect.present.slice(0,5).map((c:any,i:number)=>(<li key={'p'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.pieces)&&c.pieces.length>0?(<span className="opacity-80"> — {c.pieces.join(' + ')}</span>):null}</li>))}</ul>
+                <ul className="list-disc ml-5">{d.combos_detect.present.slice(0,5).map((c:any,i:number)=>(<li key={'p'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.pieces)&&c.pieces.length>0?(<span className="opacity-80"> â€” {c.pieces.join(' + ')}</span>):null}</li>))}</ul>
               </div>
             )}
             {Array.isArray(d.combos_detect.missing) && d.combos_detect.missing.length>0 && (
               <div>
                 <div className="opacity-80 text-[12px]">One piece missing:</div>
-                <ul className="list-disc ml-5">{d.combos_detect.missing.slice(0,5).map((c:any,i:number)=>(<li key={'m'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.have)&&c.have.length>0?(<span className="opacity-80"> — have {c.have.join(' + ')}, need <a className="underline" href={`https://scryfall.com/search?q=${encodeURIComponent('!"'+(c.suggest||'')+'"')}`} target="_blank" rel="noreferrer">{c.suggest}</a></span>):null}</li>))}</ul>
+                <ul className="list-disc ml-5">{d.combos_detect.missing.slice(0,5).map((c:any,i:number)=>(<li key={'m'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.have)&&c.have.length>0?(<span className="opacity-80"> â€” have {c.have.join(' + ')}, need <a className="underline" href={`https://scryfall.com/search?q=${encodeURIComponent('!"'+(c.suggest||'')+'"')}`} target="_blank" rel="noreferrer">{c.suggest}</a></span>):null}</li>))}</ul>
               </div>
             )}
           </div>
@@ -918,7 +853,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           {msgs.length === 0 ? (
             <div className="flex items-center justify-center py-12 opacity-70 text-sm text-neutral-400">
               <div className="text-center">
-                <p className="mb-2">💬 Ask me anything about your deck!</p>
+                <p className="mb-2">ðŸ’¬ Ask me anything about your deck!</p>
                 <p className="text-xs opacity-70">I can see your full decklist, commander, and card synergies.</p>
               </div>
             </div>
@@ -965,7 +900,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                           e.stopPropagation();
                           const ok = await copyTextToClipboard(String(m.content || ""));
                           if (ok) toast("Copied to clipboard", "success");
-                          else toastError("Could not copy — try selecting the text manually.");
+                          else toastError("Could not copy â€” try selecting the text manually.");
                         }}
                         className="p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"
                         title="Copy message"
@@ -991,6 +926,20 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                   </div>
                 </div>
                 <div className="leading-relaxed">{renderMessageContent(m.content, isAssistant)}</div>
+                {isAssistant && (
+                  <DeckActionControls
+                    metadata={(m as any).metadata}
+                    onComplete={() => {
+                      if (!threadId) return;
+                      listMessages(threadId)
+                        .then((r: any) => {
+                          const next = r?.messages || r?.data || [];
+                          if (Array.isArray(next)) setMsgs(next);
+                        })
+                        .catch(() => {});
+                    }}
+                  />
+                )}
               </div>
             </div>
           );
@@ -1002,7 +951,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                 <div className="inline-block max-w-[95%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap relative overflow-visible">
                   <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
                     <span>assistant</span>
-                    <span className="ml-2 animate-pulse">•••</span>
+                    <span className="ml-2 animate-pulse">â€¢â€¢â€¢</span>
                   </div>
                   <div className="leading-relaxed">{renderMessageContent(streamingContent, true)}</div>
                 </div>
@@ -1053,7 +1002,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                   send();
                 }
               }}
-              placeholder="Ask me anything about your deck…"
+              placeholder="Ask me anything about your deckâ€¦"
               rows={1}
               className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[200px] max-h-[400px] overflow-y-auto text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               style={{
@@ -1120,7 +1069,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                 onClick={() => setHealthSuggestionsOpen(false)}
                 className="text-neutral-400 hover:text-white transition-colors"
               >
-                ✕
+                âœ•
               </button>
             </div>
             

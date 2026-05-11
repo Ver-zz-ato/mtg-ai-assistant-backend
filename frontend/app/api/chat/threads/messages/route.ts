@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     if (tErr || !t || (t as any).user_id !== user.id) return NextResponse.json<Envelope<never>>({ ok: false, error: "Thread not found" }, { status: 404 });
 
     const { data: msgs, error } = await supabase.from("chat_messages")
-      .select("id,role,content,created_at")
+      .select("id,role,content,metadata,created_at")
       .eq("thread_id", tid)
       .order("created_at", { ascending: true });
     if (error) return NextResponse.json<Envelope<never>>({ ok: false, error: error.message }, { status: 500 });
