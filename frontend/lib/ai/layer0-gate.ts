@@ -50,7 +50,10 @@ export function isDeckAnalysisRequest(text: string): boolean {
   const q = (text || "").toLowerCase().trim();
   const patterns = [
     /\b(analyze|analysis|improve|upgrade|optimize|review)\s+(my\s+|this\s+)?(deck|list)\b/i,
+    /\b(health check|quick take|rate this deck|deck look|weakness|weaknesses|biggest issue|missing)\b/i,
+    /\b(roast)\s+(my\s+|this\s+)?(deck|list)\b/i,
     /\b(what'?s? wrong|what is wrong)\s+(with\s+)?(my\s+)?(deck|list)\b/i,
+    /\bwhat\s+(?:is|are)\s+(this\s+)?(?:deck|list)\s+missing\b/i,
     /\bsuggest\s+(swap|card|upgrade)s?\b/i,
     /\bbudget\s+swap|swap\s+suggestions\b/i,
     /\b(how can i|what should i)\s+(improve|upgrade|fix)\b/i,
@@ -97,6 +100,7 @@ const MTG_SCOPE_KEYWORDS = [
   'creature', 'sorcery', 'instant', 'artifact', 'enchantment', 'land',
   'trample', 'flying', 'lifelink', 'vigilance', 'first strike', 'double strike', 'hexproof', 'ward', 'sol ring',
   'format', 'brew', 'list', 'add', 'remove', 'cut', 'replace', 'swap', 'apply', 'undo', 'cancel', 'ramp', 'draw', 'removal', 'combo', 'synergy', 'suggest', 'improve',
+  'health check', 'quick take', 'missing', 'weakness', 'weaknesses', 'issue', 'roast', 'curve', 'sideboard',
   '[[', 'banned', 'legal', 'cedh', 'wotc', 'scryfall', 'tcg', 'edhrec',
 ];
 

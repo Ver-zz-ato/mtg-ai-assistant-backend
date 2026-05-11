@@ -158,7 +158,10 @@ export function buildDirectDeckContextAnswer(input: {
   format?: string | null;
 }): string | null {
   const q = String(input.text || "").toLowerCase();
-  if (!/\b(health check|quick take|one sentence|how is this deck|rate this deck|deck look)\b/.test(q)) return null;
+  const wantsHealth = /\b(health check|quick take|one sentence|how is this deck|rate this deck|deck look)\b/.test(q);
+  const wantsMissing = /\b(what.*(?:deck|list).*missing|missing|biggest issue|weakness|weaknesses)\b/.test(q);
+  const wantsRoast = /\broast\b/.test(q);
+  if (!wantsHealth && !wantsMissing && !wantsRoast) return null;
 
   const deckText = String(input.deckText || "").trim();
   if (!deckText) return null;
@@ -170,6 +173,15 @@ export function buildDirectDeckContextAnswer(input: {
   const sizeNote = cards.total > 0 && cards.total < 95 ? ` it is still very short at ${cards.total} cards, so` : "";
   const landNote = cards.lands > 0 && cards.total >= 60 ? ` with about ${cards.lands} lands` : "";
   const coreNote = cards.nonlands > 0 ? ` and ${cards.nonlands} nonlands` : "";
+  if (wantsMissing) {
+    const sizeGap = format.toLowerCase().includes("commander") && cards.total < 100
+      ? ` It is also ${100 - cards.total} cards short of a full Commander list.`
+      : cards.total < 60 ? ` It is also short of a normal constructed maindeck size.` : "";
+    return `Biggest issue: this ${subject} list needs a clearer complete shell.${sizeGap} Prioritize the mana base, early interaction, card draw, and a focused threat/win-condition package before fine-tuning individual upgrades.`;
+  }
+  if (wantsRoast) {
+    return `Gentle roast: this ${subject} list has the bones of a plan, but right now it is more of a promising pile than a finished deck. The serious fix is adding enough lands, interaction, draw, and payoff cards to make the plan happen consistently.`;
+  }
   return `Quick health check: this ${subject} list has a recognizable starting shell${landNote}${coreNote}, but${sizeNote} the next priority is tightening the mana, ramp/draw/removal balance, and adding focused win conditions before judging power level.`;
 }
 
@@ -193,10 +205,11 @@ export async function runChatToolPlanner(input: {
   const extractedNames = extractMentionedCardNames(text);
   const wantsCardLookup = extractedNames.length > 0 || /\b(what does|explain|tell me about|oracle text|card details)\b/i.test(text);
   const wantsPrice = /\b(price|worth|cost|market|trend|spike|crash|going up|going down)\b/i.test(text);
-  const wantsLegality = /\b(legal|legality|banned|allowed|commander legal|modern legal|standard legal|pioneer legal|pauper legal)\b/i.test(text);
+  const wantsLegality = /\b(legal|legality|banned|allowed|commander legal|modern legal|standard legal|pioneer legal|pauper legal)\b/i.test(text)
+    || /\bcan\s+(?:this\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\b/i.test(text);
   const wantsCostToFinish = hasDeck && /\b(cost to finish|finish cost|how much.*(finish|complete)|missing.*cost|need to buy|collection|owned)\b/i.test(text);
   const wantsBudgetSwaps = hasDeck && /\b(budget swap|cheaper|cheap alternative|replace expensive|under\s?(?:usd|gbp|eur|[$])?\s?\d+|save money|budget)\b/i.test(text);
-  const wantsFinish = hasDeck && /\b(finish this deck|complete this deck|what should i add|fill the deck|missing cards|upgrade this deck|improve this deck)\b/i.test(text);
+  const wantsFinish = hasDeck && /\b(finish this deck|complete this deck|what should i add|fill the deck|missing cards|what.*(?:deck|list).*missing|upgrade this deck|improve this deck)\b/i.test(text);
 
   if (wantsCardLookup || wantsLegality) {
     const names = extractedNames.slice(0, 8);
@@ -298,6 +311,7 @@ function extractMentionedCardNames(text: string): string[] {
       .replace(/^(?:the\s+)?(?:current\s+)?worth\s+of\s+/i, "")
       .replace(/^(?:the\s+)?card\s+/i, "")
       .trim();
+    if (/^(?:it|this|that)(?:\s+legal)?$/i.test(cleaned)) return;
     if (cleaned.length >= 3 && cleaned.length <= 80 && !names.some((n) => n.toLowerCase() === cleaned.toLowerCase())) {
       names.push(cleaned);
     }
@@ -341,6 +355,9 @@ function simpleRulesAnswer(text: string): string | null {
   const q = String(text || "").toLowerCase();
   if (/\btrample\b/.test(q) && /\bdeathtouch\b/.test(q)) {
     return "With trample plus deathtouch, you only need to assign 1 damage to each blocking creature because 1 deathtouch damage is lethal. Any remaining combat damage can be assigned to the defending player, planeswalker, or battle.";
+  }
+  if (/\bchatterfang\b/.test(q) && /\bdoubling season\b/.test(q) && /\btreasure\b/.test(q)) {
+    return "With [[Chatterfang, Squirrel General]] and [[Doubling Season]], one Treasure token event is modified by both replacement effects. If you apply Doubling Season first, you create 2 Treasures, then Chatterfang adds 2 Squirrels, and Doubling Season doubles those Squirrels to 4. Result: 2 Treasure tokens and 4 Squirrel tokens.";
   }
   const rules: Array<[RegExp, string]> = [
     [/\bwhat\s+(?:is|does)\s+trample\b|\btrample\s+do\b/, "Trample lets an attacking creature assign excess combat damage beyond its blockers to the defending player, planeswalker, or battle after assigning lethal damage to each blocker."],
