@@ -12,19 +12,17 @@ export async function getUserAndSupabase(
   let supabase = await createClient();
   let { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  if (!user && !authError) {
-    const authHeader = req.headers.get("Authorization");
-    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (bearerToken) {
-      const bearerSupabase = createClientWithBearerToken(bearerToken);
-      const { data: { user: bearerUser }, error: be } = await bearerSupabase.auth.getUser();
-      if (bearerUser) {
-        supabase = bearerSupabase;
-        user = bearerUser;
-        authError = null;
-      } else {
-        authError = be;
-      }
+  const authHeader = req.headers.get("Authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!user && bearerToken) {
+    const bearerSupabase = createClientWithBearerToken(bearerToken);
+    const { data: { user: bearerUser }, error: be } = await bearerSupabase.auth.getUser();
+    if (bearerUser) {
+      supabase = bearerSupabase;
+      user = bearerUser;
+      authError = null;
+    } else {
+      authError = be ?? authError;
     }
   }
 
