@@ -157,7 +157,8 @@ async function main() {
     { bannedMaps, getDetailsForNamesCachedOverride: async () => stdMap }
   );
   assert.match(bracketOut, /\[\[Counterspell\]\]/);
-  assert.doesNotMatch(bracketOut, /Demonic Tutor/);
+  assert.match(bracketOut, /Demonic Tutor/);
+  assert.doesNotMatch(bracketOut, /\[\[Demonic Tutor\]\]/);
 
   console.log("recommendation-legality: ok");
 }

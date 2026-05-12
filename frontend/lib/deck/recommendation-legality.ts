@@ -253,7 +253,8 @@ export async function filterRecommendationRowsByName<T extends { name: string }>
 }
 
 /**
- * Remove `[[Card Name]]` tokens that are not allowed in the format (chat / compare prose).
+ * Remove links from `[[Card Name]]` tokens that are not allowed in the format (chat / compare prose).
+ * Keep the plain card name so prose does not collapse into blank commas.
  */
 export async function stripIllegalBracketCardTokensFromText(
   text: string,
@@ -285,7 +286,7 @@ export async function stripIllegalBracketCardTokensFromText(
     const norm = normalizeScryfallCacheName(name);
     if (allowNorm.has(norm)) return full;
     if (NON_CARD_BRACKET_TERMS.has(norm)) return name;
-    return "";
+    return name;
   });
 
   return out.replace(/\n{3,}/g, "\n\n").trimEnd();
