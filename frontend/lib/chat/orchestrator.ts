@@ -195,6 +195,38 @@ export function buildDirectFormatQuestionAnswer(input: {
     return "[[Sol Ring]] is legal in Commander, but not legal in Modern, Pioneer, Standard, or Pauper. Tell me the format and I can check the answer precisely.";
   }
 
+  if (/\bmodern\b/.test(q) && /\bburn\b/.test(q) && /\bweakness/.test(q)) {
+    return "Modern Burn's common weaknesses are lifegain, fast combo that ignores life totals, big blockers backed by removal, mana flood because the deck has little card selection, and sideboard hate like [[Leyline of Sanctity]], [[Chalice of the Void]], or repeated cheap removal. The usual fixes are keeping the curve brutally low, playing enough one-mana burn, using sideboard tools like [[Roiling Vortex]], [[Smash to Smithereens]], [[Path to Exile]] or [[Searing Blood]] depending on colors, and mulliganing hands that do not present early pressure. Paste your exact 75 and I can point to the weakest slots.";
+  }
+
+  if (/\bprecon\b/.test(q) && /\bupgrade/.test(q)) {
+    return "For precon upgrades without changing the playstyle, keep the commander, theme, and pet cards intact, then upgrade the boring consistency pieces first: smoother lands, 2-mana ramp, repeatable card draw, flexible removal, and 2-3 cards that directly reinforce the precon's main engine. Avoid replacing the deck's identity with generic staples too quickly. Paste the precon name or list and I will suggest a gentle upgrade path with exact cuts.";
+  }
+
+  if (/\bsideboard\b/.test(q) && /\bmono[- ]?red|aggro\b/.test(q)) {
+    return "Against Mono-Red Aggro, sideboard plans usually want cheap lifegain, efficient removal, early blockers, and fewer slow cards. Good examples by format/colors include [[Temporary Lockdown]], [[Sunset Revelry]], [[Knockout Blow]], [[Authority of the Consuls]], [[Weather the Storm]], [[Aether Gust]], [[Ray of Enfeeblement]], [[Path to Exile]], or cheap sweepers where legal. Cut expensive engines, slow card draw, and painful setup cards. Paste your format and sideboard for exact ADD/CUT swaps.";
+  }
+
+  if (/\bgraveyard decks\b/.test(q) && /\bpioneer\b/.test(q)) {
+    return "In Pioneer, strong graveyard hate options include [[Rest in Peace]] for white decks, [[Leyline of the Void]] for black decks, [[Unlicensed Hearse]] as a flexible colorless option, [[Soul-Guide Lantern]] for cheap broad coverage, [[Go Blank]] for black midrange, and [[Grafdigger's Cage]] when the matchup cares about casting or entering from graveyards. Start with 2-4 graveyard hate slots depending on your meta. Paste your colors/archetype and I will tune the exact sideboard package.";
+  }
+
+  if (/\bmana base\b/.test(q) && /\bunder\b/.test(q)) {
+    return "For a budget mana base, prioritize untapped sources first, then fixing. In Commander under about £50, start with pain lands, check lands if affordable, slow lands, pathway/filter-style budget picks, [[Command Tower]], [[Exotic Orchard]], [[Path of Ancestry]], tri-lands, typed budget duals, and basics. Avoid too many tapped lands unless the deck is slow. Paste your colors/deck and I will turn that into exact land swaps under budget.";
+  }
+
+  if (/\bcommander deck\b/.test(q) && /\bfaster\b/.test(q) && /\bcedh\b/.test(q)) {
+    return "To make a Commander deck faster without turning it into cEDH, improve consistency rather than adding hard combo: lower the average mana value, add more 1-2 mana ramp, increase early card selection/draw, trim cute 6+ mana cards, add protection for the main engine, and make the win condition require fewer setup pieces. Keep tutors and infinite combos limited if your table dislikes them. Paste the list and I will identify the safest speed upgrades.";
+  }
+
+  if (/\bbeat control\b/.test(q) && /\baggro\b/.test(q)) {
+    return "Aggro beats control by forcing them to answer awkward threats, not by dumping everything into sweepers. Prioritize cheap recursive threats, haste/flash threats, card advantage that keeps pressure coming, and sideboard cards that punish draw-go play. Hold some threats back against sweepers, pressure planeswalkers immediately, and cut fragile low-impact creatures for resilient threats or anti-control tools. Paste your format/list for exact sideboard and sequencing advice.";
+  }
+
+  if (/\bmeme deck\b/.test(q) && /\bplayable\b/.test(q)) {
+    return "A playable meme deck needs one joke and one real engine. Good starting concepts: [[Atla Palani, Nest Tender]] egg roulette, [[Norin the Wary]] blink-chaos, [[The Beamtown Bullies]] donation nonsense, [[Zedruu the Greathearted]] weird gifts, or a 60-card deck built around one ridiculous alternate win condition. Pick Commander or 60-card, and I can give you a real list that still has removal, ramp, draw, and a win plan.";
+  }
+
   if (/\b(102|101|too many|over)\b/.test(q) && /\b(edh|commander)\b/.test(q) && /\b(cut|trim|remove)\b/.test(q)) {
     return "Commander/EDH decks should be exactly 100 cards including the commander, so a 102-card list needs 2 cuts. Paste the decklist and I’ll suggest trims without cutting core engines, combo pieces, or pet cards unless you ask.";
   }
@@ -478,6 +510,10 @@ function buildLegalityAnswer(text: string, data: unknown): string | null {
   const lines: string[] = [];
   for (const card of cards) {
     if (card?.missing) {
+      if (/\b(this card|that card|it)\b/i.test(text) && /\bbanned\b/i.test(text)) {
+        lines.push("Which card do you mean? Send the card name and format, e.g. \"why is [[Nadu, Winged Wisdom]] banned in Commander?\", and I will explain the ban reason plus legal alternatives.");
+        continue;
+      }
       lines.push(`I couldn't resolve ${card.name}.`);
       continue;
     }
