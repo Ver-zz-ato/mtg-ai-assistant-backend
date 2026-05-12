@@ -75,7 +75,7 @@ export default function AdminFeedbackDashboardPage() {
     <main className="max-w-4xl mx-auto p-4 space-y-6">
       <div>
         <Link
-          href="/admin/justfordavy"
+          href="/admin/JustForDavy"
           className="text-sm text-neutral-400 hover:text-white mb-2 inline-block"
         >
           ← Admin

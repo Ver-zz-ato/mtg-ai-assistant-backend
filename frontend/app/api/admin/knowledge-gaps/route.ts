@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { requireAdminForApi } from '@/lib/server-admin';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
+  const admin = await requireAdminForApi();
+  if (!admin.ok) return admin.response;
+
   try {
     const supabase = await getServerSupabase();
     const url = new URL(req.url);
@@ -15,6 +19,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const admin = await requireAdminForApi();
+  if (!admin.ok) return admin.response;
+
   try {
     const supabase = await getServerSupabase();
     const body = await req.json().catch(()=>({}));

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { logAdminAction, readJsonBody, requireTypedConfirmation } from "@/lib/admin/danger-actions";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,7 @@ async function scryfallBatch(names: string[], supabase: any) {
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await readJsonBody(req);
     let supabase: any = await createClient();
     const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || '';
     const hdr = req.headers.get('x-cron-key') || '';
@@ -44,6 +46,16 @@ export async function POST(req: NextRequest) {
     } else if (!user) {
       return NextResponse.json({ ok:false, error:'unauthorized' }, { status:401 });
     }
+    if (user) {
+      const confirmation = requireTypedConfirmation(req, body, "RUN");
+      if (confirmation) return confirmation;
+    }
+
+    await logAdminAction({
+      actorId: user?.id || (hdr && cronKey && hdr === cronKey ? "cron" : null),
+      action: "price_snapshot_build_started",
+      target: "manual",
+    });
 
     // Collect distinct names across deck_cards (only public decks? include all for accuracy)
     const { data: deckNames } = await supabase.from('deck_cards').select('name').limit(50000);
@@ -109,7 +121,7 @@ export async function POST(req: NextRequest) {
       if (admin) {
         await admin.from('app_config').upsert({ key: 'job:last:price_snapshot_build', value: new Date().toISOString() }, { onConflict: 'key' });
         const actor = user?.id || (hdr && cronKey && hdr === cronKey ? 'cron' : null);
-        await admin.from('admin_audit').insert({ actor_id: actor, action: 'price_snapshot_build', target: snapshot_date });
+        await logAdminAction({ actorId: actor, action: 'price_snapshot_build', target: snapshot_date, payload: { inserted, names: names.length } });
       }
     } catch {}
 

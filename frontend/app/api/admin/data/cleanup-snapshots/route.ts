@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { requireTypedConfirmation } from "@/lib/admin/danger-actions";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes for large deletions
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
 
     // Get days parameter from request body (default 60)
     const body = await req.json().catch(() => ({}));
+    const confirmation = requireTypedConfirmation(req, body, "DELETE");
+    if (confirmation) return confirmation;
+
     const retentionDays = parseInt(body.days || "60", 10);
     log(`Retention period: ${retentionDays} days`);
 

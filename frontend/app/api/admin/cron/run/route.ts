@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
+import { logAdminAction, readJsonBody, requireTypedConfirmation } from "@/lib/admin/danger-actions";
 
 const ALLOWED_CRONS = [
   "deck-costs",
@@ -21,7 +22,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonBody(req);
+    const confirmation = requireTypedConfirmation(req, body, "RUN");
+    if (confirmation) return confirmation;
+
     const cron = String(body?.cron || "").toLowerCase();
     if (!ALLOWED_CRONS.includes(cron as (typeof ALLOWED_CRONS)[number])) {
       return NextResponse.json({
@@ -47,6 +51,13 @@ export async function POST(req: NextRequest) {
         : req.nextUrl.origin || "http://localhost:3000");
     const url = `${base}/api/cron/${cron}`;
 
+    await logAdminAction({
+      actorId: user.id,
+      action: "admin_cron_run_started",
+      target: cron,
+      payload: { url },
+    });
+
     const res = await fetch(url, {
       method: "POST",
       headers: { "x-cron-key": cronKey },
@@ -56,6 +67,13 @@ export async function POST(req: NextRequest) {
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: data?.error || res.statusText }, { status: res.status });
     }
+
+    await logAdminAction({
+      actorId: user.id,
+      action: "admin_cron_run_finished",
+      target: cron,
+      payload: { status: res.status, result: data },
+    });
 
     return NextResponse.json({ ok: true, ...data });
   } catch (e: any) {

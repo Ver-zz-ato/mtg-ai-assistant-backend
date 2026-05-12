@@ -101,7 +101,7 @@ export default function ProGateAnalyticsPage() {
         {/* Header */}
         <header className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <Link href="/admin/justfordavy" className="text-sm text-neutral-500 hover:text-neutral-300 mb-2 inline-block">
+            <Link href="/admin/JustForDavy" className="text-sm text-neutral-500 hover:text-neutral-300 mb-2 inline-block">
               &larr; Back to Admin
             </Link>
             <h1 className="text-2xl font-semibold">Pro Gate Analytics</h1>

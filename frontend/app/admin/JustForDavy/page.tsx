@@ -44,6 +44,7 @@ const GROUPS = [
       { href: "/admin/ai-health", label: "AI Health", eli5: "Is the API key working? Run a live test" },
       { href: "/admin/ai-usage", label: "AI Usage", eli5: "Cost, tokens, which models are used" },
       { href: "/admin/ai-usage-app", label: "AI Usage (App)", eli5: "Mobile-only AI cost & tokens by app feature key" },
+      { href: "/admin/route-health", label: "Route Health", eli5: "Admin API matrix, safe health checks, and live smoke tests" },
       { href: "/admin/prompt-edit", label: "Prompt Edit", eli5: "Edit base prompts (chat/deck) and tier overlays (guest/free/pro). Stored in DB." },
     ],
   },

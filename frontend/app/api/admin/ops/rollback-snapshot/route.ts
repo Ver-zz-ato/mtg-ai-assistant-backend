@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { logAdminAction, readJsonBody, requireTypedConfirmation } from '@/lib/admin/danger-actions';
 
 export const runtime = 'nodejs';
 
@@ -17,12 +18,17 @@ export async function POST(_req: NextRequest) {
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) return NextResponse.json({ ok:false, error: 'forbidden' }, { status: 403 });
+    const body = await readJsonBody(_req);
+    const confirmation = requireTypedConfirmation(_req, body, 'ROLLBACK');
+    if (confirmation) return confirmation;
     const admin = getAdmin();
     if (!admin) return NextResponse.json({ ok:false, error: 'missing_service_role_key' }, { status: 500 });
     const d = new Date(); d.setDate(d.getDate()-1); const ymd = d.toISOString().slice(0,10);
+    const { data: before } = await admin.from('app_config').select('key,value').eq('key', 'price:snapshotDate').maybeSingle();
+    await logAdminAction({ actorId: user.id, action:'snapshot_rollback_started', target: ymd, payload: { before } });
     const { error } = await admin.from('app_config').upsert({ key:'price:snapshotDate', value: ymd }, { onConflict: 'key' });
     if (error) return NextResponse.json({ ok:false, error: error.message }, { status: 500 });
-    try { await admin.from('admin_audit').insert({ actor_id: user.id, action:'snapshot_rollback', target: ymd }); } catch {}
+    await logAdminAction({ actorId: user.id, action:'snapshot_rollback', target: ymd, payload: { before, after: { key:'price:snapshotDate', value: ymd } } });
     return NextResponse.json({ ok:true, snapshotDate: ymd });
   } catch (e:any) {
     return NextResponse.json({ ok:false, error: e?.message||'server_error' }, { status:500 });

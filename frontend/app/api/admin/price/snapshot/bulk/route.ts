@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
+import { logAdminAction, readJsonBody, requireTypedConfirmation } from "@/lib/admin/danger-actions";
 
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
@@ -30,6 +31,7 @@ function isAdmin(user: any): boolean {
 
 export async function POST(_req: NextRequest) {
   try {
+    const body = await readJsonBody(_req);
     let supabase: any = await createClient();
     const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || '';
     const hdr = _req.headers.get('x-cron-key') || '';
@@ -44,6 +46,16 @@ export async function POST(_req: NextRequest) {
     } else if (user && !isAdmin(user)) {
       return NextResponse.json({ ok:false, error:'forbidden - admin required' }, { status:403 });
     }
+    if (user) {
+      const confirmation = requireTypedConfirmation(_req, body, "RUN");
+      if (confirmation) return confirmation;
+    }
+
+    await logAdminAction({
+      actorId: user?.id || (hdr && cronKey && hdr === cronKey ? "cron" : null),
+      action: "price_snapshot_bulk_started",
+      target: "manual",
+    });
 
     const all = await fetchBulkCards();
     // Aggregate median price per normalized name
@@ -116,7 +128,7 @@ export async function POST(_req: NextRequest) {
       if (admin) {
         await admin.from('app_config').upsert({ key: 'job:last:price_snapshot_bulk', value: new Date().toISOString() }, { onConflict: 'key' });
         const actor = user?.id || (hdr && cronKey && hdr === cronKey ? 'cron' : null);
-        await admin.from('admin_audit').insert({ actor_id: actor, action: 'price_snapshot_bulk', target: today });
+        await logAdminAction({ actorId: actor, action: 'price_snapshot_bulk', target: today, payload: { inserted, mode: 'bulk' } });
       }
     } catch {}
 

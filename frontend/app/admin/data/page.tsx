@@ -47,6 +47,12 @@ async function fetchAdminCronJson(
   }
 }
 
+function confirmDanger(phrase: string, label: string) {
+  if (typeof window === 'undefined') return null;
+  const value = window.prompt(`Type ${phrase} to confirm ${label}.`);
+  return value === phrase ? value : null;
+}
+
 export default function DataPage(){
   const [name, setName] = React.useState('');
   const [row, setRow] = React.useState<any>(null);
@@ -226,12 +232,14 @@ export default function DataPage(){
           type="button"
           disabled={metaRunBusy}
           onClick={async () => {
+            const confirmation = confirmDanger('RUN', 'running the meta-signals cron');
+            if (!confirmation) return;
             setMetaRunBusy(true);
             try {
               const r = await fetch('/api/admin/cron/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cron: 'meta-signals' }),
+                body: JSON.stringify({ cron: 'meta-signals', confirmation }),
               });
               const j = await r.json();
               if (j?.ok) {
@@ -745,6 +753,8 @@ export default function DataPage(){
                 
                 const confirm2 = confirm(`Final confirmation: Delete price snapshots older than 60 days?\n\nThis is irreversible. Make sure you have a recent backup if you might need to restore.\n\nProceed with deletion?`);
                 if (!confirm2) return;
+                const confirmation = confirmDanger('DELETE', 'deleting price snapshot history');
+                if (!confirmation) return;
                 
                 setBusy(true);
                 setCleanupResult(null);
@@ -755,7 +765,7 @@ export default function DataPage(){
                   const response = await fetch('/api/admin/data/cleanup-snapshots', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ days: 60 })
+                    body: JSON.stringify({ days: 60, confirmation })
                   });
                   
                   const data = await response.json();
@@ -852,6 +862,8 @@ export default function DataPage(){
             <button
               onClick={async () => {
                 if (!confirm('Optimize scryfall_cache by truncating long oracle_text fields? This may take a few minutes.')) return;
+                const confirmation = confirmDanger('RUN', 'optimizing scryfall_cache');
+                if (!confirmation) return;
                 try {
                   const { toast } = await import('@/lib/toast-client');
                   toast('Optimizing scryfall_cache...', 'info');
@@ -859,7 +871,7 @@ export default function DataPage(){
                   const response = await fetch('/api/admin/data/optimize-scryfall-cache', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'optimize', oracle_text_threshold: 500 })
+                    body: JSON.stringify({ action: 'optimize', oracle_text_threshold: 500, confirmation })
                   });
                   
                   const data = await response.json();
@@ -907,6 +919,8 @@ export default function DataPage(){
             <button
               onClick={async () => {
                 if (!confirm('Delete admin_audit entries older than 90 days?')) return;
+                const confirmation = confirmDanger('DELETE', 'deleting admin audit logs');
+                if (!confirmation) return;
                 try {
                   const { toast } = await import('@/lib/toast-client');
                   toast('Cleaning up admin_audit...', 'info');
@@ -914,7 +928,7 @@ export default function DataPage(){
                   const response = await fetch('/api/admin/data/cleanup-audit-logs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ table_name: 'admin_audit', retention_days: 90 })
+                    body: JSON.stringify({ table_name: 'admin_audit', retention_days: 90, confirmation })
                   });
                   
                   const data = await response.json();
@@ -936,6 +950,8 @@ export default function DataPage(){
             <button
               onClick={async () => {
                 if (!confirm('Delete error_logs entries older than 30 days?')) return;
+                const confirmation = confirmDanger('DELETE', 'deleting error logs');
+                if (!confirmation) return;
                 try {
                   const { toast } = await import('@/lib/toast-client');
                   toast('Cleaning up error_logs...', 'info');
@@ -943,7 +959,7 @@ export default function DataPage(){
                   const response = await fetch('/api/admin/data/cleanup-audit-logs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ table_name: 'error_logs', retention_days: 30 })
+                    body: JSON.stringify({ table_name: 'error_logs', retention_days: 30, confirmation })
                   });
                   
                   const data = await response.json();
@@ -1023,7 +1039,7 @@ export default function DataPage(){
                 const response = await fetch('/api/admin/data/cleanup-abandoned-accounts', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ action: 'delete', inactive_days: 365 })
+                  body: JSON.stringify({ action: 'delete', inactive_days: 365, confirmation: confirmDanger('DELETE', 'permanently deleting abandoned accounts') })
                 });
                 
                 const data = await response.json();

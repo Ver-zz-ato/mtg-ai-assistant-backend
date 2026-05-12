@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { requireTypedConfirmation } from "@/lib/admin/danger-actions";
 
 export const runtime = "nodejs";
 export const maxDuration = 600; // 10 minutes for VACUUM
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
+    const confirmation = requireTypedConfirmation(req, body, "RUN");
+    if (confirmation) return confirmation;
+
     const tableName = body.table_name || null; // null means all tables
 
     log(`Target: ${tableName || 'ALL TABLES'}`);

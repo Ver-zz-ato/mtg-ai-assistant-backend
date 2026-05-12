@@ -8,6 +8,7 @@ import { getServerSupabase } from '@/lib/server-supabase';
 import { getAdmin } from '@/app/api/_lib/supa';
 import { stripe } from '@/lib/stripe';
 import { PRODUCT_TO_PLAN } from '@/lib/billing';
+import { logAdminAction, readJsonBody, requireTypedConfirmation } from '@/lib/admin/danger-actions';
 
 export const runtime = 'nodejs';
 
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest) {
     if (!user || !isAdmin(user)) {
       return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
     }
+    const body = await readJsonBody(req);
+    const confirmation = requireTypedConfirmation(req, body, 'SYNC STRIPE');
+    if (confirmation) return confirmation;
 
     const admin = getAdmin();
     if (!admin) {
@@ -35,6 +39,8 @@ export async function POST(req: NextRequest) {
     const synced: string[] = [];
     const skipped: string[] = [];
     const errors: string[] = [];
+
+    await logAdminAction({ actorId: user.id, action: 'stripe_sync_started', target: 'active_subscriptions' });
 
     for await (const sub of stripe.subscriptions.list({ status: 'active', limit: 100 })) {
       if (sub.items?.data?.length === 0) continue;
@@ -99,6 +105,13 @@ export async function POST(req: NextRequest) {
         synced.push(`${profile.id} (${customerEmail})`);
       }
     }
+
+    await logAdminAction({
+      actorId: user.id,
+      action: 'stripe_sync_finished',
+      target: 'active_subscriptions',
+      payload: { synced: synced.length, skipped: skipped.length, errors: errors.length },
+    });
 
     return NextResponse.json({
       ok: true,

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { requireAdminForApi } from "@/lib/server-admin";
 
 export async function POST(req: NextRequest) {
+  const adminCheck = await requireAdminForApi();
+  if (!adminCheck.ok) return adminCheck.response;
+
   console.log("🗄️ Creating price_cache table...");
   
   try {

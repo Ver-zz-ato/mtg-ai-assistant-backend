@@ -6,9 +6,15 @@ function SyncFromStripeButton({ onSynced }: { onSynced: () => void }) {
   const [busy, setBusy] = React.useState(false);
   const run = async () => {
     if (!confirm('Sync Stripe subscriptions to profiles? Matches by customer email.')) return;
+    const confirmation = prompt('Type SYNC STRIPE to confirm Stripe profile sync.');
+    if (confirmation !== 'SYNC STRIPE') return;
     setBusy(true);
     try {
-      const r = await fetch('/api/admin/stripe/sync-from-stripe', { method: 'POST' });
+      const r = await fetch('/api/admin/stripe/sync-from-stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation }),
+      });
       const j = await r.json();
       if (!r.ok || !j?.ok) throw new Error(j?.error || 'Sync failed');
       alert(`Synced ${j.synced} profile(s). Skipped: ${j.skipped}.`);

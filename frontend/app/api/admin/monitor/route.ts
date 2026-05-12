@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { autoDisableOnBudgetExceeded } from '@/lib/server/budgetEnforcement';
+import { requireAdminForApi } from '@/lib/server-admin';
 
 export const runtime = 'nodejs';
 
@@ -9,6 +10,9 @@ export const runtime = 'nodejs';
  * Can be called by cron jobs or monitoring services
  */
 export async function POST(req: NextRequest) {
+  const admin = await requireAdminForApi();
+  if (!admin.ok) return admin.response;
+
   try {
     const supabase = await getServerSupabase();
     const alerts: string[] = [];

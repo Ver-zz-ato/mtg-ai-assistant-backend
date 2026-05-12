@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { requireTypedConfirmation } from "@/lib/admin/danger-actions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'find'; // 'find' or 'delete'
+    if (action === 'delete') {
+      const confirmation = requireTypedConfirmation(req, body, "DELETE");
+      if (confirmation) return confirmation;
+    }
     const inactiveDays = parseInt(body.inactive_days || "365", 10);
 
     log(`Action: ${action}`);

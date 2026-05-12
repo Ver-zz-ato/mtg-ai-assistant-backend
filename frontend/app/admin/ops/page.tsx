@@ -8,6 +8,12 @@ async function saveConfig(key: string, value: any) {
   if (!r.ok || j?.ok === false) throw new Error(j?.error || 'save_failed');
 }
 
+function confirmDanger(phrase = 'RUN', label = 'this admin action') {
+  if (typeof window === 'undefined') return null;
+  const value = window.prompt(`Type ${phrase} to confirm ${label}.`);
+  return value === phrase ? value : null;
+}
+
 export default function OpsPage() {
   const [flags, setFlags] = React.useState<any>({ widgets: true, chat_extras: true, risky_betas: false, analytics_clicks_enabled: false });
   const [maint, setMaint] = React.useState<any>({ enabled: false, message: '' });
@@ -33,12 +39,14 @@ export default function OpsPage() {
   }
 
   async function runCron(name: (typeof CRON_KEYS)[number]) {
+    const confirmation = confirmDanger('RUN', `running ${name}`);
+    if (!confirmation) return;
     setCronRunBusy(name);
     try {
       const r = await fetch("/api/admin/cron/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cron: name }),
+        body: JSON.stringify({ cron: name, confirmation }),
       });
       const j = await r.json();
       if (j?.ok) {
@@ -65,12 +73,14 @@ export default function OpsPage() {
   }
 
   async function runReport(type: 'daily' | 'weekly') {
+    const confirmation = confirmDanger('RUN', `running the ${type} ops report`);
+    if (!confirmation) return;
     setRunReportBusy(type);
     try {
       const r = await fetch('/api/admin/ops-reports/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type, confirmation }),
       });
       const j = await r.json();
       if (j?.ok) {
@@ -115,7 +125,7 @@ export default function OpsPage() {
   async function saveFlags() { setBusy(true); try { await saveConfig('flags', flags); alert('Saved'); } catch(e:any){ alert(e?.message||'save failed'); } finally{ setBusy(false);} }
   async function saveMaint() { setBusy(true); try { await saveConfig('maintenance', maint); alert('Saved'); } catch(e:any){ alert(e?.message||'save failed'); } finally{ setBusy(false);} }
   async function saveBudget() { setBusy(true); try { await saveConfig('llm_budget', { daily_usd: Number(budget.daily_usd)||0, weekly_usd: Number(budget.weekly_usd)||0 }); alert('Saved'); } catch(e:any){ alert(e?.message||'save failed'); } finally{ setBusy(false);} }
-  async function rollback() { setBusy(true); try { const r = await fetch('/api/admin/ops/rollback-snapshot', { method:'POST' }); const j = await r.json(); if (!r.ok || j?.ok===false) throw new Error(j?.error||'rollback_failed'); alert(`Snapshot set to ${j.snapshotDate}`); } catch(e:any){ alert(e?.message||'failed'); } finally{ setBusy(false);} }
+  async function rollback() { const confirmation = confirmDanger('ROLLBACK', 'rolling back the active price snapshot'); if (!confirmation) return; setBusy(true); try { const r = await fetch('/api/admin/ops/rollback-snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ confirmation }) }); const j = await r.json(); if (!r.ok || j?.ok===false) throw new Error(j?.error||'rollback_failed'); alert(`Snapshot set to ${j.snapshotDate}`); } catch(e:any){ alert(e?.message||'failed'); } finally{ setBusy(false);} }
   
   async function autoDisableBudget() {
     if (pinboard?.ai_spending?.over_daily_limit || pinboard?.ai_spending?.over_weekly_limit) {

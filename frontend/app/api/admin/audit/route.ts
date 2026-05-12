@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { requireAdminForApi } from '@/lib/server-admin';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
+  const admin = await requireAdminForApi();
+  if (!admin.ok) return admin.response;
+
   try {
     const supabase = await getServerSupabase();
     const { data, error } = await supabase.from('admin_audit').select('created_at, actor_id, action, target').order('created_at', { ascending: false }).limit(200);

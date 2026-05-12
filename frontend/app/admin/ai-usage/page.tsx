@@ -341,7 +341,9 @@ export default function AdminAIUsagePage() {
                   if (!confirm("Build today’s price snapshot?")) return;
                   setBuilding(true);
                   try {
-                    const r = await fetch("/api/admin/price/snapshot/build", { method: "POST" });
+                    const confirmation = prompt("Type RUN to confirm price snapshot build.");
+                    if (confirmation !== "RUN") return;
+                    const r = await fetch("/api/admin/price/snapshot/build", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation }) });
                     const j = await r.json().catch(() => ({}));
                     alert(r.ok && j?.ok ? `Done: ${j.inserted} rows` : j?.error || "Failed");
                   } finally { setBuilding(false); }
@@ -350,7 +352,9 @@ export default function AdminAIUsagePage() {
                   if (!confirm("Build FULL snapshot (can take a while)?")) return;
                   setBuilding(true);
                   try {
-                    const r = await fetch("/api/admin/price/snapshot/bulk", { method: "POST" });
+                    const confirmation = prompt("Type RUN to confirm full price snapshot.");
+                    if (confirmation !== "RUN") return;
+                    const r = await fetch("/api/admin/price/snapshot/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation }) });
                     const j = await r.json().catch(() => ({}));
                     alert(r.ok && j?.ok ? `Done: ${j.inserted} rows` : j?.error || "Failed");
                   } finally { setBuilding(false); }

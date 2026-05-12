@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { requireTypedConfirmation } from "@/lib/admin/danger-actions";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -42,6 +43,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
+    const confirmation = requireTypedConfirmation(req, body, "DELETE");
+    if (confirmation) return confirmation;
+
     const tableName = body.table_name || 'admin_audit'; // 'admin_audit' or 'error_logs'
     const retentionDays = parseInt(body.retention_days || (tableName === 'admin_audit' ? '90' : '30'), 10);
 

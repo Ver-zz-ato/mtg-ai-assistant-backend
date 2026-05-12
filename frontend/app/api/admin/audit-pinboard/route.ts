@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { requireAdminForApi } from '@/lib/server-admin';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
+  const adminCheck = await requireAdminForApi();
+  if (!adminCheck.ok) return adminCheck.response;
+
   try {
     const supabase = await getServerSupabase();
     const admin = getAdmin();

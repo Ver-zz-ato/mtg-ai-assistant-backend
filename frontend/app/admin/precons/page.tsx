@@ -65,6 +65,8 @@ export default function AdminPreconsPage() {
     ) {
       return;
     }
+    const confirmation = prompt("Type SYNC to confirm replacing precon data.");
+    if (confirmation !== "SYNC") return;
     setSyncing(true);
     setSyncMsg(null);
     try {
@@ -72,6 +74,8 @@ export default function AdminPreconsPage() {
       const res = await fetch("/api/admin/precons/sync", {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation }),
       });
       const j = await res.json();
       if (j.ok) {

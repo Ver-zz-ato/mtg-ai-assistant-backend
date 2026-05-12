@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { logAdminAction, readJsonBody, requireTypedConfirmation } from "@/lib/admin/danger-actions";
 import {
   fetchWestlyPreconRows,
   replacePreconDecks,
@@ -49,6 +50,9 @@ export async function POST(req: NextRequest) {
     if (!user || !isAdmin(user)) {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
+    const body = await readJsonBody(req);
+    const confirmation = requireTypedConfirmation(req, body, "SYNC");
+    if (confirmation) return confirmation;
 
     const admin = getAdmin();
     if (!admin) {
@@ -68,9 +72,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const beforeCount = await countPreconDecks(admin).catch(() => null);
+    await logAdminAction({
+      actorId: user.id,
+      action: "precons_sync_started",
+      target: WESTLY_PRECON_SOURCE,
+      payload: { beforeCount, parsedRows: rows.length, fileErrors },
+    });
+
     await replacePreconDecks(admin, rows);
     const dbCount = await countPreconDecks(admin);
     const durationMs = Date.now() - t0;
+
+    await logAdminAction({
+      actorId: user.id,
+      action: "precons_sync_finished",
+      target: WESTLY_PRECON_SOURCE,
+      payload: { beforeCount, afterCount: dbCount, parsedRows: rows.length, durationMs },
+    });
 
     return NextResponse.json({
       ok: true,

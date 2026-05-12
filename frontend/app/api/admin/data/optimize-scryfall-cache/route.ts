@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { requireTypedConfirmation } from "@/lib/admin/danger-actions";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'analyze'; // 'analyze' or 'optimize'
+    if (action === 'optimize') {
+      const confirmation = requireTypedConfirmation(req, body, "RUN");
+      if (confirmation) return confirmation;
+    }
     const oracleTextThreshold = parseInt(body.oracle_text_threshold || "500", 10);
     const nullifyUnusedImages = body.nullify_unused_images === true;
 

@@ -7,6 +7,7 @@ import {
   DiscoverMetaRollupsCompact,
   type DiscoverRollupsPayload,
 } from '@/components/admin/DiscoverMetaRollupsPanel';
+import { ADMIN_ROUTE_GROUPS } from '@/lib/admin/route-catalog';
 import type { MetaSignalsJobDetail } from '@/lib/meta/metaSignalsJobStatus';
 import type { AdminJobDetail } from '@/lib/admin/adminJobDetail';
 
@@ -118,6 +119,12 @@ const DATA_JOB_ANCHOR: Record<string, string> = {
   'meta-signals': 'discover-meta-inspector',
   'budget-swaps-update': 'job-budget-swaps',
 };
+
+function confirmDanger(phrase = 'RUN', label = 'this admin action') {
+  if (typeof window === 'undefined') return null;
+  const value = window.prompt(`Type ${phrase} to confirm ${label}.`);
+  return value === phrase ? value : null;
+}
 
 function jobHealthClass(h?: string) {
   if (h === 'healthy') return 'text-emerald-400';
@@ -246,12 +253,14 @@ export default function CommandCenterPage() {
   }, [load]);
 
   async function runCron(name: (typeof CRON_KEYS)[number]) {
+    const confirmation = confirmDanger('RUN', `running ${name}`);
+    if (!confirmation) return;
     setCronRunBusy(name);
     try {
       const r = await fetch('/api/admin/cron/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cron: name }),
+        body: JSON.stringify({ cron: name, confirmation }),
       });
       const j = await r.json();
       if (j?.ok) {
@@ -272,12 +281,14 @@ export default function CommandCenterPage() {
   }
 
   async function runOtherCron(name: (typeof OTHER_CRON_KEYS)[number]) {
+    const confirmation = confirmDanger('RUN', `running ${name}`);
+    if (!confirmation) return;
     setOtherCronRunBusy(name);
     try {
       const r = await fetch('/api/admin/cron/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cron: name }),
+        body: JSON.stringify({ cron: name, confirmation }),
       });
       const j = await r.json();
       if (j?.ok) {
@@ -294,12 +305,14 @@ export default function CommandCenterPage() {
   }
 
   async function runReport(type: 'daily' | 'weekly') {
+    const confirmation = confirmDanger('RUN', `running the ${type} ops report`);
+    if (!confirmation) return;
     setReportRunBusy(type);
     try {
       const r = await fetch('/api/admin/ops-reports/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type, confirmation }),
       });
       const j = await r.json();
       if (j?.ok) {
@@ -343,6 +356,36 @@ export default function CommandCenterPage() {
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
+
+      <section className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">Admin Command Map</h2>
+            <p className="text-xs text-neutral-500">Grouped routes for AI, app, data, money, SEO, ops, and safety.</p>
+          </div>
+          <Link href="/admin/route-health" className="text-xs px-3 py-1.5 rounded bg-blue-600/80 hover:bg-blue-500 text-white">
+            Route health
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {Object.values(ADMIN_ROUTE_GROUPS).map((group) => (
+            <div key={group.title} className="rounded-lg border border-neutral-800 bg-black/30 p-3">
+              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">{group.title}</div>
+              <div className="flex flex-wrap gap-2">
+                {group.routes.map((href) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="text-xs px-2 py-1 rounded border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-200"
+                  >
+                    {href.split('/').filter(Boolean).slice(-1)[0]?.replace(/-/g, ' ') || href}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Ops Pinboard */}
       <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4">
