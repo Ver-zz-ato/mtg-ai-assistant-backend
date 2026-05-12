@@ -111,6 +111,23 @@ export function shouldSkipRecommendationCleanupForChatTurn(text: string): boolea
   return /\b(can i add|can i include|can this deck run|is\b.{0,90}\blegal\b|legal in|banned|allowed|rules?|rulings?|how does|how do|what does|what happens|interact|interaction|stack|priority|trample|deathtouch|lifelink|ward|menace|vigilance|flying|haste)\b/i.test(q);
 }
 
+export function looksLikePastedDecklist(text: string): boolean {
+  const lines = String(text || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length < 6) return false;
+  let deckLines = 0;
+  for (const line of lines) {
+    if (/^(commander|mainboard|sideboard|maybeboard)\b/i.test(line)) continue;
+    if (/^\d+\s*[xX]?\s+[^0-9].{2,}$/.test(line) || /^.{2,}\s+[xX]\s*\d+$/i.test(line)) {
+      deckLines += 1;
+    }
+  }
+  return deckLines >= 6 && deckLines / Math.max(1, lines.length) >= 0.45;
+}
+
 export function buildToolResultsPrompt(results: ChatToolResult[]): string {
   const usable = results.filter((r) => r.ok || r.error);
   if (usable.length === 0) return "";
@@ -139,6 +156,8 @@ export function summarizeToolResults(results: ChatToolResult[]): ChatToolResult[
 }
 
 export function buildDirectChatToolAnswer(text: string, results: ChatToolResult[]): string | null {
+  if (looksLikePastedDecklist(text)) return null;
+
   const simpleRules = simpleRulesAnswer(text);
   if (simpleRules) return simpleRules;
 
@@ -164,6 +183,7 @@ export function buildDirectFormatQuestionAnswer(input: {
   const raw = String(input.text || "").trim();
   const q = raw.toLowerCase();
   if (!raw) return null;
+  if (looksLikePastedDecklist(raw)) return null;
 
   if (/\bmodern\b/.test(q) && /\bmana crypt\b/.test(q)) {
     return "[[Mana Crypt]] is not legal in Modern. If this is meant to be a Modern deck, cut it and replace it with a Modern-legal mana source or another threat/interaction slot.";
@@ -216,8 +236,10 @@ export function buildDirectDeckContextAnswer(input: {
   commander?: string | null;
   format?: string | null;
 }): string | null {
+  if (looksLikePastedDecklist(input.text)) return null;
+
   const q = String(input.text || "").toLowerCase();
-  const wantsHealth = /\b(health check|quick take|one sentence|how is this deck|rate this deck|deck look)\b/.test(q);
+  const wantsHealth = /\b(health check|quick take|one sentence|how is this deck|rate this deck|deck look|analy[sz]e this|review this|check this)\b/.test(q);
   const wantsMissing = /\b(what.*(?:deck|list).*missing|missing|biggest issue|weakness|weaknesses)\b/.test(q);
   const wantsRoast = /\broast\b/.test(q);
   if (!wantsHealth && !wantsMissing && !wantsRoast) return null;
@@ -259,14 +281,15 @@ export async function runChatToolPlanner(input: {
   const text = input.text || "";
   const lower = text.toLowerCase();
   const hasDeck = !!(input.deckText && input.deckText.trim()) || !!input.deckId;
+  const currentMessageIsDecklist = looksLikePastedDecklist(text);
   const results: ChatToolResult[] = [];
 
-  const extractedNames = extractMentionedCardNames(text);
+  const extractedNames = currentMessageIsDecklist ? [] : extractMentionedCardNames(text);
   const wantsCardLookup = extractedNames.length > 0 || /\b(what does|explain|tell me about|oracle text|card details)\b/i.test(text);
-  const wantsPrice = /\b(price|worth|cost|market|trend|spike|crash|going up|going down)\b/i.test(text);
-  const wantsLegality = /\b(legal|legality|banned|allowed|commander legal|modern legal|standard legal|pioneer legal|pauper legal)\b/i.test(text)
+  const wantsPrice = !currentMessageIsDecklist && /\b(price|worth|cost|market|trend|spike|crash|going up|going down)\b/i.test(text);
+  const wantsLegality = !currentMessageIsDecklist && (/\b(legal|legality|banned|allowed|commander legal|modern legal|standard legal|pioneer legal|pauper legal)\b/i.test(text)
     || /\bcan\s+(?:this\s+)?(?:(?:commander|modern|pioneer|standard|pauper|legacy|vintage|brawl|historic)\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\b/i.test(text)
-    || /\b(?:standard|modern|pioneer|pauper|legacy|vintage|brawl|historic)\b.{0,80}\b(?:have|include|run|play|use)\b/i.test(text);
+    || /\b(?:standard|modern|pioneer|pauper|legacy|vintage|brawl|historic)\b.{0,80}\b(?:have|include|run|play|use)\b/i.test(text));
   const wantsCostToFinish = hasDeck && /\b(cost to finish|finish cost|how much.*(finish|complete)|missing.*cost|need to buy|collection|owned)\b/i.test(text);
   const wantsBudgetSwaps = hasDeck && /\b(budget swap|cheaper|cheap alternative|replace expensive|under\s?(?:usd|gbp|eur|[$])?\s?\d+|save money|budget)\b/i.test(text);
   const wantsFinish = hasDeck && /\b(finish this deck|complete this deck|what should i add|fill the deck|missing cards|what.*(?:deck|list).*missing|upgrade this deck|improve this deck)\b/i.test(text);

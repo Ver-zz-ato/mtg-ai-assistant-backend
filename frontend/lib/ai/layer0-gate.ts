@@ -50,13 +50,16 @@ const MINI_CEILING_NORMAL = 16384;
 export function isDeckAnalysisRequest(text: string): boolean {
   const q = (text || "").toLowerCase().trim();
   const patterns = [
-    /\b(analyze|analysis|improve|upgrade|optimize|review)\s+(my\s+|this\s+)?(deck|list)\b/i,
+    /\b(analy[sz]e|analysis|improve|upgrade|optimi[sz]e|review)\s+(my\s+|this\s+)?(deck|list)\b/i,
+    /\b(analy[sz]e|review|rate|check)\s+(this|my|the)\s*[:\-]?\s*$/i,
+    /\b(analy[sz]e|review|rate|check)\s+(this|my|the)\s*[:\-]?\s*\n/i,
     /\b(health check|quick take|rate this deck|deck look|weakness|weaknesses|biggest issue|missing)\b/i,
     /\b(roast)\s+(my\s+|this\s+)?(deck|list)\b/i,
     /\b(what'?s? wrong|what is wrong)\s+(with\s+)?(my\s+)?(deck|list)\b/i,
     /\bwhat\s+(?:is|are)\s+(this\s+)?(?:deck|list)\s+missing\b/i,
     /\bsuggest\s+(swap|card|upgrade)s?\b/i,
     /\bbudget\s+swap|swap\s+suggestions\b/i,
+    /\bmana\s+curve\b/i,
     /\b(how can i|what should i)\s+(improve|upgrade|fix)\b/i,
     /\b(deck|list)\s+(analysis|improvement|suggestions)\b/i,
   ];

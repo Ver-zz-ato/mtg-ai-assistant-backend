@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import {
   buildDirectFormatQuestionAnswer,
   encodeChatMetadata,
+  looksLikePastedDecklist,
   persistAssistantMessage,
+  runChatToolPlanner,
   stripChatMetadata,
 } from "../../lib/chat/orchestrator";
 import { parseDeckChangeIntent } from "../../lib/chat/deck-actions";
+import { isDeckAnalysisRequest } from "../../lib/ai/layer0-gate";
 
 async function main() {
   const metadata = {
@@ -77,6 +80,41 @@ async function main() {
   assert.match(
     buildDirectFormatQuestionAnswer({ text: "Here's my 100-card deck with Atraxa at the helm - tell me what's missing." }) ?? "",
     /Commander deck.*100 cards/i
+  );
+
+  const pastedList = `analyse this:
+1 Maralen, Fae Ascendant
+1 Alela, Cunning Conqueror
+1 Alchemist's Refuge
+1 Arcane Denial
+1 Arcane Signet
+1 Arbor Elf
+1 Beast Within
+1 Bitterblossom
+1 Bloom Tender
+1 Command Tower
+1 Counterspell
+1 Cyclonic Rift
+1 Rhystic Study
+1 Sol Ring
+1 Umbral Mantle`;
+
+  assert.equal(looksLikePastedDecklist(pastedList), true);
+  assert.equal(isDeckAnalysisRequest(pastedList), true);
+  assert.equal(
+    buildDirectFormatQuestionAnswer({ text: pastedList, format: "Commander" }),
+    null,
+    "pasted decklists must not trigger Sol Ring legality shortcut"
+  );
+  const planned = await runChatToolPlanner({
+    origin: "https://www.manatap.ai",
+    text: pastedList,
+    format: "Commander",
+  });
+  assert.equal(
+    planned.some((r) => r.kind === "card_lookup" || r.kind === "legality_check"),
+    false,
+    "pasted decklists must not be treated as single-card lookup/legality prompts"
   );
 
   console.log("chat-orchestrator.test.ts passed");
