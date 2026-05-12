@@ -227,6 +227,30 @@ export function buildDirectFormatQuestionAnswer(input: {
     return "A playable meme deck needs one joke and one real engine. Good starting concepts: [[Atla Palani, Nest Tender]] egg roulette, [[Norin the Wary]] blink-chaos, [[The Beamtown Bullies]] donation nonsense, [[Zedruu the Greathearted]] weird gifts, or a 60-card deck built around one ridiculous alternate win condition. Pick Commander or 60-card, and I can give you a real list that still has removal, ramp, draw, and a win plan.";
   }
 
+  if (/\bwhy\s+does\s+(?:my|this|the)\s+(deck|list)\s+feel\s+inconsistent\b/.test(q)) {
+    return "Decks usually feel inconsistent for a few repeatable reasons: too few lands or too many tapped lands, curve too high, not enough early plays, too many one-off themes, too little card draw/selection, too few redundant engine pieces, or win conditions that do not connect to the setup cards. A quick self-check: count lands, ramp, draw, cheap interaction, and cards that directly advance the main plan. Paste the list and I will find the exact bottleneck.";
+  }
+
+  if (/\broast\s+(?:my|this|the)\s+(deck|list)\b/.test(q)) {
+    return "Without the list, the roast is only legally allowed to attack the concept: your mana base is probably held together by optimism, the curve has a suspicious number of \"pet cards\", and at least three cards are only there because they once did something cool in 2021. Paste the decklist and I will make it salty, funny, and actually specific.";
+  }
+
+  if (/\bshould\s+i\s+mulligan\s+(?:this|my|the)\s+hand\b/.test(q)) {
+    return "For Standard, a keepable hand usually needs enough lands, the right colors, an early play, and a plan for the matchup. Most 0-1 land hands are mulligans, many 5+ land hands are mulligans, and hands with no early action are risky unless they have strong card selection or interaction. Send the 7 cards, play/draw, deck archetype, and matchup if known, and I will give a keep/mulligan call.";
+  }
+
+  if (/\bturn\s+(?:this|my|the)\s+.+deck\s+into\s+.+fnm\b/.test(q)) {
+    return "To turn a kitchen-table deck into something FNM-viable, first choose the exact format, then trim cards that are slow, cute, or off-plan. Most upgrades are: increase 4-of consistency, lower the curve, add efficient removal, improve the mana, add sideboard plans, and replace casual win-more cards with threats that affect the board immediately. Paste the list and format and I will produce exact ADD/CUT swaps.";
+  }
+
+  if (/\bgive\s+me\s+a\s+\d+[- ]?step\s+upgrade\s+path\s+for\s+(?:this|my|the)\s+(deck|list)\b/.test(q)) {
+    return "A good 5-step upgrade path is: 1. fix mana and early ramp, 2. add reliable card draw/selection, 3. upgrade removal and interaction, 4. strengthen the core engine and win condition, 5. tune for your local meta and budget. Paste the decklist and I will turn that into a staged plan with exact cards to add and cut at each step.";
+  }
+
+  if (/\bwhat\s+cards?\s+should\s+i\s+remove\b.*\binfinite combos\b/.test(q)) {
+    return "If your meta hates infinite combos, remove or replace the cards that are only good because they complete loops: repeatable untappers, free sacrifice outlets, cost reducers, bounce engines, two-card infinite mana pieces, and tutors that exist mainly to assemble the combo. Keep fair synergy pieces that still support the deck's normal plan. Paste the list and I will identify the exact combo-risk cards and fair replacements.";
+  }
+
   if (/\b(102|101|too many|over)\b/.test(q) && /\b(edh|commander)\b/.test(q) && /\b(cut|trim|remove)\b/.test(q)) {
     return "Commander/EDH decks should be exactly 100 cards including the commander, so a 102-card list needs 2 cuts. Paste the decklist and I’ll suggest trims without cutting core engines, combo pieces, or pet cards unless you ask.";
   }

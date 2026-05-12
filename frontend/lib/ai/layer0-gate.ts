@@ -155,6 +155,10 @@ export function needsDeckButMissing(text: string, hasDeckContext: boolean): bool
     /\bsummarize\s+(?:my|this|the)\s+(deck|list)['’]s?\s+gameplan\b/,
     /\bpower\s+level\s+of\s+(?:this|my|the)\s+(?:commander\s+)?(?:deck|list)\b/,
     /\bgive\s+me\s+a\s+\d+[- ]?step\s+upgrade\s+path\s+for\s+(?:this|my|the)\s+(deck|list)\b/,
+    /\broast\s+(?:my|this|the)\s+(deck|list)\b/,
+    /\bshould\s+i\s+mulligan\s+(?:this|my|the)\s+hand\b/,
+    /\bturn\s+(?:this|my|the)\s+.+deck\s+into\s+.+fnm\b/,
+    /\bwhat\s+cards?\s+should\s+i\s+remove\b.*\binfinite combos\b/,
   ];
   return concreteMissingObjectPatterns.some((re) => re.test(q));
 }
