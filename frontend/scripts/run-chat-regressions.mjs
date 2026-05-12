@@ -674,7 +674,9 @@ async function callChat(prompt) {
     headers: {
       "content-type": "application/json",
       "x-forwarded-for": `203.0.113.${Math.floor(Math.random() * 200) + 10}`,
-      ...(AUTH_HEADER.authorization ? AUTH_HEADER : { "x-guest-session-token": guestToken }),
+      ...(AUTH_HEADER.authorization
+        ? AUTH_HEADER
+        : { "x-guest-session-token": guestToken, cookie: `guest_session_token=${guestToken}` }),
     },
     body: JSON.stringify(body),
   });

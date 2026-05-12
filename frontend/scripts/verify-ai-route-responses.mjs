@@ -270,16 +270,10 @@ async function requestJson(test, bearerToken, index) {
     "user-agent": "manatap-ai-route-stress/1.0",
     "x-forwarded-for": `198.51.${rateLimitRunOctet}.${(index % 200) + 10}`,
   };
-  if (test.auth && bearerToken) headers.authorization = `Bearer ${bearerToken}`;
-  if (!headers.authorization && test.route === "/api/chat") {
+  const authAll = process.env.AI_STRESS_AUTH_ALL === "1";
+  if ((test.auth || authAll) && bearerToken) headers.authorization = `Bearer ${bearerToken}`;
+  if (!headers.authorization) {
     headers["x-guest-session-token"] = guestToken;
-  }
-  if (
-    !headers.authorization &&
-    (test.route === "/api/mulligan/advice" ||
-      test.route === "/api/deck/analyze" ||
-      test.route === "/api/mobile/deck/analyze")
-  ) {
     headers.cookie = `guest_session_token=${guestToken}`;
   }
 

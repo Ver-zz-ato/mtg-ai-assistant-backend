@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getServerSupabase } from "@/lib/server-supabase";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString, hashGuestToken } from "@/lib/guest-tracking";
@@ -56,8 +56,7 @@ export async function POST(req: NextRequest) {
 
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
-  const supabase = await getServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getUserAndSupabase(req);
 
   let keyHash: string;
   let effectiveTier: "guest" | "free" | "pro";

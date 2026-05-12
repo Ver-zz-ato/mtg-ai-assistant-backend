@@ -2,7 +2,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { canonicalize } from '@/lib/cards/canonicalize';
-import { createClient } from '@/lib/server-supabase';
+import { getUserAndSupabase } from '@/lib/api/get-user-from-request';
 import { checkDurableRateLimit } from '@/lib/api/durable-rate-limit';
 import { checkProStatus } from '@/lib/server-pro-check';
 import { hashString, hashGuestToken } from '@/lib/guest-tracking';
@@ -87,8 +87,7 @@ export async function POST(req: NextRequest){
           : null;
     const commanderForPrompt = commanderRaw?.trim() ? commanderRaw.trim() : null;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getUserAndSupabase(req);
     if (user) {
       const isPro = await checkProStatus(user.id);
       const dailyLimit = isPro ? SWAP_WHY_PRO : SWAP_WHY_FREE;

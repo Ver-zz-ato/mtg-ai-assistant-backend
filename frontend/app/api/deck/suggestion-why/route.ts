@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/server-supabase';
+import { NextRequest, NextResponse } from 'next/server';
+import { getUserAndSupabase } from '@/lib/api/get-user-from-request';
 import { canonicalize } from '@/lib/cards/canonicalize';
 import { SUGGESTION_WHY_GUEST, SUGGESTION_WHY_FREE, SUGGESTION_WHY_PRO } from '@/lib/feature-limits';
 import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
@@ -60,7 +60,7 @@ ${deckText}${commanderContext}`;
   return { system, user };
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const cardRaw = String(body?.card || '');
@@ -75,8 +75,7 @@ export async function POST(req: Request) {
 
     const card = canonicalize(cardRaw).canonicalName || cardRaw;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getUserAndSupabase(req);
 
     // Rate-limit as if public: every caller gets a durable limit (user id or anonymous key).
     const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
