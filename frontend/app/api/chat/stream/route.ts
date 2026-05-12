@@ -338,6 +338,7 @@ export async function POST(req: NextRequest) {
       prefsFormat: prefsFormatStr,
       contextFormat: ctxFmt,
       deckFormat: deckData?.d?.format,
+      userText: text,
     });
     const commanderLayersOn = chatResolvedFormatUsesCommanderLayers(chatFmtResolved);
     const formatKey = formatKeyForChatPromptLayers(chatFmtResolved);

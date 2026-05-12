@@ -56,6 +56,25 @@ function firstString(...vals: Array<unknown>): string | null {
   return null;
 }
 
+export function inferChatFormatFromUserText(text?: string | null): DeckFormatCanonical | null {
+  const q = String(text || "").toLowerCase();
+  const checks: Array<[DeckFormatCanonical, RegExp]> = [
+    ["commander", /\b(commander|edh)\b/],
+    ["standard", /\bstandard\b/],
+    ["modern", /\bmodern\b/],
+    ["pioneer", /\bpioneer\b/],
+    ["pauper", /\bpauper\b/],
+  ];
+  for (const [format, rx] of checks) {
+    if (rx.test(q)) return format;
+  }
+  return null;
+}
+
+function rawWithTextFallback(raw: string | null, text?: string | null): string | null {
+  return raw ?? inferChatFormatFromUserText(text);
+}
+
 /**
  * Priority when normalizing **recognized** formats (each step only commits if normalizeDeckFormat succeeds):
  * 1) prefs.format
@@ -71,9 +90,10 @@ export function resolveChatFormat(opts: {
   prefsFormat?: unknown;
   contextFormat?: unknown;
   deckFormat?: unknown;
+  userText?: unknown;
 }): ResolvedChatFormat {
   const prefsRaw = firstString(opts.prefsFormat);
-  const contextRaw = firstString(opts.contextFormat);
+  const contextRaw = rawWithTextFallback(firstString(opts.contextFormat), firstString(opts.userText));
   const rawDeck = firstString(opts.deckFormat);
 
   if (prefsRaw) {

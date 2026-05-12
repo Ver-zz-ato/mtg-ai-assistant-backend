@@ -44,6 +44,14 @@ assert.equal(formatKeyForChatPromptLayers(brawl), "generic");
 assert.equal(chatAnalyzeFormat(brawl), null);
 assert.equal(chatFormatForLegality(brawl), "Brawl");
 
+const textPauper = resolveChatFormat({ userText: "analyse this pauper deck\n4 faerie seer" });
+assert.equal(textPauper.canonical, "pauper");
+assert.equal(chatResolvedFormatUsesCommanderLayers(textPauper), false);
+
+const textStandard = resolveChatFormat({ userText: "analyse this standard deck:\n4 make disappear" });
+assert.equal(textStandard.canonical, "standard");
+assert.equal(chatResolvedFormatUsesCommanderLayers(textStandard), false);
+
 console.log("[chat-format-resolution] unknown explicit format stays generic, but bad prefs do not block a linked deck");
 const unknownOnly = resolveChatFormat({ prefsFormat: "Whatever Casual" });
 assert.equal(unknownOnly.canonical, null);

@@ -826,6 +826,7 @@ export async function POST(req: NextRequest) {
       prefsFormat: prefsFmtEarly,
       contextFormat: ctxFmtEarly,
       deckFormat: d?.format ?? null,
+      userText: text,
     });
     let commanderLayersOn = chatResolvedFormatUsesCommanderLayers(chatFmtResolved);
 
@@ -941,6 +942,7 @@ export async function POST(req: NextRequest) {
       prefsFormat: prefsFmtEarly,
       contextFormat: ctxFmtEarly,
       deckFormat: d?.format ?? null,
+      userText: text,
     });
     commanderLayersOn = chatResolvedFormatUsesCommanderLayers(chatFmtResolved);
     deckFormat = d?.format ? String(d.format).toLowerCase().replace(/\s+/g, "") : null;
