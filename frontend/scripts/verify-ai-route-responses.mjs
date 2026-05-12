@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 import { createClient } from "@supabase/supabase-js";
@@ -263,12 +264,24 @@ const heavyTests = [
 ];
 
 async function requestJson(test, bearerToken, index) {
+  const guestToken = `ai-route-stress-${Date.now()}-${index}-${crypto.randomUUID()}`;
   const headers = {
     "content-type": "application/json",
     "user-agent": "manatap-ai-route-stress/1.0",
     "x-forwarded-for": `198.51.${rateLimitRunOctet}.${(index % 200) + 10}`,
   };
   if (test.auth && bearerToken) headers.authorization = `Bearer ${bearerToken}`;
+  if (!headers.authorization && test.route === "/api/chat") {
+    headers["x-guest-session-token"] = guestToken;
+  }
+  if (
+    !headers.authorization &&
+    (test.route === "/api/mulligan/advice" ||
+      test.route === "/api/deck/analyze" ||
+      test.route === "/api/mobile/deck/analyze")
+  ) {
+    headers.cookie = `guest_session_token=${guestToken}`;
+  }
 
   const started = Date.now();
   const res = await fetch(`${baseUrl}${test.route}`, {

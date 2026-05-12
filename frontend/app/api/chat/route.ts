@@ -24,6 +24,7 @@ import {
 import {
   buildDirectChatToolAnswer,
   buildDirectDeckContextAnswer,
+  buildDirectFormatQuestionAnswer,
   buildToolResultsPrompt,
   isMissingMetadataColumnError,
   persistAssistantMessage,
@@ -148,9 +149,9 @@ function guessFormatHint(input: string | null | undefined): string | undefined {
   if (!input) return undefined;
   const lower = input.toLowerCase();
   if (/pauper/.test(lower) && /edh/.test(lower)) return "Pauper EDH (100-card singleton)";
-  if (/commander|edh/.test(lower)) return "Commander (EDH)";
   if (/brawl/.test(lower)) return "Brawl (60-card singleton)";
   if (/historic/.test(lower)) return "Historic (60-card)";
+  if (/commander|edh/.test(lower)) return "Commander (EDH)";
   if (/pioneer/.test(lower)) return "Pioneer 60-card";
   if (/modern/.test(lower)) return "Modern 60-card";
   if (/standard/.test(lower)) return "Standard 60-card";
@@ -1540,6 +1541,28 @@ export async function POST(req: NextRequest) {
       metadata.assistantMessageId = saved.id;
       metadata.persisted = saved.persisted;
       return ok({ text: directToolAnswer, threadId: tid, provider: "tool", metadata, toolResults: metadata.toolResults });
+    }
+    const directFormatAnswer = buildDirectFormatQuestionAnswer({
+      text,
+      format: deckFormat || formatKey || null,
+    });
+    if (directFormatAnswer) {
+      const metadata: ChatTurnMetadata = {
+        threadId: tid,
+        persisted: false,
+        toolResults: summarizeToolResults(chatToolResults),
+        pendingDeckAction: null,
+      };
+      const saved = await persistAssistantMessage(supabase, {
+        threadId: tid,
+        content: directFormatAnswer,
+        metadata,
+        suppressInsert,
+        isGuest,
+      });
+      metadata.assistantMessageId = saved.id;
+      metadata.persisted = saved.persisted;
+      return ok({ text: directFormatAnswer, threadId: tid, provider: "format_context", metadata, toolResults: metadata.toolResults });
     }
     const directDeckAnswer = buildDirectDeckContextAnswer({
       text,

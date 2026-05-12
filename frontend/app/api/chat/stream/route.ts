@@ -22,6 +22,7 @@ import {
 import {
   buildDirectChatToolAnswer,
   buildDirectDeckContextAnswer,
+  buildDirectFormatQuestionAnswer,
   buildToolResultsPrompt,
   encodeChatMetadata,
   persistAssistantMessage,
@@ -1600,6 +1601,42 @@ export async function POST(req: NextRequest) {
       const stream = new ReadableStream({
         start(controller) {
           controller.enqueue(encoder.encode(directToolAnswer));
+          controller.enqueue(encoder.encode(encodeChatMetadata(metadata)));
+          controller.enqueue(encoder.encode("\n[DONE]"));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+    const directFormatAnswer = buildDirectFormatQuestionAnswer({
+      text,
+      format: deckData?.d?.format || chatFmtResolved.supportEntry?.label || chatFmtResolved.canonical || null,
+    });
+    if (directFormatAnswer) {
+      const metadata: ChatTurnMetadata = {
+        threadId: tid,
+        persisted: false,
+        toolResults: summarizeToolResults(chatToolResults),
+        pendingDeckAction: null,
+      };
+      const saved = await persistAssistantMessage(supabase, {
+        threadId: tid,
+        content: directFormatAnswer,
+        metadata,
+        isGuest,
+      });
+      metadata.assistantMessageId = saved.id;
+      metadata.persisted = saved.persisted;
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(directFormatAnswer));
           controller.enqueue(encoder.encode(encodeChatMetadata(metadata)));
           controller.enqueue(encoder.encode("\n[DONE]"));
           controller.close();

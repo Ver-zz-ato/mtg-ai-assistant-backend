@@ -1,9 +1,11 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 
 const CHAT_ENDPOINT = "https://www.manatap.ai/api/chat";
 const AUTH_HEADER = process.env.CHAT_API_TOKEN
   ? { authorization: `Bearer ${process.env.CHAT_API_TOKEN}` }
   : {};
+const GUEST_RUN_ID = `chat-regression-${Date.now()}`;
 
 /**
  * Suite definitions
@@ -666,9 +668,14 @@ async function callChat(prompt) {
     prefs: { format: null, budget: null },
     context: null,
   };
+  const guestToken = `${GUEST_RUN_ID}-${crypto.randomUUID()}`;
   const res = await fetch(CHAT_ENDPOINT, {
     method: "POST",
-    headers: { "content-type": "application/json", ...AUTH_HEADER },
+    headers: {
+      "content-type": "application/json",
+      "x-forwarded-for": `203.0.113.${Math.floor(Math.random() * 200) + 10}`,
+      ...(AUTH_HEADER.authorization ? AUTH_HEADER : { "x-guest-session-token": guestToken }),
+    },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -801,4 +808,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

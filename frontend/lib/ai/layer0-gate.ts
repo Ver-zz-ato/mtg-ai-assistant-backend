@@ -99,6 +99,8 @@ export function isManaTapFaq(text: string): boolean {
 const MTG_SCOPE_KEYWORDS = [
   'mtg', 'magic', 'commander', 'edh', 'deck', 'card', 'mana', 'planeswalker',
   'creature', 'sorcery', 'instant', 'artifact', 'enchantment', 'land',
+  'standard', 'modern', 'pioneer', 'pauper', 'legacy', 'vintage', 'brawl', 'historic', 'arena',
+  'alchemy', 'explorer', 'oathbreaker', 'cedh', 'pauper edh', 'pedh',
   'trample', 'flying', 'lifelink', 'vigilance', 'first strike', 'double strike', 'hexproof', 'ward', 'sol ring',
   'token', 'treasure', 'clue', 'food', 'replacement effect', 'triggered ability', 'activated ability', 'chatterfang', 'doubling season',
   'format', 'brew', 'list', 'add', 'remove', 'cut', 'replace', 'swap', 'apply', 'undo', 'cancel', 'ramp', 'draw', 'removal', 'combo', 'synergy', 'suggest', 'improve',

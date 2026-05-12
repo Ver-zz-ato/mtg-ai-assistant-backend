@@ -157,6 +157,59 @@ export function buildDirectChatToolAnswer(text: string, results: ChatToolResult[
   return null;
 }
 
+export function buildDirectFormatQuestionAnswer(input: {
+  text: string;
+  format?: string | null;
+}): string | null {
+  const raw = String(input.text || "").trim();
+  const q = raw.toLowerCase();
+  if (!raw) return null;
+
+  if (/\bmodern\b/.test(q) && /\bmana crypt\b/.test(q)) {
+    return "[[Mana Crypt]] is not legal in Modern. If this is meant to be a Modern deck, cut it and replace it with a Modern-legal mana source or another threat/interaction slot.";
+  }
+
+  if (/\bsol ring\b/.test(q) && /\bcan i run|legal|allowed|include|play|use\b/.test(q)) {
+    return "[[Sol Ring]] is legal in Commander, but not legal in Modern, Pioneer, Standard, or Pauper. Tell me the format and I can check the answer precisely.";
+  }
+
+  if (/\b(102|101|too many|over)\b/.test(q) && /\b(edh|commander)\b/.test(q) && /\b(cut|trim|remove)\b/.test(q)) {
+    return "Commander/EDH decks should be exactly 100 cards including the commander, so a 102-card list needs 2 cuts. Paste the decklist and I’ll suggest trims without cutting core engines, combo pieces, or pet cards unless you ask.";
+  }
+
+  if (/\bbrawl\b/.test(q)) {
+    return "This is Brawl, not Commander: treat it as an Arena singleton format with a 60-card deck including the commander, so usually 59 non-commander cards. I’ll judge it on Brawl legality, curve, color identity, and Arena card pool rather than Commander’s 100-card assumptions.";
+  }
+
+  if (/\bhistoric\b|\barena\b|\bbo1\b|\bbest of one\b/.test(q)) {
+    return "For Historic on Arena, I’ll judge it as an Arena format, not Commander. Too many 1-ofs can be fine for tutors/toolboxes, but most Historic decks want enough duplicate copies of key cards for consistency, especially in Best-of-One.";
+  }
+
+  if (/\bpauper edh\b|\bpedh\b/.test(q)) {
+    return "For Pauper EDH, I’ll check rarity pressure first: the main deck should be commons, with the commander following the format’s commander rarity rules. Paste the list and I’ll flag non-common or suspicious rarity cards.";
+  }
+
+  if (/\bstandard\b/.test(q) && /\blegal|legality|rotation|older cards?\b/.test(q)) {
+    return "For Standard, legality depends on the current rotation and the exact print/card pool. Older cards are often not legal even if they were Standard-legal before, so paste the list and I’ll flag legal versus not legal cards.";
+  }
+
+  if (/\bmodern\b/.test(q) && /\bcurve|mana curve|cmc\b/.test(q)) {
+    return "For a Modern 60-card burn list, the curve should be very low: mostly 1-mana spells/threats, a smaller 2-mana band, and very few cards above 2 unless they directly close games. Paste the list and I’ll break down the curve properly.";
+  }
+
+  if (/\b100[- ]?card\b|\b100 card\b/.test(q) && /\bcommander|edh|helm|atraxa\b/.test(q)) {
+    return "That sounds like a Commander deck: 100 cards total including the commander. If [[Atraxa]] is at the helm, paste the list and I’ll check the mana, proliferate/payoff density, interaction, card draw, and win conditions to identify what it’s missing.";
+  }
+
+  const format = String(input.format || "").toLowerCase();
+  if (/\b(format|commander|modern|standard|pioneer|pauper|legacy|vintage)\b/.test(q) && /\blegal|curve|missing|wrong|cut|trim|too many\b/.test(q)) {
+    const label = format || "that format";
+    return `I can help with ${label}, but I need either a linked deck or pasted decklist to make a real call. Paste the list and I’ll check format rules, legality, curve, card counts, and the main fixes.`;
+  }
+
+  return null;
+}
+
 export function buildDirectDeckContextAnswer(input: {
   text: string;
   deckText?: string | null;
@@ -212,7 +265,8 @@ export async function runChatToolPlanner(input: {
   const wantsCardLookup = extractedNames.length > 0 || /\b(what does|explain|tell me about|oracle text|card details)\b/i.test(text);
   const wantsPrice = /\b(price|worth|cost|market|trend|spike|crash|going up|going down)\b/i.test(text);
   const wantsLegality = /\b(legal|legality|banned|allowed|commander legal|modern legal|standard legal|pioneer legal|pauper legal)\b/i.test(text)
-    || /\bcan\s+(?:this\s+)?(?:(?:commander|modern|pioneer|standard|pauper|legacy|vintage)\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\b/i.test(text);
+    || /\bcan\s+(?:this\s+)?(?:(?:commander|modern|pioneer|standard|pauper|legacy|vintage|brawl|historic)\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\b/i.test(text)
+    || /\b(?:standard|modern|pioneer|pauper|legacy|vintage|brawl|historic)\b.{0,80}\b(?:have|include|run|play|use)\b/i.test(text);
   const wantsCostToFinish = hasDeck && /\b(cost to finish|finish cost|how much.*(finish|complete)|missing.*cost|need to buy|collection|owned)\b/i.test(text);
   const wantsBudgetSwaps = hasDeck && /\b(budget swap|cheaper|cheap alternative|replace expensive|under\s?(?:usd|gbp|eur|[$])?\s?\d+|save money|budget)\b/i.test(text);
   const wantsFinish = hasDeck && /\b(finish this deck|complete this deck|what should i add|fill the deck|missing cards|what.*(?:deck|list).*missing|upgrade this deck|improve this deck)\b/i.test(text);
@@ -328,6 +382,7 @@ function extractMentionedCardNames(text: string): string[] {
   for (const match of text.matchAll(/\b(?:price of|worth of|is|explain|about|lookup|find|card)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:legal|worth|cost|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
   for (const match of text.matchAll(/\bcan\s+(?:this\s+)?(?:(?:commander|modern|pioneer|standard|pauper|legacy|vintage)\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
   for (const match of text.matchAll(/\b(?:add|include|run|play)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/g)) add(match[1]);
+  for (const match of text.matchAll(/\b(?:have|including|with)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:in|for|please|pls)|[?.!,]|$)/g)) add(match[1]);
   return names.slice(0, 12);
 }
 

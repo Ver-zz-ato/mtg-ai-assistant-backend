@@ -64,6 +64,9 @@ const bestCommanderZombies = layer0Decide(base({ text: "what's the best commande
 assert.strictEqual(bestCommanderZombies.mode, "MINI_ONLY");
 assert.strictEqual((bestCommanderZombies as any).reason, "simple_one_liner_no_deck");
 
+const historicArena = layer0Decide(base({ text: "This is Historic on Arena - do I have too many 1-ofs?", hasDeckContext: false }));
+assert.notStrictEqual((historicArena as any).reason, "off_topic");
+
 const nearCapSimple = layer0Decide(base({ text: "what is first strike?", hasDeckContext: false, nearBudgetCap: true }));
 assert.strictEqual(nearCapSimple.mode, "MINI_ONLY");
 

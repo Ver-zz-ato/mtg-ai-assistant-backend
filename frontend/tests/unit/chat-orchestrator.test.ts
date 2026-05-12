@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { encodeChatMetadata, persistAssistantMessage, stripChatMetadata } from "../../lib/chat/orchestrator";
+import {
+  buildDirectFormatQuestionAnswer,
+  encodeChatMetadata,
+  persistAssistantMessage,
+  stripChatMetadata,
+} from "../../lib/chat/orchestrator";
 import { parseDeckChangeIntent } from "../../lib/chat/deck-actions";
 
 async function main() {
@@ -56,6 +61,19 @@ async function main() {
   assert.deepEqual(parseDeckChangeIntent("swap Counterspell for Swan Song"), [
     { type: "swap", remove: "Counterspell", add: "Swan Song", qty: 1, zone: "mainboard" },
   ]);
+
+  assert.match(
+    buildDirectFormatQuestionAnswer({ text: "This is Brawl, not Commander — what's wrong with it?" }) ?? "",
+    /Brawl.*60-card/i
+  );
+  assert.match(
+    buildDirectFormatQuestionAnswer({ text: "This is Historic on Arena — do I have too many 1-ofs?" }) ?? "",
+    /Historic.*Arena/i
+  );
+  assert.match(
+    buildDirectFormatQuestionAnswer({ text: "I want this to be Modern but I have Mana Crypt." }) ?? "",
+    /Mana Crypt.*not legal in Modern/i
+  );
 
   console.log("chat-orchestrator.test.ts passed");
 }
