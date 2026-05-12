@@ -41,7 +41,13 @@ assert.strictEqual(improveNoDeck.mode, "NO_LLM");
 assert.strictEqual((improveNoDeck as any).reason, "needs_deck_no_context");
 
 const suggestSwapsNoDeck = layer0Decide(base({ text: "suggest swaps", hasDeckContext: false }));
-assert.strictEqual(suggestSwapsNoDeck.mode, "NO_LLM");
+assert.strictEqual(suggestSwapsNoDeck.mode, "FULL_LLM");
+
+const pioneerGraveyardNoDeck = layer0Decide(base({ text: "I keep losing to graveyard decks in Pioneer. What sideboard cards should I run?", hasDeckContext: false }));
+assert.strictEqual(pioneerGraveyardNoDeck.mode, "FULL_LLM");
+
+const commanderStaplesNoDeck = layer0Decide(base({ text: "What are the most commonly missing staples in casual Commander decks?", hasDeckContext: false }));
+assert.strictEqual(commanderStaplesNoDeck.mode, "FULL_LLM");
 
 // Static FAQ: getFaqAnswer returns answers for known app questions
 assert.ok(getFaqAnswer("What does Budget Swap do?"), "FAQ matches budget swap");
@@ -135,6 +141,8 @@ assert.strictEqual(isManaTapFaq("random question"), false);
 assert.strictEqual(needsDeckButMissing("analyze my deck", false), true);
 assert.strictEqual(needsDeckButMissing("analyze my deck", true), false);
 assert.strictEqual(needsDeckButMissing("what is trample", false), false);
+assert.strictEqual(needsDeckButMissing("I keep losing to graveyard decks in Pioneer. What sideboard cards should I run?", false), false);
+assert.strictEqual(needsDeckButMissing("What are the biggest weaknesses in my Modern Burn deck?", false), false);
 
 console.log("layer0-gate.test.ts: all assertions passed.");
 export {};

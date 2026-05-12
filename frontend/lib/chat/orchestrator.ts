@@ -199,6 +199,14 @@ export function buildDirectFormatQuestionAnswer(input: {
     return "Commander/EDH decks should be exactly 100 cards including the commander, so a 102-card list needs 2 cuts. Paste the decklist and I’ll suggest trims without cutting core engines, combo pieces, or pet cards unless you ask.";
   }
 
+  if (/\bwhy\b.*\b(this card|that card|it)\b.*\bbanned\b|\bexplain\b.*\b(this card|that card|it)\b.*\bbanned\b/.test(q)) {
+    return "Which card do you mean? Send the card name and format, e.g. \"why is [[Nadu, Winged Wisdom]] banned in Commander?\", and I'll explain the actual rules/philosophy reason plus legal alternatives.";
+  }
+
+  if (/\bmost commonly missing staples\b|\bcommon(?:ly)? missing staples\b/.test(q) && /\bcommander|edh\b/.test(q)) {
+    return "Common casual Commander decks are usually missing a few boring-but-important staples: enough ramp (about 10 pieces), enough card draw (about 10 sources), enough cheap interaction (8-12 answers), enough board wipes (2-4), and a clean way to actually win. The usual gaps are not \"more bombs\" - they are early mana, repeatable draw, flexible removal, graveyard hate, and protection for the deck's main engine. Paste a list and I'll turn that into exact ADD/CUT recommendations.";
+  }
+
   if (/\bbrawl\b/.test(q)) {
     return "This is Brawl, not Commander: treat it as an Arena singleton format with a 60-card deck including the commander, so usually 59 non-commander cards. I’ll judge it on Brawl legality, curve, color identity, and Arena card pool rather than Commander’s 100-card assumptions.";
   }

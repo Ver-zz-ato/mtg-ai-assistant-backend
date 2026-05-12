@@ -139,7 +139,24 @@ export function isClearlyNonMTG(text: string): boolean {
  */
 export function needsDeckButMissing(text: string, hasDeckContext: boolean): boolean {
   if (hasDeckContext) return false;
-  return isDeckAnalysisRequest(text);
+  const q = (text || "").toLowerCase().trim();
+  if (!isDeckAnalysisRequest(text)) return false;
+
+  // Only short-circuit when the user points at a concrete missing object.
+  // Broad strategy prompts ("weaknesses in Modern Burn", "Pioneer graveyard hate",
+  // "precon upgrades") should go to the LLM so it can answer generally first,
+  // then invite a list for exact ADD/CUT swaps.
+  const concreteMissingObjectPatterns = [
+    /\b(analy[sz]e|review|rate|check|improve|upgrade|optimi[sz]e)\s+(my|this|the)\s+(deck|list)\b/,
+    /\bwhat'?s?\s+(?:wrong|missing)\s+(?:with\s+)?(?:my|this|the)\s+(deck|list)\b/,
+    /\bwhy\s+does\s+(?:my|this|the)\s+(deck|list)\s+feel\b/,
+    /\b(?:help\s+me\s+)?cut\s+\d+\s+cards?\s+from\s+(?:this|my|the)\s+(?:commander\s+)?(?:deck|list)\b/,
+    /\bwhat'?s?\s+the\s+win\s+condition\s+of\s+(?:this|my|the)\s+(deck|list)\b/,
+    /\bsummarize\s+(?:my|this|the)\s+(deck|list)['’]s?\s+gameplan\b/,
+    /\bpower\s+level\s+of\s+(?:this|my|the)\s+(?:commander\s+)?(?:deck|list)\b/,
+    /\bgive\s+me\s+a\s+\d+[- ]?step\s+upgrade\s+path\s+for\s+(?:this|my|the)\s+(deck|list)\b/,
+  ];
+  return concreteMissingObjectPatterns.some((re) => re.test(q));
 }
 
 /**
@@ -210,7 +227,7 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
 
   // 7. Simple one-liner, no deck (e.g. "best commander for zombies?") → MINI_ONLY (keep short so long queries get FULL_LLM)
   if (!hasDeckContext && q.length < 80 && !isDeckAnalysisRequest(text)) {
-    const looksSimple = !/\b(analyze|improve|suggest|optimize|synergy|strategy|combo|engine)\b/i.test(qLower);
+    const looksSimple = !/\b(analyze|improve|suggest|optimize|synergy|strategy|combo|engine|sideboard|graveyard|upgrade|staple|meme|build|budget replacement)\b/i.test(qLower);
     if (looksSimple) {
       return {
         mode: "MINI_ONLY",

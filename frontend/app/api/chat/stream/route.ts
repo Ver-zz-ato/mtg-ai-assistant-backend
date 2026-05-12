@@ -42,6 +42,11 @@ import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registr
 export const runtime = "nodejs";
 
 const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Put a space after colons. Do NOT suggest cards already in the decklist.";
+const GENERAL_FIRST_CHAT_INSTRUCTION = `General-first chat behavior:
+- If the user asks a broad MTG strategy, archetype, sideboard, budget, staple, deck concept, rules, or recommendation question, answer usefully right away.
+- If a decklist/hand/card pool would make the answer more exact, give the useful general answer first, then briefly invite them to paste the list/hand/cards for exact ADD/CUT swaps.
+- Ask for missing input before answering only when the requested object is genuinely absent and required: "this hand" with no hand, "these two decks" with no decks, "this combo" with no combo cards, "this card" with no card name, or "cut N cards from this list" with no list.
+- If the user gives enough seed info to build from scratch (format/commander/theme/budget), do not ask for an existing decklist; provide a starter shell or list and note assumptions.`;
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const DEV = process.env.NODE_ENV !== "production";
@@ -567,6 +572,8 @@ export async function POST(req: NextRequest) {
       sys = promptResult.systemPrompt + "\n\n" + NO_FILLER_INSTRUCTION;
       promptVersionId = promptResult.promptVersionId ?? null;
     }
+
+    sys += "\n\n" + GENERAL_FIRST_CHAT_INSTRUCTION;
 
     const formatSupportInstruction = selectedTier !== "micro" ? chatFormatSupportInstruction(chatFmtResolved) : null;
     if (formatSupportInstruction) {
