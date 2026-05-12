@@ -52,6 +52,12 @@ const textStandard = resolveChatFormat({ userText: "analyse this standard deck:\
 assert.equal(textStandard.canonical, "standard");
 assert.equal(chatResolvedFormatUsesCommanderLayers(textStandard), false);
 
+const textLegacy = resolveChatFormat({ userText: "analyse this legacy deck\n4 Brainstorm" });
+assert.equal(textLegacy.canonical, null);
+assert.equal(textLegacy.supportEntry?.key, "legacy");
+assert.equal(formatKeyForChatPromptLayers(textLegacy), "generic");
+assert.equal(chatResolvedFormatUsesCommanderLayers(textLegacy), false);
+
 console.log("[chat-format-resolution] unknown explicit format stays generic, but bad prefs do not block a linked deck");
 const unknownOnly = resolveChatFormat({ prefsFormat: "Whatever Casual" });
 assert.equal(unknownOnly.canonical, null);

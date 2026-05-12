@@ -56,14 +56,18 @@ function firstString(...vals: Array<unknown>): string | null {
   return null;
 }
 
-export function inferChatFormatFromUserText(text?: string | null): DeckFormatCanonical | null {
+export function inferChatFormatFromUserText(text?: string | null): string | null {
   const q = String(text || "").toLowerCase();
-  const checks: Array<[DeckFormatCanonical, RegExp]> = [
+  const checks: Array<[string, RegExp]> = [
     ["commander", /\b(commander|edh)\b/],
     ["standard", /\bstandard\b/],
     ["modern", /\bmodern\b/],
     ["pioneer", /\bpioneer\b/],
     ["pauper", /\bpauper\b/],
+    ["legacy", /\blegacy\b/],
+    ["vintage", /\bvintage\b/],
+    ["brawl", /\bbrawl\b/],
+    ["historic", /\bhistoric\b/],
   ];
   for (const [format, rx] of checks) {
     if (rx.test(q)) return format;
