@@ -90,10 +90,15 @@ export async function POST(req: NextRequest) {
       keyHash = `user:${await hashString(user.id)}`;
       dailyCap = isPro ? SUGGESTION_WHY_PRO : SUGGESTION_WHY_FREE;
     } else {
+      const { hashGuestToken } = await import('@/lib/guest-tracking');
+      const { cookies } = await import('next/headers');
+      const guestToken = (await cookies()).get('guest_session_token')?.value || req.headers.get('x-guest-session-token')?.trim();
       const forwarded = req.headers.get('x-forwarded-for');
       const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
       const ua = req.headers.get('user-agent') || 'unknown';
-      keyHash = `guest:${await hashString(`suggestion-why:${ip}:${ua}`)}`;
+      keyHash = guestToken
+        ? `guest:${await hashGuestToken(guestToken)}`
+        : `guest:${await hashString(`suggestion-why:${ip}:${ua}`)}`;
       dailyCap = SUGGESTION_WHY_GUEST;
     }
 

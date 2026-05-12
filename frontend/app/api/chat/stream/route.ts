@@ -1423,7 +1423,10 @@ export async function POST(req: NextRequest) {
           if (!text.trim()) {
             responseText = "Please enter your question or paste a decklist.";
           } else {
-            responseText =
+            responseText = buildDirectFormatQuestionAnswer({
+              text,
+              format: deckData?.d?.format || chatFmtResolved.supportEntry?.label || chatFmtResolved.canonical || null,
+            }) ??
               "To analyze or improve a deck, please link a deck to this chat or paste your decklist in the message. You can link a deck from the deck selector in the chat header, or paste a list (one card per line, e.g. 1 Sol Ring).";
           }
         } else if (decision.handler === "static_faq") {

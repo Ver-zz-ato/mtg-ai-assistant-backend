@@ -74,6 +74,10 @@ async function main() {
     buildDirectFormatQuestionAnswer({ text: "I want this to be Modern but I have Mana Crypt." }) ?? "",
     /Mana Crypt.*not legal in Modern/i
   );
+  assert.match(
+    buildDirectFormatQuestionAnswer({ text: "Here's my 100-card deck with Atraxa at the helm - tell me what's missing." }) ?? "",
+    /Commander deck.*100 cards/i
+  );
 
   console.log("chat-orchestrator.test.ts passed");
 }

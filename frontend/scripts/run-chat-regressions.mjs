@@ -78,7 +78,7 @@ const SUITES = [
         name: "Modern with Mana Crypt",
         text: "I want this to be Modern but I have Mana Crypt.",
         expect: {
-          mustMatch: [/not.*modern/i],
+          mustMatch: [/(not.*modern|modern.*not legal)/i],
         },
       },
       {
