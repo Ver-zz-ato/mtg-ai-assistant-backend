@@ -57,10 +57,11 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
           for (const card of data) {
             const key = norm(card?.name || "");
             if (!key) continue;
+            const imageUris = card?.image_uris || {};
             const imageInfo: ImageInfo = {
-              small: card?.small,
-              normal: card?.normal,
-              art_crop: card?.art_crop,
+              small: card?.small || imageUris?.small,
+              normal: card?.normal || imageUris?.normal,
+              art_crop: card?.art_crop || imageUris?.art_crop,
             };
             if (imageInfo.small || imageInfo.normal || imageInfo.art_crop) {
               memCache.set(key, imageInfo);

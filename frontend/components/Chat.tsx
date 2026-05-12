@@ -31,6 +31,7 @@ import { logger } from "@/lib/logger";
 import SourceReceipts from "@/components/SourceReceipts";
 import ChatCorrectionModal from "@/components/ChatCorrectionModal";
 import DeckActionControls from "@/components/chat/DeckActionControls";
+import InlineCardLink from "@/components/chat/InlineCardLink";
 // Enhanced chat functionality
 import { 
   analyzeDeckProblems, 
@@ -1385,16 +1386,24 @@ function Chat(props: ChatProps = {}) {
   }
 
   // Card image hover handlers
-  function handleCardMouseEnter(e: React.MouseEvent, cardName: string) {
-    const image = cardImages.get(cardName.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim());
-    if (!image?.normal) return;
-    
+  function handleCardMouseEnter(e: React.MouseEvent<HTMLElement> | React.FocusEvent<HTMLElement>, cardName: string, imageUrl: string) {
     const rect = e.currentTarget.getBoundingClientRect();
+    const cardWidth = 256;
+    const cardHeight = 357;
+    const padding = 16;
+    const rightX = rect.right + 12;
+    const leftX = rect.left - cardWidth - 12;
+    const x = typeof window !== "undefined" && rightX + cardWidth + padding > window.innerWidth
+      ? Math.max(padding, leftX)
+      : rightX;
+    const y = typeof window !== "undefined"
+      ? Math.max(padding, Math.min(rect.top, window.innerHeight - cardHeight - padding))
+      : rect.top;
     setHoverCard({
       name: cardName,
-      x: rect.right + 10,
-      y: rect.top,
-      src: image.normal
+      x,
+      y,
+      src: imageUrl
     });
   }
   
@@ -1412,16 +1421,13 @@ function Chat(props: ChatProps = {}) {
     const renderCard = (cardName: string) => {
       const normalized = normalizedCardKey(cardName);
       const image = cardImages.get(normalized);
-      const normalUrl = image?.normal || image?.art_crop || image?.small;
       return (
-        <span
-          className="inline align-middle cursor-help border-b border-dotted border-neutral-500"
-          title={cardName}
-          onMouseEnter={(e) => normalUrl && handleCardMouseEnter(e, cardName)}
-          onMouseLeave={handleCardMouseLeave}
-        >
-          {cardName}
-        </span>
+        <InlineCardLink
+          cardName={cardName}
+          image={image}
+          onPreview={handleCardMouseEnter}
+          onClearPreview={handleCardMouseLeave}
+        />
       );
     };
     const extractedCards = extractCardsForImages(content);
