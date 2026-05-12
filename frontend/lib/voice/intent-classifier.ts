@@ -4,10 +4,11 @@
  */
 
 import { VOICE_INTENT_SYSTEM_PROMPT } from "@/lib/ai/prompts/voice-intent";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import type { IntentClassifierResult, VoiceMode } from "./types";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-4o-mini";
+const MODEL = DEFAULT_FALLBACK_MODEL;
 
 const ALLOWED_MODES: VoiceMode[] = ["game_action", "chat", "clarify"];
 

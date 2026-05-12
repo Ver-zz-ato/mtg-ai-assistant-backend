@@ -299,7 +299,7 @@ commanderForBlock = threadCommander ?? (userConfirmedOrCorrectedCommander ? (com
 ### 11.2 Layer 0 Gate (Optional)
 
 - **NO_LLM:** Empty input; needs deck but missing; static FAQ; off-topic → deterministic text, no LLM
-- **MINI_ONLY:** Simple rules/term; near budget cap (non-Pro) → override to gpt-4o-mini, lower max_tokens
+- **MINI_ONLY:** Simple rules/term; near budget cap (non-Pro) → override to the default mini/fallback model, lower max_tokens
 - **FULL_LLM:** Default
 - Pro: always FULL_LLM
 
@@ -313,9 +313,9 @@ commanderForBlock = threadCommander ?? (userConfirmedOrCorrectedCommander ? (com
 
 | Tier | Default | Env override |
 |------|---------|--------------|
-| Guest | gpt-4o-mini | MODEL_GUEST |
-| Free | gpt-5-mini | MODEL_FREE |
-| Pro | gpt-5.1 | MODEL_PRO_CHAT / MODEL_PRO |
+| Guest | gpt-5.4-mini | MODEL_GUEST |
+| Free | gpt-5.4-mini | MODEL_FREE |
+| Pro | gpt-5.4 | MODEL_PRO_CHAT / MODEL_PRO |
 
 ### 12.2 Messages to OpenAI
 

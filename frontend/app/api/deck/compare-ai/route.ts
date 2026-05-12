@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { DECK_COMPARE_PRO } from "@/lib/feature-limits";
+import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
 
 export const runtime = "nodejs";
 
@@ -108,7 +109,7 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
 
     try {
       const { callLLM } = await import('@/lib/ai/unified-llm-client');
-      const model = process.env.MODEL_DECK_COMPARE || 'gpt-4o-mini';
+      const model = process.env.MODEL_DECK_COMPARE || DEFAULT_PRO_DECK_MODEL;
       
       const response = await callLLM(
         [
@@ -125,7 +126,7 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
           route: '/api/deck/compare-ai',
           feature: 'deck_compare',
           model,
-          fallbackModel: 'gpt-4o-mini',
+          fallbackModel: DEFAULT_FALLBACK_MODEL,
           timeout: 90000,
           maxTokens: 4096,
           apiType: 'chat',

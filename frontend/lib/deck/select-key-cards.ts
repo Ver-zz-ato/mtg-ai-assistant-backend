@@ -5,10 +5,11 @@
 
 import { getDetailsForNamesCacheOnly } from "@/lib/server/scryfallCache";
 import { callLLM } from "@/lib/ai/unified-llm-client";
+import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
 
 const MAX_KEY_CARDS = 5;
 const AI_TIMEOUT_MS = 12_000;
-const DEFAULT_SELECTOR_MODEL = "gpt-5.1";
+const DEFAULT_SELECTOR_MODEL = DEFAULT_PRO_DECK_MODEL;
 
 const BASIC_EXACT = new Set(
   [
@@ -232,7 +233,7 @@ async function selectKeyCardsViaAI(params: {
         route: "/api/chat",
         feature: "key_card_selector",
         model,
-        fallbackModel: "gpt-4o-mini",
+        fallbackModel: DEFAULT_FALLBACK_MODEL,
         timeout: AI_TIMEOUT_MS,
         maxTokens: 400,
         apiType: "chat",

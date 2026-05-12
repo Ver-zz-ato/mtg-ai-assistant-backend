@@ -14,11 +14,12 @@ import {
   isCommanderFormatKey,
   normalizeManatapDeckFormatKey,
 } from '@/lib/format/manatap-deck-format';
+import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
 
 export const runtime = 'nodejs';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const MINI_MODEL = 'gpt-4o-mini';
+const MINI_MODEL = DEFAULT_FALLBACK_MODEL;
 
 // In-memory cache with 1-hour TTL
 const explainCache = new Map<string, { data: ExplainResult; expiry: number }>();

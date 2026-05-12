@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
         pro_chat: effectiveModels.pro_chat.model,
         pro_deck_analysis: effectiveModels.pro_deck_analysis.model,
       },
-      note: 'Ladder: Guest=gpt-4o-mini, Free=gpt-5-mini, Pro=gpt-5.1. Layer0 uses MODEL_GUEST.',
+      note: 'Ladder: Guest=gpt-5.4-mini, Free=gpt-5.4-mini, Pro chat/deck=gpt-5.4. Layer0 uses MODEL_GUEST.',
     });
   } catch (e: unknown) {
     return NextResponse.json(

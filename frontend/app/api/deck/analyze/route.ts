@@ -7,6 +7,7 @@ import {
   fetchCardsBatch,
   inferDeckContext,
 } from "@/lib/deck/inference";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { getActivePromptVersion, getPromptVersion } from "@/lib/config/prompts";
 import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
 import {
@@ -305,7 +306,7 @@ async function callOpenAI(
   });
 
   // Slot planning/candidates: use mini for cost savings (structured JSON tasks)
-  const slotModel = process.env.MODEL_DECK_ANALYZE_SLOTS || 'gpt-4o-mini';
+  const slotModel = process.env.MODEL_DECK_ANALYZE_SLOTS || DEFAULT_FALLBACK_MODEL;
   const useMiniForSlots = feature === "deck_analyze_slot_planning" || feature === "deck_analyze_slot_candidates";
   const model = opts.forceModel ?? (useMiniForSlots ? slotModel : tierRes.model);
 

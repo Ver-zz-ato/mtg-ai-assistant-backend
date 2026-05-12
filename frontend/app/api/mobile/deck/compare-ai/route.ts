@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
 import { createClient } from "@/lib/supabase/server";
 import { DECK_COMPARE_AI_MOBILE_FREE_DAILY } from "@/lib/feature-limits";
 import {
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest) {
       formatLabel,
     });
 
-    const model = process.env.MODEL_DECK_COMPARE_MOBILE || process.env.MODEL_DECK_COMPARE || "gpt-4o-mini";
+    const model = process.env.MODEL_DECK_COMPARE_MOBILE || process.env.MODEL_DECK_COMPARE || DEFAULT_PRO_DECK_MODEL;
 
     try {
       const { callLLM } = await import("@/lib/ai/unified-llm-client");
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
           route: ROUTE_PATH,
           feature: "deck_compare_mobile",
           model,
-          fallbackModel: "gpt-4o-mini",
+          fallbackModel: DEFAULT_FALLBACK_MODEL,
           timeout: 90000,
           maxTokens: 4096,
           apiType: "chat",

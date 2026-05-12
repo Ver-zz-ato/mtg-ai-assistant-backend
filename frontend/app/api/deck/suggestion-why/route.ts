@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { canonicalize } from '@/lib/cards/canonicalize';
 import { SUGGESTION_WHY_GUEST, SUGGESTION_WHY_FREE, SUGGESTION_WHY_PRO } from '@/lib/feature-limits';
+import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
 import {
   formatKeyToDisplayTitle,
   isCommanderFormatKey,
@@ -12,7 +13,7 @@ import {
 } from '@/lib/format/manatap-deck-format';
 
 /** Hard-set cheap model for suggestion-why (do not inherit Pro). */
-const SUGGESTION_WHY_MODEL = 'gpt-4o-mini';
+const SUGGESTION_WHY_MODEL = DEFAULT_FALLBACK_MODEL;
 
 function buildFallbackReason(card: string, existingReason: string, formatKey: ManatapDeckFormatKey, commander: string): string {
   if (existingReason.trim()) return existingReason.trim();

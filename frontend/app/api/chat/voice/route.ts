@@ -16,6 +16,7 @@ import { put as putAudio } from "@/lib/voice-audio-store";
 import { classifyIntent } from "@/lib/voice/intent-classifier";
 import { parseCommands } from "@/lib/voice/command-parser";
 import { generateClarification } from "@/lib/voice/clarifier";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 
 export const runtime = "nodejs";
 
@@ -34,7 +35,7 @@ const SUPPORTED_FORMATS = [
 const TRANSCRIPTION_PROMPT =
   "This is a Magic: The Gathering conversation. Expect card names, commander names, deckbuilding terms.";
 const TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
-const CHAT_MODEL = "gpt-4o-mini";
+const CHAT_MODEL = DEFAULT_FALLBACK_MODEL;
 const TTS_MODEL = "gpt-4o-mini-tts";
 
 const WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions";

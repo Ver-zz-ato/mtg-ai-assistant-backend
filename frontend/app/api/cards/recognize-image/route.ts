@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { createClient } from "@/lib/supabase/server";
 import { cleanCardName, stringSimilarity } from "@/lib/deck/cleanCardName";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
@@ -18,7 +19,7 @@ export const runtime = "nodejs";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB
 const SUPPORTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MODEL = process.env.MODEL_SCAN_RECOGNIZE || "gpt-4o-mini";
+const MODEL = process.env.MODEL_SCAN_RECOGNIZE || DEFAULT_FALLBACK_MODEL;
 const TIMEOUT_MS = 20000;
 
 type ScanContextPayload = {

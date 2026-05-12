@@ -3,7 +3,7 @@
  * 
  * Single entry point for all OpenAI API calls with:
  * - Consistent error handling
- * - Automatic fallback (gpt-5 → gpt-4o-mini)
+ * - Automatic fallback to DEFAULT_FALLBACK_MODEL
  * - Configurable timeouts
  * - Retry logic with exponential backoff
  * - Structured observability logging
@@ -15,12 +15,13 @@ import { logAICall, getUserType, hashUserId, type AICallLog } from './observabil
 import { recordAiUsage } from './log-usage';
 import { costUSD } from './pricing';
 import { deduplicatedFetch } from '@/lib/api/deduplicator';
+import { DEFAULT_FALLBACK_MODEL } from './default-models';
 
 export type LLMConfig = {
   route: string;              // e.g., '/api/chat'
   feature: string;            // e.g., 'chat', 'deck_analyze'
   model: string;             // Primary model (e.g., 'gpt-5')
-  fallbackModel?: string;    // Fallback model (default: 'gpt-4o-mini')
+  fallbackModel?: string;    // Fallback model (default: DEFAULT_FALLBACK_MODEL)
   timeout?: number;          // Timeout in ms (default varies by route)
   maxTokens?: number;        // Max completion/output tokens
   apiType: 'chat' | 'responses'; // Which OpenAI API to use
@@ -109,7 +110,7 @@ export async function callLLM(
     throw new Error('OpenAI API key not configured');
   }
 
-  const fallbackModel = config.fallbackModel || 'gpt-4o-mini';
+  const fallbackModel = config.fallbackModel || DEFAULT_FALLBACK_MODEL;
   const timeout = config.timeout || DEFAULT_TIMEOUTS[config.feature] || DEFAULT_TIMEOUTS.default;
   const userType = getUserType(config.userId || null, config.isPro || false);
   const userIdHash = await hashUserId(config.userId || null);

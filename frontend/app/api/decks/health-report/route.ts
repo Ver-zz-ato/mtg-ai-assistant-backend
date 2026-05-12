@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { HEALTH_REPORT_PRO } from '@/lib/feature-limits';
+import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
 import { enrichDeck } from '@/lib/deck/deck-enrichment';
 import { tagCards } from '@/lib/deck/card-role-tags';
 import { buildDeckFacts, type DeckFacts } from '@/lib/deck/deck-facts';
@@ -285,7 +286,7 @@ format (saved): ${formatRaw}
 ## DECKLIST_FOR_CARD_LEVEL_CONTEXT
 ${decklistForPrompt}`;
 
-    const model = process.env.MODEL_DECK_SCAN || 'gpt-4o-mini';
+    const model = process.env.MODEL_DECK_SCAN || DEFAULT_FALLBACK_MODEL;
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
     const response = await callLLM(
       [
@@ -296,7 +297,7 @@ ${decklistForPrompt}`;
         route: '/api/decks/health-report',
         feature: 'health_report',
         model,
-        fallbackModel: 'gpt-4o-mini',
+        fallbackModel: DEFAULT_FALLBACK_MODEL,
         timeout: 90000,
         maxTokens: 8192,
         apiType: 'chat',

@@ -7,6 +7,13 @@
  */
 
 import { isChatCompletionsModel } from "./modelCapabilities";
+import {
+  DEFAULT_FALLBACK_MODEL,
+  DEFAULT_FREE_MODEL,
+  DEFAULT_GUEST_MODEL,
+  DEFAULT_PRO_CHAT_MODEL,
+  DEFAULT_PRO_DECK_MODEL,
+} from "./default-models";
 
 export type ModelTier = "guest" | "free" | "pro";
 
@@ -18,11 +25,11 @@ export type ModelForTierResult = {
   upgradeMessage?: string;
 };
 
-const CHAT_PRO_DEFAULT = "gpt-5.1";
-const DECK_PRO_DEFAULT = "gpt-5.1";
-const GUEST_DEFAULT = "gpt-4o-mini";
-const FREE_DEFAULT = "gpt-5-mini";
-const FALLBACK_DEFAULT = "gpt-4o-mini";
+const CHAT_PRO_DEFAULT = DEFAULT_PRO_CHAT_MODEL;
+const DECK_PRO_DEFAULT = DEFAULT_PRO_DECK_MODEL;
+const GUEST_DEFAULT = DEFAULT_GUEST_MODEL;
+const FREE_DEFAULT = DEFAULT_FREE_MODEL;
+const FALLBACK_DEFAULT = DEFAULT_FALLBACK_MODEL;
 
 function env(name: string): string | undefined {
   return typeof process !== "undefined" ? process.env[name] : undefined;
@@ -30,8 +37,8 @@ function env(name: string): string | undefined {
 
 /**
  * Get OpenAI model and metadata for the given user tier.
- * For chat, Pro uses MODEL_PRO_CHAT ?? gpt-5.1; Free uses MODEL_FREE ?? gpt-5-mini; Guest uses MODEL_GUEST ?? gpt-4o-mini.
- * For deck_analysis, Pro uses MODEL_PRO_DECK ?? gpt-5.1.
+ * For chat, Pro uses MODEL_PRO_CHAT ?? gpt-5.4; Free uses MODEL_FREE ?? gpt-5.4-mini; Guest uses MODEL_GUEST ?? gpt-5.4-mini.
+ * For deck_analysis, Pro uses MODEL_PRO_DECK ?? gpt-5.4.
  */
 export function getModelForTier(opts: {
   isGuest: boolean;

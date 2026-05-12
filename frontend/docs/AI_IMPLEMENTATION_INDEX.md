@@ -9,7 +9,7 @@
 | Doc | Purpose |
 |-----|---------|
 | **[AI_CHAT_FLOW.md](AI_CHAT_FLOW.md)** | Single source of truth for AI chat: client→stream route, deck context, commander handling, tier classification, model selection, post-processing, card chips. |
-| **[MODEL_SWAP_CHAT_TIERS.md](MODEL_SWAP_CHAT_TIERS.md)** | Model mapping by tier (Guest/Free/Pro): gpt-4o-mini, gpt-5-mini, gpt-5.1. Env overrides, revert steps. |
+| **[MODEL_SWAP_CHAT_TIERS.md](MODEL_SWAP_CHAT_TIERS.md)** | Model mapping by tier (Guest/Free/Pro/Admin): gpt-5.4-mini, gpt-5.4, gpt-5.5. Env overrides, revert steps. |
 
 ---
 

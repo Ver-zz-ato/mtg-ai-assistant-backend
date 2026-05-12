@@ -188,7 +188,7 @@ User types message in Chat.tsx
 ### 4.9 Server: LLM Call and Stream
 
 - Messages to OpenAI: `[{ role: "system", content: sys }, { role: "user", content: text }]`
-- Model: Guest → gpt-4o-mini; Free → gpt-5-mini; Pro → gpt-5.1 (env overridable)
+- Model: Guest → gpt-5.4-mini; Free → gpt-5.4-mini; Pro → gpt-5.4 (env overridable)
 - Stream SSE back to client; record `ai_usage`
 
 ### 4.10 Client: On Stream Complete

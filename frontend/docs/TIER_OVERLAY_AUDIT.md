@@ -27,7 +27,7 @@
 | 13 | Commander confirmation block, prompt contract | `route.ts` ~858–878 |
 | 14 | Thread summary, Pro preferences | `route.ts` ~976–1003 |
 | 15 | **Layer 0 gate** | Runs after prompt assembly, before LLM call |
-| 16 | Model selection | `getModelForTier({ isGuest, userId, isPro })` → Guest: gpt-4o-mini, Free: gpt-5-mini, Pro: gpt-5.1 |
+| 16 | Model selection | `getModelForTier({ isGuest, userId, isPro })` → Guest: gpt-5.4-mini, Free: gpt-5.4-mini, Pro: gpt-5.4 |
 
 ### 1.2 Deck Analyze (`/api/deck/analyze`)
 

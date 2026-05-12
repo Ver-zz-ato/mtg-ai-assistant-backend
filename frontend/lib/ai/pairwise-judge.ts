@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { prepareOpenAIBody } from "./openai-params";
 import { recordAiUsage } from "./log-usage";
+import { DEFAULT_FALLBACK_MODEL } from "./default-models";
 
 const RubricOutputSchema = z.object({
   winner: z.enum(["A", "B", "TIE"]),
@@ -101,7 +102,7 @@ export async function runPairwiseJudge(
   answerB: string,
   options: PairwiseJudgeOptions
 ): Promise<{ result: RubricOutput; raw: string } | { result: null; raw: string; error: string }> {
-  const { apiKey, model = "gpt-4o-mini", evalRunId, supabase } = options;
+  const { apiKey, model = DEFAULT_FALLBACK_MODEL, evalRunId, supabase } = options;
   const { system, user } = buildPairwiseJudgePrompt(testCase, answerA, answerB);
 
   const requestBody = prepareOpenAIBody({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { broadcast, pushHistory, type Shout, getHistory } from "@/app/api/shout/hub";
 import { callLLM } from "@/lib/ai/unified-llm-client";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -179,8 +180,8 @@ export async function POST(req: NextRequest) {
           {
             route: "/api/admin/shoutbox/trigger-ai",
             feature: "shoutbox_admin_trigger",
-            model: "gpt-4o-mini",
-            fallbackModel: "gpt-4o-mini",
+            model: DEFAULT_FALLBACK_MODEL,
+            fallbackModel: DEFAULT_FALLBACK_MODEL,
             timeout: 20000,
             maxTokens: 2048,
             apiType: "chat",

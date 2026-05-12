@@ -105,14 +105,14 @@ export const ROUTE_ORIGINS: Record<string, CallOrigin> = {
     page: "Internal (deck_analyze flow)",
     component: "app/api/deck/analyze/route.ts",
     trigger: "auto",
-    description: "Two-stage: slot planning phase (gpt-4o-mini)",
+    description: "Two-stage: slot planning phase (mini/default fallback model)",
     costImpact: "low",
   },
   deck_analyze_slot_candidates: {
     page: "Internal (deck_analyze flow)",
     component: "app/api/deck/analyze/route.ts",
     trigger: "auto",
-    description: "Two-stage: slot candidates phase (gpt-4o-mini)",
+    description: "Two-stage: slot candidates phase (mini/default fallback model)",
     costImpact: "low",
   },
   chat_stream: {

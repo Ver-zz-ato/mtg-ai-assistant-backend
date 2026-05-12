@@ -7,6 +7,7 @@ import { checkDurableRateLimit } from '@/lib/api/durable-rate-limit';
 import { checkProStatus } from '@/lib/server-pro-check';
 import { hashString, hashGuestToken } from '@/lib/guest-tracking';
 import { GUEST_DAILY_FEATURE_LIMIT, SWAP_WHY_FREE, SWAP_WHY_PRO } from '@/lib/feature-limits';
+import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
 import {
   formatKeyToDisplayTitle,
   isCommanderFormatKey,
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest){
 
     try {
       const { callLLM } = await import('@/lib/ai/unified-llm-client');
-      const model = process.env.MODEL_SWAP_WHY || 'gpt-4o-mini';
+      const model = process.env.MODEL_SWAP_WHY || DEFAULT_FALLBACK_MODEL;
       let anonId: string | null = null;
       if (user?.id) anonId = await hashString(user.id);
       else {
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest){
           route: '/api/deck/swap-why',
           feature: 'swap_why',
           model,
-          fallbackModel: 'gpt-4o-mini',
+          fallbackModel: DEFAULT_FALLBACK_MODEL,
           timeout: 60000,
           maxTokens: 1024,
           apiType: 'responses',

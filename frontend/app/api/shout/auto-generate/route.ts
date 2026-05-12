@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { broadcast, pushHistory, type Shout, getHistory } from "../hub";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -269,8 +270,8 @@ async function generateWithAI(history: Shout[]): Promise<GeneratedMessage[] | nu
       {
         route: "/api/shout/auto-generate",
         feature: "shoutbox_auto",
-        model: "gpt-4o-mini",
-        fallbackModel: "gpt-4o-mini",
+        model: DEFAULT_FALLBACK_MODEL,
+        fallbackModel: DEFAULT_FALLBACK_MODEL,
         timeout: 15000,
         maxTokens: 320,
         apiType: "chat",

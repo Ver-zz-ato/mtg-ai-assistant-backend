@@ -16,6 +16,7 @@ import { computeHandTags } from "@/lib/mulligan/hand-tags";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 import { costUSD } from "@/lib/ai/pricing";
 import { AI_USAGE_SOURCE_MANATAP_APP } from "@/lib/ai/manatap-client-origin";
+import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
 
 const ResponseSchema = z.object({
   action: z.enum(["KEEP", "MULLIGAN"]),
@@ -26,12 +27,12 @@ const ResponseSchema = z.object({
   dependsOn: z.array(z.string()).max(2).optional(),
 });
 
-const MINI_MODEL = process.env.MODEL_SWAP_WHY || "gpt-4o-mini";
+const MINI_MODEL = process.env.MODEL_SWAP_WHY || DEFAULT_FALLBACK_MODEL;
 const FULL_MODEL =
   process.env.MODEL_PRO_DECK ||
   process.env.MODEL_PRO_CHAT ||
   process.env.OPENAI_MODEL ||
-  "gpt-4o";
+  DEFAULT_PRO_DECK_MODEL;
 
 function reasonMentionsNonHandCard(reason: string, hand: string[], deckCardNames: string[]): boolean {
   const handLower = new Set(hand.map((c) => c.toLowerCase().trim()));

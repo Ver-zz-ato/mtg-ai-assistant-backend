@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/server-supabase";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString, hashGuestToken } from "@/lib/guest-tracking";
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const model = process.env.MODEL_REPRINT_RISK || 'gpt-4o-mini';
+    const model = process.env.MODEL_REPRINT_RISK || DEFAULT_FALLBACK_MODEL;
     let aiMap: Record<string, { risk: "low"|"medium"|"high"; reason: string }> = {};
 
     if (uniq.length > 0) {
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
             route: '/api/cards/reprint-risk',
             feature: 'reprint_risk',
             model,
-            fallbackModel: 'gpt-4o-mini',
+            fallbackModel: DEFAULT_FALLBACK_MODEL,
             timeout: 60000,
             maxTokens: 4096,
             apiType: 'responses',

@@ -3,9 +3,10 @@
  */
 
 import { VOICE_CLARIFY_PROMPT } from "@/lib/ai/prompts/voice-clarify";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-4o-mini";
+const MODEL = DEFAULT_FALLBACK_MODEL;
 
 export interface ClarifierOutput {
   mode: "clarify";

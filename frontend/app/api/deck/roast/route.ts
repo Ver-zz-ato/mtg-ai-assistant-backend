@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { extractCommanderFromDecklistText } from "@/lib/chat/decklistDetector";
 import { buildDeckRoastSystemPrompt } from "@/lib/prompts/deck-roast";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 
 const VALID_FORMATS = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"] as const;
 
@@ -88,8 +89,8 @@ export async function POST(req: NextRequest) {
       {
         route: "/api/deck/roast",
         feature: "deck_roast",
-        model: "gpt-4o-mini",
-        fallbackModel: "gpt-4o-mini",
+        model: DEFAULT_FALLBACK_MODEL,
+        fallbackModel: DEFAULT_FALLBACK_MODEL,
         maxTokens: 4096,
         apiType: "chat",
         userId: null,

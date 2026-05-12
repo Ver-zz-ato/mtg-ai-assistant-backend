@@ -71,7 +71,7 @@ Composition order is fixed:
 ### Authoritative grounding (route-only, not in `prompt_layers`)
 
 - **Commander:** `lib/deck/commander-grounding.ts` — `COMMANDER CARD (AUTHORITATIVE)` with oracle from `fetchCard`.
-- **Key cards (3–5):** `lib/deck/select-key-cards.ts` + `lib/deck/key-card-grounding.ts` — optional prepass (`gpt-5.1` or `MODEL_KEY_CARD_SELECTOR`, 12s timeout) picks names; heuristic fallback; `KEY CARDS (AUTHORITATIVE)` with capped oracle. Injected on full-tier analyze paths (`/api/chat`, `/api/chat/stream`, `generateDeckAnalysis`) after commander grounding when cards resolve; fail-open.
+- **Key cards (3–5):** `lib/deck/select-key-cards.ts` + `lib/deck/key-card-grounding.ts` — optional prepass (`gpt-5.4` or `MODEL_KEY_CARD_SELECTOR`, 12s timeout) picks names; heuristic fallback; `KEY CARDS (AUTHORITATIVE)` with capped oracle. Injected on full-tier analyze paths (`/api/chat`, `/api/chat/stream`, `generateDeckAnalysis`) after commander grounding when cards resolve; fail-open.
 - **DB client:** Prefers service-role/admin client for `prompt_layers` (RLS); falls back to passed supabase or `getServerSupabase()`.
 
 ### 2.4 Module detection

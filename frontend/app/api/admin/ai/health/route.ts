@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { isAdmin } from '@/lib/admin-check';
 import { getRuntimeAIConfig } from '@/lib/ai/runtime-config';
+import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
 
 export const runtime = 'nodejs';
 
@@ -72,8 +73,8 @@ export async function GET(req: NextRequest) {
             {
               route: '/api/admin/ai/health',
               feature: 'debug_ping',
-              model: 'gpt-4o-mini',
-              fallbackModel: 'gpt-4o-mini',
+              model: DEFAULT_FALLBACK_MODEL,
+              fallbackModel: DEFAULT_FALLBACK_MODEL,
               timeout: 15000,
               maxTokens: 5,
               apiType: 'chat',

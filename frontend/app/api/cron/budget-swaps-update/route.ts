@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { getBudgetSwaps } from "@/lib/data/get-budget-swaps";
 import { callLLM } from "@/lib/ai/unified-llm-client";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
 
@@ -73,7 +74,7 @@ ${sampleEntries.join("\n")}
 
 Suggest NEW entries (expensive cards missing from this map). Focus on: newly expensive staples, meta-shifted cards, popular Commander cards. Return JSON only.`;
 
-    const model = process.env.MODEL_AI_TEST || process.env.MODEL_SWAP_SUGGESTIONS || "gpt-4o-mini";
+    const model = process.env.MODEL_AI_TEST || process.env.MODEL_SWAP_SUGGESTIONS || DEFAULT_FALLBACK_MODEL;
     const response = await callLLM(
       [
         { role: "system", content: systemPrompt },

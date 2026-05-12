@@ -1647,7 +1647,7 @@ export async function POST(req: NextRequest) {
       { role: "user", content: text }
     ];
     
-    const modelsWithoutStop = ["gpt-5-mini", "gpt-5-nano", "gpt-5.1", "gpt-5"];
+    const modelsWithoutStop = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5-mini", "gpt-5-nano", "gpt-5.1", "gpt-5"];
     const useStop = !modelsWithoutStop.some((m) => effectiveModel?.toLowerCase().includes(m));
     const openAIBody = prepareOpenAIBody({
       model: effectiveModel,

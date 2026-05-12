@@ -1,4 +1,5 @@
 import { callLLM } from "@/lib/ai/unified-llm-client";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 
 type AppSuggestion = { card?: string; reason?: string };
 
@@ -66,7 +67,7 @@ export async function generateAppSafeDeckExplanation(params: {
   userId?: string | null;
   isPro?: boolean;
 }): Promise<AppAnalyzeExplanation> {
-  const model = process.env.MODEL_DECK_ANALYZE_APP_EXPLAIN || "gpt-4o-mini";
+  const model = process.env.MODEL_DECK_ANALYZE_APP_EXPLAIN || DEFAULT_FALLBACK_MODEL;
   const compactSuggestions = params.suggestions.slice(0, 8).map((s, index) => ({
     index,
     card: typeof s.card === "string" ? s.card : "",
@@ -116,7 +117,7 @@ ${JSON.stringify(
         route: "/api/mobile/deck/analyze",
         feature: "deck_analyze_mobile_explain",
         model,
-        fallbackModel: "gpt-4o-mini",
+        fallbackModel: DEFAULT_FALLBACK_MODEL,
         timeout: 90000,
         maxTokens: 2048,
         apiType: "chat",
@@ -158,4 +159,3 @@ ${JSON.stringify(
       .slice(0, 6),
   };
 }
-

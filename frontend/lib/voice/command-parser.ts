@@ -4,11 +4,12 @@
  */
 
 import { VOICE_COMMAND_PARSER_PROMPT } from "@/lib/ai/prompts/voice-commands";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import type { GameAction } from "./types";
 import { validateActions } from "./validate";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-4o-mini";
+const MODEL = DEFAULT_FALLBACK_MODEL;
 
 export interface CommandParserOutput {
   mode: "game_action";

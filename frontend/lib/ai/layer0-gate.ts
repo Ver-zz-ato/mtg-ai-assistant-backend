@@ -6,6 +6,7 @@
 
 import { getFaqAnswer } from "./static-faq";
 import { isLongAnswerRequest } from "./chat-generation-config";
+import { DEFAULT_FALLBACK_MODEL } from "./default-models";
 
 export type Layer0Decision =
   | {
@@ -38,7 +39,7 @@ export type Layer0DecideArgs = {
   hasChatHistory?: boolean;
 };
 
-const MINI_MODEL = (typeof process !== "undefined" && (process.env.MODEL_GUEST || "").trim()) || "gpt-4o-mini";
+const MINI_MODEL = (typeof process !== "undefined" && (process.env.MODEL_GUEST || "").trim()) || DEFAULT_FALLBACK_MODEL;
 // No reply shortening: allow full-length responses for all tiers
 const MINI_CEILING_TIGHT = 16384;
 const MINI_CEILING_NORMAL = 16384;

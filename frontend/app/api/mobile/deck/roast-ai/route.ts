@@ -10,6 +10,7 @@ import {
   stripMobileRoastForFormat,
 } from "@/lib/mobile/roast-ai-response";
 import type { MobileRoastHeat } from "@/lib/mobile/roast-ai-types";
+import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
 
 export const runtime = "nodejs";
 
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
     });
     const userPrompt = buildMobileRoastAiUserPrompt();
 
-    const model = process.env.MODEL_MOBILE_ROAST_AI || "gpt-4o-mini";
+    const model = process.env.MODEL_MOBILE_ROAST_AI || DEFAULT_PRO_DECK_MODEL;
 
     try {
       const { callLLM } = await import("@/lib/ai/unified-llm-client");
@@ -145,7 +146,7 @@ export async function POST(req: NextRequest) {
           route: ROUTE_PATH,
           feature: "deck_roast_mobile",
           model,
-          fallbackModel: "gpt-4o-mini",
+          fallbackModel: DEFAULT_FALLBACK_MODEL,
           maxTokens: 1150,
           apiType: "chat",
           userId,

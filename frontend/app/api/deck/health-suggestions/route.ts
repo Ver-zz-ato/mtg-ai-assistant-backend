@@ -5,6 +5,7 @@ import { normalizeCardName } from '@/lib/deck/mtgValidators';
 import { tryDeckFormatStringToAnalyzeFormat } from '@/lib/deck/formatRules';
 import { parseMainboardEntriesForAnalysis } from '@/lib/deck/formatCompliance';
 import { getLimitedSupportNote } from '@/lib/deck/formatSupportMatrix';
+import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
 
 export const runtime = 'nodejs';
 
@@ -252,9 +253,8 @@ Focus on cards that are: legal in the deck's format, ${isCommanderFormat ? "matc
 Never suggest a card whose English oracle name is already on the user's list (surplus copies are pointless). Prefer novel cards only.
 Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionContext}`;
 
-    // Use gpt-4o-mini for cost efficiency - card suggestions don't need flagship model (~$0.70/call → ~$0.05/call)
-    const model = process.env.MODEL_DECK_SCAN || 'gpt-4o-mini';
-    const fallbackModel = 'gpt-4o-mini';
+    const model = process.env.MODEL_DECK_SCAN || DEFAULT_FALLBACK_MODEL;
+    const fallbackModel = DEFAULT_FALLBACK_MODEL;
 
     // Call OpenAI using unified wrapper
     try {

@@ -11,6 +11,7 @@ import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString, hashGuestToken } from "@/lib/guest-tracking";
 import { GUEST_DAILY_FEATURE_LIMIT, SWAP_SUGGESTIONS_FREE, SWAP_SUGGESTIONS_PRO } from "@/lib/feature-limits";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import {
   formatKeyToDisplayTitle,
   isCommanderFormatKey,
@@ -84,7 +85,7 @@ async function aiSuggest(
   usageSource?: string | null,
   sourcePage?: string | null
 ): Promise<Array<{ from: string; to: string; reason?: string }>> {
-  const model = process.env.MODEL_SWAP_SUGGESTIONS || 'gpt-4o-mini';
+  const model = process.env.MODEL_SWAP_SUGGESTIONS || DEFAULT_FALLBACK_MODEL;
   const formatKey = normalizeManatapDeckFormatKey(format);
   const formatTitle = formatKeyToDisplayTitle(formatKey);
   const isCommander = isCommanderFormatKey(formatKey);
@@ -135,7 +136,7 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
         route: '/api/deck/swap-suggestions',
         feature: 'swap_suggestions',
         model,
-        fallbackModel: 'gpt-4o-mini',
+        fallbackModel: DEFAULT_FALLBACK_MODEL,
         timeout: 90000,
         maxTokens: 4096,
         apiType: 'responses',
