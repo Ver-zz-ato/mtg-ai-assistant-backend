@@ -547,7 +547,7 @@ function Chat(props: ChatProps = {}) {
       cardExtractDebounceRef.current = setTimeout(() => {
         cardExtractDebounceRef.current = null;
         runFetch();
-      }, 400);
+      }, 150);
       return () => {
         if (cardExtractDebounceRef.current) {
           clearTimeout(cardExtractDebounceRef.current);

@@ -265,7 +265,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       cardExtractDebounceRef.current = setTimeout(() => {
         cardExtractDebounceRef.current = null;
         runFetch();
-      }, 400);
+      }, 150);
       return () => {
         if (cardExtractDebounceRef.current) {
           clearTimeout(cardExtractDebounceRef.current);

@@ -32,6 +32,22 @@ function normalizeCardKey(name: string): string {
     .trim();
 }
 
+function cleanPlainTextSegment(text: string): string {
+  // Card links are parsed before bold. If a [[Card]] sits inside **bold text**,
+  // the bold span intentionally gets skipped to avoid overlap; remove leftover
+  // markdown markers so users don't see raw ** around the link.
+  return text.replace(/\*\*/g, '').replace(/__/g, '');
+}
+
+function looksLikeSectionLabel(text: string): boolean {
+  const value = text.trim();
+  if (!value) return true;
+  if (/:$/.test(value)) return true;
+  if (/[/:]/.test(value) && !/\s\/\/\s/.test(value)) return true;
+  if (/\b(deck|style|value|spells|control|budget|category|section)\b/i.test(value) && value.split(/\s+/).length <= 4) return true;
+  return false;
+}
+
 export type RenderMarkdownOptions = {
   /** When provided, [[Card Name]] segments are replaced with the result of this callback (e.g. inline card image + name). */
   renderCard?: (cardName: string) => React.ReactNode;
@@ -186,7 +202,13 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
   
   // Helper: render bold as card chip when it's a known card name, else strong
   const renderBold = (content: string): React.ReactNode => {
-    if (renderCard && knownCardNames?.size && knownCardNames.has(normalizeCardKey(content))) {
+    if (
+      renderCard &&
+      knownCardNames?.size &&
+      !content.includes('[[') &&
+      !looksLikeSectionLabel(content) &&
+      knownCardNames.has(normalizeCardKey(content))
+    ) {
       const node = renderCard(content);
       return node != null ? <React.Fragment key={keyCounter++}>{node}</React.Fragment> : <strong key={keyCounter++}>{content}</strong>;
     }
@@ -233,7 +255,7 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
   matches.forEach(match => {
     // Add text before this match
     if (currentIndex < match.start) {
-      parts.push(text.substring(currentIndex, match.start));
+      parts.push(cleanPlainTextSegment(text.substring(currentIndex, match.start)));
     }
     
     // Add the formatted element
@@ -244,7 +266,7 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
   
   // Add remaining text
   if (currentIndex < text.length) {
-    parts.push(text.substring(currentIndex));
+    parts.push(cleanPlainTextSegment(text.substring(currentIndex)));
   }
   
   // If no markdown was found, just return the text

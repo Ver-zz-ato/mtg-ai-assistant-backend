@@ -248,6 +248,10 @@ function isValidCardName(text: string): boolean {
   
   // Should not contain sentence-ending punctuation
   if (/[!?;]/.test(text)) return false;
+
+  // Slash/colon labels such as "Political/table value:" are section headings,
+  // not card names. Real split cards use " // " and are handled separately.
+  if (/:$/.test(text) || (/[/:]/.test(text) && !/\s\/\/\s/.test(text))) return false;
   
   // Should not be all lowercase (card names are title case, except "the" prefix)
   const withoutThe = text.replace(/^The\s+/i, '');
@@ -310,6 +314,7 @@ function isCommonPhrase(text: string): boolean {
     'a powerful', 'a great', 'a good', 'a strong',
     'recursion', 'evasion', 'synergy', 'versatile',
     'include', 'add', 'consider', 'helps', 'fetch',
+    'political/table value', 'creature combat deck', 'blue control/spells',
     // Section headers
     'add creatures', 'include more', 'add basic', 'consider utility',
     'incorporate sorceries', 'fill with fun', 'enhance mana',
