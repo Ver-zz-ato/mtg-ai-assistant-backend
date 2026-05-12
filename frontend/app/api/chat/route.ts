@@ -179,6 +179,9 @@ function enforceChatGuards(outText: string, ctx: GuardContext = {}, hasDeckConte
   let text = outText || "";
 
   // Skip format guard if we have deck context (format is already known from deck)
+  if (!hasDeckContext && ctx.formatHint && /^format unclear\b/i.test(text.trim())) {
+    text = text.trim().replace(/^format unclear\s*(?:[-—,:]\s*)?/i, `This looks like ${ctx.formatHint}, so I’ll judge it on that. `);
+  }
   if (!hasDeckContext && !/^this looks like|^since you said|^format unclear/i.test(text.trim())) {
     const line = ctx.formatHint
       ? `This looks like ${ctx.formatHint}, so I’ll judge it on that.\n\n`
@@ -557,6 +560,29 @@ export async function POST(req: NextRequest) {
     let d: any = null; // Deck data
     let entries: Array<{ count: number; name: string }> = []; // Deck entries
     let deckText = ""; // Deck text for inference
+
+    // Treat the current message as deck context before Layer 0 runs.
+    // Previously fresh guest/eval turns could paste "analyse this: <decklist>" and still be
+    // classified as "needs a deck", because pasted deck context was only recovered from
+    // persisted thread history. This keeps normal chats simple while making first-turn
+    // decklist analysis behave like a real MTG assistant.
+    try {
+      const { isDecklist, extractCommanderFromDecklistText } = await import("@/lib/chat/decklistDetector");
+      const { analyzeDecklistFromText, generateDeckContext } = await import("@/lib/chat/enhancements");
+      const { parseDeckText } = await import("@/lib/deck/parseDeckText");
+      if (isDecklist(text)) {
+        pastedDeckTextRaw = text;
+        const problems = analyzeDecklistFromText(text);
+        pastedDecklistContext = generateDeckContext(problems, "Pasted Decklist", text);
+        const parsedEntries = parseDeckText(text).map((e) => ({ name: e.name, count: e.qty }));
+        const commanderName = extractCommanderFromDecklistText(text, text);
+        if (parsedEntries.length >= 6) {
+          pastedDecklistForCompose = { deckCards: parsedEntries, commanderName, colorIdentity: null, deckId: undefined };
+        }
+      }
+    } catch (error) {
+      console.warn("[chat] Failed to parse current-message decklist context:", error);
+    }
     
     if (tid && !isGuest) {
       try {
@@ -1088,6 +1114,22 @@ export async function POST(req: NextRequest) {
       }
       const summaryForPrompt = { ...v2Summary, card_names: cardNamesForPrompt };
       sys += `\n\nDECK CONTEXT SUMMARY (v2):\n${JSON.stringify(summaryForPrompt)}\n`;
+      if (pastedDeckTextRaw?.trim()) {
+        sys += `\nPasted deck request context:\n`;
+        sys += `- Resolved format: ${deckFormat || formatKey}${chatFmtResolved.source === "unknown" ? " (inferred from user text if possible)" : ""}\n`;
+        if (pastedDecklistForCompose?.commanderName) {
+          sys += `- Likely commander / lead card from pasted list: ${pastedDecklistForCompose.commanderName}. Mention it explicitly if relevant.\n`;
+        }
+        const keyPastedCardNames = Array.from(new Set(
+          (pastedDecklistForCompose?.deckCards ?? [])
+            .map((c) => String(c?.name || "").trim())
+            .filter(Boolean)
+        )).slice(0, 16);
+        if (keyPastedCardNames.length > 0) {
+          sys += `- Key card names from the pasted list include: ${keyPastedCardNames.join(", ")}. Mention the most relevant 3-5 of these by name when analyzing the list.\n`;
+        }
+        sys += `- User pasted a decklist in this same message. Do not say the format is unclear if the user named a format. Anchor your analysis in the actual cards named in the decklist.\n`;
+      }
       sys += `\nDo NOT suggest cards listed in DeckContextSummary.card_names.\n`;
       const { isDecklist } = await import("@/lib/chat/decklistDetector");
       const last6 = threadHistory.slice(-12).filter((m) => m.role === "user" || m.role === "assistant").slice(-6);
@@ -1608,7 +1650,7 @@ export async function POST(req: NextRequest) {
     });
 
     let cachedResponse: { text: string; usage?: any; fallback?: boolean } | undefined;
-    if (publicEligible) {
+    if (publicEligible && !evalRunId) {
       const { hashCacheKey, supabaseCacheGet, normalizeCacheText } = await import('@/lib/utils/supabase-cache');
       const payload = {
         cache_version: 1,
@@ -1627,7 +1669,7 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         if (DEV) console.warn("[chat] Public cache get failed:", e);
       }
-    } else {
+    } else if (!evalRunId) {
       // Private cache: scope by user_id → guest token hash → anon session cookie → ip_hash (last resort only)
       let scope: string;
       if (userId) {
@@ -1827,8 +1869,13 @@ export async function POST(req: NextRequest) {
     // Use clean copy if available, otherwise original
     const source = cleanOut1 || out1;
     
-    // Now extract text from the clean source
-    if (typeof (source as any)?.text === "string") {
+    // Now extract text from the clean source. callOpenAI returns a normalized
+    // OpenAI-style wrapper ({ ok, json, status, actualModel }), so read nested
+    // choices before falling back to a legacy top-level text field.
+    const nestedOutText = firstOutputText((source as any)?.json);
+    if (nestedOutText) {
+      outText = nestedOutText;
+    } else if (typeof (source as any)?.text === "string") {
       outText = (source as any).text;
     } else if (source && typeof source === 'object' && 'text' in source) {
       const textValue = (source as any).text;
@@ -1875,6 +1922,7 @@ Enforce these checks and fix the text before returning it:
 - If the user asked to crawl/sync/upload/fetch/export external data, ensure the very first sentence is "I can’t do that directly here, but here’s the closest workflow…"
 - If the user flagged a custom/homebrew card and the draft didn’t state that, add "Since this is a custom/homebrew card, I’ll evaluate it hypothetically."
 - If the user asked about platform features (Pro access, combo finder, Pioneer support, custom testing, etc.), normalize the wording to: available / Pro-only / coming soon / not a separate tool right now / still rough.
+- Never mention "draft", "review", "corrected answer", or "your answer is solid"; speak directly as ManaTap AI to the user.
 Return the corrected answer with concise, user-facing tone.`;
     console.log("🔍 [chat] Calling review with outText:", {
       outTextLength: outText.length,
@@ -1918,9 +1966,19 @@ Return the corrected answer with concise, user-facing tone.`;
     }
     
     const reviewSource = cleanReview || review;
+    const nestedReviewText = firstOutputText((reviewSource as any)?.json);
     
     // CRITICAL FIX: Check if text is a function (Response object) before using it
-    if (typeof (reviewSource as any)?.text === 'function') {
+    if (nestedReviewText) {
+      const reviewText = nestedReviewText.trim();
+      console.log("âœ… [chat] Using nested review text:", {
+        length: reviewText.length,
+        preview: reviewText.substring(0, 300),
+        containsConsumeBody: reviewText.includes('consumeBody'),
+        containsUtf8Decode: reviewText.includes('utf8DecodeBytes')
+      });
+      outText = reviewText;
+    } else if (typeof (reviewSource as any)?.text === 'function') {
       console.error('❌ [chat] Review returned text as a function even after cleaning! This should not happen.');
       console.warn("⚠️ [chat] Review did not return valid text, keeping original outText");
     } else if (typeof (reviewSource as any)?.text === 'string' && (reviewSource as any).text.trim()) {

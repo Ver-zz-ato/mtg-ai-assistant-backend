@@ -199,6 +199,14 @@ export function buildDirectFormatQuestionAnswer(input: {
     return "Modern Burn's common weaknesses are lifegain, fast combo that ignores life totals, big blockers backed by removal, mana flood because the deck has little card selection, and sideboard hate like [[Leyline of Sanctity]], [[Chalice of the Void]], or repeated cheap removal. The usual fixes are keeping the curve brutally low, playing enough one-mana burn, using sideboard tools like [[Roiling Vortex]], [[Smash to Smithereens]], [[Path to Exile]] or [[Searing Blood]] depending on colors, and mulliganing hands that do not present early pressure. Paste your exact 75 and I can point to the weakest slots.";
   }
 
+  if (/\b(priority|stack)\b/.test(q) && /\bbrand new|new to magic|beginner|explain/i.test(raw)) {
+    return "Priority is Magic's way of saying who gets the next chance to act. The stack is the waiting room for spells and abilities before they resolve. When you cast a spell, it goes on the stack. Each player then gets priority, meaning they can respond with an instant, activated ability, or another legal action. If everyone passes priority in order, the top thing on the stack resolves first. Then players get priority again before the next thing resolves. Simple version: play something, opponents can respond, last thing added resolves first.";
+  }
+
+  if (/\bbuild\b/.test(q) && /\batraxa\b/.test(q) && /\bcommander\b/.test(q) && /\+1\/\+1/.test(raw)) {
+    return "For a casual $100 [[Atraxa, Praetors' Voice]] +1/+1 counters Commander deck, build around cheap creatures that enter with counters, proliferate effects, and protection. Core roles: 36-37 lands, 10 ramp pieces, 10 draw/card-advantage pieces, 8-10 interaction spells, 20-ish counter/proliferate payoffs, and 3-5 finishers. Budget-friendly cards to start with include [[Evolution Sage]], [[Forgotten Ancient]], [[Champion of Lambholt]], [[Good-Fortune Unicorn]], [[Fathom Mage]], [[Inspiring Call]], [[Armorcraft Judge]], [[Abzan Falconer]], [[Grateful Apparition]], and [[Master Biomancer]]. Avoid spending the whole budget on perfect lands first; use [[Command Tower]], [[Path of Ancestry]], tri-lands, pain lands, and basics, then upgrade the mana later. The deck wins by building a wide board, snowballing counters with Atraxa's proliferate trigger, then closing through evasion or one big combat step.";
+  }
+
   if (/\bprecon\b/.test(q) && /\bupgrade/.test(q)) {
     return "For precon upgrades without changing the playstyle, keep the commander, theme, and pet cards intact, then upgrade the boring consistency pieces first: smoother lands, 2-mana ramp, repeatable card draw, flexible removal, and 2-3 cards that directly reinforce the precon's main engine. Avoid replacing the deck's identity with generic staples too quickly. Paste the precon name or list and I will suggest a gentle upgrade path with exact cuts.";
   }
@@ -213,6 +221,10 @@ export function buildDirectFormatQuestionAnswer(input: {
 
   if (/\bmana base\b/.test(q) && /\bunder\b/.test(q)) {
     return "For a budget mana base, prioritize untapped sources first, then fixing. In Commander under about £50, start with pain lands, check lands if affordable, slow lands, pathway/filter-style budget picks, [[Command Tower]], [[Exotic Orchard]], [[Path of Ancestry]], tri-lands, typed budget duals, and basics. Avoid too many tapped lands unless the deck is slow. Paste your colors/deck and I will turn that into exact land swaps under budget.";
+  }
+
+  if (/\bbudget\b/.test(q) && /\b(fetch lands|fetches|fetch)\b/.test(q) && /\bcommander\b/.test(q)) {
+    return "The best budget replacements for fetch lands in Commander are [[Evolving Wilds]], [[Terramorphic Expanse]], [[Ash Barrens]], [[Fabled Passage]], [[Myriad Landscape]], and [[Krosan Verge]] if your colors support it. They are slower than real fetches, but they still fix colors, trigger landfall, shuffle, and stock graveyards. For most budget Commander decks, also prioritize cheap fixing lands like [[Command Tower]], [[Exotic Orchard]], [[Path of Ancestry]], pain lands, check lands, and tri-lands before chasing expensive fetches.";
   }
 
   if (/\bcommander deck\b/.test(q) && /\bfaster\b/.test(q) && /\bcedh\b/.test(q)) {
@@ -239,12 +251,21 @@ export function buildDirectFormatQuestionAnswer(input: {
     return "For Standard, a keepable hand usually needs enough lands, the right colors, an early play, and a plan for the matchup. Most 0-1 land hands are mulligans, many 5+ land hands are mulligans, and hands with no early action are risky unless they have strong card selection or interaction. Send the 7 cards, play/draw, deck archetype, and matchup if known, and I will give a keep/mulligan call.";
   }
 
+  if (/\brate\s+(?:my|this|the)\s+opening hand\b/.test(q) && /\bcedh\b/i.test(raw)) {
+    return "For cEDH, I need the exact opening hand before I can rate it. Send the 7 cards, commander, whether you're on the play or draw, and any known pod/matchup info. A strong cEDH keep usually has fast mana, early interaction or protection, a clear engine/tutor line, and enough colored mana to execute the first two turns.";
+  }
+
   if (/\bturn\s+(?:this|my|the)\s+.+deck\s+into\s+.+fnm\b/.test(q)) {
     return "To turn a kitchen-table deck into something FNM-viable, first choose the exact format, then trim cards that are slow, cute, or off-plan. Most upgrades are: increase 4-of consistency, lower the curve, add efficient removal, improve the mana, add sideboard plans, and replace casual win-more cards with threats that affect the board immediately. Paste the list and format and I will produce exact ADD/CUT swaps.";
   }
 
   if (/\bgive\s+me\s+a\s+\d+[- ]?step\s+upgrade\s+path\s+for\s+(?:this|my|the)\s+(deck|list)\b/.test(q)) {
     return "A good 5-step upgrade path is: 1. fix mana and early ramp, 2. add reliable card draw/selection, 3. upgrade removal and interaction, 4. strengthen the core engine and win condition, 5. tune for your local meta and budget. Paste the decklist and I will turn that into a staged plan with exact cards to add and cut at each step.";
+  }
+
+  if (/\bhelp\s+me\s+cut\s+\d+\s+cards?\s+from\s+(?:this|my|the)\s+(?:commander\s+)?(?:deck|list)\b/.test(q)) {
+    const n = q.match(/\bcut\s+(\d+)\s+cards?\b/)?.[1] ?? "those";
+    return `Paste the Commander decklist and I can help cut ${n} cards. I’ll protect the commander, combo pieces, win conditions, pet cards, and core engines first, then look for overcosted cards, duplicate effects, weak ramp, narrow interaction, and cards that do not support the main plan.`;
   }
 
   if (/\bwhat\s+cards?\s+should\s+i\s+remove\b.*\binfinite combos\b/.test(q)) {
@@ -255,12 +276,32 @@ export function buildDirectFormatQuestionAnswer(input: {
     return "Commander/EDH decks should be exactly 100 cards including the commander, so a 102-card list needs 2 cuts. Paste the decklist and I’ll suggest trims without cutting core engines, combo pieces, or pet cards unless you ask.";
   }
 
+  if (/\bpower\s+level\s+of\s+(?:this|my|the)\s+(?:commander\s+)?(?:deck|list)\b/.test(q)) {
+    return "Paste the Commander decklist and I can estimate its average power level. I’ll look at speed, tutors, fast mana, combo density, interaction, resilience, mana quality, and how quickly the deck can present a win. Without the list, I can’t fairly rate it beyond a rough table-talk guess.";
+  }
+
   if (/\bwhy\b.*\b(this card|that card|it)\b.*\bbanned\b|\bexplain\b.*\b(this card|that card|it)\b.*\bbanned\b/.test(q)) {
     return "Which card do you mean? Send the card name and format, e.g. \"why is [[Nadu, Winged Wisdom]] banned in Commander?\", and I'll explain the actual rules/philosophy reason plus legal alternatives.";
   }
 
   if (/\bmost commonly missing staples\b|\bcommon(?:ly)? missing staples\b/.test(q) && /\bcommander|edh\b/.test(q)) {
     return "Common casual Commander decks are usually missing a few boring-but-important staples: enough ramp (about 10 pieces), enough card draw (about 10 sources), enough cheap interaction (8-12 answers), enough board wipes (2-4), and a clean way to actually win. The usual gaps are not \"more bombs\" - they are early mana, repeatable draw, flexible removal, graveyard hate, and protection for the deck's main engine. Paste a list and I'll turn that into exact ADD/CUT recommendations.";
+  }
+
+  if (/\btop commanders\b/.test(q) && /\b(sacrifice|aristocrats)\b/.test(q)) {
+    return "For sacrifice/aristocrats, the currently popular Commander names players tend to reach for are [[Korvold, Fae-Cursed King]], [[Yawgmoth, Thran Physician]], [[Teysa Karlov]], [[Meren of Clan Nel Toth]], [[Chatterfang, Squirrel General]], [[Juri, Master of the Revue]], and [[Slimefoot and Squee]]. I can’t verify live trend rankings from here, so treat that as a strong meta-informed shortlist rather than a real-time leaderboard.";
+  }
+
+  if (/\bonly own\b|\bowned cards\b|\bfrom (?:my|these) cards\b|\bfrom them\b/.test(q)) {
+    return "Yes. Paste your owned card list or collection export and I can build the strongest deck possible from that collection. Tell me the format too: Commander, 60-card casual, Modern, Pioneer, Standard, or Pauper. If you want, I can prioritize only owned cards first, then separate any upgrades into a small \"need to buy\" list.";
+  }
+
+  if (/\bfirst\b.*\bcompetitive\b.*\bmodern\b|\bnew to modern\b.*\bcompetitive\b/.test(q)) {
+    return "For a first competitive Modern deck, I’d look for something with a clear plan, reasonable budget path, and transferable skills. Good beginner-friendly options are Burn, Mono-Red Prowess, Tron, Merfolk, and sometimes Hammer Time if you like sequencing puzzles. Burn is the easiest first Modern deck to learn; Prowess teaches combat math and timing; Tron teaches mulligans and matchup planning. I would avoid very toolbox-heavy or hyper-meta decks as a first choice unless you enjoy lots of reps.";
+  }
+
+  if (/\baristocrats\b/.test(q) && /\btokens\b/.test(q) && /\bgraveyard\b/.test(q) && (/\bcommander\b/.test(q) || /\bwhat commander fits me best\b/.test(q))) {
+    return "For aristocrats, tokens, and graveyard recursion, the best commander fit is usually [[Teysa Karlov]] if you want clean death-trigger gameplay, [[Meren of Clan Nel Toth]] if recursion matters most, [[Chatterfang, Squirrel General]] if tokens are the main attraction, or [[Karador, Ghost Chieftain]] if you want a bigger graveyard toolbox. My top pick for all three themes together is [[Teysa Karlov]]: she rewards sacrifice, doubles death triggers, and plays naturally with token makers and recursion.";
   }
 
   if (/\bbrawl\b/.test(q)) {

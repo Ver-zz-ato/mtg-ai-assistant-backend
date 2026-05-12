@@ -1,11 +1,119 @@
 import fs from "node:fs";
 import crypto from "node:crypto";
 
-const CHAT_ENDPOINT = "https://www.manatap.ai/api/chat";
+const CHAT_ENDPOINT = process.env.CHAT_ENDPOINT || "https://www.manatap.ai/api/chat";
 const AUTH_HEADER = process.env.CHAT_API_TOKEN
   ? { authorization: `Bearer ${process.env.CHAT_API_TOKEN}` }
   : {};
 const GUEST_RUN_ID = `chat-regression-${Date.now()}`;
+
+const MARALEN_FAERIE_ELF_DECK = `analyse this:
+1 Maralen, Fae Ascendant
+1 Alela, Cunning Conqueror
+1 Alchemist's Refuge
+1 Arcane Denial
+1 Arcane Signet
+1 Arbor Elf
+1 Beast Within
+1 Bitterblossom
+1 Bloom Tender
+1 Bojuka Bog
+1 Brazen Borrower
+1 Breeding Pool
+1 Cavern of Souls
+1 Command Tower
+1 Counterspell
+1 Cyclonic Rift
+1 Devoted Druid
+1 Dimir Signet
+1 Elvish Archdruid
+1 Elvish Mystic
+1 Faerie Harbinger
+1 Faerie Mastermind
+1 Forest
+1 Glen Elendra Archmage
+1 Green Sun's Zenith
+1 Guardian Project
+1 Heritage Druid
+1 Heroic Intervention
+1 Island
+1 Lathril, Blade of the Elves
+1 Leyline of Anticipation
+1 Llanowar Elves
+1 Marwyn, the Nurturer
+1 Mistbind Clique
+1 Mystic Remora
+1 Oona, Queen of the Fae
+1 Overgrown Tomb
+1 Path of Ancestry
+1 Priest of Titania
+1 Reality Shift
+1 Rhystic Study
+1 Seedborn Muse
+1 Sol Ring
+1 Spellstutter Sprite
+1 Swamp
+1 Swan Song
+1 Sword of the Paruns
+1 Talion, the Kindly Lord
+1 Tegwyll, Duke of Splendor
+1 Vedalken Orrery
+1 Watery Grave
+1 Wirewood Lodge
+1 Wirewood Symbiote
+1 Zagoth Triome
+1 Umbral Mantle`;
+
+const MULDROTHA_COMMANDER_DECK = `Analyze this Commander deck and tell me what it's missing. Commander Muldrotha, the Gravetide
+Creatures: Sakura-Tribe Elder, Llanowar Elves, Elvish Mystic, Satyr Wayfinder, Stitcher's Supplier, Coiling Oracle, Eternal Witness, Baleful Strix, Plaguecrafter, Fleshbag Marauder, Ravenous Chupacabra, Acidic Slime, Solemn Simulacrum, Tireless Provisioner, Sidisi, Undead Vizier, Mulldrifter, World Shaper, Ramunap Excavator, Gravebreaker Lamia, Sheoldred, Whispering One, Bane of Progress, Consecrated Sphinx, Avenger of Zendikar, Spore Frog, Kokusho, the Evening Star
+Artifacts: Sol Ring, Arcane Signet, Commander's Sphere, Wayfarer's Bauble, Skullclamp, Nihil Spellbomb, Ashnod's Altar
+Enchantments: Pernicious Deed, Seal of Primordium, Seal of Doom, Animate Dead, Necromancy, Mystic Remora, Sylvan Library, Song of the Dryads, Deadbridge Chant, Imprisoned in the Moon
+Instants: Counterspell, Arcane Denial, Beast Within, Putrefy, Heroic Intervention, Reality Shift
+Sorceries: Cultivate, Kodama's Reach, Buried Alive, Victimize, Living Death, Toxic Deluge, Windfall, Final Parting
+Lands: Command Tower, Zagoth Triome, Opulent Palace, Breeding Pool, Watery Grave, Overgrown Tomb, Woodland Cemetery, Drowned Catacomb, Hinterland Harbor, Yavimaya Coast, Llanowar Wastes, Underground River, Bojuka Bog, Field of the Dead, Strip Mine, Myriad Landscape, Fabled Passage, Terramorphic Expanse, Evolving Wilds, 7 Forest, 5 Island, 5 Swamp`;
+
+const PAUPER_FAERIES_DECK = `analyse this pauper deck
+4 Faerie Seer
+4 Spellstutter Sprite
+4 Ninja of the Deep Hours
+2 Moon-Circuit Hacker
+4 Faerie Miscreant
+4 Counterspell
+3 Spell Pierce
+3 Snap
+3 Preordain
+2 Brainstorm
+3 Of One Mind
+3 Mutagenic Growth
+16 Island
+2 Ash Barrens
+3 Hydroblast
+3 Blue Elemental Blast
+2 Relic of Progenitus
+2 Gut Shot
+2 Dispel
+3 Echoing Truth`;
+
+const STANDARD_AZORIUS_CONTROL_DECK = `analyse this standard deck:
+4 Make Disappear
+4 Dissipate
+3 Sunfall
+2 Farewell
+4 Memory Deluge
+3 Deduce
+3 The Wandering Emperor
+2 Teferi, Who Slows the Sunset
+4 Deserted Beach
+4 Adarkar Wastes
+4 Seachrome Coast
+6 Island
+6 Plains
+3 Disdainful Stroke
+2 Negate
+2 Temporary Lockdown
+2 Knockout Blow
+3 Sunset Revelry
+3 Unlicensed Hearse`;
 
 /**
  * Suite definitions
@@ -561,6 +669,341 @@ const SUITES = [
     ],
   },
   {
+    id: "real-user-quality",
+    title: "Real User MTG Chat Quality",
+    prompts: [
+      {
+        name: "Build Atraxa Budget Counters",
+        text: "Build me a casual $100 Commander deck around Atraxa, Praetors' Voice focused on +1/+1 counters.",
+        expect: {
+          minChars: 500,
+          mustMatch: [/atraxa/i, /\$100|100/i, /\+1\/\+1/i, /commander/i],
+          mustNotMatch: [/standard/i, /modern/i],
+        },
+      },
+      {
+        name: "Modern Burn Weaknesses",
+        text: "What are the biggest weaknesses in my Modern Burn deck?",
+        expect: {
+          mustMatch: [/modern/i, /burn/i, /(weakness|struggle|bad matchup)/i],
+          mustNotMatch: [/commander/i],
+        },
+      },
+      {
+        name: "Precon Playstyle Safe Upgrades",
+        text: "Suggest upgrades for my precon without changing the playstyle too much.",
+        expect: {
+          mustMatch: [/precon/i, /(playstyle|plan)/i, /(upgrade|swap)/i],
+          mustNotMatch: [/cEDH/i],
+        },
+      },
+      {
+        name: "Pioneer Graveyard Sideboard",
+        text: "I keep losing to graveyard decks in Pioneer. What sideboard cards should I run?",
+        expect: {
+          mustMatch: [/pioneer/i, /graveyard/i, /sideboard/i],
+          mustNotMatch: [/commander/i, /sol ring/i],
+        },
+      },
+      {
+        name: "Priority Stack Beginner",
+        text: "Explain how priority and the stack work like I'm brand new to Magic.",
+        expect: {
+          minChars: 350,
+          mustMatch: [/priority/i, /stack/i, /(respond|response)/i],
+        },
+      },
+      {
+        name: "Aggressive Muldrotha Adjacent Commanders",
+        text: "Find me commanders similar to Muldrotha, the Gravetide but more aggressive.",
+        expect: {
+          mustMatch: [/muldrotha/i, /(aggressive|attack|pressure)/i],
+        },
+      },
+      {
+        name: "Budget Fetch Replacements",
+        text: "What are the best budget replacements for fetch lands in Commander?",
+        expect: {
+          mustMatch: [/budget/i, /(fetch lands|fetches)/i, /commander/i],
+          mustNotMatch: [/scalding tarn.*best/i],
+        },
+      },
+      {
+        name: "cEDH Opening Hand Needs Hand",
+        text: "Rate my opening hand for cEDH.",
+        expect: {
+          mustMatch: [/cEDH/i, /(hand|opening)/i, /(send|paste|need)/i],
+        },
+      },
+      {
+        name: "Three Color Commander Lands",
+        text: "How many lands should I run in a 3-color Commander deck?",
+        expect: {
+          mustMatch: [/3[- ]?color/i, /commander/i, /(35|36|37|38|39)/],
+        },
+      },
+      {
+        name: "Compare Decks Needs Inputs",
+        text: "Compare these two decks and tell me which is stronger into the current meta.",
+        expect: {
+          mustMatch: [/(paste|send|need)/i, /(two decks|both decks|both decklists|two decklists|both lists)/i],
+          mustNotMatch: [/definitely/i],
+        },
+      },
+      {
+        name: "Inconsistent Deck Diagnosis",
+        text: "Why does my deck feel inconsistent?",
+        expect: {
+          mustMatch: [/(inconsistent|consistency)/i, /(mana|curve|draw|redundancy)/i],
+        },
+      },
+      {
+        name: "Dockside Combos",
+        text: "What cards combo with Dockside Extortionist?",
+        expect: {
+          mustMatch: [/dockside extortionist/i, /(combo|loop)/i],
+          mustNotMatch: [/political\/table value/i],
+        },
+      },
+      {
+        name: "Cut 12 Needs Decklist",
+        text: "Help me cut 12 cards from this Commander list.",
+        expect: {
+          mustMatch: [/(paste|send|need)/i, /(decklist|list)/i, /(cut|12)/i],
+        },
+      },
+      {
+        name: "Win Condition Needs Deck",
+        text: "What's the win condition of this deck supposed to be?",
+        expect: {
+          mustMatch: [/(decklist|list|paste|send)/i, /(win condition|game plan)/i],
+        },
+      },
+      {
+        name: "Midrange Definition",
+        text: "Can you explain what 'midrange' means in MTG?",
+        expect: {
+          mustMatch: [/midrange/i, /(aggro|control)/i],
+        },
+      },
+      {
+        name: "Roast Deck",
+        text: "Give me a salty, funny roast of my deck.",
+        expect: {
+          mustMatch: [/(roast|decklist|paste|send)/i],
+        },
+      },
+      {
+        name: "Trending Sacrifice Commanders Caveat",
+        text: "What are the top commanders trending right now for sacrifice strategies?",
+        expect: {
+          mustMatch: [/(sacrifice|aristocrats)/i, /(trend|popular|right now|current)/i],
+          mustNotMatch: [/as of 2024/i],
+        },
+      },
+      {
+        name: "Mana Base Under GBP 50",
+        text: "Optimize my mana base for under £50.",
+        expect: {
+          mustMatch: [/mana base/i, /£50|50/i, /(budget|under)/i],
+        },
+      },
+      {
+        name: "Collection Build Needs Owned Cards",
+        text: "I only own these cards — can you build the best deck possible from them?",
+        expect: {
+          mustMatch: [/(own|owned|collection)/i, /(paste|send|list)/i],
+        },
+      },
+      {
+        name: "First Competitive Modern Deck",
+        text: "What's a good first competitive deck for someone new to Modern?",
+        expect: {
+          mustMatch: [/modern/i, /(first|new)/i, /(budget|learn|competitive)/i],
+          mustNotMatch: [/commander/i],
+        },
+      },
+      {
+        name: "Sideboard Against Mono Red",
+        text: "Suggest sideboard swaps against Mono-Red Aggro.",
+        expect: {
+          mustMatch: [/sideboard/i, /mono[- ]red/i, /(aggro|swap)/i],
+        },
+      },
+      {
+        name: "Faster Commander Not cEDH",
+        text: "How can I make my Commander deck faster without making it cEDH?",
+        expect: {
+          mustMatch: [/commander/i, /(faster|speed)/i, /(not.*cEDH|avoid.*cEDH|without.*cEDH)/i],
+        },
+      },
+      {
+        name: "Explain Combo Needs Combo",
+        text: "Explain every card interaction in this combo.",
+        expect: {
+          mustMatch: [/(paste|send|need)/i, /(combo|cards)/i],
+        },
+      },
+      {
+        name: "Newest Set Caveat",
+        text: "What are the best cards from the newest set for Commander?",
+        expect: {
+          mustMatch: [/(newest|latest|current|set)/i, /commander/i],
+        },
+      },
+      {
+        name: "Meme Deck Playable",
+        text: "Generate a meme deck that's still playable.",
+        expect: {
+          mustMatch: [/meme/i, /(playable|functional)/i],
+        },
+      },
+      {
+        name: "Standard Mulligan Needs Hand",
+        text: "Should I mulligan this hand in Standard?",
+        expect: {
+          mustMatch: [/standard/i, /(hand|mulligan)/i, /(paste|send|need)/i],
+          mustNotMatch: [/commander/i],
+        },
+      },
+      {
+        name: "Rhystic Study Cheaper",
+        text: "Find cards similar to Rhystic Study that are cheaper.",
+        expect: {
+          mustMatch: [/rhystic study/i, /(cheaper|budget)/i],
+          mustNotMatch: [/political\/table value/i],
+        },
+      },
+      {
+        name: "Aggro Beats Control",
+        text: "How do I beat control decks with my aggro list?",
+        expect: {
+          mustMatch: [/aggro/i, /control/i, /(pressure|curve|sideboard|threat)/i],
+        },
+      },
+      {
+        name: "Horror Theme Deck",
+        text: "Build a deck inspired by horror themes and spooky art.",
+        expect: {
+          mustMatch: [/(horror|spooky)/i, /(deck|commander|theme)/i],
+        },
+      },
+      {
+        name: "Casual Commander Missing Staples",
+        text: "What are the most commonly missing staples in casual Commander decks?",
+        expect: {
+          mustMatch: [/casual/i, /commander/i, /(ramp|draw|removal|lands)/i],
+        },
+      },
+      {
+        name: "Kitchen Table to FNM",
+        text: "Turn this kitchen table deck into something FNM viable.",
+        expect: {
+          mustMatch: [/(format|standard|modern|pioneer|fnm)/i, /(paste|send|need)/i],
+        },
+      },
+      {
+        name: "New Commander Mistakes",
+        text: "What are the biggest mistakes newer Commander players make?",
+        expect: {
+          mustMatch: [/commander/i, /(mistake|newer|new players)/i],
+        },
+      },
+      {
+        name: "Five Step Upgrade Path",
+        text: "Give me a 5-step upgrade path for this deck over time.",
+        expect: {
+          mustMatch: [/5[- ]?step|five/i, /(upgrade path|over time)/i, /(decklist|paste|send)/i],
+        },
+      },
+      {
+        name: "No Infinite Meta Cuts",
+        text: "What cards should I remove if my local meta hates infinite combos?",
+        expect: {
+          mustMatch: [/infinite combo/i, /(remove|cut)/i, /(local meta|table)/i],
+        },
+      },
+      {
+        name: "Banned Card Needs Name",
+        text: "Explain why this card is banned in Commander.",
+        expect: {
+          mustMatch: [/(which card|card name|send|tell me)/i, /commander/i],
+        },
+      },
+      {
+        name: "Funny Artwork Deck",
+        text: "Build a deck where every card has weird or funny artwork.",
+        expect: {
+          mustMatch: [/(weird|funny)/i, /art/i, /deck/i],
+        },
+      },
+      {
+        name: "Summarize Gameplan Needs Deck",
+        text: "Can you summarize my deck's gameplan in simple terms?",
+        expect: {
+          mustMatch: [/(decklist|paste|send|need)/i, /(gameplan|game plan)/i],
+        },
+      },
+      {
+        name: "Power Level Needs Deck",
+        text: "What's the average power level of this Commander deck?",
+        expect: {
+          mustMatch: [/commander/i, /(power level|decklist|paste|send)/i],
+        },
+      },
+      {
+        name: "Golgari Hidden Gems",
+        text: "Find hidden gem cards nobody runs in Golgari.",
+        expect: {
+          mustMatch: [/golgari/i, /(hidden gem|underplayed|nobody runs)/i],
+        },
+      },
+      {
+        name: "Commander Fit Me",
+        text: "I like aristocrats, tokens, and graveyard recursion — what commander fits me best?",
+        expect: {
+          mustMatch: [/aristocrats/i, /tokens/i, /graveyard/i, /commander/i],
+        },
+      },
+      {
+        name: "Maralen Decklist Recognized",
+        text: MARALEN_FAERIE_ELF_DECK,
+        expect: {
+          minChars: 500,
+          mustMatch: [/maralen/i, /(elf|elves)/i, /faerie/i, /(deck|list)/i],
+          mustNotMatch: [/sol ring is legal in commander, but not legal/i, /need a real decklist/i],
+        },
+      },
+      {
+        name: "Muldrotha Commander Analysis",
+        text: MULDROTHA_COMMANDER_DECK,
+        expect: {
+          minChars: 500,
+          mustMatch: [/muldrotha/i, /(graveyard|recursion)/i, /(missing|weakness|needs)/i],
+          mustNotMatch: [/need a real decklist/i],
+        },
+      },
+      {
+        name: "Pauper Faeries Analysis",
+        text: PAUPER_FAERIES_DECK,
+        expect: {
+          minChars: 400,
+          mustMatch: [/pauper/i, /(faerie|faeries)/i, /(sideboard|main deck|tempo)/i],
+          mustNotMatch: [/commander/i, /sol ring/i],
+        },
+      },
+      {
+        name: "Standard Azorius Control Analysis",
+        text: STANDARD_AZORIUS_CONTROL_DECK,
+        expect: {
+          minChars: 400,
+          mustMatch: [/standard/i, /(azorius|control|blue-white)/i, /(sunfall|farewell|wandering emperor)/i],
+          mustNotMatch: [/commander/i, /sol ring/i],
+        },
+      },
+    ],
+  },
+  {
     id: "pro",
     title: "Pro Feature Surfacing",
     prompts: [
@@ -667,6 +1110,7 @@ async function callChat(prompt) {
     threadId: null,
     prefs: { format: null, budget: null },
     context: null,
+    eval_run_id: GUEST_RUN_ID,
   };
   const guestToken = `${GUEST_RUN_ID}-${crypto.randomUUID()}`;
   const res = await fetch(CHAT_ENDPOINT, {
@@ -693,12 +1137,23 @@ function checkExpectations(text, expect) {
     failures: [],
   };
   if (!expect) return result;
+  if (typeof expect.minChars === "number" && text.length < expect.minChars) {
+    result.passed = false;
+    result.failures.push(`Response too short: ${text.length} chars < ${expect.minChars}`);
+  }
   if (Array.isArray(expect.mustMatch)) {
     for (const rule of expect.mustMatch) {
       if (!rule.test(text)) {
         result.passed = false;
         result.failures.push(`Missing pattern: ${rule.toString()}`);
       }
+    }
+  }
+  if (Array.isArray(expect.mustMatchAny) && expect.mustMatchAny.length > 0) {
+    const matched = expect.mustMatchAny.some((rule) => rule.test(text));
+    if (!matched) {
+      result.passed = false;
+      result.failures.push(`Missing any of: ${expect.mustMatchAny.map((rule) => rule.toString()).join(", ")}`);
     }
   }
   if (Array.isArray(expect.mustNotMatch)) {
