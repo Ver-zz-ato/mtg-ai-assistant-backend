@@ -212,6 +212,24 @@ function enforceChatGuards(outText: string, ctx: GuardContext = {}, hasDeckConte
   return text;
 }
 
+function stripMisappliedChatBoilerplate(outText: string, ctx: GuardContext = {}): string {
+  let text = String(outText || "");
+  if (!ctx.isCustom) {
+    text = text
+      .replace(/\s*Since you said this is a custom\/homebrew card(?: concept)?,?\s*/gi, " ")
+      .replace(/\s*Since this is a custom\/homebrew card(?: concept)?, I[’']ll evaluate it hypothetically\.\s*/gi, " ")
+      .replace(/\s*Since this is a custom\/homebrew card(?: concept)?,?\s*/gi, " ")
+      .replace(/\s*I[’']ll evaluate it hypothetically\.\s*/gi, " ");
+  }
+  if (!ctx.askedExternal) {
+    text = text
+      .replace(/\bbut here[’']s the closest workflow[.:…]*\s*/gi, "")
+      .replace(/\bhere[’']s the closest workflow[.:…]*\s*/gi, "")
+      .replace(/\bI can[’']t do that directly here,\s*/gi, "");
+  }
+  return text.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 type CallOpenAIOpts = {
   deckCardCount?: number;
   stop?: string[];
@@ -2031,6 +2049,7 @@ Return the corrected answer with concise, user-facing tone.`;
     // Use deckIdToUse OR check if format was inferred from deck (not from pasted text)
     const hasLinkedDeckContext = !!deckIdToUse || (!!d && !!d.format);
     outText = enforceChatGuards(outText, guardCtx, hasLinkedDeckContext);
+    outText = stripMisappliedChatBoilerplate(outText, guardCtx);
     const { trimOutroLines } = await import("@/lib/chat/outputCleanupFilter");
     outText = trimOutroLines(outText);
 

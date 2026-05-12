@@ -6,6 +6,13 @@ const AUTH_HEADER = process.env.CHAT_API_TOKEN
   ? { authorization: `Bearer ${process.env.CHAT_API_TOKEN}` }
   : {};
 const GUEST_RUN_ID = `chat-regression-${Date.now()}`;
+const GLOBAL_BAD_PATTERNS = [
+  /custom\/homebrew/i,
+  /closest workflow/i,
+  /corrected answer/i,
+  /your answer is solid/i,
+  /\bdraft\b/i,
+];
 
 const MARALEN_FAERIE_ELF_DECK = `analyse this:
 1 Maralen, Fae Ascendant
@@ -979,7 +986,7 @@ const SUITES = [
         text: MULDROTHA_COMMANDER_DECK,
         expect: {
           minChars: 500,
-          mustMatch: [/muldrotha/i, /(graveyard|recursion)/i, /(missing|weakness|needs)/i],
+          mustMatch: [/muldrotha/i, /(graveyard|recursion)/i, /(missing|weakness|needs|wants|gap|pressure point)/i],
           mustNotMatch: [/need a real decklist/i],
         },
       },
@@ -1137,6 +1144,12 @@ function checkExpectations(text, expect) {
     failures: [],
   };
   if (!expect) return result;
+  for (const rule of GLOBAL_BAD_PATTERNS) {
+    if (rule.test(text)) {
+      result.passed = false;
+      result.failures.push(`Global forbidden pattern present: ${rule.toString()}`);
+    }
+  }
   if (typeof expect.minChars === "number" && text.length < expect.minChars) {
     result.passed = false;
     result.failures.push(`Response too short: ${text.length} chars < ${expect.minChars}`);
