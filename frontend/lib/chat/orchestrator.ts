@@ -1,4 +1,5 @@
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
+import { isDecklist } from "@/lib/chat/decklistDetector";
 
 export type ChatToolKind =
   | "card_lookup"
@@ -112,6 +113,7 @@ export function shouldSkipRecommendationCleanupForChatTurn(text: string): boolea
 }
 
 export function looksLikePastedDecklist(text: string): boolean {
+  if (isDecklist(text)) return true;
   const lines = String(text || "")
     .replace(/\r/g, "")
     .split("\n")

@@ -9,6 +9,12 @@ export type CommanderInference = {
 /** Confidence threshold below which we return null (avoid over-claiming). */
 const COMMANDER_CONFIDENCE_THRESHOLD = 0.5;
 
+function isObviousNonCommanderFirstCard(name: string): boolean {
+  return /^(sol ring|command tower|arcane signet|fellwar stone|mana crypt|forest|island|swamp|mountain|plains)$/i.test(
+    name.trim(),
+  );
+}
+
 /**
  * Shared utility for detecting decklists in text
  * Extracted from Chat.tsx for reuse in API routes
@@ -16,14 +22,49 @@ const COMMANDER_CONFIDENCE_THRESHOLD = 0.5;
 export function isDecklist(text: string): boolean {
   if (!text) return false;
   const lines = text.replace(/\r/g, "").split("\n").map(l => l.trim()).filter(Boolean);
-  if (lines.length < 6) return false;
   let hits = 0;
   const rxQty = /^(?:SB:\s*)?\d+\s*[xX]?\s+.+$/;
   const rxDash = /^-\s+.+$/;
   for (const l of lines) {
     if (rxQty.test(l) || rxDash.test(l)) hits++;
   }
-  return hits >= Math.max(6, Math.floor(lines.length * 0.5));
+  if (lines.length >= 6 && hits >= Math.max(6, Math.floor(lines.length * 0.45))) return true;
+
+  const compact = text.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
+  if (compact.length < 80) return false;
+
+  const sectionMatches = compact.match(
+    /\b(?:Commander|Mainboard|Sideboard|Creatures?|Artifacts?|Enchantments?|Instants?|Sorcer(?:y|ies)|Lands?|Planeswalkers?)\s*(?:\(\d+\)|:)?\b/gi,
+  ) ?? [];
+  const uniqueSections = new Set(sectionMatches.map((s) => s.toLowerCase().replace(/\s*\(\d+\)|:|\s+/g, "")));
+  const hasDeckAsk = /\b(analy[sz]e|review|improve|missing|deck)\b/i.test(compact);
+  const basicLandCounts = compact.match(/\b\d+\s+(?:Plains|Island|Swamp|Mountain|Forest)\b/gi) ?? [];
+  const hasCommanderDeclaration = /\bCommander\s+[^.!?\n]{3,90}?\s+(?:Creatures?|Artifacts?|Enchantments?|Instants?|Sorcer(?:y|ies)|Lands?)\s*\(\d+\)/i.test(compact);
+
+  return (
+    (hasDeckAsk && uniqueSections.size >= 3) ||
+    (hasCommanderDeclaration && uniqueSections.size >= 2) ||
+    (uniqueSections.size >= 4 && basicLandCounts.length >= 2)
+  );
+}
+
+function extractInlineCommanderFromCompressedText(text: string): string | null {
+  const compact = text.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
+  const firstSection = compact.search(
+    /(?:[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*)?(?:Creatures?|Artifacts?|Enchantments?|Instants?|Sorcer(?:y|ies)|Lands?|Planeswalkers?)\s*\(\d+\)/iu,
+  );
+  const prefix = firstSection >= 0 ? compact.slice(0, firstSection) : compact;
+  const idx = prefix.toLowerCase().lastIndexOf("commander");
+  if (idx < 0) return null;
+  const after = prefix.slice(idx + "commander".length).replace(/^[:\s]+/, "").trim();
+  const name = after
+    .replace(/^1\s*[xX]?\s+/, "")
+    .replace(/^[^\p{L}\p{N}'"]+/u, "")
+    .replace(/[^\p{L}\p{N}'")]+$/u, "")
+    .trim();
+  if (!name || name.length < 2 || name.length > 90) return null;
+  if (/^(deck|format|list)\b/i.test(name)) return null;
+  return name;
 }
 
 /**
@@ -78,19 +119,29 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
       return altMatch[1].trim();
     }
   }
+
+  const inlineCompressed = extractInlineCommanderFromCompressedText(decklistText);
+  if (inlineCompressed) return inlineCompressed;
   
-  // Priority 3: Last "1 CardName" when Commander-sized (Moxfield/Archidekt often put commander at end)
+  // Priority 3: First "1 CardName" when Commander-sized and no explicit marker.
+  // Many human pastes put the commander first; keep this tentative so the chat can confirm.
   const cardLines = lines.filter((l) => {
     if (/^(Deck|Mainboard|Main|Sideboard|Companion|Commander)\s*:?\s*$/i.test(l)) return false;
     if (l.includes(':') && !/^Commander\s*:\s*/i.test(l)) return false; // skip "analyse this:" etc.
     return /^\d+\s*[xX]?\s+.+$/.test(l);
   });
-  if (cardLines.length >= 95) {
-    // Commander-sized: last card is usually the commander
-    for (let i = cardLines.length - 1; i >= 0; i--) {
-      const m = cardLines[i].match(/^1\s*[xX]?\s+(.+)$/);
-      if (m) return m[1].trim();
-    }
+  const cardLineTotal = cardLines.reduce((sum, line) => {
+    const m = line.match(/^(\d+)\s*[xX]?\s+.+$/);
+    return sum + Math.max(1, parseInt(m?.[1] ?? "1", 10) || 1);
+  }, 0);
+  if (cardLineTotal >= 95) {
+    const oneOfs = cardLines
+      .map((line) => line.match(/^1\s*[xX]?\s+(.+)$/)?.[1]?.trim())
+      .filter(Boolean) as string[];
+    const first = oneOfs[0];
+    if (first && !isObviousNonCommanderFirstCard(first)) return first;
+    const last = oneOfs[oneOfs.length - 1];
+    if (last) return last;
   }
 
   // Priority 4: First card in the list (fallback convention)
@@ -159,24 +210,40 @@ export function inferCommander(
     if (alt) return { commanderName: alt[1].trim(), confidence: 0.9, reason: "user_message", candidates: [{ name: alt[1].trim(), confidence: 0.9 }] };
   }
 
+  const inlineCompressed = extractInlineCommanderFromCompressedText(decklistText);
+  if (inlineCompressed) {
+    return {
+      commanderName: inlineCompressed,
+      confidence: 0.9,
+      reason: "commander_section_same_line",
+      candidates: [{ name: inlineCompressed, confidence: 0.9 }],
+    };
+  }
+
   // Priority 3: Linked deck metadata
   if (linkedDeckCommander?.trim()) {
     return { commanderName: linkedDeckCommander.trim(), confidence: 0.95, reason: "linked_deck", candidates: [{ name: linkedDeckCommander.trim(), confidence: 0.95 }] };
   }
 
-  // Priority 4: Last 1-of in commander-sized export (95+ lines)
+  // Priority 4: First 1-of in commander-sized export (95+ lines), tentative.
   const cardLines = lines.filter((l) => {
     if (/^(Deck|Mainboard|Main|Sideboard|Companion|Commander)\s*:?\s*$/i.test(l)) return false;
     if (l.includes(":") && !/^Commander\s*:\s*/i.test(l)) return false;
     return /^\d+\s*[xX]?\s+.+$/.test(l);
   });
-  if (cardLines.length >= 95) {
-    for (let i = cardLines.length - 1; i >= 0; i--) {
-      const m = cardLines[i].match(/^1\s*[xX]?\s+(.+)$/);
-      if (m) {
-        const name = m[1].trim();
-        return { commanderName: name, confidence: 0.75, reason: "commander_last_export", candidates: [{ name, confidence: 0.75 }] };
-      }
+  const cardLineTotal = cardLines.reduce((sum, line) => {
+    const m = line.match(/^(\d+)\s*[xX]?\s+.+$/);
+    return sum + Math.max(1, parseInt(m?.[1] ?? "1", 10) || 1);
+  }, 0);
+  if (cardLineTotal >= 95) {
+    const oneOfs = cardLines
+      .map((line) => line.match(/^1\s*[xX]?\s+(.+)$/)?.[1]?.trim())
+      .filter(Boolean) as string[];
+    const first = oneOfs[0];
+    const last = oneOfs[oneOfs.length - 1];
+    const name = first && !isObviousNonCommanderFirstCard(first) ? first : last;
+    if (name) {
+      return { commanderName: name, confidence: 0.75, reason: first === name ? "commander_first_export" : "commander_last_export", candidates: [{ name, confidence: 0.75 }] };
     }
   }
 

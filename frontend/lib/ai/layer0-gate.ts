@@ -51,6 +51,7 @@ export function isDeckAnalysisRequest(text: string): boolean {
   const q = (text || "").toLowerCase().trim();
   const patterns = [
     /\b(analy[sz]e|analysis|improve|upgrade|optimi[sz]e|review)\s+(my\s+|this\s+)?(deck|list)\b/i,
+    /\b(analy[sz]e|analysis|improve|upgrade|optimi[sz]e|review)\s+(my\s+|this\s+)?(?:commander|standard|modern|pioneer|pauper|legacy|vintage|brawl|historic)\s+(deck|list)\b/i,
     /\b(analy[sz]e|review|rate|check)\s+(this|my|the)\s*[:\-]?\s*$/i,
     /\b(analy[sz]e|review|rate|check)\s+(this|my|the)\s*[:\-]?\s*\n/i,
     /\b(health check|quick take|rate this deck|deck look|weakness|weaknesses|biggest issue|missing)\b/i,

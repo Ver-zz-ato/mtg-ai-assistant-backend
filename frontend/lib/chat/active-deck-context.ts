@@ -405,7 +405,8 @@ export function resolveActiveDeckContext(args: ResolveActiveDeckContextArgs): Ac
       const explicitMarker =
         inference.reason === "commander_section" ||
         inference.reason === "commander_section_same_line" ||
-        inference.reason === "explicit_inline_marker";
+        inference.reason === "explicit_inline_marker" ||
+        inference.reason === "commander_first_export";
       commanderStatus = isCorrection ? "corrected" : explicitMarker ? "confirmed" : "inferred";
       commanderCandidates = inference.candidates;
       path.push(explicitMarker ? "commander:explicit_marker" : "commander:parsed");

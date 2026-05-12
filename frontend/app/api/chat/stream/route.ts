@@ -404,14 +404,18 @@ export async function POST(req: NextRequest) {
     if (tid && !isGuest && activeDeckContext.source === "current_paste" && !deckIdLinked && activeDeckContext.decklistText) {
       const preserveCommander = !activeDeckContext.deckReplacedByHashChange || (activeDeckContext.commanderName && threadCommander && activeDeckContext.commanderName.toLowerCase() === threadCommander.toLowerCase());
       try {
+        const resolvedPasteCommander =
+          activeDeckContext.commanderStatus === "confirmed" || activeDeckContext.commanderStatus === "corrected"
+            ? activeDeckContext.commanderName
+            : null;
         const updates: Record<string, unknown> = {
           decklist_text: activeDeckContext.decklistText,
           deck_source: "pasted",
           decklist_hash: activeDeckContext.decklistHash,
           deck_context_updated_at: new Date().toISOString(),
           deck_parse_meta: {},
-          commander: preserveCommander ? threadCommander : null,
-          commander_status: preserveCommander ? (threadCommander ? "confirmed" : "inferred") : "missing",
+          commander: preserveCommander ? threadCommander : resolvedPasteCommander,
+          commander_status: preserveCommander ? (threadCommander ? "confirmed" : "inferred") : (resolvedPasteCommander ? activeDeckContext.commanderStatus : "missing"),
         };
         await supabase.from("chat_threads").update(updates).eq("id", tid);
         threadDecklistText = activeDeckContext.decklistText;

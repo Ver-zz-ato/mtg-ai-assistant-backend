@@ -56,6 +56,142 @@ function parseDelimitedCardImport(raw?: string): ParsedDeckEntry[] | null {
   return byName.size ? Array.from(byName.values()) : null;
 }
 
+const PROSE_SECTION_RE =
+  /\b(Mainboard|Sideboard|Creatures?|Artifacts?|Enchantments?|Instants?|Sorcer(?:y|ies)|Lands?|Planeswalkers?|Battles?)\s*(?:\((\d+)\))/gi;
+
+function stripDecorativePrefix(s: string): string {
+  return normalizeChars(s)
+    .replace(/^[^\p{L}\p{N}'"]+/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseQuantityRuns(content: string): ParsedDeckEntry[] {
+  const entries: ParsedDeckEntry[] = [];
+  const normalized = stripDecorativePrefix(content);
+  const rx = /\b(\d+)\s+([^0-9]+?)(?=\s+\d+\s+[^0-9]|$)/g;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(normalized))) {
+    const qty = Math.max(1, parseInt(m[1], 10) || 1);
+    const name = cleanParsedCardName(m[2].trim());
+    if (name && looksLikeCardName(name)) entries.push({ name, qty });
+  }
+  return entries;
+}
+
+function segmentPenalty(words: string[]): number {
+  if (words.length === 0 || words.length > 6) return 999;
+  const raw = words.join(" ").trim();
+  const cleaned = cleanParsedCardName(raw);
+  if (!cleaned || !looksLikeCardName(cleaned)) return 80;
+  let score = 0;
+  const len = words.length;
+  score += len === 1 ? 1.6 : len === 2 ? 0 : len === 3 ? 0.25 : len === 4 ? 0.9 : len === 5 ? 1.8 : 3;
+  const first = words[0] ?? "";
+  const last = words[words.length - 1] ?? "";
+  if (/^(?:the|of|and|to|from|with|in|on|a|an)$/i.test(first)) score += 8;
+  if (/^(?:the|of|and|to|from|with|in|on|a|an)$/i.test(last)) score += 8;
+  if (/^[a-z]/.test(first)) score += 4;
+  if (/[,:'-]$/.test(raw)) score += 4;
+  return score;
+}
+
+function splitKnownCountNames(content: string, targetCount: number): string[] {
+  const clean = stripDecorativePrefix(content).replace(/\s+/g, " ").trim();
+  if (!clean || targetCount <= 0 || targetCount > 120) return [];
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length < targetCount) return [];
+
+  const n = words.length;
+  const memo = new Map<string, { score: number; parts: string[] } | null>();
+  function dp(index: number, remaining: number): { score: number; parts: string[] } | null {
+    const key = `${index}:${remaining}`;
+    if (memo.has(key)) return memo.get(key)!;
+    if (remaining === 0) {
+      const out = index === n ? { score: 0, parts: [] } : null;
+      memo.set(key, out);
+      return out;
+    }
+    const wordsLeft = n - index;
+    if (wordsLeft < remaining || wordsLeft > remaining * 6) {
+      memo.set(key, null);
+      return null;
+    }
+
+    let best: { score: number; parts: string[] } | null = null;
+    for (let len = 1; len <= 6 && index + len <= n; len++) {
+      const wordsAfter = n - (index + len);
+      if (wordsAfter < remaining - 1 || wordsAfter > (remaining - 1) * 6) continue;
+      const segmentWords = words.slice(index, index + len);
+      const p = segmentPenalty(segmentWords);
+      if (p >= 80) continue;
+      const rest = dp(index + len, remaining - 1);
+      if (!rest) continue;
+      const candidate = {
+        score: p + rest.score,
+        parts: [cleanParsedCardName(segmentWords.join(" ")), ...rest.parts],
+      };
+      if (!best || candidate.score < best.score) best = candidate;
+    }
+    memo.set(key, best);
+    return best;
+  }
+
+  return dp(0, targetCount)?.parts.filter((name) => name && looksLikeCardName(name)) ?? [];
+}
+
+function parseCompressedProseDecklist(raw?: string): ParsedDeckEntry[] | null {
+  if (!raw?.trim()) return null;
+  const compact = raw.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
+  const sectionMatches = Array.from(compact.matchAll(PROSE_SECTION_RE));
+  if (sectionMatches.length < 3) return null;
+
+  const byName = new Map<string, ParsedDeckEntry>();
+  const add = (nameRaw: string, qty = 1) => {
+    const name = cleanParsedCardName(nameRaw);
+    if (!name || !looksLikeCardName(name)) return;
+    const key = name.toLowerCase();
+    const existing = byName.get(key);
+    if (existing) existing.qty += qty;
+    else byName.set(key, { name, qty });
+  };
+
+  const firstSectionIndex = sectionMatches[0]?.index ?? -1;
+  if (firstSectionIndex > 0) {
+    const prefix = compact.slice(0, firstSectionIndex);
+    const idx = prefix.toLowerCase().lastIndexOf("commander");
+    if (idx >= 0) {
+      const commanderName = stripDecorativePrefix(prefix.slice(idx + "commander".length).replace(/^[:\s]+/, ""))
+        .replace(/^1\s*[xX]?\s+/, "")
+        .replace(/[^\p{L}\p{N}'")]+$/u, "")
+        .trim();
+      if (commanderName && !/^(deck|format|list)\b/i.test(commanderName)) add(commanderName, 1);
+    }
+  }
+
+  for (let i = 0; i < sectionMatches.length; i++) {
+    const match = sectionMatches[i];
+    const section = String(match[1] || "").toLowerCase();
+    const targetCount = match[2] ? Math.max(0, parseInt(match[2], 10) || 0) : 0;
+    const start = (match.index ?? 0) + match[0].length;
+    const end = i + 1 < sectionMatches.length ? sectionMatches[i + 1].index ?? compact.length : compact.length;
+    const content = stripDecorativePrefix(compact.slice(start, end));
+    if (!content) continue;
+
+    const quantityRuns = parseQuantityRuns(content);
+    if (quantityRuns.length >= 2) {
+      for (const entry of quantityRuns) add(entry.name, entry.qty);
+      continue;
+    }
+
+    if (targetCount > 0) {
+      for (const name of splitKnownCountNames(content, targetCount)) add(name, 1);
+    }
+  }
+
+  return byName.size >= 6 ? Array.from(byName.values()) : null;
+}
+
 /**
  * Parse a raw decklist text block into {name, qty} entries.
  * Handles various export formats from Moxfield, Archidekt, TappedOut, MTGO, Arena, etc.
@@ -78,6 +214,9 @@ export function parseDeckText(raw?: string): ParsedDeckEntry[] {
   const delimited = parseDelimitedCardImport(raw);
   if (delimited) return delimited;
 
+  const compressed = parseCompressedProseDecklist(raw);
+  if (compressed) return compressed;
+
   const out: Record<string, number> = {};
 
   for (const rawLine of raw.split(/\r?\n/)) {
@@ -91,6 +230,8 @@ export function parseDeckText(raw?: string): ParsedDeckEntry[] {
     if (/^(COMMANDER|SIDEBOARD|MAINBOARD|MAYBEBOARD|LANDS?|CREATURES?|INSTANTS?|SORCERY|SORCERIES|ARTIFACTS?|ENCHANTMENTS?|PLANESWALKERS?|BATTLES?|CONSIDERING|COMPANION):?\s*$/i.test(line)) continue;
     // e.g. "Artifacts (5)", "Creatures (23)"
     if (/^(COMMANDER|SIDEBOARD|MAINBOARD|MAYBEBOARD|LANDS?|CREATURES?|INSTANTS?|SORCERY|SORCERIES|ARTIFACTS?|ENCHANTMENTS?|PLANESWALKERS?|BATTLES?|CONSIDERING|COMPANION)\s*\(\d+\)\s*$/i.test(line)) continue;
+    // User prompt wrappers like "analyse this:" are not card names.
+    if (!/^\s*(?:SB:|Sideboard:|CMDR:|Commander:)?\s*(?:\d+|x\s*\d+)/i.test(line) && /:\s*$/.test(line)) continue;
     
     // Strip sideboard/commander prefix but continue processing
     line = line.replace(/^(SB:|Sideboard:|CMDR:|Commander:)\s*/i, '');
