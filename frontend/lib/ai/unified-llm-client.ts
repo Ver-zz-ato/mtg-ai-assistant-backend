@@ -94,6 +94,21 @@ const DEFAULT_TIMEOUTS: Record<string, number> = {
   default: 20000,        // 20 seconds default
 };
 
+function modelSupportsStop(model: string | null | undefined): boolean {
+  const normalized = String(model || "").toLowerCase();
+  if (!normalized) return true;
+  return ![
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
+    "gpt-5.1",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-5",
+  ].some((prefix) => normalized.includes(prefix));
+}
+
 /**
  * Unified LLM call function
  * 
@@ -133,11 +148,12 @@ export async function callLLM(
     });
   } else {
     // Chat Completions API format
+    const stop = modelSupportsStop(config.model) ? config.stop : undefined;
     requestBody = prepareOpenAIBody({
       model: config.model,
       messages: messages,
       ...(config.maxTokens ? { max_completion_tokens: config.maxTokens } : {}),
-      ...(config.stop?.length ? { stop: config.stop } : {}),
+      ...(stop?.length ? { stop } : {}),
       ...(config.jsonResponse ? { response_format: { type: "json_object" as const } } : {}),
     });
   }
@@ -158,11 +174,12 @@ export async function callLLM(
         ...(config.maxTokens ? { max_output_tokens: config.maxTokens } : {}),
       });
     } else {
+      const stop = modelSupportsStop(model) ? config.stop : undefined;
       finalBody = prepareOpenAIBody({
         model,
         messages: messages,
         ...(config.maxTokens ? { max_completion_tokens: config.maxTokens } : {}),
-        ...(config.stop?.length ? { stop: config.stop } : {}),
+        ...(stop?.length ? { stop } : {}),
         ...(config.jsonResponse ? { response_format: { type: "json_object" as const } } : {}),
       });
     }
