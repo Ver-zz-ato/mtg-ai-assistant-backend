@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/supabase/server';
+import { getUserAndSupabase } from '@/lib/api/get-user-from-request';
 import { getModelForTier } from '@/lib/ai/model-by-tier';
 import { checkProStatus, getProStatusDetails } from '@/lib/server-pro-check';
 
@@ -11,8 +11,7 @@ export const dynamic = 'force-dynamic'; // Disable caching
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getUserAndSupabase(req);
     
     if (!user) {
       return NextResponse.json({ ok: false, isPro: false, error: 'Unauthorized' }, { status: 401 });

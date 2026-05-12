@@ -75,27 +75,11 @@ export async function POST(req: NextRequest) {
     // 2) else Bearer user (mobile)
     // 3) else guest via token (header X-Guest-Session-Token or cookie)
     // 4) else guest via IP fallback (mobile without token)
-    let supabase = await getServerSupabase();
     const forwarded = req.headers.get('x-forwarded-for');
     const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
     let guestToken: string | null = null;
-    let { data: { user } } = await supabase.auth.getUser();
-
-    // Mobile app: support Authorization: Bearer when cookies have no session.
-    // IMPORTANT: Only attempt Bearer auth if cookie auth did not yield a user (precedence rule).
-    if (!user) {
-      const authHeader = req.headers.get('Authorization');
-      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-      if (bearerToken) {
-        const { createClientWithBearerToken } = await import('@/lib/server-supabase');
-        const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
-        if (bearerUser) {
-          user = bearerUser;
-          supabase = bearerSupabase;
-        }
-      }
-    }
+    const { getUserAndSupabase } = await import('@/lib/api/get-user-from-request');
+    const { supabase, user } = await getUserAndSupabase(req);
 
     if (!user) {
       isGuest = true;

@@ -346,25 +346,10 @@ export async function POST(req: NextRequest) {
   let guestToken: string | null = null;
   
   try {
-    let supabase = await getServerSupabase();
     const forwarded = req.headers.get('x-forwarded-for');
     const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
-    let { data: { user } } = await supabase.auth.getUser();
-
-    // Mobile app: support Authorization: Bearer when cookies have no session
-    if (!user) {
-      const authHeader = req.headers.get('Authorization');
-      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-      if (bearerToken) {
-        const { createClientWithBearerToken } = await import('@/lib/server-supabase');
-        const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
-        if (bearerUser) {
-          user = bearerUser;
-          supabase = bearerSupabase;
-        }
-      }
-    }
+    const { getUserAndSupabase } = await import('@/lib/api/get-user-from-request');
+    const { supabase, user } = await getUserAndSupabase(req);
 
     // Accept { text } and legacy { prompt }
     const raw = await req.json().catch(() => ({}));
