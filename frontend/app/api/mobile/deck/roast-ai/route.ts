@@ -11,6 +11,10 @@ import {
 } from "@/lib/mobile/roast-ai-response";
 import type { MobileRoastHeat } from "@/lib/mobile/roast-ai-types";
 import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
+import {
+  buildDeckIntelligencePacket,
+  formatDeckIntelligencePacketForPrompt,
+} from "@/lib/ai/intelligence/packet";
 
 export const runtime = "nodejs";
 
@@ -122,7 +126,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "OpenAI API key not configured" }, { status: 500 });
     }
 
-    const systemPrompt = buildMobileRoastAiSystemPrompt({
+    let systemPrompt = buildMobileRoastAiSystemPrompt({
       deck,
       format,
       commander,
@@ -131,6 +135,19 @@ export async function POST(req: NextRequest) {
       signalsBlock: signals.blockForPrompt,
       varietyAngle,
     });
+    const intelligencePrompt = await buildDeckIntelligencePacket({
+      userId,
+      isGuest: !userId,
+      isPro,
+      deckText,
+      format,
+      commander,
+    })
+      .then(formatDeckIntelligencePacketForPrompt)
+      .catch(() => "");
+    if (intelligencePrompt) {
+      systemPrompt += `\n\n${intelligencePrompt}\n\nROAST-SPECIFIC SAFETY: Be funny about the deck's structure, but do not suggest cutting protected combo, commander, engine, or pet-role cards unless the replacement preserves the same role.`;
+    }
     const userPrompt = buildMobileRoastAiUserPrompt();
 
     const model = process.env.MODEL_MOBILE_ROAST_AI || DEFAULT_PRO_DECK_MODEL;

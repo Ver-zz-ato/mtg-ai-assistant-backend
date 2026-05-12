@@ -30,9 +30,15 @@ import {
   runChatToolPlanner,
   shouldSkipRecommendationCleanupForChatTurn,
   summarizeToolResults,
+  type ChatToolResult,
   type ChatTurnMetadata,
 } from "@/lib/chat/orchestrator";
 import { maybeCreateDeckChangeProposal } from "@/lib/chat/deck-actions";
+import {
+  buildDeckIntelligencePacket,
+  formatDeckIntelligencePacketForPrompt,
+} from "@/lib/ai/intelligence/packet";
+import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registry";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -1482,7 +1488,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const chatToolResults = await runChatToolPlanner({
+    const chatToolResults: ChatToolResult[] = await runChatToolPlanner({
       origin: new URL(req.url).origin,
       cookieHeader: req.headers.get("cookie"),
       authHeader: req.headers.get("Authorization"),
@@ -1495,8 +1501,27 @@ export async function POST(req: NextRequest) {
       sourcePage,
     }).catch((e) => {
       console.warn("[chat] Tool planner failed:", e);
-      return [];
+      return [] as ChatToolResult[];
     });
+    const deckTextForIntelligence = deckText?.trim() || pastedDeckTextRaw?.trim() || "";
+    const intelligencePacket = deckTextForIntelligence
+      ? await buildDeckIntelligencePacket({
+          supabase,
+          userId,
+          isGuest,
+          isPro,
+          deckId: deckIdToUse,
+          deckText: deckTextForIntelligence,
+          format: deckFormat || formatKey || null,
+          commander: d?.commander || inferredContext?.commander || null,
+        }).catch((e) => {
+          console.warn("[chat] Deck intelligence packet failed:", e);
+          return null;
+        })
+      : null;
+    if (intelligencePacket) {
+      chatToolResults.push(...buildIntelligenceToolResults(intelligencePacket));
+    }
     const directToolAnswer = buildDirectChatToolAnswer(text, chatToolResults);
     if (directToolAnswer) {
       const metadata: ChatTurnMetadata = {
@@ -1542,6 +1567,9 @@ export async function POST(req: NextRequest) {
     }
     const toolPrompt = buildToolResultsPrompt(chatToolResults);
     if (toolPrompt) sys += `\n\n${toolPrompt}`;
+
+    const intelligencePrompt = formatDeckIntelligencePacketForPrompt(intelligencePacket);
+    if (intelligencePrompt) sys += `\n\n${intelligencePrompt}`;
 
     const { hashString, hashGuestToken } = await import('@/lib/guest-tracking');
     const sysPromptHash = await hashString(sys || '');

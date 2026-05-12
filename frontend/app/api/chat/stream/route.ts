@@ -28,9 +28,15 @@ import {
   runChatToolPlanner,
   shouldSkipRecommendationCleanupForChatTurn,
   summarizeToolResults,
+  type ChatToolResult,
   type ChatTurnMetadata,
 } from "@/lib/chat/orchestrator";
 import { maybeCreateDeckChangeProposal } from "@/lib/chat/deck-actions";
+import {
+  buildDeckIntelligencePacket,
+  formatDeckIntelligencePacketForPrompt,
+} from "@/lib/ai/intelligence/packet";
+import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registry";
 
 export const runtime = "nodejs";
 
@@ -1537,7 +1543,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const chatToolResults = await runChatToolPlanner({
+    const chatToolResults: ChatToolResult[] = await runChatToolPlanner({
       origin: new URL(req.url).origin,
       cookieHeader: req.headers.get("cookie"),
       authHeader: req.headers.get("Authorization"),
@@ -1550,8 +1556,30 @@ export async function POST(req: NextRequest) {
       sourcePage,
     }).catch((e) => {
       console.warn("[stream] Tool planner failed:", e);
-      return [];
+      return [] as ChatToolResult[];
     });
+    const deckTextForIntelligence =
+      deckData?.deckText?.trim() ||
+      activeDeckContext.decklistText?.trim() ||
+      "";
+    const intelligencePacket = deckTextForIntelligence
+      ? await buildDeckIntelligencePacket({
+          supabase,
+          userId,
+          isGuest,
+          isPro,
+          deckId: deckIdLinked,
+          deckText: deckTextForIntelligence,
+          format: deckData?.d?.format || chatFmtResolved.supportEntry?.label || chatFmtResolved.canonical || null,
+          commander: deckData?.d?.commander || activeDeckContext.commanderName || null,
+        }).catch((e) => {
+          console.warn("[stream] Deck intelligence packet failed:", e);
+          return null;
+        })
+      : null;
+    if (intelligencePacket) {
+      chatToolResults.push(...buildIntelligenceToolResults(intelligencePacket));
+    }
     const directToolAnswer = buildDirectChatToolAnswer(text, chatToolResults);
     if (directToolAnswer) {
       const metadata: ChatTurnMetadata = {
@@ -1625,6 +1653,9 @@ export async function POST(req: NextRequest) {
     }
     const toolPrompt = buildToolResultsPrompt(chatToolResults);
     if (toolPrompt) sys += `\n\n${toolPrompt}`;
+
+    const intelligencePrompt = formatDeckIntelligencePacketForPrompt(intelligencePacket);
+    if (intelligencePrompt) sys += `\n\n${intelligencePrompt}`;
 
     const { hashString, hashGuestToken } = await import('@/lib/guest-tracking');
     const sysPromptHash = await hashString(sys || '');

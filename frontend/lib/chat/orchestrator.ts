@@ -2,8 +2,14 @@ import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
 export type ChatToolKind =
   | "card_lookup"
+  | "rules_rulings"
   | "legality_check"
   | "price_lookup"
+  | "price_history"
+  | "combo_detection"
+  | "deck_spine"
+  | "collection_fit"
+  | "probability_mulligan"
   | "cost_to_finish"
   | "budget_swaps"
   | "finish_suggestions";

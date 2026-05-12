@@ -11,6 +11,7 @@ import {
   needsDeckButMissing,
 } from "@/lib/ai/layer0-gate";
 import { getFaqAnswer } from "@/lib/ai/static-faq";
+import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 
 const base = (overrides: Partial<Parameters<typeof layer0Decide>[0]> = {}) => ({
   text: "",
@@ -50,7 +51,7 @@ assert.ok(getFaqAnswer("how do i paste a decklist"), "FAQ matches paste decklist
 const whatIsWard = layer0Decide(base({ text: "what is ward?", hasDeckContext: false }));
 assert.strictEqual(whatIsWard.mode, "MINI_ONLY");
 assert.strictEqual((whatIsWard as any).reason, "simple_rules_or_term");
-assert.strictEqual((whatIsWard as any).model, "gpt-4o-mini");
+assert.strictEqual((whatIsWard as any).model, process.env.MODEL_GUEST || DEFAULT_FALLBACK_MODEL);
 assert.strictEqual((whatIsWard as any).max_tokens, 16384);
 
 const whatTrample = layer0Decide(base({ text: "what does trample do?", hasDeckContext: false }));

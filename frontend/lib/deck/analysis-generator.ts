@@ -13,6 +13,10 @@ import {
   formatKeyCardsGroundingForPrompt,
   KEY_CARDS_GROUNDING_INSTRUCTION,
 } from "@/lib/deck/key-card-grounding";
+import {
+  buildDeckIntelligencePacket,
+  formatDeckIntelligencePacketForPrompt,
+} from "@/lib/ai/intelligence/packet";
 import type { InferredDeckContext } from "./inference";
 import type { DeckAnalysisJSON } from "./analysis-validator";
 
@@ -118,6 +122,7 @@ export async function generateDeckAnalysis(
   let keyCardsGrounding: string | null = null;
   let keyCardsInstruction = "";
   let protectedRoleCardsPrompt = "";
+  let intelligencePacketPrompt = "";
   try {
     const parsedNames = parseDeckText(deckText).map((e) => e.name);
     if (parsedNames.length > 0) {
@@ -147,6 +152,21 @@ export async function generateDeckAnalysis(
     protectedRoleCardsPrompt = "";
   }
 
+  try {
+    intelligencePacketPrompt = formatDeckIntelligencePacketForPrompt(
+      await buildDeckIntelligencePacket({
+        userId,
+        isGuest: !userId,
+        isPro,
+        deckText,
+        format,
+        commander: commander || null,
+      })
+    );
+  } catch {
+    intelligencePacketPrompt = "";
+  }
+
   const userPrompt = [
     `Format: ${format}`,
     `Deck colors: ${colors.join(", ") || "Colorless"}`,
@@ -155,6 +175,7 @@ export async function generateDeckAnalysis(
     keyCardsInstruction || "",
     keyCardsGrounding || "",
     protectedRoleCardsPrompt || "",
+    intelligencePacketPrompt || "",
     archetype ? `Detected archetype: ${archetype}` : "",
     powerLevel ? `Power level: ${powerLevel}` : "",
     commanderProfile?.plan ? `Commander plan: ${commanderProfile.plan}` : "",
