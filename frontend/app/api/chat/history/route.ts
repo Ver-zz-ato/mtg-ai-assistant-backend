@@ -1,13 +1,12 @@
 // app/api/chat/history/route.ts
-import { NextResponse } from "next/server";
-import { getServerSupabase } from "../../_lib/supabase";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string };
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getUserAndSupabase(req);
     if (!user) return NextResponse.json<Envelope<never>>({ ok: false, error: "Unauthenticated" }, { status: 401 });
     const { data, error } = await supabase
       .from("chat_threads")

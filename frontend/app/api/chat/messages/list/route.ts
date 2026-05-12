@@ -1,14 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { isMissingMetadataColumnError } from "@/lib/chat/orchestrator";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
 const Query = z.object({
   threadId: z.string().uuid(),
 });
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
   let status = 200;
   let userId: string | null = null;
@@ -22,37 +21,10 @@ export async function GET(req: Request) {
     }
     const { threadId } = parsed.data;
 
-    const cookieStore: any = await cookies();
-    let supabase: any = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get: (name: string) => cookieStore.get?.(name)?.value,
-          set: (name: string, value: string, options: any) => { try { cookieStore.set?.({ name, value, ...options }); } catch {} },
-          remove: (name: string, options: any) => { try { cookieStore.set?.({ name, value: "", ...options, maxAge: 0 }); } catch {} },
-        },
-      }
-    );
-
-    let { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const { supabase, user, authError } = await getUserAndSupabase(req);
     if (!user) {
-      const authHeader = req.headers.get("Authorization");
-      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-      if (bearerToken) {
-        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
-        const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const bearer = await bearerSupabase.auth.getUser();
-        if (bearer.data.user) {
-          supabase = bearerSupabase;
-          user = bearer.data.user;
-          userErr = null;
-        }
-      }
-    }
-    if (userErr || !user) {
       status = 401;
-      return NextResponse.json({ ok: false, error: { message: userErr?.message || "Unauthorized" } }, { status });
+      return NextResponse.json({ ok: false, error: { message: authError?.message || "Unauthorized" } }, { status });
     }
     userId = user.id;
 

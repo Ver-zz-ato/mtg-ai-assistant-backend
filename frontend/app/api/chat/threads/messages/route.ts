@@ -1,7 +1,7 @@
 // app/api/chat/threads/messages/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase } from "../../../_lib/supabase";
 import { isMissingMetadataColumnError } from "@/lib/chat/orchestrator";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -9,21 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     const tid = req.nextUrl.searchParams.get("threadId");
     if (!tid) return NextResponse.json<Envelope<never>>({ ok: false, error: "threadId required" }, { status: 400 });
-    let supabase: any = await getServerSupabase();
-    let { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      const authHeader = req.headers.get("Authorization");
-      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-      if (bearerToken) {
-        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
-        const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
-        if (bearerUser) {
-          supabase = bearerSupabase;
-          user = bearerUser;
-        }
-      }
-    }
+    const { supabase, user } = await getUserAndSupabase(req);
     if (!user) return NextResponse.json<Envelope<never>>({ ok: false, error: "Unauthenticated" }, { status: 401 });
 
     const { data: t, error: tErr } = await supabase.from("chat_threads").select("id,user_id").eq("id", tid).single();

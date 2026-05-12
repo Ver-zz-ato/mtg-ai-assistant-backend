@@ -1,8 +1,7 @@
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
   let status = 200;
   let userId: string | null = null;
@@ -11,32 +10,10 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const deckId = url.searchParams.get("deckId");
 
-    const cookieStore: any = await cookies();
-
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get: (name: string) => cookieStore.get?.(name)?.value,
-          set: (name: string, value: string, options: any) => {
-            try { cookieStore.set?.({ name, value, ...options }); } catch {}
-          },
-          remove: (name: string, options: any) => {
-            try { cookieStore.set?.({ name, value: "", ...options, maxAge: 0 }); } catch {}
-          },
-        },
-      }
-    );
-
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr) {
-      status = 401;
-      return NextResponse.json({ ok: false, error: { message: userErr.message } }, { status });
-    }
+    const { supabase, user, authError } = await getUserAndSupabase(req);
     if (!user) {
       status = 401;
-      return NextResponse.json({ ok: false, error: { message: "Not authenticated" } }, { status });
+      return NextResponse.json({ ok: false, error: { message: authError?.message || "Not authenticated" } }, { status });
     }
     userId = user.id;
 

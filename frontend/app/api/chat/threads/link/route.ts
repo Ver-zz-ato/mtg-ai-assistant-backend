@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/server-supabase";
+import { NextRequest } from "next/server";
 import { ok, err } from "@/app/api/_utils/envelope";
 import { LinkThreadSchema } from "@/lib/validate";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
-export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+export async function POST(req: NextRequest) {
+  const { supabase, user } = await getUserAndSupabase(req);
   if (!user) return err("unauthorized", "unauthorized", 401);
 
   const parsed = LinkThreadSchema.safeParse(await req.json().catch(() => ({})));

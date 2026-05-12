@@ -1,15 +1,15 @@
 import { z } from "zod";
-import { createClient } from "@/lib/server-supabase";
+import { NextRequest } from "next/server";
 import { ok, err } from "@/app/api/_utils/envelope";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
 const Body = z.object({
   threadId: z.string().uuid(),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getUserAndSupabase(req);
     if (!user) return err("unauthorized", "unauthorized", 401);
 
     const parsed = Body.safeParse(await req.json().catch(() => ({})));

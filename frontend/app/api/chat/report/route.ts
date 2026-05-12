@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
 const DECK_ANALYZER_SOURCE = "deck_analyzer_suggestion";
 const CHAT_CORRECTION_SOURCE = "chat_correction";
@@ -59,23 +59,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let supabase = await createClient();
-    let { data: { user } } = await supabase.auth.getUser();
-
-    // Bearer fallback for mobile
-    if (!user) {
-      const authHeader = req.headers.get("Authorization");
-      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-      if (bearerToken) {
-        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
-        const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
-        if (bearerUser) {
-          user = bearerUser;
-          supabase = bearerSupabase;
-        }
-      }
-    }
+    const { supabase, user } = await getUserAndSupabase(req);
 
     const issueTypesArr = hasReasons ? (issueTypes as string[]) : ["other"];
     const descriptionVal = typeof description === "string" ? description.trim().slice(0, 2000) : null;
@@ -172,23 +156,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    let supabase = await createClient();
-    let { data: { user } } = await supabase.auth.getUser();
-
-    // Bearer fallback for mobile
-    if (!user) {
-      const authHeader = req.headers.get("Authorization");
-      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-      if (bearerToken) {
-        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
-        const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
-        if (bearerUser) {
-          user = bearerUser;
-          supabase = bearerSupabase;
-        }
-      }
-    }
+    const { supabase, user } = await getUserAndSupabase(req);
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

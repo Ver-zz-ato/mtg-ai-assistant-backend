@@ -1,13 +1,13 @@
-import { getSupabaseServer } from "@/lib/server-supabase";
+import { NextRequest } from "next/server";
 import { ok, err } from "@/app/api/_utils/envelope";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 export const dynamic = "force-dynamic";
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const { messages, title } = body || {};
   if (!Array.isArray(messages)) return err("Missing messages[]", "bad_request", 400);
-  const supabase = await getSupabaseServer();
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !user) return err("unauthorized", "unauthorized", 401);
+  const { supabase, user } = await getUserAndSupabase(request);
+  if (!user) return err("unauthorized", "unauthorized", 401);
   const { data: thread, error: tErr } = await supabase
     .from("chat_threads").insert({ user_id: user.id, title: title || "Imported chat" }).select("id").single();
   if (tErr) return err(tErr.message);

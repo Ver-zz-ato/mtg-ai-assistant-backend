@@ -10,13 +10,13 @@
  */
 
 import { NextRequest } from "next/server";
-import { getServerSupabase } from "@/lib/server-supabase";
 import { VOICE_CHAT_SYSTEM_PROMPT } from "@/lib/ai/prompts/voice-chat";
 import { put as putAudio } from "@/lib/voice-audio-store";
 import { classifyIntent } from "@/lib/voice/intent-classifier";
 import { parseCommands } from "@/lib/voice/command-parser";
 import { generateClarification } from "@/lib/voice/clarifier";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
 export const runtime = "nodejs";
 
@@ -66,18 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Auth: Cookie OR Bearer (same precedence as /api/chat/stream)
-    let supabase = await getServerSupabase();
-    let { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      const authHeader = req.headers.get("Authorization");
-      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-      if (bearerToken) {
-        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
-        const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
-        if (bearerUser) user = bearerUser;
-      }
-    }
+    const { user } = await getUserAndSupabase(req);
     if (!user) {
       return jsonResponse(
         { transcript: "", assistant_text: "", audio_url: null, duration_ms: Date.now() - t0, model_used: "none", error: "Not signed in" },

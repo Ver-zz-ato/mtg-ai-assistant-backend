@@ -1,7 +1,7 @@
 // app/api/chat/messages/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getServerSupabase } from "../../_lib/supabase";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -42,8 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json<Envelope<never>>({ ok: false, error: `Invalid body: ${msg}. Raw=${JSON.stringify(raw)}` }, { status: 400 });
     }
 
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getUserAndSupabase(req);
     if (!user) return NextResponse.json<Envelope<never>>({ ok: false, error: "Unauthenticated" }, { status: 401 });
 
     const { threadId, message, deckId } = parsed.data;
