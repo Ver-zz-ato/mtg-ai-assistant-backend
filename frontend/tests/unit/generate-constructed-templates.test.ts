@@ -8,6 +8,7 @@ import {
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { padMainboardNearSixty } from "@/lib/deck/generate-constructed-post";
 import { totalDeckQty } from "@/lib/deck/generation-helpers";
+import type { RecommendationLegalityRow } from "@/lib/deck/recommendation-legality";
 
 async function run() {
   {
@@ -52,13 +53,13 @@ async function run() {
     };
     const v = await validateConstructedSeedTemplate("Pioneer", tpl, {
       getDetailsForNamesCachedOverride: async (names) => {
-        const m = new Map();
+        const m = new Map<string, RecommendationLegalityRow & { color_identity?: string[] }>();
         for (const n of names) {
           const k = normalizeScryfallCacheName(n);
-          if (n.includes("Fake")) m.set(k, null);
+          if (n.includes("Fake")) continue;
           else m.set(k, legal);
         }
-        return m as Map<string, unknown>;
+        return m;
       },
     });
     assert.ok(v.removalCount >= 1);
@@ -76,11 +77,11 @@ async function run() {
     assert.ok(tpl);
     const v = await validateConstructedSeedTemplate("Standard", tpl!, {
       getDetailsForNamesCachedOverride: async (names) => {
-        const m = new Map();
+        const m = new Map<string, RecommendationLegalityRow & { color_identity?: string[] }>();
         for (const n of names) {
           m.set(normalizeScryfallCacheName(n), legal);
         }
-        return m as Map<string, unknown>;
+        return m;
       },
     });
     assert.ok(v.validatedMainQty >= CONSTRUCTED_SEED_MIN_VALIDATED_QTY);

@@ -37,6 +37,8 @@ const authoritativeCtx: ActiveDeckContext = {
   inferredCommanderFromCurrentTurn: null,
   userJustConfirmedCommander: false,
   userJustCorrectedCommander: false,
+  lastTurnAskedCommander: false,
+  promotionSource: "none",
   linkedDeckTakesPriority: true,
   parseWarnings: [],
   deckReplacedByHashChange: false,

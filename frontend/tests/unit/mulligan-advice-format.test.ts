@@ -20,10 +20,11 @@ async function main() {
   assert(MULLIGAN_ADVICE_FORMATS.length === 5, "expected five formats");
   const empty = AdviceFormatSchema.safeParse({});
   assert(empty.success, "empty body should parse");
-  assert(empty.data.format === undefined, "format optional");
+  if (empty.success) assert(empty.data.format === undefined, "format optional");
 
   const modern = AdviceFormatSchema.safeParse({ format: "modern" });
-  assert(modern.success && modern.data.format === "modern", "modern accepted");
+  assert(modern.success, "modern accepted");
+  if (modern.success) assert(modern.data.format === "modern", "modern accepted");
 
   const bad = AdviceFormatSchema.safeParse({ format: "legacy" });
   assert(!bad.success, "unknown format rejected");

@@ -953,6 +953,21 @@ export async function POST(req: NextRequest) {
       const cardsInDeckLine = `\nCards in deck (do NOT suggest these): ${cardNamesForPrompt.join(", ")}\n`;
       sys += cardsInDeckLine;
       if (adminPv) adminPv.cards_in_deck_line_text = cardsInDeckLine.trim();
+      try {
+        const { buildProtectedRoleCardsPrompt } = await import("@/lib/deck/protected-role-cards");
+        const commanderForProtection =
+          commanderLayersOn
+            ? activeDeckContext.commanderName ?? v2Summary?.commander ?? deckData?.d?.commander ?? null
+            : null;
+        const protectedRolePrompt = await buildProtectedRoleCardsPrompt({
+          deckText: cardNamesForPrompt.map((name: string) => `1 ${name}`).join("\n"),
+          commander: commanderForProtection,
+          limit: 14,
+        });
+        if (protectedRolePrompt) {
+          sys += `\n${protectedRolePrompt}\n`;
+        }
+      } catch {}
       const { isDecklist } = await import("@/lib/chat/decklistDetector");
       const last6 = streamThreadHistory.filter((m) => m.role === "user" || m.role === "assistant").slice(-6);
       const redacted = last6.map((m) => {

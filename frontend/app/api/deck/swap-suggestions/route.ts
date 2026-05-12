@@ -99,6 +99,18 @@ async function aiSuggest(
   } else if (isCommander) {
     formatRule = '5. Format & color: All suggestions must be Commander-legal and match the deck color identity when it is known.';
   }
+
+  let protectedRoleCardsPrompt = "";
+  try {
+    const { buildProtectedRoleCardsPrompt } = await import("@/lib/deck/protected-role-cards");
+    protectedRoleCardsPrompt = await buildProtectedRoleCardsPrompt({
+      deckText,
+      commander: isCommander ? commander || null : null,
+      limit: 14,
+    });
+  } catch {
+    protectedRoleCardsPrompt = "";
+  }
   
   const system = `You are ManaTap AI, an expert Magic: The Gathering assistant suggesting budget-friendly alternatives.
 
@@ -117,6 +129,7 @@ CRITICAL RULES:
    - Cards that reference specific other cards by name
    - Cards with "you win the game" or infinite combo potential
 ${formatRule}
+${protectedRoleCardsPrompt ? `\n${protectedRoleCardsPrompt}` : ""}
 
 RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences explaining role match).
 Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both are lands that tap for mana based on creatures - same ramp role."}]

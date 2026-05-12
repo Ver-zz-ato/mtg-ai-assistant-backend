@@ -1334,6 +1334,17 @@ export async function POST(req: NextRequest) {
           sys += `- Archetype: ${inferredContext.archetype}\n`;
           sys += `- Protected cards (do NOT suggest cutting): ${inferredContext.protectedRoles.slice(0, 5).join(', ')}\n`;
         }
+        try {
+          const { buildProtectedRoleCardsPrompt } = await import("@/lib/deck/protected-role-cards");
+          const protectedRolePrompt = await buildProtectedRoleCardsPrompt({
+            deckText,
+            commander: commanderLayersOn ? inferredContext.commander || commander || null : null,
+            limit: 14,
+          });
+          if (protectedRolePrompt) {
+            sys += `\n${protectedRolePrompt}\n`;
+          }
+        } catch {}
         if (inferredContext.manabaseAnalysis?.isAcceptable) {
           sys += `- Manabase is acceptable - only comment if colors are imbalanced by more than 15%.\n`;
         }

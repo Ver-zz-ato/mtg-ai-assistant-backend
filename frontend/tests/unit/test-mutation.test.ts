@@ -24,7 +24,7 @@ const baseChatCase = {
   name: "Land count question",
   type: "chat" as const,
   input: { userMessage: "How many lands for Commander?" },
-  expectedChecks: { shouldContain: ["land"] },
+  expectedChecks: { shouldContain: ["land"], shouldReject: false },
   tags: ["lands"],
 };
 
@@ -51,7 +51,7 @@ function testMutationStructure() {
   for (const m of out) {
     assert(m.name.includes("[mutation:"), "Name includes mutation tag");
     assert(m.tags.includes("mutation"), "Tags include mutation");
-    assert(m.mutationType, "Has mutationType");
+    assert(Boolean(m.mutationType), "Has mutationType");
   }
   console.log("✓ Mutation structure");
 }

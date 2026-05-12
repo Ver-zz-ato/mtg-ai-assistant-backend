@@ -117,6 +117,7 @@ export async function generateDeckAnalysis(
 
   let keyCardsGrounding: string | null = null;
   let keyCardsInstruction = "";
+  let protectedRoleCardsPrompt = "";
   try {
     const parsedNames = parseDeckText(deckText).map((e) => e.name);
     if (parsedNames.length > 0) {
@@ -135,6 +136,17 @@ export async function generateDeckAnalysis(
     keyCardsInstruction = "";
   }
 
+  try {
+    const { buildProtectedRoleCardsPrompt } = await import("@/lib/deck/protected-role-cards");
+    protectedRoleCardsPrompt = await buildProtectedRoleCardsPrompt({
+      deckText,
+      commander: commander || null,
+      limit: 14,
+    });
+  } catch {
+    protectedRoleCardsPrompt = "";
+  }
+
   const userPrompt = [
     `Format: ${format}`,
     `Deck colors: ${colors.join(", ") || "Colorless"}`,
@@ -142,6 +154,7 @@ export async function generateDeckAnalysis(
     commanderGrounding || "",
     keyCardsInstruction || "",
     keyCardsGrounding || "",
+    protectedRoleCardsPrompt || "",
     archetype ? `Detected archetype: ${archetype}` : "",
     powerLevel ? `Power level: ${powerLevel}` : "",
     commanderProfile?.plan ? `Commander plan: ${commanderProfile.plan}` : "",
@@ -251,4 +264,3 @@ export async function generateDeckAnalysis(
     if (requestId) analysisFlightByRequestId.delete(requestId);
   }
 }
-

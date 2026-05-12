@@ -9,10 +9,11 @@ import {
   prepareOpenAIBody,
 } from "@/lib/ai/openai-params";
 
-const savedEnv = process.env.NODE_ENV;
+const mutableEnv = process.env as NodeJS.ProcessEnv & { NODE_ENV?: string };
+const savedEnv = mutableEnv.NODE_ENV;
 
 function restoreEnv() {
-  process.env.NODE_ENV = savedEnv;
+  mutableEnv.NODE_ENV = savedEnv;
 }
 
 // --- sanitizeOpenAIParams ---
@@ -42,7 +43,7 @@ assert.equal((prepared as any).temperature, undefined, "prepareOpenAIBody must s
 assert.equal((prepared as any).max_completion_tokens, 128, "prepareOpenAIBody must keep max_completion_tokens");
 
 // --- assertNoForbiddenParams (dev-only): when NODE_ENV=development, throws ---
-process.env.NODE_ENV = "development";
+mutableEnv.NODE_ENV = "development";
 try {
   assertNoForbiddenParams({ model: "gpt-5", temperature: 0.7 });
   assert.fail("assertNoForbiddenParams must throw in dev when temperature present");
@@ -55,7 +56,7 @@ try {
 restoreEnv();
 
 // --- assertNoForbiddenParams: no throw when clean ---
-process.env.NODE_ENV = "development";
+mutableEnv.NODE_ENV = "development";
 assert.doesNotThrow(() => assertNoForbiddenParams({ model: "gpt-5", max_completion_tokens: 100 }));
 restoreEnv();
 
