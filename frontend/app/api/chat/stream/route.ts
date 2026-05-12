@@ -494,8 +494,20 @@ export async function POST(req: NextRequest) {
           mayAnalyze = pasteSource || linkedWithDeckCards || threadBackedDeck || authForPrompt;
         }
       }
-      streamInjected = mayAnalyze ? "analyze" : activeDeckContext.askReason === "confirm_inference" ? "confirm" : activeDeckContext.askReason === "need_commander" ? "ask_commander" : "none";
-      streamDecisionReason = mayAnalyze ? "commander_confirmed_or_linked" : activeDeckContext.askReason === "confirm_inference" ? "paste_inferred_ask_confirm" : activeDeckContext.askReason === "need_commander" ? "commander_unknown_ask" : null;
+      streamInjected = mayAnalyze
+        ? "analyze"
+        : commanderLayersOn && activeDeckContext.askReason === "confirm_inference"
+          ? "confirm"
+          : commanderLayersOn && activeDeckContext.askReason === "need_commander"
+            ? "ask_commander"
+            : "none";
+      streamDecisionReason = mayAnalyze
+        ? "commander_confirmed_or_linked"
+        : commanderLayersOn && activeDeckContext.askReason === "confirm_inference"
+          ? "paste_inferred_ask_confirm"
+          : commanderLayersOn && activeDeckContext.askReason === "need_commander"
+            ? "commander_unknown_ask"
+            : null;
 
       // Invariant layer: normalize so impossible state combinations cannot slip through
       const { normalizeCommanderDecisionState } = await import("@/lib/chat/normalize-commander-decision");

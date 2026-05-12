@@ -58,6 +58,18 @@ assert.equal(textLegacy.supportEntry?.key, "legacy");
 assert.equal(formatKeyForChatPromptLayers(textLegacy), "generic");
 assert.equal(chatResolvedFormatUsesCommanderLayers(textLegacy), false);
 
+const textVintage = resolveChatFormat({ userText: "analyse this vintage deck\n1 Black Lotus" });
+assert.equal(textVintage.canonical, null);
+assert.equal(textVintage.supportEntry?.key, "vintage");
+assert.equal(formatKeyForChatPromptLayers(textVintage), "generic");
+assert.equal(chatResolvedFormatUsesCommanderLayers(textVintage), false);
+
+const textBrawl = resolveChatFormat({ userText: "analyse this brawl deck\n1 Kellan, Inquisitive Prodigy" });
+assert.equal(textBrawl.canonical, null);
+assert.equal(textBrawl.supportEntry?.key, "brawl");
+assert.equal(formatKeyForChatPromptLayers(textBrawl), "generic");
+assert.equal(chatResolvedFormatUsesCommanderLayers(textBrawl), false);
+
 console.log("[chat-format-resolution] unknown explicit format stays generic, but bad prefs do not block a linked deck");
 const unknownOnly = resolveChatFormat({ prefsFormat: "Whatever Casual" });
 assert.equal(unknownOnly.canonical, null);
