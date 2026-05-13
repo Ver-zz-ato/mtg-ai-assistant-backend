@@ -10,6 +10,7 @@ export const APP_FEATURE_PAGE_LABELS: Record<string, string> = {
   app_deck_analyze: "Analyze deck",
   app_compare_ai: "Deck compare (AI)",
   app_scan_ai_fallback: "Scan — AI image fallback",
+  app_scan_ai_improve: "Scan - Improve with AI",
   app_mulligan_advice: "Mulligan advice",
   app_budget_swaps: "Budget swaps",
   app_generate_from_collection: "Generate from collection",

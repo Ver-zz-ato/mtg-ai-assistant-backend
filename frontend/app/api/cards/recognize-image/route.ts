@@ -8,26 +8,47 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
 import { createClient } from "@/lib/supabase/server";
 import { cleanCardName, stringSimilarity } from "@/lib/deck/cleanCardName";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { recordAiUsage } from "@/lib/ai/log-usage";
 import { costUSD } from "@/lib/ai/pricing";
+import { SCAN_AI_FREE, SCAN_AI_GUEST, SCAN_AI_PRO } from "@/lib/feature-limits";
+import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
+import { getGuestToken } from "@/lib/api/get-guest-token";
+import { hashGuestToken, hashString } from "@/lib/guest-tracking";
+import {
+  canAutoAddScannerRecognition,
+  inferScannerEvidence,
+  normalizeScannerText,
+  scannerConfidenceScore,
+  type ScannerConfidence,
+  type ScannerContextPayload,
+  type ScannerEvidence,
+} from "@/lib/scanner/recognition";
 
 export const runtime = "nodejs";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB
 const SUPPORTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MODEL = process.env.MODEL_SCAN_RECOGNIZE || DEFAULT_FALLBACK_MODEL;
+const PRO_MODEL = process.env.MODEL_SCAN_RECOGNIZE_PRO || process.env.MODEL_SCAN_RECOGNIZE || DEFAULT_PRO_DECK_MODEL;
 const TIMEOUT_MS = 20000;
+const ROUTE_PATH = "/api/cards/recognize-image";
+const DEFAULT_SOURCE_PAGE = "app_scan_ai_fallback";
 
-type ScanContextPayload = {
+type ScanContextPayload = ScannerContextPayload & {
   normalizedOcrText?: string;
   ocrCandidates?: string[];
   fuzzyMatches?: Array<{ name: string; score?: number }>;
   aiTriggerReason?: string;
 };
+
+type AssistMode = "fallback" | "improve";
+type UserTier = "guest" | "free" | "pro";
+type RecognitionEvidence = ScannerEvidence;
 
 function norm(s: string) {
   return String(s || "")
@@ -178,6 +199,60 @@ function parseAiResponse(text: string): {
   }
 }
 
+function trimFormString(formData: FormData, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const raw = formData.get(key);
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+  }
+  return null;
+}
+
+function parseAssistMode(raw: string | null): AssistMode {
+  return raw?.toLowerCase() === "improve" ? "improve" : "fallback";
+}
+
+function getIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  return forwarded ? forwarded.split(",")[0]?.trim() || "unknown" : req.headers.get("x-real-ip") || "unknown";
+}
+
+function isSupabaseAnonymousUser(user: unknown): boolean {
+  return Boolean((user as { is_anonymous?: unknown } | null)?.is_anonymous === true);
+}
+
+function confidenceScore(confidence: ScannerConfidence): number {
+  return scannerConfidenceScore(confidence);
+}
+
+function contextAgreesWithName(ctx: ScanContextPayload | null, name: string): boolean {
+  const target = norm(name);
+  if (!target) return false;
+  if (ctx?.fuzzyMatches?.some((m) => norm(m.name) === target)) return true;
+  if (ctx?.ocrCandidates?.some((c) => norm(c) === target || target.includes(norm(c)) || norm(c).includes(target))) {
+    return true;
+  }
+  const ocr = norm(ctx?.normalizedOcrText || "");
+  return Boolean(ocr && (ocr.includes(target) || target.includes(ocr)));
+}
+
+function inferEvidence(params: {
+  parsedReason: string;
+  ctx: ScanContextPayload | null;
+  validatedName: string;
+  validationSource: string;
+}): RecognitionEvidence {
+  return inferScannerEvidence(params);
+}
+
+function canAutoAddRecognition(params: {
+  confidence: ScannerConfidence;
+  validationSource: string;
+  ctx: ScanContextPayload | null;
+  validatedName: string;
+}): boolean {
+  return canAutoAddScannerRecognition(params);
+}
+
 function adjustConfidence(
   model: "high" | "medium" | "low",
   triggerReason: string | undefined,
@@ -238,8 +313,17 @@ export async function POST(req: NextRequest) {
         typeof fdUsage === "string" ? fdUsage : typeof fdUsageSnake === "string" ? fdUsageSnake : undefined,
     };
     const usageSource = resolveAiUsageSourceForRequest(req, usageSourceBody, null);
+    const sourceScreen = trimFormString(formData, "sourceScreen", "source_screen");
+    const scanSessionId = trimFormString(formData, "scanSessionId", "scan_session_id");
+    const scanAttemptId = trimFormString(formData, "scanAttemptId", "scan_attempt_id");
+    const assistMode = parseAssistMode(trimFormString(formData, "assistMode", "assist_mode"));
     const sourcePageRaw = formData.get("sourcePage") ?? formData.get("source_page");
-    const sourcePage = typeof sourcePageRaw === "string" && sourcePageRaw.trim() ? sourcePageRaw.trim() : null;
+    const sourcePage =
+      typeof sourcePageRaw === "string" && sourcePageRaw.trim()
+        ? sourcePageRaw.trim()
+        : assistMode === "improve"
+          ? "app_scan_ai_improve"
+          : DEFAULT_SOURCE_PAGE;
 
     let scanContext: ScanContextPayload | null = null;
     const rawCtx = formData.get("scanContext") ?? formData.get("scan_context");
@@ -265,9 +349,80 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "image_too_large" }, { status: 400 });
     }
     const mime = (blob.type?.toLowerCase() || "image/jpeg").trim();
-    const allowed = SUPPORTED_TYPES.includes(mime) || mime.startsWith("image/");
+    const allowed = SUPPORTED_TYPES.includes(mime);
     if (!allowed) {
       return NextResponse.json({ ok: false, error: "unsupported_format" }, { status: 400 });
+    }
+
+    const { supabase, user } = await getUserAndSupabase(req);
+    const isAnonymousUser = isSupabaseAnonymousUser(user);
+    const realUserId = user && !isAnonymousUser ? user.id : null;
+    let isPro = false;
+    if (realUserId) {
+      const { checkProStatus } = await import("@/lib/server-pro-check");
+      isPro = await checkProStatus(realUserId);
+    }
+    const userTier: UserTier = realUserId ? (isPro ? "pro" : "free") : "guest";
+    const dailyLimit = userTier === "pro" ? SCAN_AI_PRO : userTier === "free" ? SCAN_AI_FREE : SCAN_AI_GUEST;
+
+    if (assistMode === "improve" && !isPro) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "PRO_REQUIRED",
+          error: "Improve with AI is a Pro feature.",
+          tier: userTier,
+          limit: dailyLimit,
+          remaining: 0,
+          resetAt: null,
+          proRequired: true,
+        },
+        { status: 403 }
+      );
+    }
+
+    const { guestToken } = await getGuestToken(req);
+    const ip = getIp(req);
+    const keyHash = realUserId
+      ? `user:${await hashString(realUserId)}`
+      : guestToken
+        ? `guest:${await hashGuestToken(guestToken)}`
+        : isAnonymousUser && user?.id
+          ? `guest:${await hashString(`anonymous-user:${user.id}`)}`
+          : `ip:${await hashString(ip)}`;
+    const rateLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "RATE_LIMIT_DAILY",
+          error: "Daily scanner AI limit reached. Try again tomorrow.",
+          tier: userTier,
+          limit: rateLimit.limit,
+          remaining: rateLimit.remaining,
+          resetAt: rateLimit.resetAt ?? null,
+          requiresAuth: userTier === "guest",
+        },
+        { status: 429 }
+      );
+    }
+
+    const { allowAIRequest } = await import("@/lib/server/budgetEnforcement");
+    const budgetCheck = await allowAIRequest(supabase);
+    if (!budgetCheck.allow) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "BUDGET_LIMIT",
+          error: budgetCheck.reason || "Server AI budget limit reached. Try again later.",
+          tier: userTier,
+          limit: rateLimit.limit,
+          remaining: rateLimit.remaining,
+          resetAt: rateLimit.resetAt ?? null,
+          requiresAuth: userTier === "guest",
+        },
+        { status: 429 }
+      );
     }
 
     const buf = await blob.arrayBuffer();
@@ -278,8 +433,9 @@ export async function POST(req: NextRequest) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
+    const model = isPro || assistMode === "improve" ? PRO_MODEL : MODEL;
     const body = prepareOpenAIBody({
-      model: MODEL,
+      model,
       max_completion_tokens: 320,
       messages: [
         { role: "system", content: "You return only valid JSON. No markdown fences, no extra text." },
@@ -312,20 +468,29 @@ export async function POST(req: NextRequest) {
     const usage = json?.usage ?? {};
     const inputTokens = usage.prompt_tokens ?? 0;
     const outputTokens = usage.completion_tokens ?? 0;
-    const cost = costUSD(MODEL, inputTokens, outputTokens);
+    const cost = costUSD(model, inputTokens, outputTokens);
 
     recordAiUsage({
-      user_id: null,
-      model: MODEL,
+      user_id: realUserId,
+      anon_id: realUserId ? null : keyHash,
+      model,
       input_tokens: inputTokens,
       output_tokens: outputTokens,
       cost_usd: cost,
       route: "scan_recognize_image",
       source_page: sourcePage,
       source: usageSource ?? undefined,
-      prompt_preview: scanContext ? "card recognition vision+context" : "card recognition vision",
+      prompt_preview:
+        `scan_session_id=${scanSessionId || ""}; scan_attempt_id=${scanAttemptId || ""}; source_screen=${sourceScreen || ""}; assist_mode=${assistMode}; ` +
+        (scanContext ? "card recognition vision+context" : "card recognition vision"),
       response_preview: content?.slice(0, 200) ?? null,
       latency_ms: Date.now() - t0,
+      user_tier: userTier,
+      is_guest: userTier === "guest",
+      scanner_session_id: scanSessionId,
+      scanner_attempt_id: scanAttemptId,
+      source_screen: sourceScreen,
+      assist_mode: assistMode,
     }).catch(() => {});
 
     if (!res.ok) {
@@ -340,7 +505,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const supabase = await createClient();
     const origin = new URL(req.url).origin;
     const primaryRes = await fuzzyValidate(parsed.primary, supabase, origin);
     const altResults = await Promise.all(parsed.alternatives.slice(0, 3).map((a) => fuzzyValidate(a, supabase, origin)));
@@ -373,20 +537,44 @@ export async function POST(req: NextRequest) {
     );
 
     const validationSource = primaryRes.source ?? "unknown";
+    const canAutoAdd = canAutoAddRecognition({
+      confidence: finalConfidence,
+      validationSource,
+      ctx: scanContext,
+      validatedName: bestValidated,
+    });
+    const evidence = inferEvidence({
+      parsedReason: parsed.reason,
+      ctx: scanContext,
+      validatedName: bestValidated,
+      validationSource,
+    });
 
     return NextResponse.json({
       ok: true,
       recognition: {
         source: "ai_vision",
+        assist_mode: assistMode,
         guessed_name: parsed.primary,
         validated_name: bestValidated,
         confidence: finalConfidence,
+        confidence_score: confidenceScore(finalConfidence),
         reason: parsed.reason,
         alternatives: mergedAlts,
         validation_source: validationSource,
+        evidence,
+        requires_confirmation: !canAutoAdd,
+        can_auto_add: canAutoAdd,
         ai_trigger_reason: scanContext?.aiTriggerReason,
         top_fuzzy_name_before: topFuzzyNameFromClient,
+        scan_session_id: scanSessionId,
+        scan_attempt_id: scanAttemptId,
+        source_screen: sourceScreen,
       },
+      tier: userTier,
+      limit: rateLimit.limit,
+      remaining: rateLimit.remaining,
+      resetAt: rateLimit.resetAt ?? null,
     });
   } catch (e: unknown) {
     if (e instanceof Error && e.name === "AbortError") {

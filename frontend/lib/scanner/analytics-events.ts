@@ -1,0 +1,18 @@
+export const SCAN_EVENTS = [
+  "scan_card_screen_viewed",
+  "scan_card_capture_completed",
+  "scan_card_ocr_completed",
+  "scan_card_match_completed",
+  "scan_card_match_failed",
+  "scan_card_result_selected",
+  "scan_card_add_initiated",
+  "scan_card_add_completed",
+  "scan_card_direct_search_used",
+  "scan_ai_fallback_started",
+  "scan_ai_fallback_success",
+  "scan_ai_fallback_failed",
+  "scan_ai_assist_blocked",
+  "scan_ai_improve_clicked",
+  "scan_ai_improve_blocked",
+  "scan_ai_improve_success",
+] as const;

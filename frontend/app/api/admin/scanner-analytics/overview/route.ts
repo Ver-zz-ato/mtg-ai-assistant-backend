@@ -2,25 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { getPosthogQueryCredentials, posthogHogql } from "@/lib/server/posthog-hogql";
+import { SCAN_EVENTS } from "@/lib/scanner/analytics-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const SCAN_EVENTS = [
-  "scan_card_screen_viewed",
-  "scan_card_capture_completed",
-  "scan_card_ocr_completed",
-  "scan_card_match_completed",
-  "scan_card_match_failed",
-  "scan_card_result_selected",
-  "scan_card_add_initiated",
-  "scan_card_add_completed",
-  "scan_card_direct_search_used",
-  "scan_ai_fallback_started",
-  "scan_ai_fallback_success",
-  "scan_ai_fallback_failed",
-  "scan_ai_assist_blocked",
-] as const;
 
 function sqlIntDays(raw: string | null): number {
   const n = parseInt(raw || "7", 10);
@@ -70,7 +55,11 @@ export async function GET(req: NextRequest) {
     const intervalClause = `now() - INTERVAL ${days} DAY`;
 
     const qEventTotals = `
-      SELECT event, count() AS c
+      SELECT
+        event,
+        count() AS c,
+        uniqIf(toString(properties.scan_session_id), properties.scan_session_id IS NOT NULL AND toString(properties.scan_session_id) != '') AS sessions,
+        uniqIf(toString(properties.scan_attempt_id), properties.scan_attempt_id IS NOT NULL AND toString(properties.scan_attempt_id) != '') AS attempts
       FROM events
       WHERE event IN (${eventListInClause()})
         AND timestamp >= ${intervalClause}
@@ -86,10 +75,11 @@ export async function GET(req: NextRequest) {
         countIf(properties.match_source = 'ai') AS match_ai,
         countIf(properties.match_source = 'ocr') AS match_ocr,
         countIf(properties.match_source = 'direct_search') AS match_direct_search,
+        countIf(properties.match_source = 'ai_improve') AS match_ai_improve,
         countIf(
           properties.match_source IS NOT NULL
           AND properties.match_source != ''
-          AND properties.match_source NOT IN ('ai', 'ocr', 'direct_search')
+          AND properties.match_source NOT IN ('ai', 'ocr', 'direct_search', 'ai_improve')
         ) AS match_other,
         countIf(isNull(properties.match_source) OR toString(properties.match_source) = '') AS match_unset,
         countIf(properties.auto_add_enabled = true) AS auto_add_true,
@@ -115,6 +105,18 @@ export async function GET(req: NextRequest) {
         count() AS c
       FROM events
       WHERE event = 'scan_card_add_initiated'
+        AND timestamp >= ${intervalClause}
+      GROUP BY ${label}
+      ORDER BY c DESC
+      LIMIT 50
+    `;
+
+    const qByEventDimension = (event: string, prop: string, label: string) => `
+      SELECT
+        ifNull(nullIf(toString(properties.${prop}), ''), '(unset)') AS ${label},
+        count() AS c
+      FROM events
+      WHERE event = '${event}'
         AND timestamp >= ${intervalClause}
       GROUP BY ${label}
       ORDER BY c DESC
@@ -187,6 +189,8 @@ export async function GET(req: NextRequest) {
       rNameRes,
       rMatchSrc,
       rConfirmMethod,
+      rSourceScreen,
+      rAssistMode,
       rAiBlocked,
       rFfAgg,
       rFfErr,
@@ -198,6 +202,8 @@ export async function GET(req: NextRequest) {
       posthogHogql(qByDimension("name_resolution", "dim")),
       posthogHogql(qByDimension("match_source", "dim")),
       posthogHogql(qByDimension("add_confirm_method", "dim")),
+      posthogHogql(qByDimension("source_screen", "dim")),
+      posthogHogql(qByEventDimension("scan_ai_fallback_started", "assist_mode", "dim")),
       posthogHogql(qAiBlockedByReason),
       posthogHogql(qFallbackFailed),
       posthogHogql(qFallbackFailedErrors),
@@ -206,9 +212,13 @@ export async function GET(req: NextRequest) {
     ]);
 
     const eventCounts: Record<string, number> = {};
+    const eventSessions: Record<string, number> = {};
+    const eventAttempts: Record<string, number> = {};
     for (const row of rEvents.results) {
       const ev = String(row[0] ?? "");
       eventCounts[ev] = Number(row[1] ?? 0);
+      eventSessions[ev] = Number(row[2] ?? 0);
+      eventAttempts[ev] = Number(row[3] ?? 0);
     }
 
     const rollupCols = rAddRollup.columns;
@@ -313,6 +323,7 @@ export async function GET(req: NextRequest) {
           name_canonical: nameCanonical,
           name_fail_open: nameFailOpen,
           match_ai: pickRollup("match_ai"),
+          match_ai_improve: pickRollup("match_ai_improve"),
           match_ocr: pickRollup("match_ocr"),
           match_direct_search: pickRollup("match_direct_search"),
           match_other: pickRollup("match_other"),
@@ -328,12 +339,15 @@ export async function GET(req: NextRequest) {
           confirm_unset: pickRollup("confirm_unset"),
         },
         event_counts: eventCounts,
+        event_sessions: eventSessions,
+        event_attempts: eventAttempts,
       },
       funnel: funnelWithPct,
       quality: {
         by_name_resolution: toBreakdown(rNameRes),
         by_match_source: toBreakdown(rMatchSrc),
         by_add_confirm_method: toBreakdown(rConfirmMethod),
+        by_source_screen: toBreakdown(rSourceScreen),
       },
       aiAssist: {
         blocked_total: eventCounts.scan_ai_assist_blocked ?? 0,
@@ -341,6 +355,10 @@ export async function GET(req: NextRequest) {
         fallback_started: eventCounts.scan_ai_fallback_started ?? 0,
         fallback_success: eventCounts.scan_ai_fallback_success ?? 0,
         fallback_failed: eventCounts.scan_ai_fallback_failed ?? 0,
+        improve_clicked: eventCounts.scan_ai_improve_clicked ?? 0,
+        improve_blocked: eventCounts.scan_ai_improve_blocked ?? 0,
+        improve_success: eventCounts.scan_ai_improve_success ?? 0,
+        fallback_by_assist_mode: toBreakdown(rAssistMode),
         fallback_failed_agg: {
           total: Number(ffAgg.total ?? 0),
           is_network_true: Number(ffAgg.is_network_true ?? 0),

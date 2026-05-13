@@ -23,12 +23,15 @@ type OverviewPayload = {
     match_source_unset_count: number;
     add_initiated_rollups: Record<string, number>;
     event_counts: Record<string, number>;
+    event_sessions?: Record<string, number>;
+    event_attempts?: Record<string, number>;
   };
   funnel?: Array<{ id: string; label: string; count: number; pct_of_first: number | null }>;
   quality?: {
     by_name_resolution: Record<string, number>;
     by_match_source: Record<string, number>;
     by_add_confirm_method: Record<string, number>;
+    by_source_screen?: Record<string, number>;
   };
   aiAssist?: {
     blocked_total: number;
@@ -36,6 +39,10 @@ type OverviewPayload = {
     fallback_started: number;
     fallback_success: number;
     fallback_failed: number;
+    improve_clicked?: number;
+    improve_blocked?: number;
+    improve_success?: number;
+    fallback_by_assist_mode?: Record<string, number>;
     fallback_failed_agg: { total: number; is_network_true: number; is_network_other: number };
     fallback_failed_top_errors: { error: string; count: number }[];
   };
@@ -320,6 +327,7 @@ export default function AdminAppScannerPage() {
               title="Add initiated × add_confirm_method"
               rows={sortEntries(data?.quality?.by_add_confirm_method)}
             />
+            <BreakdownTable title="Add initiated x source_screen" rows={sortEntries(data?.quality?.by_source_screen)} />
           </section>
 
           <section className="rounded-lg border border-neutral-800 p-4 space-y-4">
@@ -329,6 +337,9 @@ export default function AdminAppScannerPage() {
               <Tile label="Fallback started" value={data?.aiAssist?.fallback_started ?? 0} />
               <Tile label="Fallback success" value={data?.aiAssist?.fallback_success ?? 0} />
               <Tile label="Fallback failed" value={data?.aiAssist?.fallback_failed ?? 0} />
+              <Tile label="Improve clicked" value={data?.aiAssist?.improve_clicked ?? 0} />
+              <Tile label="Improve blocked" value={data?.aiAssist?.improve_blocked ?? 0} />
+              <Tile label="Improve success" value={data?.aiAssist?.improve_success ?? 0} />
             </div>
             {data?.aiAssist?.blocked_by_reason && Object.keys(data.aiAssist.blocked_by_reason).length > 0 && (
               <BreakdownTable title="Blocked × reason" rows={sortEntries(data.aiAssist.blocked_by_reason)} />

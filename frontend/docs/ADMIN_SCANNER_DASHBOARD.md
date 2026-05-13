@@ -29,6 +29,7 @@ If keys are missing, the API returns `ok: false`, `error: posthog_not_configured
 | `app/api/admin/scanner-analytics/overview/route.ts` | Aggregations |
 | `app/admin/app-scanner/page.tsx` | Dashboard |
 | `app/admin/JustForDavy/page.tsx` | Nav link under **Mobile & Client Control** |
+| `db/migrations/058_ai_usage_scanner_metadata.sql` | `ai_usage` scanner join metadata |
 
 ## Metrics (summary)
 
@@ -38,6 +39,15 @@ If keys are missing, the API returns `ok: false`, `error: posthog_not_configured
 - **AI Assist:** blocked by reason; fallback started / success / failed; `is_network` on failures; top error strings.
 - **Auto-add:** canonical vs fail-open rates by `auto_add_enabled`.
 - **Persist labeling:** `will_persist_to_supabase` breakdown — **false** includes new-deck intent without DB write; do not equate add initiated with persisted adds.
+
+Additional scanner contract:
+
+- Newer events should send `scan_session_id`, `scan_attempt_id`, and `source_screen` so the dashboard can count unique scan sessions/attempts and break adds down by surface.
+- Free scanner path: OCR/fuzzy scan, manual correction, and limited AI fallback.
+- Pro scanner path: the app can show an **Improve with AI** action and call `/api/cards/recognize-image` with `assistMode=improve`.
+- Non-Pro `assistMode=improve` calls return `PRO_REQUIRED` with `tier`, `limit`, `remaining`, and `resetAt`.
+- `/api/cards/recognize-image` only accepts JPEG, PNG, or WebP up to 5MB.
+- Recognition responses include `confidence_score`, `evidence`, `requires_confirmation`, and `can_auto_add`; the app should only auto-add when `can_auto_add=true`.
 
 Older builds may omit properties; breakdowns show `(unset)` and overview rates exclude unknown splits where noted on the page.
 

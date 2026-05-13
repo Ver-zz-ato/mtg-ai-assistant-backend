@@ -90,6 +90,11 @@ export type RecordAiUsagePayload = {
   eval_run_id?: string | null;
   /** ai_test, ai_test_judge, production, etc. */
   source?: string | null;
+  /** Mobile scanner correlation fields for joining PostHog scan events to AI cost rows. */
+  scanner_session_id?: string | null;
+  scanner_attempt_id?: string | null;
+  source_screen?: string | null;
+  assist_mode?: string | null;
 };
 
 export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void> {
@@ -149,6 +154,10 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       source_page: payload.source_page ?? null,
       eval_run_id: payload.eval_run_id ?? null,
       source: payload.source ?? null,
+      scanner_session_id: payload.scanner_session_id ?? null,
+      scanner_attempt_id: payload.scanner_attempt_id ?? null,
+      source_screen: payload.source_screen ?? null,
+      assist_mode: payload.assist_mode ?? null,
     };
 
     const withoutPreviews = {
@@ -194,6 +203,10 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       source_page: full.source_page,
       eval_run_id: full.eval_run_id,
       source: full.source,
+      scanner_session_id: full.scanner_session_id,
+      scanner_attempt_id: full.scanner_attempt_id,
+      source_screen: full.source_screen,
+      assist_mode: full.assist_mode,
     };
 
     const minimal: Record<string, unknown> = {
