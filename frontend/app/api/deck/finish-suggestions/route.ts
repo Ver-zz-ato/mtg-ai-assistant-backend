@@ -30,6 +30,7 @@ import {
   resolveFinishAnalyzeFormat,
   truncateDeckTextForPrompt,
 } from "@/lib/deck/finish-suggestions-core";
+import { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } from "@/lib/collections/ownership-context";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const FINISH_COMPLETION_TOKENS = 4096;
@@ -189,6 +190,7 @@ export async function POST(req: Request) {
   let deckAim: string | null = null;
   let deckPlan: string | null = null;
   let deckRowFormat: string | null = null;
+  let deckCardsForOwnership: Array<{ name?: string | null; qty?: number | null }> | null = null;
 
   if (body.deckId) {
     const { data: deckRow, error: deckErr } = await supabase
@@ -218,6 +220,7 @@ export async function POST(req: Request) {
       .select("name, qty, zone")
       .eq("deck_id", body.deckId)
       .limit(400);
+    deckCardsForOwnership = cardRows as Array<{ name?: string | null; qty?: number | null }> | null;
 
     if (cardRows?.length) {
       deckText = rowsToDeckTextForAnalysis(
@@ -251,6 +254,14 @@ export async function POST(req: Request) {
   const { text: promptDeckText, truncated } = truncateDeckTextForPrompt(deckText, MAX_DECK_ANALYZE_DECK_TEXT_CHARS);
   if (truncated) warnings.push("Decklist was truncated for AI context length.");
 
+  const ownershipContext = await buildOwnershipContextForUserDeck({
+    supabase,
+    userId: user?.id,
+    deckCards: deckCardsForOwnership ?? entries.map((e) => ({ name: e.name, qty: e.count })),
+    sampleLimit: 24,
+  });
+  const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
+
   const rules = getFormatRules(analyzeFormat);
   const budgetTone =
     body.budget === "budget" ? "Prefer budget staples and lower mana bases where reasonable." :
@@ -266,6 +277,7 @@ export async function POST(req: Request) {
       : `Constructed: mainboard targets ${rules.mainDeckTarget} cards; max ${rules.maxCopies} copies per card except basic lands.`,
     `Suggest cards that are NOT already redundant at copy limit given the existing list.`,
     budgetTone,
+    "When USER COLLECTION CONTEXT is present, prefer owned close-fit cards first and label those reasons with 'Owned'. Separate true purchases from owned placeholders.",
     "Only suggest realistic, playable cards that fit the deck's apparent strategy.",
     "Use English card names as printed on the English oracle.",
     `Limit suggestions array length to at most ${maxSuggestions}.`,
@@ -281,6 +293,7 @@ export async function POST(req: Request) {
     resolvedColors.length ? `Color context (hints): ${resolvedColors.join(", ")}` : "",
     deckAim ? `Deck aim: ${deckAim}` : "",
     deckPlan ? `Plan/style: ${deckPlan}` : "",
+    ownershipPrompt,
     `Return strictly JSON with key "suggestions" only.`,
   ].filter(Boolean);
 

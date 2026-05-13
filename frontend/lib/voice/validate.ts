@@ -29,15 +29,50 @@ export interface ValidateContext {
   selfPlayerId?: string;
 }
 
+function normalizeToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function playerOrdinalLabel(index: number): string {
+  return `player ${index + 1}`;
+}
+
+function resolveCounter(counter: unknown): string | null {
+  if (typeof counter !== "string") return null;
+  const normalized = normalizeToken(counter);
+  if (normalized === "toxic" || normalized === "toxicity") return "poison";
+  return ALLOWED_COUNTERS.find((allowed) => allowed === normalized) ?? null;
+}
+
 /** Resolve target string to player id. Returns original if no match. */
 function resolveTarget(target: string, ctx?: ValidateContext): string {
   if (!ctx?.players?.length) return target;
   const t = String(target).toLowerCase().trim();
+  const normalizedTarget = normalizeToken(t);
   if (t === "me" || t === "my" || t === "self") return ctx.selfPlayerId ?? target;
-  const byName = ctx.players.find((p) => p.name.toLowerCase() === t);
-  if (byName) return byName.id;
   const byId = ctx.players.find((p) => p.id === target);
   if (byId) return byId.id;
+
+  const exactMatch = ctx.players.find((p, index) => {
+    return (
+      p.name.toLowerCase() === t ||
+      p.id.toLowerCase() === t ||
+      playerOrdinalLabel(index) === t ||
+      `player${index + 1}` === normalizedTarget ||
+      `${index + 1}` === normalizedTarget
+    );
+  });
+  if (exactMatch) return exactMatch.id;
+
+  if (normalizedTarget.length >= 3) {
+    const fuzzyMatches = ctx.players.filter((p) => {
+      const normalizedName = normalizeToken(p.name);
+      const normalizedId = normalizeToken(p.id);
+      return normalizedName.startsWith(normalizedTarget) || normalizedId.startsWith(normalizedTarget);
+    });
+    if (fuzzyMatches.length === 1) return fuzzyMatches[0].id;
+  }
+
   return target;
 }
 
@@ -85,9 +120,7 @@ export function validateActions(
       }
       case "set_counter":
       case "adjust_counter": {
-        const counter = typeof obj.counter === "string" && ALLOWED_COUNTERS.includes(obj.counter)
-          ? obj.counter
-          : null;
+        const counter = resolveCounter(obj.counter);
         if (!counter) break;
 
         if (action === "set_counter") {

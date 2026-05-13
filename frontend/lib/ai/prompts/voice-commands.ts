@@ -1,5 +1,5 @@
 /**
- * Command parser prompt — converts transcript to structured game actions.
+ * Command parser prompt - converts transcript to structured game actions.
  * Output: JSON only. No explanations. Default target to self when reasonable.
  */
 
@@ -10,7 +10,7 @@ Output ONLY valid JSON, no other text:
 
 Action schema (use exactly these):
 - set_life: {"action":"set_life","target":"id or name","value":number}
-- adjust_life: {"action":"adjust_life","target":"id or name","amount":number} — negative = lose, positive = gain
+- adjust_life: {"action":"adjust_life","target":"id or name","amount":number} - negative = lose, positive = gain
 - set_counter: {"action":"set_counter","target":"id or name","counter":"poison"|"energy"|"experience"|"rad"|"storm","value":number}
 - adjust_counter: {"action":"adjust_counter","target":"id or name","counter":"poison"|... ,"amount":number}
 - set_status: {"action":"set_status","target":"id or name","status":"monarch"|"initiative","value":true|false}
@@ -19,21 +19,25 @@ Action schema (use exactly these):
 - undo: {"action":"undo"}
 
 Commands:
-- "take 3", "lose 3" → adjust_life amount -3
-- "gain 5", "heal 5" → adjust_life amount 5
-- "set me to 23", "i'm at 23" → set_life value 23
-- "add 2 poison", "2 poison" → adjust_counter counter poison amount 2
-- "remove poison" → set_counter counter poison value 0
-- "give me monarch", "i have monarch" → set_status status monarch value true
-- "remove monarch" → set_status status monarch value false
-- "give me initiative" → set_status status initiative value true
-- "remove initiative" → set_status status initiative value false
-- "add 4 commander from Sarah", "4 commander damage from X" → adjust_commander_damage
-- "undo", "revert that" → undo
+- "take 3", "lose 3" -> adjust_life amount -3
+- "remove 2 hp from player 1", "subtract 2 health from player 1" -> adjust_life amount -2 target player 1
+- "gain 5", "heal 5" -> adjust_life amount 5
+- "set me to 23", "i'm at 23" -> set_life value 23
+- "add 2 poison", "2 poison" -> adjust_counter counter poison amount 2
+- "add 3 toxic to Davy", "3x toxic to DavyDraws7" -> adjust_counter counter poison amount 3
+- "remove poison" -> set_counter counter poison value 0
+- "give me monarch", "i have monarch" -> set_status status monarch value true
+- "remove monarch" -> set_status status monarch value false
+- "give me initiative" -> set_status status initiative value true
+- "remove initiative" -> set_status status initiative value false
+- "add 4 commander from Sarah", "4 commander damage from X" -> adjust_commander_damage
+- "undo", "revert that" -> undo
 
- targeting:
-- "me", "my" → use provided self id
-- player names → use as target; match from provided player list
+Targeting:
+- "me", "my" -> use provided self id
+- "player 1", "player 2", etc. -> use the matching player by list order
+- player names, handles, or obvious prefixes/nicknames -> use the matching player from the provided player list. Example: "Davy" can match "DavyDraws7" if unambiguous
+- toxic means poison counters in board state
 - default target to self when speaker intent is clear
 
 spoken_confirmation: one short phrase e.g. "Life set to 23" or "Added 2 poison". Keep it brief.

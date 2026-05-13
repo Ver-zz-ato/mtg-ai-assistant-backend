@@ -6,6 +6,7 @@
 import { VOICE_COMMAND_PARSER_PROMPT } from "@/lib/ai/prompts/voice-commands";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import type { GameAction } from "./types";
+import { parseLocalGameCommand } from "./local-command-parser";
 import { validateActions } from "./validate";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
@@ -27,6 +28,15 @@ export async function parseCommands(
   apiKey: string,
   ctx?: ParserContext
 ): Promise<CommandParserOutput> {
+  const local = parseLocalGameCommand(transcript, ctx);
+  if (local?.actions.length) {
+    return {
+      mode: "game_action",
+      actions: local.actions,
+      spoken_confirmation: local.spoken_confirmation,
+    };
+  }
+
   const playersJson = ctx?.players?.length
     ? `Players: ${JSON.stringify(ctx.players)}. Self/me: ${ctx.selfPlayerId ?? "unknown"}.`
     : "No player context. Use 'self' or 'me' as target placeholder when speaker means themselves.";

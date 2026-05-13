@@ -14,6 +14,7 @@ import { VOICE_CHAT_SYSTEM_PROMPT } from "@/lib/ai/prompts/voice-chat";
 import { put as putAudio } from "@/lib/voice-audio-store";
 import { classifyIntent } from "@/lib/voice/intent-classifier";
 import { parseCommands } from "@/lib/voice/command-parser";
+import { parseLocalGameCommand } from "@/lib/voice/local-command-parser";
 import { generateClarification } from "@/lib/voice/clarifier";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
@@ -177,37 +178,47 @@ export async function POST(req: NextRequest) {
 
     if (isGameScreen) {
       try {
-        const intent = await classifyIntent(transcript, apiKey);
-        const confidence = intent.confidence ?? 0;
+        const commandContext = {
+          players: context?.players,
+          selfPlayerId: context?.selfPlayerId,
+        };
+        const localCommand = parseLocalGameCommand(transcript, commandContext);
 
-        if (intent.mode === "game_action" && confidence >= 0.7) {
-          const parsed = await parseCommands(transcript, apiKey, {
-            players: context?.players,
-            selfPlayerId: context?.selfPlayerId,
-          });
-          if (parsed.actions.length > 0) {
-            mode = "game_action";
-            actions = parsed.actions;
-            spoken_confirmation = parsed.spoken_confirmation || null;
-            assistant_text = parsed.spoken_confirmation || "Done.";
-          } else {
+        if (localCommand?.actions.length) {
+          mode = "game_action";
+          actions = localCommand.actions;
+          spoken_confirmation = localCommand.spoken_confirmation || null;
+          assistant_text = localCommand.spoken_confirmation || "Done.";
+        } else {
+          const intent = await classifyIntent(transcript, apiKey);
+          const confidence = intent.confidence ?? 0;
+
+          if (intent.mode === "game_action" && confidence >= 0.7) {
+            const parsed = await parseCommands(transcript, apiKey, commandContext);
+            if (parsed.actions.length > 0) {
+              mode = "game_action";
+              actions = parsed.actions;
+              spoken_confirmation = parsed.spoken_confirmation || null;
+              assistant_text = parsed.spoken_confirmation || "Done.";
+            } else {
+              const clar = await generateClarification(transcript, apiKey);
+              mode = "clarify";
+              clarification = clar.clarification;
+              assistant_text = clar.clarification;
+            }
+          } else if (intent.mode === "clarify" || confidence < 0.7) {
             const clar = await generateClarification(transcript, apiKey);
             mode = "clarify";
             clarification = clar.clarification;
             assistant_text = clar.clarification;
-          }
-        } else if (intent.mode === "clarify" || confidence < 0.7) {
-          const clar = await generateClarification(transcript, apiKey);
-          mode = "clarify";
-          clarification = clar.clarification;
-          assistant_text = clar.clarification;
-        } else {
-          // chat
-          if (context?.voiceMode === "commands_only") {
-            assistant_text = "That sounds like a question, not a game action.";
-            mode = "chat";
           } else {
-            // fall through to chat path below
+            // chat
+            if (context?.voiceMode === "commands_only") {
+              assistant_text = "That sounds like a question, not a game action.";
+              mode = "chat";
+            } else {
+              // fall through to chat path below
+            }
           }
         }
       } catch (e) {

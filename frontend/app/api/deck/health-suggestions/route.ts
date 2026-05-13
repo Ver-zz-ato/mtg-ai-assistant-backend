@@ -6,6 +6,7 @@ import { tryDeckFormatStringToAnalyzeFormat } from '@/lib/deck/formatRules';
 import { parseMainboardEntriesForAnalysis } from '@/lib/deck/formatCompliance';
 import { getLimitedSupportNote } from '@/lib/deck/formatSupportMatrix';
 import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
+import { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } from '@/lib/collections/ownership-context';
 
 export const runtime = 'nodejs';
 
@@ -163,6 +164,13 @@ export async function POST(req: NextRequest) {
     }
 
     const deckNormInList = buildDeckNormLookup(deckCards ?? null, String(deck.deck_text || ''), commander, format);
+    const ownershipContext = await buildOwnershipContextForUserDeck({
+      supabase,
+      userId: user.id,
+      deckCards: deckCards as Array<{ name?: string | null; qty?: number | null }> | null,
+      sampleLimit: 20,
+    });
+    const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
 
     // Analyze current deck composition for context
     let compositionContext = '';
@@ -206,6 +214,7 @@ Use this context to make targeted suggestions that fill gaps. For example, if ra
 
     // Generate category-specific prompt
     const categoryPrompts: Record<string, string> = {
+      'owned_upgrades': 'Suggest 5-7 cards from the user collection sample that could be realistic upgrades, role-fillers, or placeholders for this deck. Only use owned cards from USER COLLECTION CONTEXT if there are close fits; otherwise say no strong owned upgrades were found and suggest what role to look for.',
       'mana_base': 'Suggest 5-7 lands or mana fixing cards to improve the mana base for this deck. Focus on lands that produce the deck\'s colors efficiently.',
       'interaction': 'Suggest 5-7 removal spells, counterspells, or interaction cards to improve this deck\'s ability to interact with opponents.',
       'card_draw': 'Suggest 5-7 card draw or card advantage spells to improve this deck\'s ability to draw cards and maintain card advantage.',
@@ -219,7 +228,7 @@ Use this context to make targeted suggestions that fill gaps. For example, if ra
     const alreadyInDeckRule = isCommanderFormat
       ? 'including basic lands, MDFC names, and the commander unless the list shows a distinct 99'
       : 'including basic lands and MDFC names';
-    const fullPrompt = `${prompt}\n\n${deckContext}\n\n**IMPORTANT**: Do not suggest any card that already appears in the decklist above (${alreadyInDeckRule}). We reject in-deck suggestions server-side.`;
+    const fullPrompt = `${prompt}\n\n${deckContext}${ownershipPrompt ? `\n\n${ownershipPrompt}` : ''}\n\n**IMPORTANT**: Do not suggest any card that already appears in the decklist above (${alreadyInDeckRule}). We reject in-deck suggestions server-side.`;
 
     // Get commander's color identity for the prompt
     let colorIdentityHint = '';
@@ -250,6 +259,7 @@ Example:
 2. Sol Ring - Essential mana acceleration
 
 Focus on cards that are: legal in the deck's format, ${isCommanderFormat ? "match the deck's color identity, " : ''}fill the specific role requested, and are commonly played.
+When USER COLLECTION CONTEXT is present, prefer genuinely owned close-fit cards before recommending purchases. If an owned suggestion is only a temporary/budget placeholder, say so briefly.
 Never suggest a card whose English oracle name is already on the user's list (surplus copies are pointless). Prefer novel cards only.
 Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionContext}`;
 

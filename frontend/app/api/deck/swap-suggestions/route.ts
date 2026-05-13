@@ -17,6 +17,7 @@ import {
   isCommanderFormatKey,
   normalizeManatapDeckFormatKey,
 } from "@/lib/format/manatap-deck-format";
+import { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } from "@/lib/collections/ownership-context";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -133,6 +134,7 @@ ${protectedRoleCardsPrompt ? `\n${protectedRoleCardsPrompt}` : ""}
 
 RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences explaining role match).
 Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both are lands that tap for mana based on creatures - same ramp role."}]
+If USER COLLECTION CONTEXT is present, prefer owned replacements from the sample when they are close fits, and mention "Owned" in the reason.
 Quality over quantity. If no good swaps exist, return empty array [].`;
   
   const input = `Format: ${formatTitle}\nCurrency: ${currency}\nThreshold: ${budget}${isCommander && commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
@@ -258,6 +260,13 @@ export async function POST(req: NextRequest) {
     }
 
     const names = parseDeck(deckText);
+    const ownershipContext = await buildOwnershipContextForUserDeck({
+      supabase,
+      userId: user?.id,
+      deckCards: names.map((name) => ({ name, qty: 1 })),
+      sampleLimit: 24,
+    });
+    const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
     const builtinSwaps = await getBudgetSwaps();
     const suggestions: Suggestion[] = [];
 
@@ -311,7 +320,8 @@ export async function POST(req: NextRequest) {
         const guestToken = (await cookies()).get('guest_session_token')?.value;
         if (guestToken) anonId = await hashGuestToken(guestToken);
       }
-      const ai = await aiSuggest(deckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage);
+      const aiDeckText = ownershipPrompt ? `${deckText}\n\n${ownershipPrompt}` : deckText;
+      const ai = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage);
       for (const s of ai) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;
