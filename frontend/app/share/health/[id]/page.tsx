@@ -1,45 +1,14 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import type { Metadata } from "next";
+import { getSharedHealthReport } from "@/app/api/_lib/shared-reports";
 
 export const dynamic = "force-dynamic";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
 const BASE = "https://www.manatap.ai";
-
-type SnapV1 = {
-  title?: string;
-  format?: string;
-  commander?: string | null;
-  free?: {
-    signals?: { id: string; title: string; description: string; level: string }[];
-    tips?: string[];
-  };
-  pro?: {
-    overview?: string;
-    biggestIssues?: string[];
-    priorityFixPlan?: string[];
-    suggestedAdds?: string[];
-    suggestedCuts?: string[];
-  };
-};
-
-async function getShare(id: string) {
-  if (!SUPABASE_URL || !SERVICE_KEY) return null;
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-  const { data } = await admin
-    .from("shared_health_reports")
-    .select("id, snapshot_json, created_at, expires_at")
-    .eq("id", id)
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
-  return data as { id: string; snapshot_json: SnapV1; created_at: string; expires_at: string } | null;
-}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const row = await getShare(id);
+  const row = await getSharedHealthReport(id);
   const snap = row?.snapshot_json;
   const title = snap?.title ? `${snap.title} health report | ManaTap` : "Shared deck health report | ManaTap";
   return {
@@ -52,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function SharedHealthPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = await getShare(id);
+  const row = await getSharedHealthReport(id);
   if (!row?.snapshot_json) notFound();
   const snap = row.snapshot_json;
   const meta = [snap.format, snap.commander].filter(Boolean).join(" · ");

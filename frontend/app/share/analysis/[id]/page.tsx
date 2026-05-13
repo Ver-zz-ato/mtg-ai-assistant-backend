@@ -1,45 +1,10 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import type { Metadata } from "next";
+import { getSharedAnalysisReport } from "@/app/api/_lib/shared-reports";
 
 export const dynamic = "force-dynamic";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
 const BASE = "https://www.manatap.ai";
-
-type AnalysisSnapshot = {
-  title?: string;
-  result?: {
-    ok?: boolean;
-    summary?: string;
-    score?: number;
-    issues?: string[];
-    fixes?: string[];
-    priority?: string[];
-    whatsGood?: string[];
-    suggestions?: { card?: string; reason?: string; category?: string }[];
-    analysis?: {
-      summary?: string | null;
-      archetype?: string | null;
-      game_plan?: string | null;
-      main_problems?: string[];
-      priority_actions?: string[];
-    } | null;
-  };
-};
-
-async function getShare(id: string) {
-  if (!SUPABASE_URL || !SERVICE_KEY) return null;
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-  const { data } = await admin
-    .from("shared_analysis_reports")
-    .select("id, snapshot_json, created_at, expires_at")
-    .eq("id", id)
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
-  return data as { id: string; snapshot_json: AnalysisSnapshot; created_at: string; expires_at: string } | null;
-}
 
 function list(items: string[] | undefined, empty: string) {
   if (!items?.length) return <p className="text-sm text-neutral-400">{empty}</p>;
@@ -54,7 +19,7 @@ function list(items: string[] | undefined, empty: string) {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const row = await getShare(id);
+  const row = await getSharedAnalysisReport(id);
   const title = row?.snapshot_json?.title
     ? `${row.snapshot_json.title} analysis | ManaTap`
     : "Shared deck analysis | ManaTap";
@@ -68,7 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function SharedAnalysisPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = await getShare(id);
+  const row = await getSharedAnalysisReport(id);
   const result = row?.snapshot_json?.result;
   if (!row || !result?.ok) notFound();
   const structured = result.analysis ?? null;
