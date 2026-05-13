@@ -9,7 +9,7 @@ function adminDb() {
   return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 }
 
-export type ResourceKind = "deck" | "collection" | "roast" | "health_report" | "custom_card";
+export type ResourceKind = "deck" | "collection" | "roast" | "health_report" | "analysis_report" | "custom_card";
 
 /**
  * Fire-and-forget push to resource owner when someone leaves a comment (not if self-comment).

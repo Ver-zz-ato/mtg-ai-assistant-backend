@@ -4,7 +4,17 @@
     "details": [
       {
         "appID": "TEAM_ID_PLACEHOLDER.com.manatap.app",
-        "paths": ["/auth/callback", "/auth/*"]
+        "paths": [
+          "/auth/callback",
+          "/auth/*",
+          "/decks/*",
+          "/binder/*",
+          "/wishlist/*",
+          "/cards/*",
+          "/roast/*",
+          "/share/*",
+          "/u/*"
+        ]
       }
     ]
   }

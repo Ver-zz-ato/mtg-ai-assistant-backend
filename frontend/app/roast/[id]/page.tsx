@@ -33,6 +33,7 @@ export async function generateMetadata({
     .from("roast_permalinks")
     .select("commander, roast_level, roast_text")
     .eq("id", id)
+    .gt("expires_at", new Date().toISOString())
     .maybeSingle();
 
   const imageUrl = `${OG_IMAGE_BASE}/roast/${id}/opengraph-image`;
@@ -98,6 +99,7 @@ export default async function RoastPage({ params }: { params: Promise<{ id: stri
     .from("roast_permalinks")
     .select("roast_text, roast_score, commander, format, roast_level, commander_art_url, created_at")
     .eq("id", id)
+    .gt("expires_at", new Date().toISOString())
     .maybeSingle();
 
   if (error || !row) {

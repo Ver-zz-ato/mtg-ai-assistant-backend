@@ -26,7 +26,29 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const roastText = String(body?.roastText ?? "").trim();
+    const roastId = typeof body?.roastId === "string" ? body.roastId.trim() : "";
+
+    if (roastId) {
+      const { data: existing, error: existingError } = await supabase
+        .from("roast_permalinks")
+        .select("id, user_id, expires_at")
+        .eq("id", roastId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (existingError) {
+        return NextResponse.json({ ok: false, error: existingError.message }, { status: 500 });
+      }
+      if (!existing) {
+        return NextResponse.json({ ok: false, error: "Roast not found" }, { status: 404 });
+      }
+
+      const base = process.env.NEXT_PUBLIC_BASE_URL || (typeof req.url === "string" ? new URL(req.url).origin : "https://www.manatap.ai");
+      const url = `${base}/roast/${roastId}`;
+      return NextResponse.json({ ok: true, id: roastId, url, shareUrl: url, expires_at: existing.expires_at });
+    }
+
+    const roastText = String(body?.roastText ?? body?.roast ?? "").trim();
     const roastScore = typeof body?.roastScore === "number" ? body.roastScore : null;
     const commander = typeof body?.commander === "string" ? body.commander.trim() || null : null;
     const format = typeof body?.format === "string" ? body.format : "Commander";
@@ -47,8 +69,9 @@ export async function POST(req: NextRequest) {
         format,
         roast_level: roastLevel,
         commander_art_url: commanderArtUrl,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       })
-      .select("id")
+      .select("id, expires_at")
       .single();
 
     if (error) {
@@ -58,7 +81,7 @@ export async function POST(req: NextRequest) {
     const base = process.env.NEXT_PUBLIC_BASE_URL || (typeof req.url === "string" ? new URL(req.url).origin : "https://www.manatap.ai");
     const url = `${base}/roast/${(data as { id: string }).id}`;
 
-    return NextResponse.json({ ok: true, id: (data as { id: string }).id, url });
+    return NextResponse.json({ ok: true, id: (data as { id: string }).id, url, shareUrl: url, expires_at: (data as { expires_at?: string }).expires_at });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "server_error" },

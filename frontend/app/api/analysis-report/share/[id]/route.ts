@@ -6,10 +6,7 @@ export const runtime = "nodejs";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
 
-/**
- * GET /api/health-report/share/[id] — public read of saved snapshot (unlisted link).
- */
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     if (!SUPABASE_URL || !SERVICE_KEY) {
       return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500 });
@@ -17,7 +14,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const { id } = await context.params;
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const { data, error } = await admin
-      .from("shared_health_reports")
+      .from("shared_analysis_reports")
       .select("id, deck_id, snapshot_json, created_at, expires_at, user_id")
       .eq("id", id)
       .gt("expires_at", new Date().toISOString())

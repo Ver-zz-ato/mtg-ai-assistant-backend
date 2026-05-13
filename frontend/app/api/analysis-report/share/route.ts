@@ -4,11 +4,6 @@ import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 
 export const runtime = "nodejs";
 
-/**
- * POST /api/health-report/share
- * Body: { deckId?: string, snapshotJson: object }
- * Saves a persisted snapshot for permalink / QR.
- */
 export async function POST(req: NextRequest) {
   try {
     if (!sameOriginOrBearerPresent(req)) {
@@ -34,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: row, error } = await supabase
-      .from("shared_health_reports")
+      .from("shared_analysis_reports")
       .insert({
         user_id: user.id,
         deck_id: deckId || null,
@@ -45,7 +40,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error || !row) {
-      console.error("health_share_insert", error);
+      console.error("analysis_share_insert", error);
       return NextResponse.json({ ok: false, error: "Failed to save snapshot" }, { status: 500 });
     }
 

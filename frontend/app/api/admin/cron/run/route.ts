@@ -10,6 +10,7 @@ const ALLOWED_CRONS = [
   "top-cards",
   "budget-swaps-update",
   "mtg-legality-refresh",
+  "cleanup-shared-links",
 ] as const;
 
 export async function POST(req: NextRequest) {

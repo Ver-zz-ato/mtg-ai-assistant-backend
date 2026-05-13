@@ -15,7 +15,7 @@ function isProfane(text: string): boolean {
   return profanityList.some((word) => lower.includes(word));
 }
 
-type ResourceType = "collection" | "roast" | "health_report" | "custom_card";
+type ResourceType = "collection" | "roast" | "health_report" | "analysis_report" | "custom_card";
 
 async function resolveOwnerAndVisibility(
   admin: SupabaseClient<any>,
@@ -39,16 +39,26 @@ async function resolveOwnerAndVisibility(
     return { ownerId: col.user_id as string, label: "Collection", visible };
   }
   if (type === "roast") {
-    const { data: rRaw } = await admin.from("roast_permalinks").select("user_id").eq("id", resourceId).maybeSingle();
-    const r = rRaw as { user_id: string | null } | null;
+    const { data: rRaw } = await admin
+      .from("roast_permalinks")
+      .select("user_id, expires_at")
+      .eq("id", resourceId)
+      .maybeSingle();
+    const r = rRaw as { user_id: string | null; expires_at?: string | null } | null;
     if (!r?.user_id) return { ownerId: null, label: "Roast", visible: false };
-    return { ownerId: r.user_id as string, label: "Deck roast", visible: true };
+    return { ownerId: r.user_id as string, label: "Deck roast", visible: !r.expires_at || new Date(r.expires_at) > new Date() };
   }
   if (type === "health_report") {
-    const { data: hRaw } = await admin.from("shared_health_reports").select("user_id").eq("id", resourceId).maybeSingle();
-    const h = hRaw as { user_id: string | null } | null;
+    const { data: hRaw } = await admin.from("shared_health_reports").select("user_id, expires_at").eq("id", resourceId).maybeSingle();
+    const h = hRaw as { user_id: string | null; expires_at?: string | null } | null;
     if (!h?.user_id) return { ownerId: null, label: "Health report", visible: false };
-    return { ownerId: h.user_id as string, label: "Deck health", visible: true };
+    return { ownerId: h.user_id as string, label: "Deck health", visible: !h.expires_at || new Date(h.expires_at) > new Date() };
+  }
+  if (type === "analysis_report") {
+    const { data: aRaw } = await admin.from("shared_analysis_reports").select("user_id, expires_at").eq("id", resourceId).maybeSingle();
+    const a = aRaw as { user_id: string | null; expires_at?: string | null } | null;
+    if (!a?.user_id) return { ownerId: null, label: "Analysis report", visible: false };
+    return { ownerId: a.user_id as string, label: "Deck analysis", visible: !a.expires_at || new Date(a.expires_at) > new Date() };
   }
   if (type === "custom_card") {
     const { data: cRaw } = await admin
@@ -82,7 +92,7 @@ export async function GET(req: NextRequest) {
     const url = req.nextUrl;
     const type = url.searchParams.get("resource_type") as ResourceType | null;
     const resourceId = url.searchParams.get("resource_id")?.trim() ?? "";
-    if (!type || !resourceId || !["collection", "roast", "health_report", "custom_card"].includes(type)) {
+    if (!type || !resourceId || !["collection", "roast", "health_report", "analysis_report", "custom_card"].includes(type)) {
       return NextResponse.json({ ok: false, error: "Bad resource" }, { status: 400 });
     }
     const { visible } = await resolveOwnerAndVisibility(admin, type, resourceId);
@@ -149,7 +159,7 @@ export async function POST(req: NextRequest) {
     const resourceId = typeof body?.resource_id === "string" ? body.resource_id.trim() : "";
     const content = typeof body?.content === "string" ? body.content.trim() : "";
 
-    if (!type || !resourceId || !["collection", "roast", "health_report", "custom_card"].includes(type)) {
+    if (!type || !resourceId || !["collection", "roast", "health_report", "analysis_report", "custom_card"].includes(type)) {
       return NextResponse.json({ ok: false, error: "Bad resource" }, { status: 400 });
     }
     if (!content || content.length > 5000) {
