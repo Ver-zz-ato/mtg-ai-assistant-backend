@@ -30,8 +30,61 @@ const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 /** Deck lists are long; gpt-5* may use part of the budget before visible text — keep headroom. */
 const DECK_GEN_MAX_COMPLETION_TOKENS = 16_384;
 const MAX_LENGTH_CONTINUATIONS = 4;
+const BASIC_BY_COLOR: Record<string, string> = {
+  W: "Plains",
+  U: "Island",
+  B: "Swamp",
+  R: "Mountain",
+  G: "Forest",
+};
 
 export const runtime = "nodejs";
+
+function addBasicsToReachQty(
+  cards: Array<{ name: string; qty: number }>,
+  targetQty: number,
+  colors: string[]
+): Array<{ name: string; qty: number }> {
+  const total = totalDeckQty(cards);
+  const missing = targetQty - total;
+  if (missing <= 0) return cards;
+  const basics = colors.map((c) => BASIC_BY_COLOR[c.toUpperCase()]).filter(Boolean);
+  const pool = basics.length > 0 ? basics : ["Wastes"];
+  const additions = new Map<string, number>();
+  for (let i = 0; i < missing; i++) {
+    const name = pool[i % pool.length];
+    additions.set(name, (additions.get(name) ?? 0) + 1);
+  }
+  const out = [...cards];
+  for (const [name, qty] of additions) {
+    const existing = out.find((c) => norm(c.name) === norm(name));
+    if (existing) existing.qty += qty;
+    else out.push({ name, qty });
+  }
+  return out;
+}
+
+function normalizeCommanderDeckQty(
+  cards: Array<{ name: string; qty: number }>,
+  colors: string[]
+): Array<{ name: string; qty: number }> {
+  const total = totalDeckQty(cards);
+  if (total > 100) return trimDeckToMaxQty(cards, 100);
+  if (total < 100) return addBasicsToReachQty(cards, 100, colors);
+  return cards;
+}
+
+function planLabelForResponse(powerLevel: string, budget: string, buildMode: string | null): string {
+  const power = powerLevel?.trim() || "Casual";
+  const cost = budget?.trim() || "Moderate";
+  const shape =
+    buildMode === "core_shell"
+      ? "Core shell"
+      : buildMode === "staples_flex"
+        ? "Staples + flex"
+        : "Full deck";
+  return `${power} ${cost} ${shape}`;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -193,8 +246,8 @@ export async function POST(req: NextRequest) {
     const isCommanderRequest = fmtLower.includes("commander");
     let totalQty = totalDeckQty(cards);
 
-    /** Commander: need ~100 physical cards (sum of line quantities), not unique row count. */
-    const minCommanderQty = 95;
+    /** Commander: need exactly 100 physical cards (sum of line quantities), not unique row count. */
+    const minCommanderQty = 100;
     const minOtherQty = 30;
 
     let lengthContinuationRound = 0;
@@ -277,7 +330,7 @@ export async function POST(req: NextRequest) {
           ? " Output hit the size limit — tap try again."
           : "";
       const errMsg = isCommanderRequest
-        ? `Generated Commander decklist too short (${totalQty} cards total; aim for 100). Please try again.${hint}`
+        ? `Generated Commander decklist too short (${totalQty} cards total; must be exactly 100). Please try again.${hint}`
         : `Generated decklist too short; please try again.${hint}`;
       return NextResponse.json({ ok: false, error: errMsg }, { status: 500 });
     }
@@ -315,12 +368,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Cap at 100 physical cards (row count can be <100 when basics are grouped)
-    if (totalDeckQty(filtered) > 100) {
-      cards = trimDeckToMaxQty(filtered, 100);
-    } else {
-      cards = filtered;
-    }
+    // Normalize to exactly 100 physical cards (row count can be <100 when basics are grouped).
+    cards = isCommanderRequest ? normalizeCommanderDeckQty(filtered, allowedColors) : filtered;
 
     if (isCommanderRequest && totalDeckQty(cards) < 90) {
       console.error("[generate-from-collection] Commander deck under 90 cards after processing", {
@@ -344,7 +393,7 @@ export async function POST(req: NextRequest) {
       const { lines: legalLines } = await filterDecklistQtyRowsForFormat(cards, fmtLabel, {
         logPrefix: "/api/deck/generate-from-collection",
       });
-      cards = legalLines;
+      cards = isCommanderRequest ? normalizeCommanderDeckQty(legalLines, allowedColors) : legalLines;
     } catch (legErr) {
       console.warn("[generate-from-collection] Legality filter failed:", legErr);
     }
@@ -355,6 +404,21 @@ export async function POST(req: NextRequest) {
           ok: false,
           error:
             "Generated Commander deck was too short after legality filtering; please try again or pick a different commander.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (isCommanderRequest && totalDeckQty(cards) !== 100) {
+      console.error("[generate-from-collection] Commander deck not exactly 100 after processing", {
+        commanderName,
+        rows: cards.length,
+        totalQty: totalDeckQty(cards),
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Generated Commander deck was not exactly 100 cards after checks; please try again.",
         },
         { status: 500 }
       );
@@ -388,7 +452,7 @@ export async function POST(req: NextRequest) {
       title,
       deckText,
       format: format || "Commander",
-      plan: "Optimized",
+      plan: planLabelForResponse(powerLevel, input.budget, input.buildMode),
       ...(previewFacts ? { previewFacts } : {}),
     });
   } catch (e: unknown) {

@@ -38,6 +38,7 @@ const GENERATION_INTENT_HINTS: Record<string, string> = {
   new_build: "Start a fresh 100-card deck from constraints (not a direct edit of an imported list unless source deck text is provided).",
   build_around_card: "Center the deck on the seed card and cards that synergize with it.",
   idea_to_deck: "Use the idea text to pick commander and theme when commander is not fixed.",
+  quiz_build: "Use the playstyle quiz profile as binding deck identity: keep the recommended commander, selected power level, selected budget tier, and selected build shape aligned.",
   transform_template: "Treat template context as a starting shell; adapt it to the collection and constraints.",
   repair_import: "Fix legality, color identity, and coherence issues when source deck text is provided.",
 };
@@ -257,6 +258,7 @@ function structuredIntentSection(input: NormalizedGenerationInput): string {
   if (modeExtra) lines.push(modeExtra);
   const refExtra = refinementAddendum(input);
   if (refExtra) lines.push(refExtra);
+  lines.push(selectedOptionsDirective(input));
 
   if (lines.length === 0) return "";
   return `\nStructured instructions (follow when compatible with the rules above):\n${lines.join("\n")}\n`;
@@ -264,8 +266,77 @@ function structuredIntentSection(input: NormalizedGenerationInput): string {
 
 /** Reminder line so BUILD MODE / REFINEMENT are not treated as optional flavor text. */
 function buildDirectiveComplianceReminder(input: NormalizedGenerationInput): string {
-  if (!input.buildMode?.trim() && !input.refinement?.trim()) return "";
-  return "\nCompliance: Where BUILD MODE or REFINEMENT directives conflict with generic deck-building advice, obey the directives.\n";
+  const hasDirectives = input.buildMode?.trim() || input.refinement?.trim() || input.powerLevel?.trim() || input.budget?.trim();
+  if (!hasDirectives) return "";
+  return "\nCompliance: Where BUILD MODE, POWER LEVEL, or BUDGET directives conflict with generic deck-building advice, obey the explicit selected options.\n";
+}
+
+function powerLevelPromptDirective(powerLevel: string): string {
+  const p = normalizeModeRefKey(powerLevel);
+  if (p === "casual") {
+    return [
+      "POWER LEVEL (mandatory): Casual",
+      "Build for relaxed Commander tables. Avoid cEDH staples, fast mana, dense tutors, deterministic two-card wins, hard locks, and excessive free interaction.",
+    ].join("\n");
+  }
+  if (p === "mid") {
+    return [
+      "POWER LEVEL (mandatory): Mid",
+      "Build a solid mid-power deck, not Optimized. Use coherent synergy, fair ramp/draw/removal, and a few strong payoffs. Avoid fast mana, tutor density, cEDH combo packages, stax locks, and premium efficiency piles.",
+    ].join("\n");
+  }
+  if (p === "focused") {
+    return [
+      "POWER LEVEL (mandatory): Focused",
+      "Build an upgraded synergy deck with tight roles and strong redundancy, but still below Optimized/cEDH. Use efficient interaction and a clear plan without turning into fast-combo goodstuff.",
+    ].join("\n");
+  }
+  if (p === "optimized") {
+    return [
+      "POWER LEVEL (mandatory): Optimized",
+      "Build a high-efficiency casual-competitive Commander deck with strong synergy, efficient ramp/draw/removal, and consistency. Stay below explicit Competitive/cEDH unless the selected power level is Competitive.",
+    ].join("\n");
+  }
+  if (p === "competitive") {
+    return [
+      "POWER LEVEL (mandatory): Competitive",
+      "Build for very high power/cEDH-leaning Commander: efficient engines, compact win lines, strong interaction, and fast mana if the budget tier permits it.",
+    ].join("\n");
+  }
+  return `POWER LEVEL (mandatory): ${powerLevel}. Match this selected tier exactly; do not silently upgrade or downgrade it.`;
+}
+
+function budgetPromptDirective(budget: string): string {
+  const b = normalizeModeRefKey(budget);
+  if (b === "budget") {
+    return [
+      "BUDGET TIER (mandatory): Budget",
+      "Keep the total deck cost genuinely low: target roughly $100-$200 for the 99 where possible.",
+      "Avoid expensive staples unless they are the chosen commander or absolutely central and no cheap analogue exists. Avoid Mana Crypt, Jeweled Lotus, Dockside Extortionist, The One Ring, Rhystic Study, Smothering Tithe, Cyclonic Rift, Fierce Guardianship, Demonic Tutor, Vampiric Tutor, fetch lands, shock lands, original duals, Gaea's Cradle, Ancient Tomb, and other chase staples.",
+      "Use budget mana fixing, basics, tapped/slow duals, cheap ramp, and affordable synergy cards instead of premium goodstuff.",
+    ].join("\n");
+  }
+  if (b === "moderate") {
+    return [
+      "BUDGET TIER (mandatory): Moderate",
+      "Use some upgrades and efficient staples, but avoid luxury mana bases and very expensive chase cards unless uniquely important. Prefer affordable replacements when card role is similar.",
+    ].join("\n");
+  }
+  if (b === "high") {
+    return [
+      "BUDGET TIER (mandatory): High",
+      "Premium cards are allowed when they fit the selected power level. Do not include expensive cards merely for price prestige; every premium card must support the deck plan.",
+    ].join("\n");
+  }
+  return `BUDGET TIER (mandatory): ${budget}. Match this selected budget exactly; do not use a more expensive tier unless explicitly requested.`;
+}
+
+function selectedOptionsDirective(input: NormalizedGenerationInput): string {
+  return [
+    "SELECTED OPTIONS (mandatory):",
+    powerLevelPromptDirective(input.powerLevel),
+    budgetPromptDirective(input.budget),
+  ].join("\n");
 }
 
 export function buildGenerationSystemPrompt(): string {
@@ -274,13 +345,14 @@ export function buildGenerationSystemPrompt(): string {
 CRITICAL RULES:
 0. Start your reply with the first deck line immediately (e.g. "1 Commander Name"). No introduction, title, or summary. Group basic lands by type on one line each (e.g. "32 Mountain") so the full 100-card list fits in the output limit.
 1. Output ONLY the decklist, one card per line, format: "1 Card Name" (quantity then card name).
-2. For Commander format: EXACTLY 100 cards total. Not 99, not 101. Count must be 100.
+2. For Commander format: EXACTLY 100 cards total including the commander. Not 98, not 99, not 101. Count quantities before answering; grouped basics count by their quantity.
 3. Every card MUST be within the commander's color identity. NO cards with colors outside the commander's identity (e.g. if commander is WUBG, ZERO red cards - no Lightning Bolt, no Boros Signet, no Izzet Signet, no Rakdos Signet, no Blasphemous Act).
 4. Singleton except for basic lands (Plains, Island, Swamp, Mountain, Forest).
 5. All cards must be legal in Commander (no silver-bordered, no banned cards).
 6. Prefer cards from the user's collection when provided; only add cards outside the collection if needed for a coherent deck.
 7. Include ramp, card draw, removal, and win conditions.
-8. Do NOT include any commentary, markdown, or extra text. Only the decklist lines.`;
+8. Obey the selected power level and budget tier exactly. Do not silently upgrade Mid to Optimized, or Budget to Moderate/High.
+9. Do NOT include any commentary, markdown, or extra text. Only the decklist lines.`;
 }
 
 export function buildGenerationUserPrompt(input: NormalizedGenerationInput, collectionList: string): string {
