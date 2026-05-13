@@ -17,7 +17,10 @@ import { parseCommands } from "@/lib/voice/command-parser";
 import { parseLocalGameCommand } from "@/lib/voice/local-command-parser";
 import { generateClarification } from "@/lib/voice/clarifier";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { actionType, assessConfirmationNeed, shouldSkipTtsForResponse } from "@/lib/voice/response-policy";
 import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
+import { extractIP } from "@/lib/guest-tracking";
 
 export const runtime = "nodejs";
 
@@ -124,6 +127,9 @@ export async function POST(req: NextRequest) {
       players?: Array<{ id: string; name: string }>;
       selfPlayerId?: string;
       voiceMode?: string;
+      noTts?: boolean;
+      noTtsForCommands?: boolean;
+      tts?: boolean;
     };
     let context: VoiceContext | null = null;
     if (contextRaw) {
@@ -173,8 +179,13 @@ export async function POST(req: NextRequest) {
     const isGameScreen = context?.screen === "game";
     let mode: "game_action" | "chat" | "clarify" = "chat";
     let actions: unknown[] | null = null;
+    let pending_actions: unknown[] | null = null;
     let clarification: string | null = null;
     let spoken_confirmation: string | null = null;
+    let confirmation_required = false;
+    let confirmation_reason: string | null = null;
+    let local_parser_hit = false;
+    let clarify_reason: string | null = null;
 
     if (isGameScreen) {
       try {
@@ -185,10 +196,24 @@ export async function POST(req: NextRequest) {
         const localCommand = parseLocalGameCommand(transcript, commandContext);
 
         if (localCommand?.actions.length) {
-          mode = "game_action";
-          actions = localCommand.actions;
-          spoken_confirmation = localCommand.spoken_confirmation || null;
-          assistant_text = localCommand.spoken_confirmation || "Done.";
+          local_parser_hit = true;
+          const confirmation = assessConfirmationNeed(localCommand.actions, {
+            ambiguousTarget: localCommand.ambiguous_target,
+          });
+          if (confirmation.required) {
+            mode = "clarify";
+            confirmation_required = true;
+            confirmation_reason = confirmation.reason;
+            clarify_reason = confirmation.reason;
+            pending_actions = localCommand.actions;
+            clarification = confirmation.prompt ?? "Please confirm that.";
+            assistant_text = clarification;
+          } else {
+            mode = "game_action";
+            actions = localCommand.actions;
+            spoken_confirmation = localCommand.spoken_confirmation || null;
+            assistant_text = localCommand.spoken_confirmation || "Done.";
+          }
         } else {
           const intent = await classifyIntent(transcript, apiKey);
           const confidence = intent.confidence ?? 0;
@@ -200,17 +225,28 @@ export async function POST(req: NextRequest) {
               actions = parsed.actions;
               spoken_confirmation = parsed.spoken_confirmation || null;
               assistant_text = parsed.spoken_confirmation || "Done.";
+              local_parser_hit = parsed.local_parser_hit === true;
+            } else if (parsed.confirmation_required && parsed.pending_actions?.length) {
+              mode = "clarify";
+              confirmation_required = true;
+              confirmation_reason = parsed.confirmation_reason ?? "ambiguous_target";
+              clarify_reason = confirmation_reason;
+              pending_actions = parsed.pending_actions;
+              clarification = parsed.spoken_confirmation || "Please confirm that.";
+              assistant_text = clarification;
             } else {
               const clar = await generateClarification(transcript, apiKey);
               mode = "clarify";
               clarification = clar.clarification;
               assistant_text = clar.clarification;
+              clarify_reason = "parser_empty";
             }
           } else if (intent.mode === "clarify" || confidence < 0.7) {
             const clar = await generateClarification(transcript, apiKey);
             mode = "clarify";
             clarification = clar.clarification;
             assistant_text = clar.clarification;
+            clarify_reason = confidence < 0.7 ? "low_confidence" : "intent_clarify";
           } else {
             // chat
             if (context?.voiceMode === "commands_only") {
@@ -235,21 +271,22 @@ export async function POST(req: NextRequest) {
         systemPrompt += `\n\nThe user may be asking about deck ${context.deckId}. If relevant, tailor your answer accordingly.`;
       }
 
+      const chatBody = prepareOpenAIBody({
+        model: CHAT_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: transcript },
+        ],
+        max_completion_tokens: 500,
+      });
+
       const chatRes = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model: CHAT_MODEL,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: transcript },
-          ],
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
+        body: JSON.stringify(chatBody),
       });
 
       if (!chatRes.ok) {
@@ -262,9 +299,40 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // --- STEP 3: TTS ---
     try {
-      const ttsRes = await fetch(TTS_URL, {
+      const { captureServer } = await import("@/lib/server/analytics");
+      const visitorId = req.cookies.get("visitor_id")?.value ?? null;
+      const distinctId = user.id ?? visitorId ?? null;
+      const executableActions = Array.isArray(actions) ? (actions as any[]) : null;
+      const pending = Array.isArray(pending_actions) ? (pending_actions as any[]) : null;
+      const clientIp = extractIP(req);
+      await captureServer(
+        "voice.interaction",
+        {
+          user_id: user.id,
+          visitor_id: visitorId,
+          "voice.mode": mode,
+          "voice.local_parser_hit": local_parser_hit,
+          "voice.action_type": actionType((executableActions ?? pending) as any),
+          "voice.clarify_reason": clarify_reason,
+          "voice.confirmation_required": confirmation_required,
+          "voice.confirmation_reason": confirmation_reason,
+          "voice.screen": context?.screen ?? null,
+          "voice.voice_mode": context?.voiceMode ?? null,
+          "voice.actions_count": executableActions?.length ?? 0,
+          "voice.pending_actions_count": pending?.length ?? 0,
+          "voice.tts_requested": !shouldSkipTtsForResponse(context, mode),
+          duration_ms_pre_tts: Date.now() - t0,
+        },
+        distinctId,
+        clientIp && clientIp !== "unknown" ? { ip: clientIp } : undefined
+      );
+    } catch {}
+
+    // --- STEP 3: TTS ---
+    const skipTts = shouldSkipTtsForResponse(context, mode);
+    try {
+      const ttsRes = skipTts ? null : await fetch(TTS_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -277,7 +345,7 @@ export async function POST(req: NextRequest) {
         }),
       });
 
-      if (ttsRes.ok) {
+      if (ttsRes?.ok) {
         const buffer = Buffer.from(await ttsRes.arrayBuffer());
         const id = putAudio(buffer);
         const base = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin || "";
@@ -297,8 +365,15 @@ export async function POST(req: NextRequest) {
     };
     if (mode) body.mode = mode;
     if (actions !== null) body.actions = actions;
+    if (pending_actions !== null) body.pending_actions = pending_actions;
     if (clarification !== null) body.clarification = clarification;
     if (spoken_confirmation !== null) body.spoken_confirmation = spoken_confirmation;
+    if (confirmation_required) {
+      body.confirmation_required = true;
+      body.confirmation_reason = confirmation_reason;
+    }
+    body.local_parser_hit = local_parser_hit;
+    body.tts_skipped = skipTts;
     return jsonResponse(body, 200);
   } catch (e) {
     console.error("[voice] Handler error:", e);

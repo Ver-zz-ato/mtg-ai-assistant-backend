@@ -1,6 +1,7 @@
 import assert from "node:assert";
 import { parseLocalGameCommand } from "@/lib/voice/local-command-parser";
 import { validateActions } from "@/lib/voice/validate";
+import { assessConfirmationNeed } from "@/lib/voice/response-policy";
 
 const ctx = {
   selfPlayerId: "p2",
@@ -40,5 +41,13 @@ assert.deepEqual(llmStyleToxic, [
 
 const setLifeByNickname = validateActions([{ action: "set_life", target: "Davy", value: 23 }], ctx);
 assert.deepEqual(setLifeByNickname, [{ action: "set_life", target: "p2", value: 23 }]);
+
+const lifeZero = parseLocalGameCommand("set player 1 to 0", ctx);
+assert.equal(assessConfirmationNeed(lifeZero?.actions ?? []).required, true);
+assert.equal(assessConfirmationNeed(lifeZero?.actions ?? []).reason, "life_zero");
+
+const clearPoison = parseLocalGameCommand("remove poison from Davy", ctx);
+assert.equal(assessConfirmationNeed(clearPoison?.actions ?? []).required, true);
+assert.equal(assessConfirmationNeed(clearPoison?.actions ?? []).reason, "clear_counter");
 
 console.log("voice-command-parser.test.ts passed");

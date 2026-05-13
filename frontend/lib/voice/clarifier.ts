@@ -4,6 +4,7 @@
 
 import { VOICE_CLARIFY_PROMPT } from "@/lib/ai/prompts/voice-clarify";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const MODEL = DEFAULT_FALLBACK_MODEL;
@@ -17,22 +18,23 @@ export async function generateClarification(
   transcript: string,
   apiKey: string
 ): Promise<ClarifierOutput> {
+  const body = prepareOpenAIBody({
+    model: MODEL,
+    messages: [
+      { role: "system", content: VOICE_CLARIFY_PROMPT },
+      { role: "user", content: `Ambiguous input: "${transcript}"` },
+    ],
+    max_completion_tokens: 80,
+    response_format: { type: "json_object" },
+  });
+
   const res = await fetch(CHAT_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: VOICE_CLARIFY_PROMPT },
-        { role: "user", content: `Ambiguous input: "${transcript}"` },
-      ],
-      max_tokens: 80,
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {

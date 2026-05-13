@@ -51,6 +51,11 @@ export interface LocalCommandParserContext extends ValidateContext {}
 export interface LocalCommandParserOutput {
   actions: GameAction[];
   spoken_confirmation: string;
+  confirmation_required?: boolean;
+  confirmation_reason?: string;
+  pending_actions?: GameAction[];
+  local_parser_hit: true;
+  ambiguous_target?: boolean;
 }
 
 function normalizeSpeech(text: string): string {
@@ -73,14 +78,20 @@ function numberSource(amount: number): string {
   return amount === 1 ? "1" : String(amount);
 }
 
-function detectTarget(text: string, ctx?: LocalCommandParserContext): string {
-  if (/\b(me|my|myself|self|i)\b/.test(text)) return ctx?.selfPlayerId ?? "self";
-  if (!ctx?.players?.length) return ctx?.selfPlayerId ?? "self";
+function detectTarget(
+  text: string,
+  ctx?: LocalCommandParserContext
+): { target: string; ambiguous: boolean } {
+  if (/\b(me|my|myself|self|i)\b/.test(text)) {
+    return { target: ctx?.selfPlayerId ?? "self", ambiguous: false };
+  }
+  if (!ctx?.players?.length) return { target: ctx?.selfPlayerId ?? "self", ambiguous: false };
 
   const playerNumber = text.match(/\bplayer\s*(\d+)\b/);
   if (playerNumber) {
     const index = Number.parseInt(playerNumber[1], 10) - 1;
-    if (ctx.players[index]) return ctx.players[index].id;
+    if (ctx.players[index]) return { target: ctx.players[index].id, ambiguous: false };
+    return { target: ctx.selfPlayerId ?? "self", ambiguous: true };
   }
 
   const normalizedText = text.replace(/[^a-z0-9 ]/g, "");
@@ -98,10 +109,14 @@ function detectTarget(text: string, ctx?: LocalCommandParserContext): string {
     .sort((a, b) => b.score - a.score);
 
   if (candidates.length === 1 || candidates[0]?.score > candidates[1]?.score) {
-    return candidates[0].player.id;
+    return { target: candidates[0].player.id, ambiguous: false };
   }
 
-  return ctx.selfPlayerId ?? "self";
+  if (candidates.length > 1 && candidates[0]?.score === candidates[1]?.score) {
+    return { target: ctx.selfPlayerId ?? "self", ambiguous: true };
+  }
+
+  return { target: ctx.selfPlayerId ?? "self", ambiguous: false };
 }
 
 function actionPhrase(text: string): string {
@@ -114,7 +129,7 @@ function actionPhrase(text: string): string {
   const lifeMatch = text.match(new RegExp(`\\b(add|gain|heal|increase|remove|subtract|take away|take|lose|lost|minus)\\s+(${NUMBER_PATTERN})\\s*(?:life|hp)?\\b`));
   if (lifeMatch) return `${lifeMatch[1]} ${lifeMatch[2]} life`;
 
-  const setLifeMatch = text.match(new RegExp(`\\b(set|set life|set hp)\\s+(?:me|my|player\\s*\\d+|[a-z0-9_ -]+)?\\s*(?:to|at)?\\s*(${NUMBER_PATTERN})\\b`));
+  const setLifeMatch = text.match(new RegExp(`\\b(set|set life|set hp)\\b.*?\\b(?:to|at)\\s+(${NUMBER_PATTERN})\\b`));
   if (setLifeMatch) return `set ${setLifeMatch[2]}`;
 
   return "Done";
@@ -145,10 +160,11 @@ export function parseLocalGameCommand(
   if (!text) return null;
 
   if (/^(undo|revert that|take that back)$/.test(text)) {
-    return { actions: [{ action: "undo" }], spoken_confirmation: "Undone" };
+    return { actions: [{ action: "undo" }], spoken_confirmation: "Undone", local_parser_hit: true };
   }
 
-  const target = detectTarget(text, ctx);
+  const targetResult = detectTarget(text, ctx);
+  const target = targetResult.target;
   const rawActions: unknown[] = [];
 
   const counterAdjust = text.match(new RegExp(`\\b(add|give|put|remove|subtract|take away)\\s+(${NUMBER_PATTERN})\\s*(?:counters?\\s*)?(${COUNTER_PATTERN})\\b`));
@@ -171,7 +187,7 @@ export function parseLocalGameCommand(
     rawActions.push({ action: "set_counter", target, counter: "poison", value: 0 });
   }
 
-  const setLife = text.match(new RegExp(`\\b(?:set|set life|set hp)\\b.*?\\b(?:to|at)?\\s*(${NUMBER_PATTERN})\\b`));
+  const setLife = text.match(new RegExp(`\\b(?:set|set life|set hp)\\b.*?\\b(?:to|at)\\s+(${NUMBER_PATTERN})\\b`));
   const atLife = text.match(new RegExp(`\\b(?:i'?m|im|player\\s*\\d+\\s*is|[a-z0-9_ -]+\\s*is)\\s+(?:at|on)\\s+(${NUMBER_PATTERN})\\b`));
   const setLifeValue = setLife?.[1] ?? atLife?.[1];
   if (!rawActions.length && setLifeValue) {
@@ -192,5 +208,7 @@ export function parseLocalGameCommand(
   return {
     actions,
     spoken_confirmation: confirmationFor(actions[0]) || actionPhrase(text),
+    local_parser_hit: true,
+    ambiguous_target: targetResult.ambiguous,
   };
 }

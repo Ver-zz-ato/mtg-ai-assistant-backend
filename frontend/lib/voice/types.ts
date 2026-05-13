@@ -23,6 +23,11 @@ export interface CommandParserResult {
   mode: "game_action";
   actions: GameAction[];
   spoken_confirmation: string;
+  confirmation_required?: boolean;
+  confirmation_reason?: string;
+  pending_actions?: GameAction[];
+  local_parser_hit?: boolean;
+  clarify_reason?: string;
 }
 
 export interface ClarifierResult {
@@ -35,4 +40,10 @@ export interface VoiceContext {
   players?: Array< { id: string; name: string } >;
   /** Player id to treat as "me" / self when targeting */
   selfPlayerId?: string;
+  /** Disable TTS for this request. Useful for command-only board updates. */
+  noTts?: boolean;
+  /** Disable TTS for game_action responses only. */
+  noTtsForCommands?: boolean;
+  /** Alternate compact TTS flag used by some mobile clients. */
+  tts?: boolean;
 }

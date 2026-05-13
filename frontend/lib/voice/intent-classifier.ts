@@ -5,6 +5,7 @@
 
 import { VOICE_INTENT_SYSTEM_PROMPT } from "@/lib/ai/prompts/voice-intent";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import type { IntentClassifierResult, VoiceMode } from "./types";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
@@ -16,22 +17,23 @@ export async function classifyIntent(
   transcript: string,
   apiKey: string
 ): Promise<IntentClassifierResult> {
+  const body = prepareOpenAIBody({
+    model: MODEL,
+    messages: [
+      { role: "system", content: VOICE_INTENT_SYSTEM_PROMPT },
+      { role: "user", content: `Classify: "${transcript}"` },
+    ],
+    max_completion_tokens: 60,
+    response_format: { type: "json_object" },
+  });
+
   const res = await fetch(CHAT_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: VOICE_INTENT_SYSTEM_PROMPT },
-        { role: "user", content: `Classify: "${transcript}"` },
-      ],
-      max_tokens: 60,
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {

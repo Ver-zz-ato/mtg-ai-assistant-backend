@@ -5,8 +5,10 @@
 
 import { VOICE_COMMAND_PARSER_PROMPT } from "@/lib/ai/prompts/voice-commands";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import type { GameAction } from "./types";
 import { parseLocalGameCommand } from "./local-command-parser";
+import { assessConfirmationNeed } from "./response-policy";
 import { validateActions } from "./validate";
 
 const CHAT_URL = "https://api.openai.com/v1/chat/completions";
@@ -16,6 +18,11 @@ export interface CommandParserOutput {
   mode: "game_action";
   actions: GameAction[];
   spoken_confirmation: string;
+  confirmation_required?: boolean;
+  confirmation_reason?: string;
+  pending_actions?: GameAction[];
+  local_parser_hit?: boolean;
+  clarify_reason?: string;
 }
 
 export interface ParserContext {
@@ -30,10 +37,26 @@ export async function parseCommands(
 ): Promise<CommandParserOutput> {
   const local = parseLocalGameCommand(transcript, ctx);
   if (local?.actions.length) {
+    const confirmation = assessConfirmationNeed(local.actions, {
+      ambiguousTarget: local.ambiguous_target,
+    });
+    if (confirmation.required) {
+      return {
+        mode: "game_action",
+        actions: [],
+        pending_actions: local.actions,
+        spoken_confirmation: confirmation.prompt ?? local.spoken_confirmation,
+        confirmation_required: true,
+        confirmation_reason: confirmation.reason ?? undefined,
+        local_parser_hit: true,
+      };
+    }
+
     return {
       mode: "game_action",
       actions: local.actions,
       spoken_confirmation: local.spoken_confirmation,
+      local_parser_hit: true,
     };
   }
 
@@ -41,22 +64,23 @@ export async function parseCommands(
     ? `Players: ${JSON.stringify(ctx.players)}. Self/me: ${ctx.selfPlayerId ?? "unknown"}.`
     : "No player context. Use 'self' or 'me' as target placeholder when speaker means themselves.";
 
+  const body = prepareOpenAIBody({
+    model: MODEL,
+    messages: [
+      { role: "system", content: VOICE_COMMAND_PARSER_PROMPT + "\n\n" + playersJson },
+      { role: "user", content: `Parse: "${transcript}"` },
+    ],
+    max_completion_tokens: 300,
+    response_format: { type: "json_object" },
+  });
+
   const res = await fetch(CHAT_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: VOICE_COMMAND_PARSER_PROMPT + "\n\n" + playersJson },
-        { role: "user", content: `Parse: "${transcript}"` },
-      ],
-      max_tokens: 300,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -75,10 +99,24 @@ export async function parseCommands(
       typeof parsed.spoken_confirmation === "string" ? parsed.spoken_confirmation : "";
 
     const validated = validateActions(actions, ctx);
+    const confirmation = assessConfirmationNeed(validated);
+    if (confirmation.required) {
+      return {
+        mode: "game_action",
+        actions: [],
+        pending_actions: validated,
+        spoken_confirmation: confirmation.prompt ?? spoken_confirmation,
+        confirmation_required: true,
+        confirmation_reason: confirmation.reason ?? undefined,
+        local_parser_hit: false,
+      };
+    }
+
     return {
       mode: "game_action",
       actions: validated,
       spoken_confirmation,
+      local_parser_hit: false,
     };
   } catch (e) {
     console.error("[voice/parser] Parse error:", e);
