@@ -324,6 +324,13 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       };
       const { error } = await sb.auth.updateUser({ data: md });
       if (error) throw error;
+      if (username && authUser?.id) {
+        const { error: profileError } = await sb
+          .from('profiles')
+          .update({ username })
+          .eq('id', authUser.id);
+        if (profileError) throw profileError;
+      }
       try { capture('profile_wishlist_save', { count: wishlist.split(/\r?\n/).filter(Boolean).length }); } catch {}
       if (username) { try { capture('profile_username_change'); } catch {} }
       if (favCommander) { try { capture('profile_fav_commander_set'); } catch {} }
