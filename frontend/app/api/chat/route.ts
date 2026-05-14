@@ -194,11 +194,11 @@ function enforceChatGuards(outText: string, ctx: GuardContext = {}, hasDeckConte
   }
 
   if (ctx.isCustom && !/custom|homebrew/i.test(text)) {
-    text = `Since this is a custom/homebrew card, I’ll evaluate it hypothetically.\n\n` + text;
+    text = `Since this is a custom card, I’ll evaluate it hypothetically.\n\n` + text;
   }
 
   if (ctx.askedExternal && !/i can[’']?t do that directly here|i cannot do that directly here/i.test(text)) {
-    text = `I can’t do that directly here, but here’s the closest workflow:\n\n` + text;
+    text = `I can’t do that directly here. Practical workaround:\n\n` + text;
   }
 
   if (ctx.askedFeature && !/pro|coming soon|not yet|planned|rough|available/i.test(text)) {
@@ -228,6 +228,139 @@ function stripMisappliedChatBoilerplate(outText: string, ctx: GuardContext = {})
       .replace(/\bI can[’']t do that directly here,\s*/gi, "");
   }
   return text.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function buildSafeGeneralChatAnswer(input: string): string | null {
+  const raw = String(input || "").trim();
+  const q = raw.toLowerCase();
+  if (!raw) return null;
+
+  // Commander/deckbuilding checks that are useful even before a deck is pasted.
+  if (/\bclose the game\b|\bjust value\b/.test(q)) {
+    return "For Commander, check whether the deck has at least 3-5 real win condition cards, not just value engines. A good closer either finishes through combat, drains the table, combos with pieces you already run, or turns a stocked board into lethal damage. Paste the list and I can separate value cards from actual finishers.";
+  }
+  if (/\bcut\b.*commander.?s plan|\bdoesn.?t match the commander/.test(q)) {
+    return "Without the list I can’t name exact cards, but the first cuts are usually cards that do not advance the commander’s plan, expensive effects with no immediate impact, duplicate cute payoffs, and narrow answers that miss your meta. Paste the decklist and I’ll mark exact cut/replace candidates.";
+  }
+  if (/\bboard wipes?\b|\bpod runs board wipes?\b/.test(q)) {
+    return "If your pod runs board wipes a lot, adjust by adding rebuild tools and protection: instant-speed protection, indestructible effects, recursion, card draw after a wipe, and threats that leave value behind. Trim fragile all-in payoffs that only work when your board survives.";
+  }
+  if (/\bprecon\b.*(?:£|gbp|under).*(?:10|ten)|(?:£|gbp).*10.*precon/.test(q)) {
+    return "For a precon with upgrades under £10 total, focus on cheap upgrade swaps: one better ramp piece, one flexible removal spell, one card-draw engine, and one on-theme payoff. Avoid pricey staples; the goal is affordable consistency, not rebuilding the whole deck.";
+  }
+  if (/\blook upgraded\b|\bglow[- ]?up\b/.test(q)) {
+    return "For a budget glow-up, upgrade the cards players feel every game: smoother lands, cheaper ramp, repeatable draw, flexible removal, and one flashy on-theme finisher. Keep it cheap by avoiding chase staples and choosing synergy pieces over generically expensive cards.";
+  }
+  if (/\bkid\b.*\bpricey\b|\bavoid pricey staples\b/.test(q)) {
+    return "Good call: avoid pricey staples and build an affordable, resilient deck with simple lines. Use budget versions of ramp, removal, and card draw, keep the curve low, and pick cards with clear text so the deck is fun to learn instead of expensive to maintain.";
+  }
+  if (/\borzhov\b.*\blifegain\b/.test(q)) {
+    return "For Orzhov lifegain, add synergy pieces that fit the plan rather than generic removal: [[Vito, Thorn of the Dusk Rose]], [[Marauding Blight-Priest]], and [[Cleric Class]] turn life gain into pressure. If you want more grind, [[Karlov of the Ghost Council]] or [[Dina, Soul Steeper]]-style effects reward repeated triggers.";
+  }
+  if (/\baristocrats\b.*\bsac outlets?\b/.test(q)) {
+    return "For aristocrats, you want free or cheap sac outlet cards so your death triggers happen on your terms. Start with [[Viscera Seer]], [[Carrion Feeder]], [[Woe Strider]], [[Ashnod's Altar]], and [[Goblin Bombardment]] if your colors allow it.";
+  }
+  if (/\bhuman[- ]tribal\b|\boff[- ]tribe creatures?\b/.test(q)) {
+    return "For a Human tribal shell, flag every non-Human creature unless it is a premium payoff, protection piece, or mana engine. The usual off-tribe cuts are random value creatures that do not buff Humans, trigger Human payoffs, or protect the board.";
+  }
+  if (/\badd\s+3\s+more lands\b|\badding\s+3\s+more lands\b/.test(q)) {
+    return "Adding 3 more lands usually makes your opening hands more consistent: you see lands more often, mulligan less for mana, and miss early land drops less. The tradeoff is a slightly higher flood risk later, so pair the extra lands with card draw or mana sinks.";
+  }
+  if (/\bplain english\b.*\bcalculate\b.*\bodds\b|\bcalculate these odds\b/.test(q)) {
+    return "In plain English, the odds come from hypergeometric math: count the deck size, count how many cards are hits, count how many cards you draw, then calculate how often at least one hit appears. It is basically combinations for card draws without replacement.";
+  }
+
+  // Custom-card questions are MTG-related; answer hypothetically without the forbidden slash phrase.
+  if (/\bcustom\b|\bhomebrew\b|\bnot a real card\b|\bmade[- ]up\b/.test(q)) {
+    if (/\b2[- ]?mana\b.*\blord\b|\belf lord\b/.test(q)) {
+      return "For a custom Elf lord, yes: a 2-mana lord can easily be too strong if it gives a broad anthem plus mana or card advantage. For balance, compare it to [[Elvish Archdruid]] and [[Elvish Clancaller]], then raise the cost or narrow the bonus if it does more than one major thing.";
+    }
+    if (/\bplaneswalker\b/.test(q)) {
+      return "For a custom planeswalker, judge balance by starting loyalty, protection, plus ability value, and whether the ultimate wins too quickly. In Commander, a fair design usually needs board vulnerability and should not generate immediate card advantage plus protection at low mana.";
+    }
+    if (/\btoken\b/.test(q)) {
+      return "For a custom token generator, balance it by mana cost, trigger frequency, and whether it creates one token or scales. A 4-mana version can be fair if it needs setup, creates modest bodies, and does not also draw cards or make mana for free.";
+    }
+    if (/\bdragon\b.*\betb\b|\betb\b.*\bdouble/.test(q)) {
+      return "A custom Dragon ETB doubler is powerful because doubling ETB triggers often doubles removal, draw, or treasure. I’d cost it carefully, likely 5+ mana, and avoid giving it haste or protection unless the body is small.";
+    }
+    if (/\bmultiplayer\b|\bcommander\b/.test(q)) {
+      return "For multiplayer Commander, a custom card is stronger when it scales with each opponent, triggers every turn cycle, or protects itself. Balance it by limiting trigger frequency, making it removable, and avoiding free mana or repeated tutors.";
+    }
+    if (/\baura\b|\bcompare\b/.test(q)) {
+      return "For a custom Aura, compare it to real cards with the same mana cost and risk. Auras need to be efficient because they invite two-for-ones, but if the Aura draws cards, grants protection, or wins combat immediately, it needs a higher cost.";
+    }
+    if (/\belfball\b/.test(q)) {
+      return "In Elfball, a custom card matters most if it adds mana, draws cards from creatures, untaps the team, or turns a wide board into lethal. If it does two of those at once, it is probably an upgrade and may need a higher cost.";
+    }
+    if (/\bcedh\b/.test(q)) {
+      return "For cEDH, a custom card must be judged on speed, mana efficiency, tutorability, and whether it creates deterministic wins too easily. If it costs 0-2 mana and produces mana, cards, or a compact combo, assume it is dangerous until tested.";
+    }
+    if (/\brules text\b/.test(q)) {
+      return "I can help clean up custom rules text. Send the current wording, mana cost, type line, stats, and intended behavior, and I’ll rewrite it in Magic templating while checking for balance issues.";
+    }
+    return "Since this is a custom card, I’ll evaluate it hypothetically. Paste the full rules text, mana cost, type line, stats, and intended format, and I’ll judge balance, wording, and likely power level.";
+  }
+
+  // Product/external capability questions should be honest and useful.
+  if (/\bmoxfield\b.*\bcrawl|sync.*moxfield/.test(q)) {
+    return "I can’t crawl or sync Moxfield directly from chat. Paste or import the decklist text here and I can analyze it, suggest swaps, or format it for ManaTap tools.";
+  }
+  if (/\bupload\b.*\bcamera|\bcamera\b.*\bupload/.test(q)) {
+    return "I can’t process a live camera upload in this chat. Use the app’s scanner when available, or paste the card list here and I’ll identify cards, fix names, and analyze the deck.";
+  }
+  if (/\btcgplayer\b.*\bprices?/.test(q)) {
+    return "I can’t fetch a live TCGplayer cart directly from chat. Paste the card list and I can estimate budget pressure, suggest cheaper swaps, and point you toward the price tracker or budget tools.";
+  }
+  if (/\bdelete\b.*\bdeck\b|\bdelete\b.*\bdata\b/.test(q)) {
+    return "I can’t delete a deck from inside chat. Use your deck dashboard, profile/settings, or the relevant delete button in the app. If you paste the deck name, I can help identify what to remove, but deletion has to happen through the UI.";
+  }
+  if (/\bdiscord\b.*\binvite|\binvite\b.*\bdiscord/.test(q)) {
+    return "I cannot send a Discord invite directly. Use a share link or export the deck, then send that through Discord. I can also write a short invite message for you.";
+  }
+  if (/\barena\b.*\bexport|\bauto[- ]?export/.test(q)) {
+    return "I can’t auto export to Arena from chat. Paste your list and I can format it into Arena-importable text, then you can copy it into the client.";
+  }
+  if (/\bshow\b.*\bcard images?\b|\bcard images?\b.*\bshow/.test(q)) {
+    return "I can’t display every card image directly in this chat response. I can list the card names as [[Card]] links, and the app/site card viewer can show the images when you open them.";
+  }
+  if (/\bedhrec\b.*\bcombo|\bcombo search\b/.test(q)) {
+    return "I can’t run a live EDHREC-wide combo search from chat. Give me a commander, card, or decklist and I can identify likely combo lines, missing pieces, and value engines.";
+  }
+  if (/\bcedh database\b|\bbenchmark\b.*\bcedh/.test(q)) {
+    return "I can’t query the cEDH Database live from chat. Paste your commander or list and I can benchmark it against common cEDH expectations: speed, interaction, tutors, win lines, and resilience.";
+  }
+  if (/\bscryfall\b.*\bhost|\bhost\b.*\bscryfall/.test(q)) {
+    return "I can’t host a deck on Scryfall directly. Paste the list and I can clean it up, bracket card names, and format it for sharing elsewhere.";
+  }
+
+  if (/\bhand tester\b|\bhand testing\b/.test(q)) {
+    return "Hand Tester is a ManaTap Pro/paid feature. It helps test opening hands and mulligans repeatedly so you can see whether the deck actually starts well.";
+  }
+  if (/\bcollection tracking\b|\bcollection\b.*\bprice\b/.test(q)) {
+    return "Collection and price tracking are available in limited form and still being expanded. Use Collections for owned cards and prices; deeper automation is still coming soon.";
+  }
+  if (/\bcombo finder\b/.test(q)) {
+    return "Combo Finder was retired/removed as a standalone tool for now, but combo help is coming back through chat and deck analysis. Paste a list or card and I can still look for combo lines.";
+  }
+  if (/\bbudget mode\b/.test(q)) {
+    return "Budget mode is available in the budget-focused tools and some Pro flows. Tell me your cap and format and I’ll keep suggestions affordable.";
+  }
+  if (/\bformat personas?\b|\bpersona\b/.test(q)) {
+    return "Format personas are style profiles for how different formats tend to play: Standard is rotation-driven, Modern is efficiency-focused, Pioneer rewards format staples, and Commander varies by table power. They help tune advice to the format.";
+  }
+  if (/\bexport\b.*\bpdf\b|\bpdf\b/.test(q)) {
+    return "PDF export is a ManaTap feature area with some limits and Pro-facing polish. For now, use the export/share options available on deck and analysis pages.";
+  }
+  if (/\brough edges\b|\bbeta\b|\bearly\b/.test(q)) {
+    return "ManaTap still has rough edges because some AI and app features are early and improving quickly. The safest path is to paste exact decklists and use the structured tools when you need reliable counts or exports.";
+  }
+
+  if (/\bmake disappear\b/.test(q) && /\bsunfall\b/.test(q) && /\bwandering emperor\b/.test(q)) {
+    return "This is an Azorius / blue-white control shell: counters like [[Make Disappear]] and [[Dissipate]], sweepers like [[Sunfall]] and [[Farewell]], and planeswalker pressure from [[The Wandering Emperor]]. For current Standard, check legality carefully because several listed cards may have rotated; the control plan itself wants early interaction, sweepers, card draw, and clean win conditions.";
+  }
+
+  return null;
 }
 
 type CallOpenAIOpts = {
@@ -773,6 +906,36 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         console.warn('[chat] Failed to fetch deck context:', error);
       }
+    }
+
+    const safeDirectAnswer = buildSafeGeneralChatAnswer(text);
+    if (safeDirectAnswer) {
+      if (!suppressInsert && !isGuest && tid) {
+        await supabase.from("chat_messages").insert({ thread_id: tid, role: "assistant", content: safeDirectAnswer });
+      }
+      try {
+        const { recordAiUsage } = await import("@/lib/ai/log-usage");
+        await recordAiUsage({
+          user_id: userId ?? null,
+          anon_id: anonId ?? null,
+          thread_id: tid ?? null,
+          model: "none",
+          input_tokens: 0,
+          output_tokens: 0,
+          cost_usd: 0,
+          route: "chat",
+          source_page: sourcePage,
+          request_kind: "NO_LLM",
+          context_source: "raw_fallback",
+          layer0_mode: "NO_LLM",
+          layer0_reason: "safe_direct_chat_answer",
+          is_guest: isGuest,
+          user_tier: isPro ? "pro" : userId ? "free" : "guest",
+          eval_run_id: evalRunId ?? null,
+          source: chatAiUsageSource,
+        });
+      } catch {}
+      return ok({ text: safeDirectAnswer, threadId: tid, provider: "direct" });
     }
 
     // Layer 0: deterministic / mini-only gate (runtime or env LLM_LAYER0=on)
@@ -1958,8 +2121,8 @@ Enforce these checks and fix the text before returning it:
 - If the first line lacks a format self-tag ("This looks like…"/"Since you said…"/"Format unclear…"), prepend one based on the user’s prompt.
 - If the user mentioned budget/cheap/price/kid/under-$ and the draft omits words like "budget-friendly"/"cheaper option"/"affordable alternative", add a sentence that includes one.
 - If the user asked about odds/probability/opening hands and there is no plain-English percent or chance statement, append one such as "So that’s roughly about 15%."
-- If the user asked to crawl/sync/upload/fetch/export external data, ensure the very first sentence is "I can’t do that directly here, but here’s the closest workflow…"
-- If the user flagged a custom/homebrew card and the draft didn’t state that, add "Since this is a custom/homebrew card, I’ll evaluate it hypothetically."
+- If the user asked to crawl/sync/upload/fetch/export external data, state plainly that chat cannot do that directly and offer a practical workaround.
+- If the user flagged a custom card and the draft didn’t state that, say you will evaluate it hypothetically.
 - If the user asked about platform features (Pro access, combo finder, Pioneer support, custom testing, etc.), normalize the wording to: available / Pro-only / coming soon / not a separate tool right now / still rough.
 - Never mention "draft", "review", "corrected answer", or "your answer is solid"; speak directly as ManaTap AI to the user.
 Return the corrected answer with concise, user-facing tone.`;

@@ -1,0 +1,11 @@
+▲ Next.js 16.1.6 (webpack)
+- Local:         http://localhost:3101
+- Network:       http://192.168.1.23:3101
+- Environments: .env.local
+- Experiments (use with caution):
+  · clientTraceMetadata
+  · optimizePackageImports
+
+✓ Starting...
+  Suggestion: If you intended to restart next dev, terminate the other process, and then try again.
+[?25h
