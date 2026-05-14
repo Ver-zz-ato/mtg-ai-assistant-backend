@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
     const suggestions: Suggestion[] = [];
 
     // Detect combo pieces - these should NOT be suggested for swapping
-    let comboPieces = new Set<string>();
+    const comboPieces = new Set<string>();
     try {
       const { detectCombos, normalizeDeckNames } = await import('@/lib/combos/detect');
       const normalizedNames = normalizeDeckNames(deckText);

@@ -178,7 +178,6 @@ export function buildDeckProfile(
   const totalCards = cards.reduce((s, c) => s + c.count, 0);
 
   for (const { name, count } of cards) {
-    const n = name.toLowerCase().trim();
     if (isLand(name)) {
       landCount += count;
       continue;
