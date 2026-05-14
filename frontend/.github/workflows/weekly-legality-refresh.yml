@@ -1,0 +1,38 @@
+name: Weekly Legality Refresh
+
+on:
+  schedule:
+    # Every Sunday at 4:30 AM UTC, after the Scryfall cache refresh window.
+    - cron: '30 4 * * 0'
+  workflow_dispatch:
+
+jobs:
+  legality-refresh:
+    name: Refresh MTG Legalities
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Trigger legality refresh
+        run: |
+          echo "Starting weekly legality refresh..."
+
+          response=$(curl -w "%{http_code}" -s -o response.json -X POST \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.BASE_URL }}/api/cron/mtg-legality-refresh")
+
+          if [ "$response" -ne 200 ]; then
+            echo "Legality refresh failed with HTTP $response"
+            cat response.json || echo "No response body"
+            exit 1
+          fi
+
+          cat response.json
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Weekly Legality Refresh" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY

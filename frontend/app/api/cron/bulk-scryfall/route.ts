@@ -491,15 +491,25 @@ export async function POST(req: NextRequest) {
     console.log(`   upserts update existing rows. The final count represents unique card names.`);
     console.log(`\n📈 Image coverage: ${cardsWithImages.toLocaleString()}/${cards.length.toLocaleString()} cards had images (${Math.round(cardsWithImages / cards.length * 100)}%)`);
 
+    const isChunkedRun = req.headers.has('x-chunk-start') || req.headers.has('x-chunk-size') || !isLastChunk;
+    const chunkEnd = chunkStart + chunkSize;
+    const runMode = useStreaming
+      ? isChunkedRun
+        ? "streaming_chunk"
+        : "streaming_full"
+      : "legacy_chunk";
+    const chunkLabel = useStreaming
+      ? isChunkedRun
+        ? `streaming chunk ${chunkStart}-${chunkEnd}${isLastChunk ? " (final)" : ""}`
+        : "full streaming import"
+      : `legacy chunk ${chunkStart}-${chunkEnd}${isLastChunk ? " (final)" : ""}`;
+
     const shouldPersist = useStreaming || isLastChunk;
     if (shouldPersist) {
       const finishedAt = new Date().toISOString();
       const durationMs = Date.now() - new Date(attemptStartedAt).getTime();
       const warnings: string[] = [];
       if (errors > 0) warnings.push(`${errors} batch upsert error(s) — see server logs`);
-      const chunkLabel = useStreaming
-        ? "full streaming import"
-        : `legacy chunk ${chunkStart}-${chunkStart + chunkSize}${isLastChunk ? " (final)" : ""}`;
       const detail: AdminJobDetail = {
         jobId: JOB_ID,
         attemptStartedAt,
@@ -525,8 +535,11 @@ export async function POST(req: NextRequest) {
         },
         extra: {
           streaming_mode: useStreaming,
+          run_mode: runMode,
           is_last_chunk: isLastChunk,
-          chunk_start: useStreaming ? 0 : chunkStart,
+          chunk_start: chunkStart,
+          chunk_end: chunkEnd,
+          chunk_size: chunkSize,
           total_cards_in_bulk: allCardsLength,
         },
       };
@@ -539,12 +552,13 @@ export async function POST(req: NextRequest) {
       processed: processed,
       unique_normalized_names: uniqueNormalizedNames,
       streaming_mode: useStreaming,
+      run_mode: runMode,
       chunk_start: chunkStart,
       chunk_size: chunkSize,
       chunk_cards: cards.length,
       total_cards: allCardsLength || null,
       is_last_chunk: isLastChunk,
-      next_chunk_start: chunkStart + chunkSize,
+      next_chunk_start: chunkEnd,
       final_cache_count: finalCount,
       cache_entries_with_images: imageCount,
       timestamp: new Date().toISOString()

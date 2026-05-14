@@ -4,69 +4,93 @@ on:
   schedule:
     # Every Sunday at 2:00 AM UTC
     - cron: '0 2 * * 0'
-  workflow_dispatch: # Allow manual triggers
+  workflow_dispatch:
 
 jobs:
   bulk-import:
     name: Import Scryfall Card Data
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
 
     steps:
-      - name: Trigger Bulk Import
+      - name: Trigger Bulk Import Chunks
         run: |
-          echo "🚀 Starting weekly Scryfall bulk import..."
-          
-          # Call the bulk import API endpoint
-          response=$(curl -w "%{http_code}" -s -o response.json -X POST \
-            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
-            -H "Content-Type: application/json" \
-            "${{ secrets.BASE_URL }}/api/cron/bulk-scryfall")
-          
-          # Check if request was successful
-          if [ "$response" -eq 200 ]; then
-            echo "✅ Bulk import completed successfully"
-            
-            # Show results
-            imported=$(cat response.json | jq -r '.imported // "unknown"')
-            total=$(cat response.json | jq -r '.total_cards // "unknown"')
+          echo "Starting weekly Scryfall bulk import..."
+
+          CHUNK_START=0
+          CHUNK_SIZE="${CHUNK_SIZE:-25000}"
+          TOTAL_IMPORTED=0
+          TOTAL_PROCESSED=0
+          FINAL_COUNT="unknown"
+
+          while true; do
+            echo "Running chunk start=$CHUNK_START size=$CHUNK_SIZE"
+
+            response=$(curl -w "%{http_code}" -s -o response.json -X POST \
+              -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+              -H "x-chunk-start: $CHUNK_START" \
+              -H "x-chunk-size: $CHUNK_SIZE" \
+              -H "Content-Type: application/json" \
+              "${{ secrets.BASE_URL }}/api/cron/bulk-scryfall")
+
+            if [ "$response" -ne 200 ]; then
+              echo "Bulk import chunk failed with HTTP $response"
+              cat response.json || echo "No response body"
+              echo "IMPORT_SUCCESS=false" >> $GITHUB_ENV
+              exit 1
+            fi
+
+            imported=$(cat response.json | jq -r '.imported // 0')
+            processed=$(cat response.json | jq -r '.processed // 0')
             final_count=$(cat response.json | jq -r '.final_cache_count // "unknown"')
-            
-            echo "📊 Results:"
-            echo "  • Cards processed: $imported"
-            echo "  • Total available: $total"
-            echo "  • Final cache size: $final_count"
-            
-            # Set GitHub environment variables for summary
-            echo "IMPORT_SUCCESS=true" >> $GITHUB_ENV
-            echo "CARDS_IMPORTED=$imported" >> $GITHUB_ENV
-            echo "FINAL_CACHE_COUNT=$final_count" >> $GITHUB_ENV
-          else
-            echo "❌ Bulk import failed with HTTP $response"
-            cat response.json || echo "No response body"
-            echo "IMPORT_SUCCESS=false" >> $GITHUB_ENV
-            exit 1
-          fi
+            is_last=$(cat response.json | jq -r '.is_last_chunk // false')
+            next_start=$(cat response.json | jq -r '.next_chunk_start // empty')
+
+            TOTAL_IMPORTED=$((TOTAL_IMPORTED + imported))
+            TOTAL_PROCESSED=$((TOTAL_PROCESSED + processed))
+            FINAL_COUNT="$final_count"
+
+            echo "Chunk complete: imported=$imported processed=$processed final_cache_count=$FINAL_COUNT is_last=$is_last"
+
+            if [ "$is_last" = "true" ]; then
+              break
+            fi
+
+            if [ -z "$next_start" ] || [ "$next_start" -le "$CHUNK_START" ]; then
+              echo "Invalid next_chunk_start: $next_start"
+              echo "IMPORT_SUCCESS=false" >> $GITHUB_ENV
+              exit 1
+            fi
+
+            CHUNK_START="$next_start"
+          done
+
+          echo "Bulk import completed successfully"
+          echo "Rows upserted across chunks: $TOTAL_IMPORTED"
+          echo "Raw cards processed across chunks: $TOTAL_PROCESSED"
+          echo "Final cache size: $FINAL_COUNT"
+
+          echo "IMPORT_SUCCESS=true" >> $GITHUB_ENV
+          echo "CARDS_IMPORTED=$TOTAL_IMPORTED" >> $GITHUB_ENV
+          echo "CARDS_PROCESSED=$TOTAL_PROCESSED" >> $GITHUB_ENV
+          echo "FINAL_CACHE_COUNT=$FINAL_COUNT" >> $GITHUB_ENV
 
       - name: Create Job Summary
         if: always()
         run: |
           if [ "$IMPORT_SUCCESS" = "true" ]; then
-            echo "## ✅ Weekly Scryfall Import Completed" >> $GITHUB_STEP_SUMMARY
+            echo "## Weekly Scryfall Import Completed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- **Cards Imported:** $CARDS_IMPORTED" >> $GITHUB_STEP_SUMMARY
+            echo "- **Rows Upserted:** $CARDS_IMPORTED" >> $GITHUB_STEP_SUMMARY
+            echo "- **Raw Cards Processed:** $CARDS_PROCESSED" >> $GITHUB_STEP_SUMMARY
             echo "- **Final Cache Size:** $FINAL_CACHE_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "- **Status:** Success" >> $GITHUB_STEP_SUMMARY
             echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The MTG AI Assistant card cache has been updated with the latest Scryfall data." >> $GITHUB_STEP_SUMMARY
           else
-            echo "## ❌ Weekly Scryfall Import Failed" >> $GITHUB_STEP_SUMMARY
+            echo "## Weekly Scryfall Import Failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "- **Status:** Failed" >> $GITHUB_STEP_SUMMARY
             echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Please check the logs and ensure the API endpoint is accessible." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Notify on Failure
