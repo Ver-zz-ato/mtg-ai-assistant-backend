@@ -131,9 +131,6 @@ function titleCaseCardName(key: string): string {
 }
 
 function displayNameForRow(row: CacheRow, ctx?: LookupContext): string {
-  const printed = String(row.printed_name || "").trim();
-  if (printed) return printed;
-
   const key = normalizeScryfallCacheName(row.name);
   const matchingInput = ctx?.variants.find((variant) => normalizeScryfallCacheName(variant) === key);
   if (matchingInput && /[A-Z]/.test(matchingInput)) return matchingInput;

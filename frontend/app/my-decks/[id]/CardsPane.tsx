@@ -270,7 +270,7 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
       const res = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: n, qty: q, zone: effectiveZone }),
+        body: JSON.stringify({ name: n, qty: q, zone: effectiveZone, skipValidation: Boolean(validatedName) }),
       });
       const json = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
       

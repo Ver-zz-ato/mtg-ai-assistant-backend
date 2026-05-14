@@ -268,6 +268,15 @@ export function looksLikeCardName(s: string): boolean {
  * did not go through {@link parseDeckText}. Returns empty string if it should not be stored.
  */
 export function sanitizedNameForDeckPersistence(raw: string): string {
+  const normalized = normalizeChars(raw);
+  const splitNormalized = normalized.replace(/\s+\/\s+/g, " // ");
+  if (splitNormalized.includes("//")) {
+    const parts = splitNormalized.split("//").map((part) => cleanCardName(part));
+    if (parts.length === 2 && parts[0] && parts[1] && parts.every(looksLikeCardName)) {
+      return `${parts[0]} // ${parts[1]}`;
+    }
+  }
+
   const s = cleanCardName(raw);
   if (!s || !looksLikeCardName(s)) return '';
   return s;

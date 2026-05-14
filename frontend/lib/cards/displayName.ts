@@ -1,17 +1,10 @@
 /**
- * Display-only card title: prefer Scryfall `printed_name` when it differs from oracle `name`.
- * Never use for identity, search keys, or persistence — oracle `name` remains canonical.
+ * Display-only card title. ManaTap shows oracle English names as the user-facing identity;
+ * `printed_name` may be localized or alternate-frame text and must not replace it.
  */
 export function getDisplayCardName(card: {
   name: string;
   printed_name?: string | null;
 }): string {
-  if (
-    card.printed_name &&
-    card.printed_name.trim().length > 0 &&
-    card.printed_name.trim().toLowerCase() !== card.name.trim().toLowerCase()
-  ) {
-    return card.printed_name.trim();
-  }
   return card.name;
 }
