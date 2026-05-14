@@ -7,6 +7,43 @@ import { track } from "@/lib/analytics/track";
 import { useAuth } from "@/lib/auth-context";
 import { useProStatus } from "@/hooks/useProStatus";
 
+type BatchLikeResult = { count: number; liked: boolean; authenticated: boolean };
+type BatchLikeResolve = (value: BatchLikeResult | null) => void;
+
+const pendingLikeRequests = new Map<string, BatchLikeResolve[]>();
+let pendingLikeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function fetchLikeSummary(deckId: string): Promise<BatchLikeResult | null> {
+  return new Promise((resolve) => {
+    const existing = pendingLikeRequests.get(deckId);
+    if (existing) existing.push(resolve);
+    else pendingLikeRequests.set(deckId, [resolve]);
+
+    if (pendingLikeTimer) return;
+    pendingLikeTimer = setTimeout(async () => {
+      const batch = Array.from(pendingLikeRequests.entries());
+      pendingLikeRequests.clear();
+      pendingLikeTimer = null;
+
+      const ids = batch.map(([id]) => id);
+      try {
+        const r = await fetch(`/api/decks/likes?ids=${encodeURIComponent(ids.join(","))}`, { cache: "no-store" });
+        const j = await r.json().catch(() => ({}));
+        const authenticated = !!j?.authenticated;
+        for (const [id, resolvers] of batch) {
+          const item = j?.likes?.[id];
+          const value = r.ok && j?.ok && item
+            ? { count: Number(item.count || 0), liked: !!item.liked, authenticated }
+            : null;
+          resolvers.forEach((fn) => fn(value));
+        }
+      } catch {
+        for (const [, resolvers] of batch) resolvers.forEach((fn) => fn(null));
+      }
+    }, 20);
+  });
+}
+
 export default function LikeButton({ deckId }: { deckId: string }) {
   const [count, setCount] = useState<number>(0);
   const [liked, setLiked] = useState<boolean>(false);
@@ -16,20 +53,15 @@ export default function LikeButton({ deckId }: { deckId: string }) {
   const { isPro } = useProStatus();
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      try {
-        const r = await fetch(`/api/decks/${deckId}/likes`, { cache: 'no-store' });
-        const j = await r.json().catch(()=>({}));
-        if (r.ok && j?.ok) { 
-          setCount(j.count||0); 
-          setLiked(!!j.liked);
-          // If we got a response with liked status, user is authenticated
-          setIsAuthenticated(true);
-        } else if (r.status === 401) {
-          setIsAuthenticated(false);
-        }
-      } catch {}
+      const summary = await fetchLikeSummary(deckId);
+      if (cancelled || !summary) return;
+      setCount(summary.count);
+      setLiked(summary.liked);
+      setIsAuthenticated(summary.authenticated);
     })();
+    return () => { cancelled = true; };
   }, [deckId]);
 
   async function toggle(e: React.MouseEvent) {

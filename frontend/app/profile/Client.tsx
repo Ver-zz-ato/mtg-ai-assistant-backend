@@ -228,13 +228,18 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
             const pins = Array.isArray((prof as any)?.pinned_deck_ids) ? (prof as any).pinned_deck_ids as string[] : [];
             setPinnedDeckIds(pins.slice(0,3));
           } catch {}
-          // load likes for these
+          // Load likes in one request to avoid one API call per deck.
           try {
-            const results = await Promise.all(list.map(async d => {
-              try { const r = await fetch(`/api/decks/${d.id}/likes`, { cache: 'no-store' }); const j = await r.json().catch(()=>({})); return [d.id, (j?.ok? { count: j.count||0, liked: !!j.liked } : { count: 0, liked: false })] as const; } catch { return [d.id, { count: 0, liked: false }] as const; }
-            }));
             const map: Record<string, {count:number; liked:boolean}> = {} as any;
-            for (const [id, v] of results) map[id] = v;
+            const ids = list.map(d => d.id).filter(Boolean);
+            if (ids.length) {
+              const r = await fetch(`/api/decks/likes?ids=${encodeURIComponent(ids.join(','))}`, { cache: 'no-store' });
+              const j = await r.json().catch(()=>({}));
+              for (const id of ids) {
+                const v = j?.likes?.[id];
+                map[id] = j?.ok && v ? { count: Number(v.count || 0), liked: !!v.liked } : { count: 0, liked: false };
+              }
+            }
             setLikes(map);
           } catch {}
           try {

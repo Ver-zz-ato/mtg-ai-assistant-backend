@@ -1,11 +1,10 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies: () => cookies() });
+  const supabase = await createClient();
 
   const cookieHeader = typeof req.headers?.get === 'function' ? (req.headers.get('cookie') || '') : '';
   const envUrlSet = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
