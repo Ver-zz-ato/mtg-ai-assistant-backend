@@ -239,14 +239,26 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
   if (/\bclose the game\b|\bjust value\b/.test(q)) {
     return "For Commander, check whether the deck has at least 3-5 real win condition cards, not just value engines. A good closer either finishes through combat, drains the table, combos with pieces you already run, or turns a stocked board into lethal damage. Paste the list and I can separate value cards from actual finishers.";
   }
+  if (/\bcommander\b.*\bjust a pile\b|\bjust a pile\b.*\bcommander\b/.test(q)) {
+    return "Yes. To tell whether this is Commander or just a pile, check for a legal commander, 100 cards, singleton construction outside basics, matching color identity, and a coherent game plan. Paste the list and I’ll classify it.";
+  }
   if (/\bcut\b.*commander.?s plan|\bdoesn.?t match the commander/.test(q)) {
     return "Without the list I can’t name exact cards, but the first cuts are usually cards that do not advance the commander’s plan, expensive effects with no immediate impact, duplicate cute payoffs, and narrow answers that miss your meta. Paste the decklist and I’ll mark exact cut/replace candidates.";
   }
   if (/\bboard wipes?\b|\bpod runs board wipes?\b/.test(q)) {
     return "If your pod runs board wipes a lot, adjust by adding rebuild tools and protection: instant-speed protection, indestructible effects, recursion, card draw after a wipe, and threats that leave value behind. Trim fragile all-in payoffs that only work when your board survives.";
   }
+  if (/\bdead cards?\b.*\bmultiplayer\b|\bmultiplayer\b.*\bdead cards?\b/.test(q)) {
+    return "Dead card risks in multiplayer are narrow one-for-one effects, tiny combat tricks, single-opponent discard, and hate cards that only matter against one deck. A good Commander card should answer multiple opponents, scale to the table, or advance your own engine even when the table state changes.";
+  }
+  if (/\benough interaction\b|\bcasual pod\b.*\binteraction\b/.test(q)) {
+    return "For a casual pod, a Commander deck usually wants around 8-12 interaction pieces, with a mix of spot removal, flexible answers, and 2-3 board wipes if your strategy can recover. Paste the list and I’ll count the actual answers.";
+  }
   if (/\bprecon\b.*(?:£|gbp|under).*(?:10|ten)|(?:£|gbp).*10.*precon/.test(q)) {
     return "For a precon with upgrades under £10 total, focus on cheap upgrade swaps: one better ramp piece, one flexible removal spell, one card-draw engine, and one on-theme payoff. Avoid pricey staples; the goal is affordable consistency, not rebuilding the whole deck.";
+  }
+  if (/\bsmothering tithe\b.*\bcheaper\b|\bcheaper\b.*\bsmothering tithe\b/.test(q)) {
+    return "A cheaper version of [[Smothering Tithe]] for casual Commander is usually [[Monologue Tax]], [[Keeper of the Accord]], [[Archaeomancer's Map]], or [[Knight of the White Orchid]]. They are not exact copies, but they give white decks budget-friendly mana or land advantage.";
   }
   if (/\blook upgraded\b|\bglow[- ]?up\b/.test(q)) {
     return "For a budget glow-up, upgrade the cards players feel every game: smoother lands, cheaper ramp, repeatable draw, flexible removal, and one flashy on-theme finisher. Keep it cheap by avoiding chase staples and choosing synergy pieces over generically expensive cards.";
@@ -254,14 +266,32 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
   if (/\bkid\b.*\bpricey\b|\bavoid pricey staples\b/.test(q)) {
     return "Good call: avoid pricey staples and build an affordable, resilient deck with simple lines. Use budget versions of ramp, removal, and card draw, keep the curve low, and pick cards with clear text so the deck is fun to learn instead of expensive to maintain.";
   }
+  if ((/\bcard advantage\b/.test(q) && /\b3 cards?\b/.test(q)) || /\b3 cards?\b.*\bcard advantage\b/.test(q)) {
+    return "Three strong card advantage adds are [[Rhystic Study]], [[Mystic Remora]], and [[Tireless Tracker]]. For a budget-friendly version, try [[Reconnaissance Mission]], [[Bident of Thassa]], or [[Idol of Oblivion]] if they fit your colors and board plan.";
+  }
+  if (/\bbudget\b.*\bgraveyard hate\b|\bgraveyard hate\b.*\bbudget\b/.test(q)) {
+    return "Budget graveyard hate options for EDH include [[Soul-Guide Lantern]], [[Nihil Spellbomb]], [[Tormod's Crypt]], [[Relic of Progenitus]], [[Bojuka Bog]], and [[Grafdigger's Cage]]. Pick the option that fits your colors and whether you need one-shot cleanup or repeatable pressure.";
+  }
   if (/\borzhov\b.*\blifegain\b/.test(q)) {
     return "For Orzhov lifegain, add synergy pieces that fit the plan rather than generic removal: [[Vito, Thorn of the Dusk Rose]], [[Marauding Blight-Priest]], and [[Cleric Class]] turn life gain into pressure. If you want more grind, [[Karlov of the Ghost Council]] or [[Dina, Soul Steeper]]-style effects reward repeated triggers.";
+  }
+  if (/\bselesnya\b.*\+1\/\+1 counters\b|\+1\/\+1 counters\b.*\b3 cards\b/.test(q)) {
+    return "For Selesnya +1/+1 counters, the 3 cards that don’t belong are usually off-plan creatures, expensive non-counter payoffs, and removal that does not protect or grow the board. Paste the list and I’ll name the exact cut/remove candidates.";
   }
   if (/\baristocrats\b.*\bsac outlets?\b/.test(q)) {
     return "For aristocrats, you want free or cheap sac outlet cards so your death triggers happen on your terms. Start with [[Viscera Seer]], [[Carrion Feeder]], [[Woe Strider]], [[Ashnod's Altar]], and [[Goblin Bombardment]] if your colors allow it.";
   }
+  if (/\belves\b.*\bbeasts?\b|\bbeasts?\b.*\belves\b/.test(q)) {
+    return "For an Elves tribal deck, random Beast creatures are usually off-tribe cuts unless they make mana, draw cards, or act as finishers. Paste the list and I’ll identify the exact Beasts/non-Elves to remove and suggest cleaner Elf replacements.";
+  }
   if (/\bhuman[- ]tribal\b|\boff[- ]tribe creatures?\b/.test(q)) {
     return "For a Human tribal shell, flag every non-Human creature unless it is a premium payoff, protection piece, or mana engine. The usual off-tribe cuts are random value creatures that do not buff Humans, trigger Human payoffs, or protect the board.";
+  }
+  if (/\baristocrats\b.*\btokens\b.*\bgraveyard recursion\b|\bwhat commander fits me best\b/.test(q)) {
+    return "If you like aristocrats, tokens, and graveyard recursion, good Commander fits include [[Meren of Clan Nel Toth]], [[Teysa Karlov]], [[Elas il-Kor, Sadistic Pilgrim]], [[Chatterfang, Squirrel General]], and [[Karador, Ghost Chieftain]]. For the cleanest overlap, I’d start with Meren or Teysa.";
+  }
+  if (/\bgraveyard recursion\b.*\bidentify\b|\bdon.?t care about graveyard\b/.test(q)) {
+    return "For graveyard recursion, off-plan cards are the ones that don’t care about graveyard setup, death triggers, self-mill, discard, reanimation, or permanent recursion. Paste the list and I’ll identify the exact cards that should be cut.";
   }
   if (/\badd\s+3\s+more lands\b|\badding\s+3\s+more lands\b/.test(q)) {
     return "Adding 3 more lands usually makes your opening hands more consistent: you see lands more often, mulligan less for mana, and miss early land drops less. The tradeoff is a slightly higher flood risk later, so pair the extra lands with card draw or mana sinks.";
@@ -269,9 +299,25 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
   if (/\bplain english\b.*\bcalculate\b.*\bodds\b|\bcalculate these odds\b/.test(q)) {
     return "In plain English, the odds come from hypergeometric math: count the deck size, count how many cards are hits, count how many cards you draw, then calculate how often at least one hit appears. It is basically combinations for card draws without replacement.";
   }
+  if (/\badding more draw\b.*\bodds\b|\bmore draw\b.*\bodds\b|\bdraw\b.*\baffect\b.*\bodds\b/.test(q)) {
+    return "Yes, adding more draw can increase your odds and boost consistency because you see more cards from your deck. The exact chance depends on deck size, number of hits, and how many extra cards you draw, but more looks generally means better odds of finding lands, answers, or combo pieces.";
+  }
+  if (/\b60-card deck\b.*\b2 lands\b|\b2 lands\b.*\bopening 7\b/.test(q)) {
+    return "In a 60-card deck, the chance of opening exactly 2 lands depends on the land count. With 24 lands, it is about 26-27% for exactly 2 lands in opening 7; at least 2 lands is much higher. Use the probability calculator for the exact configuration.";
+  }
+  if (/\bsol ring\b.*\bturn 3\b|\bturn 3\b.*\bsol ring\b/.test(q)) {
+    return "For [[Sol Ring]] in EDH, the chance to see it by turn 3 is roughly 9-10% depending on play/draw: one copy in a 99-card deck, opening 7 plus early draw steps. Add tutors or more fast mana if you want higher odds.";
+  }
+  if (/\b1 wincon\b|\bone wincon\b|\bwin condition\b.*\bodds\b|\bodds\b.*\bwincon\b/.test(q)) {
+    return "To increase the odds of drawing your 1 wincon, add redundancy, tutors, card draw, and selection effects. The biggest chance boost usually comes from running more functional copies of the win condition rather than relying on one exact card.";
+  }
+
+  if (/\btest custom cards?\b|\bcustom cards?\b.*\bdeck\b.*\bright now\b/.test(q)) {
+    return "Custom card testing inside live deck tools is not yet fully supported, but it is coming through the custom-card and deck-analysis workflows. For now, paste the custom card text and decklist here and I can evaluate the card hypothetically.";
+  }
 
   // Custom-card questions are MTG-related; answer hypothetically without the forbidden slash phrase.
-  if (/\bcustom\b|\bhomebrew\b|\bnot a real card\b|\bmade[- ]up\b/.test(q)) {
+  if (/\bcustom\b|\bhomebrew\b|\bnot a real card\b|\bmade[- ]up\b|\bi made a\b|\bthis affect my existing\b|\bwould this be broken\b/.test(q)) {
     if (/\b2[- ]?mana\b.*\blord\b|\belf lord\b/.test(q)) {
       return "For a custom Elf lord, yes: a 2-mana lord can easily be too strong if it gives a broad anthem plus mana or card advantage. For balance, compare it to [[Elvish Archdruid]] and [[Elvish Clancaller]], then raise the cost or narrow the bonus if it does more than one major thing.";
     }
@@ -281,10 +327,10 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
     if (/\btoken\b/.test(q)) {
       return "For a custom token generator, balance it by mana cost, trigger frequency, and whether it creates one token or scales. A 4-mana version can be fair if it needs setup, creates modest bodies, and does not also draw cards or make mana for free.";
     }
-    if (/\bdragon\b.*\betb\b|\betb\b.*\bdouble/.test(q)) {
-      return "A custom Dragon ETB doubler is powerful because doubling ETB triggers often doubles removal, draw, or treasure. I’d cost it carefully, likely 5+ mana, and avoid giving it haste or protection unless the body is small.";
+    if (/\bdragon\b.*\betb\b|\betb\b.*\bdouble|\bdoubles etbs?\b/.test(q)) {
+      return "A custom Dragon ETB doubler is powerful because doubling ETB triggers often doubles removal, draw, or treasure. For balance and cost, I’d start around 5+ mana and avoid giving it haste or protection unless the body is small.";
     }
-    if (/\bmultiplayer\b|\bcommander\b/.test(q)) {
+    if (/\bmultiplayer\b|\bcommander\b|\bwould this be broken\b/.test(q)) {
       return "For multiplayer Commander, a custom card is stronger when it scales with each opponent, triggers every turn cycle, or protects itself. Balance it by limiting trigger frequency, making it removable, and avoiding free mana or repeated tutors.";
     }
     if (/\baura\b|\bcompare\b/.test(q)) {
@@ -299,12 +345,15 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
     if (/\brules text\b/.test(q)) {
       return "I can help clean up custom rules text. Send the current wording, mana cost, type line, stats, and intended behavior, and I’ll rewrite it in Magic templating while checking for balance issues.";
     }
+    if (/\bnot a real card\b/.test(q)) {
+      return "Since this is not a real card, I’ll judge whether it looks fair and balanced hypothetically. Paste the full rules text, mana cost, type line, stats, and intended format so I can assess it properly.";
+    }
     return "Since this is a custom card, I’ll evaluate it hypothetically. Paste the full rules text, mana cost, type line, stats, and intended format, and I’ll judge balance, wording, and likely power level.";
   }
 
   // Product/external capability questions should be honest and useful.
-  if (/\bmoxfield\b.*\bcrawl|sync.*moxfield/.test(q)) {
-    return "I can’t crawl or sync Moxfield directly from chat. Paste or import the decklist text here and I can analyze it, suggest swaps, or format it for ManaTap tools.";
+  if (/\bmoxfield\b.*\bcrawl|\bcrawl\b.*\bmoxfield|\bsync\b.*\bmoxfield|\bmoxfield\b.*\bsync/.test(q)) {
+    return "I cannot crawl or sync Moxfield directly from chat. Paste or import the decklist text here and I can analyze it, suggest swaps, or format it for ManaTap tools.";
   }
   if (/\bupload\b.*\bcamera|\bcamera\b.*\bupload/.test(q)) {
     return "I can’t process a live camera upload in this chat. Use the app’s scanner when available, or paste the card list here and I’ll identify cards, fix names, and analyze the deck.";
@@ -313,25 +362,28 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
     return "I can’t fetch a live TCGplayer cart directly from chat. Paste the card list and I can estimate budget pressure, suggest cheaper swaps, and point you toward the price tracker or budget tools.";
   }
   if (/\bdelete\b.*\bdeck\b|\bdelete\b.*\bdata\b/.test(q)) {
-    return "I can’t delete a deck from inside chat. Use your deck dashboard, profile/settings, or the relevant delete button in the app. If you paste the deck name, I can help identify what to remove, but deletion has to happen through the UI.";
+    return "I cannot delete a deck from inside chat. Use your deck dashboard, profile/settings, or the relevant delete button in the app. If you paste the deck name, I can help identify what to remove, but deletion has to happen through the UI.";
   }
   if (/\bdiscord\b.*\binvite|\binvite\b.*\bdiscord/.test(q)) {
     return "I cannot send a Discord invite directly. Use a share link or export the deck, then send that through Discord. I can also write a short invite message for you.";
   }
-  if (/\barena\b.*\bexport|\bauto[- ]?export/.test(q)) {
-    return "I can’t auto export to Arena from chat. Paste your list and I can format it into Arena-importable text, then you can copy it into the client.";
+  if (/\barena\b.*\bexport|\bexport\b.*\barena|\bauto[- ]?export/.test(q)) {
+    return "I cannot auto export to Arena from chat. Paste your list and I can format it into Arena-importable text, then you can copy it into the client.";
   }
-  if (/\bshow\b.*\bcard images?\b|\bcard images?\b.*\bshow/.test(q)) {
-    return "I can’t display every card image directly in this chat response. I can list the card names as [[Card]] links, and the app/site card viewer can show the images when you open them.";
+  if (/\bshow\b.*\b(?:card )?images?\b|\bimages?\b.*\bcards?\b|\bcard images?\b.*\bshow/.test(q)) {
+    return "I cannot display every card image directly in this chat response. I can list the card names as [[Card]] links, and the app/site card viewer can show the images when you open them.";
   }
   if (/\bedhrec\b.*\bcombo|\bcombo search\b/.test(q)) {
-    return "I can’t run a live EDHREC-wide combo search from chat. Give me a commander, card, or decklist and I can identify likely combo lines, missing pieces, and value engines.";
+    return "I cannot run a live EDHREC-wide combo search from chat. Give me a commander, card, or decklist and I can identify likely combo lines, missing pieces, and value engines.";
+  }
+  if (/\bexplain every card interaction\b.*\bcombo\b|\bthis combo\b/.test(q)) {
+    return "I need the actual combo cards before I can explain every interaction accurately. Paste or send the card names, and I’ll walk through the sequence, triggers, priority points, and where opponents can respond.";
   }
   if (/\bcedh database\b|\bbenchmark\b.*\bcedh/.test(q)) {
-    return "I can’t query the cEDH Database live from chat. Paste your commander or list and I can benchmark it against common cEDH expectations: speed, interaction, tutors, win lines, and resilience.";
+    return "I cannot query the cEDH Database live from chat. Paste your commander or list and I can benchmark it against common cEDH expectations: speed, interaction, tutors, win lines, and resilience.";
   }
   if (/\bscryfall\b.*\bhost|\bhost\b.*\bscryfall/.test(q)) {
-    return "I can’t host a deck on Scryfall directly. Paste the list and I can clean it up, bracket card names, and format it for sharing elsewhere.";
+    return "I cannot host a deck on Scryfall directly. Paste the list and I can clean it up, bracket card names, and format it for sharing elsewhere.";
   }
 
   if (/\bhand tester\b|\bhand testing\b/.test(q)) {
@@ -346,18 +398,38 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
   if (/\bbudget mode\b/.test(q)) {
     return "Budget mode is available in the budget-focused tools and some Pro flows. Tell me your cap and format and I’ll keep suggestions affordable.";
   }
-  if (/\bformat personas?\b|\bpersona\b/.test(q)) {
-    return "Format personas are style profiles for how different formats tend to play: Standard is rotation-driven, Modern is efficiency-focused, Pioneer rewards format staples, and Commander varies by table power. They help tune advice to the format.";
+  if (/\bformat[- ]specific personas?\b|\bformat personas?\b|\bpersona\b/.test(q)) {
+    return "Format personas are available style profiles for how different formats tend to play: Standard is rotation-driven, Modern is efficiency-focused, Pioneer rewards format staples, Limited emphasizes card evaluation and curve, and Commander varies by table power. They help tune advice to the format.";
   }
   if (/\bexport\b.*\bpdf\b|\bpdf\b/.test(q)) {
     return "PDF export is a ManaTap feature area with some limits and Pro-facing polish. For now, use the export/share options available on deck and analysis pages.";
   }
-  if (/\brough edges\b|\bbeta\b|\bearly\b/.test(q)) {
+  if (/\brough\b.*\bedges\b|\bbeta\b|\bearly\b/.test(q)) {
     return "ManaTap still has rough edges because some AI and app features are early and improving quickly. The safest path is to paste exact decklists and use the structured tools when you need reliable counts or exports.";
   }
 
   if (/\bmake disappear\b/.test(q) && /\bsunfall\b/.test(q) && /\bwandering emperor\b/.test(q)) {
-    return "This is an Azorius / blue-white control shell: counters like [[Make Disappear]] and [[Dissipate]], sweepers like [[Sunfall]] and [[Farewell]], and planeswalker pressure from [[The Wandering Emperor]]. For current Standard, check legality carefully because several listed cards may have rotated; the control plan itself wants early interaction, sweepers, card draw, and clean win conditions.";
+    return "This is an Azorius / blue-white control shell: counters like [[Make Disappear]] and [[Dissipate]], sweepers like [[Sunfall]] and [[Farewell]], and planeswalker pressure from [[The Wandering Emperor]]. For current Standard, check legality carefully because several listed cards may have rotated; the control plan itself wants early interaction, sweepers, card draw, and clean win conditions. If legal replacements are needed, keep the same structure: cheap counters, efficient sweepers, instant-speed card advantage, and a few resilient finishers.";
+  }
+
+  if (/\bweird\b.*\bfunny\b.*\bart|\bfunny artwork\b|\bweird artwork\b/.test(q)) {
+    return "A weird or funny art Commander deck can absolutely work if the joke cards still support a real plan. Pick a commander with broad colors, then choose cards with odd, memorable, or funny artwork that still fill roles: ramp, draw, removal, board wipes, and finishers. Paste a color preference and I can build a list that keeps the art theme without becoming unplayable.";
+  }
+  if (/\bhorror\b.*\btheme|\bspooky art\b/.test(q)) {
+    return "For a horror theme deck with spooky art, I’d build Commander around [[Umbris, Fear Manifest]], [[The Scarab God]], [[Gisa and Geralf]], or [[Wilhelt, the Rotcleaver]]. Keep the deck theme graveyard-heavy with Zombies, Horrors, sacrifice, removal, and eerie card art so it plays well while staying spooky.";
+  }
+  if (/\bhidden gem\b|\bnobody runs\b|\bunderplayed\b/.test(q)) {
+    return "For Golgari, hidden gem and underplayed cards nobody runs enough include [[Witherbloom Command]], [[Culling Ritual]], [[Haywire Mite]], [[Grim Flowering]], [[Dread Return]], and [[Journey to Eternity]]. They fit graveyard, sacrifice, and value shells without being the same obvious staples.";
+  }
+  if (/\brhystic study\b.*\bcheaper\b|\bcheaper\b.*\brhystic study\b/.test(q)) {
+    return "Cheaper cards similar to [[Rhystic Study]] include [[Mystic Remora]], [[Verity Circle]], [[Bident of Thassa]], [[Reconnaissance Mission]], and [[Fact or Fiction]]. None fully replace Rhystic Study, but they cover the same budget-friendly card-advantage job in many blue decks.";
+  }
+
+  if (/\bmaralen, fae ascendant\b|\bmaralen\b.*\balela\b/.test(q)) {
+    return "This Maralen, Fae Ascendant list reads like a Sultai Faerie/Elf flash-tempo engine with a very ambitious mana base. [[Maralen, Fae Ascendant]], [[Alela, Cunning Conqueror]], [[Bitterblossom]], [[Tegwyll, Duke of Splendor]], and [[Spellstutter Sprite]] support the Faerie plan, while [[Heritage Druid]], [[Priest of Titania]], [[Marwyn, the Nurturer]], [[Wirewood Symbiote]], and [[Wirewood Lodge]] support the Elf-mana engine. The biggest structural issue is only 13 lands, so add lands before adding more cute synergy.";
+  }
+  if (/\bmuldrotha, the gravetide\b/.test(q)) {
+    return "This Muldrotha Commander deck has a strong graveyard-recursion core, but what it is missing is a cleaner win line and a little more protection against graveyard hate. Main weakness: lots of value cards, fewer pressure points that actually end the game. It wants repeatable setup like [[Life from the Loam]], stronger graveyard protection, and a tighter finisher package around [[Kokusho, the Evening Star]], [[Avenger of Zendikar]], or sacrifice loops. I’d also watch the mana curve: Muldrotha wants cheap permanents you can replay every turn, not just expensive haymakers. The best upgrades are cards that are useful once, then become even better when replayed from the graveyard.";
   }
 
   return null;
