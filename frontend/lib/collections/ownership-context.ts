@@ -13,6 +13,19 @@ export type OwnershipContext = {
   ownedPct: number;
   ownedNotInDeckSample: string[];
   missingDeckSample: string[];
+  /**
+   * Normalized owned-card lookup. Keep this server-side only; API responses should expose
+   * per-card ownership annotations rather than this full index.
+   */
+  ownedByKey: Record<string, { name: string; qty: number }>;
+};
+
+export type OwnershipStatus = "owned" | "missing" | "unknown";
+
+export type OwnershipAnnotation = {
+  ownership: OwnershipStatus;
+  ownedQty?: number;
+  ownershipLabel?: "Owned" | "Missing" | "Unknown";
 };
 
 function qtyOf(raw: unknown): number {
@@ -42,8 +55,6 @@ export async function buildOwnershipContextForUserDeck(params: {
   for (const card of params.deckCards ?? []) {
     addQty(deckMap, String(card?.name ?? ""), qtyOf(card?.qty ?? 1) || 1);
   }
-  if (deckMap.size === 0) return null;
-
   const { data: collections, error: collectionsErr } = await params.supabase
     .from("collections")
     .select("id")
@@ -79,6 +90,7 @@ export async function buildOwnershipContextForUserDeck(params: {
       ownedPct: 0,
       ownedNotInDeckSample: [],
       missingDeckSample: [],
+      ownedByKey: {},
     };
   }
 
@@ -109,6 +121,7 @@ export async function buildOwnershipContextForUserDeck(params: {
     ownedPct: deckQty > 0 ? Math.round((ownedDeckQty / deckQty) * 100) : 0,
     ownedNotInDeckSample,
     missingDeckSample,
+    ownedByKey: Object.fromEntries(ownedMap.entries()),
   };
 }
 
@@ -126,5 +139,36 @@ export function formatOwnershipContextForPrompt(context: OwnershipContext | null
     lines.push(`- Owned cards not currently in deck sample: ${context.ownedNotInDeckSample.join(", ")}.`);
     lines.push("- Prefer owned cards as replacements/upgrades when they are a close strategic fit. Label them as Owned.");
   }
+  lines.push("- For every recommended card, explicitly distinguish Owned vs Missing when you know it from this context. Do not claim a card is owned unless it appears in the collection context.");
   return lines.join("\n");
+}
+
+export function annotateOwnership(
+  context: OwnershipContext | null | undefined,
+  cardName: string
+): OwnershipAnnotation {
+  if (!context || !context.hasCollection) {
+    return { ownership: "unknown", ownershipLabel: "Unknown" };
+  }
+  const key = normalizeScryfallCacheName(cardName);
+  const owned = context.ownedByKey[key];
+  if (owned && owned.qty > 0) {
+    return { ownership: "owned", ownedQty: owned.qty, ownershipLabel: "Owned" };
+  }
+  return { ownership: "missing", ownedQty: 0, ownershipLabel: "Missing" };
+}
+
+export function appendOwnershipToReason(
+  reason: string | null | undefined,
+  annotation: OwnershipAnnotation
+): string {
+  const base = String(reason || "").trim();
+  if (annotation.ownership === "unknown") return base;
+  const label = annotation.ownership === "owned"
+    ? `Owned${annotation.ownedQty && annotation.ownedQty > 1 ? ` x${annotation.ownedQty}` : ""}`
+    : "Missing from collection";
+  if (new RegExp(`\\b${annotation.ownership === "owned" ? "owned" : "missing"}\\b`, "i").test(base)) {
+    return base;
+  }
+  return base ? `${label}. ${base}` : label;
 }

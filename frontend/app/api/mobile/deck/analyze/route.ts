@@ -9,7 +9,7 @@ import { hashCacheKey, supabaseCacheGet, supabaseCacheSet } from "@/lib/utils/su
 
 export const runtime = "nodejs";
 const MOBILE_ANALYZE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const MOBILE_ANALYZE_CACHE_VERSION = 2;
+const MOBILE_ANALYZE_CACHE_VERSION = 3;
 
 function pickTrimmedString(v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -26,9 +26,11 @@ async function resolveMobileAnalyzeCacheKey(req: NextRequest, parsedBody: Record
   const requestFormat = pickTrimmedString(parsedBody.format) ?? "Commander";
   const requestCommander = pickTrimmedString(parsedBody.commander);
   let deckText = pickTrimmedString(parsedBody.deckText) ?? null;
+  const auth = await getUserAndSupabase(req).catch(() => null);
+  const userIdForScope = auth?.user?.id ?? null;
 
   if (!deckText && typeof parsedBody.deckId === "string" && parsedBody.deckId.trim()) {
-    const { supabase, user } = await getUserAndSupabase(req);
+    const { supabase, user } = auth ?? (await getUserAndSupabase(req));
     if (!user) return null;
     const deckId = parsedBody.deckId.trim();
     const { data: deckRow } = await supabase
@@ -66,6 +68,7 @@ async function resolveMobileAnalyzeCacheKey(req: NextRequest, parsedBody: Record
       requestFormat.toLowerCase(),
       requestCommander?.toLowerCase() ?? "",
       pickTrimmedString(parsedBody.sourcePage) ?? pickTrimmedString(parsedBody.source_page) ?? "",
+      userIdForScope ?? "guest",
     ].join("|"),
   });
 }

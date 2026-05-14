@@ -30,7 +30,12 @@ import {
   resolveFinishAnalyzeFormat,
   truncateDeckTextForPrompt,
 } from "@/lib/deck/finish-suggestions-core";
-import { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } from "@/lib/collections/ownership-context";
+import {
+  annotateOwnership,
+  appendOwnershipToReason,
+  buildOwnershipContextForUserDeck,
+  formatOwnershipContextForPrompt,
+} from "@/lib/collections/ownership-context";
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
 import { formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
 
@@ -59,6 +64,8 @@ type FinishSuggestionOut = {
   confidence: number;
   legality: "legal" | "not_legal" | "unknown";
   estimatedUsd?: number;
+  ownership?: "owned" | "missing" | "unknown";
+  ownedQty?: number;
   source: "ai";
 };
 
@@ -289,7 +296,7 @@ export async function POST(req: Request) {
       : `Constructed: mainboard targets ${rules.mainDeckTarget} cards; max ${rules.maxCopies} copies per card except basic lands.`,
     `Suggest cards that are NOT already redundant at copy limit given the existing list.`,
     budgetTone,
-    "When USER COLLECTION CONTEXT is present, prefer owned close-fit cards first and label those reasons with 'Owned'. Separate true purchases from owned placeholders.",
+    "When USER COLLECTION CONTEXT is present, prefer owned close-fit cards first and label those reasons with 'Owned'. Separate true purchases from owned placeholders and missing buys.",
     "Only suggest realistic, playable cards that fit the deck's apparent strategy.",
     "Use English card names as printed on the English oracle.",
     `Limit suggestions array length to at most ${maxSuggestions}.`,
@@ -447,15 +454,22 @@ export async function POST(req: Request) {
       ? Math.max(0, Math.min(1, raw.confidence))
       : 0.7;
 
+    const ownership = annotateOwnership(ownershipContext, name);
+
     suggestionsOut.push({
       card: name,
       qty,
       zone,
       role: typeof raw.role === "string" && raw.role.trim() ? raw.role.trim().slice(0, 120) : "Synergy",
-      reason: typeof raw.reason === "string" && raw.reason.trim() ? raw.reason.trim().slice(0, 400) : "",
+      reason: appendOwnershipToReason(
+        typeof raw.reason === "string" && raw.reason.trim() ? raw.reason.trim().slice(0, 400) : "",
+        ownership,
+      ),
       priority: normalizePriority(raw.priority),
       confidence: conf,
       legality: "legal",
+      ownership: ownership.ownership,
+      ownedQty: ownership.ownedQty,
       source: "ai",
     });
 

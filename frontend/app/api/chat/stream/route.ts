@@ -1321,6 +1321,28 @@ export async function POST(req: NextRequest) {
     if (adminPv) adminPv.stream_contract_injection_text = streamContractInjection.trim() || null;
     }
 
+    if (userId && selectedTier !== "micro") {
+      try {
+        const { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } = await import("@/lib/collections/ownership-context");
+        const ownershipContext = await buildOwnershipContextForUserDeck({
+          supabase,
+          userId,
+          deckCards: deckContextForCompose?.deckCards?.map((c) => ({ name: c.name, qty: c.count ?? 1 })) ?? [],
+          sampleLimit: 18,
+        });
+        const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
+        if (ownershipPrompt) {
+          sys +=
+            "\n\n" +
+            ownershipPrompt +
+            "\nWhen recommending cards in chat, prefer owned close fits when reasonable and label recommendations as Owned or Missing when collection status is known.";
+          if (adminPv) adminPv.notes.push("Collection ownership context appended to chat prompt.");
+        }
+      } catch (_) {
+        // Collection awareness is additive; streaming chat should still work if lookup fails.
+      }
+    }
+
     // Thread summary (within-thread memory) - same logic as non-stream
     if (tid && !isGuest && selectedTier !== "micro") {
       const { data: summaryMsgs } = await supabase

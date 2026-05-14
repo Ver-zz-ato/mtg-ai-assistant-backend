@@ -1064,6 +1064,27 @@ export async function POST(req: NextRequest) {
       sys += "\n\n" + formatSupportInstruction;
     }
 
+    if (userId && selectedTier !== "micro") {
+      try {
+        const { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } = await import("@/lib/collections/ownership-context");
+        const ownershipContext = await buildOwnershipContextForUserDeck({
+          supabase,
+          userId,
+          deckCards: deckContextForCompose?.deckCards?.map((c) => ({ name: c.name, qty: c.count ?? 1 })) ?? [],
+          sampleLimit: 18,
+        });
+        const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
+        if (ownershipPrompt) {
+          sys +=
+            "\n\n" +
+            ownershipPrompt +
+            "\nWhen recommending cards in chat, prefer owned close fits when reasonable and label recommendations as Owned or Missing when collection status is known.";
+        }
+      } catch (_) {
+        // Collection awareness is additive; chat should still work if the lookup fails.
+      }
+    }
+
     // Tool suggestions are now added deterministically after the AI response (see getToolSuggestionsForMessage)
 
     const chatTierRes = getModelForTier({ isGuest, userId: userId ?? null, isPro: isPro ?? false });

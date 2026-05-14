@@ -20,7 +20,12 @@ import {
   isCommanderFormatKey,
   normalizeManatapDeckFormatKey,
 } from "@/lib/format/manatap-deck-format";
-import { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } from "@/lib/collections/ownership-context";
+import {
+  annotateOwnership,
+  appendOwnershipToReason,
+  buildOwnershipContextForUserDeck,
+  formatOwnershipContextForPrompt,
+} from "@/lib/collections/ownership-context";
 import type { SfCard } from "@/lib/deck/inference";
 
 // Very light-weight, research-aware swap suggester.
@@ -34,6 +39,8 @@ type Suggestion = {
   price_delta: number;
   rationale: string;
   confidence: number; // 0..1
+  ownership?: "owned" | "missing" | "unknown";
+  ownedQty?: number;
 };
 
 type ScryfallPriceResponse = {
@@ -465,7 +472,17 @@ export async function POST(req: NextRequest) {
       console.warn("[swap-suggestions] Legality filter failed:", legErr);
     }
 
-    return NextResponse.json({ ok: true, currency, budget, suggestions: validatedSuggestions });
+    const annotatedSuggestions = validatedSuggestions.map((s) => {
+      const ownership = annotateOwnership(ownershipContext, s.to);
+      return {
+        ...s,
+        rationale: appendOwnershipToReason(s.rationale, ownership),
+        ownership: ownership.ownership,
+        ownedQty: ownership.ownedQty,
+      };
+    });
+
+    return NextResponse.json({ ok: true, currency, budget, suggestions: annotatedSuggestions });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "swap failed";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

@@ -13,6 +13,12 @@ import { parseDeckText } from '@/lib/deck/parseDeckText';
 import { resolveCommanderFromEnriched } from '@/lib/deck/deck-context-summary';
 import { tryDeckFormatStringToAnalyzeFormat, type AnalyzeFormat } from '@/lib/deck/formatRules';
 import { getLimitedSupportNote } from '@/lib/deck/formatSupportMatrix';
+import {
+  annotateOwnership,
+  appendOwnershipToReason,
+  buildOwnershipContextForUserDeck,
+  formatOwnershipContextForPrompt,
+} from '@/lib/collections/ownership-context';
 
 export const runtime = 'nodejs';
 
@@ -216,6 +222,13 @@ export async function POST(req: NextRequest) {
     const isCommanderFormat = format === 'Commander';
 
     const { facts, factsNote } = await computeDeckFactsForHealthReport(entries, format, commander);
+    const ownershipContext = await buildOwnershipContextForUserDeck({
+      supabase,
+      userId: user.id,
+      deckCards: entries.map((e) => ({ name: e.name, qty: e.qty })),
+      sampleLimit: 24,
+    });
+    const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
     const factsBlock = facts
       ? deckFactsToPromptJson(facts)
       : factsNote;
@@ -265,7 +278,7 @@ Respond with exactly these sections, each starting with the header on its own li
 - Card Name - brief reason
 (5-7 cards to add, with short reason. Only cards legal in this format${
       isCommanderFormat ? ' and in the deck color identity' : ''
-    }.)
+    }. When collection context is present, prefer owned close-fit cards first and start each reason with Owned or Missing.)
 
 ## SUGGESTED_CUTS
 - Card Name - brief reason
@@ -277,6 +290,8 @@ Output only the report, no preamble.`;
 
 ## COMPUTED_DECK_FACTS
 ${factsBlock}
+
+${ownershipPrompt ? `## USER_COLLECTION_CONTEXT\n${ownershipPrompt}\n` : ''}
 
 ## DECLARED_METADATA
 title: ${title}
@@ -308,13 +323,14 @@ ${decklistForPrompt}`;
 
     const content = response.text || '';
     const report = parseHealthReport(content);
+    const suggestedAdds = annotateHealthReportAdds(report.suggestedAdds, ownershipContext);
 
     return NextResponse.json({
       ok: true,
       overview: report.overview,
       biggestIssues: report.biggestIssues,
       priorityFixPlan: report.priorityFixPlan,
-      suggestedAdds: report.suggestedAdds,
+      suggestedAdds,
       suggestedCuts: report.suggestedCuts,
     });
   } catch (e: unknown) {
@@ -324,6 +340,21 @@ ${decklistForPrompt}`;
       { status: 500 }
     );
   }
+}
+
+function annotateHealthReportAdds(
+  adds: string[] | undefined,
+  ownershipContext: Awaited<ReturnType<typeof buildOwnershipContextForUserDeck>>
+): string[] | undefined {
+  if (!adds?.length) return adds;
+  return adds.map((line) => {
+    const [rawName, ...rest] = String(line).split(/\s+-\s+/);
+    const cardName = rawName.trim();
+    const reason = rest.join(' - ').trim();
+    const ownership = annotateOwnership(ownershipContext, cardName);
+    if (ownership.ownership === 'unknown') return line;
+    return `${cardName} - ${appendOwnershipToReason(reason, ownership)}`;
+  });
 }
 
 function parseHealthReport(content: string): {

@@ -38,6 +38,12 @@ import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { DECK_ANALYZE_FREE, DECK_ANALYZE_GUEST, DECK_ANALYZE_PRO } from "@/lib/feature-limits";
+import {
+  annotateOwnership,
+  appendOwnershipToReason,
+  buildOwnershipContextForUserDeck,
+  formatOwnershipContextForPrompt,
+} from "@/lib/collections/ownership-context";
 
 /** Slot planning: JSON-only output, 3–6 slots. No reply shortening. */
 const MAX_SLOT_PLANNING_TOKENS = 2048;
@@ -1636,6 +1642,7 @@ export async function runDeckAnalyzeCore(
 
   let deckRowFormat: string | null = null;
   let deckText = String(body.deckText || "").trim();
+  let deckCardsForOwnership: Array<{ name?: string | null; qty?: number | null }> | null = null;
   if (body.deckId) {
     const { data: deckRow } = await supabase
       .from("decks")
@@ -1651,6 +1658,7 @@ export async function runDeckAnalyzeCore(
         .select("name, qty, zone")
         .eq("deck_id", body.deckId)
         .limit(400);
+      deckCardsForOwnership = cards as Array<{ name?: string | null; qty?: number | null }> | null;
       if (cards?.length) {
         const fmt = body.format ?? deckRowFormat ?? "commander";
         deckText = rowsToDeckTextForAnalysis(
@@ -1765,6 +1773,13 @@ export async function runDeckAnalyzeCore(
 
   // Re-parse with potentially corrected deckText (mainboard only — sideboard excluded for Commander too)
   const entries = parseMainboardEntriesForAnalysis(deckText, format);
+  const ownershipContext = await buildOwnershipContextForUserDeck({
+    supabase,
+    userId: user?.id,
+    deckCards: deckCardsForOwnership ?? entries.map((e) => ({ name: e.name, qty: e.count })),
+    sampleLimit: 24,
+  });
+  const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
   const uniqueNames = Array.from(new Set(entries.map((e) => e.name))).slice(0, 160);
   const byName = new Map<string, SfCard>();
   const lockedNormalized = new Set<string>();
@@ -1908,6 +1923,12 @@ export async function runDeckAnalyzeCore(
     extraSuffix: deckAnalyzeExtraSuffix,
   });
   let deckAnalysisSystemPrompt: string | null = promptResult.systemPrompt || null;
+  if (deckAnalysisSystemPrompt && ownershipPrompt) {
+    deckAnalysisSystemPrompt +=
+      "\n\n" +
+      ownershipPrompt +
+      "\nFor card recommendations, prefer owned cards when they solve the same strategic problem. Include Owned or Missing in recommendation reasons when collection status is known.";
+  }
   const deckAnalyzePromptVersionId = promptResult.promptVersionId ?? null;
 
   // Tier overlay (guest/free/pro) — after base prompt, before fingerprint
@@ -2018,6 +2039,15 @@ export async function runDeckAnalyzeCore(
   if (suggestions.length > 1) {
     suggestions = rebalanceSuggestionsByCategory(suggestions);
   }
+  suggestions = suggestions.map((s) => {
+    const ownership = annotateOwnership(ownershipContext, s.card);
+    return {
+      ...s,
+      reason: appendOwnershipToReason(s.reason, ownership),
+      ownership: ownership.ownership,
+      ownedQty: ownership.ownedQty,
+    } as CardSuggestion & { ownership: "owned" | "missing" | "unknown"; ownedQty?: number };
+  });
 
   const note = totals.draw < 6 ? "needs a touch more draw" : totals.lands < (format === "Commander" ? 32 : 21) ? "mana base is light" : "solid, room to tune";
   const filterSummary = buildFilterSummary(filtered, postFilteredCount, suggestionDebugReasons);

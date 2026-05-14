@@ -9,6 +9,12 @@ import { hashString, hashGuestToken } from '@/lib/guest-tracking';
 import { GUEST_DAILY_FEATURE_LIMIT, SWAP_WHY_FREE, SWAP_WHY_PRO } from '@/lib/feature-limits';
 import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
 import {
+  annotateOwnership,
+  appendOwnershipToReason,
+  buildOwnershipContextForUserDeck,
+  formatOwnershipContextForPrompt,
+} from '@/lib/collections/ownership-context';
+import {
   formatKeyToDisplayTitle,
   isCommanderFormatKey,
   normalizeManatapDeckFormatKey,
@@ -21,8 +27,9 @@ function buildSwapWhyPrompts(args: {
   deckText: string;
   formatKey: ManatapDeckFormatKey;
   commander: string | null;
+  ownershipNote?: string;
 }): { system: string; user: string } {
-  const { from, to, deckText, formatKey, commander } = args;
+  const { from, to, deckText, formatKey, commander, ownershipNote } = args;
   const fmtTitle = formatKeyToDisplayTitle(formatKey);
   const cmd = commander?.trim() || null;
 
@@ -43,7 +50,7 @@ ${
 - Do NOT ask questions or request more text.
 
 Deck list:
-${deckText}`;
+${deckText}${ownershipNote ? `\n\n${ownershipNote}` : ''}`;
 
     return { system, user: userPrompt };
   }
@@ -58,7 +65,7 @@ Focus on role/function overlap, curve, and interaction. Do **not** describe the 
 - Do NOT ask questions or request more text.
 
 Deck list:
-${deckText}`;
+${deckText}${ownershipNote ? `\n\n${ownershipNote}` : ''}`;
 
   return { system, user: userPrompt };
 }
@@ -121,12 +128,33 @@ export async function POST(req: NextRequest){
       }
     }
 
+    const ownershipContext = await buildOwnershipContextForUserDeck({
+      supabase,
+      userId: user?.id,
+      deckCards: [
+        { name: from, qty: 1 },
+        { name: to, qty: 1 },
+      ],
+      sampleLimit: 8,
+    });
+    const toOwnership = annotateOwnership(ownershipContext, to);
+    const fromOwnership = annotateOwnership(ownershipContext, from);
+    const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
+    const ownershipNote = ownershipPrompt
+      ? [
+          ownershipPrompt,
+          `Swap ownership: "${from}" is ${fromOwnership.ownership}; "${to}" is ${toOwnership.ownership}${toOwnership.ownedQty ? ` (owned quantity ${toOwnership.ownedQty})` : ''}.`,
+          'Mention the replacement ownership briefly when relevant; do not claim ownership without this context.',
+        ].join('\n')
+      : '';
+
     const { system, user: userPrompt } = buildSwapWhyPrompts({
       from,
       to,
       deckText,
       formatKey,
       commander: commanderForPrompt,
+      ownershipNote,
     });
 
     try {
@@ -161,19 +189,31 @@ export async function POST(req: NextRequest){
         }
       );
 
-      let text = response.text.trim();
+      let text = appendOwnershipToReason(response.text.trim(), toOwnership);
       const bad = /tighten|tightened|paste the (?:answer|text)|audience and goal|desired tone|word limit|must-keep/i.test(text || '');
       
       if (!text || bad) {
         const fallback = `${to} is a cheaper alternative to ${from}: it fills a similar role in your list and supports the same game plan at a lower cost (with minor trade‑offs in speed/flexibility).`;
-        return NextResponse.json({ ok: true, text: fallback, provider: 'sanitized' });
+        return NextResponse.json({
+          ok: true,
+          text: appendOwnershipToReason(fallback, toOwnership),
+          provider: 'sanitized',
+          ownership: toOwnership.ownership,
+          ownedQty: toOwnership.ownedQty,
+        });
       }
       
-      return NextResponse.json({ ok: true, text, fallback: response.fallback });
+      return NextResponse.json({ ok: true, text, fallback: response.fallback, ownership: toOwnership.ownership, ownedQty: toOwnership.ownedQty });
     } catch (e: any) {
       // Fallback on error
       const fallback = `${to} is a cheaper alternative to ${from}: it covers a similar role in your list and supports the same game plan at a lower cost.`;
-      return NextResponse.json({ ok: true, text: fallback, provider: 'fallback' });
+      return NextResponse.json({
+        ok: true,
+        text: appendOwnershipToReason(fallback, toOwnership),
+        provider: 'fallback',
+        ownership: toOwnership.ownership,
+        ownedQty: toOwnership.ownedQty,
+      });
     }
   } catch(e:any){
     return NextResponse.json({ ok:false, error: e?.message || 'server_error' }, { status:500 });

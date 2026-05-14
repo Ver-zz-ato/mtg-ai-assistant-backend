@@ -6,7 +6,12 @@ import { tryDeckFormatStringToAnalyzeFormat } from '@/lib/deck/formatRules';
 import { parseMainboardEntriesForAnalysis } from '@/lib/deck/formatCompliance';
 import { getLimitedSupportNote } from '@/lib/deck/formatSupportMatrix';
 import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
-import { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } from '@/lib/collections/ownership-context';
+import {
+  annotateOwnership,
+  appendOwnershipToReason,
+  buildOwnershipContextForUserDeck,
+  formatOwnershipContextForPrompt,
+} from '@/lib/collections/ownership-context';
 
 export const runtime = 'nodejs';
 
@@ -459,7 +464,17 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
       });
 
       console.log('✅ [health-suggestions] Returning response with', validatedSuggestions.length, 'suggestions');
-      return NextResponse.json({ ok: true, suggestions: validatedSuggestions });
+      const annotatedSuggestions = validatedSuggestions.map((s) => {
+        const ownership = annotateOwnership(ownershipContext, s.card);
+        return {
+          ...s,
+          reason: appendOwnershipToReason(s.reason, ownership),
+          ownership: ownership.ownership,
+          ownedQty: ownership.ownedQty,
+        };
+      });
+
+      return NextResponse.json({ ok: true, suggestions: annotatedSuggestions });
     } catch (e: any) {
       console.error('💥 [health-suggestions] OpenAI call failed:', e);
       console.error('💥 [health-suggestions] Error details:', {
