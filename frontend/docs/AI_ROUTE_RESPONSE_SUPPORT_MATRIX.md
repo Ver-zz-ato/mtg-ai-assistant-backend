@@ -2,6 +2,9 @@
 
 Last reviewed: 2026-05-11
 
+Canonical implementation notes, cache behavior, shared role-classifier usage,
+and route ownership are now maintained in `../../docs/AI_ROUTES_CANONICAL.md`.
+
 This document tracks user-facing AI/API response routes outside the main chat orchestrator. It is the companion to `docs/format-support-matrix.md`: that file says which formats ManaTap promises; this file says which AI routes are expected to respect that promise.
 
 ## Format Promise

@@ -4,6 +4,12 @@
 **Date:** 2026-04-27  
 **Scope:** Read-only audit (sources: Next.js `frontend/app/api/**`, shared `frontend/lib/deck/**`). External upstream services invoked by proxies are **not** verified here unless referenced in-repo.
 
+> 2026-05-14 update: this audit is historical. Current canonical AI route
+> behavior is in `docs/AI_ROUTES_CANONICAL.md`. Notably, `/api/deck/transform`
+> now accepts the five first-class formats, `/api/mulligan/advice` accepts the
+> same first-class formats at the route boundary, and shared role classification
+> lives in `frontend/lib/deck/role-classifier.ts`.
+
 ## Executive summary
 
 - **Canonical format lists differ by layer.** `lib/deck/formatRules.ts` exposes analysis/deck-builder canonical formats as **Commander, Modern, Pioneer, Standard, Pauper** only. Unknown DB/API strings fall through **`deckFormatStringToAnalyzeFormat`** → **defaults to Commander**.

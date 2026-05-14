@@ -31,6 +31,8 @@ import {
   truncateDeckTextForPrompt,
 } from "@/lib/deck/finish-suggestions-core";
 import { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } from "@/lib/collections/ownership-context";
+import { enrichDeck } from "@/lib/deck/deck-enrichment";
+import { formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const FINISH_COMPLETION_TOKENS = 4096;
@@ -250,6 +252,16 @@ export async function POST(req: Request) {
   const target = computeFinishTargetStats(analyzeFormat, deckText);
   const entries = parseMainboardEntriesForAnalysis(deckText, analyzeFormat);
   const existingByNorm = aggregateExistingCounts(entries);
+  let roleSummaryPrompt = "";
+  try {
+    const enriched = await enrichDeck(entries.map((e) => ({ name: e.name, qty: e.count })), {
+      format: analyzeFormat,
+      commander: resolvedCommander || null,
+    });
+    roleSummaryPrompt = formatRoleSummaryForPrompt(summarizeDeckRoles(enriched));
+  } catch {
+    roleSummaryPrompt = "";
+  }
 
   const { text: promptDeckText, truncated } = truncateDeckTextForPrompt(deckText, MAX_DECK_ANALYZE_DECK_TEXT_CHARS);
   if (truncated) warnings.push("Decklist was truncated for AI context length.");
@@ -293,6 +305,7 @@ export async function POST(req: Request) {
     resolvedColors.length ? `Color context (hints): ${resolvedColors.join(", ")}` : "",
     deckAim ? `Deck aim: ${deckAim}` : "",
     deckPlan ? `Plan/style: ${deckPlan}` : "",
+    roleSummaryPrompt ? `SHARED ROLE CLASSIFIER SUMMARY:\n${roleSummaryPrompt}` : "",
     ownershipPrompt,
     `Return strictly JSON with key "suggestions" only.`,
   ].filter(Boolean);

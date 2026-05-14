@@ -7,7 +7,8 @@ import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
 import { GENERATE_FROM_COLLECTION_FREE, GENERATE_FROM_COLLECTION_PRO } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
-import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity } from "@/lib/deck/generation-helpers";
+import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
+import { getFormatRules, isCommanderFormatString, tryDeckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import {
   normalizeTransformBody,
   buildTransformSystemPrompt,
@@ -51,13 +52,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
     const input = parsed.input;
-
-    if (input.format.toLowerCase() !== "commander") {
+    const analyzeFormat = tryDeckFormatStringToAnalyzeFormat(input.format);
+    if (!analyzeFormat) {
       return NextResponse.json(
-        { ok: false, error: "Only Commander format is supported for deck transform at this time" },
+        { ok: false, error: "Unsupported format. Use Commander, Modern, Pioneer, Standard, or Pauper." },
         { status: 400 }
       );
     }
+    const rules = getFormatRules(analyzeFormat);
+    const isCommander = isCommanderFormatString(analyzeFormat);
 
     let isPro = false;
     try {
@@ -143,50 +146,56 @@ export async function POST(req: NextRequest) {
     const parsedLines = parseAiDeckOutputLines(content);
     let cards = aggregateCards(parsedLines);
 
-    if (cards.length < 30) {
+    if (cards.length < 30 && totalDeckQty(cards) < 30) {
       return NextResponse.json(
         { ok: false, error: "Transformed decklist too short; please try again" },
         { status: 500 }
       );
     }
 
-    const commanderName = input.commander || cards[0]?.name || "Unknown";
-    const allowedColors = (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase());
+    const commanderName = isCommander ? input.commander || cards[0]?.name || "Unknown" : null;
+    const allowedColors = isCommander && commanderName
+      ? (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase())
+      : [];
     const allNames = cards.map((c) => c.name);
     const details = await getDetailsForNamesCached(allNames);
 
     const warnings: string[] = [];
-    const warnSrc = await warnSourceOffColor(input.sourceDeckText, input.commander);
-    if (warnSrc) warnings.push(warnSrc);
-
-    const beforeCi = cards.length;
-    const filtered = cards.filter((c) => {
-      const entry = details.get(norm(c.name));
-      if (!entry) return true;
-      return isWithinColorIdentity(entry as SfCard, allowedColors);
-    });
-    const droppedCi = beforeCi - filtered.length;
-    if (droppedCi > 0) {
-      warnings.push(
-        `Color identity validation removed ${droppedCi} card line(s) from the model output (off-color or unknown).`
-      );
+    if (isCommander) {
+      const warnSrc = await warnSourceOffColor(input.sourceDeckText, input.commander);
+      if (warnSrc) warnings.push(warnSrc);
     }
 
-    if (filtered.length > 100) {
-      warnings.push(`Model output had ${filtered.length} cards after color filter; list trimmed to 100.`);
-      cards = filtered.slice(0, 100);
-    } else {
-      cards = filtered;
+    if (isCommander) {
+      const beforeCi = cards.length;
+      const filtered = cards.filter((c) => {
+        const entry = details.get(norm(c.name));
+        if (!entry) return true;
+        return isWithinColorIdentity(entry as SfCard, allowedColors);
+      });
+      const droppedCi = beforeCi - filtered.length;
+      if (droppedCi > 0) {
+        warnings.push(
+          `Color identity validation removed ${droppedCi} card line(s) from the model output (off-color or unknown).`
+        );
+      }
+      const filteredQty = totalDeckQty(filtered);
+      if (filteredQty > rules.mainDeckTarget) {
+        warnings.push(`Model output had ${filteredQty} cards after color filter; list trimmed to ${rules.mainDeckTarget}.`);
+        cards = trimDeckToMaxQty(filtered, rules.mainDeckTarget);
+      } else {
+        cards = filtered;
+      }
     }
 
     try {
       const { filterDecklistQtyRowsForFormat } = await import("@/lib/deck/recommendation-legality");
-      const { lines: legalLines, removed } = await filterDecklistQtyRowsForFormat(cards, input.format, {
+      const { lines: legalLines, removed } = await filterDecklistQtyRowsForFormat(cards, analyzeFormat, {
         logPrefix: "/api/deck/transform",
       });
       if (removed.length > 0) {
         warnings.push(
-          `Legality filter removed ${removed.length} card line(s) not legal in ${input.format}.`
+          `Legality filter removed ${removed.length} card line(s) not legal in ${analyzeFormat}.`
         );
       }
       cards = legalLines;
@@ -204,8 +213,9 @@ export async function POST(req: NextRequest) {
       // optional
     }
 
-    if (cards.length < 100) {
-      warnings.push(`List has ${cards.length} cards after validation; target is 100 for Commander.`);
+    const finalQty = totalDeckQty(cards);
+    if (finalQty < rules.mainDeckTarget) {
+      warnings.push(`List has ${finalQty} cards after validation; target is ${rules.mainDeckTarget} for ${analyzeFormat}.`);
     }
 
     const intentLabel = summarizeTransformIntent(input.transformIntent);
@@ -221,7 +231,7 @@ export async function POST(req: NextRequest) {
       commander: commanderName,
       colors,
       deckText,
-      format: input.format,
+      format: analyzeFormat,
       summary,
       warnings: warnings.length ? warnings : undefined,
       transformIntent: input.transformIntent,

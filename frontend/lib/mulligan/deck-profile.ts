@@ -10,6 +10,8 @@ import {
   colorsFromTypeLine,
   normalizeCardName,
 } from "./card-types";
+import { enrichDeck } from "@/lib/deck/deck-enrichment";
+import { classifyCardRoles } from "@/lib/deck/role-classifier";
 
 export type DeckProfile = {
   format: "commander";
@@ -323,6 +325,15 @@ export async function buildDeckProfileWithTypes(
   const totalCards = cards.reduce((s, c) => s + c.count, 0);
   const allNames = Array.from(new Set(cards.map((c) => c.name)));
   const typeMap = await getTypeLinesForNames(allNames);
+  const roleMap = new Map<string, ReturnType<typeof classifyCardRoles>>();
+  try {
+    const enriched = await enrichDeck(cards.map((c) => ({ name: c.name, qty: c.count })));
+    for (const card of enriched) {
+      roleMap.set(normalizeCardName(card.name), classifyCardRoles(card));
+    }
+  } catch {
+    // Fallback to curated name/type heuristics below.
+  }
 
   let landCount = 0;
   let fastManaCount = 0;
@@ -337,20 +348,21 @@ export async function buildDeckProfileWithTypes(
   for (const { name, count } of cards) {
     const n = normalizeCardName(name);
     const typeLine = typeMap.get(n) ?? null;
+    const roles = new Set(roleMap.get(n)?.roles ?? []);
     const isLandCard =
-      isLandFromLookup(typeLine, n) || isLand(name); // fallback to name heuristic
+      roles.has("land") || isLandFromLookup(typeLine, n) || isLand(name); // fallback to name heuristic
 
     if (isLandCard) {
       landCount += count;
       continue;
     }
     if (nameMatches(name, FAST_MANA)) fastManaCount += count;
-    if (nameMatchesPattern(name, TUTOR_PATTERNS)) tutorCount += count;
-    if (nameMatches(name, DRAW_ENGINES)) drawEngineCount += count;
+    if (roles.has("tutor") || nameMatchesPattern(name, TUTOR_PATTERNS)) tutorCount += count;
+    if (roles.has("draw") || nameMatches(name, DRAW_ENGINES)) drawEngineCount += count;
     if (nameMatches(name, BURST_DRAW)) drawEngineCount += count;
-    if (nameMatches(name, INTERACTION)) interactionCount += count;
-    if (nameMatches(name, PROTECTION)) protectionCount += count;
-    if (nameMatches(name, RAMP_DORKS_ROCKS)) rampCount += count;
+    if (roles.has("interaction") || roles.has("removal") || nameMatches(name, INTERACTION)) interactionCount += count;
+    if (roles.has("protection") || nameMatches(name, PROTECTION)) protectionCount += count;
+    if (roles.has("ramp") || nameMatches(name, RAMP_DORKS_ROCKS)) rampCount += count;
     if (nameMatches(name, ONE_DROPS)) oneDropCount += count;
     if (nameMatches(name, TWO_DROPS)) twoDropCount += count;
   }
@@ -546,6 +558,15 @@ export function computeHandFacts(hand: string[]): HandFacts {
  */
 export async function computeHandFactsWithTypes(hand: string[]): Promise<HandFacts> {
   const typeMap = await getTypeLinesForNames(hand);
+  const roleMap = new Map<string, ReturnType<typeof classifyCardRoles>>();
+  try {
+    const enriched = await enrichDeck(hand.map((name) => ({ name, qty: 1 })));
+    for (const card of enriched) {
+      roleMap.set(normalizeCardName(card.name), classifyCardRoles(card));
+    }
+  } catch {
+    // Fallback to curated name/type heuristics below.
+  }
 
   let handLandCount = 0;
   let hasFastMana = false;
@@ -559,7 +580,8 @@ export async function computeHandFactsWithTypes(hand: string[]): Promise<HandFac
   for (const name of hand) {
     const n = normalizeCardName(name);
     const typeLine = typeMap.get(n) ?? null;
-    const isLandCard = isLandFromLookup(typeLine, n) || isLand(name);
+    const roles = new Set(roleMap.get(n)?.roles ?? []);
+    const isLandCard = roles.has("land") || isLandFromLookup(typeLine, n) || isLand(name);
 
     if (isLandCard) {
       handLandCount++;
@@ -596,11 +618,11 @@ export async function computeHandFactsWithTypes(hand: string[]): Promise<HandFac
       continue;
     }
     if (nameMatches(name, FAST_MANA)) hasFastMana = true;
-    if (nameMatches(name, RAMP_DORKS_ROCKS)) hasRamp = true;
-    if (nameMatchesPattern(name, TUTOR_PATTERNS)) hasTutor = true;
-    if (nameMatches(name, DRAW_ENGINES) || nameMatches(name, BURST_DRAW)) hasDrawEngine = true;
-    if (nameMatches(name, PROTECTION)) hasProtection = true;
-    if (nameMatches(name, INTERACTION)) hasInteraction = true;
+    if (roles.has("ramp") || nameMatches(name, RAMP_DORKS_ROCKS)) hasRamp = true;
+    if (roles.has("tutor") || nameMatchesPattern(name, TUTOR_PATTERNS)) hasTutor = true;
+    if (roles.has("draw") || nameMatches(name, DRAW_ENGINES) || nameMatches(name, BURST_DRAW)) hasDrawEngine = true;
+    if (roles.has("protection") || nameMatches(name, PROTECTION)) hasProtection = true;
+    if (roles.has("interaction") || roles.has("removal") || nameMatches(name, INTERACTION)) hasInteraction = true;
   }
 
   return {

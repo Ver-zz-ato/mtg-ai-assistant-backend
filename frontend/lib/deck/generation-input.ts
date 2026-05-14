@@ -8,6 +8,7 @@ import {
   normalizeTransformIntent as normalizeTransformIntentToken,
   buildTransformIntentPromptBlock,
 } from "@/lib/deck/transform-intent";
+import { getFormatRules, isCommanderFormatString } from "@/lib/deck/formatRules";
 
 export type NormalizedGenerationInput = {
   collectionId: string | null;
@@ -446,23 +447,38 @@ export function normalizeTransformBody(body: unknown): { ok: true; input: Normal
 }
 
 export function buildTransformSystemPrompt(format: string): string {
-  return `You are an expert Magic: The Gathering deck builder. You MODIFY an existing decklist — you do not invent a brand-new deck unless the source is unusable.
+  const rules = getFormatRules(format);
+  const isCommander = isCommanderFormatString(format);
+  const formatRules = isCommander
+    ? [
+        "2. For Commander format: EXACTLY 100 cards total. Not 99, not 101. Count must be 100.",
+        "3. Every card MUST be within the commander's color identity. NO off-identity colors.",
+        "4. Singleton except for basic lands and explicit rules exceptions.",
+        "5. All cards must be legal in Commander.",
+      ]
+    : [
+        `2. For ${rules.analyzeAs}: output a competitive ${rules.mainDeckTarget}-card mainboard.`,
+        `3. Constructed copy limit: max ${rules.maxCopies} copies per non-basic card.`,
+        "4. Do not use Commander-only singleton, color identity, commander tax, or command-zone assumptions.",
+        `5. All cards must be legal in ${rules.analyzeAs}.`,
+      ];
+  return `You are an expert Magic: The Gathering deck builder. You MODIFY an existing decklist - you do not invent a brand-new deck unless the source is unusable.
 
 Your job is to read the SOURCE DECK below and output a REPLACEMENT full ${format} decklist that applies the user's transform goal while preserving commander, theme, and strategy whenever the instructions allow.
 
 CRITICAL RULES:
 1. Output ONLY the decklist, one card per line, format: "1 Card Name" (quantity then card name).
-2. For Commander format: EXACTLY 100 cards total. Not 99, not 101. Count must be 100.
-3. Every card MUST be within the commander's color identity. NO off-identity colors.
-4. Singleton except for basic lands (Plains, Island, Swamp, Mountain, Forest).
-5. All cards must be legal in Commander (no silver-bordered, no banned cards).
+${formatRules.join("\n")}
 6. Do NOT include commentary, markdown, or extra text. Only the decklist lines.`;
 }
 
 export function buildTransformUserPrompt(input: NormalizedTransformInput): string {
-  const commanderLine = input.commander
-    ? `Commander (preserve unless legality requires change): ${input.commander}.`
-    : "Infer commander from the source list if identifiable; otherwise pick one commander that matches the deck's colors and theme.";
+  const inputIsCommander = isCommanderFormatString(input.format);
+  const commanderLine = inputIsCommander
+    ? input.commander
+      ? `Commander (preserve unless legality requires change): ${input.commander}.`
+      : "Infer commander from the source list if identifiable; otherwise pick one commander that matches the deck's colors and theme."
+    : "No commander exists for this format. Treat any provided commander value as a normal card only if legal in the format.";
 
   const intentBlock = buildTransformIntentPromptBlock(input.transformIntent);
 
@@ -478,6 +494,14 @@ export function buildTransformUserPrompt(input: NormalizedTransformInput): strin
     input.buildMode?.trim() || input.refinement?.trim()
       ? "\nCompliance: Where BUILD MODE or REFINEMENT directives conflict with generic advice, obey the directives.\n"
       : "";
+  const rules = getFormatRules(input.format);
+  const isCommander = isCommanderFormatString(input.format);
+  const sourceHeading = isCommander
+    ? "--- SOURCE DECK (edit this list into an improved 100-card Commander deck) ---"
+    : `--- SOURCE DECK (edit this list into an improved ${rules.mainDeckTarget}-card ${rules.analyzeAs} mainboard) ---`;
+  const outputLine = isCommander
+    ? "Output EXACTLY 100 cards for Commander. Double-check color identity and Commander singleton rules."
+    : `Output a ${rules.mainDeckTarget}-card ${rules.analyzeAs} mainboard. Double-check legality and constructed copy limits; do not apply Commander-only rules.`;
 
   return `TASK: Revise the SOURCE DECK below — do not ignore it and generate an unrelated list.
 
@@ -489,9 +513,9 @@ ${modeRefBlock}Canonical transform intent: ${input.transformIntent}
 Power level: ${input.powerLevel}
 Budget: ${input.budget}
 ${extraBlock}
---- SOURCE DECK (edit this list into an improved 100-card deck) ---
+${sourceHeading}
 ${input.sourceDeckText.slice(0, 24_000)}
 --- END SOURCE ---
 ${compliance}
-Output EXACTLY 100 cards for Commander. Double-check color identity and Commander singleton rules.`;
+${outputLine}`;
 }

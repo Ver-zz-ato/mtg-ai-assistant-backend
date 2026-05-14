@@ -12,6 +12,8 @@ import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString, hashGuestToken } from "@/lib/guest-tracking";
 import { GUEST_DAILY_FEATURE_LIMIT, SWAP_SUGGESTIONS_FREE, SWAP_SUGGESTIONS_PRO } from "@/lib/feature-limits";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { enrichDeck } from "@/lib/deck/deck-enrichment";
+import { formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
 import {
   formatKeyToDisplayTitle,
   isCommanderFormatKey,
@@ -267,6 +269,13 @@ export async function POST(req: NextRequest) {
       sampleLimit: 24,
     });
     const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
+    let roleSummaryPrompt = "";
+    try {
+      const enriched = await enrichDeck(names.map((name) => ({ name, qty: 1 })));
+      roleSummaryPrompt = formatRoleSummaryForPrompt(summarizeDeckRoles(enriched));
+    } catch {
+      roleSummaryPrompt = "";
+    }
     const builtinSwaps = await getBudgetSwaps();
     const suggestions: Suggestion[] = [];
 
@@ -320,7 +329,12 @@ export async function POST(req: NextRequest) {
         const guestToken = (await cookies()).get('guest_session_token')?.value;
         if (guestToken) anonId = await hashGuestToken(guestToken);
       }
-      const aiDeckText = ownershipPrompt ? `${deckText}\n\n${ownershipPrompt}` : deckText;
+      const aiContext = [
+        deckText,
+        roleSummaryPrompt ? `SHARED ROLE CLASSIFIER SUMMARY:\n${roleSummaryPrompt}` : "",
+        ownershipPrompt,
+      ].filter(Boolean).join("\n\n");
+      const aiDeckText = aiContext || deckText;
       const ai = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage);
       for (const s of ai) {
         const from = canonicalize(s.from).canonicalName || s.from;
