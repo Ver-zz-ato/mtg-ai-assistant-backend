@@ -5,6 +5,7 @@
  */
 
 import { isSimpleRulesOrTerm, isDeckAnalysisRequest } from "./layer0-gate";
+import { GENERAL_COMMANDER_FORMAT_INSTRUCTION } from "@/lib/ai/commander-format-instruction";
 
 export type PromptTier = "micro" | "standard" | "full";
 
@@ -21,7 +22,7 @@ export type ClassifyPromptTierResult = {
 
 /** Featherweight prompt for greetings and simple definitions. ~80 tokens. */
 export const MICRO_PROMPT =
-  "You are ManaTap AI, a concise Magic: The Gathering assistant. Answer clearly and briefly. When referencing cards, use [[Double Brackets]]. Do not add closing filler.";
+  `You are ManaTap AI, a concise Magic: The Gathering assistant. Answer clearly and briefly. When referencing cards, use [[Double Brackets]]. Do not add closing filler.\n\n${GENERAL_COMMANDER_FORMAT_INSTRUCTION}`;
 
 /** Rough token estimate: ~4 chars per token for English. */
 export function estimateSystemPromptTokens(prompt: string): number {

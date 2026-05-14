@@ -4,6 +4,7 @@
  */
 
 import type { DeckContextForCompose } from "@/lib/prompts/composeSystemPrompt";
+import { appendCommanderFormatInstruction } from "@/lib/ai/commander-format-instruction";
 
 export type PromptPath = "composed" | "fallback_version" | "fallback_hardcoded";
 
@@ -51,7 +52,7 @@ export async function buildSystemPromptForRequest(opts: BuildSystemPromptOpts): 
       supabase,
     });
     return {
-      systemPrompt: composed + extraSuffix,
+      systemPrompt: appendCommanderFormatInstruction(composed, formatKey) + extraSuffix,
       promptPath: "composed",
       formatKey,
       modulesAttached: modulesAttached ?? [],
@@ -63,7 +64,7 @@ export async function buildSystemPromptForRequest(opts: BuildSystemPromptOpts): 
       const version = await getPromptVersion(kind, supabase);
       if (version?.system_prompt) {
         return {
-          systemPrompt: version.system_prompt + extraSuffix,
+          systemPrompt: appendCommanderFormatInstruction(version.system_prompt, formatKey) + extraSuffix,
           promptPath: "fallback_version",
           promptVersionId: version.id,
           formatKey,
@@ -72,7 +73,7 @@ export async function buildSystemPromptForRequest(opts: BuildSystemPromptOpts): 
       }
     } catch (_) {}
     return {
-      systemPrompt: hardcodedDefaultPrompt + extraSuffix,
+      systemPrompt: appendCommanderFormatInstruction(hardcodedDefaultPrompt, formatKey) + extraSuffix,
       promptPath: "fallback_hardcoded",
       error: composeErrorShort,
     };

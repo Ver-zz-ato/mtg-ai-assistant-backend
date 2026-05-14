@@ -40,6 +40,7 @@ import {
   formatDeckIntelligencePacketForPrompt,
 } from "@/lib/ai/intelligence/packet";
 import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registry";
+import { GENERAL_COMMANDER_FORMAT_INSTRUCTION } from "@/lib/ai/commander-format-instruction";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -1252,6 +1253,8 @@ export async function POST(req: NextRequest) {
     if (evalRunId && !hasDeckContextForTier) {
       sys =
         "You are ManaTap AI, a concise Magic: The Gathering assistant. Answer the user's question directly. When mentioning card names use [[double brackets]]. Do not ask for a deck or say \"noted\" unless the user is clearly sharing a decklist.\n\n" +
+        GENERAL_COMMANDER_FORMAT_INSTRUCTION +
+        "\n\n" +
         NO_FILLER_INSTRUCTION;
       promptVersionId = null;
       promptResult = { systemPrompt: sys, promptPath: "composed", formatKey, modulesAttached: [] };
