@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { canonicalize } from "@/lib/cards/canonicalize";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
@@ -20,6 +21,7 @@ import {
   normalizeManatapDeckFormatKey,
 } from "@/lib/format/manatap-deck-format";
 import { buildOwnershipContextForUserDeck, formatOwnershipContextForPrompt } from "@/lib/collections/ownership-context";
+import type { SfCard } from "@/lib/deck/inference";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -34,12 +36,22 @@ type Suggestion = {
   confidence: number; // 0..1
 };
 
+type ScryfallPriceResponse = {
+  prices?: {
+    usd?: string | null;
+    eur?: string | null;
+  } | null;
+};
+
+type AiSwapResponse = Array<{ from: string; to: string; reason?: string }>;
+
 async function scryPrice(name: string, currency = "USD"): Promise<number> {
   try {
     const url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`;
+    // eslint-disable-next-line no-restricted-globals -- Scryfall named lookup fallback when local snapshot/cache has no price.
     const r = await fetch(url, { cache: "no-store" });
     if (!r.ok) return 0;
-    const j: any = await r.json();
+    const j = (await r.json()) as ScryfallPriceResponse;
     const p = j?.prices || {};
     const usd = parseFloat(p.usd || "0") || 0;
     const eur = parseFloat(p.eur || "0") || 0;
@@ -47,7 +59,7 @@ async function scryPrice(name: string, currency = "USD"): Promise<number> {
     if (usd > 0) { base = usd; baseCur = "USD"; }
     else if (eur > 0) { base = eur; baseCur = "EUR"; }
     else { return 0; }
-    return await convert(base, baseCur as any, currency as any);
+    return await convert(base, baseCur, currency);
   } catch { return 0; }
 }
 
@@ -169,7 +181,11 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
     try {
       // Remove markdown code blocks if present
       const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      return JSON.parse(cleaned);
+      const parsed = JSON.parse(cleaned) as unknown;
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((x): x is AiSwapResponse[number] => {
+        return x != null && typeof x === "object" && typeof (x as { from?: unknown }).from === "string" && typeof (x as { to?: unknown }).to === "string";
+      });
     } catch {
       return [];
     }
@@ -179,13 +195,13 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
   }
 }
 
-async function snapOrScryPrice(name: string, currency: string, useSnapshot: boolean, snapshotDate: string, supabase: any): Promise<number> {
+async function snapOrScryPrice(name: string, currency: string, useSnapshot: boolean, snapshotDate: string, supabase: SupabaseClient): Promise<number> {
   const proper = canonicalize(name).canonicalName || name;
   if (useSnapshot) {
     try {
       const key = normalizeScryfallCacheName(proper);
       const { data } = await supabase.from('price_snapshots').select('unit').eq('snapshot_date', snapshotDate).eq('name_norm', key).eq('currency', currency).maybeSingle();
-      const unit = Number((data as any)?.unit || 0);
+      const unit = Number((data as { unit?: unknown } | null)?.unit || 0);
       if (unit > 0) return unit;
     } catch {}
   }
@@ -413,7 +429,7 @@ export async function POST(req: NextRequest) {
           }
           
           const cardColors = cardEntry.color_identity || [];
-          const isValid = isWithinColorIdentity({ color_identity: cardColors } as any, allowedColors);
+          const isValid = isWithinColorIdentity({ color_identity: cardColors } as SfCard, allowedColors);
           
           if (!isValid) {
             console.log(`[swap-suggestions] Filtered off-color swap: ${s.to} (${cardColors.join(',')}) not in ${allowedColors.join(',')}`);
@@ -450,7 +466,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, currency, budget, suggestions: validatedSuggestions });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "swap failed" }, { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "swap failed";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

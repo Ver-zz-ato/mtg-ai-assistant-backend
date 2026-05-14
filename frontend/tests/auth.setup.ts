@@ -1,10 +1,10 @@
 import { test as setup, expect } from '@playwright/test';
 import * as path from 'path';
+import * as fs from 'fs';
 
 // Load environment variables from .env.local if available
 // Playwright tests run in Node.js, so we need to manually load .env.local
 try {
-  const fs = require('fs');
   const envPath = path.join(__dirname, '..', '.env.local');
   if (fs.existsSync(envPath)) {
     const envContent = fs.readFileSync(envPath, 'utf8');
@@ -19,7 +19,7 @@ try {
       }
     });
   }
-} catch (e) {
+} catch {
   // Ignore if fs is not available or .env.local doesn't exist
 }
 
@@ -56,26 +56,39 @@ setup('authenticate', async ({ page }) => {
     // Keep going; localStorage consent should be enough on most runs.
   }
 
-  const authLauncher = page.getByRole('button', { name: /sign in|sign up|create free account/i }).first();
+  const authLauncher = page.locator('header').getByRole('button', { name: /sign in\s*\/\s*sign up/i }).first();
   if (await authLauncher.isVisible({ timeout: 5_000 }).catch(() => false)) {
     await authLauncher.click();
+  } else {
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'signin' } }));
+    });
     await page.waitForTimeout(500);
   }
 
-  const switchToSignIn = page.getByRole('button', { name: /already have an account\?\s*sign in/i });
+  const modalTitle = page.getByText('Sign in or Create account', { exact: true });
+  if (!(await modalTitle.isVisible({ timeout: 3_000 }).catch(() => false))) {
+    if (await authLauncher.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await authLauncher.click();
+    }
+  }
+  await expect(modalTitle).toBeVisible({ timeout: 10_000 });
+
+  const switchToSignIn = page.getByRole('button', { name: /already have an account.*sign in/i });
   if (await switchToSignIn.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await switchToSignIn.click();
     await page.waitForTimeout(500);
   }
 
-  const emailInput = page.locator('input[type="email"]').first();
-  const passwordInput = page.locator('input[type="password"]').first();
+  const modal = modalTitle.locator('xpath=ancestor::div[contains(@class, "max-w-md")][1]');
+  const emailInput = modal.locator('input[type="email"]').first();
+  const passwordInput = modal.locator('input[type="password"]').first();
   await expect(emailInput).toBeVisible({ timeout: 10_000 });
   await expect(passwordInput).toBeVisible({ timeout: 10_000 });
   await emailInput.fill(email);
   await passwordInput.fill(password);
 
-  const signInButton = page.getByRole('button', { name: /^sign in$/i });
+  const signInButton = modal.getByRole('button', { name: /^sign in$/i });
   await expect(signInButton).toBeVisible({ timeout: 5_000 });
   await signInButton.click();
 

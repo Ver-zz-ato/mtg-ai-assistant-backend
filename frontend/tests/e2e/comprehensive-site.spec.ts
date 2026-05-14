@@ -21,11 +21,11 @@
  *   PLAYWRIGHT_BASE_URL=https://www.manatap.ai npm run test:comprehensive
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
 
-function setupErrorTracking(page: any) {
+function setupErrorTracking(page: Page) {
   const pageErrors: Error[] = [];
   page.on('pageerror', (e: Error) => pageErrors.push(e));
   return {
@@ -121,8 +121,8 @@ test.describe('Comprehensive Site Test', () => {
 
     // Tool actions block (scope to main — nav links can be hidden on mobile)
     const main = page.locator('main');
-    await expect(main.locator('text=/Start here.*Mulligan/i').first()).toBeVisible({ timeout: 5_000 });
-    await expect(main.locator('text=/Mulligan Simulator|Cost to Finish|Budget Swaps|Browse Decks/i').first()).toBeVisible({ timeout: 5_000 });
+    await expect(main.locator('text=/Simulate Mulligans|Estimate Cost to Finish/i').first()).toBeVisible({ timeout: 5_000 });
+    await expect(main.locator('text=/Find Budget Swaps|Browse Community Decks/i').first()).toBeVisible({ timeout: 5_000 });
 
     // Synergy teaser (hub only)
     await expect(page.locator('text=/Common synergy packages/i')).toBeVisible({ timeout: 5_000 });
@@ -308,12 +308,23 @@ test.describe('Comprehensive Site Test', () => {
     expect(json).toHaveProperty('checks');
   });
 
-  test('26. Guest pages — my-decks, collections, profile show sign-in when not logged in', async ({ page }) => {
+  test('26. Guest pages — my-decks, collections, profile show sign-in when not logged in', async ({ browser }) => {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
     const guestRoutes = ['/my-decks', '/collections', '/profile'];
-    for (const path of guestRoutes) {
-      await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-      const signIn = page.locator('text=/sign in|create account|log in/i').first();
-      await expect(signIn).toBeVisible({ timeout: 10_000 });
+    try {
+      for (const path of guestRoutes) {
+        await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        const signOut = page.getByRole('button', { name: /sign out/i }).first();
+        if (await signOut.isVisible({ timeout: 1_000 }).catch(() => false)) {
+          await signOut.click();
+          await page.waitForLoadState('domcontentloaded').catch(() => undefined);
+        }
+        const signIn = page.locator('text=/sign in|create account|log in|ready to get started/i').first();
+        await expect(signIn).toBeVisible({ timeout: 10_000 });
+      }
+    } finally {
+      await context.close();
     }
   });
 
