@@ -84,8 +84,8 @@ export function cleanCardName(raw: string): string {
   // Strip standalone collector numbers (3+ digits, optionally with letter suffix)
   // Examples: "263", "2283", "123a", "45b"
   s = s.replace(/\s+\d{3,}[a-z]?$/i, '');
-  // Also 2-digit numbers if preceded by space and followed by nothing (common collector numbers)
-  s = s.replace(/\s+\d{1,2}$/i, '');
+  // Do not blindly strip 1-2 digit suffixes here.
+  // Real cards can legitimately end in numbers, e.g. "Michelangelo, Weirdness to 11".
   
   // Strip foil/special indicators
   // *F*, *FOIL*, *E*, *ETCHED*, (F), (Foil), (Etched), etc.
