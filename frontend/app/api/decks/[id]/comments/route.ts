@@ -9,15 +9,9 @@ import {
   isCostAuditStorageEnabled,
 } from "@/lib/observability/cost-audit";
 import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
+import { validatePublicText } from "@/lib/profanity";
 
 export const dynamic = "force-dynamic";
-
-// Simple profanity filter (extensible)
-const profanityList = ['fuck', 'shit', 'ass', 'bitch', 'damn', 'hell', 'cock', 'dick', 'pussy', 'fag', 'nigger', 'cunt'];
-function isProfane(text: string): boolean {
-  const lower = text.toLowerCase();
-  return profanityList.some(word => lower.includes(word));
-}
 
 /**
  * GET /api/decks/[id]/comments
@@ -220,17 +214,19 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    if (content.length > 5000) {
+    const trimmedContent = content.trim();
+
+    if (trimmedContent.length > 5000) {
       return NextResponse.json(
         { ok: false, error: "Comment too long (max 5000 characters)" },
         { status: 400 }
       );
     }
 
-    // Check for profanity
-    if (isProfane(content)) {
+    const commentCheck = validatePublicText(trimmedContent, "Comment");
+    if (!commentCheck.ok) {
       return NextResponse.json(
-        { ok: false, error: "Comment contains inappropriate language" },
+        { ok: false, error: commentCheck.message },
         { status: 400 }
       );
     }
@@ -241,7 +237,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       .insert({
         deck_id: deckId,
         user_id: user.id,
-        content: content.trim(),
+        content: trimmedContent,
       })
       .select()
       .single();
@@ -271,7 +267,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       ownerUserId: ownerId || "",
       actorUserId: user.id,
       resourceLabel: `Comment on ${deckTitle}`,
-      preview: content.trim(),
+      preview: trimmedContent,
       data: { deck_id: deckId, type: "deck_comment" },
     });
 

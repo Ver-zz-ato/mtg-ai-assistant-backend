@@ -22,10 +22,26 @@ function patternFor(word: string) {
 }
 
 const rx = new RegExp(`\\b(${WORDS.map(patternFor).join('|')})\\b`, 'i');
+const compactWords = WORDS.map((word) => word.replace(/[^a-z0-9]/gi, "").toLowerCase());
+
+function normalizeLoose(input: string): string {
+  return String(input || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[@4]/g, "a")
+    .replace(/[013]/g, (m) => (m === "0" ? "o" : m === "3" ? "e" : "i"))
+    .replace(/5/g, "s")
+    .replace(/7/g, "t")
+    .replace(/[^a-z0-9]+/g, "");
+}
 
 export function containsProfanity(input: string): boolean {
   if (!input) return false;
-  return rx.test(String(input));
+  const raw = String(input);
+  if (rx.test(raw)) return true;
+  const compact = normalizeLoose(raw);
+  return compactWords.some((word) => compact.includes(word));
 }
 
 export function sanitizeName(input: string, max = 120): string {

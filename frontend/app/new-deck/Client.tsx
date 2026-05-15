@@ -9,7 +9,7 @@ export default function NewDeckClient() {
   const [error, setError] = React.useState<string | null>(null);
   const submitLockRef = React.useRef(false);
 
-  async function createDeck(format: PickedDeckFormat, options: { makePublic: boolean }) {
+  async function createDeck(format: PickedDeckFormat) {
     if (submitLockRef.current) return;
     submitLockRef.current = true;
     setCreating(true);
@@ -26,7 +26,7 @@ export default function NewDeckClient() {
           colors: [],
           currency: "USD",
           deck_text: "",
-          is_public: options.makePublic === true,
+          is_public: false,
         }),
       });
 
@@ -51,8 +51,8 @@ export default function NewDeckClient() {
       <FormatPickerModal
         isOpen={!creating}
         busy={creating}
-        onSelect={(f, opts) => {
-          void createDeck(f, opts);
+        onSelect={(f) => {
+          void createDeck(f);
         }}
         onClose={() => router.push("/my-decks")}
       />

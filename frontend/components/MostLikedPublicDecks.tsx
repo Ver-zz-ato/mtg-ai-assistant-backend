@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
+import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -13,7 +14,7 @@ const getMostLiked = unstable_cache(
     // First, get all public deck IDs
     const { data: allDecks } = await supabase
       .from('decks')
-      .select('id, title')
+      .select('id, title, format, deck_text')
       .eq('is_public', true);
     
     if (!allDecks || allDecks.length === 0) return [];
@@ -48,21 +49,25 @@ const getMostLiked = unstable_cache(
       // Check card counts for this batch
       const { data: cardCounts } = await supabase
         .from('deck_cards')
-        .select('deck_id')
+        .select('deck_id, qty, zone')
         .in('deck_id', batchIds);
       
-      // Count cards per deck
-      const cardsPerDeck = new Map<string, number>();
+      const rowsPerDeck = new Map<string, Array<{ qty: number; zone?: string | null }>>();
       if (cardCounts) {
         for (const card of cardCounts) {
-          cardsPerDeck.set(card.deck_id, (cardsPerDeck.get(card.deck_id) || 0) + 1);
+          const deckId = String(card.deck_id);
+          const bucket = rowsPerDeck.get(deckId) ?? [];
+          bucket.push({ qty: Number(card.qty ?? 0), zone: card.zone ?? null });
+          rowsPerDeck.set(deckId, bucket);
         }
       }
       
-      // Add to pairs if deck has at least 10 cards
+      // Add to pairs only if the public deck is format-complete.
       for (const deck of batch) {
-        const cardCount = cardsPerDeck.get(deck.id) || 0;
-        if (cardCount >= 10) {
+        const mainCount =
+          getMainboardCardCount(rowsPerDeck.get(deck.id) ?? []) ||
+          mainDeckTextCardCount(String((deck as { deck_text?: string | null }).deck_text ?? ""), (deck as { format?: string | null }).format ?? null);
+        if (isPublicBrowseDeckCompliant((deck as { format?: string | null }).format ?? null, mainCount)) {
           pairs.push({
             id: deck.id,
             title: deck.title || 'Untitled',

@@ -1,11 +1,11 @@
 // app/api/decks/save/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { containsProfanity, sanitizeName } from "@/lib/profanity";
+import { sanitizeName } from "@/lib/profanity";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
-import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
+import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 
 type SaveBody = {
   title?: string;
@@ -91,20 +91,16 @@ export async function POST(req: NextRequest) {
 
     const rawTitle = String(body.title ?? '').trim();
     const cleanTitle = sanitizeName(rawTitle, 120);
-    const is_public = body.is_public === true;
-    if (is_public && cleanTitle && containsProfanity(cleanTitle)) {
-      return NextResponse.json(
-        { ok: false, error: "Please remove offensive language before making this public." },
-        { status: 400 }
-      );
-    }
+    const is_public = false;
     if (is_public) {
-      const parsed = parseDeckText(body.deckText);
-      const cardCount = parsed.reduce((s, p) => s + (p.qty || 1), 0);
-      const format = body.format ?? "Commander";
-      const msg = getFormatComplianceMessage(format, cardCount);
-      if (msg) {
-        return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+      const publicError = getPublicDeckValidationError({
+        title: cleanTitle,
+        format: body.format ?? "Commander",
+        deckText: body.deckText ?? "",
+        deckAim: null,
+      });
+      if (publicError) {
+        return NextResponse.json({ ok: false, error: publicError }, { status: 400 });
       }
     }
     const insertDeck = {

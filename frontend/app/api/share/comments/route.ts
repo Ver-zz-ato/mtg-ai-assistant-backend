@@ -2,18 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 import { notifyOwnerNewComment } from "@/lib/notify-comment-owner";
+import { validatePublicText } from "@/lib/profanity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-
-const profanityList = ["fuck", "shit", "ass", "bitch", "damn", "hell", "cock", "dick", "pussy", "fag", "nigger", "cunt"];
-function isProfane(text: string): boolean {
-  const lower = text.toLowerCase();
-  return profanityList.some((word) => lower.includes(word));
-}
 
 type ResourceType = "collection" | "roast" | "health_report" | "analysis_report" | "custom_card";
 
@@ -165,8 +160,9 @@ export async function POST(req: NextRequest) {
     if (!content || content.length > 5000) {
       return NextResponse.json({ ok: false, error: "Invalid content" }, { status: 400 });
     }
-    if (isProfane(content)) {
-      return NextResponse.json({ ok: false, error: "Inappropriate language" }, { status: 400 });
+    const commentCheck = validatePublicText(content, "Comment");
+    if (!commentCheck.ok) {
+      return NextResponse.json({ ok: false, error: commentCheck.message }, { status: 400 });
     }
 
     const { ownerId, label, visible } = await resolveOwnerAndVisibility(admin, type, resourceId);

@@ -7,8 +7,8 @@ import { withLogging } from "@/lib/api/withLogging";
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
-import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
 import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
+import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -103,19 +103,15 @@ async function _POST(req: NextRequest) {
     const payload = parsed.data;
 
     const cleanTitle = sanitizeName(payload.title, 120);
-    const makePublic = payload.is_public === true;
-    if (makePublic && cleanTitle && containsProfanity(cleanTitle)) {
-      return err(
-        "Please remove offensive language before making this public.",
-        "bad_request",
-        400
-      );
-    }
+    const makePublic = false;
     if (makePublic) {
-      const parsedCount = parseDeckText(payload.deck_text || "");
-      const cardCount = parsedCount.reduce((s, p) => s + (p.qty || 1), 0);
-      const msg = getFormatComplianceMessage(payload.format, cardCount);
-      if (msg) return err(msg, "bad_request", 400);
+      const publicError = getPublicDeckValidationError({
+        title: cleanTitle,
+        format: payload.format,
+        deckText: payload.deck_text,
+        deckAim: null,
+      });
+      if (publicError) return err(publicError, "bad_request", 400);
     }
 
     // Extract commander from deck_text (mainboard cards only; Commander format)

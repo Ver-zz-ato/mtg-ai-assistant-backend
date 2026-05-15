@@ -15,6 +15,7 @@ import HandTestingSection from "./HandTestingSection";
 import type { Metadata } from "next";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { isMaybeFlexBucketEnabledForFormat, normalizeMaybeFlexCards } from "@/lib/deck/maybeFlexCards";
+import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
 
 type Params = { id: string };
 export const revalidate = 120; // short ISR window for public decks
@@ -250,7 +251,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   // Fetch deck meta (public visibility enforced by RLS) - guard against failures
   let deckRow: any = null;
   try {
-    const { data } = await supabase.from("decks").select("title, is_public, meta, commander, format, user_id, colors, deck_aim").eq("id", id).maybeSingle();
+    const { data } = await supabase.from("decks").select("title, is_public, meta, commander, format, user_id, colors, deck_aim, deck_text").eq("id", id).maybeSingle();
     deckRow = data;
   } catch (e) {
     console.error('[Deck Page] Failed to fetch deck row:', e);
@@ -295,17 +296,32 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
 
   // Fetch cards - guard against failures
-  let cards: Array<{ name: string; qty: number }> | null = null;
+  let cards: Array<{ name: string; qty: number; zone?: string | null }> | null = null;
   try {
     const { data } = await supabase
       .from("deck_cards")
-      .select("name, qty")
+      .select("name, qty, zone")
       .eq("deck_id", id)
       .order("name", { ascending: true });
-    cards = data as Array<{ name: string; qty: number }> | null;
+    cards = data as Array<{ name: string; qty: number; zone?: string | null }> | null;
   } catch (e) {
     console.error('[Deck Page] Failed to fetch deck cards:', e);
     cards = [];
+  }
+
+  const publicMainCount =
+    getMainboardCardCount((cards || []).map((c) => ({ qty: c.qty, zone: c.zone }))) ||
+    mainDeckTextCardCount(String((deckRow as { deck_text?: string | null })?.deck_text ?? ""), format);
+  if (!isPublicBrowseDeckCompliant(format, publicMainCount)) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8">
+        <div className="text-center py-16">
+          <h1 className="text-2xl font-bold text-white mb-4">Deck not found</h1>
+          <p className="text-neutral-400 mb-4">This deck is private or no longer meets public deck requirements.</p>
+          <a href="/decks/browse" className="text-cyan-400 hover:underline">Browse public decks</a>
+        </div>
+      </main>
+    );
   }
 
   // Snapshot prices for per-card "each" (USD default)
@@ -579,6 +595,14 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               </div>
             );
           })()}
+          {format.toLowerCase() !== 'commander' && (deckRow as any)?.deck_aim ? (
+            <div className="mb-6 rounded-lg border border-blue-500/20 bg-gradient-to-br from-blue-950/20 via-neutral-900/60 to-purple-950/20 p-4 shadow-md">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-300/80">
+                Deck Aim / Goal
+              </div>
+              <p className="text-sm leading-6 text-neutral-100">{String((deckRow as any).deck_aim)}</p>
+            </div>
+          ) : null}
           
           <header className="mb-6 p-6 rounded-xl border border-neutral-700 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 shadow-lg">
             <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -673,7 +697,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               </h2>
             </div>
             <PublicDeckCardList
-              cards={cards || []}
+              cards={(cards || []).map((c) => ({ name: c.name, qty: c.qty }))}
               maybeFlexCards={maybeFlexPublic.length > 0 ? maybeFlexPublic : undefined}
               priceMap={priceMap}
             />
@@ -694,7 +718,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           {/* Hand Testing Widget */}
           <HandTestingSection
             deckId={id}
-            deckCards={(cards || []) as Array<{ name: string; qty: number }>}
+            deckCards={(cards || []).map((c) => ({ name: c.name, qty: c.qty }))}
             commanderName={commander || null}
           />
 

@@ -956,6 +956,7 @@ function Chat(props: ChatProps = {}) {
             if (messageCountRef.current === 1 && accumulatedContent.length > 50) trackValueMomentReached("first_good_chat_response");
             if (!isLoggedIn && messageCountRef.current >= 2) trackGuestValueMoment("chat_engaged", capture, { chat_count: messageCountRef.current });
             capture("chat_stream_stop", enrichChatEvent({ stopped_by: "complete", duration_ms: Date.now() - streamStartTime, tokens_if_known: Math.ceil(accumulatedContent.length / 4), assistant_message_id: streamingMsgId }, { threadId: currentThreadId || threadId || null, userMessage: val || null, assistantMessage: accumulatedContent.slice(0, 200) || null, format: fmt || null }));
+            capture("chat_response_received", enrichChatEvent({ duration_ms: Date.now() - streamStartTime, response_length: accumulatedContent.length }, { threadId: currentThreadId || threadId || null, userMessage: null, assistantMessage: null, format: fmt || null }));
             onDebugLog({
               ts: Date.now(),
               tag: "stream_debug",
@@ -1059,6 +1060,18 @@ function Chat(props: ChatProps = {}) {
               // persona and prompt_version not available client-side
             }
           ));
+          capture('chat_response_received', enrichChatEvent(
+            {
+              duration_ms: Date.now() - streamStartTime,
+              response_length: accumulatedContent.length,
+            },
+            {
+              threadId: currentThreadId || threadId || null,
+              userMessage: null,
+              assistantMessage: null,
+              format: fmt || null,
+            }
+          ));
         },
         (error: Error) => {
           setIsStreaming(false);
@@ -1102,6 +1115,11 @@ function Chat(props: ChatProps = {}) {
               duration_ms: Date.now() - streamStartTime,
               had_partial: streamingContent.length > 0
             });
+            capture('chat_failed', {
+              error_code: (error.message || 'unknown').slice(0, 64),
+              duration_ms: Date.now() - streamStartTime,
+              has_deck: !!linkedDeckId,
+            });
           }
         },
         abortController.signal
@@ -1116,6 +1134,11 @@ function Chat(props: ChatProps = {}) {
         reason: String(error).substring(0, 100),
         duration_ms: Date.now() - streamStartTime,
         had_partial: streamingContent.length > 0
+      });
+      capture('chat_failed', {
+        error_code: String(error).substring(0, 64),
+        duration_ms: Date.now() - streamStartTime,
+        has_deck: !!linkedDeckId,
       });
         } finally {
           // Don't clear activeStreamingRef here - let onDone callback handle it

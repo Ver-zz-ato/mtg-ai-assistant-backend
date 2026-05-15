@@ -4,6 +4,18 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { captureServer } from './lib/server/analytics';
 import { validateEnv } from './lib/env';
 import {
+  ATTRIBUTION_COOKIE_MAX_AGE,
+  ATTRIBUTION_CURRENT_COOKIE,
+  ATTRIBUTION_FIRST_COOKIE,
+  WEB_SESSION_COOKIE,
+  WEB_SESSION_MAX_AGE,
+  buildAnalyticsCommonProps,
+  deriveChannelType,
+  getReferringDomain,
+  sanitizeAnalyticsUrl,
+  serializeAttributionCookie,
+} from './lib/analytics/common';
+import {
   isExcludedPath,
   isBot,
   isRealHtmlNavigation,
@@ -226,8 +238,10 @@ export async function middleware(req: NextRequest) {
     const referrer = req.headers.get('referer') || undefined;
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || undefined;
     const fullPath = path + (req.nextUrl.search || '');
+    const fullUrl = sanitizeAnalyticsUrl(req.nextUrl.toString());
     const utm = getUtmFromUrl(req.nextUrl.search || '');
     const deviceType = getDeviceTypeFromUA(userAgent);
+    const referringDomain = getReferringDomain(referrer);
 
     const excluded = isExcludedPath(path);
     const realHtml = isRealHtmlNavigation(method, accept, secFetchDest);
@@ -238,6 +252,7 @@ export async function middleware(req: NextRequest) {
     if (shouldSetVisitor) {
       let visitorId = req.cookies.get('visitor_id')?.value;
       const isFirstVisit = !visitorId;
+      let sessionId = req.cookies.get(WEB_SESSION_COOKIE)?.value;
       if (isFirstVisit) {
         visitorId = `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         response.cookies.set('visitor_id', visitorId, {
@@ -247,19 +262,84 @@ export async function middleware(req: NextRequest) {
           sameSite: 'lax',
         });
       }
+      if (!sessionId) {
+        sessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      }
+      response.cookies.set(WEB_SESSION_COOKIE, sessionId, {
+        path: '/',
+        maxAge: WEB_SESSION_MAX_AGE,
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+
+      const currentTouch = {
+        ...utm,
+        referrer: referrer ?? null,
+        referring_domain: referringDomain,
+        landing_path: path,
+        landing_url: fullUrl,
+        channel_type: deriveChannelType({
+          ...utm,
+          referrer,
+          referring_domain: referringDomain,
+        }),
+      };
+      response.cookies.set(ATTRIBUTION_CURRENT_COOKIE, serializeAttributionCookie(currentTouch), {
+        path: '/',
+        maxAge: WEB_SESSION_MAX_AGE,
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+      if (!req.cookies.get(ATTRIBUTION_FIRST_COOKIE)?.value) {
+        response.cookies.set(
+          ATTRIBUTION_FIRST_COOKIE,
+          serializeAttributionCookie({
+            ...currentTouch,
+            first_seen_at: new Date().toISOString(),
+          }),
+          {
+            path: '/',
+            maxAge: ATTRIBUTION_COOKIE_MAX_AGE,
+            httpOnly: false,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+          }
+        );
+      }
 
       if (shouldTrack) {
         const hasAuthCookie = req.cookies.getAll().some(
           (c) => c.name.startsWith('sb-') && c.name.includes('auth-token')
         );
+        const serverCommon = buildAnalyticsCommonProps({
+          platform: 'server',
+          app_surface: 'website',
+          logged_in: !!hasAuthCookie,
+          user_tier: 'unknown',
+          route_path: path,
+          session_id: sessionId,
+          source_surface: null,
+          source_feature: null,
+          deck_id_present: false,
+          deck_format: null,
+        });
         const firstVisitProps = {
+          ...serverCommon,
           is_bot: false,
           path: fullPath,
+          pathname: path,
           landing_page: fullPath,
+          landing_path: path,
+          landing_url: fullUrl,
+          full_url: fullUrl,
           referrer,
+          referring_domain: referringDomain,
           user_agent: userAgent.slice(0, 200),
           timestamp: new Date().toISOString(),
           device_type: deviceType,
+          channel_type: currentTouch.channel_type,
           ...utm,
         };
         if (isFirstVisit) {
@@ -276,11 +356,16 @@ export async function middleware(req: NextRequest) {
         if (!skipPv) {
           try {
             await captureServer('pageview_server', {
+              ...serverCommon,
               path: fullPath,
-              referrer,
+              pathname: path,
+              full_url: fullUrl,
+              title: null,
               visitor_id: visitorId,
               is_authenticated: !!hasAuthCookie,
+              session_id: sessionId,
               timestamp: new Date().toISOString(),
+              ...currentTouch,
               ...utm,
             }, visitorId, clientIp ? { ip: clientIp } : undefined);
             response.cookies.set(PV_LAST_COOKIE, formatPvLast(fullPath, now), {

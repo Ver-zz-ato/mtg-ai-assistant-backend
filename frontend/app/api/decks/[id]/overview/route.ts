@@ -1,6 +1,7 @@
 // app/api/decks/[id]/overview/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { validatePublicText } from "@/lib/profanity";
 
 export async function POST(
   req: NextRequest,
@@ -39,6 +40,12 @@ export async function POST(
 
     // Update deck_aim (trim and limit length)
     const trimmedAim = deck_aim ? deck_aim.trim().slice(0, 500) : null;
+    if (trimmedAim) {
+      const aimCheck = validatePublicText(trimmedAim, "Deck aim");
+      if (!aimCheck.ok) {
+        return NextResponse.json({ ok: false, error: aimCheck.message }, { status: 400 });
+      }
+    }
 
     const { error: updateError } = await supabase
       .from('decks')

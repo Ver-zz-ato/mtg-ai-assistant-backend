@@ -2,6 +2,7 @@
 "use client";
 import * as React from "react";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
+import { validatePublicText } from "@/lib/profanity";
 
 type DeckOverviewProps = {
   deckId: string;
@@ -40,62 +41,6 @@ export default function DeckOverview({
     setColors(initialColors || []);
     setAim(initialAim || "");
   }, [initialCommander, initialColors, initialAim]);
-
-  // Auto-infer deck aim if not set
-  React.useEffect(() => {
-    if (readOnly || format?.toLowerCase() !== 'commander') return;
-    if (initialAim) return; // Don't infer if user has already set one
-    
-    // Wait a bit for deck to load, then infer
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/decks/${deckId}/infer-aim`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const json = await res.json().catch(() => ({}));
-        if (json?.ok && json?.inferred && json?.aim) {
-          setAim(json.aim);
-          window.dispatchEvent(new Event('deck:changed'));
-        }
-      } catch (err) {
-        // Silently fail
-      }
-    }, 1000); // Wait 1 second after mount
-
-    return () => clearTimeout(timer);
-  }, [deckId, initialAim, readOnly, format]);
-
-  // Also infer when deck changes (cards added/removed)
-  React.useEffect(() => {
-    if (readOnly || format?.toLowerCase() !== 'commander') return;
-    if (aim) return; // Don't re-infer if user has set one
-    
-    const handleDeckChange = async () => {
-      // Debounce: wait 2 seconds after last change
-      clearTimeout((window as any).__deckAimInferTimer);
-      (window as any).__deckAimInferTimer = setTimeout(async () => {
-        try {
-          const res = await fetch(`/api/decks/${deckId}/infer-aim`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          });
-          const json = await res.json().catch(() => ({}));
-          if (json?.ok && json?.inferred && json?.aim) {
-            setAim(json.aim);
-          }
-        } catch (err) {
-          // Silently fail
-        }
-      }, 2000);
-    };
-
-    window.addEventListener('deck:changed', handleDeckChange);
-    return () => {
-      window.removeEventListener('deck:changed', handleDeckChange);
-      clearTimeout((window as any).__deckAimInferTimer);
-    };
-  }, [deckId, aim, readOnly, format]);
 
   // Fetch commander image
   React.useEffect(() => {
@@ -180,6 +125,11 @@ export default function DeckOverview({
   async function saveAim(newAim: string) {
     const a = newAim.trim();
     if (a === aim) return setEditingAim(false);
+    const aimCheck = validatePublicText(a, "Deck aim");
+    if (!aimCheck.ok) {
+      setError(aimCheck.message);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {

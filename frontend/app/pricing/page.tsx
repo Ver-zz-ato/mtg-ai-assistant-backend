@@ -63,8 +63,7 @@ export default function PricingPage() {
             is_authenticated: !!user,
             source: 'pricing_page',
             plan,
-            user_id: user?.id || null,
-            user_email: user?.email || null
+            user_id: user?.id || null
           }
         })
       });

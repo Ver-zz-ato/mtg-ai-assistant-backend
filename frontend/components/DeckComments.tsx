@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { capture } from '@/lib/ph';
+import { validatePublicText } from '@/lib/profanity';
 
 interface Comment {
   id: string;
@@ -74,7 +75,13 @@ export default function DeckComments({ deckId, isPublic, deckOwnerId }: DeckComm
   }
 
   async function postComment() {
-    if (!newComment.trim()) return;
+    const trimmed = newComment.trim();
+    if (!trimmed) return;
+    const commentCheck = validatePublicText(trimmed, 'Comment');
+    if (!commentCheck.ok) {
+      setError(commentCheck.message);
+      return;
+    }
 
     try {
       setPosting(true);
@@ -83,7 +90,7 @@ export default function DeckComments({ deckId, isPublic, deckOwnerId }: DeckComm
       const res = await fetch(`/api/decks/${deckId}/comments`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: newComment.trim() }),
+        body: JSON.stringify({ content: trimmed }),
       });
 
       const data = await res.json();

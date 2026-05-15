@@ -16,6 +16,7 @@ import { recordAiUsage } from './log-usage';
 import { costUSD } from './pricing';
 import { deduplicatedFetch } from '@/lib/api/deduplicator';
 import { DEFAULT_FALLBACK_MODEL } from './default-models';
+import { captureAiServerEvent } from '@/lib/server/analytics';
 
 export type LLMConfig = {
   route: string;              // e.g., '/api/chat'
@@ -129,6 +130,24 @@ export async function callLLM(
   const timeout = config.timeout || DEFAULT_TIMEOUTS[config.feature] || DEFAULT_TIMEOUTS.default;
   const userType = getUserType(config.userId || null, config.isPro || false);
   const userIdHash = await hashUserId(config.userId || null);
+  const analyticsUserTier =
+    config.user_tier ??
+    (config.is_guest === true ? 'guest' : config.isPro ? 'pro' : config.userId ? 'free' : 'unknown');
+
+  try {
+    await captureAiServerEvent('ai_call_started', {
+      app_surface: 'api',
+      cache_hit: config.cache_hit ?? false,
+      deck_format: config.formatKey ?? null,
+      feature: config.feature,
+      model: config.model,
+      provider: 'openai',
+      route: config.route,
+      streamed: false,
+      success: false,
+      user_tier: analyticsUserTier,
+    }, config.userId ?? config.anonId ?? null);
+  } catch {}
 
   // Determine API URL and payload structure
   const isResponsesAPI = config.apiType === 'responses';
@@ -375,6 +394,30 @@ export async function callLLM(
       textLength: text?.length || 0
     });
     
+    try {
+      await captureAiServerEvent('ai_call_failed', {
+        app_surface: 'api',
+        cache_hit: config.cache_hit ?? false,
+        deck_format: config.formatKey ?? null,
+        error_code: String(attempt.status || 'unknown'),
+        estimated_cost_usd: 0,
+        feature: config.feature,
+        input_tokens: tokens.input ?? null,
+        latency_ms: latency,
+        model: actualModel,
+        output_tokens: tokens.output ?? null,
+        provider: 'openai',
+        route: config.route,
+        streamed: false,
+        success: false,
+        total_tokens:
+          (tokens.input ?? 0) || (tokens.output ?? 0)
+            ? (tokens.input ?? 0) + (tokens.output ?? 0)
+            : null,
+        user_tier: analyticsUserTier,
+      }, config.userId ?? config.anonId ?? null);
+    } catch {}
+
     if (attempt.status === 408) {
       throw new Error('AI is busy, please try again');
     }
@@ -398,6 +441,26 @@ export async function callLLM(
   const it = tokens.input ?? 0;
   const ot = tokens.output ?? 0;
   const cost = costUSD(actualModel, it, ot);
+
+  try {
+    await captureAiServerEvent('ai_call_completed', {
+      app_surface: 'api',
+      cache_hit: config.cache_hit ?? false,
+      deck_format: config.formatKey ?? null,
+      estimated_cost_usd: cost,
+      feature: config.feature,
+      input_tokens: it,
+      latency_ms: latency,
+      model: actualModel,
+      output_tokens: ot,
+      provider: 'openai',
+      route: config.route,
+      streamed: false,
+      success: true,
+      total_tokens: it + ot,
+      user_tier: analyticsUserTier,
+    }, config.userId ?? config.anonId ?? null);
+  } catch {}
 
   if (!config.skipRecordAiUsage) {
     recordAiUsage({

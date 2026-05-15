@@ -38,8 +38,7 @@ export default function EmailVerificationSuccessPopup() {
                 body: JSON.stringify({ 
                   event: 'email_verified_success',
                   properties: { 
-                    user_id: user.id,
-                    user_email: user.email
+                    user_id: user.id
                   }
                 })
               });

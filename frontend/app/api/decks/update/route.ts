@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
-import { getFormatComplianceMessage } from "@/lib/deck/formatCompliance";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
+import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 
     const { data: existing, error: existErr } = await supabase
       .from("decks")
-      .select("title, is_public, deck_aim")
+      .select("title, is_public, deck_aim, deck_text, format")
       .eq("id", b.id)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -96,6 +96,11 @@ export async function POST(req: Request) {
       typeof b.is_public === "boolean"
         ? b.is_public
         : (existing as { is_public?: boolean }).is_public === true;
+    const mergedDeckText =
+      typeof b.deck_text === "string"
+        ? b.deck_text
+        : String((existing as { deck_text?: string | null }).deck_text ?? "");
+    const mergedFormat = String((existing as { format?: string | null }).format ?? "Commander");
 
     const existingRow = existing as { deck_aim?: string | null };
     let mergedDeckAim: string | null;
@@ -108,17 +113,14 @@ export async function POST(req: Request) {
     }
 
     if (mergedPublic) {
-      if (mergedTitle && containsProfanity(mergedTitle)) {
-        return NextResponse.json(
-          { error: "Please remove offensive language before making this public." },
-          { status: 400 }
-        );
-      }
-      if (mergedDeckAim && containsProfanity(mergedDeckAim)) {
-        return NextResponse.json(
-          { error: "Please remove offensive language before making this public." },
-          { status: 400 }
-        );
+      const publicError = getPublicDeckValidationError({
+        title: mergedTitle,
+        format: mergedFormat,
+        deckText: mergedDeckText,
+        deckAim: mergedDeckAim,
+      });
+      if (publicError) {
+        return NextResponse.json({ error: publicError }, { status: 400 });
       }
     }
 
@@ -165,27 +167,6 @@ export async function POST(req: Request) {
       }
     }
     if (typeof b.is_public === "boolean") {
-      if (b.is_public === true) {
-        // Block making incomplete decks public
-        const { data: deckRow } = await supabase
-          .from("decks")
-          .select("format")
-          .eq("id", b.id)
-          .eq("user_id", user.id)
-          .single();
-        const { data: cardRows } = await supabase
-          .from("deck_cards")
-          .select("qty")
-          .eq("deck_id", b.id);
-        let cardCount = 0;
-        for (const row of cardRows || []) {
-          cardCount += Number((row as { qty: number }).qty || 1);
-        }
-        const msg = getFormatComplianceMessage(deckRow?.format, cardCount);
-        if (msg) {
-          return NextResponse.json({ error: msg }, { status: 400 });
-        }
-      }
       update.is_public = b.is_public;
     }
 

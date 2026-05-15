@@ -1,26 +1,17 @@
 "use client";
 import React from "react";
 import Modal from "@/components/Modal";
-import { validatePublicText } from "@/lib/profanity";
 
 export default function CreateDeckFAB(){
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
-  const [makePublic, setMakePublic] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   async function create(){
     const trimmed = name.trim();
     if (!trimmed) return;
-    if (makePublic) {
-      const v = validatePublicText(trimmed, "Deck name");
-      if (!v.ok) {
-        alert(v.message);
-        return;
-      }
-    }
     setBusy(true);
     try{
-      const r = await fetch('/api/decks/create', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: trimmed, is_public: makePublic === true }) });
+      const r = await fetch('/api/decks/create', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: trimmed, is_public: false }) });
       const j = await r.json().catch(()=>({})); if(!r.ok || j?.ok===false) throw new Error(j?.error||'Create failed');
       window.location.href = `/my-decks/${encodeURIComponent(j.id || '')}`;
     } catch (e: unknown) {
@@ -52,14 +43,7 @@ export default function CreateDeckFAB(){
             autoFocus
             className="w-full bg-neutral-950 border-2 border-neutral-700 focus:border-blue-500 rounded-lg px-4 py-3 text-white placeholder:text-gray-500 transition-colors"
           />
-          <label className="flex items-start gap-2 text-sm text-neutral-300">
-            <input type="checkbox" className="mt-1" checked={makePublic} onChange={(e)=>setMakePublic(e.target.checked)} />
-            <span>
-              <span className="font-medium">Make deck public</span>
-              {!makePublic && <span className="block text-xs text-neutral-500 mt-0.5">Only you can see this deck.</span>}
-              {makePublic && <span className="block text-xs text-amber-200/90 mt-0.5">Public decks can be viewed by others and may appear on your public profile.</span>}
-            </span>
-          </label>
+          <p className="text-xs text-neutral-500">New decks start private. You can make a complete deck public later.</p>
           <div className="flex justify-end gap-3">
             <button 
               onClick={()=>setOpen(false)} 

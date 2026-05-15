@@ -4,6 +4,13 @@ import { createClient } from '@/lib/supabase/server';
 import { ensureDistinctId, FALLBACK_ID_COOKIE, FALLBACK_ID_MAX_AGE } from '@/lib/analytics/fallback-id';
 import { getAdmin } from '@/app/api/_lib/supa';
 import { extractIP } from '@/lib/guest-tracking';
+import {
+  ATTRIBUTION_CURRENT_COOKIE,
+  ATTRIBUTION_FIRST_COOKIE,
+  WEB_SESSION_COOKIE,
+  buildAnalyticsCommonProps,
+  parseAttributionCookie,
+} from '@/lib/analytics/common';
 
 export const runtime = 'nodejs';
 
@@ -73,12 +80,16 @@ export async function POST(req: NextRequest) {
     }
 
     const visitorId = (bodyVisitorId ?? req.cookies.get('visitor_id')?.value ?? null) as string | null;
+    const firstTouch = parseAttributionCookie(req.cookies.get(ATTRIBUTION_FIRST_COOKIE)?.value ?? null);
+    const currentTouch = parseAttributionCookie(req.cookies.get(ATTRIBUTION_CURRENT_COOKIE)?.value ?? null);
+    const sessionId = req.cookies.get(WEB_SESSION_COOKIE)?.value ?? null;
 
     const properties: Record<string, unknown> = {
       ...(rawProperties as Record<string, unknown>),
     };
     delete properties.user_id;
     delete properties.userId;
+    delete properties.user_email;
 
     let verifiedUserId: string | null = null;
     try {
@@ -98,7 +109,6 @@ export async function POST(req: NextRequest) {
 
       if (user) {
         verifiedUserId = user.id;
-        properties.user_email = user.email;
       }
     } catch {}
 
@@ -106,12 +116,43 @@ export async function POST(req: NextRequest) {
 
     const cookies = { get: (n: string) => req.cookies.get(n) };
     const { distinctId, isFallback, isNew } = ensureDistinctId(finalUserId, visitorId, cookies);
+    const routePath =
+      typeof properties.route_path === 'string'
+        ? properties.route_path
+        : typeof properties.source_path === 'string'
+          ? properties.source_path
+          : null;
     const payload: Record<string, unknown> = {
+      ...buildAnalyticsCommonProps({
+        platform: 'server',
+        app_surface: 'api',
+        logged_in: !!finalUserId,
+        user_tier: typeof properties.user_tier === 'string' ? (properties.user_tier as any) : 'unknown',
+        route_path: routePath,
+        session_id: sessionId,
+        source_surface: typeof properties.source_surface === 'string' ? properties.source_surface : null,
+        source_feature: typeof properties.source_feature === 'string' ? properties.source_feature : null,
+        deck_id_present: Boolean(properties.deck_id_present ?? properties.deck_id),
+        deck_format: typeof properties.deck_format === 'string' ? (properties.deck_format as any) : null,
+      }),
       ...properties,
       user_id: finalUserId ?? null,
       visitor_id: visitorId ?? null,
       timestamp: new Date().toISOString(),
       source: 'server_side_tracking',
+      ...firstTouch,
+      ...(currentTouch
+        ? {
+            current_utm_source: currentTouch.utm_source,
+            current_utm_medium: currentTouch.utm_medium,
+            current_utm_campaign: currentTouch.utm_campaign,
+            current_utm_content: currentTouch.utm_content,
+            current_utm_term: currentTouch.utm_term,
+            current_referrer: currentTouch.referrer,
+            current_referring_domain: currentTouch.referring_domain,
+            current_channel_type: currentTouch.channel_type,
+          }
+        : {}),
     };
     if (isFallback) payload.anonymous_fallback_id = distinctId;
 

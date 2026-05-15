@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Modal from "@/components/Modal";
 import { capture } from "@/lib/ph";
-import { validatePublicText } from "@/lib/profanity";
 
 type ImportDeckModalProps = {
   open: boolean;
@@ -46,9 +45,6 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
   const [unrecognizedCards, setUnrecognizedCards] = useState<UnrecognizedCard[]>([]);
   const [validatedCards, setValidatedCards] = useState<Array<{ name: string; qty: number }>>([]);
   const [validationStatus, setValidationStatus] = useState<string | null>(null);
-  /** Default off — public listing is explicit opt-in */
-  const [importMakePublic, setImportMakePublic] = useState(false);
-
   useEffect(() => {
     if (!open) {
       setBusy(false);
@@ -63,7 +59,6 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       setUnrecognizedCards([]);
       setValidatedCards([]);
       setValidationStatus(null);
-      setImportMakePublic(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -86,14 +81,6 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
   // Complete the import with validated/fixed deck text
   const completeImport = useCallback(async (finalDeckText: string) => {
     const deckTitle = title.trim() || "Imported Deck";
-    if (importMakePublic) {
-      const pub = validatePublicText(deckTitle, "Deck name");
-      if (!pub.ok) {
-        setError(pub.message);
-        setBusy(false);
-        return;
-      }
-    }
 
     const payload = {
       title: deckTitle,
@@ -101,7 +88,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       format: format === "Other" ? undefined : format,
       plan: "Optimized" as const,
       currency: "USD", // Default to USD, users can change on deck page
-      is_public: importMakePublic === true,
+      is_public: false,
     };
 
     try {
@@ -139,7 +126,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       setBusy(false);
       setError(err?.message || "Import failed");
     }
-  }, [title, format, cardCount, importMode, onImported, importMakePublic]);
+  }, [title, format, cardCount, importMode, onImported]);
 
   // Apply fixes and complete import
   const handleApplyFixes = useCallback(() => {
@@ -333,22 +320,13 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
         
         // Create deck with matched cards
         const deckTitle = title.trim() || "Imported Deck";
-        if (importMakePublic) {
-          const pub = validatePublicText(deckTitle, "Deck name");
-          if (!pub.ok) {
-            setBusy(false);
-            setError(pub.message);
-            return;
-          }
-        }
-
         const payload = {
           title: deckTitle,
           deckText: finalDeckText.trim(),
           format: format === "Other" ? undefined : format,
           plan: "Optimized" as const,
           currency: "USD",
-          is_public: importMakePublic === true,
+          is_public: false,
         };
 
         try {
@@ -475,26 +453,12 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           </select>
         </div>
 
-        <label className="flex items-start gap-2 rounded-lg border border-neutral-800 bg-neutral-900/50 p-3 text-sm">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-neutral-600 bg-neutral-950"
-            checked={importMakePublic}
-            onChange={(e) => setImportMakePublic(e.target.checked)}
-            disabled={busy}
-          />
-          <span>
-            <span className="font-medium text-neutral-200">Make deck public</span>
-            {!importMakePublic && (
-              <span className="block text-xs text-neutral-500 mt-0.5">Only you can see this deck.</span>
-            )}
-            {importMakePublic && (
-              <span className="block text-xs text-amber-200/90 mt-0.5">
-                Public decks can be viewed by others and may appear on your public profile.
-              </span>
-            )}
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-3 text-sm">
+          <span className="font-medium text-neutral-200">Imported decks start private</span>
+          <span className="block text-xs text-neutral-500 mt-0.5">
+            You can make a deck public later after the title is clean and the list is complete for its format.
           </span>
-        </label>
+        </div>
 
         {importMode === "paste" ? (
           <div className="space-y-1">
@@ -799,4 +763,3 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
     </Modal>
   );
 }
-

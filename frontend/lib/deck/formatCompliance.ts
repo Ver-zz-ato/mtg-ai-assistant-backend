@@ -26,22 +26,10 @@ export function isFormatCompliant(
   return mainDeckCardCount === expected;
 }
 
-/**
- * Public browse listing (/api/decks/browse): tolerate real catalog data where
- * `deck_cards` may include SB rows in "mainboard", generator overshoot, etc.
- * Publishing / editor still use {@link isFormatCompliant} (exact Commander 100 /
- * constructed 60 main).
- */
 export function isPublicBrowseDeckCompliant(
   format: string | null | undefined,
   mainDeckCardCount: number
 ): boolean {
-  const expected = getExpectedCount(format);
-  if (expected == null) return true;
-  if (expected === 100) return isFormatCompliant(format, mainDeckCardCount);
-  if (expected === 60) {
-    return mainDeckCardCount >= 55 && mainDeckCardCount <= 95;
-  }
   return isFormatCompliant(format, mainDeckCardCount);
 }
 

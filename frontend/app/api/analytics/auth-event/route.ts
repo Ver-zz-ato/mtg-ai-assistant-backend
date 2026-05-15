@@ -3,6 +3,14 @@ import { captureServer, aliasServer } from '@/lib/server/analytics';
 import { createClient } from '@/lib/supabase/server';
 import { ensureDistinctId, FALLBACK_ID_COOKIE, FALLBACK_ID_MAX_AGE } from '@/lib/analytics/fallback-id';
 import { extractIP } from '@/lib/guest-tracking';
+import {
+  ATTRIBUTION_CURRENT_COOKIE,
+  ATTRIBUTION_FIRST_COOKIE,
+  WEB_SESSION_COOKIE,
+  buildAnalyticsCommonProps,
+  formatIsoWeek,
+  parseAttributionCookie,
+} from '@/lib/analytics/common';
 
 export const runtime = 'nodejs';
 
@@ -34,6 +42,9 @@ export async function POST(req: NextRequest) {
     }
 
     const visitorId = (bodyVisitorId as string) ?? req.cookies.get('visitor_id')?.value ?? null;
+    const firstTouch = parseAttributionCookie(req.cookies.get(ATTRIBUTION_FIRST_COOKIE)?.value ?? null);
+    const currentTouch = parseAttributionCookie(req.cookies.get(ATTRIBUTION_CURRENT_COOKIE)?.value ?? null);
+    const sessionId = req.cookies.get(WEB_SESSION_COOKIE)?.value ?? null;
     let userId: string | null = null;
     try {
       let supabase = await createClient();
@@ -56,7 +67,20 @@ export async function POST(req: NextRequest) {
 
     const cookies = { get: (n: string) => req.cookies.get(n) };
     const { distinctId, isFallback, isNew } = ensureDistinctId(userId, visitorId, cookies);
+    const commonProps = buildAnalyticsCommonProps({
+      platform: 'server',
+      app_surface: 'website',
+      logged_in: !!userId,
+      user_tier: 'unknown',
+      route_path: typeof source_path === 'string' ? source_path : null,
+      session_id: sessionId,
+      source_surface: null,
+      source_feature: null,
+      deck_id_present: false,
+      deck_format: null,
+    });
     const props: Record<string, unknown> = {
+      ...commonProps,
       method: method === 'oauth' ? 'oauth' : 'email',
       provider: provider ?? null,
       source_path: source_path ?? null,
@@ -64,6 +88,24 @@ export async function POST(req: NextRequest) {
       user_id: userId,
       timestamp: new Date().toISOString(),
       source: 'auth_event_api',
+      signup_week: formatIsoWeek(new Date()),
+      first_seen_week: formatIsoWeek(firstTouch?.first_seen_at),
+      first_platform: 'web',
+      first_acquisition_channel: firstTouch?.channel_type ?? null,
+      first_landing_path: firstTouch?.landing_path ?? null,
+      ...firstTouch,
+      ...(currentTouch
+        ? {
+            current_utm_source: currentTouch.utm_source,
+            current_utm_medium: currentTouch.utm_medium,
+            current_utm_campaign: currentTouch.utm_campaign,
+            current_utm_content: currentTouch.utm_content,
+            current_utm_term: currentTouch.utm_term,
+            current_referrer: currentTouch.referrer,
+            current_referring_domain: currentTouch.referring_domain,
+            current_channel_type: currentTouch.channel_type,
+          }
+        : {}),
     };
     if (isFallback) (props as Record<string, unknown>).anonymous_fallback_id = distinctId;
 

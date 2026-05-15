@@ -22,7 +22,7 @@ export function formatToApiString(f: PickedDeckFormat): string {
 
 interface FormatPickerModalProps {
   isOpen: boolean;
-  onSelect: (format: PickedDeckFormat, options: { makePublic: boolean }) => void;
+  onSelect: (format: PickedDeckFormat) => void;
   onClose?: () => void;
   /** Disable format tiles while submit/navigation is in progress (guards double-click). */
   busy?: boolean;
@@ -54,21 +54,16 @@ const OTHER_FORMATS: Array<{
 
 export default function FormatPickerModal({ isOpen, onSelect, onClose, busy = false }: FormatPickerModalProps) {
   const [mounted, setMounted] = React.useState(false);
-  const [makePublic, setMakePublic] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
 
-  React.useEffect(() => {
-    if (isOpen) setMakePublic(false);
-  }, [isOpen]);
-
   if (!isOpen || !mounted) return null;
 
   const select = (value: PickedDeckFormat) => {
     if (busy) return;
-    onSelect(value, { makePublic });
+    onSelect(value);
   };
 
   const modal = (
@@ -157,28 +152,11 @@ export default function FormatPickerModal({ isOpen, onSelect, onClose, busy = fa
             ))}
           </div>
 
-          {/* Visibility (default private) */}
           <div className="mt-6 pt-5 border-t border-neutral-800">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-neutral-600 bg-neutral-900 text-cyan-600 focus:ring-cyan-500"
-                checked={makePublic}
-                disabled={busy}
-                onChange={(e) => setMakePublic(e.target.checked)}
-              />
-              <span className="flex-1 text-sm">
-                <span className="font-medium text-neutral-200">Make deck public</span>
-                {!makePublic && (
-                  <span className="block text-xs text-neutral-500 mt-1">Only you can see this deck.</span>
-                )}
-                {makePublic && (
-                  <span className="block text-xs text-amber-200/90 mt-1">
-                    Public decks can be viewed by others and may appear on your public profile.
-                  </span>
-                )}
-              </span>
-            </label>
+            <p className="text-sm text-neutral-300">New decks start private.</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              You can make a deck public later after the title is clean and the list is complete for its format.
+            </p>
           </div>
 
           {onClose && (

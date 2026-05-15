@@ -7,6 +7,13 @@ import ToastProvider from '@/components/ToastProvider';
 import { getConsentStatus, onConsentChange } from '@/lib/consent';
 import { initWebVitals } from '@/lib/analytics/webVitals';
 import { AnalyticsEvents } from '@/lib/analytics/events';
+import {
+  ATTRIBUTION_CURRENT_COOKIE,
+  ATTRIBUTION_FIRST_COOKIE,
+  parseAttributionCookie,
+  readBrowserCookie,
+} from '@/lib/analytics/common';
+import { getSessionContext } from '@/lib/analytics/session-bootstrap';
 
 function hasConsent(): boolean {
   try {
@@ -41,7 +48,7 @@ function initPosthogIfNeeded() {
     posthog.init(key, ({
       api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || '/ingest',
       capture_pageview: false,
-      autocapture: false,
+      autocapture: true,
       capture_pageleave: true,
       disable_session_recording: true,
       disable_toolbar: true,
@@ -98,6 +105,15 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         if (!sessionStorage.getItem('analytics:app_open_sent')) {
           (posthog as any)?.capture?.(AnalyticsEvents.APP_OPEN);
           sessionStorage.setItem('analytics:app_open_sent','1');
+        }
+        if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+          (window as any).__manatapAnalyticsDebug = {
+            getCommonProps: () => getSessionContext(false),
+            getStoredAttribution: () => ({
+              first_touch: parseAttributionCookie(readBrowserCookie(ATTRIBUTION_FIRST_COOKIE)),
+              current_touch: parseAttributionCookie(readBrowserCookie(ATTRIBUTION_CURRENT_COOKIE)),
+            }),
+          };
         }
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('analytics:ready'));

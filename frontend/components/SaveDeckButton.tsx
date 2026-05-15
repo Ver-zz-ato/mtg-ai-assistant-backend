@@ -2,7 +2,6 @@
 
 import React from "react";
 import { AUTH_MESSAGES } from "@/lib/auth-messages";
-import { validatePublicText } from "@/lib/profanity";
 
 export default function SaveDeckButton({ getDeckText }: { getDeckText: () => string }) {
   const [open, setOpen] = React.useState(false);
@@ -10,25 +9,16 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
   const [errorMsg, setErrorMsg] = React.useState("");
   const [title, setTitle] = React.useState("");
   const [commander, setCommander] = React.useState("");
-  const [isPublic, setIsPublic] = React.useState(false);
 
   async function onSave() {
     setSaving(true);
     setErrorMsg("");
     try {
-      if (isPublic) {
-        const titleCheck = validatePublicText(title, "Deck name");
-        if (!titleCheck.ok) {
-          setErrorMsg(titleCheck.message);
-          setSaving(false);
-          return;
-        }
-      }
       const deck_text = getDeckText();
       const r = await fetch("/api/decks/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, commander, deck_text, is_public: isPublic === true }),
+        body: JSON.stringify({ title, commander, deck_text, is_public: false }),
       });
 
       // Handle non-JSON responses gracefully (HTML error pages, proxies, etc.)
@@ -83,26 +73,7 @@ export default function SaveDeckButton({ getDeckText }: { getDeckText: () => str
               onChange={(e) => setCommander(e.target.value)}
               placeholder="e.g., Kaust, Cunning Instigator"
             />
-
-            <label className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-              />
-              <span className="text-sm">
-                <span className="text-neutral-200">Make deck public</span>
-                {!isPublic && (
-                  <span className="block text-xs text-neutral-500 mt-0.5">Only you can see this deck.</span>
-                )}
-                {isPublic && (
-                  <span className="block text-xs text-amber-200/90 mt-0.5">
-                    Public decks can be viewed by others and may appear on your public profile.
-                  </span>
-                )}
-              </span>
-            </label>
+            <p className="text-xs text-neutral-500">New decks start private. You can make a complete deck public later.</p>
 
             {errorMsg && <div className="text-red-500 text-sm whitespace-pre-wrap">{errorMsg}</div>}
 

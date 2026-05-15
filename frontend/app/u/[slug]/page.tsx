@@ -1,6 +1,7 @@
 // app/u/[slug]/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import { loadProfilesPublicBySlug } from "@/lib/server/publicProfile";
+import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -184,7 +185,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   try {
     const { data } = await supabase
       .from('decks')
-      .select('id, title, updated_at, deck_text, commander')
+      .select('id, title, updated_at, deck_text, commander, format')
       .eq('user_id', prof.id)
       .eq('is_public', true)
       .order('updated_at', { ascending: false })
@@ -208,13 +209,26 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     const results = await Promise.all(decks.map(async d => {
       const { data } = await supabase
         .from('deck_cards')
-        .select('name, qty')
+        .select('name, qty, zone')
         .eq('deck_id', d.id)
         .order('qty', { ascending: false })
-        .limit(5);
-      const names = Array.isArray(data) ? data.map((x:any)=>String(x.name)) : [];
-      return { id: d.id, names };
+        .limit(120);
+      const rows = Array.isArray(data) ? data as Array<{ name: string; qty: number; zone?: string | null }> : [];
+      const names = rows.map((x:any)=>String(x.name)).slice(0, 5);
+      const mainCount =
+        getMainboardCardCount(rows.map((row) => ({ qty: row.qty, zone: row.zone ?? null }))) ||
+        mainDeckTextCardCount(String(d.deck_text ?? ""), d.format ?? null);
+      return { id: d.id, names, mainCount };
     }));
+    const validDeckIds = new Set(
+      results
+        .filter((r) => {
+          const deck = decks.find((d) => d.id === r.id);
+          return isPublicBrowseDeckCompliant(deck?.format ?? null, r.mainCount);
+        })
+        .map((r) => r.id)
+    );
+    decks = decks.filter((d) => validDeckIds.has(d.id));
     for (const r of results) topCardsByDeck.set(r.id, r.names);
     for (const arr of topCardsByDeck.values()) for (const n of arr) nameSet.add(n);
   } catch {}

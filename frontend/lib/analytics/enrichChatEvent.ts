@@ -2,7 +2,7 @@
  * Analytics enrichment helper for chat events
  * 
  * Adds shared metadata to chat analytics events and normalizes values.
- * Truncates message content to prevent PII issues and keep events lightweight.
+ * Keeps only non-sensitive presence flags for thread/message text.
  */
 
 export interface ChatEventContext {
@@ -32,11 +32,7 @@ export function enrichChatEvent(
   };
 
   // Add metadata from context (prefer context over base)
-  if (ctx.threadId !== undefined) {
-    out.thread_id = ctx.threadId ?? null;
-  } else if (base.thread_id === undefined) {
-    out.thread_id = null;
-  }
+  out.thread_id_present = Boolean(ctx.threadId ?? base.thread_id ?? base.threadId);
 
   if (ctx.personaId !== undefined) {
     out.persona = ctx.personaId ?? null;
@@ -68,18 +64,8 @@ export function enrichChatEvent(
     out.message_id = null;
   }
 
-  // Truncate messages to 200 chars
-  if (ctx.userMessage) {
-    out.user_message = ctx.userMessage.slice(0, 200);
-  } else if (base.user_message === undefined) {
-    out.user_message = null;
-  }
-
-  if (ctx.assistantMessage) {
-    out.assistant_message = ctx.assistantMessage.slice(0, 200);
-  } else if (base.assistant_message === undefined) {
-    out.assistant_message = null;
-  }
+  out.user_message_present = Boolean(ctx.userMessage ?? base.user_message ?? base.userMessage);
+  out.assistant_message_present = Boolean(ctx.assistantMessage ?? base.assistant_message ?? base.assistantMessage);
 
   // Normalize: remove undefined, keep null
   for (const k of Object.keys(out)) {

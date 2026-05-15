@@ -3,6 +3,7 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
+import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
 
 type Row = {
   id: string;
@@ -10,6 +11,7 @@ type Row = {
   updated_at?: string | null;
   deck_text?: string | null;
   commander?: string | null;
+  format?: string | null;
 };
 
 // Cookie-free Supabase client for public data (safe to run at build/prerender)
@@ -26,7 +28,7 @@ const getRecent = unstable_cache(
     
     const { data, error } = await supabase
       .from("decks")
-      .select("id, title, updated_at, deck_text, commander")
+      .select("id, title, updated_at, deck_text, commander, format")
       .eq("is_public", true)
       .gte("updated_at", oneYearAgoISO) // Show decks updated in the last year
       .order("updated_at", { ascending: false })
@@ -48,24 +50,29 @@ export default async function RecentPublicDecks({ limit = 5 }: { limit?: number 
     return <div className="text-sm text-red-500">Failed to load recent decks.</div>;
   }
 
-  // Helper function to count cards in deck_text
-  const countCards = (deckText: string | null | undefined): number => {
-    if (!deckText) return 0;
-    const lines = String(deckText).split(/\r?\n/).filter(l => l.trim());
-    let total = 0;
-    for (const line of lines) {
-      const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
-      if (m) {
-        total += parseInt(m[1], 10) || 1;
-      } else if (line.trim() && !line.match(/^(Commander|Sideboard|Deck|Maybeboard):/i)) {
-        total += 1;
-      }
+  const deckIds = decks.map((d) => d.id);
+  const mainCountByDeckId = new Map<string, number>();
+  if (deckIds.length > 0) {
+    const { data: cardRows } = await supabase
+      .from("deck_cards")
+      .select("deck_id, qty, zone")
+      .in("deck_id", deckIds);
+    const rowsByDeck = new Map<string, Array<{ qty: number; zone?: string | null }>>();
+    for (const row of cardRows ?? []) {
+      const deckId = String((row as { deck_id: string }).deck_id);
+      const bucket = rowsByDeck.get(deckId) ?? [];
+      bucket.push({ qty: Number((row as { qty?: number }).qty ?? 0), zone: (row as { zone?: string | null }).zone ?? null });
+      rowsByDeck.set(deckId, bucket);
     }
-    return total;
-  };
+    rowsByDeck.forEach((rows, deckId) => {
+      mainCountByDeckId.set(deckId, getMainboardCardCount(rows));
+    });
+  }
 
-  // Filter decks with at least 10 cards
-  decks = decks.filter(d => countCards(d.deck_text) >= 10);
+  decks = decks.filter((d) => {
+    const mainCount = mainCountByDeckId.get(d.id) ?? mainDeckTextCardCount(String(d.deck_text ?? ""), d.format);
+    return isPublicBrowseDeckCompliant(d.format, mainCount);
+  });
 
   if (!decks.length) {
     return (

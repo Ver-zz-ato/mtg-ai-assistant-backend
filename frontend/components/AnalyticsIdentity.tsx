@@ -112,7 +112,7 @@ export default function AnalyticsIdentity() {
       lastUserId.current = user.id;
 
       if (consent) {
-        identify(user.id, { $set: { email: user.email ?? undefined } });
+        identify(user.id);
         if (visitorId) alias(visitorId);
       }
 

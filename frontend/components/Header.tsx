@@ -66,7 +66,6 @@ export default function Header() {
       const isInternal = internalEmails.includes(userEmail.toLowerCase());
       
       identify(u.id, {
-        email: userEmail,
         is_internal: isInternal,
         is_test_user: isInternal, // PostHog can filter on this property
       });
@@ -729,7 +728,7 @@ export default function Header() {
                         return;
                       }
                       capture('auth_login_success', { method: 'email_password' });
-                      if (data?.user) identify(data.user.id, { email: data.user.email ?? undefined });
+                      if (data?.user) identify(data.user.id);
                       setShowSignUp(false);
                       setSignupEmail('');
                       setSignupPassword('');

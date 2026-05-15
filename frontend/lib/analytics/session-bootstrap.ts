@@ -3,8 +3,11 @@
  * Stores landing_page once per session in sessionStorage
  */
 
+import { WEB_SESSION_COOKIE, readBrowserCookie } from '@/lib/analytics/common';
+
 const LANDING_PAGE_KEY = 'analytics:landing_page';
 const SESSION_START_KEY = 'analytics:session_start';
+const SESSION_ID_KEY = 'analytics:session_id';
 
 export interface SessionContext {
   landing_page: string;
@@ -12,9 +15,12 @@ export interface SessionContext {
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
   device_type: 'mobile' | 'desktop' | 'tablet';
   is_authenticated: boolean;
   current_path: string;
+  session_id: string | null;
 }
 
 /**
@@ -57,6 +63,8 @@ export function getUTMParams(): {
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
 } {
   if (typeof window === 'undefined') return {};
   
@@ -65,7 +73,23 @@ export function getUTMParams(): {
     utm_source: params.get('utm_source') || undefined,
     utm_medium: params.get('utm_medium') || undefined,
     utm_campaign: params.get('utm_campaign') || undefined,
+    utm_content: params.get('utm_content') || undefined,
+    utm_term: params.get('utm_term') || undefined,
   };
+}
+
+export function getSessionId(): string | null {
+  if (typeof window === 'undefined') return null;
+  const cookieSessionId = readBrowserCookie(WEB_SESSION_COOKIE);
+  if (cookieSessionId) {
+    sessionStorage.setItem(SESSION_ID_KEY, cookieSessionId);
+    return cookieSessionId;
+  }
+  const stored = sessionStorage.getItem(SESSION_ID_KEY);
+  if (stored) return stored;
+  const generated = `web_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  sessionStorage.setItem(SESSION_ID_KEY, generated);
+  return generated;
 }
 
 /**
@@ -115,6 +139,7 @@ export function getSessionContext(isAuthenticated: boolean): SessionContext {
     device_type: getDeviceType(),
     is_authenticated: isAuthenticated,
     current_path: getCurrentPath(),
+    session_id: getSessionId(),
   };
 }
 
@@ -125,4 +150,5 @@ export function resetSession(): void {
   if (typeof window === 'undefined') return;
   sessionStorage.removeItem(LANDING_PAGE_KEY);
   sessionStorage.removeItem(SESSION_START_KEY);
+  sessionStorage.removeItem(SESSION_ID_KEY);
 }
