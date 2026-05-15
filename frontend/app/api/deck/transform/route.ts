@@ -2,14 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/server-supabase";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
-import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
-import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
-import type { SfCard } from "@/lib/deck/inference";
 import { DECK_TRANSFORM_FREE } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
-import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
+import { aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
 import {
-  getCopyCountViolations,
   getFormatRules,
   isCommanderFormatString,
   tryDeckFormatStringToAnalyzeFormat,
@@ -22,7 +18,7 @@ import {
 import { summarizeTransformIntent } from "@/lib/deck/transform-intent";
 import { warnSourceOffColor } from "@/lib/deck/transform-warnings";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
-import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { precheckFixLegalitySourceDeck } from "@/lib/deck/transform-legality-check";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -69,100 +65,33 @@ export async function POST(req: NextRequest) {
     const isCommander = isCommanderFormatString(analyzeFormat);
 
     if (input.transformIntent === "fix_legality") {
-      const sourceRows = aggregateCards(parseDeckText(input.sourceDeckText));
-      if (sourceRows.length > 0) {
-        const commanderName = isCommander ? input.commander || sourceRows[0]?.name || "Unknown" : null;
-        const allowedColors = isCommander && commanderName
-          ? (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase())
-          : [];
-        const sourceNames = sourceRows.map((c) => c.name);
-        const sourceDetails = await getDetailsForNamesCached(sourceNames);
+      const precheck = await precheckFixLegalitySourceDeck(input, {
+        getCommanderColors: getCommanderColorIdentity,
+        warnOffColor: warnSourceOffColor,
+      }).catch((legErr) => {
+        console.warn("[deck/transform] Source legality pre-check failed:", legErr);
+        return null;
+      });
 
-        const sourceWarnings: string[] = [];
-        let validatedRows = sourceRows;
-        let droppedCi = 0;
-        let trimmedForTarget = false;
-        let legalityRemoved = 0;
-
-        if (isCommander) {
-          const warnSrc = await warnSourceOffColor(input.sourceDeckText, input.commander);
-          if (warnSrc) sourceWarnings.push(warnSrc);
-
-          const beforeCi = validatedRows.length;
-          const filtered = validatedRows.filter((c) => {
-            const entry = sourceDetails.get(norm(c.name));
-            if (!entry) return true;
-            return isWithinColorIdentity(entry as SfCard, allowedColors);
-          });
-          droppedCi = beforeCi - filtered.length;
-          if (droppedCi > 0) {
-            sourceWarnings.push(
-              `Source deck has ${droppedCi} card line(s) outside commander color identity.`
-            );
-          }
-          const filteredQty = totalDeckQty(filtered);
-          if (filteredQty > rules.mainDeckTarget) {
-            trimmedForTarget = true;
-            sourceWarnings.push(
-              `Source deck has ${filteredQty} cards after color identity filtering; target is ${rules.mainDeckTarget}.`
-            );
-            validatedRows = trimDeckToMaxQty(filtered, rules.mainDeckTarget);
-          } else {
-            validatedRows = filtered;
-          }
-        }
-
-        try {
-          const { filterDecklistQtyRowsForFormat } = await import("@/lib/deck/recommendation-legality");
-          const { lines: legalLines, removed } = await filterDecklistQtyRowsForFormat(validatedRows, analyzeFormat, {
-            logPrefix: "/api/deck/transform-source-check",
-          });
-          legalityRemoved = removed.length;
-          if (removed.length > 0) {
-            sourceWarnings.push(
-              `Source deck has ${removed.length} card line(s) not legal in ${analyzeFormat}.`
-            );
-          }
-          validatedRows = legalLines;
-        } catch (legErr) {
-          console.warn("[deck/transform] Source legality pre-check failed:", legErr);
-        }
-
-        const copyViolations = getCopyCountViolations(validatedRows, analyzeFormat);
-        if (copyViolations.length > 0) {
-          sourceWarnings.push(
-            `Source deck has ${copyViolations.length} copy-count violation(s) for ${analyzeFormat}.`
-          );
-        }
-
-        const finalQty = totalDeckQty(validatedRows);
+      if (precheck?.alreadyLegal) {
         const previewFacts = await buildGenerationPreviewFacts(
-          validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
-          commanderName === "Unknown" ? null : commanderName
+          precheck.validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
+          precheck.commanderName === "Unknown" ? null : precheck.commanderName
         ).catch(() => undefined);
 
-        const alreadyLegal =
-          droppedCi === 0 &&
-          !trimmedForTarget &&
-          legalityRemoved === 0 &&
-          copyViolations.length === 0 &&
-          finalQty === rules.mainDeckTarget;
-
-        if (alreadyLegal) {
-          return NextResponse.json({
-            ok: true,
-            preview: true,
-            decklist: validatedRows,
-            commander: commanderName,
-            colors: allowedColors,
-            deckText: validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
-            format: analyzeFormat,
-            summary: `No legality changes needed. This deck already passes current ${analyzeFormat} legality and color identity checks.`,
-            warnings: undefined,
-            transformIntent: input.transformIntent,
-            ...(previewFacts ? { previewFacts } : {}),
-          });
-        }
+        return NextResponse.json({
+          ok: true,
+          preview: true,
+          decklist: precheck.validatedRows,
+          commander: precheck.commanderName,
+          colors: precheck.colors,
+          deckText: precheck.validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
+          format: precheck.analyzeFormat,
+          summary: `No legality changes needed. This deck already passes current ${precheck.analyzeFormat} legality and color identity checks.`,
+          warnings: undefined,
+          transformIntent: input.transformIntent,
+          ...(previewFacts ? { previewFacts } : {}),
+        });
       }
     }
 
