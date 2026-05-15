@@ -10,16 +10,21 @@ import { parseCollectionCsvText } from "@/lib/csv/collection";
 
 const tmntCard = "Bebop, Skull & Crossbones";
 const michelangeloCard = "Michelangelo, Weirdness to 11";
+const quotedCard = "\"Ach! Hans, Run!\"";
 
 assert.equal(cleanCardName(`1 ${tmntCard}`), tmntCard);
 assert.equal(looksLikeCardName(tmntCard), true);
 assert.equal(sanitizedNameForDeckPersistence(tmntCard), tmntCard);
 assert.equal(cleanCardName(michelangeloCard), michelangeloCard);
 assert.equal(sanitizedNameForDeckPersistence(michelangeloCard), michelangeloCard);
+assert.equal(cleanCardName(quotedCard), quotedCard);
+assert.equal(sanitizedNameForDeckPersistence(quotedCard), quotedCard);
+assert.equal(looksLikeCardName(quotedCard), true);
 
 assert.deepEqual(parseDeckText(`1 ${tmntCard}`), [{ name: tmntCard, qty: 1 }]);
 assert.deepEqual(parseDeckText(`2x ${tmntCard}`), [{ name: tmntCard, qty: 2 }]);
 assert.deepEqual(parseDeckText(`1 ${michelangeloCard}`), [{ name: michelangeloCard, qty: 1 }]);
+assert.deepEqual(parseDeckText(`1 ${quotedCard}`), [{ name: quotedCard, qty: 1 }]);
 assert.deepEqual(parseDeckOrCollectionCSV(`1 ${tmntCard}`), [{ name: tmntCard, qty: 1 }]);
 
 const manatapAmpersandExport = [

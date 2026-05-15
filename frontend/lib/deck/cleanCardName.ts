@@ -33,6 +33,16 @@ export function normalizeChars(s: string): string {
     .trim();
 }
 
+export function isDeckCsvHeaderRow(raw: string): boolean {
+  const s = normalizeChars(raw).toLowerCase();
+  if (!s.includes("title") || !s.includes("commander") || !s.includes("decklist")) return false;
+  const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
+  const set = new Set(parts);
+  if (set.has("title") && set.has("commander") && set.has("decklist")) return true;
+  const compact = s.replace(/\s/g, "");
+  return /title,commander,decklist/.test(compact);
+}
+
 /**
  * Clean a card name by removing set codes, collector numbers, and other metadata.
  * This is the main function to use for cleaning imported card names.
@@ -128,8 +138,10 @@ export function cleanCardName(raw: string): string {
   // "Card Name," or "Card Name, 2" 
   s = s.replace(/,\s*\d*$/, '');
   
-  // Strip quotes that might wrap the name
-  s = s.replace(/^["']|["']$/g, '');
+  // Do not strip outer double quotes here.
+  // Some real MTG card names intentionally begin/end with quotes, e.g. `"Ach! Hans, Run!"`.
+  // CSV wrapper quotes should be handled by the CSV parser rather than the generic card-name cleaner.
+  s = s.replace(/^'+|'+$/g, '');
   
   // Final cleanup
   s = s.replace(/\s+/g, ' ').trim();
@@ -230,6 +242,8 @@ export function stringSimilarity(a: string, b: string): number {
  * Used to filter out garbage lines.
  */
 export function looksLikeCardName(s: string): boolean {
+  if (isDeckCsvHeaderRow(s)) return false;
+  if (/^https?:\/\//i.test(normalizeChars(s))) return false;
   const cleaned = cleanCardName(s);
   
   // Too short
@@ -245,11 +259,14 @@ export function looksLikeCardName(s: string): boolean {
   // for Universes Beyond names such as "Bebop, Skull & Crossbones".
   if (/[@#$%^*+=|\\<>{}[\]~`]/.test(cleaned)) return false;
   
-  // Looks like a URL
-  if (/^https?:\/\//.test(cleaned)) return false;
-  
   // Looks like a header/label
-  if (/^(deck|sideboard|mainboard|maybeboard|commander|companion|total|count|price)$/i.test(cleaned)) return false;
+  if (
+    /^(deck|sideboard|mainboard|maybeboard|commander|companion|total|count|price|lands?|creatures?|instants?|sorcery|sorceries|artifacts?|enchantments?|planeswalkers?|battles?|considering)$/i.test(
+      cleaned,
+    )
+  ) {
+    return false;
+  }
 
   // Decklist section lines: "Artifacts (5)", "Creatures (23)"
   if (
@@ -269,8 +286,9 @@ export function looksLikeCardName(s: string): boolean {
  */
 export function sanitizedNameForDeckPersistence(raw: string): string {
   const normalized = normalizeChars(raw);
+  if (!normalized || isDeckCsvHeaderRow(normalized) || /^https?:\/\//i.test(normalized)) return "";
   const splitNormalized = normalized.replace(/\s+\/\s+/g, " // ");
-  if (splitNormalized.includes("//")) {
+  if (/(^|[^:\/])\/\/([^\/]|$)/.test(splitNormalized)) {
     const parts = splitNormalized.split("//").map((part) => cleanCardName(part));
     if (parts.length === 2 && parts[0] && parts[1] && parts.every(looksLikeCardName)) {
       return `${parts[0]} // ${parts[1]}`;

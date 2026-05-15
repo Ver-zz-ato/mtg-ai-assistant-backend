@@ -3,8 +3,12 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { parseDeckText } from "@/lib/deck/parseDeckText";
-import { cleanCardName } from "@/lib/deck/cleanCardName";
+import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
+import {
+  describeUnrecognizedCards,
+  parseCommanderDecklistForImport,
+  sanitizeImportedCardEntries,
+} from "@/lib/deck/importHelpers";
 
 // Simple CSV parser for deck format
 function parseCSV(csvContent: string): { headers: string[]; decks: any[] } {
@@ -69,23 +73,6 @@ function parseCSV(csvContent: string): { headers: string[]; decks: any[] } {
   return { headers, decks };
 }
 
-/** First non-comment line = commander; remainder parsed with shared `parseDeckText`. */
-function parseDecklist(decklistText: string): { commander: string; cards: Array<{ name: string; qty: number }>; totalCards: number } {
-  const lines = decklistText.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#") && !l.startsWith("//"));
-  if (lines.length === 0) return { commander: "", cards: [], totalCards: 0 };
-
-  const commanderLine = lines[0];
-  const commanderMatch = commanderLine.match(/^(\d+)\s+(.+)$/);
-  const rawCommander = (commanderMatch ? commanderMatch[2] : commanderLine).trim();
-  const commander = cleanCardName(rawCommander) || rawCommander;
-
-  const body = lines.slice(1).join("\n");
-  const cards = parseDeckText(body);
-  const totalCards = 1 + cards.reduce((s, c) => s + c.qty, 0);
-
-  return { commander, cards, totalCards };
-}
-
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -138,24 +125,34 @@ export async function POST(req: Request) {
           continue;
         }
         
-        const parsed = parseDecklist(decklistText);
-        
+        const parsed = parseCommanderDecklistForImport(decklistText, commander);
         if (!parsed.commander) {
-          if (!commander) {
-            results.push({ title, success: false, error: 'No commander found' });
-            continue;
-          }
-          parsed.commander = commander;
+          results.push({ title, success: false, error: 'No commander found' });
+          continue;
+        }
+
+        const sanitizedEntries = sanitizeImportedCardEntries([
+          { name: parsed.commander, qty: 1 },
+          ...parsed.cards,
+        ]);
+        const normalized = await normalizeCardNames(sanitizedEntries.cards);
+        const unrecognizedCards = [...sanitizedEntries.invalid, ...normalized.unrecognized];
+        if (unrecognizedCards.length > 0) {
+          results.push({ title, success: false, error: describeUnrecognizedCards(unrecognizedCards) });
+          continue;
         }
         
         if (parsed.totalCards !== 100) {
           results.push({ title, success: false, error: `Has ${parsed.totalCards} cards (expected 100)` });
           continue;
         }
+
+        const normalizedCommander = normalized.cards[0]?.name || parsed.commander;
+        const normalizedCards = normalized.cards.slice(1).map((card) => ({ name: card.name, qty: card.qty }));
         
         // Build deck text
-        let deckText = `${parsed.commander}\n`;
-        for (const card of parsed.cards) {
+        let deckText = `${normalizedCommander}\n`;
+        for (const card of normalizedCards) {
           deckText += `${card.qty} ${card.name}\n`;
         }
         
@@ -183,7 +180,7 @@ export async function POST(req: Request) {
             colors: [],
             currency: 'USD',
             deck_text: deckText.trim(),
-            commander: parsed.commander,
+            commander: normalizedCommander,
             is_public: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -197,7 +194,7 @@ export async function POST(req: Request) {
         }
         
         // Insert cards
-        for (const card of parsed.cards) {
+        for (const card of normalizedCards) {
           const { error } = await supabase
             .from('deck_cards')
             .insert({
@@ -216,11 +213,11 @@ export async function POST(req: Request) {
           .from('deck_cards')
           .insert({
             deck_id: newDeck.id,
-            name: parsed.commander,
+            name: normalizedCommander,
             qty: 1,
           });
         if (commanderError && !commanderError.message.includes('duplicate')) {
-          console.warn(`Failed to insert commander ${parsed.commander}:`, commanderError.message);
+          console.warn(`Failed to insert commander ${normalizedCommander}:`, commanderError.message);
         }
         
         results.push({ title, success: true, deckId: newDeck.id });

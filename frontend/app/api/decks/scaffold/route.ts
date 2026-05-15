@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 
 export const runtime = 'nodejs';
 
@@ -65,7 +66,8 @@ export async function POST(req: NextRequest){
       for (const line of deckText.split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean)) {
         const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
         const qty = m ? Math.max(1, parseInt(m[1], 10)) : 1;
-        const name = m ? m[2] : line;
+        const name = sanitizedNameForDeckPersistence(m ? m[2] : line);
+        if (!name) continue;
         decklist.push({ name, qty });
       }
       const overallAim = `A scaffold ${format} deck for the ${String(intent?.archetype||'Draft')} archetype. Customize in the editor.`;
@@ -93,7 +95,8 @@ export async function POST(req: NextRequest){
     for (const l of lines.slice(0,200)){
       const m = l.match(/^(\d+)\s*[xX]?\s+(.+)$/);
       const qty = m? Math.max(1, parseInt(m[1],10)) : 1;
-      const name = m? m[2] : l;
+      const name = sanitizedNameForDeckPersistence(m? m[2] : l);
+      if (!name) continue;
       const { error: cardErr } = await sb.from('deck_cards').insert({ deck_id: deckId, name, qty }).select('id').single();
       // Ignore individual card insert errors to keep flow resilient
     }

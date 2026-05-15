@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { parseDeckOrCollectionCSV } from '@/lib/csv/parse';
+import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 
 export const runtime = 'nodejs';
 
@@ -37,7 +38,7 @@ export async function POST(req: Request){
 
     let added=0, updated=0; const skipped:string[]=[];
     for (const it of items){
-      const name = String(it.name||'').trim(); const qty = Math.max(1, Number(it.qty||1)); if (!name || !qty) continue;
+      const name = sanitizedNameForDeckPersistence(String(it.name||'')); const qty = Math.max(1, Number(it.qty||1)); if (!name || !qty) continue;
       const { data: existing } = await (supabase as any).from('wishlist_items').select('id,qty').eq('wishlist_id', wishlistId).eq('name', name).maybeSingle();
       if (existing?.id){
         const { error: upErr } = await (supabase as any).from('wishlist_items').update({ qty: Number(existing.qty||0) + qty }).eq('id', existing.id);

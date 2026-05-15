@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 
 export const runtime = 'nodejs';
 
@@ -11,8 +12,8 @@ export async function POST(req: NextRequest){
 
     const body = await req.json().catch(()=>({}));
     const wishlist_id = String(body?.wishlist_id||'');
-    const name = String(body?.name||'').trim();
-    const new_name = String(body?.new_name||'').trim();
+    const name = sanitizedNameForDeckPersistence(String(body?.name||''));
+    const new_name = sanitizedNameForDeckPersistence(String(body?.new_name||''));
     if (!wishlist_id || !name || !new_name) return NextResponse.json({ ok:false, error:'wishlist_id, name, new_name required' }, { status:400 });
 
     // Ownership check on wishlist

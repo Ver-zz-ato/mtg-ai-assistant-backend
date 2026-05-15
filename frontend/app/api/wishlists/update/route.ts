@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest){
 
     const body = await req.json().catch(()=>({}));
     const wishlist_id = String(body?.wishlist_id||'');
-    const name = String(body?.name||'').trim();
+    const name = sanitizedNameForDeckPersistence(String(body?.name||''));
     const qty = Number(body?.qty);
     if (!wishlist_id || !name || !Number.isFinite(qty)) return NextResponse.json({ ok:false, error:'wishlist_id, name, qty required' }, { status:400 });
 

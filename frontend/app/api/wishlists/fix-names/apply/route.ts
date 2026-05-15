@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 
 export const runtime = 'nodejs';
 
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest){
     if (!wl || wl.user_id !== user.id) return NextResponse.json({ ok:false, error:'forbidden' }, { status:403 });
 
     for (const ch of changes){
-      const from = String(ch?.from||'').trim(); const to = String(ch?.to||'').trim(); if (!from || !to) continue;
+      const from = sanitizedNameForDeckPersistence(String(ch?.from||'')); const to = sanitizedNameForDeckPersistence(String(ch?.to||'')); if (!from || !to) continue;
       const { data: existing } = await (supabase as any).from('wishlist_items').select('id,qty').eq('wishlist_id', wishlist_id).eq('name', from).maybeSingle();
       if (!existing?.id) continue;
       const { data: target } = await (supabase as any).from('wishlist_items').select('id,qty').eq('wishlist_id', wishlist_id).eq('name', to).maybeSingle();

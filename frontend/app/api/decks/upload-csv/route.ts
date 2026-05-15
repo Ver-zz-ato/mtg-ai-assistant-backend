@@ -5,6 +5,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseDeckOrCollectionCSV } from "@/lib/csv/parse";
+import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
+import { sanitizeImportedCardEntries } from "@/lib/deck/importHelpers";
 
 export async function POST(req: Request) {
   try {
@@ -26,10 +28,14 @@ export async function POST(req: Request) {
     if (deck.user_id !== user.id) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
     const text = await (file as Blob).text();
-    const items = parseDeckOrCollectionCSV(text);
+    const parsedItems = parseDeckOrCollectionCSV(text);
+    const sanitized = sanitizeImportedCardEntries(parsedItems);
+    const normalized = await normalizeCardNames(sanitized.cards);
+    const matchedItems = normalized.cards.filter((card) => card.matched);
+    const unrecognizedCards = [...sanitized.invalid, ...normalized.unrecognized];
 
     let added = 0, updated = 0, skipped: string[] = [];
-    for (const it of items) {
+    for (const it of matchedItems) {
       const { data: existing } = await supabase.from("deck_cards").select("id, qty").eq("deck_id", deckId).eq("name", it.name).maybeSingle();
       if (existing?.id) {
         const newQty = Math.max(0, Number(existing.qty || 0) + (Number(it.qty) || 0));
@@ -53,7 +59,17 @@ export async function POST(req: Request) {
       console.warn("Failed to update deck_text after CSV import:", e);
     }
 
-    return NextResponse.json({ ok: true, report: { added, updated, skipped, total: items.length } }, { status: 200 });
+    return NextResponse.json({
+      ok: true,
+      report: {
+        added,
+        updated,
+        skipped,
+        total: parsedItems.length,
+        imported: matchedItems.length,
+        unrecognizedCards,
+      },
+    }, { status: 200 });
   } catch (e:any) {
     return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
   }

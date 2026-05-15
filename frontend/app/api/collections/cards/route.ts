@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 import { costAuditRequestId, isCostAuditStorageEnabled } from "@/lib/observability/cost-audit";
 import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
+import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
 
 export async function GET(req: NextRequest) {
   const t0 = Date.now();
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
   };
   const collectionId = body.collectionId;
   const qty = body.qty;
-  let name = body.name;
+  let name = sanitizedNameForDeckPersistence(String(body.name ?? ""));
 
   if (!collectionId || !name) {
     if (isCostAuditStorageEnabled()) {
@@ -166,10 +167,10 @@ export async function POST(req: NextRequest) {
       const fuzzyData = await fuzzyRes.json().catch(() => ({}));
       const suggestion = fuzzyData?.results?.[name]?.suggestion;
       // Use suggestion if it exists and is different (case-insensitive check)
-      if (suggestion && suggestion.toLowerCase() !== name.toLowerCase()) {
-        name = suggestion; // Auto-fix the name
-      }
-    } catch (e) {
+        if (suggestion && suggestion.toLowerCase() !== name.toLowerCase()) {
+          name = sanitizedNameForDeckPersistence(suggestion) || name;
+        }
+      } catch (e) {
       // Continue with original name if validation fails
       console.warn('[collections/cards] Name validation failed, using original name:', e);
     }
@@ -300,7 +301,10 @@ export async function PATCH(req: NextRequest) {
       }
       return NextResponse.json({ ok:false, error:'row not found' }, { status:404 });
     }
-    const next = String(new_name).replace(/\s*\(.*?\)\s*$/, '').trim();
+    const next = sanitizedNameForDeckPersistence(String(new_name));
+    if (!next) {
+      return NextResponse.json({ ok:false, error:'invalid card name' }, { status:400 });
+    }
     const { data: existing } = await supabase.from('collection_cards').select('id, qty').eq('collection_id', row.collection_id).eq('name', next).maybeSingle();
     if (existing?.id && existing.id !== row.id) {
       const merged = (existing.qty||0) + (row.qty||0);
@@ -524,4 +528,3 @@ export async function DELETE(req: NextRequest) {
   }
   return NextResponse.json({ ok: true });
 }
-
