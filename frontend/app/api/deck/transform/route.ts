@@ -5,10 +5,15 @@ import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
-import { GENERATE_FROM_COLLECTION_FREE, GENERATE_FROM_COLLECTION_PRO } from "@/lib/feature-limits";
+import { DECK_TRANSFORM_FREE } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
-import { getFormatRules, isCommanderFormatString, tryDeckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import {
+  getCopyCountViolations,
+  getFormatRules,
+  isCommanderFormatString,
+  tryDeckFormatStringToAnalyzeFormat,
+} from "@/lib/deck/formatRules";
 import {
   normalizeTransformBody,
   buildTransformSystemPrompt,
@@ -17,6 +22,7 @@ import {
 import { summarizeTransformIntent } from "@/lib/deck/transform-intent";
 import { warnSourceOffColor } from "@/lib/deck/transform-warnings";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -62,39 +68,134 @@ export async function POST(req: NextRequest) {
     const rules = getFormatRules(analyzeFormat);
     const isCommander = isCommanderFormatString(analyzeFormat);
 
+    if (input.transformIntent === "fix_legality") {
+      const sourceRows = aggregateCards(parseDeckText(input.sourceDeckText));
+      if (sourceRows.length > 0) {
+        const commanderName = isCommander ? input.commander || sourceRows[0]?.name || "Unknown" : null;
+        const allowedColors = isCommander && commanderName
+          ? (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase())
+          : [];
+        const sourceNames = sourceRows.map((c) => c.name);
+        const sourceDetails = await getDetailsForNamesCached(sourceNames);
+
+        const sourceWarnings: string[] = [];
+        let validatedRows = sourceRows;
+        let droppedCi = 0;
+        let trimmedForTarget = false;
+        let legalityRemoved = 0;
+
+        if (isCommander) {
+          const warnSrc = await warnSourceOffColor(input.sourceDeckText, input.commander);
+          if (warnSrc) sourceWarnings.push(warnSrc);
+
+          const beforeCi = validatedRows.length;
+          const filtered = validatedRows.filter((c) => {
+            const entry = sourceDetails.get(norm(c.name));
+            if (!entry) return true;
+            return isWithinColorIdentity(entry as SfCard, allowedColors);
+          });
+          droppedCi = beforeCi - filtered.length;
+          if (droppedCi > 0) {
+            sourceWarnings.push(
+              `Source deck has ${droppedCi} card line(s) outside commander color identity.`
+            );
+          }
+          const filteredQty = totalDeckQty(filtered);
+          if (filteredQty > rules.mainDeckTarget) {
+            trimmedForTarget = true;
+            sourceWarnings.push(
+              `Source deck has ${filteredQty} cards after color identity filtering; target is ${rules.mainDeckTarget}.`
+            );
+            validatedRows = trimDeckToMaxQty(filtered, rules.mainDeckTarget);
+          } else {
+            validatedRows = filtered;
+          }
+        }
+
+        try {
+          const { filterDecklistQtyRowsForFormat } = await import("@/lib/deck/recommendation-legality");
+          const { lines: legalLines, removed } = await filterDecklistQtyRowsForFormat(validatedRows, analyzeFormat, {
+            logPrefix: "/api/deck/transform-source-check",
+          });
+          legalityRemoved = removed.length;
+          if (removed.length > 0) {
+            sourceWarnings.push(
+              `Source deck has ${removed.length} card line(s) not legal in ${analyzeFormat}.`
+            );
+          }
+          validatedRows = legalLines;
+        } catch (legErr) {
+          console.warn("[deck/transform] Source legality pre-check failed:", legErr);
+        }
+
+        const copyViolations = getCopyCountViolations(validatedRows, analyzeFormat);
+        if (copyViolations.length > 0) {
+          sourceWarnings.push(
+            `Source deck has ${copyViolations.length} copy-count violation(s) for ${analyzeFormat}.`
+          );
+        }
+
+        const finalQty = totalDeckQty(validatedRows);
+        const previewFacts = await buildGenerationPreviewFacts(
+          validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
+          commanderName === "Unknown" ? null : commanderName
+        ).catch(() => undefined);
+
+        const alreadyLegal =
+          droppedCi === 0 &&
+          !trimmedForTarget &&
+          legalityRemoved === 0 &&
+          copyViolations.length === 0 &&
+          finalQty === rules.mainDeckTarget;
+
+        if (alreadyLegal) {
+          return NextResponse.json({
+            ok: true,
+            preview: true,
+            decklist: validatedRows,
+            commander: commanderName,
+            colors: allowedColors,
+            deckText: validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
+            format: analyzeFormat,
+            summary: `No legality changes needed. This deck already passes current ${analyzeFormat} legality and color identity checks.`,
+            warnings: undefined,
+            transformIntent: input.transformIntent,
+            ...(previewFacts ? { previewFacts } : {}),
+          });
+        }
+      }
+    }
+
     let isPro = false;
     try {
       const { checkProStatus } = await import("@/lib/server-pro-check");
       isPro = await checkProStatus(user.id);
     } catch {}
-    // Share daily cap with generate-from-collection (same family; do not double quota).
-    const dailyLimit = isPro ? GENERATE_FROM_COLLECTION_PRO : GENERATE_FROM_COLLECTION_FREE;
     const keyHash = `user:${user.id}`;
-    try {
-      const durableLimit = await checkDurableRateLimit(
-        supabase,
-        keyHash,
-        "/api/deck/generate-from-collection",
-        dailyLimit,
-        1
-      );
-      if (!durableLimit.allowed) {
-        const errMsg = isPro
-          ? "You've reached your daily limit. Contact support if you need higher limits."
-          : `You've used your ${GENERATE_FROM_COLLECTION_FREE} free deck generations today. Upgrade to Pro for more!`;
-        return NextResponse.json(
-          {
-            ok: false,
-            code: "RATE_LIMIT_DAILY",
-            error: errMsg,
-            resetAt: durableLimit.resetAt,
-            remaining: 0,
-          },
-          { status: 429, headers: { "Content-Type": "application/json" } }
+    if (!isPro) {
+      try {
+        const durableLimit = await checkDurableRateLimit(
+          supabase,
+          keyHash,
+          "/api/deck/transform",
+          DECK_TRANSFORM_FREE,
+          1
         );
+        if (!durableLimit.allowed) {
+          return NextResponse.json(
+            {
+              ok: false,
+              code: "RATE_LIMIT_DAILY",
+              error: `You've used your ${DECK_TRANSFORM_FREE} free AI Workshop refinements today. Upgrade to Pro for unlimited passes.`,
+              resetAt: durableLimit.resetAt,
+              remaining: 0,
+            },
+            { status: 429, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      } catch (e) {
+        console.error("[deck/transform] Rate limit check failed:", e);
       }
-    } catch (e) {
-      console.error("[deck/transform] Rate limit check failed:", e);
     }
 
     const systemPrompt = buildTransformSystemPrompt(input.format);

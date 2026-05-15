@@ -172,6 +172,8 @@ export function buildTransformIntentPromptBlock(canonical: TransformIntentCanoni
       "PRESERVATION: Keep commander and theme when legal.",
       "",
       "INTENT: fix_legality — Compliance first:",
+      "- If the source deck is already legal for the format, return it unchanged.",
+      "- Do not make optimization, mana-base, or preference swaps unless they are strictly required to restore legality or deck-size compliance.",
       "- Remove or replace cards outside commander color identity.",
       "- Remove banned or illegal cards for Commander; replace with reasonable on-theme substitutes.",
       "- Preserve as much of the original list as legality allows.",

@@ -86,9 +86,8 @@ export const PRICE_TRACKER_DECK_SERIES_PRO = 50;
 export const GENERATE_FROM_COLLECTION_FREE = 3;
 export const GENERATE_FROM_COLLECTION_PRO = 20;
 
-/** Deck transform/refine (POST /api/deck/transform): same daily caps as generate-from-collection. */
-export const DECK_TRANSFORM_FREE = GENERATE_FROM_COLLECTION_FREE;
-export const DECK_TRANSFORM_PRO = GENERATE_FROM_COLLECTION_PRO;
+/** Deck transform/refine (POST /api/deck/transform): free 5/day, Pro unlimited. */
+export const DECK_TRANSFORM_FREE = 5;
 
 /** POST /api/deck/generate-constructed — 60-card competitive formats (guest website / IP bucket). */
 export const GENERATE_CONSTRUCTED_GUEST = 1;
