@@ -245,6 +245,7 @@ const THEME_GATE_PATTERNS: Record<string, RegExp> = {
   enchantments: /\benchantment\b|\baura\b|\bconstellation\b/i,
   artifacts: /\bartifact\b|\btreasure token\b|\bclue token\b|\bfood token\b|\bblood token\b/i,
   blink: /\bexile\b.{0,50}\breturn\b.{0,50}\bto the battlefield\b|\benters the battlefield\b/i,
+  lands: /\blandfall\b|\badditional land\b|\bsearch your library for a land\b|\bwhenever a land enters\b/i,
 };
 
 const TOKEN_PAYOFF_PATTERN = /\bcreatures? you control\b|\bfor each creature you control\b|\battacking creatures?\b|\bother tokens? you control\b/i;
@@ -554,8 +555,8 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
     desiredArchetypes.add("value");
   }
   if (themeAnswer === "enchantments") {
-    desiredArchetypes.add("control");
     desiredArchetypes.add("value");
+    desiredGameplayTags.add("engine");
   }
   if (themeAnswer === "spellslinger") {
     desiredCommanderTags.add("spell_combo");
@@ -569,6 +570,8 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
   }
   if (themeAnswer === "landfall") {
     desiredCommanderTags.add("big_mana");
+    desiredGameplayTags.add("ramp");
+    desiredArchetypes.add("value");
   }
   if (themeAnswer === "lifegain") desiredThemeTags.add("lifedrain");
 
@@ -726,7 +729,7 @@ function candidateSatisfiesCommanderThemePreference(candidate: RecommendationCan
         break;
     }
   }
-  if (pref.desiredArchetypes.size > 0 && !candidate.archetype_tags.some((tag) => pref.desiredArchetypes.has(tag))) {
+  if (pref.desiredThemeTags.size === 0 && pref.desiredArchetypes.size > 0 && !candidate.archetype_tags.some((tag) => pref.desiredArchetypes.has(tag))) {
     return false;
   }
   return true;
@@ -760,6 +763,10 @@ function candidateMatchesCommanderThemeIdentity(candidate: RecommendationCandida
         break;
       case "blink":
         if (!(primaryTheme === "blink" || primaryTheme === "etb")) return false;
+        break;
+      case "lands":
+      case "landfall":
+        if (!(primaryTheme === "lands" || primaryTheme === "landfall" || primaryCommanderTag === "big_mana")) return false;
         break;
       default:
         break;
@@ -806,6 +813,9 @@ function themeGateSatisfied(candidate: RecommendationCandidate, desiredTheme: st
       return candidate.theme_tags.includes("artifacts") || THEME_GATE_PATTERNS.artifacts.test(haystack);
     case "blink":
       return candidate.theme_tags.includes("blink") || candidate.theme_tags.includes("etb") || THEME_GATE_PATTERNS.blink.test(haystack);
+    case "lands":
+    case "landfall":
+      return candidate.theme_tags.includes("lands") || candidate.theme_tags.includes("landfall") || candidate.commander_tags.includes("big_mana") || candidate.gameplay_tags.includes("ramp_land") || THEME_GATE_PATTERNS.lands.test(haystack);
     default:
       return true;
   }
@@ -849,6 +859,15 @@ function buildFitReason(candidate: RecommendationCandidate, pref: CommanderPrefe
     if (candidate.gameplay_tags.includes("recursion")) return `Keeps the graveyard plan live with real recursion, not just filler text.`;
     if (candidate.commander_tags.includes("aristocrats")) return `Connects graveyard value with sacrifice payoffs cleanly.`;
     return `Uses the graveyard as a real engine instead of a side note.`;
+  }
+  if (matchedTheme === "enchantments") {
+    if (candidate.gameplay_tags.includes("engine")) return `Turns enchantments into a real engine instead of just passive value pieces.`;
+    return `Actually rewards committing to enchantments instead of generic midrange filler.`;
+  }
+  if (matchedTheme === "landfall" || matchedTheme === "lands") {
+    if (candidate.commander_tags.includes("big_mana")) return `Turns extra land drops into a real big-mana payoff plan.`;
+    if (candidate.gameplay_tags.includes("ramp_land")) return `Rewards land-based ramp instead of drifting into generic value cards.`;
+    return `Keeps the lands plan focused on real landfall-style payoff.`;
   }
   if (matchedTheme && matchedGameplay) {
     return `Matches ${humanizeTag(matchedTheme)} and backs it up with ${humanizeTag(matchedGameplay)}.`;
@@ -982,6 +1001,7 @@ function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPrefe
   if (pref.desiredThemeTags.has("tribal") && !candidate.theme_tags.includes("tribal") && !candidate.commander_tags.includes("tribal_commander")) score -= 16;
   if (pref.desiredThemeTags.has("enchantments") && !candidate.theme_tags.includes("enchantments")) score -= 14;
   if (pref.desiredThemeTags.has("artifacts") && !candidate.theme_tags.includes("artifacts")) score -= 14;
+  if (pref.desiredThemeTags.has("landfall") && !candidate.theme_tags.includes("landfall") && !candidate.theme_tags.includes("lands") && !candidate.commander_tags.includes("big_mana")) score -= 18;
   for (const desiredTheme of pref.desiredThemeTags) {
     if (!themeGateSatisfied(candidate, desiredTheme)) score -= 32;
   }
@@ -1004,8 +1024,23 @@ function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPrefe
   if (pref.desiredThemeTags.has("spellslinger") && candidate.commander_tags.includes("spell_combo")) score += 10;
   if (pref.desiredThemeTags.has("tokens") && candidate.gameplay_tags.includes("payoff")) score += 8;
   if (pref.desiredThemeTags.has("graveyard") && candidate.theme_tags.includes("self_mill")) score += 6;
+  if (pref.desiredThemeTags.has("landfall") && (candidate.theme_tags.includes("landfall") || candidate.theme_tags.includes("lands"))) score += 14;
+  if (pref.desiredThemeTags.has("landfall") && candidate.gameplay_tags.includes("ramp_land")) score += 10;
+  if (pref.desiredThemeTags.has("enchantments") && candidate.gameplay_tags.includes("engine")) score += 8;
   score += Math.round((candidate.popularity_score ?? 0) * 6);
   return score;
+}
+
+function passesCommanderCandidateFloor(candidate: RecommendationCandidate, pref: CommanderPreference, usageCount: number): boolean {
+  const popularity = candidate.popularity_score ?? 0;
+  if (usageCount > 0) return true;
+  if (pref.desiredThemeTags.size === 0) return popularity >= 0.72;
+  if (candidateSatisfiesCommanderThemePreference(candidate, pref)) return popularity >= 0.58;
+  if (candidateMatchesCommanderThemeIdentity(candidate, pref)) return popularity >= 0.62;
+  if (pref.desiredThemeTags.size === 1 && candidateMatchesCommanderFallbackTheme(candidate, Array.from(pref.desiredThemeTags)[0] || "")) {
+    return popularity >= 0.66;
+  }
+  return popularity >= 0.88;
 }
 
 export async function fetchScryfallTagSourceRows(
@@ -1063,14 +1098,20 @@ export async function buildCommanderRecommendations(
     .limit(5000);
   if (tagError) throw new Error(tagError.message);
 
-  const { data: cacheRows, error: cacheError } = await admin
-    .from("scryfall_cache")
-    .select(
-      "name, printed_name, type_line, oracle_text, color_identity, colors, legalities, is_land, is_creature, is_instant, is_sorcery, is_artifact, is_enchantment, is_planeswalker, small, normal, art_crop",
-    )
-    .or(postgrestCommanderEligibleCatalogOr())
-    .limit(5000);
-  if (cacheError) throw new Error(cacheError.message);
+  const cacheRows: ScryfallTagSourceRow[] = [];
+  const tagNames = uniqueSorted(((tagRows ?? []) as CardTagCacheRow[]).map((row) => row.name));
+  for (let index = 0; index < tagNames.length; index += 100) {
+    const batch = tagNames.slice(index, index + 100);
+    if (!batch.length) continue;
+    const { data: cacheBatch, error: cacheError } = await admin
+      .from("scryfall_cache")
+      .select(
+        "name, printed_name, type_line, oracle_text, color_identity, colors, legalities, is_land, is_creature, is_instant, is_sorcery, is_artifact, is_enchantment, is_planeswalker, small, normal, art_crop",
+      )
+      .in("name", batch);
+    if (cacheError) throw new Error(cacheError.message);
+    cacheRows.push(...((cacheBatch ?? []) as ScryfallTagSourceRow[]));
+  }
 
   const { data: commanderRows } = await admin
     .from("decks")
@@ -1087,6 +1128,7 @@ export async function buildCommanderRecommendations(
   const cacheByName = new Map<string, ScryfallTagSourceRow>();
   for (const row of (cacheRows ?? []) as ScryfallTagSourceRow[]) cacheByName.set(row.name, row);
 
+  const pref = buildCommanderPreference(input);
   const candidates: RecommendationCandidate[] = [];
   for (const tagRow of (tagRows ?? []) as CardTagCacheRow[]) {
     const sourceRow = cacheByName.get(tagRow.name);
@@ -1095,12 +1137,10 @@ export async function buildCommanderRecommendations(
     if ((sourceRow.legalities?.commander ?? "").toLowerCase() !== "legal") continue;
     if (bannedCommanderMap[tagRow.name]) continue;
     const usageCount = commanderUsage.get(tagRow.name) ?? 0;
-    if (usageCount <= 0 && (tagRow.popularity_score ?? 0) < 0.72) continue;
-    if (prefersStrongThemeMatch(input) && usageCount < 3 && (tagRow.popularity_score ?? 0) < 0.88) continue;
-    candidates.push({ ...sourceRow, ...tagRow });
+    const candidate = { ...sourceRow, ...tagRow };
+    if (!passesCommanderCandidateFloor(candidate, pref, usageCount)) continue;
+    candidates.push(candidate);
   }
-
-  const pref = buildCommanderPreference(input);
   const ranked = candidates
     .map((candidate) => {
       const usageCount = commanderUsage.get(candidate.name) ?? 0;
@@ -1142,7 +1182,10 @@ export async function buildCommanderRecommendations(
             ].slice(0, 40)
           : (fallbackThemeRows.length ? fallbackThemeRows : ranked).slice(0, 40)
       : ranked.slice(0, 40);
-  const deterministicRows = diversifyRecommendations(deterministicPool, limit).slice(0, limit);
+  const deterministicRows =
+    pref.desiredThemeTags.size > 0
+      ? deterministicPool.slice(0, limit)
+      : diversifyRecommendations(deterministicPool, limit).slice(0, limit);
   let finalRows = deterministicRows;
 
   const profile = preferenceToProfile(pref);

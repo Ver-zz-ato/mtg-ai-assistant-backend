@@ -22,6 +22,10 @@ function baseRules(overrides: Partial<TransformRules> = {}): TransformRules {
   };
 }
 
+function totalPrice(rows: QtyRow[], priceByName: Map<string, number>): number {
+  return rows.reduce((sum, row) => sum + (priceByName.get(row.name.toLowerCase()) ?? 0) * row.qty, 0);
+}
+
 async function main() {
   {
     const source = rows([
@@ -188,6 +192,41 @@ async function main() {
     });
     assert.equal(enforced.rows.some((row) => row.name === "The One Ring"), false);
     assert.ok(enforced.rows.some((row) => row.name === "Budget Card"));
+  }
+
+  {
+    const priceByName = new Map([
+      ["steady card", 4],
+      ["role player", 4],
+      ["upgrade one", 6],
+      ["upgrade two", 5],
+    ]);
+    const source = rows([
+      ["Steady Card", 1],
+      ["Role Player", 1],
+    ]);
+    const result = rows([
+      ["Upgrade One", 1],
+      ["Upgrade Two", 1],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 2,
+      rules: baseRules(),
+      isCommander: false,
+      commanderName: null,
+      transformIntent: "general",
+      budget: "Budget",
+      priceByName,
+    });
+    assert.ok(totalPrice(enforced.rows, priceByName) <= totalPrice(source, priceByName));
+    assert.ok(enforced.rows.some((row) => row.name === "Steady Card" || row.name === "Role Player"));
+    assert.ok(
+      enforced.rows.some((row) =>
+        row.name === "Upgrade One" || row.name === "Upgrade Two" || row.name === "Steady Card" || row.name === "Role Player",
+      ),
+    );
   }
 
   console.log("transform-enforcement: ok");
