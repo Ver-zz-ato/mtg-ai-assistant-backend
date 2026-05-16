@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { precheckFixLegalitySourceDeck } from "@/lib/deck/transform-legality-check";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
-type FakeRow = { legalities?: Record<string, string>; color_identity?: string[] | null };
+type FakeRow = { legalities?: Record<string, string> | null; color_identity?: string[] | null };
 
 function makeDeckMap(rows: Record<string, FakeRow>): Map<string, FakeRow> {
   return new Map(
@@ -17,7 +17,7 @@ function commanderDeckText(commander: string, cardNames: string[]): string {
 function filterRowsByLegalities(
   rows: Array<{ name: string; qty: number }>,
   userFormat: string,
-  opts?: { getDetailsForNamesCachedOverride?: (names: string[]) => Promise<Map<string, FakeRow>> },
+  opts?: { logPrefix?: string; getDetailsForNamesCachedOverride?: (names: string[]) => Promise<Map<string, FakeRow>> },
 ) {
   const formatKey = String(userFormat || "").trim().toLowerCase();
   return (async () => {
@@ -113,6 +113,31 @@ async function main() {
     assert.equal(result?.alreadyLegal, false, "off-color card should force a legality repair path");
     assert.match(result?.warnings.join("\n") ?? "", /outside commander color identity/i);
     assert.equal(result?.validatedRows.some((row) => row.name === "Lightning Bolt"), false);
+  }
+
+  {
+    const commander = "Ninety Nine Problems";
+    const cards = Array.from({ length: 98 }, (_, i) => `Count Card ${i + 1}`);
+    const details = makeDeckMap({
+      [commander]: { legalities: { commander: "legal" }, color_identity: ["W"] },
+      ...Object.fromEntries(cards.map((name) => [name, { legalities: { commander: "legal" }, color_identity: ["W"] }])),
+    });
+    const deckText = commanderDeckText(commander, cards);
+
+    const result = await precheckFixLegalitySourceDeck(
+      { sourceDeckText: deckText, format: "Commander", commander },
+      {
+        getCommanderColors: async () => ["W"],
+        getCardDetails: async () => details,
+        filterRowsForFormat: filterRowsByLegalities,
+        warnOffColor: async () => null,
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result?.alreadyLegal, false);
+    assert.equal(result?.needsDeckSizeOnlyReview, true, "clean 99-card Commander list should become review-only, not AI-swap-driven");
+    assert.match(result?.warnings.join("\n") ?? "", /99 cards after validation; target is 100/i);
   }
 
   {

@@ -13,6 +13,7 @@ type RecommendationLegalityRow = { legalities?: Record<string, string> | null };
 
 export type TransformLegalityPrecheck = {
   alreadyLegal: boolean;
+  needsDeckSizeOnlyReview: boolean;
   analyzeFormat: string;
   commanderName: string | null;
   colors: string[];
@@ -28,7 +29,7 @@ type TransformLegalityPrecheckDeps = {
     userFormat: string,
     opts?: { logPrefix?: string; getDetailsForNamesCachedOverride?: (names: string[]) => Promise<Map<string, CardDetailsRow>> }
   ) => Promise<{ lines: QtyRow[]; removed: Array<{ name: string; reason: string }> }>;
-  warnOffColor?: (sourceDeckText: string, commander: string | null | undefined) => Promise<string | null>;
+  warnOffColor?: (sourceDeckText: string, commander: string | null | undefined) => Promise<string | null | undefined>;
 };
 
 export async function precheckFixLegalitySourceDeck(
@@ -98,15 +99,18 @@ export async function precheckFixLegalitySourceDeck(
   }
 
   const finalQty = totalDeckQty(validatedRows);
+  if (finalQty !== rules.mainDeckTarget) {
+    warnings.push(`Source deck has ${finalQty} cards after validation; target is ${rules.mainDeckTarget} for ${analyzeFormat}.`);
+  }
+  const requiresRepair = droppedCi > 0 || trimmedForTarget || legalityRemoved > 0 || copyViolations.length > 0;
   const alreadyLegal =
-    droppedCi === 0 &&
-    !trimmedForTarget &&
-    legalityRemoved === 0 &&
-    copyViolations.length === 0 &&
+    !requiresRepair &&
     finalQty === rules.mainDeckTarget;
+  const needsDeckSizeOnlyReview = !requiresRepair && finalQty !== rules.mainDeckTarget;
 
   return {
     alreadyLegal,
+    needsDeckSizeOnlyReview,
     analyzeFormat,
     commanderName,
     colors,

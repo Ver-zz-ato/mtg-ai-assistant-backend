@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/server-supabase";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
+import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
+import type { SfCard } from "@/lib/deck/inference";
 import { DECK_TRANSFORM_FREE } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
-import { aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
+import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
 import {
   getFormatRules,
   isCommanderFormatString,
@@ -67,13 +70,13 @@ export async function POST(req: NextRequest) {
     if (input.transformIntent === "fix_legality") {
       const precheck = await precheckFixLegalitySourceDeck(input, {
         getCommanderColors: getCommanderColorIdentity,
-        warnOffColor: warnSourceOffColor,
+        warnOffColor: (sourceDeckText, commander) => warnSourceOffColor(sourceDeckText, commander ?? null),
       }).catch((legErr) => {
         console.warn("[deck/transform] Source legality pre-check failed:", legErr);
         return null;
       });
 
-      if (precheck?.alreadyLegal) {
+      if (precheck?.alreadyLegal || precheck?.needsDeckSizeOnlyReview) {
         const previewFacts = await buildGenerationPreviewFacts(
           precheck.validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
           precheck.commanderName === "Unknown" ? null : precheck.commanderName
@@ -87,8 +90,10 @@ export async function POST(req: NextRequest) {
           colors: precheck.colors,
           deckText: precheck.validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
           format: precheck.analyzeFormat,
-          summary: `No legality changes needed. This deck already passes current ${precheck.analyzeFormat} legality and color identity checks.`,
-          warnings: undefined,
+          summary: precheck.alreadyLegal
+            ? `No legality changes needed. This deck already passes current ${precheck.analyzeFormat} legality and color identity checks.`
+            : `Deck size needs review. This list passed legality checks, but it is ${precheck.validatedRows.reduce((sum, row) => sum + row.qty, 0)} cards after validation instead of the expected ${rules.mainDeckTarget}.`,
+          warnings: precheck.needsDeckSizeOnlyReview ? precheck.warnings : undefined,
           transformIntent: input.transformIntent,
           ...(previewFacts ? { previewFacts } : {}),
         });
