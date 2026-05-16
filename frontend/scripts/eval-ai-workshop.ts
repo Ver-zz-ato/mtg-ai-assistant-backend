@@ -1,25 +1,204 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import { SAMPLE_DECKS } from "../lib/sample-decks";
-import { buildGenerationPreviewFacts } from "../lib/deck/generation-preview-facts";
-import { parseDeckText } from "../lib/deck/parseDeckText";
-import { aggregateCards, norm, totalDeckQty } from "../lib/deck/generation-helpers";
-import { getFormatRules, isCommanderFormatString, tryDeckFormatStringToAnalyzeFormat } from "../lib/deck/formatRules";
-import { getDetailsForNamesCached } from "../lib/server/scryfallCache";
-import { isWithinColorIdentity } from "../lib/deck/mtgValidators";
+import { SAMPLE_DECKS } from "@/lib/sample-decks";
+import { aggregateCards, norm, totalDeckQty } from "@/lib/deck/generation-helpers";
+import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { getFormatRules, isCommanderFormatString } from "@/lib/deck/formatRules";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, "..");
-const docsDir = path.resolve(projectRoot, "docs");
-const reportPath = path.join(docsDir, "AI_WORKSHOP_EVAL_REPORT.md");
-const jsonPath = path.join(projectRoot, "ai-workshop-eval-results.json");
+type AnalyzeFormat = "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
+type TransformIntent =
+  | "general"
+  | "improve_mana_base"
+  | "tighten_curve"
+  | "add_interaction"
+  | "lower_budget"
+  | "more_casual"
+  | "more_optimized"
+  | "fix_legality";
+
+type PreviewFacts = {
+  land_count: number;
+  ramp_count: number;
+  draw_count: number;
+  interaction_count: number;
+  avg_cmc: number;
+  curve_histogram: number[];
+  curve_profile?: string;
+  warning_flags?: string[];
+};
+
+type EvalDeck = {
+  id: string;
+  name: string;
+  format: AnalyzeFormat;
+  commander: string | null;
+  sourceDeckText: string;
+  sourceLabel: string;
+  expectedLegality?: "noop" | "size_only_review" | "repair";
+};
+
+type RouteResponse = {
+  ok?: boolean;
+  error?: string;
+  summary?: string;
+  warnings?: string[];
+  deckText?: string;
+  decklist?: Array<{ name: string; qty: number }>;
+  commander?: string | null;
+  format?: string;
+  previewFacts?: PreviewFacts;
+  transformIntent?: string;
+};
+
+type EvalResult = {
+  deckId: string;
+  deckName: string;
+  format: AnalyzeFormat;
+  pass: TransformIntent;
+  status: "pass" | "warn" | "fail";
+  hardIssues: string[];
+  cautions: string[];
+  sourceLabel: string;
+  added: Array<{ name: string; qty: number }>;
+  removed: Array<{ name: string; qty: number }>;
+  finalCount: number;
+  targetCount: number;
+  warnings: string[];
+  summary: string;
+  elapsedMs: number;
+  previewFactsBefore?: PreviewFacts;
+  previewFactsAfter?: PreviewFacts;
+  raw?: RouteResponse;
+};
+
+const args = new Set(process.argv.slice(2));
+const jsonOnly = args.has("--json");
+const baseUrl = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+const reportDir = path.join(process.cwd(), "test-results", "ai-workshop-eval");
+const nowStamp = new Date().toISOString().replace(/[:.]/g, "-");
+const jsonOut = path.join(reportDir, `ai-workshop-eval-${nowStamp}.json`);
+const mdOut = path.join(reportDir, `ai-workshop-eval-${nowStamp}.md`);
+
+const PASS_LABELS: Record<TransformIntent, string> = {
+  general: "General cleanup",
+  improve_mana_base: "Mana base",
+  tighten_curve: "Curve",
+  add_interaction: "Interaction",
+  lower_budget: "Lower budget",
+  more_casual: "More casual",
+  more_optimized: "Raise power",
+  fix_legality: "Fix legality",
+};
+
+const ALL_PASSES: TransformIntent[] = [
+  "fix_legality",
+  "general",
+  "improve_mana_base",
+  "tighten_curve",
+  "add_interaction",
+  "lower_budget",
+  "more_casual",
+  "more_optimized",
+];
+
+const CORE_FULL_PASS_IDS = new Set([
+  "atraxa-superfriends",
+  "yuriko-ninjas",
+  "teysa-aristocrats",
+  "ghired-tokens",
+  "lathril-elves",
+  "modern-burn",
+]);
+
+const EXPENSIVE_STAPLE_WATCHLIST = new Set([
+  "mana crypt",
+  "the one ring",
+  "gaea's cradle",
+  "rhystic study",
+  "smothering tithe",
+  "dockside extortionist",
+  "jeweled lotus",
+  "force of will",
+  "cyclonic rift",
+  "fierce guardianship",
+  "vampiric tutor",
+  "demonic tutor",
+]);
+
+const SPIKY_WATCHLIST = new Set([
+  "thassa's oracle",
+  "demonic consultation",
+  "underworld breach",
+  "mana crypt",
+  "jeweled lotus",
+  "ad nauseam",
+  "lion's eye diamond",
+  "trinisphere",
+  "winter orb",
+]);
+
+const MODERN_DECK = [
+  "4 Monastery Swiftspear",
+  "4 Lightning Bolt",
+  "4 Lava Spike",
+  "4 Skewer the Critics",
+  "4 Eidolon of the Great Revel",
+  "4 Rift Bolt",
+  "4 Boros Charm",
+  "4 Roiling Vortex",
+  "18 Mountain",
+  "4 Sunbaked Canyon",
+  "4 Inspiring Vantage",
+  "2 Sacred Foundry",
+].join("\n");
+
+const PIONEER_DECK = [
+  "4 Monastery Swiftspear",
+  "4 Play with Fire",
+  "4 Kumano Faces Kakkazan",
+  "4 Monstrous Rage",
+  "4 Slickshot Show-Off",
+  "4 Soul-Scar Mage",
+  "4 Light Up the Stage",
+  "4 Wizard's Lightning",
+  "4 Ramunap Ruins",
+  "20 Mountain",
+  "4 Den of the Bugbear",
+].join("\n");
+
+const STANDARD_DECK = [
+  "4 Heartfire Hero",
+  "4 Monastery Swiftspear",
+  "4 Monstrous Rage",
+  "4 Lightning Strike",
+  "4 Emberheart Challenger",
+  "4 Burst Lightning",
+  "4 Shock",
+  "4 Slickshot Show-Off",
+  "20 Mountain",
+  "4 Rockface Village",
+  "4 Mirran Banesplitter",
+].join("\n");
+
+const PAUPER_DECK = [
+  "4 Kessig Flamebreather",
+  "4 Ghitu Lavarunner",
+  "4 Lightning Bolt",
+  "4 Chain Lightning",
+  "4 Lava Dart",
+  "4 Skewer the Critics",
+  "4 Wrenn's Resolve",
+  "4 Reckless Impulse",
+  "18 Mountain",
+  "4 Experimental Synthesizer",
+  "4 Implement of Combustion",
+  "2 Fireblast",
+].join("\n");
 
 function loadDotEnv(fileName: string) {
-  const file = path.join(projectRoot, fileName);
+  const file = path.join(process.cwd(), fileName);
   if (!fs.existsSync(file)) return;
   for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
     const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
@@ -36,93 +215,148 @@ function loadDotEnv(fileName: string) {
 loadDotEnv(".env.local");
 loadDotEnv(".env");
 
-const baseUrl = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
-const jsonOnly = process.argv.includes("--json");
-
-type AnalyzeFormat = "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
-type TransformIntent =
-  | "general"
-  | "improve_mana_base"
-  | "tighten_curve"
-  | "add_interaction"
-  | "lower_budget"
-  | "more_casual"
-  | "more_optimized"
-  | "fix_legality";
-
-type DeckFixture = {
-  id: string;
-  title: string;
-  format: AnalyzeFormat;
-  commander: string | null;
-  deckText: string;
-  expectation?: "legal_noop" | "size_review_only" | "offcolor_repair" | "duplicate_repair";
-  source?: string;
-};
-
-type EvalCase = {
-  fixture: DeckFixture;
-  intent: TransformIntent;
-  powerLevel: string;
-  budget: string;
-};
-
-type EvalResult = {
-  fixtureId: string;
-  fixtureTitle: string;
-  fixtureFormat: AnalyzeFormat;
-  fixtureSource: string;
-  intent: TransformIntent;
-  status: number;
-  elapsedMs: number;
-  ok: boolean;
-  severity: "pass" | "warn" | "fail";
-  added: string[];
-  removed: string[];
-  warnings: string[];
-  issues: string[];
-  summary: string;
-  baselineFacts?: Awaited<ReturnType<typeof buildGenerationPreviewFacts>>;
-  resultFacts?: Awaited<ReturnType<typeof buildGenerationPreviewFacts>>;
-  finalCount?: number;
-};
-
-const expensiveCardHints = [
-  /mana crypt/i,
-  /jeweled lotus/i,
-  /the one ring/i,
-  /gaea's cradle/i,
-  /dockside extortionist/i,
-  /rhystic study/i,
-  /smothering tithe/i,
-  /fierce guardianship/i,
-  /vampiric tutor/i,
-  /demonic tutor/i,
-  /cyclonic rift/i,
-];
-
-function compactText(value: unknown): string {
-  if (value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map(compactText).join("\n");
-  if (typeof value === "object") return Object.values(value as Record<string, unknown>).map(compactText).join("\n");
-  return String(value);
+function cleanDeckText(deckText: string): string {
+  return deckText
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith("//"))
+    .join("\n");
 }
 
-async function resolveBearerToken() {
+function rowsFromDeckText(deckText: string) {
+  return aggregateCards(parseDeckText(deckText));
+}
+
+function mapRows(rows: Array<{ name: string; qty: number }>): Map<string, { name: string; qty: number }> {
+  const out = new Map<string, { name: string; qty: number }>();
+  for (const row of rows) {
+    const key = norm(row.name);
+    const existing = out.get(key);
+    if (existing) existing.qty += row.qty;
+    else out.set(key, { name: row.name, qty: row.qty });
+  }
+  return out;
+}
+
+function diffDeckRows(
+  sourceRows: Array<{ name: string; qty: number }>,
+  resultRows: Array<{ name: string; qty: number }>,
+): { added: Array<{ name: string; qty: number }>; removed: Array<{ name: string; qty: number }> } {
+  const source = mapRows(sourceRows);
+  const result = mapRows(resultRows);
+  const keys = new Set([...source.keys(), ...result.keys()]);
+  const added: Array<{ name: string; qty: number }> = [];
+  const removed: Array<{ name: string; qty: number }> = [];
+  for (const key of keys) {
+    const before = source.get(key)?.qty || 0;
+    const after = result.get(key)?.qty || 0;
+    if (after > before) added.push({ name: result.get(key)?.name || source.get(key)?.name || key, qty: after - before });
+    if (before > after) removed.push({ name: source.get(key)?.name || result.get(key)?.name || key, qty: before - after });
+  }
+  added.sort((a, b) => a.name.localeCompare(b.name));
+  removed.sort((a, b) => a.name.localeCompare(b.name));
+  return { added, removed };
+}
+
+function compactWarningList(warnings: unknown): string[] {
+  if (!Array.isArray(warnings)) return [];
+  return warnings.filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+const scryfallCardCache = new Map<string, { color_identity: string[]; legalities?: Record<string, string> | null } | null>();
+const commanderColorCache = new Map<string, string[]>();
+
+async function fetchScryfallCard(name: string) {
+  const key = norm(name);
+  if (scryfallCardCache.has(key)) return scryfallCardCache.get(key) ?? null;
+  try {
+    const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`, {
+      headers: { "user-agent": "ai-workshop-eval/1.0" },
+    });
+    if (!res.ok) {
+      scryfallCardCache.set(key, null);
+      return null;
+    }
+    const json = await res.json();
+    const value = {
+      color_identity: Array.isArray(json?.color_identity) ? json.color_identity.map((value: unknown) => String(value).toUpperCase()) : [],
+      legalities: json?.legalities && typeof json.legalities === "object" ? json.legalities : null,
+    };
+    scryfallCardCache.set(key, value);
+    return value;
+  } catch {
+    scryfallCardCache.set(key, null);
+    return null;
+  }
+}
+
+async function resolveCommanderColors(commander: string) {
+  const key = norm(commander);
+  if (commanderColorCache.has(key)) return commanderColorCache.get(key) ?? [];
+  const card = await fetchScryfallCard(commander);
+  const colors = card?.color_identity ?? [];
+  commanderColorCache.set(key, colors);
+  return colors;
+}
+
+async function resolveBearerToken(): Promise<{ token: string | null; cleanup: (() => Promise<void>) | null }> {
   const email = process.env.AI_STRESS_EMAIL || process.env.DEV_LOGIN_EMAIL || "";
   const password = process.env.AI_STRESS_PASSWORD || process.env.DEV_LOGIN_PASSWORD || "";
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-  if (!email || !password || !url || !anon) return null;
+  if (email && password && url && anon) {
+    const supabase = createClient(url, anon);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error && data.session?.access_token) {
+      return { token: data.session.access_token, cleanup: null };
+    }
+  }
+
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
+  if (!url || !anon || !serviceRole) return { token: null, cleanup: null };
+
+  const admin = createClient(url, serviceRole, { auth: { persistSession: false } });
+  const evalEmail = `ai-workshop-eval+${Date.now()}@manatap.local`;
+  const evalPassword = `CodexEval!${Date.now()}!`;
+  const created = await admin.auth.admin.createUser({
+    email: evalEmail,
+    password: evalPassword,
+    email_confirm: true,
+    user_metadata: {
+      is_pro: true,
+      pro: true,
+    },
+  });
+  if (created.error || !created.data.user?.id) {
+    return { token: null, cleanup: null };
+  }
+
+  try {
+    await admin.from("profiles").upsert({ id: created.data.user.id, is_pro: true });
+  } catch {}
+
   const supabase = createClient(url, anon);
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return null;
-  return data.session?.access_token || null;
+  const login = await supabase.auth.signInWithPassword({ email: evalEmail, password: evalPassword });
+  if (login.error || !login.data.session?.access_token) {
+    return {
+      token: null,
+      cleanup: async () => {
+        await admin.auth.admin.deleteUser(created.data.user!.id);
+      },
+    };
+  }
+
+  return {
+    token: login.data.session.access_token,
+    cleanup: async () => {
+      await admin.auth.admin.deleteUser(created.data.user!.id);
+    },
+  };
 }
 
-async function pingServer() {
+async function pingServer(): Promise<boolean> {
   try {
     const res = await fetch(`${baseUrl}/api/health`, { headers: { "user-agent": "ai-workshop-eval/1.0" } });
     return res.ok;
@@ -131,513 +365,411 @@ async function pingServer() {
   }
 }
 
-function sanitizeDeckText(raw: string): string {
-  return raw
-    .split(/\r?\n/)
-    .filter((line) => !line.trim().startsWith("//"))
-    .join("\n")
-    .trim();
+async function fetchPrecons(limit = 2): Promise<EvalDeck[]> {
+  try {
+    const res = await fetch(`${baseUrl}/api/decks/precons?limit=${limit}`, { headers: { "user-agent": "ai-workshop-eval/1.0" } });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const decks = Array.isArray(json?.decks) ? json.decks : [];
+    return decks
+      .filter((deck: any) => deck?.format === "Commander" && typeof deck.deck_text === "string" && deck.deck_text.trim())
+      .slice(0, limit)
+      .map((deck: any, index: number) => ({
+        id: `precon-${index + 1}-${String(deck.id || deck.title || "deck").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        name: String(deck.title || deck.name || `Precon ${index + 1}`),
+        format: "Commander" as const,
+        commander: typeof deck.commander === "string" ? deck.commander : null,
+        sourceDeckText: cleanDeckText(String(deck.deck_text)),
+        sourceLabel: "precon",
+        expectedLegality: "noop" as const,
+      }));
+  } catch {
+    return [];
+  }
 }
 
-function makeConstructedFixtures(): DeckFixture[] {
-  return [
-    {
-      id: "modern-burn",
-      title: "Modern Burn",
-      format: "Modern",
-      commander: null,
-      source: "verify-ai-route-responses",
-      expectation: "legal_noop",
-      deckText: sanitizeDeckText(`
-4 Monastery Swiftspear
-4 Lightning Bolt
-4 Lava Spike
-4 Skewer the Critics
-4 Eidolon of the Great Revel
-4 Rift Bolt
-4 Boros Charm
-4 Searing Blaze
-4 Goblin Guide
-4 Roiling Vortex
-4 Mountain
-4 Inspiring Vantage
-4 Sunbaked Canyon
-4 Sacred Foundry
-4 Wooded Foothills
-      `),
-    },
-    {
-      id: "pioneer-red",
-      title: "Pioneer Mono-Red",
-      format: "Pioneer",
-      commander: null,
-      source: "verify-ai-route-responses",
-      expectation: "legal_noop",
-      deckText: sanitizeDeckText(`
-4 Monastery Swiftspear
-4 Play with Fire
-4 Kumano Faces Kakkazan
-4 Lightning Strike
-4 Monstrous Rage
-4 Slickshot Show-Off
-4 Soul-Scar Mage
-4 Wizard's Lightning
-4 Bonecrusher Giant
-4 Chandra, Dressed to Kill
-20 Mountain
-      `),
-    },
-    {
-      id: "standard-boros",
-      title: "Standard Boros Aggro",
-      format: "Standard",
-      commander: null,
-      source: "internal-fixture",
-      expectation: "legal_noop",
-      deckText: sanitizeDeckText(`
-4 Monastery Swiftspear
-4 Lightning Helix
-4 Play with Fire
-4 Monstrous Rage
-4 Warden of the Inner Sky
-4 Imodane's Recruiter
-4 Resolute Reinforcements
-4 Gleeful Demolition
-4 Novice Inspector
-4 Case of the Gateway Express
-8 Mountain
-8 Plains
-4 Battlefield Forge
-4 Inspiring Vantage
-      `),
-    },
-    {
-      id: "pauper-burn",
-      title: "Pauper Burn",
-      format: "Pauper",
-      commander: null,
-      source: "verify-ai-route-responses",
-      expectation: "legal_noop",
-      deckText: sanitizeDeckText(`
-4 Kessig Flamebreather
-4 Lightning Bolt
-4 Chain Lightning
-4 Skewer the Critics
-4 Lava Spike
-4 Rift Bolt
-4 Reckless Impulse
-4 Experimental Synthesizer
-4 Voldaren Epicure
-4 End the Festivities
-20 Mountain
-      `),
-    },
+function buildRepresentativeDecks(precons: EvalDeck[]): EvalDeck[] {
+  const sampleCommanderIds = [
+    "ur-dragon-tribal",
+    "atraxa-superfriends",
+    "edgar-markov-vampires",
+    "ghired-tokens",
+    "yuriko-ninjas",
+    "kess-spellslinger",
+    "teysa-aristocrats",
+    "chulane-value",
+    "grand-arbiter-stax",
+    "lathril-elves",
   ];
-}
 
-function withMissingOneCard(sample: DeckFixture): DeckFixture {
-  const lines = sanitizeDeckText(sample.deckText).split(/\r?\n/);
-  const idx = lines.findIndex((line) => /^1\s+/i.test(line));
-  const next = [...lines];
-  if (idx >= 0) next.splice(idx, 1);
-  return {
-    ...sample,
-    id: `${sample.id}-99`,
-    title: `${sample.title} (99-card review)`,
-    deckText: next.join("\n"),
-    expectation: "size_review_only",
-    source: `${sample.source ?? "sample"} + missing-one`,
-  };
-}
-
-function withOffColorRepair(sample: DeckFixture): DeckFixture {
-  const lines = sanitizeDeckText(sample.deckText).split(/\r?\n/);
-  const idx = lines.findIndex((line) => /^1\s+Forest$/i.test(line) || /^1\s+Island$/i.test(line) || /^1\s+Swamp$/i.test(line));
-  const next = [...lines];
-  if (idx >= 0) next[idx] = "1 Lightning Bolt";
-  return {
-    ...sample,
-    id: `${sample.id}-offcolor`,
-    title: `${sample.title} (off-color repair)`,
-    deckText: next.join("\n"),
-    expectation: "offcolor_repair",
-    source: `${sample.source ?? "sample"} + off-color`,
-  };
-}
-
-function withDuplicateRepair(sample: DeckFixture): DeckFixture {
-  const lines = sanitizeDeckText(sample.deckText).split(/\r?\n/);
-  const next = [...lines];
-  const solRingIdx = next.findIndex((line) => /^1\s+Sol Ring$/i.test(line));
-  const basicIdx = next.findIndex((line) => /^1\s+(Forest|Island|Swamp|Mountain|Plains)$/i.test(line));
-  if (solRingIdx >= 0 && basicIdx >= 0) next[basicIdx] = "1 Sol Ring";
-  return {
-    ...sample,
-    id: `${sample.id}-duplicate`,
-    title: `${sample.title} (duplicate repair)`,
-    deckText: next.join("\n"),
-    expectation: "duplicate_repair",
-    source: `${sample.source ?? "sample"} + duplicate`,
-  };
-}
-
-async function fetchPreconFixtures(): Promise<DeckFixture[]> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
-  if (!url || !serviceRole) return [];
-  const supabase = createClient(url, serviceRole, { auth: { persistSession: false } });
-  const { data, error } = await supabase
-    .from("precon_decks")
-    .select("id, name, commander, format, deck_text")
-    .order("release_year", { ascending: false, nullsFirst: false })
-    .limit(2);
-  if (error || !data?.length) return [];
-  return data
-    .filter((row) => typeof row.deck_text === "string" && row.deck_text.trim().length > 100)
-    .map((row) => ({
-      id: `precon-${row.id}`,
-      title: row.name,
+  const commanderDecks: EvalDeck[] = sampleCommanderIds
+    .map((id) => SAMPLE_DECKS.find((deck) => deck.id === id))
+    .filter((deck): deck is NonNullable<typeof deck> => Boolean(deck))
+    .map((deck) => ({
+      id: deck.id,
+      name: deck.name,
       format: "Commander" as const,
-      commander: row.commander,
-      deckText: row.deck_text,
-      expectation: "legal_noop" as const,
-      source: "precon_decks",
+      commander: deck.commander,
+      sourceDeckText: cleanDeckText(deck.deckList),
+      sourceLabel: "sample_commander",
+      expectedLegality: "noop" as const,
     }));
+
+  const constructedDecks: EvalDeck[] = [
+    { id: "modern-burn", name: "Modern Burn", format: "Modern", commander: null, sourceDeckText: MODERN_DECK, sourceLabel: "sample_constructed", expectedLegality: "noop" },
+    { id: "pioneer-red", name: "Pioneer Red", format: "Pioneer", commander: null, sourceDeckText: PIONEER_DECK, sourceLabel: "sample_constructed", expectedLegality: "noop" },
+    { id: "standard-red", name: "Standard Red", format: "Standard", commander: null, sourceDeckText: STANDARD_DECK, sourceLabel: "sample_constructed", expectedLegality: "noop" },
+    { id: "pauper-burn", name: "Pauper Burn", format: "Pauper", commander: null, sourceDeckText: PAUPER_DECK, sourceLabel: "sample_constructed", expectedLegality: "noop" },
+  ];
+
+  const teysa = commanderDecks.find((deck) => deck.id === "teysa-aristocrats");
+  const lathril = commanderDecks.find((deck) => deck.id === "lathril-elves");
+
+  const variants: EvalDeck[] = [];
+  if (teysa) {
+    const rows = rowsFromDeckText(teysa.sourceDeckText);
+    const plainsIndex = rows.findIndex((candidate) => candidate.name.toLowerCase() === "plains");
+    const trimmed = rows.filter((row, index) => !(row.name.toLowerCase() === "plains" && index === plainsIndex));
+    variants.push({
+      id: "teysa-99-clean",
+      name: "Teysa Aristocrats (99 clean)",
+      format: "Commander",
+      commander: teysa.commander,
+      sourceDeckText: trimmed.map((row) => `${row.qty} ${row.name}`).join("\n"),
+      sourceLabel: "size_review_variant",
+      expectedLegality: "size_only_review",
+    });
+  }
+  if (lathril) {
+    const rows = rowsFromDeckText(lathril.sourceDeckText);
+    const updated = rows.map((row) => ({ ...row }));
+    const forest = updated.find((row) => row.name.toLowerCase() === "forest");
+    if (forest && forest.qty > 0) {
+      forest.qty -= 1;
+      updated.push({ name: "Lightning Bolt", qty: 1 });
+    }
+    variants.push({
+      id: "lathril-offcolor",
+      name: "Lathril Elves (off-color bolt)",
+      format: "Commander",
+      commander: lathril.commander,
+      sourceDeckText: updated.filter((row) => row.qty > 0).map((row) => `${row.qty} ${row.name}`).join("\n"),
+      sourceLabel: "invalid_variant",
+      expectedLegality: "repair",
+    });
+  }
+
+  return [...commanderDecks, ...constructedDecks, ...precons, ...variants];
 }
 
-function buildCommanderFixtures(): DeckFixture[] {
-  return SAMPLE_DECKS.map((deck) => ({
-    id: deck.id,
-    title: deck.name,
-    format: "Commander" as const,
-    commander: deck.commander,
-    deckText: deck.deckList,
-    expectation: "legal_noop" as const,
-    source: "sample-decks",
-  }));
-}
-
-async function requestTransform(test: EvalCase, bearerToken: string) {
+async function postTransform(
+  bearerToken: string,
+  deck: EvalDeck,
+  pass: TransformIntent,
+): Promise<{ status: number; elapsedMs: number; json: RouteResponse }> {
   const body = {
-    sourceDeckText: test.fixture.deckText,
-    format: test.fixture.format,
-    commander: test.fixture.commander,
-    transformIntent: test.intent,
-    powerLevel: test.powerLevel,
-    budget: test.budget,
+    sourceDeckText: deck.sourceDeckText,
+    format: deck.format,
+    commander: deck.commander,
+    transformIntent: pass,
+    powerLevel: deck.format === "Commander" ? "Casual" : "Focused",
+    budget: "Moderate",
   };
   const started = Date.now();
   const res = await fetch(`${baseUrl}/api/deck/transform`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "user-agent": "ai-workshop-eval/1.0",
       authorization: `Bearer ${bearerToken}`,
+      "user-agent": "ai-workshop-eval/1.0",
     },
     body: JSON.stringify(body),
   });
   const elapsedMs = Date.now() - started;
   const raw = await res.text();
-  let json: any = {};
+  let json: RouteResponse = {};
   try {
     json = JSON.parse(raw);
   } catch {
-    json = { raw };
+    json = { ok: false, error: raw.slice(0, 500) };
   }
   return { status: res.status, elapsedMs, json };
 }
 
-function normalizeDeckRows(text: string): Array<{ name: string; qty: number }> {
-  return aggregateCards(parseDeckText(text));
-}
-
-function diffDeckRows(beforeText: string, afterText: string) {
-  const before = new Map(normalizeDeckRows(beforeText).map((row) => [norm(row.name), row.qty]));
-  const afterRows = normalizeDeckRows(afterText);
-  const after = new Map(afterRows.map((row) => [norm(row.name), row.qty]));
-  const nameByKey = new Map<string, string>();
-  for (const row of normalizeDeckRows(beforeText)) nameByKey.set(norm(row.name), row.name);
-  for (const row of afterRows) nameByKey.set(norm(row.name), row.name);
-  const keys = new Set([...before.keys(), ...after.keys()]);
-  const added: string[] = [];
-  const removed: string[] = [];
-  for (const key of keys) {
-    const b = before.get(key) ?? 0;
-    const a = after.get(key) ?? 0;
-    if (a > b) added.push(nameByKey.get(key) ?? key);
-    if (b > a) removed.push(nameByKey.get(key) ?? key);
-  }
-  return { added, removed };
-}
-
-async function findCommanderOffColorNames(deckText: string, commander: string | null) {
-  if (!commander) return [];
-  const colors = (await import("../lib/deck/generation-helpers")).getCommanderColorIdentity
-    ? await (await import("../lib/deck/generation-helpers")).getCommanderColorIdentity(commander)
-    : [];
-  const allowed = colors.map((c: string) => c.toUpperCase());
-  const rows = normalizeDeckRows(deckText);
-  const details = await getDetailsForNamesCached(rows.map((row) => row.name));
+async function commanderColorIssue(deck: EvalDeck, resultRows: Array<{ name: string; qty: number }>, addedRows: Array<{ name: string; qty: number }>): Promise<string | null> {
+  if (!deck.commander || !isCommanderFormatString(deck.format)) return null;
+  const commanderColors = await resolveCommanderColors(deck.commander);
+  if (!commanderColors.length) return null;
   const offenders: string[] = [];
-  for (const row of rows) {
-    const detail = details.get(norm(row.name));
+  const rowsToCheck = addedRows.length ? addedRows : [];
+  for (const row of rowsToCheck) {
+    const detail = await fetchScryfallCard(row.name);
     if (!detail) continue;
-    if (!isWithinColorIdentity(detail as any, allowed)) offenders.push(row.name);
+    const within = detail.color_identity.every((color: string) => commanderColors.includes(color));
+    if (!within) offenders.push(row.name);
   }
-  return offenders;
+  return offenders.length ? `Output still contains off-color additions for ${deck.commander}: ${offenders.slice(0, 5).join(", ")}` : null;
 }
 
-function summarizeCounts(added: string[], removed: string[], warnings: string[]) {
-  return `${added.length} adds · ${removed.length} cuts · ${warnings.length} notes`;
+function evaluateLegalityCase(deck: EvalDeck, added: Array<{ name: string; qty: number }>, removed: Array<{ name: string; qty: number }>, summary: string, warnings: string[]): { hardIssues: string[]; cautions: string[] } {
+  const hardIssues: string[] = [];
+  const cautions: string[] = [];
+
+  if (deck.expectedLegality === "noop") {
+    if (added.length || removed.length) {
+      hardIssues.push(`Expected no-op legality check, but got ${added.length} additions and ${removed.length} removals.`);
+    }
+    if (!/no legality changes needed/i.test(summary)) {
+      cautions.push("Expected explicit no-op legality summary but did not see it.");
+    }
+  }
+
+  if (deck.expectedLegality === "size_only_review") {
+    if (added.length || removed.length) {
+      hardIssues.push(`Expected deck-size review only, but got ${added.length} additions and ${removed.length} removals.`);
+    }
+    if (!/deck size needs review/i.test(summary)) {
+      hardIssues.push("Expected deck-size-only review summary.");
+    }
+  }
+
+  if (deck.expectedLegality === "repair") {
+    if (!added.length && !removed.length) {
+      hardIssues.push("Expected legality repair changes, but got no adds/removals.");
+    }
+    if (!warnings.length && !/legality|color identity/i.test(summary)) {
+      cautions.push("Repair path returned without clear legality/color identity note.");
+    }
+  }
+
+  return { hardIssues, cautions };
 }
 
-function heuristicIssues(
-  test: EvalCase,
-  response: any,
-  baselineFacts: Awaited<ReturnType<typeof buildGenerationPreviewFacts>> | undefined,
-  resultFacts: Awaited<ReturnType<typeof buildGenerationPreviewFacts>> | undefined,
-  added: string[],
-  removed: string[],
-  finalCount: number,
-  offColorNames: string[],
-): { severity: "pass" | "warn" | "fail"; issues: string[] } {
-  const issues: string[] = [];
-  const expectation = test.fixture.expectation;
-  const rules = getFormatRules(test.fixture.format);
-  const summary = compactText(response.summary);
-  const warningText = compactText(response.warnings);
-
-  if (response.ok === false) issues.push(`api returned ok=false: ${response.error || response.code || "unknown"}`);
-  if (!response.deckText) issues.push("missing deckText in response");
-  if (test.fixture.format === "Commander" && offColorNames.length > 0) {
-    issues.push(`output still contains off-color cards: ${offColorNames.slice(0, 5).join(", ")}`);
-  }
-
-  if (expectation === "legal_noop" && test.intent === "fix_legality") {
-    if (added.length > 0 || removed.length > 0) issues.push("legal deck should not change under fix_legality");
-    if (!/no legality changes needed/i.test(summary) && !/already passes current/i.test(summary)) {
-      issues.push("legal no-op summary missing explicit no-change wording");
-    }
-  }
-
-  if (expectation === "size_review_only" && test.intent === "fix_legality") {
-    if (added.length > 0 || removed.length > 0) issues.push("size-only review should not propose adds or cuts");
-    if (!/deck size needs review/i.test(summary) && !/cards after validation/i.test(warningText)) {
-      issues.push("size-only review missing deck-size warning");
-    }
-  }
-
-  if (expectation === "offcolor_repair" && test.intent === "fix_legality" && removed.length === 0) {
-    issues.push("off-color repair should remove at least one card");
-  }
-
-  if (expectation === "duplicate_repair" && test.intent === "fix_legality" && removed.length === 0) {
-    issues.push("duplicate repair should remove at least one card");
-  }
-
-  if (test.intent !== "fix_legality") {
-    if (added.length === 0 && removed.length === 0) issues.push(`${test.intent} returned no visible changes`);
-    if (finalCount !== rules.mainDeckTarget) {
-      issues.push(`result card count ${finalCount}/${rules.mainDeckTarget}`);
-    }
-    if (test.intent === "tighten_curve" && baselineFacts?.avg_cmc != null && resultFacts?.avg_cmc != null) {
-      if (resultFacts.avg_cmc > baselineFacts.avg_cmc + 0.1) issues.push("curve pass increased avg CMC");
-    }
-    if (test.intent === "add_interaction" && baselineFacts && resultFacts) {
-      if (resultFacts.interaction_count < baselineFacts.interaction_count + 1) {
-        issues.push("interaction pass did not improve interaction count");
+function evaluatePassHeuristics(
+  pass: TransformIntent,
+  beforeFacts: PreviewFacts | undefined,
+  afterFacts: PreviewFacts | undefined,
+  added: Array<{ name: string; qty: number }>,
+  removed: Array<{ name: string; qty: number }>,
+): string[] {
+  const cautions: string[] = [];
+  if (!beforeFacts || !afterFacts) return cautions;
+  switch (pass) {
+    case "general":
+      if (added.reduce((sum, row) => sum + row.qty, 0) + removed.reduce((sum, row) => sum + row.qty, 0) > 24) {
+        cautions.push("General cleanup changed more than 24 cards; that feels aggressive for a cleanup pass.");
       }
-    }
-    if (test.intent === "improve_mana_base" && baselineFacts && resultFacts) {
-      if (resultFacts.land_count < baselineFacts.land_count - 2 && resultFacts.ramp_count <= baselineFacts.ramp_count) {
-        issues.push("mana base pass reduced lands without improving ramp");
+      break;
+    case "improve_mana_base":
+      if (afterFacts.land_count < beforeFacts.land_count && afterFacts.ramp_count < beforeFacts.ramp_count) {
+        cautions.push("Mana base pass reduced both land count and ramp count.");
       }
-    }
-    if (test.intent === "lower_budget" && added.some((name) => expensiveCardHints.some((re) => re.test(name)))) {
-      issues.push("budget pass added premium / expensive card(s)");
-    }
-    if (test.intent === "more_casual" && added.some((name) => /mana crypt|jeweled lotus|ad nauseam/i.test(name))) {
-      issues.push("casual pass added cEDH-leaning card(s)");
-    }
+      break;
+    case "tighten_curve":
+      if (afterFacts.avg_cmc > beforeFacts.avg_cmc + 0.15) {
+        cautions.push(`Curve pass increased avg CMC from ${beforeFacts.avg_cmc} to ${afterFacts.avg_cmc}.`);
+      }
+      break;
+    case "add_interaction":
+      if (afterFacts.interaction_count < beforeFacts.interaction_count) {
+        cautions.push(`Interaction pass reduced interaction count from ${beforeFacts.interaction_count} to ${afterFacts.interaction_count}.`);
+      }
+      break;
+    case "lower_budget":
+      if (added.some((row) => EXPENSIVE_STAPLE_WATCHLIST.has(norm(row.name)))) {
+        cautions.push("Budget pass added at least one known expensive staple.");
+      }
+      break;
+    case "more_casual":
+      if (added.some((row) => SPIKY_WATCHLIST.has(norm(row.name)))) {
+        cautions.push("Casual pass added at least one spiky/cEDH-leaning card.");
+      }
+      break;
+    case "more_optimized":
+      if (afterFacts.interaction_count < beforeFacts.interaction_count - 1 && afterFacts.avg_cmc > beforeFacts.avg_cmc + 0.2) {
+        cautions.push("Optimized pass looked less interactive and clunkier than the source.");
+      }
+      break;
+    default:
+      break;
   }
-
-  const severity: "pass" | "warn" | "fail" =
-    issues.length === 0 ? "pass" : issues.some((issue) => /missing deckText|output still contains off-color|legal deck should not change|should remove at least one|increased avg CMC|did not improve interaction count|reduced lands without improving ramp|result card count/i.test(issue)) ? "fail" : "warn";
-  return { severity, issues };
+  return cautions;
 }
 
-function buildEvalCases(fixtures: DeckFixture[]): EvalCase[] {
-  const legalityCases: EvalCase[] = fixtures.map((fixture) => ({
-    fixture,
-    intent: "fix_legality",
-    powerLevel: fixture.format === "Commander" ? "Casual" : "Mid",
-    budget: "Moderate",
-  }));
+function toMarkdown(results: EvalResult[], summary: { total: number; pass: number; warn: number; fail: number }) {
+  const lines: string[] = [];
+  lines.push("# AI Workshop Eval Report");
+  lines.push("");
+  lines.push(`Generated: ${new Date().toISOString()}`);
+  lines.push(`Base URL: ${baseUrl}`);
+  lines.push("");
+  lines.push(`- Total runs: ${summary.total}`);
+  lines.push(`- Passed: ${summary.pass}`);
+  lines.push(`- Warned: ${summary.warn}`);
+  lines.push(`- Failed: ${summary.fail}`);
+  lines.push("");
 
-  const byId = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
-  const representativeIds = [
-    "atraxa-superfriends",
-    "yuriko-ninjas",
-    "lathril-elves",
-    "modern-burn",
-    "standard-boros",
-  ];
-  const transformIntents: TransformIntent[] = [
-    "general",
-    "improve_mana_base",
-    "tighten_curve",
-    "add_interaction",
-    "lower_budget",
-    "more_casual",
-    "more_optimized",
-  ];
-  const nonLegalityCases: EvalCase[] = [];
-  for (const id of representativeIds) {
-    const fixture = byId.get(id);
-    if (!fixture) continue;
-    for (const intent of transformIntents) {
-      nonLegalityCases.push({
-        fixture,
-        intent,
-        powerLevel: fixture.format === "Commander" ? "Focused" : "Mid",
-        budget: intent === "lower_budget" ? "Budget" : "Moderate",
+  const grouped = new Map<string, EvalResult[]>();
+  for (const result of results) {
+    const key = `${result.deckName} (${result.format})`;
+    const list = grouped.get(key) || [];
+    list.push(result);
+    grouped.set(key, list);
+  }
+
+  for (const [deckLabel, deckResults] of grouped) {
+    lines.push(`## ${deckLabel}`);
+    lines.push("");
+    for (const result of deckResults) {
+      lines.push(`### ${PASS_LABELS[result.pass]} - ${result.status.toUpperCase()}`);
+      lines.push("");
+      lines.push(`- Count: ${result.finalCount}/${result.targetCount}`);
+      lines.push(`- Added: ${result.added.map((row) => `${row.qty} ${row.name}`).join(", ") || "none"}`);
+      lines.push(`- Removed: ${result.removed.map((row) => `${row.qty} ${row.name}`).join(", ") || "none"}`);
+      lines.push(`- Summary: ${result.summary || "none"}`);
+      if (result.warnings.length) lines.push(`- Warnings: ${result.warnings.join(" | ")}`);
+      if (result.hardIssues.length) lines.push(`- Hard issues: ${result.hardIssues.join(" | ")}`);
+      if (result.cautions.length) lines.push(`- Cautions: ${result.cautions.join(" | ")}`);
+      lines.push("");
+    }
+  }
+  return lines.join("\n");
+}
+
+async function main() {
+  fs.mkdirSync(reportDir, { recursive: true });
+
+  const serverOk = await pingServer();
+  if (!serverOk) {
+    console.error(`Cannot reach ${baseUrl}/api/health. Start the website locally or set BASE_URL.`);
+    process.exit(2);
+  }
+
+  const auth = await resolveBearerToken();
+  const bearerToken = auth.token;
+  if (!bearerToken) {
+    console.error("Could not resolve a bearer token from DEV_LOGIN_* / AI_STRESS_* env vars or service-role fallback.");
+    process.exit(2);
+  }
+
+  const precons = await fetchPrecons(2);
+  const decks = buildRepresentativeDecks(precons);
+  const results: EvalResult[] = [];
+
+  for (const deck of decks) {
+    let baselineFacts: PreviewFacts | undefined;
+    const passes = CORE_FULL_PASS_IDS.has(deck.id) ? ALL_PASSES : (["fix_legality"] as TransformIntent[]);
+    for (const pass of passes) {
+      const response = await postTransform(bearerToken, deck, pass);
+      const hardIssues: string[] = [];
+      const cautions: string[] = [];
+
+      if (response.status < 200 || response.status >= 300) {
+        hardIssues.push(`HTTP ${response.status}: ${response.json?.error || "unknown error"}`);
+      }
+      if (response.json?.ok === false) {
+        hardIssues.push(`Route returned ok=false: ${response.json.error || "unknown error"}`);
+      }
+
+      const resultRows = Array.isArray(response.json.decklist)
+        ? response.json.decklist
+        : typeof response.json.deckText === "string"
+          ? rowsFromDeckText(response.json.deckText)
+          : [];
+      const sourceRows = rowsFromDeckText(deck.sourceDeckText);
+      const diff = diffDeckRows(sourceRows, resultRows);
+      const formatRules = getFormatRules(deck.format);
+      const finalCount = totalDeckQty(resultRows);
+      const warnings = compactWarningList(response.json.warnings);
+
+      if (!resultRows.length && hardIssues.length === 0) {
+        hardIssues.push("Route returned no deck rows.");
+      }
+      if (finalCount !== formatRules.mainDeckTarget && warnings.length === 0) {
+        cautions.push(`Deck count ended at ${finalCount}/${formatRules.mainDeckTarget} without warnings.`);
+      }
+
+      const commanderIssue = await commanderColorIssue(deck, resultRows, diff.added);
+      if (commanderIssue) hardIssues.push(commanderIssue);
+
+      if (pass === "fix_legality") {
+        const legalityEval = evaluateLegalityCase(deck, diff.added, diff.removed, String(response.json.summary || ""), warnings);
+        hardIssues.push(...legalityEval.hardIssues);
+        cautions.push(...legalityEval.cautions);
+        if (!diff.added.length && !diff.removed.length && response.json.previewFacts) {
+          baselineFacts = response.json.previewFacts;
+        }
+      } else {
+        cautions.push(...evaluatePassHeuristics(pass, baselineFacts, response.json.previewFacts, diff.added, diff.removed));
+      }
+
+      const status: EvalResult["status"] = hardIssues.length ? "fail" : cautions.length ? "warn" : "pass";
+      results.push({
+        deckId: deck.id,
+        deckName: deck.name,
+        format: deck.format,
+        pass,
+        status,
+        hardIssues,
+        cautions,
+        sourceLabel: deck.sourceLabel,
+        added: diff.added,
+        removed: diff.removed,
+        finalCount,
+        targetCount: formatRules.mainDeckTarget,
+        warnings,
+        summary: String(response.json.summary || ""),
+        elapsedMs: response.elapsedMs,
+        previewFactsBefore: baselineFacts,
+        previewFactsAfter: response.json.previewFacts,
+        raw: response.json,
       });
     }
   }
 
-  return [...legalityCases, ...nonLegalityCases];
-}
-
-function renderMarkdown(results: EvalResult[]) {
-  const total = results.length;
-  const pass = results.filter((r) => r.severity === "pass").length;
-  const warn = results.filter((r) => r.severity === "warn").length;
-  const fail = results.filter((r) => r.severity === "fail").length;
-  const sections = [
-    `# AI Workshop Eval Report`,
-    ``,
-    `Generated: ${new Date().toISOString()}`,
-    `Base URL: ${baseUrl}`,
-    ``,
-    `## Summary`,
-    ``,
-    `- Total eval cases: ${total}`,
-    `- Pass: ${pass}`,
-    `- Warn: ${warn}`,
-    `- Fail: ${fail}`,
-    ``,
-    `## Failures`,
-    ``,
-  ];
-
-  const interesting = [...results].filter((r) => r.severity !== "pass").sort((a, b) => a.severity.localeCompare(b.severity));
-  if (interesting.length === 0) sections.push(`No warnings or failures.`);
-  for (const result of interesting) {
-    sections.push(
-      `### ${result.fixtureTitle} — ${result.intent}`,
-      ``,
-      `- Severity: ${result.severity}`,
-      `- Format: ${result.fixtureFormat}`,
-      `- Source: ${result.fixtureSource}`,
-      `- Time: ${result.elapsedMs}ms`,
-      `- Summary: ${result.summary || "—"}`,
-      `- Changes: ${summarizeCounts(result.added, result.removed, result.warnings)}`,
-      `- Issues:`,
-      ...result.issues.map((issue) => `  - ${issue}`),
-      result.added.length ? `- Added: ${result.added.slice(0, 8).join(", ")}` : `- Added: none`,
-      result.removed.length ? `- Removed: ${result.removed.slice(0, 8).join(", ")}` : `- Removed: none`,
-      result.warnings.length ? `- Warnings: ${result.warnings.join(" | ")}` : `- Warnings: none`,
-      ``,
-    );
-  }
-
-  return sections.join("\n");
-}
-
-async function main() {
-  const serverOk = await pingServer();
-  if (!serverOk) {
-    throw new Error(`Cannot reach ${baseUrl}/api/health. Start the local server or set BASE_URL.`);
-  }
-
-  const bearerToken = await resolveBearerToken();
-  if (!bearerToken) {
-    throw new Error("Could not resolve a bearer token from DEV_LOGIN_* / AI_STRESS_* env.");
-  }
-
-  const commanderFixtures = buildCommanderFixtures();
-  const specialFixtures = [
-    withMissingOneCard(commanderFixtures[0]),
-    withOffColorRepair(commanderFixtures[9] ?? commanderFixtures[0]),
-    withDuplicateRepair(commanderFixtures[1] ?? commanderFixtures[0]),
-  ];
-  const fixtures = [...commanderFixtures, ...makeConstructedFixtures(), ...specialFixtures, ...(await fetchPreconFixtures())];
-  const cases = buildEvalCases(fixtures);
-
-  const results: EvalResult[] = [];
-  for (const test of cases) {
-    const response = await requestTransform(test, bearerToken);
-    const warnings = Array.isArray(response.json?.warnings) ? response.json.warnings.map(String) : [];
-    const deckText = String(response.json?.deckText || "");
-    const { added, removed } = deckText ? diffDeckRows(test.fixture.deckText, deckText) : { added: [], removed: [] };
-    const baselineFacts = await buildGenerationPreviewFacts(
-      test.fixture.deckText,
-      test.fixture.commander,
-      test.fixture.format,
-    ).catch(() => undefined);
-    const resultFacts = deckText
-      ? await buildGenerationPreviewFacts(deckText, test.fixture.commander, test.fixture.format).catch(() => undefined)
-      : undefined;
-    const finalCount = deckText ? totalDeckQty(normalizeDeckRows(deckText)) : undefined;
-    const offColorNames =
-      test.fixture.format === "Commander" && deckText
-        ? await findCommanderOffColorNames(deckText, test.fixture.commander)
-        : [];
-    const heuristic = heuristicIssues(test, response.json, baselineFacts, resultFacts, added, removed, finalCount ?? 0, offColorNames);
-
-    results.push({
-      fixtureId: test.fixture.id,
-      fixtureTitle: test.fixture.title,
-      fixtureFormat: test.fixture.format,
-      fixtureSource: test.fixture.source ?? "fixture",
-      intent: test.intent,
-      status: response.status,
-      elapsedMs: response.elapsedMs,
-      ok: response.status >= 200 && response.status < 300 && response.json?.ok !== false,
-      severity: heuristic.severity,
-      added,
-      removed,
-      warnings,
-      issues: heuristic.issues,
-      summary: String(response.json?.summary || ""),
-      baselineFacts,
-      resultFacts,
-      finalCount,
-    });
-  }
-
-  fs.mkdirSync(docsDir, { recursive: true });
-  fs.writeFileSync(reportPath, renderMarkdown(results), "utf8");
-  fs.writeFileSync(jsonPath, JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, results }, null, 2), "utf8");
-
-  const output = {
-    ok: results.every((r) => r.severity !== "fail"),
+  const summary = {
     total: results.length,
-    pass: results.filter((r) => r.severity === "pass").length,
-    warn: results.filter((r) => r.severity === "warn").length,
-    fail: results.filter((r) => r.severity === "fail").length,
-    reportPath,
-    jsonPath,
+    pass: results.filter((result) => result.status === "pass").length,
+    warn: results.filter((result) => result.status === "warn").length,
+    fail: results.filter((result) => result.status === "fail").length,
   };
 
+  fs.writeFileSync(
+    jsonOut,
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        baseUrl,
+        decks: decks.map((deck) => ({ id: deck.id, name: deck.name, format: deck.format, sourceLabel: deck.sourceLabel })),
+        summary,
+        results,
+      },
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(mdOut, toMarkdown(results, summary));
+
   if (jsonOnly) {
-    console.log(JSON.stringify(output));
+    console.log(JSON.stringify({ summary, jsonOut, mdOut }, null, 2));
   } else {
-    console.log(JSON.stringify(output, null, 2));
-    console.log(`Report written to ${reportPath}`);
+    console.log("AI Workshop eval complete.");
+    console.log(`Runs: ${summary.total} | pass=${summary.pass} warn=${summary.warn} fail=${summary.fail}`);
+    console.log(`JSON: ${jsonOut}`);
+    console.log(`Markdown: ${mdOut}`);
+    const flagged = results.filter((result) => result.status !== "pass");
+    for (const result of flagged.slice(0, 20)) {
+      console.log(`- [${result.status.toUpperCase()}] ${result.deckName} :: ${PASS_LABELS[result.pass]}`);
+      for (const issue of result.hardIssues) console.log(`    hard: ${issue}`);
+      for (const caution of result.cautions) console.log(`    warn: ${caution}`);
+    }
   }
 
-  if (!output.ok) process.exit(1);
+  if (auth.cleanup) {
+    await auth.cleanup().catch(() => {});
+  }
+
+  process.exit(summary.fail > 0 ? 1 : 0);
 }
 
 main().catch((error) => {

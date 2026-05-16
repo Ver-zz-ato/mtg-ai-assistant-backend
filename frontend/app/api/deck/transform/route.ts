@@ -155,7 +155,6 @@ export async function POST(req: NextRequest) {
         { role: "user", content: userPrompt },
       ],
       max_completion_tokens: 8000,
-      temperature: 0.55,
     } as Record<string, unknown>);
 
     // eslint-disable-next-line no-restricted-globals -- OpenAI streaming-compatible POST

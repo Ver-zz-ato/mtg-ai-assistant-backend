@@ -54,7 +54,7 @@ async function main() {
   assert.match(optimizedBlock, /improve consistency/i);
 
   const generalBlock = buildTransformIntentPromptBlock("general");
-  assert.match(generalBlock, /keep the deck recognizable/i);
+  assert.match(generalBlock, /keep(?:ing)? the deck recognizable/i);
 
   const importedBlock = buildTransformIntentPromptBlock("refine_imported_deck");
   assert.match(importedBlock, /Typical import cleanup/i);
