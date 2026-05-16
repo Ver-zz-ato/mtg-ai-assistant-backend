@@ -211,6 +211,24 @@ const VIBE_KEYWORDS: Record<string, string[]> = {
   legends: ["legendary_matters", "value"],
 };
 
+const GENERIC_THEME_TAGS = new Set(["legendary_matters"]);
+const GENERIC_COMMANDER_TAGS = new Set([
+  "build_around_commander",
+  "goodstuff_commander",
+  "linear_commander",
+  "open_ended_commander",
+]);
+
+const THEME_GATE_PATTERNS: Record<string, RegExp> = {
+  tokens: /\bcreature token\b|\bcreate .* token\b|\bpopulate\b|\bamass\b|\bincubate\b/i,
+  graveyard: /\bgraveyard\b|\breturn target .* from your graveyard\b|\bcast .* from your graveyard\b|\bmill\b|\bsurveil\b/i,
+  spellslinger: /\binstant or sorcery\b|\bcopy target spell\b|\bspells? you cast cost\b|\bwhenever you cast (?:an )?instant or sorcery\b|\bstorm\b/i,
+  tribal: /\bdragon\b|\belf\b|\bzombie\b|\bgoblin\b|\bvampire\b/i,
+  enchantments: /\benchantment\b|\baura\b|\bconstellation\b/i,
+  artifacts: /\bartifact\b|\btreasure token\b|\bclue token\b|\bfood token\b|\bblood token\b/i,
+  blink: /\bexile\b.{0,50}\breturn\b.{0,50}\bto the battlefield\b|\benters the battlefield\b/i,
+};
+
 function uniqueSorted(items: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(items).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
@@ -463,8 +481,8 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
   if (themeAnswer) desiredThemeTags.add(themeAnswer);
   if (themeAnswer === "tokens") desiredCommanderTags.add("go_wide");
   if (themeAnswer === "tokens") desiredArchetypes.add("aggro");
+  if (themeAnswer === "tokens") desiredGameplayTags.add("payoff");
   if (themeAnswer === "graveyard") {
-    desiredCommanderTags.add("aristocrats");
     desiredGameplayTags.add("recursion");
     desiredArchetypes.add("value");
   }
@@ -480,6 +498,8 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
     desiredThemeTags.add("spellslinger");
     desiredCommanderTags.add("spell_combo");
     desiredArchetypes.add("combo");
+    desiredGameplayTags.add("card_draw");
+    desiredGameplayTags.add("engine");
   }
   if (themeAnswer === "tribal") {
     desiredThemeTags.add("tribal");
@@ -507,7 +527,6 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
     desiredCommanderTags.add("linear_commander");
   }
   if (complexity.includes("complex")) {
-    desiredCommanderTags.add("open_ended_commander");
     desiredGameplayTags.add("engine");
   }
 
@@ -571,13 +590,71 @@ function scoreBandMatch<T extends string>(actual: T, desired: T, exactWeight: nu
   return actual === desired ? exactWeight : 0;
 }
 
+function humanizeTag(tag: string): string {
+  switch (tag) {
+    case "go_wide":
+      return "go-wide";
+    case "spell_combo":
+      return "spell-combo";
+    case "big_mana":
+      return "big mana";
+    case "card_draw":
+      return "card draw";
+    case "death_triggers":
+      return "death triggers";
+    case "counters_plus1":
+      return "+1/+1 counters";
+    case "legendary_matters":
+      return "legendary-matters";
+    default:
+      return tag.replace(/_/g, " ");
+  }
+}
+
+function preferredThemeTag(candidate: RecommendationCandidate): string | undefined {
+  return candidate.theme_tags.find((tag) => !GENERIC_THEME_TAGS.has(tag)) ?? candidate.theme_tags[0];
+}
+
+function preferredCommanderTag(candidate: RecommendationCandidate): string | undefined {
+  return candidate.commander_tags.find((tag) => !GENERIC_COMMANDER_TAGS.has(tag)) ?? candidate.commander_tags[0];
+}
+
+function themeGateSatisfied(candidate: RecommendationCandidate, desiredTheme: string): boolean {
+  const oracle = normalizeText(candidate.oracle_text);
+  const typeLine = normalizeText(candidate.type_line);
+  const haystack = `${oracle} ${typeLine}`;
+  const hasCreatureTokenEvidence = THEME_GATE_PATTERNS.tokens.test(haystack);
+  const hasGraveyardEvidence = THEME_GATE_PATTERNS.graveyard.test(haystack);
+  const hasSpellslingerEvidence = THEME_GATE_PATTERNS.spellslinger.test(haystack);
+
+  switch (desiredTheme) {
+    case "tokens":
+      return candidate.commander_tags.includes("go_wide") || hasCreatureTokenEvidence;
+    case "graveyard":
+    case "reanimator":
+      return candidate.theme_tags.includes("graveyard") || candidate.theme_tags.includes("reanimator") || candidate.gameplay_tags.includes("recursion") || hasGraveyardEvidence;
+    case "spellslinger":
+      return hasSpellslingerEvidence || (candidate.theme_tags.includes("spellslinger") && candidate.gameplay_tags.includes("card_draw"));
+    case "tribal":
+      return candidate.theme_tags.includes("tribal") || candidate.commander_tags.includes("tribal_commander") || THEME_GATE_PATTERNS.tribal.test(haystack);
+    case "enchantments":
+      return candidate.theme_tags.includes("enchantments") || THEME_GATE_PATTERNS.enchantments.test(haystack);
+    case "artifacts":
+      return candidate.theme_tags.includes("artifacts") || THEME_GATE_PATTERNS.artifacts.test(haystack);
+    case "blink":
+      return candidate.theme_tags.includes("blink") || candidate.theme_tags.includes("etb") || THEME_GATE_PATTERNS.blink.test(haystack);
+    default:
+      return true;
+  }
+}
+
 function archetypeLabel(candidate: RecommendationCandidate): string {
   return candidate.archetype_tags[0] || candidate.theme_tags[0] || candidate.commander_tags[0] || "Commander";
 }
 
 function descriptionLabel(candidate: RecommendationCandidate): string {
-  const primaryTheme = candidate.theme_tags[0];
-  const primaryCommanderTag = candidate.commander_tags[0];
+  const primaryTheme = preferredThemeTag(candidate);
+  const primaryCommanderTag = preferredCommanderTag(candidate);
   if (primaryTheme && primaryCommanderTag) return `${primaryTheme} ${primaryCommanderTag}`.replace(/_/g, " ");
   if (primaryTheme) return `${primaryTheme} build`;
   if (primaryCommanderTag) return `${primaryCommanderTag.replace(/_/g, " ")} plan`;
@@ -588,20 +665,40 @@ function buildFitReason(candidate: RecommendationCandidate, pref: CommanderPrefe
   const matchedTheme = candidate.theme_tags.find((tag) => pref.desiredThemeTags.has(tag));
   const matchedArchetype = candidate.archetype_tags.find((tag) => pref.desiredArchetypes.has(tag));
   const matchedGameplay = candidate.gameplay_tags.find((tag) => pref.desiredGameplayTags.has(tag));
-  const matchedCommanderTag = candidate.commander_tags.find((tag) => pref.desiredCommanderTags.has(tag));
+  const matchedCommanderTag = candidate.commander_tags.find((tag) => pref.desiredCommanderTags.has(tag) && !GENERIC_COMMANDER_TAGS.has(tag));
+  const theme = humanizeTag(matchedTheme ?? preferredThemeTag(candidate) ?? "");
+  const gameplay = humanizeTag(matchedGameplay ?? candidate.gameplay_tags[0] ?? "");
+  const commanderTag = humanizeTag(matchedCommanderTag ?? preferredCommanderTag(candidate) ?? "");
+  const archetype = humanizeTag(matchedArchetype ?? candidate.archetype_tags[0] ?? "");
+
+  if (matchedTheme === "spellslinger") {
+    if (candidate.commander_tags.includes("spell_combo")) return `Actually rewards instant-and-sorcery play instead of generic value lines.`;
+    if (candidate.gameplay_tags.includes("card_draw")) return `Keeps spellslinger turns flowing with real card-draw velocity.`;
+    return `Leans into spellslinger sequencing without drifting into random midrange.`;
+  }
+  if (matchedTheme === "tokens") {
+    if (candidate.commander_tags.includes("go_wide")) return `Turns token starts into a real go-wide kill plan.`;
+    if (candidate.gameplay_tags.includes("payoff")) return `Pays off token boards instead of just making extra material.`;
+    return `Supports a token-heavy table presence without going off-theme.`;
+  }
+  if (matchedTheme === "graveyard") {
+    if (candidate.gameplay_tags.includes("recursion")) return `Keeps the graveyard plan live with real recursion, not just filler text.`;
+    if (candidate.commander_tags.includes("aristocrats")) return `Connects graveyard value with sacrifice payoffs cleanly.`;
+    return `Uses the graveyard as a real engine instead of a side note.`;
+  }
   if (matchedTheme && matchedGameplay) {
-    return `Matches ${matchedTheme.replace(/_/g, " ")} with real ${matchedGameplay.replace(/_/g, " ")} support.`;
+    return `Matches ${humanizeTag(matchedTheme)} and backs it up with ${humanizeTag(matchedGameplay)}.`;
   }
   if (matchedTheme && matchedCommanderTag) {
-    return `Pushes ${matchedTheme.replace(/_/g, " ")} through a strong ${matchedCommanderTag.replace(/_/g, " ")} shell.`;
+    return `Leans hard into ${humanizeTag(matchedTheme)} through a ${humanizeTag(matchedCommanderTag)} shell.`;
   }
   if (matchedTheme && matchedArchetype) {
-    return `Blends ${matchedTheme.replace(/_/g, " ")} with a ${matchedArchetype.replace(/_/g, " ")} plan.`;
+    return `Blends ${humanizeTag(matchedTheme)} with a cleaner ${humanizeTag(matchedArchetype)} game plan.`;
   }
-  if (matchedTheme) return `Leans into ${matchedTheme.replace(/_/g, " ")} without wandering off-plan.`;
-  if (matchedCommanderTag) return `Strong ${matchedCommanderTag.replace(/_/g, " ")} commander with ${candidate.commander_interaction} interaction.`;
-  if (matchedGameplay) return `Fits a ${matchedGameplay.replace(/_/g, " ")} plan without forcing one narrow line.`;
-  if (matchedArchetype) return `Good fit if you want a cleaner ${matchedArchetype.replace(/_/g, " ")} game plan.`;
+  if (matchedTheme) return `Stays on-theme for ${humanizeTag(matchedTheme)} without asking for a full rebuild.`;
+  if (matchedCommanderTag) return `Adds a ${commanderTag} angle while keeping the plan coherent.`;
+  if (matchedGameplay) return `Fits because it gives you more ${gameplay} in the spots that matter.`;
+  if (matchedArchetype) return `Good fit if you want a more reliable ${archetype} shell.`;
   return `Broad ${archetypeLabel(candidate)} option with ${descriptionLabel(candidate)} support.`;
 }
 
@@ -647,6 +744,10 @@ function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPrefe
   let score = 0;
   const oracle = normalizeText(candidate.oracle_text);
   const typeLine = normalizeText(candidate.type_line);
+  const haystack = `${oracle} ${typeLine}`;
+  const hasCreatureTokenEvidence = THEME_GATE_PATTERNS.tokens.test(haystack);
+  const hasGraveyardEvidence = THEME_GATE_PATTERNS.graveyard.test(haystack);
+  const hasSpellslingerEvidence = THEME_GATE_PATTERNS.spellslinger.test(haystack);
   const themeMatchCount = candidate.theme_tags.filter((tag) => pref.desiredThemeTags.has(tag)).length;
   const gameplayMatchCount = candidate.gameplay_tags.filter((tag) => pref.desiredGameplayTags.has(tag)).length;
   const archetypeMatchCount = candidate.archetype_tags.filter((tag) => pref.desiredArchetypes.has(tag)).length;
@@ -669,8 +770,8 @@ function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPrefe
   if (pref.desiredThemeTags.has("reanimator") && candidate.gameplay_tags.includes("recursion")) score += 8;
   if (pref.desiredThemeTags.has("treasure") && candidate.gameplay_tags.includes("ramp")) score += 6;
   if (pref.desiredThemeTags.has("equipment") && candidate.archetype_tags.includes("aggro")) score += 6;
-  if (pref.desiredCommanderTags.has("linear_commander") && candidate.commander_tags.includes("linear_commander")) score += 4;
-  if (pref.desiredCommanderTags.has("open_ended_commander") && candidate.commander_tags.includes("open_ended_commander")) score += 4;
+  if (pref.desiredCommanderTags.has("linear_commander") && candidate.commander_tags.includes("linear_commander")) score += 2;
+  if (pref.desiredCommanderTags.has("open_ended_commander") && candidate.commander_tags.includes("open_ended_commander")) score += 1;
   if (pref.seedNames.includes(candidate.name)) score += 10;
   if (pref.desiredThemeTags.size > 0 && themeMatchCount === 0) score -= 18;
   if (pref.desiredGameplayTags.size > 0 && gameplayMatchCount === 0) score -= 8;
@@ -686,21 +787,29 @@ function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPrefe
   if (pref.desiredThemeTags.has("tribal") && !candidate.theme_tags.includes("tribal") && !candidate.commander_tags.includes("tribal_commander")) score -= 16;
   if (pref.desiredThemeTags.has("enchantments") && !candidate.theme_tags.includes("enchantments")) score -= 14;
   if (pref.desiredThemeTags.has("artifacts") && !candidate.theme_tags.includes("artifacts")) score -= 14;
+  for (const desiredTheme of pref.desiredThemeTags) {
+    if (!themeGateSatisfied(candidate, desiredTheme)) score -= 32;
+  }
   if (pref.desiredThemeTags.has("tokens")) {
-    if (/\bcreature token\b|\bpopulate\b|\bamass\b|\bincubate\b/i.test(oracle)) score += 22;
-    if (!/\bcreature token\b|\bpopulate\b|\bamass\b|\bincubate\b/i.test(oracle) && /\btreasure token\b|\bclue token\b|\bfood token\b|\bblood token\b/i.test(oracle)) score -= 20;
+    if (hasCreatureTokenEvidence) score += 24;
+    if (!hasCreatureTokenEvidence && /\btreasure token\b|\bclue token\b|\bfood token\b|\bblood token\b/i.test(oracle)) score -= 28;
   }
   if (pref.desiredThemeTags.has("graveyard")) {
-    if (/\bgraveyard\b|\breturn target .* from your graveyard\b|\bcast .* from your graveyard\b/i.test(oracle)) score += 18;
+    if (hasGraveyardEvidence) score += 18;
+    if (!hasGraveyardEvidence && candidate.commander_tags.includes("aristocrats")) score -= 12;
   }
   if (pref.desiredThemeTags.has("spellslinger")) {
-    if (/\binstant or sorcery\b|\bcopy target spell\b|\bwhenever you cast\b/i.test(oracle)) score += 22;
-    if (!/\binstant or sorcery\b|\bcopy target spell\b/i.test(oracle)) score -= 18;
+    if (hasSpellslingerEvidence) score += 28;
+    if (/\bdraw a card\b|\bdraw cards\b|\bcopy\b/i.test(oracle)) score += 6;
+    if (!hasSpellslingerEvidence) score -= 32;
   }
   if (pref.desiredThemeTags.has("artifacts") && (/\bartifact\b/i.test(oracle) || /\bartifact\b/i.test(typeLine))) score += 14;
   if (pref.desiredThemeTags.has("enchantments") && (/\benchantment\b/i.test(oracle) || /\benchantment\b/i.test(typeLine) || /\baura\b/i.test(typeLine))) score += 14;
   if (pref.desiredThemeTags.has("tribal") && /\bdragon\b|\belf\b|\bzombie\b|\bgoblin\b|\bvampire\b/i.test(`${oracle} ${typeLine}`)) score += 18;
-  score += Math.round((candidate.popularity_score ?? 0) * 8);
+  if (pref.desiredThemeTags.has("spellslinger") && candidate.commander_tags.includes("spell_combo")) score += 10;
+  if (pref.desiredThemeTags.has("tokens") && candidate.gameplay_tags.includes("payoff")) score += 8;
+  if (pref.desiredThemeTags.has("graveyard") && candidate.theme_tags.includes("self_mill")) score += 6;
+  score += Math.round((candidate.popularity_score ?? 0) * 6);
   return score;
 }
 
