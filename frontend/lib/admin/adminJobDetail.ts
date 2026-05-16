@@ -17,6 +17,8 @@ export const ADMIN_JOB_IDS = [
   "budget-swaps-update",
   "daily_ops_report",
   "weekly_ops_report",
+  "card-tag-refresh",
+  "card-tag-backfill",
 ] as const;
 
 export type AdminJobId = (typeof ADMIN_JOB_IDS)[number];
@@ -72,6 +74,8 @@ export function adminJobLastSuccessKey(jobId: string): string | null {
     bulk_price_import: "job:last:bulk_price_import",
     price_snapshot_bulk: "job:last:price_snapshot_bulk",
     "budget-swaps-update": "job:last:budget-swaps-update",
+    "card-tag-refresh": "job:last:card-tag-refresh",
+    "card-tag-backfill": "job:last:card-tag-backfill",
   };
   return m[jobId] ?? null;
 }
@@ -87,6 +91,8 @@ export function adminJobStaleHours(jobId: string): number {
     bulk_price_import: 36,
     price_snapshot_bulk: 36,
     "budget-swaps-update": 24 * 7,
+    "card-tag-refresh": 36,
+    "card-tag-backfill": 24 * 7,
     daily_ops_report: 36,
     weekly_ops_report: 24 * 7,
   };

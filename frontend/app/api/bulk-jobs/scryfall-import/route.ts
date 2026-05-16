@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
+import { retagCardsByNames } from "@/lib/recommendations/commander-recommender";
 
 interface ScryfallCard {
   name: string;
@@ -288,6 +289,11 @@ export async function POST(req: NextRequest) {
             const actualInserted = count || rows.length;
             inserted += actualInserted;
             errors = 0; // Reset error counter on success
+            try {
+              await retagCardsByNames(admin, rows.map((row) => String(row.name || "")).filter(Boolean));
+            } catch (tagError: any) {
+              console.warn(`⚠️ Card tag refresh skipped for batch ${i}-${i + BATCH_SIZE}:`, tagError?.message || tagError);
+            }
             
             // Log progress every 10 batches
             if (Math.floor(i / BATCH_SIZE) % 10 === 0) {

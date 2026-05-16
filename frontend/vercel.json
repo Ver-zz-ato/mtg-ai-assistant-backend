@@ -1,7 +1,8 @@
 {
   "functions": {
     "app/api/cron/mtg-legality-refresh/route.ts": { "maxDuration": 800 },
-    "app/api/cron/price/snapshot/route.ts": { "maxDuration": 800 }
+    "app/api/cron/price/snapshot/route.ts": { "maxDuration": 800 },
+    "app/api/cron/card-tag-refresh/route.ts": { "maxDuration": 800 }
   },
   "crons": [
     { "path": "/api/cron/price/snapshot", "schedule": "0 2 * * *" },
@@ -19,6 +20,7 @@
     { "path": "/api/shout/auto-generate", "schedule": "37 14 * * *" },
     { "path": "/api/shout/cleanup", "schedule": "0 3 * * *" },
     { "path": "/api/cron/budget-swaps-update", "schedule": "0 3 * * 0" },
-    { "path": "/api/cron/mtg-legality-refresh", "schedule": "0 2 * * 0" }
+    { "path": "/api/cron/mtg-legality-refresh", "schedule": "0 2 * * 0" },
+    { "path": "/api/cron/card-tag-refresh", "schedule": "0 3 * * *" }
   ]
 }
