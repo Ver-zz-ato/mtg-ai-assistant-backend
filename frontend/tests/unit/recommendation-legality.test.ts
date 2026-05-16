@@ -147,6 +147,47 @@ async function main() {
   assert.equal(kept.length, 1);
   assert.equal(kept[0].name, "Sol Ring");
 
+  const dfcMap = mockDetailsMap({
+    "Kumano Faces Kakkazan // Etching of Kumano": {
+      legalities: { pioneer: "legal" as const, modern: "legal" as const },
+      color_identity: ["R"],
+    },
+  });
+  const { lines: dfcKept } = await filterDecklistQtyRowsForFormat(
+    [{ name: "Kumano Faces Kakkazan", qty: 4 }],
+    "Pioneer",
+    {
+      bannedMaps,
+      getDetailsForNamesCachedOverride: async () => new Map(),
+      fetchExactCardOverride: async (name) =>
+        name === "Kumano Faces Kakkazan"
+          ? {
+              legalities: { pioneer: "legal", modern: "legal" },
+              color_identity: ["R"],
+            }
+          : null,
+    }
+  );
+  assert.equal(dfcKept.length, 1, "front-face name should match double-faced oracle entry");
+  assert.equal(dfcKept[0].name, "Kumano Faces Kakkazan");
+
+  const commanderDfcMap = mockDetailsMap({
+    "Legion's Landing // Adanto, the First Fort": {
+      legalities: { commander: "legal" as const, standard: "not_legal" as const },
+      color_identity: ["W"],
+    },
+  });
+  const { lines: commanderDfcKept } = await filterDecklistQtyRowsForFormat(
+    [{ name: "Legion's Landing", qty: 1 }],
+    "Commander",
+    {
+      bannedMaps,
+      getDetailsForNamesCachedOverride: async () => commanderDfcMap,
+    }
+  );
+  assert.equal(commanderDfcKept.length, 1, "front-face cache keys should match commander DFC names");
+  assert.equal(commanderDfcKept[0].name, "Legion's Landing");
+
   const stdMap = mockDetailsMap({
     Counterspell: ROW_COUNTERSTANDARD_LEGAL,
     "Demonic Tutor": ROW_DEMONTUTOR_NOT_STANDARD,

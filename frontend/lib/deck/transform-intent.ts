@@ -108,6 +108,12 @@ export function buildTransformIntentPromptBlock(canonical: TransformIntentCanoni
       preserve,
       "",
       "INTENT: general — Improve overall coherence, trim weak cards, and fix obvious issues while keeping the deck recognizable.",
+      "- Use a light touch first. Prefer roughly 6–12 total swaps.",
+      "- Do not exceed roughly 16 total swaps unless the source deck has clear legality, mana, or structural problems that force broader cleanup.",
+      "- Preserve the current manabase unless it is obviously unstable, illegal, or badly mismatched to the deck's colors.",
+      "- For non-Commander / constructed decks, keep the deck's overall land count close to the original unless the source count is clearly broken.",
+      "- For non-Commander / constructed decks, do not replace large batches of lands with generic threats or sidegrade spells in a general-cleanup pass.",
+      "- For non-Commander / constructed decks, treat general cleanup as a very small tune-up: usually no more than 4–8 maindeck card swaps total.",
     ].join("\n"),
 
     refine_imported_deck: [
@@ -126,6 +132,9 @@ export function buildTransformIntentPromptBlock(canonical: TransformIntentCanoni
       "- Adjust land count toward a healthy Commander manabase (often ~35–38 lands; utility lands where appropriate).",
       "- Tune ramp (rocks, dorks, land ramp) for speed and color consistency.",
       "- Do not rip out the deck's win lines or theme; change nonland spells only when they block mana stability.",
+      "- Keep nonland swaps tightly scoped to mana pieces only: mana rocks, dorks, land ramp, fixing, or obvious over-costed ramp slots.",
+      "- Do not add generic attackers, payoff creatures, or unrelated value cards in this pass.",
+      "- Preserve or slightly improve total land count unless the source list is clearly flooded; a mana-base pass should not quietly cut the deck's land foundation.",
     ].join("\n"),
 
     tighten_curve: [

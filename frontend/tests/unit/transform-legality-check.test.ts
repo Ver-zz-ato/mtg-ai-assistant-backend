@@ -14,6 +14,13 @@ function commanderDeckText(commander: string, cardNames: string[]): string {
   return ["Commander", `1 ${commander}`, ...cardNames.map((name) => `1 ${name}`)].join("\n");
 }
 
+function namedCard(prefix: string, index: number): string {
+  const first = String.fromCharCode(65 + (index % 26));
+  const second = String.fromCharCode(65 + (Math.floor(index / 26) % 26));
+  const third = String.fromCharCode(65 + (Math.floor(index / (26 * 26)) % 26));
+  return `${prefix} ${third}${second}${first}`;
+}
+
 function filterRowsByLegalities(
   rows: Array<{ name: string; qty: number }>,
   userFormat: string,
@@ -37,7 +44,7 @@ function filterRowsByLegalities(
 async function main() {
   {
     const commander = "My Commander";
-    const cards = Array.from({ length: 99 }, (_, i) => `Card ${i + 1}`);
+    const cards = Array.from({ length: 99 }, (_, i) => namedCard("Card", i));
     const details = makeDeckMap({
       [commander]: { legalities: { commander: "legal" }, color_identity: ["W"] },
       ...Object.fromEntries(cards.map((name) => [name, { legalities: { commander: "legal" }, color_identity: ["W"] }])),
@@ -66,7 +73,7 @@ async function main() {
 
   {
     const commander = "My Commander";
-    const cards = Array.from({ length: 97 }, (_, i) => `Card ${i + 1}`);
+    const cards = Array.from({ length: 97 }, (_, i) => namedCard("Copy Card", i));
     const details = makeDeckMap({
       [commander]: { legalities: { commander: "legal" }, color_identity: ["U"] },
       "Sol Ring": { legalities: { commander: "legal" }, color_identity: [] },
@@ -86,12 +93,14 @@ async function main() {
 
     assert.ok(result);
     assert.equal(result?.alreadyLegal, false, "duplicate nonbasic should fail Commander singleton check");
+    assert.equal(result?.needsDeterministicRepair, true);
     assert.match(result?.warnings.join("\n") ?? "", /copy-count violation/i);
+    assert.match(result?.warnings.join("\n") ?? "", /extra copies were removed/i);
   }
 
   {
     const commander = "Green Commander";
-    const cards = Array.from({ length: 98 }, (_, i) => `Card ${i + 1}`);
+    const cards = Array.from({ length: 98 }, (_, i) => namedCard("Green Card", i));
     const details = makeDeckMap({
       [commander]: { legalities: { commander: "legal" }, color_identity: ["G"] },
       "Lightning Bolt": { legalities: { commander: "legal" }, color_identity: ["R"] },
@@ -111,13 +120,14 @@ async function main() {
 
     assert.ok(result);
     assert.equal(result?.alreadyLegal, false, "off-color card should force a legality repair path");
+    assert.equal(result?.needsDeterministicRepair, true);
     assert.match(result?.warnings.join("\n") ?? "", /outside commander color identity/i);
     assert.equal(result?.validatedRows.some((row) => row.name === "Lightning Bolt"), false);
   }
 
   {
     const commander = "Ninety Nine Problems";
-    const cards = Array.from({ length: 98 }, (_, i) => `Count Card ${i + 1}`);
+    const cards = Array.from({ length: 98 }, (_, i) => namedCard("Count Card", i));
     const details = makeDeckMap({
       [commander]: { legalities: { commander: "legal" }, color_identity: ["W"] },
       ...Object.fromEntries(cards.map((name) => [name, { legalities: { commander: "legal" }, color_identity: ["W"] }])),
@@ -141,7 +151,33 @@ async function main() {
   }
 
   {
-    const cards = Array.from({ length: 60 }, (_, i) => `Standard Card ${i + 1}`);
+    const commander = "One Hundred One Problems";
+    const cards = Array.from({ length: 100 }, (_, i) => namedCard("Over Card", i));
+    const details = makeDeckMap({
+      [commander]: { legalities: { commander: "legal" }, color_identity: ["W"] },
+      ...Object.fromEntries(cards.map((name) => [name, { legalities: { commander: "legal" }, color_identity: ["W"] }])) ,
+    });
+    const deckText = commanderDeckText(commander, cards);
+
+    const result = await precheckFixLegalitySourceDeck(
+      { sourceDeckText: deckText, format: "Commander", commander },
+      {
+        getCommanderColors: async () => ["W"],
+        getCardDetails: async () => details,
+        filterRowsForFormat: filterRowsByLegalities,
+        warnOffColor: async () => null,
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result?.alreadyLegal, false);
+    assert.equal(result?.needsDeckSizeOnlyReview, true, "clean 101-card Commander list should become review-only, not AI-swap-driven");
+    assert.match(result?.warnings.join("\n") ?? "", /101 cards after validation; target is 100/i);
+    assert.equal(result?.validatedRows.reduce((sum, row) => sum + row.qty, 0), 101);
+  }
+
+  {
+    const cards = Array.from({ length: 60 }, (_, i) => namedCard("Standard Card", i));
     const details = makeDeckMap(
       Object.fromEntries(cards.map((name) => [name, { legalities: { standard: "legal" } }])),
     );
@@ -163,7 +199,7 @@ async function main() {
 
   {
     const commander = "Budget Commander";
-    const cards = Array.from({ length: 98 }, (_, i) => `Budget Card ${i + 1}`);
+    const cards = Array.from({ length: 98 }, (_, i) => namedCard("Budget Card", i));
     const details = makeDeckMap({
       [commander]: { legalities: { commander: "legal" }, color_identity: ["B"] },
       "Jeweled Lotus": { legalities: { commander: "banned" }, color_identity: [] },
@@ -183,12 +219,13 @@ async function main() {
 
     assert.ok(result);
     assert.equal(result?.alreadyLegal, false, "banned Commander card should force legality repair");
+    assert.equal(result?.needsDeterministicRepair, true);
     assert.match(result?.warnings.join("\n") ?? "", /not legal in Commander/i);
     assert.equal(result?.validatedRows.some((row) => row.name === "Jeweled Lotus"), false);
   }
 
   {
-    const cards = Array.from({ length: 60 }, (_, i) => `Pauper Card ${i + 1}`);
+    const cards = Array.from({ length: 60 }, (_, i) => namedCard("Pauper Card", i));
     const details = makeDeckMap(
       Object.fromEntries(cards.map((name) => [name, { legalities: { pauper: "legal" } }])),
     );

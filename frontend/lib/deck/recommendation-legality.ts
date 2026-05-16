@@ -6,6 +6,8 @@
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { getBannedCards, bannedDataToMaps } from "@/lib/data/get-banned-cards";
+import { cleanCardName } from "@/lib/deck/cleanCardName";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import {
   userFormatToScryfallLegalityKey,
   userFormatToBannedDataKey,
@@ -62,9 +64,30 @@ function logRemoved(
   console.warn(`[rec-legality] ${prefix}`, removed);
 }
 
+function resolveDetailEntry<T>(
+  details: Map<string, T>,
+  requestedName: string,
+): T | undefined {
+  const key = normalizeScryfallCacheName(requestedName);
+  let entry = details.get(key);
+  if (entry) return entry;
+  for (const [candidateKey, value] of details.entries()) {
+    const normalizedCandidate = normalizeScryfallCacheName(candidateKey);
+    if (normalizedCandidate === key) return value;
+    if (normalizeScryfallCacheName(cleanCardName(candidateKey)) === key) return value;
+    const faceMatches = candidateKey
+      .split(/\s*\/\/\s*/)
+      .map((face) => normalizeScryfallCacheName(cleanCardName(face)))
+      .filter(Boolean);
+    if (faceMatches.includes(key)) return value;
+  }
+  return undefined;
+}
+
 export type RecommendationLegalityRow = {
   legalities?: Record<string, string> | null;
 };
+type RecommendationLegalityCardRow = RecommendationLegalityRow & { color_identity?: string[] };
 
 const NON_CARD_BRACKET_TERMS = new Set([
   "deathtouch",
@@ -152,8 +175,117 @@ export type FilterSuggestedNamesOptions = {
    */
   getDetailsForNamesCachedOverride?: (
     names: string[]
-  ) => Promise<Map<string, RecommendationLegalityRow & { color_identity?: string[] }>>;
+  ) => Promise<Map<string, RecommendationLegalityCardRow>>;
+  fetchExactCardOverride?: (name: string) => Promise<RecommendationLegalityCardRow | null>;
 };
+
+const exactCardFallbackCache = new Map<string, RecommendationLegalityCardRow>();
+
+async function fetchDfcFrontFaceFromCache(name: string): Promise<RecommendationLegalityCardRow | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
+  if (!url || !service) return null;
+  const frontFace = String(name || "").split("//")[0]?.trim();
+  if (!frontFace) return null;
+  try {
+    const admin = createAdminClient(url, service, { auth: { persistSession: false } });
+    const { data } = await admin
+      .from("scryfall_cache")
+      .select("name, legalities, color_identity")
+      .ilike("name", `${frontFace} //%`)
+      .limit(8);
+    const target = normalizeScryfallCacheName(cleanCardName(frontFace));
+    const rows = Array.isArray(data) ? data : [];
+    const hit = rows.find((row: any) => {
+      const candidateFront = String(row?.name || "").split("//")[0]?.trim() || "";
+      return normalizeScryfallCacheName(cleanCardName(candidateFront)) === target;
+    });
+    if (!hit) return null;
+    return {
+      legalities: hit.legalities && typeof hit.legalities === "object" ? hit.legalities : null,
+      color_identity: Array.isArray(hit.color_identity) ? hit.color_identity.map((value: unknown) => String(value)) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchExactCardFallback(name: string): Promise<RecommendationLegalityCardRow | null> {
+  const cleaned = cleanCardName(name);
+  const cacheKey = normalizeScryfallCacheName(cleaned || name);
+  if (!cacheKey) return null;
+  const cacheDfcHit = await fetchDfcFrontFaceFromCache(cleaned || name);
+  if (cacheDfcHit) {
+    exactCardFallbackCache.set(cacheKey, cacheDfcHit);
+    return cacheDfcHit;
+  }
+  const cached = exactCardFallbackCache.get(cacheKey);
+  if (cached) return cached;
+
+  async function fetchNamed(endpoint: string): Promise<{ row: RecommendationLegalityCardRow | null; final: boolean }> {
+    try {
+      const res = await fetch(endpoint, {
+        cache: "no-store",
+        headers: {
+          "User-Agent": "Manatap legality fallback/1.0",
+          Accept: "application/json",
+        },
+      });
+      if (res.status === 404) {
+        return { row: null, final: false };
+      }
+      if (!res.ok) {
+        return { row: null, final: false };
+      }
+      const json = await res.json().catch(() => null);
+      if (!json || typeof json !== "object") {
+        return { row: null, final: false };
+      }
+      return {
+        row: {
+          legalities: json.legalities && typeof json.legalities === "object" ? json.legalities : null,
+          color_identity: Array.isArray(json.color_identity) ? json.color_identity.map((value: unknown) => String(value)) : undefined,
+        },
+        final: true,
+      };
+    } catch {
+      return { row: null, final: false };
+    }
+  }
+
+  try {
+    const exact = await fetchNamed(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cleaned || name)}`);
+    if (exact.row) {
+      exactCardFallbackCache.set(cacheKey, exact.row);
+      return exact.row;
+    }
+    const fuzzy = await fetchNamed(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cleaned || name)}`);
+    if (fuzzy.row) {
+      exactCardFallbackCache.set(cacheKey, fuzzy.row);
+      return fuzzy.row;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function rescueLegalityEntryIfNeeded(
+  name: string,
+  row: RecommendationLegalityCardRow | undefined,
+  cacheNormKey: string,
+  userFormat: string,
+  banNormSet: Set<string> | null,
+  opts?: FilterSuggestedNamesOptions,
+): Promise<{ allowed: boolean; reason: RecommendationLegalityRemovalReason | null }> {
+  const initial = evaluateCardRecommendationLegality(row, cacheNormKey, userFormat, banNormSet);
+  if (initial.allowed) return initial;
+  if (initial.reason !== "cache_miss" && initial.reason !== "not_legal") return initial;
+  const fallback = await (opts?.fetchExactCardOverride?.(name) ?? fetchExactCardFallback(name));
+  if (!fallback) return initial;
+  const rescued = evaluateCardRecommendationLegality(fallback, cacheNormKey, userFormat, banNormSet);
+  return rescued.allowed ? rescued : initial;
+}
 
 /**
  * Filter card names in **input order**; duplicates are evaluated independently.
@@ -186,17 +318,9 @@ export async function filterSuggestedCardNamesForFormat(
 
   for (const name of trimmed) {
     const k = normalizeScryfallCacheName(name);
-    let row = details.get(k);
-    if (!row) {
-      for (const [key, val] of details.entries()) {
-        if (normalizeScryfallCacheName(key) === k) {
-          row = val;
-          break;
-        }
-      }
-    }
+    const row = resolveDetailEntry(details, name);
 
-    const { allowed: ok, reason } = evaluateCardRecommendationLegality(row, k, userFormat, banNormSet);
+    const { allowed: ok, reason } = await rescueLegalityEntryIfNeeded(name, row, k, userFormat, banNormSet, opts);
     if (ok) allowed.push(name);
     else if (reason) removed.push({ name, reason });
   }
@@ -234,16 +358,8 @@ export async function filterRecommendationRowsByName<T extends { name: string }>
     const name = String(row.name || "").trim();
     if (!name) continue;
     const k = normalizeScryfallCacheName(name);
-    let entry = details.get(k);
-    if (!entry) {
-      for (const [key, val] of details.entries()) {
-        if (normalizeScryfallCacheName(key) === k) {
-          entry = val;
-          break;
-        }
-      }
-    }
-    const { allowed: ok, reason } = evaluateCardRecommendationLegality(entry, k, userFormat, banNormSet);
+    const entry = resolveDetailEntry(details, name);
+    const { allowed: ok, reason } = await rescueLegalityEntryIfNeeded(name, entry, k, userFormat, banNormSet, opts);
     if (ok) allowed.push(row);
     else if (reason) removed.push({ name, reason });
   }
@@ -320,16 +436,8 @@ export async function filterDecklistQtyRowsForFormat(
     const name = String(line.name || "").trim();
     if (!name) continue;
     const k = normalizeScryfallCacheName(name);
-    let entry = details.get(k);
-    if (!entry) {
-      for (const [key, val] of details.entries()) {
-        if (normalizeScryfallCacheName(key) === k) {
-          entry = val;
-          break;
-        }
-      }
-    }
-    const { allowed: ok, reason } = evaluateCardRecommendationLegality(entry, k, userFormat, banNormSet);
+    const entry = resolveDetailEntry(details, name);
+    const { allowed: ok, reason } = await rescueLegalityEntryIfNeeded(name, entry, k, userFormat, banNormSet, opts);
     if (ok) kept.push(line);
     else if (reason) removed.push({ name, reason });
   }

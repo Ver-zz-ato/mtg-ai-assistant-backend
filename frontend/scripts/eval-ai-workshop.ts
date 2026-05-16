@@ -6,6 +6,7 @@ import { SAMPLE_DECKS } from "@/lib/sample-decks";
 import { aggregateCards, norm, totalDeckQty } from "@/lib/deck/generation-helpers";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { getFormatRules, isCommanderFormatString } from "@/lib/deck/formatRules";
+import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 
 type AnalyzeFormat = "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
 type TransformIntent =
@@ -43,6 +44,7 @@ type RouteResponse = {
   ok?: boolean;
   error?: string;
   summary?: string;
+  why?: string;
   warnings?: string[];
   deckText?: string;
   decklist?: Array<{ name: string; qty: number }>;
@@ -50,6 +52,10 @@ type RouteResponse = {
   format?: string;
   previewFacts?: PreviewFacts;
   transformIntent?: string;
+  changeReasons?: {
+    added?: Record<string, string>;
+    removed?: Record<string, string>;
+  } | null;
 };
 
 type EvalResult = {
@@ -71,10 +77,23 @@ type EvalResult = {
   previewFactsBefore?: PreviewFacts;
   previewFactsAfter?: PreviewFacts;
   raw?: RouteResponse;
+  why?: string;
 };
 
-const args = new Set(process.argv.slice(2));
+const rawArgs = process.argv.slice(2);
+const args = new Set(rawArgs);
 const jsonOnly = args.has("--json");
+const verbose = args.has("--verbose");
+const deckFilters = rawArgs
+  .filter((arg) => arg.startsWith("--deck="))
+  .map((arg) => arg.slice("--deck=".length).trim())
+  .filter(Boolean);
+const passFilters = rawArgs
+  .filter((arg) => arg.startsWith("--pass="))
+  .map((arg) => arg.slice("--pass=".length).trim() as TransformIntent)
+  .filter(Boolean);
+const rerunReportArg = rawArgs.find((arg) => arg.startsWith("--rerun-fails-from="));
+const rerunFailedFrom = rerunReportArg ? rerunReportArg.slice("--rerun-fails-from=".length).trim() : "";
 const baseUrl = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 const reportDir = path.join(process.cwd(), "test-results", "ai-workshop-eval");
 const nowStamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -389,6 +408,19 @@ async function fetchPrecons(limit = 2): Promise<EvalDeck[]> {
 }
 
 function buildRepresentativeDecks(precons: EvalDeck[]): EvalDeck[] {
+  const expectedLegalityById: Partial<Record<string, EvalDeck["expectedLegality"]>> = {
+    "ur-dragon-tribal": "size_only_review",
+    "atraxa-superfriends": "repair",
+    "edgar-markov-vampires": "size_only_review",
+    "ghired-tokens": "size_only_review",
+    "yuriko-ninjas": "size_only_review",
+    "kess-spellslinger": "repair",
+    "teysa-aristocrats": "repair",
+    "chulane-value": "repair",
+    "grand-arbiter-stax": "repair",
+    "lathril-elves": "repair",
+  };
+
   const sampleCommanderIds = [
     "ur-dragon-tribal",
     "atraxa-superfriends",
@@ -412,30 +444,33 @@ function buildRepresentativeDecks(precons: EvalDeck[]): EvalDeck[] {
       commander: deck.commander,
       sourceDeckText: cleanDeckText(deck.deckList),
       sourceLabel: "sample_commander",
-      expectedLegality: "noop" as const,
+      expectedLegality: expectedLegalityById[deck.id] ?? "noop",
     }));
 
   const constructedDecks: EvalDeck[] = [
     { id: "modern-burn", name: "Modern Burn", format: "Modern", commander: null, sourceDeckText: MODERN_DECK, sourceLabel: "sample_constructed", expectedLegality: "noop" },
     { id: "pioneer-red", name: "Pioneer Red", format: "Pioneer", commander: null, sourceDeckText: PIONEER_DECK, sourceLabel: "sample_constructed", expectedLegality: "noop" },
-    { id: "standard-red", name: "Standard Red", format: "Standard", commander: null, sourceDeckText: STANDARD_DECK, sourceLabel: "sample_constructed", expectedLegality: "noop" },
+    { id: "standard-red", name: "Standard Red", format: "Standard", commander: null, sourceDeckText: STANDARD_DECK, sourceLabel: "sample_constructed", expectedLegality: "repair" },
     { id: "pauper-burn", name: "Pauper Burn", format: "Pauper", commander: null, sourceDeckText: PAUPER_DECK, sourceLabel: "sample_constructed", expectedLegality: "noop" },
   ];
 
-  const teysa = commanderDecks.find((deck) => deck.id === "teysa-aristocrats");
   const lathril = commanderDecks.find((deck) => deck.id === "lathril-elves");
 
   const variants: EvalDeck[] = [];
-  if (teysa) {
-    const rows = rowsFromDeckText(teysa.sourceDeckText);
-    const plainsIndex = rows.findIndex((candidate) => candidate.name.toLowerCase() === "plains");
-    const trimmed = rows.filter((row, index) => !(row.name.toLowerCase() === "plains" && index === plainsIndex));
+  const cleanPrecon = precons[0];
+  if (cleanPrecon) {
+    const rows = rowsFromDeckText(cleanPrecon.sourceDeckText);
+    const removableIndex = rows.findIndex((row, index) => index > 0 && row.qty > 0);
+    const trimmed = rows.map((row) => ({ ...row }));
+    if (removableIndex >= 0) {
+      trimmed[removableIndex] = { ...trimmed[removableIndex], qty: Math.max(0, trimmed[removableIndex].qty - 1) };
+    }
     variants.push({
-      id: "teysa-99-clean",
-      name: "Teysa Aristocrats (99 clean)",
+      id: "precon-99-clean",
+      name: `${cleanPrecon.name} (99 clean)`,
       format: "Commander",
-      commander: teysa.commander,
-      sourceDeckText: trimmed.map((row) => `${row.qty} ${row.name}`).join("\n"),
+      commander: cleanPrecon.commander,
+      sourceDeckText: trimmed.filter((row) => row.qty > 0).map((row) => `${row.qty} ${row.name}`).join("\n"),
       sourceLabel: "size_review_variant",
       expectedLegality: "size_only_review",
     });
@@ -566,7 +601,7 @@ function evaluatePassHeuristics(
       }
       break;
     case "tighten_curve":
-      if (afterFacts.avg_cmc > beforeFacts.avg_cmc + 0.15) {
+      if (beforeFacts.avg_cmc > 0 && afterFacts.avg_cmc > beforeFacts.avg_cmc + 0.15) {
         cautions.push(`Curve pass increased avg CMC from ${beforeFacts.avg_cmc} to ${afterFacts.avg_cmc}.`);
       }
       break;
@@ -586,7 +621,11 @@ function evaluatePassHeuristics(
       }
       break;
     case "more_optimized":
-      if (afterFacts.interaction_count < beforeFacts.interaction_count - 1 && afterFacts.avg_cmc > beforeFacts.avg_cmc + 0.2) {
+      if (
+        beforeFacts.avg_cmc > 0 &&
+        afterFacts.interaction_count < beforeFacts.interaction_count - 1 &&
+        afterFacts.avg_cmc > beforeFacts.avg_cmc + 0.2
+      ) {
         cautions.push("Optimized pass looked less interactive and clunkier than the source.");
       }
       break;
@@ -594,6 +633,55 @@ function evaluatePassHeuristics(
       break;
   }
   return cautions;
+}
+
+function evaluateWhyQuality(args: {
+  pass: TransformIntent;
+  whyText: string;
+  added: Array<{ name: string; qty: number }>;
+  removed: Array<{ name: string; qty: number }>;
+  changeReasons?: RouteResponse["changeReasons"];
+}): { hardIssues: string[]; cautions: string[] } {
+  const hardIssues: string[] = [];
+  const cautions: string[] = [];
+  const why = args.whyText.trim();
+  const addedReasons = args.changeReasons?.added ?? {};
+  const removedReasons = args.changeReasons?.removed ?? {};
+
+  if ((args.added.length || args.removed.length) && !why) {
+    hardIssues.push("Missing overall why text for a pass that suggested swaps.");
+  }
+  if (why && why.length < 40) {
+    cautions.push("Overall why text is very short and may not be useful.");
+  }
+
+  for (const row of args.added) {
+    const reason = addedReasons[norm(row.name)];
+    if (!reason) {
+      cautions.push(`Missing added-card reason for ${row.name}.`);
+      continue;
+    }
+    if (reason.length < 18) cautions.push(`Added-card reason for ${row.name} is too brief.`);
+  }
+  for (const row of args.removed) {
+    const reason = removedReasons[norm(row.name)];
+    if (!reason) {
+      cautions.push(`Missing removed-card reason for ${row.name}.`);
+      continue;
+    }
+    if (reason.length < 18) cautions.push(`Removed-card reason for ${row.name} is too brief.`);
+  }
+
+  if (
+    args.pass === "fix_legality" &&
+    why &&
+    !/did not invent optimization swaps/i.test(why) &&
+    /\bupgrade|upgraded|improve mana|better curve|budget upgrade|power up|optimi[sz]e|stronger lines?\b/i.test(why)
+  ) {
+    hardIssues.push("Legality why text drifted into optimization language.");
+  }
+
+  return { hardIssues, cautions };
 }
 
 function toMarkdown(results: EvalResult[], summary: { total: number; pass: number; warn: number; fail: number }) {
@@ -627,6 +715,7 @@ function toMarkdown(results: EvalResult[], summary: { total: number; pass: numbe
       lines.push(`- Added: ${result.added.map((row) => `${row.qty} ${row.name}`).join(", ") || "none"}`);
       lines.push(`- Removed: ${result.removed.map((row) => `${row.qty} ${row.name}`).join(", ") || "none"}`);
       lines.push(`- Summary: ${result.summary || "none"}`);
+      lines.push(`- Why: ${result.why || "none"}`);
       if (result.warnings.length) lines.push(`- Warnings: ${result.warnings.join(" | ")}`);
       if (result.hardIssues.length) lines.push(`- Hard issues: ${result.hardIssues.join(" | ")}`);
       if (result.cautions.length) lines.push(`- Cautions: ${result.cautions.join(" | ")}`);
@@ -634,6 +723,49 @@ function toMarkdown(results: EvalResult[], summary: { total: number; pass: numbe
     }
   }
   return lines.join("\n");
+}
+
+function printDetailedResult(result: EvalResult) {
+  console.log("");
+  console.log(`[${result.status.toUpperCase()}] ${result.deckName} (${result.format}) :: ${PASS_LABELS[result.pass]}`);
+  console.log(`  source: ${result.sourceLabel}`);
+  console.log(`  time: ${result.elapsedMs}ms`);
+  console.log(`  count: ${result.finalCount}/${result.targetCount}`);
+  console.log(`  summary: ${result.summary || "none"}`);
+  console.log(`  why: ${result.why || "none"}`);
+  console.log(`  added: ${result.added.map((row) => `+${row.qty} ${row.name}`).join(", ") || "none"}`);
+  console.log(`  removed: ${result.removed.map((row) => `-${row.qty} ${row.name}`).join(", ") || "none"}`);
+  const changeReasons = result.raw?.changeReasons;
+  if (changeReasons?.added && Object.keys(changeReasons.added).length) {
+    for (const [card, reason] of Object.entries(changeReasons.added)) {
+      console.log(`  why+ ${card}: ${reason}`);
+    }
+  }
+  if (changeReasons?.removed && Object.keys(changeReasons.removed).length) {
+    for (const [card, reason] of Object.entries(changeReasons.removed)) {
+      console.log(`  why- ${card}: ${reason}`);
+    }
+  }
+  if (result.warnings.length) {
+    console.log(`  warnings: ${result.warnings.join(" | ")}`);
+  }
+  if (result.hardIssues.length) {
+    for (const issue of result.hardIssues) console.log(`  hard: ${issue}`);
+  }
+  if (result.cautions.length) {
+    for (const caution of result.cautions) console.log(`  warn: ${caution}`);
+  }
+}
+
+function loadFailedCasesFromReport(reportPath: string): Array<{ deckId: string; pass: TransformIntent }> {
+  if (!reportPath) return [];
+  const absolute = path.isAbsolute(reportPath) ? reportPath : path.join(process.cwd(), reportPath);
+  if (!fs.existsSync(absolute)) {
+    throw new Error(`Could not find prior report: ${absolute}`);
+  }
+  const parsed = JSON.parse(fs.readFileSync(absolute, "utf8")) as { results?: EvalResult[] };
+  const failed = Array.isArray(parsed?.results) ? parsed.results.filter((result) => result.status === "fail") : [];
+  return failed.map((result) => ({ deckId: result.deckId, pass: result.pass }));
 }
 
 async function main() {
@@ -653,12 +785,38 @@ async function main() {
   }
 
   const precons = await fetchPrecons(2);
-  const decks = buildRepresentativeDecks(precons);
+  const allDecks = buildRepresentativeDecks(precons);
+  const failedCases = loadFailedCasesFromReport(rerunFailedFrom);
+  const allowedDeckIds = new Set([
+    ...deckFilters,
+    ...failedCases.map((entry) => entry.deckId),
+  ]);
+  const allowedPasses = new Set<TransformIntent>([
+    ...passFilters,
+    ...failedCases.map((entry) => entry.pass),
+  ]);
+  const failedCaseSet = new Set(failedCases.map((entry) => `${entry.deckId}::${entry.pass}`));
+  const decks = allowedDeckIds.size
+    ? allDecks.filter((deck) => allowedDeckIds.has(deck.id))
+    : allDecks;
   const results: EvalResult[] = [];
 
   for (const deck of decks) {
     let baselineFacts: PreviewFacts | undefined;
-    const passes = CORE_FULL_PASS_IDS.has(deck.id) ? ALL_PASSES : (["fix_legality"] as TransformIntent[]);
+    const basePasses = CORE_FULL_PASS_IDS.has(deck.id) ? ALL_PASSES : (["fix_legality"] as TransformIntent[]);
+    const passes = basePasses.filter((pass) => {
+      if (failedCaseSet.size > 0) return failedCaseSet.has(`${deck.id}::${pass}`);
+      if (allowedPasses.size > 0) return allowedPasses.has(pass);
+      return true;
+    });
+    if (!passes.length) continue;
+    if (passes.some((pass) => pass !== "fix_legality")) {
+      baselineFacts = await buildGenerationPreviewFacts(
+        deck.sourceDeckText,
+        deck.commander,
+        deck.format,
+      ).catch(() => undefined);
+    }
     for (const pass of passes) {
       const response = await postTransform(bearerToken, deck, pass);
       const hardIssues: string[] = [];
@@ -702,6 +860,15 @@ async function main() {
       } else {
         cautions.push(...evaluatePassHeuristics(pass, baselineFacts, response.json.previewFacts, diff.added, diff.removed));
       }
+      const whyEval = evaluateWhyQuality({
+        pass,
+        whyText: String(response.json.why || ""),
+        added: diff.added,
+        removed: diff.removed,
+        changeReasons: response.json.changeReasons,
+      });
+      hardIssues.push(...whyEval.hardIssues);
+      cautions.push(...whyEval.cautions);
 
       const status: EvalResult["status"] = hardIssues.length ? "fail" : cautions.length ? "warn" : "pass";
       results.push({
@@ -719,6 +886,7 @@ async function main() {
         targetCount: formatRules.mainDeckTarget,
         warnings,
         summary: String(response.json.summary || ""),
+        why: String(response.json.why || ""),
         elapsedMs: response.elapsedMs,
         previewFactsBefore: baselineFacts,
         previewFactsAfter: response.json.previewFacts,
@@ -757,11 +925,17 @@ async function main() {
     console.log(`Runs: ${summary.total} | pass=${summary.pass} warn=${summary.warn} fail=${summary.fail}`);
     console.log(`JSON: ${jsonOut}`);
     console.log(`Markdown: ${mdOut}`);
-    const flagged = results.filter((result) => result.status !== "pass");
-    for (const result of flagged.slice(0, 20)) {
-      console.log(`- [${result.status.toUpperCase()}] ${result.deckName} :: ${PASS_LABELS[result.pass]}`);
-      for (const issue of result.hardIssues) console.log(`    hard: ${issue}`);
-      for (const caution of result.cautions) console.log(`    warn: ${caution}`);
+    if (verbose) {
+      for (const result of results) {
+        printDetailedResult(result);
+      }
+    } else {
+      const flagged = results.filter((result) => result.status !== "pass");
+      for (const result of flagged.slice(0, 20)) {
+        console.log(`- [${result.status.toUpperCase()}] ${result.deckName} :: ${PASS_LABELS[result.pass]}`);
+        for (const issue of result.hardIssues) console.log(`    hard: ${issue}`);
+        for (const caution of result.cautions) console.log(`    warn: ${caution}`);
+      }
     }
   }
 
