@@ -27,6 +27,13 @@ import {
   formatOwnershipContextForPrompt,
 } from "@/lib/collections/ownership-context";
 import type { SfCard } from "@/lib/deck/inference";
+import { getAdmin } from "@/app/api/_lib/supa";
+import {
+  buildTagProfile,
+  fetchTagGroundedRowsByNames,
+  filterSwapSuggestionsByTagSimilarity,
+  summarizeTagProfileForPrompt,
+} from "@/lib/recommendations/tag-grounding";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -285,6 +292,11 @@ export async function POST(req: NextRequest) {
     }
 
     const names = parseDeck(deckText);
+    const admin = getAdmin();
+    const deckProfile =
+      admin && names.length > 0
+        ? buildTagProfile(await fetchTagGroundedRowsByNames(admin, names))
+        : null;
     const ownershipContext = await buildOwnershipContextForUserDeck({
       supabase,
       userId: user?.id,
@@ -355,6 +367,7 @@ export async function POST(req: NextRequest) {
       const aiContext = [
         deckText,
         roleSummaryPrompt ? `SHARED ROLE CLASSIFIER SUMMARY:\n${roleSummaryPrompt}` : "",
+        deckProfile ? `TAG GROUNDED PROFILE:\n${summarizeTagProfileForPrompt(deckProfile)}` : "",
         ownershipPrompt,
       ].filter(Boolean).join("\n\n");
       const aiDeckText = aiContext || deckText;
@@ -470,6 +483,17 @@ export async function POST(req: NextRequest) {
       );
     } catch (legErr) {
       console.warn("[swap-suggestions] Legality filter failed:", legErr);
+    }
+
+    if (admin && deckProfile && validatedSuggestions.length > 0) {
+      const groundedFromRows = await fetchTagGroundedRowsByNames(admin, validatedSuggestions.map((s) => s.from));
+      const groundedToRows = await fetchTagGroundedRowsByNames(admin, validatedSuggestions.map((s) => s.to));
+      validatedSuggestions = filterSwapSuggestionsByTagSimilarity(
+        validatedSuggestions,
+        groundedFromRows,
+        groundedToRows,
+        deckProfile,
+      );
     }
 
     const annotatedSuggestions = validatedSuggestions.map((s) => {

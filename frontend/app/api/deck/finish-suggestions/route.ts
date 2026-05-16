@@ -38,6 +38,13 @@ import {
 } from "@/lib/collections/ownership-context";
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
 import { formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
+import { getAdmin } from "@/app/api/_lib/supa";
+import {
+  buildTagProfile,
+  fetchTagGroundedRowsByNames,
+  rerankNamedRowsByProfile,
+  summarizeTagProfileForPrompt,
+} from "@/lib/recommendations/tag-grounding";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const FINISH_COMPLETION_TOKENS = 4096;
@@ -259,6 +266,11 @@ export async function POST(req: Request) {
   const target = computeFinishTargetStats(analyzeFormat, deckText);
   const entries = parseMainboardEntriesForAnalysis(deckText, analyzeFormat);
   const existingByNorm = aggregateExistingCounts(entries);
+  const admin = getAdmin();
+  const deckProfile =
+    admin && entries.length > 0
+      ? buildTagProfile(await fetchTagGroundedRowsByNames(admin, entries.map((e) => e.name)))
+      : null;
   let roleSummaryPrompt = "";
   try {
     const enriched = await enrichDeck(entries.map((e) => ({ name: e.name, qty: e.count })), {
@@ -313,6 +325,7 @@ export async function POST(req: Request) {
     deckAim ? `Deck aim: ${deckAim}` : "",
     deckPlan ? `Plan/style: ${deckPlan}` : "",
     roleSummaryPrompt ? `SHARED ROLE CLASSIFIER SUMMARY:\n${roleSummaryPrompt}` : "",
+    deckProfile ? `TAG GROUNDED PROFILE:\n${summarizeTagProfileForPrompt(deckProfile)}` : "",
     ownershipPrompt,
     `Return strictly JSON with key "suggestions" only.`,
   ].filter(Boolean);
@@ -477,6 +490,26 @@ export async function POST(req: Request) {
   }
 
   if (skippedBadQty) warnings.push(`${skippedBadQty} suggestion(s) skipped due to copy limits.`);
+
+  if (admin && deckProfile && suggestionsOut.length > 0) {
+    const groundedRows = await fetchTagGroundedRowsByNames(admin, suggestionsOut.map((s) => s.card));
+    const reranked = rerankNamedRowsByProfile(
+      suggestionsOut.map((s) => ({ name: s.card, reason: s.reason })),
+      groundedRows,
+      deckProfile,
+      { desiredCategory: "win_condition", reasonKey: "reason" },
+    );
+    const byName = new Map(reranked.map((row, index) => [normalizeCardName(row.name), { index, reason: row.reason }]));
+    suggestionsOut.sort((a, b) => {
+      const aMeta = byName.get(normalizeCardName(a.card));
+      const bMeta = byName.get(normalizeCardName(b.card));
+      return (aMeta?.index ?? 999) - (bMeta?.index ?? 999);
+    });
+    for (const suggestion of suggestionsOut) {
+      const meta = byName.get(normalizeCardName(suggestion.card));
+      if (meta?.reason) suggestion.reason = meta.reason;
+    }
+  }
 
   /** Estimated USD from price_cache (best-effort). */
   if (suggestionsOut.length) {

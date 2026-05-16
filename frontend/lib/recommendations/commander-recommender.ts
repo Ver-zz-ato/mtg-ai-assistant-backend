@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { bannedDataToMaps, getBannedCards, type BannedCardsData } from "@/lib/data/get-banned-cards";
 import { isCommanderEligible, postgrestCommanderEligibleCatalogOr } from "@/lib/deck/deck-enrichment";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
 export const CARD_TAG_RULE_VERSION = 2;
 export const CARD_TAG_RULE_SOURCE = "rules_v2";
@@ -644,6 +645,12 @@ function diversifyRecommendations(
 
 function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPreference): number {
   let score = 0;
+  const oracle = normalizeText(candidate.oracle_text);
+  const typeLine = normalizeText(candidate.type_line);
+  const themeMatchCount = candidate.theme_tags.filter((tag) => pref.desiredThemeTags.has(tag)).length;
+  const gameplayMatchCount = candidate.gameplay_tags.filter((tag) => pref.desiredGameplayTags.has(tag)).length;
+  const archetypeMatchCount = candidate.archetype_tags.filter((tag) => pref.desiredArchetypes.has(tag)).length;
+  const commanderMatchCount = candidate.commander_tags.filter((tag) => pref.desiredCommanderTags.has(tag)).length;
   score += scoreTagMatches(candidate.theme_tags, pref.desiredThemeTags, 18);
   score += scoreTagMatches(candidate.gameplay_tags, pref.desiredGameplayTags, 12);
   score += scoreTagMatches(candidate.archetype_tags, pref.desiredArchetypes, 14);
@@ -665,6 +672,34 @@ function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPrefe
   if (pref.desiredCommanderTags.has("linear_commander") && candidate.commander_tags.includes("linear_commander")) score += 4;
   if (pref.desiredCommanderTags.has("open_ended_commander") && candidate.commander_tags.includes("open_ended_commander")) score += 4;
   if (pref.seedNames.includes(candidate.name)) score += 10;
+  if (pref.desiredThemeTags.size > 0 && themeMatchCount === 0) score -= 18;
+  if (pref.desiredGameplayTags.size > 0 && gameplayMatchCount === 0) score -= 8;
+  if (pref.desiredArchetypes.size > 0 && archetypeMatchCount === 0) score -= 8;
+  if (pref.desiredCommanderTags.size > 0 && commanderMatchCount === 0) score -= 6;
+  if (themeMatchCount > 0) score += 10;
+  if (themeMatchCount > 1) score += 8;
+  if (gameplayMatchCount > 0) score += 4;
+  if (archetypeMatchCount > 0) score += 4;
+  if (pref.desiredThemeTags.has("tokens") && !candidate.theme_tags.includes("tokens") && !candidate.commander_tags.includes("go_wide")) score -= 16;
+  if (pref.desiredThemeTags.has("graveyard") && !candidate.theme_tags.includes("graveyard") && !candidate.gameplay_tags.includes("recursion")) score -= 18;
+  if (pref.desiredThemeTags.has("spellslinger") && !candidate.theme_tags.includes("spellslinger") && !candidate.commander_tags.includes("spell_combo")) score -= 18;
+  if (pref.desiredThemeTags.has("tribal") && !candidate.theme_tags.includes("tribal") && !candidate.commander_tags.includes("tribal_commander")) score -= 16;
+  if (pref.desiredThemeTags.has("enchantments") && !candidate.theme_tags.includes("enchantments")) score -= 14;
+  if (pref.desiredThemeTags.has("artifacts") && !candidate.theme_tags.includes("artifacts")) score -= 14;
+  if (pref.desiredThemeTags.has("tokens")) {
+    if (/\bcreature token\b|\bpopulate\b|\bamass\b|\bincubate\b/i.test(oracle)) score += 22;
+    if (!/\bcreature token\b|\bpopulate\b|\bamass\b|\bincubate\b/i.test(oracle) && /\btreasure token\b|\bclue token\b|\bfood token\b|\bblood token\b/i.test(oracle)) score -= 20;
+  }
+  if (pref.desiredThemeTags.has("graveyard")) {
+    if (/\bgraveyard\b|\breturn target .* from your graveyard\b|\bcast .* from your graveyard\b/i.test(oracle)) score += 18;
+  }
+  if (pref.desiredThemeTags.has("spellslinger")) {
+    if (/\binstant or sorcery\b|\bcopy target spell\b|\bwhenever you cast\b/i.test(oracle)) score += 22;
+    if (!/\binstant or sorcery\b|\bcopy target spell\b/i.test(oracle)) score -= 18;
+  }
+  if (pref.desiredThemeTags.has("artifacts") && (/\bartifact\b/i.test(oracle) || /\bartifact\b/i.test(typeLine))) score += 14;
+  if (pref.desiredThemeTags.has("enchantments") && (/\benchantment\b/i.test(oracle) || /\benchantment\b/i.test(typeLine) || /\baura\b/i.test(typeLine))) score += 14;
+  if (pref.desiredThemeTags.has("tribal") && /\bdragon\b|\belf\b|\bzombie\b|\bgoblin\b|\bvampire\b/i.test(`${oracle} ${typeLine}`)) score += 18;
   score += Math.round((candidate.popularity_score ?? 0) * 8);
   return score;
 }
@@ -732,6 +767,18 @@ export async function buildCommanderRecommendations(
     .limit(5000);
   if (cacheError) throw new Error(cacheError.message);
 
+  const { data: commanderRows } = await admin
+    .from("decks")
+    .select("commander")
+    .not("commander", "is", null)
+    .limit(12000);
+  const commanderUsage = new Map<string, number>();
+  for (const row of (commanderRows ?? []) as Array<{ commander?: string | null }>) {
+    const name = normalizeScryfallCacheName(String(row.commander || ""));
+    if (!name) continue;
+    commanderUsage.set(name, (commanderUsage.get(name) ?? 0) + 1);
+  }
+
   const cacheByName = new Map<string, ScryfallTagSourceRow>();
   for (const row of (cacheRows ?? []) as ScryfallTagSourceRow[]) cacheByName.set(row.name, row);
 
@@ -742,12 +789,18 @@ export async function buildCommanderRecommendations(
     if (!isCommanderEligible(sourceRow.type_line ?? undefined, sourceRow.oracle_text ?? undefined)) continue;
     if ((sourceRow.legalities?.commander ?? "").toLowerCase() !== "legal") continue;
     if (bannedCommanderMap[tagRow.name]) continue;
+    const usageCount = commanderUsage.get(tagRow.name) ?? 0;
+    if (usageCount <= 0 && (tagRow.popularity_score ?? 0) < 0.72) continue;
     candidates.push({ ...sourceRow, ...tagRow });
   }
 
   const pref = buildCommanderPreference(input);
   const ranked = candidates
-    .map((candidate) => ({ candidate, score: scoreCandidate(candidate, pref) }))
+    .map((candidate) => {
+      const usageCount = commanderUsage.get(candidate.name) ?? 0;
+      const usageScore = Math.min(28, Math.round(Math.log10(usageCount + 1) * 18));
+      return { candidate, score: scoreCandidate(candidate, pref) + usageScore };
+    })
     .sort((a, b) => b.score - a.score || a.candidate.name.localeCompare(b.candidate.name));
 
   const diversified = diversifyRecommendations(ranked.slice(0, 40), limit);

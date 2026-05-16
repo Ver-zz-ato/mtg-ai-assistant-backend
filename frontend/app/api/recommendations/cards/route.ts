@@ -3,6 +3,15 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchAllSupabaseRows } from '@/lib/supabase/fetchAllRows';
 import { normalizeScryfallCacheName } from '@/lib/server/scryfallCacheRow';
 import { normalizeName } from '@/lib/mtg/normalize';
+import { getAdmin } from '@/app/api/_lib/supa';
+import {
+  buildGroundedReason,
+  buildTagProfile,
+  fetchGroundedCandidatesForProfile,
+  fetchTagGroundedRowsByNames,
+  hydratePriceAndImages,
+  scoreCandidateAgainstProfile,
+} from '@/lib/recommendations/tag-grounding';
 
 export const runtime = 'nodejs';
 
@@ -82,21 +91,52 @@ export async function GET(request: NextRequest) {
       items.forEach((item) => collectionCards.add(item.name));
     }
 
+    const admin = getAdmin();
+    const deckCardNames = Array.from(deckCards);
+    const deckProfile =
+      admin && deckCardNames.length > 0
+        ? buildTagProfile(await fetchTagGroundedRowsByNames(admin, deckCardNames))
+        : null;
+
     // Step 4: Find cards in decks but not in collection
     const missingCards = Array.from(deckCards).filter(card => !collectionCards.has(card));
     
     if (missingCards.length > 0) {
-      // Randomly select up to 3 cards
-      const shuffled = missingCards.sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, 3);
+      let selected = missingCards.slice(0, 3);
+      if (admin && deckProfile) {
+        const groundedMissing = await fetchTagGroundedRowsByNames(admin, missingCards);
+        selected = groundedMissing
+          .map((row) => ({
+            name: String(row.printed_name || row.name),
+            score: scoreCandidateAgainstProfile(row, deckProfile),
+            reason: buildGroundedReason(row, deckProfile, {
+              prefix: 'Already shows up in your decks and matches the themes you build most.',
+            }),
+          }))
+          .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+          .slice(0, 3)
+          .map((row) => row.name);
+      }
       
       for (const cardName of selected) {
         recommendations.push({
           name: cardName,
-          reason: 'In your decks, not in collection',
+          reason: admin && deckProfile
+            ? 'Missing from your collection, but it fits the themes you already build.'
+            : 'In your decks, not in collection',
         });
       }
     }
+
+    const formatRaw =
+      request.nextUrl.searchParams.get("format")?.trim() ||
+      (decks && decks[0] && typeof (decks[0] as { format?: string }).format === "string"
+        ? (decks[0] as { format: string }).format
+        : "Commander");
+    const formatLabel =
+      formatRaw.length > 0
+        ? formatRaw.charAt(0).toUpperCase() + formatRaw.slice(1).toLowerCase()
+        : "Commander";
 
     // Step 5: If we don't have 3 recommendations yet, add popular cards by color
     if (recommendations.length < 3 && decks.length > 0) {
@@ -126,27 +166,39 @@ export async function GET(request: NextRequest) {
 
       const candidates = topColors.flatMap(color => staples[color] || []);
       const needed = 3 - recommendations.length;
-      const newRecs = candidates
-        .filter(card => !deckCards.has(card))
-        .slice(0, needed);
+      const existingNames = new Set(recommendations.map((row) => normalizeScryfallCacheName(row.name)));
 
-      newRecs.forEach(cardName => {
-        recommendations.push({
-          name: cardName,
-          reason: `Popular in ${topColors.join('/')} decks`,
+      let newRecs = candidates
+        .filter(card => !deckCards.has(card) && !existingNames.has(normalizeScryfallCacheName(card)))
+        .slice(0, needed)
+        .map((name) => ({ name, reason: `Popular in ${topColors.join('/')} decks` }));
+
+      if (admin && deckProfile) {
+        const groundedCandidates = await fetchGroundedCandidatesForProfile(admin, {
+          formatLabel,
+          topThemeTags: deckProfile.topThemeTags,
+          topGameplayTags: deckProfile.topGameplayTags,
+          topArchetypeTags: deckProfile.topArchetypeTags,
+          excludeNames: [...Array.from(deckCards).map(normalizeScryfallCacheName), ...Array.from(existingNames)],
+          limitPerBucket: 48,
         });
+        const hydrated = await hydratePriceAndImages(admin, groundedCandidates);
+        newRecs = hydrated
+          .filter((row) => !collectionCards.has(String(row.printed_name || row.name)))
+          .sort((a, b) => scoreCandidateAgainstProfile(b, deckProfile) - scoreCandidateAgainstProfile(a, deckProfile))
+          .slice(0, needed)
+          .map((row) => ({
+            name: String(row.printed_name || row.name),
+            reason: buildGroundedReason(row, deckProfile, {
+              prefix: `Fits what you already build better than a generic ${topColors.join('/')} staple.`,
+            }),
+          }));
+      }
+
+      newRecs.forEach((rec) => {
+        recommendations.push(rec);
       });
     }
-
-    const formatRaw =
-      request.nextUrl.searchParams.get("format")?.trim() ||
-      (decks && decks[0] && typeof (decks[0] as { format?: string }).format === "string"
-        ? (decks[0] as { format: string }).format
-        : "Commander");
-    const formatLabel =
-      formatRaw.length > 0
-        ? formatRaw.charAt(0).toUpperCase() + formatRaw.slice(1).toLowerCase()
-        : "Commander";
 
     try {
       const { filterRecommendationRowsByName } = await import("@/lib/deck/recommendation-legality");
@@ -205,5 +257,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
-

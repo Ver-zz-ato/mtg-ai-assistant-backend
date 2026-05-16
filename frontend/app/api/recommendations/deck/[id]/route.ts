@@ -5,6 +5,15 @@ import { getDetailsForNamesCached } from '@/lib/server/scryfallCache';
 import { isWithinColorIdentity } from '@/lib/deck/mtgValidators';
 import { parseDeckText } from '@/lib/deck/parseDeckText';
 import { normalizeName } from '@/lib/mtg/normalize';
+import { getAdmin } from '@/app/api/_lib/supa';
+import {
+  buildGroundedReason,
+  buildTagProfile,
+  fetchGroundedCandidatesForProfile,
+  fetchTagGroundedRowsByNames,
+  hydratePriceAndImages,
+  scoreCandidateAgainstProfile,
+} from '@/lib/recommendations/tag-grounding';
 
 export const runtime = 'nodejs';
 
@@ -77,6 +86,12 @@ export async function GET(
         deckCards.add(cacheNameNorm(e.name));
       }
     }
+    const admin = getAdmin();
+    const deckCardNames = Array.from(deckCards);
+    const deckProfile =
+      admin && deckCardNames.length > 0
+        ? buildTagProfile(await fetchTagGroundedRowsByNames(admin, deckCardNames))
+        : null;
 
     // Get user's collection
     const { data: collections } = await supabase
@@ -191,20 +206,50 @@ export async function GET(
       console.warn("[recommendations/deck] Legality filter failed:", legErr);
     }
 
-    // Prioritize cards not in collection
-    const notInCollection = filtered.filter(card => 
-      !collectionCards.has(cacheNameNorm(card.name))
-    );
+    let selected: Array<{ name: string; reason: string }> = [];
+    if (admin && deckProfile) {
+      const groundedPool = await fetchGroundedCandidatesForProfile(admin, {
+        formatLabel,
+        topThemeTags: deckProfile.topThemeTags,
+        topGameplayTags: deckProfile.topGameplayTags,
+        topArchetypeTags: deckProfile.topArchetypeTags,
+        commanderColors: isCommander ? colors : undefined,
+        excludeNames: Array.from(deckCards),
+        limitPerBucket: 72,
+      });
+      const hydratedGrounded = await hydratePriceAndImages(admin, groundedPool);
+      const scoredGrounded = hydratedGrounded
+        .map((row) => ({
+          name: String(row.printed_name || row.name),
+          reason: buildGroundedReason(row, deckProfile, {
+            prefix: 'Matches the deck plan better than a generic color staple.',
+          }),
+          score: scoreCandidateAgainstProfile(row, deckProfile),
+          inCollection: collectionCards.has(cacheNameNorm(String(row.printed_name || row.name))),
+        }))
+        .sort((a, b) => {
+          if (a.inCollection !== b.inCollection) return a.inCollection ? 1 : -1;
+          return b.score - a.score || a.name.localeCompare(b.name);
+        });
+      selected = scoredGrounded.slice(0, 5).map(({ name, reason }) => ({ name, reason }));
+    }
 
-    const inCollection = filtered.filter(card => 
-      collectionCards.has(cacheNameNorm(card.name))
-    );
+    if (selected.length === 0) {
+      // Prioritize cards not in collection
+      const notInCollection = filtered.filter(card => 
+        !collectionCards.has(cacheNameNorm(card.name))
+      );
 
-    // Take up to 5 recommendations (prefer cards not in collection)
-    const selected = [
-      ...notInCollection.slice(0, 3),
-      ...inCollection.slice(0, 2),
-    ].slice(0, 5);
+      const inCollection = filtered.filter(card => 
+        collectionCards.has(cacheNameNorm(card.name))
+      );
+
+      // Take up to 5 recommendations (prefer cards not in collection)
+      selected = [
+        ...notInCollection.slice(0, 3),
+        ...inCollection.slice(0, 2),
+      ].slice(0, 5);
+    }
 
     recommendations.push(...selected);
 
@@ -255,4 +300,3 @@ export async function GET(
     );
   }
 }
-

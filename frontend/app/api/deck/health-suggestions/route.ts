@@ -12,6 +12,16 @@ import {
   buildOwnershipContextForUserDeck,
   formatOwnershipContextForPrompt,
 } from '@/lib/collections/ownership-context';
+import { getAdmin } from '@/app/api/_lib/supa';
+import {
+  buildGroundedReason,
+  buildTagProfile,
+  fetchGroundedCandidatesForProfile,
+  fetchTagGroundedRowsByNames,
+  rerankNamedRowsByProfile,
+  scoreCandidateAgainstProfile,
+  summarizeTagProfileForPrompt,
+} from '@/lib/recommendations/tag-grounding';
 
 export const runtime = 'nodejs';
 
@@ -169,6 +179,12 @@ export async function POST(req: NextRequest) {
     }
 
     const deckNormInList = buildDeckNormLookup(deckCards ?? null, String(deck.deck_text || ''), commander, format);
+    const admin = getAdmin();
+    const deckCardNames = Array.isArray(deckCards) ? deckCards.map((c: any) => String(c?.name || "")).filter(Boolean) : [];
+    const deckProfile =
+      admin && deckCardNames.length > 0
+        ? buildTagProfile(await fetchTagGroundedRowsByNames(admin, deckCardNames))
+        : null;
     const ownershipContext = await buildOwnershipContextForUserDeck({
       supabase,
       userId: user.id,
@@ -233,7 +249,30 @@ Use this context to make targeted suggestions that fill gaps. For example, if ra
     const alreadyInDeckRule = isCommanderFormat
       ? 'including basic lands, MDFC names, and the commander unless the list shows a distinct 99'
       : 'including basic lands and MDFC names';
-    const fullPrompt = `${prompt}\n\n${deckContext}${ownershipPrompt ? `\n\n${ownershipPrompt}` : ''}\n\n**IMPORTANT**: Do not suggest any card that already appears in the decklist above (${alreadyInDeckRule}). We reject in-deck suggestions server-side.`;
+    let tagGroundingPrompt = '';
+    let fallbackGroundedSuggestions: Array<{ card: string; reason: string; score: number }> = [];
+    if (admin && deckProfile) {
+      tagGroundingPrompt = summarizeTagProfileForPrompt(deckProfile, category as any);
+      const groundedCandidates = await fetchGroundedCandidatesForProfile(admin, {
+        formatLabel: format,
+        topThemeTags: deckProfile.topThemeTags,
+        topGameplayTags: deckProfile.topGameplayTags,
+        topArchetypeTags: deckProfile.topArchetypeTags,
+        commanderColors: isCommanderFormat && deckProfile.colorIdentity.length ? deckProfile.colorIdentity : undefined,
+        excludeNames: Array.from(deckNormInList),
+        limitPerBucket: 48,
+      });
+      fallbackGroundedSuggestions = groundedCandidates
+        .map((row) => ({
+          card: String(row.printed_name || row.name),
+          reason: buildGroundedReason(row, deckProfile, { desiredCategory: category as any }),
+          score: scoreCandidateAgainstProfile(row, deckProfile, { desiredCategory: category as any }),
+        }))
+        .sort((a, b) => b.score - a.score || a.card.localeCompare(b.card))
+        .slice(0, 7);
+    }
+
+    const fullPrompt = `${prompt}\n\n${deckContext}${ownershipPrompt ? `\n\n${ownershipPrompt}` : ''}${tagGroundingPrompt ? `\n\nTAG GROUNDED PROFILE:\n${tagGroundingPrompt}` : ''}\n\n**IMPORTANT**: Do not suggest any card that already appears in the decklist above (${alreadyInDeckRule}). We reject in-deck suggestions server-side.`;
 
     // Get commander's color identity for the prompt
     let colorIdentityHint = '';
@@ -462,6 +501,23 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
         if (!ok) console.log(`🚫 [health-suggestions] Post-legality drop (already in deck): ${s.card}`);
         return ok;
       });
+
+      if (deckProfile && validatedSuggestions.length > 0 && admin) {
+        const groundedValidated = await fetchTagGroundedRowsByNames(admin, validatedSuggestions.map((s) => s.card));
+        validatedSuggestions = rerankNamedRowsByProfile(
+          validatedSuggestions.map((s) => ({ name: s.card, reason: s.reason })),
+          groundedValidated,
+          deckProfile,
+          { desiredCategory: category as any, reasonKey: 'reason' },
+        ).map((row) => ({ card: row.name, reason: row.reason }));
+      }
+
+      if (validatedSuggestions.length === 0 && fallbackGroundedSuggestions.length > 0) {
+        validatedSuggestions = fallbackGroundedSuggestions.map((row) => ({
+          card: row.card,
+          reason: row.reason,
+        }));
+      }
 
       console.log('✅ [health-suggestions] Returning response with', validatedSuggestions.length, 'suggestions');
       const annotatedSuggestions = validatedSuggestions.map((s) => {
