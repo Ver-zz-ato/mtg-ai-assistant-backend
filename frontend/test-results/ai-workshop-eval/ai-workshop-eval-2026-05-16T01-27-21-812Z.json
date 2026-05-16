@@ -1,0 +1,573 @@
+{
+  "generatedAt": "2026-05-16T01:27:25.153Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "modern-burn",
+      "name": "Modern Burn",
+      "format": "Modern",
+      "sourceLabel": "sample_constructed"
+    },
+    {
+      "id": "pioneer-red",
+      "name": "Pioneer Red",
+      "format": "Pioneer",
+      "sourceLabel": "sample_constructed"
+    },
+    {
+      "id": "standard-red",
+      "name": "Standard Red",
+      "format": "Standard",
+      "sourceLabel": "sample_constructed"
+    },
+    {
+      "id": "pauper-burn",
+      "name": "Pauper Burn",
+      "format": "Pauper",
+      "sourceLabel": "sample_constructed"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "pass": 4,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "fix_legality",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "No legality changes needed. This deck already passes current Modern legality and color identity checks.",
+      "elapsedMs": 510,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 18
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Eidolon of the Great Revel\n4 Rift Bolt\n4 Boros Charm\n4 Roiling Vortex\n18 Mountain\n4 Sunbaked Canyon\n4 Inspiring Vantage\n2 Sacred Foundry",
+        "format": "Modern",
+        "summary": "No legality changes needed. This deck already passes current Modern legality and color identity checks.",
+        "transformIntent": "fix_legality",
+        "previewFacts": {
+          "land_count": 28,
+          "ramp_count": 28,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.88,
+          "curve_histogram": [
+            12,
+            12,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "mana_high",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "pioneer-red",
+      "deckName": "Pioneer Red",
+      "format": "Pioneer",
+      "pass": "fix_legality",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "No legality changes needed. This deck already passes current Pioneer legality and color identity checks.",
+      "elapsedMs": 771,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.63,
+        "curve_histogram": [
+          20,
+          4,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.63,
+        "curve_histogram": [
+          20,
+          4,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Play with Fire",
+            "qty": 4
+          },
+          {
+            "name": "Kumano Faces Kakkazan",
+            "qty": 4
+          },
+          {
+            "name": "Monstrous Rage",
+            "qty": 4
+          },
+          {
+            "name": "Slickshot Show-Off",
+            "qty": 4
+          },
+          {
+            "name": "Soul-Scar Mage",
+            "qty": 4
+          },
+          {
+            "name": "Light Up the Stage",
+            "qty": 4
+          },
+          {
+            "name": "Wizard's Lightning",
+            "qty": 4
+          },
+          {
+            "name": "Ramunap Ruins",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 20
+          },
+          {
+            "name": "Den of the Bugbear",
+            "qty": 4
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Play with Fire\n4 Kumano Faces Kakkazan\n4 Monstrous Rage\n4 Slickshot Show-Off\n4 Soul-Scar Mage\n4 Light Up the Stage\n4 Wizard's Lightning\n4 Ramunap Ruins\n20 Mountain\n4 Den of the Bugbear",
+        "format": "Pioneer",
+        "summary": "No legality changes needed. This deck already passes current Pioneer legality and color identity checks.",
+        "transformIntent": "fix_legality",
+        "previewFacts": {
+          "land_count": 28,
+          "ramp_count": 28,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.63,
+          "curve_histogram": [
+            20,
+            4,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "mana_high",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "standard-red",
+      "deckName": "Standard Red",
+      "format": "Standard",
+      "pass": "fix_legality",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [],
+      "removed": [
+        {
+          "name": "Heartfire Hero",
+          "qty": 4
+        },
+        {
+          "name": "Mirran Banesplitter",
+          "qty": 4
+        },
+        {
+          "name": "Monastery Swiftspear",
+          "qty": 4
+        },
+        {
+          "name": "Monstrous Rage",
+          "qty": 4
+        }
+      ],
+      "finalCount": 44,
+      "targetCount": 60,
+      "warnings": [
+        "Source deck has 4 card line(s) not legal in Standard.",
+        "Source deck has 44 cards after validation; target is 60 for Standard."
+      ],
+      "summary": "Legality issues repaired. Illegal, off-color, or extra-copy cards were removed to match current Standard rules. Review the updated deck size before saving.",
+      "elapsedMs": 791,
+      "previewFactsAfter": {
+        "land_count": 24,
+        "ramp_count": 24,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.6,
+        "curve_histogram": [
+          8,
+          12,
+          0,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "ambiguous_archetype",
+          "hybrid_plan_detected",
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Lightning Strike",
+            "qty": 4
+          },
+          {
+            "name": "Emberheart Challenger",
+            "qty": 4
+          },
+          {
+            "name": "Burst Lightning",
+            "qty": 4
+          },
+          {
+            "name": "Shock",
+            "qty": 4
+          },
+          {
+            "name": "Slickshot Show-Off",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 20
+          },
+          {
+            "name": "Rockface Village",
+            "qty": 4
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Lightning Strike\n4 Emberheart Challenger\n4 Burst Lightning\n4 Shock\n4 Slickshot Show-Off\n20 Mountain\n4 Rockface Village",
+        "format": "Standard",
+        "summary": "Legality issues repaired. Illegal, off-color, or extra-copy cards were removed to match current Standard rules. Review the updated deck size before saving.",
+        "warnings": [
+          "Source deck has 4 card line(s) not legal in Standard.",
+          "Source deck has 44 cards after validation; target is 60 for Standard."
+        ],
+        "transformIntent": "fix_legality",
+        "previewFacts": {
+          "land_count": 24,
+          "ramp_count": 24,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.6,
+          "curve_histogram": [
+            8,
+            12,
+            0,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "ambiguous_archetype",
+            "hybrid_plan_detected",
+            "mana_high",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "pauper-burn",
+      "deckName": "Pauper Burn",
+      "format": "Pauper",
+      "pass": "fix_legality",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "No legality changes needed. This deck already passes current Pauper legality and color identity checks.",
+      "elapsedMs": 313,
+      "previewFactsBefore": {
+        "land_count": 18,
+        "ramp_count": 18,
+        "draw_count": 16,
+        "interaction_count": 0,
+        "avg_cmc": 1.71,
+        "curve_histogram": [
+          24,
+          12,
+          4,
+          0,
+          2
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "ambiguous_archetype",
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 18,
+        "ramp_count": 18,
+        "draw_count": 16,
+        "interaction_count": 0,
+        "avg_cmc": 1.71,
+        "curve_histogram": [
+          24,
+          12,
+          4,
+          0,
+          2
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "ambiguous_archetype",
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Kessig Flamebreather",
+            "qty": 4
+          },
+          {
+            "name": "Ghitu Lavarunner",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Chain Lightning",
+            "qty": 4
+          },
+          {
+            "name": "Lava Dart",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Wrenn's Resolve",
+            "qty": 4
+          },
+          {
+            "name": "Reckless Impulse",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 18
+          },
+          {
+            "name": "Experimental Synthesizer",
+            "qty": 4
+          },
+          {
+            "name": "Implement of Combustion",
+            "qty": 4
+          },
+          {
+            "name": "Fireblast",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Kessig Flamebreather\n4 Ghitu Lavarunner\n4 Lightning Bolt\n4 Chain Lightning\n4 Lava Dart\n4 Skewer the Critics\n4 Wrenn's Resolve\n4 Reckless Impulse\n18 Mountain\n4 Experimental Synthesizer\n4 Implement of Combustion\n2 Fireblast",
+        "format": "Pauper",
+        "summary": "No legality changes needed. This deck already passes current Pauper legality and color identity checks.",
+        "transformIntent": "fix_legality",
+        "previewFacts": {
+          "land_count": 18,
+          "ramp_count": 18,
+          "draw_count": 16,
+          "interaction_count": 0,
+          "avg_cmc": 1.71,
+          "curve_histogram": [
+            24,
+            12,
+            4,
+            0,
+            2
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "ambiguous_archetype",
+            "hybrid_plan_detected",
+            "removal_low"
+          ]
+        }
+      }
+    }
+  ]
+}

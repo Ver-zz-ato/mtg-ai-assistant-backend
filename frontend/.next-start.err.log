@@ -1,0 +1,905 @@
+[@sentry/nextjs] DEPRECATION WARNING: disableLogger is deprecated and will be removed in a future version. Use webpack.treeshake.removeDebugLogging instead.
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead.
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'fable of the mirror-breaker',
+  apiCardName: 'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki',
+  set: 'neo',
+  collector_number: '141',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'fable of the mirror-breaker',
+  apiCardName: 'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki',
+  set: 'neo',
+  collector_number: '141',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'fable of the mirror-breaker',
+  apiCardName: 'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki',
+  set: 'neo',
+  collector_number: '141',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'wear',
+  apiCardName: 'Wear // Tear',
+  set: 'moc',
+  collector_number: '343',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'ojer taq, deepest foundation',
+  apiCardName: 'Ojer Taq, Deepest Foundation // Temple of Civilization',
+  set: 'lci',
+  collector_number: '26',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'ojer taq, deepest foundation',
+  apiCardName: 'Ojer Taq, Deepest Foundation // Temple of Civilization',
+  set: 'lci',
+  collector_number: '26',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'ojer taq, deepest foundation',
+  apiCardName: 'Ojer Taq, Deepest Foundation // Temple of Civilization',
+  set: 'lci',
+  collector_number: '26',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'consign',
+  apiCardName: 'Consign // Oblivion',
+  set: 'hou',
+  collector_number: '149',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'commit',
+  apiCardName: 'Commit // Memory',
+  set: 'lcc',
+  collector_number: '147',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater sanctuary',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'consign',
+  apiCardName: 'Consign // Oblivion',
+  set: 'hou',
+  collector_number: '149',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'commit',
+  apiCardName: 'Commit // Memory',
+  set: 'lcc',
+  collector_number: '147',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'commit',
+  apiCardName: 'Commit // Memory',
+  set: 'lcc',
+  collector_number: '147',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'consign',
+  apiCardName: 'Consign // Oblivion',
+  set: 'hou',
+  collector_number: '149',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'consign',
+  apiCardName: 'Consign // Oblivion',
+  set: 'hou',
+  collector_number: '149',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'commit',
+  apiCardName: 'Commit // Memory',
+  set: 'lcc',
+  collector_number: '147',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'commit',
+  apiCardName: 'Commit // Memory',
+  set: 'lcc',
+  collector_number: '147',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'consign',
+  apiCardName: 'Consign // Oblivion',
+  set: 'hou',
+  collector_number: '149',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'sea gate restoration',
+  apiCardName: 'Sea Gate Restoration // Sea Gate, Reborn',
+  set: 'znr',
+  collector_number: '76',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'sea gate restoration',
+  apiCardName: 'Sea Gate Restoration // Sea Gate, Reborn',
+  set: 'znr',
+  collector_number: '76',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'consign',
+  apiCardName: 'Consign // Oblivion',
+  set: 'hou',
+  collector_number: '149',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'commit',
+  apiCardName: 'Commit // Memory',
+  set: 'lcc',
+  collector_number: '147',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'sea gate restoration',
+  apiCardName: 'Sea Gate Restoration // Sea Gate, Reborn',
+  set: 'znr',
+  collector_number: '76',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'commit',
+  apiCardName: 'Commit // Memory',
+  set: 'lcc',
+  collector_number: '147',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'consign',
+  apiCardName: 'Consign // Oblivion',
+  set: 'hou',
+  collector_number: '149',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'commit',
+  apiCardName: 'Commit // Memory',
+  set: 'lcc',
+  collector_number: '147',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'consign',
+  apiCardName: 'Consign // Oblivion',
+  set: 'hou',
+  collector_number: '149',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'clearwater pathway',
+  apiCardName: 'Clearwater Pathway // Murkwater Pathway',
+  set: 'znr',
+  collector_number: '260',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'malakir rebirth',
+  apiCardName: 'Malakir Rebirth // Malakir Mire',
+  set: 'znr',
+  collector_number: '111',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'malakir rebirth',
+  apiCardName: 'Malakir Rebirth // Malakir Mire',
+  set: 'znr',
+  collector_number: '111',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'malakir rebirth',
+  apiCardName: 'Malakir Rebirth // Malakir Mire',
+  set: 'znr',
+  collector_number: '111',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'malakir rebirth',
+  apiCardName: 'Malakir Rebirth // Malakir Mire',
+  set: 'znr',
+  collector_number: '111',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'malakir rebirth',
+  apiCardName: 'Malakir Rebirth // Malakir Mire',
+  set: 'znr',
+  collector_number: '111',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'malakir rebirth',
+  apiCardName: 'Malakir Rebirth // Malakir Mire',
+  set: 'znr',
+  collector_number: '111',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brightclimb pathway',
+  apiCardName: 'Brightclimb Pathway // Grimclimb Pathway',
+  set: 'znr',
+  collector_number: '259',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'needleverge pathway',
+  apiCardName: 'Needleverge Pathway // Pillarverge Pathway',
+  set: 'znr',
+  collector_number: '263',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'needleverge pathway',
+  apiCardName: 'Needleverge Pathway // Pillarverge Pathway',
+  set: 'znr',
+  collector_number: '263',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'needleverge pathway',
+  apiCardName: 'Needleverge Pathway // Pillarverge Pathway',
+  set: 'znr',
+  collector_number: '263',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'wear',
+  apiCardName: 'Wear // Tear',
+  set: 'moc',
+  collector_number: '343',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'kumano faces kakkazan',
+  apiCardName: 'Kumano Faces Kakkazan // Etching of Kumano',
+  set: 'neo',
+  collector_number: '152',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'kumano faces kakkazan',
+  apiCardName: 'Kumano Faces Kakkazan // Etching of Kumano',
+  set: 'neo',
+  collector_number: '152',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'kumano faces kakkazan',
+  apiCardName: 'Kumano Faces Kakkazan // Etching of Kumano',
+  set: 'neo',
+  collector_number: '152',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'kirol, history buff',
+  apiCardName: 'Kirol, History Buff // Pack a Punch',
+  set: 'sos',
+  collector_number: '198',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'naktamun lorespinner',
+  apiCardName: 'Naktamun Lorespinner // Wheel of Fortune',
+  set: 'soc',
+  collector_number: '33',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'lorehold archivist',
+  apiCardName: 'Lorehold Archivist // Restore Relic',
+  set: 'soc',
+  collector_number: '49',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'dirgur focusmage',
+  apiCardName: 'Dirgur Focusmage // Braingeyser',
+  set: 'soc',
+  collector_number: '18',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'inspired skypainter',
+  apiCardName: "Inspired Skypainter // Maestro's Gift",
+  set: 'soc',
+  collector_number: '48',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'brazen borrower',
+  apiCardName: 'Brazen Borrower // Petty Theft',
+  set: 'soc',
+  collector_number: '190',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'kirol, history buff',
+  apiCardName: 'Kirol, History Buff // Pack a Punch',
+  set: 'sos',
+  collector_number: '198',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'naktamun lorespinner',
+  apiCardName: 'Naktamun Lorespinner // Wheel of Fortune',
+  set: 'soc',
+  collector_number: '33',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'lorehold archivist',
+  apiCardName: 'Lorehold Archivist // Restore Relic',
+  set: 'soc',
+  collector_number: '49',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'darkbore pathway',
+  apiCardName: 'Darkbore Pathway // Slitherbore Pathway',
+  set: 'khm',
+  collector_number: '254',
+  source: 'getEnrichmentForNames'
+}

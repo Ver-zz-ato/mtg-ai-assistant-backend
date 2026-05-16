@@ -1,0 +1,165 @@
+{
+  "generatedAt": "2026-05-16T05:02:35.073Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "modern-burn",
+      "name": "Modern Burn",
+      "format": "Modern",
+      "sourceLabel": "sample_constructed"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "general",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "General cleanup restored land count stability for this constructed deck."
+      ],
+      "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.88.",
+      "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+      "elapsedMs": 2615,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          40,
+          12,
+          8,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 18
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 2
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Boros Charm\n4 Eidolon of the Great Revel\n4 Inspiring Vantage\n4 Lava Spike\n4 Lightning Bolt\n4 Monastery Swiftspear\n18 Mountain\n4 Rift Bolt\n4 Roiling Vortex\n2 Sacred Foundry\n4 Skewer the Critics\n4 Sunbaked Canyon",
+        "format": "Modern",
+        "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.88.",
+        "plan": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "changeReasons": null,
+        "warnings": [
+          "General cleanup restored land count stability for this constructed deck."
+        ],
+        "transformIntent": "general",
+        "previewFacts": {
+          "land_count": 28,
+          "ramp_count": 28,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.88,
+          "curve_histogram": [
+            12,
+            12,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "mana_high",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    }
+  ]
+}

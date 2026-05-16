@@ -1,0 +1,213 @@
+{
+  "generatedAt": "2026-05-16T04:50:25.322Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "modern-burn",
+      "name": "Modern Burn",
+      "format": "Modern",
+      "sourceLabel": "sample_constructed"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "general",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Goblin Guide",
+          "qty": 4
+        },
+        {
+          "name": "Searing Blaze",
+          "qty": 4
+        },
+        {
+          "name": "Skullcrack",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Inspiring Vantage",
+          "qty": 2
+        },
+        {
+          "name": "Mountain",
+          "qty": 4
+        },
+        {
+          "name": "Roiling Vortex",
+          "qty": 1
+        },
+        {
+          "name": "Sacred Foundry",
+          "qty": 2
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "List has 68 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.8.",
+      "why": "This pass trims excess lands and a slower flex slot to fit Modern’s 60-card minimum while tightening the deck’s low-curve aggro plan. [[Goblin Guide]] adds more early pressure, and [[Searing Blaze]] plus [[Skullcrack]] improve reach and interaction without raising the curve much. The result is a leaner, more focused burn shell.",
+      "elapsedMs": 7643,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          40,
+          12,
+          8,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 20,
+        "ramp_count": 20,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.8,
+        "curve_histogram": [
+          16,
+          16,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 3
+          },
+          {
+            "name": "Goblin Guide",
+            "qty": 4
+          },
+          {
+            "name": "Searing Blaze",
+            "qty": 4
+          },
+          {
+            "name": "Skullcrack",
+            "qty": 1
+          },
+          {
+            "name": "Mountain",
+            "qty": 14
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Eidolon of the Great Revel\n4 Rift Bolt\n4 Boros Charm\n3 Roiling Vortex\n4 Goblin Guide\n4 Searing Blaze\n1 Skullcrack\n14 Mountain\n4 Sunbaked Canyon\n2 Inspiring Vantage",
+        "format": "Modern",
+        "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.8.",
+        "plan": "This pass trims excess lands and a slower flex slot to fit Modern’s 60-card minimum while tightening the deck’s low-curve aggro plan. [[Goblin Guide]] adds more early pressure, and [[Searing Blaze]] plus [[Skullcrack]] improve reach and interaction without raising the curve much. The result is a leaner, more focused burn shell.",
+        "why": "This pass trims excess lands and a slower flex slot to fit Modern’s 60-card minimum while tightening the deck’s low-curve aggro plan. [[Goblin Guide]] adds more early pressure, and [[Searing Blaze]] plus [[Skullcrack]] improve reach and interaction without raising the curve much. The result is a leaner, more focused burn shell.",
+        "changeReasons": {
+          "added": {
+            "goblin guide": "[[Goblin Guide]] gives the deck a premium one-drop that maximizes early damage output.",
+            "searing blaze": "[[Searing Blaze]] adds efficient removal that also pushes damage to the opponent.",
+            "skullcrack": "[[Skullcrack]] improves reach while stopping life gain from blunting burn math."
+          },
+          "removed": {
+            "mountain": "[[Mountain]] was cut because the list had excess lands for its very low average mana value.",
+            "inspiring vantage": "[[Inspiring Vantage]] was trimmed as part of reducing land count while keeping the mana base functional.",
+            "sacred foundry": "[[Sacred Foundry]] was trimmed to lower total lands after validation left the deck oversized.",
+            "roiling vortex": "[[Roiling Vortex]] was removed as a slower nonessential slot to make room for more direct pressure and interaction."
+          }
+        },
+        "warnings": [
+          "List has 68 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "general",
+        "previewFacts": {
+          "land_count": 20,
+          "ramp_count": 20,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.8,
+          "curve_histogram": [
+            16,
+            16,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    }
+  ]
+}

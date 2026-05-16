@@ -1,0 +1,555 @@
+{
+  "generatedAt": "2026-05-16T04:50:36.573Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "yuriko-ninjas",
+      "name": "Yuriko, the Tiger's Shadow - Ninja Tribal",
+      "format": "Commander",
+      "sourceLabel": "sample_commander"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "yuriko-ninjas",
+      "deckName": "Yuriko, the Tiger's Shadow - Ninja Tribal",
+      "format": "Commander",
+      "pass": "improve_mana_base",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_commander",
+      "added": [
+        {
+          "name": "Clearwater Pathway",
+          "qty": 1
+        },
+        {
+          "name": "Drowned Catacomb",
+          "qty": 1
+        },
+        {
+          "name": "Fabled Passage",
+          "qty": 1
+        },
+        {
+          "name": "Prismatic Vista",
+          "qty": 1
+        },
+        {
+          "name": "Shipwreck Marsh",
+          "qty": 1
+        },
+        {
+          "name": "Temple of the False God",
+          "qty": 1
+        },
+        {
+          "name": "Watery Grave",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Consult the Necrosages",
+          "qty": 1
+        },
+        {
+          "name": "Island",
+          "qty": 3
+        },
+        {
+          "name": "Swamp",
+          "qty": 4
+        }
+      ],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Model output had 103 cards after color filter; list trimmed to 100.",
+        "Mana base pass removed non-mana additions that fell outside the pass scope."
+      ],
+      "summary": "Transformed: Mana base improvement. Power Casual, budget Moderate. Avg CMC ~3.59.",
+      "why": "This pass tightens the mana base for [[Yuriko, the Tiger's Shadow]] by replacing basic lands with more flexible duals and fetches. The added lands improve color access and smooth early turns while still supporting a casual, moderate-budget build. [[Consult the Necrosages]] was cut because it does not contribute to the mana-base-focused goal of this pass.",
+      "elapsedMs": 13613,
+      "previewFactsBefore": {
+        "land_count": 31,
+        "ramp_count": 27,
+        "draw_count": 15,
+        "interaction_count": 10,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          50,
+          16,
+          11,
+          6,
+          16
+        ],
+        "warning_flags": []
+      },
+      "previewFactsAfter": {
+        "land_count": 31,
+        "ramp_count": 37,
+        "draw_count": 15,
+        "interaction_count": 6,
+        "avg_cmc": 3.59,
+        "curve_histogram": [
+          19,
+          16,
+          10,
+          6,
+          18
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Aminatou's Augury",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Baleful Strix",
+            "qty": 1
+          },
+          {
+            "name": "Blinkmoth Infusion",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Changeling Outcast",
+            "qty": 1
+          },
+          {
+            "name": "Choked Estuary",
+            "qty": 1
+          },
+          {
+            "name": "Clearwater Pathway",
+            "qty": 1
+          },
+          {
+            "name": "Cloud of Faeries",
+            "qty": 1
+          },
+          {
+            "name": "Command Tower",
+            "qty": 1
+          },
+          {
+            "name": "Commit // Memory",
+            "qty": 1
+          },
+          {
+            "name": "Consign // Oblivion",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Cyclonic Rift",
+            "qty": 1
+          },
+          {
+            "name": "Darkwater Catacombs",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Dimir Aqueduct",
+            "qty": 1
+          },
+          {
+            "name": "Dimir Signet",
+            "qty": 1
+          },
+          {
+            "name": "Dismal Backwater",
+            "qty": 1
+          },
+          {
+            "name": "Dismember",
+            "qty": 1
+          },
+          {
+            "name": "Dokuchi Silencer",
+            "qty": 1
+          },
+          {
+            "name": "Draco",
+            "qty": 1
+          },
+          {
+            "name": "Drowned Catacomb",
+            "qty": 1
+          },
+          {
+            "name": "Enter the Infinite",
+            "qty": 1
+          },
+          {
+            "name": "Evolving Wilds",
+            "qty": 1
+          },
+          {
+            "name": "Exotic Orchard",
+            "qty": 1
+          },
+          {
+            "name": "Fabled Passage",
+            "qty": 1
+          },
+          {
+            "name": "Fabricate",
+            "qty": 1
+          },
+          {
+            "name": "Faerie Seer",
+            "qty": 1
+          },
+          {
+            "name": "Fallen Shinobi",
+            "qty": 1
+          },
+          {
+            "name": "Fellwar Stone",
+            "qty": 1
+          },
+          {
+            "name": "Force of Will",
+            "qty": 1
+          },
+          {
+            "name": "Gudul Lurker",
+            "qty": 1
+          },
+          {
+            "name": "Higure, the Still Wind",
+            "qty": 1
+          },
+          {
+            "name": "Hope of Ghirapur",
+            "qty": 1
+          },
+          {
+            "name": "Ingenious Infiltrator",
+            "qty": 1
+          },
+          {
+            "name": "Ink-Eyes, Servant of Oni",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 4
+          },
+          {
+            "name": "Jwar Isle Refuge",
+            "qty": 1
+          },
+          {
+            "name": "Kaito Shizuki",
+            "qty": 1
+          },
+          {
+            "name": "Mausoleum Wanderer",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Mist-Syndicate Naga",
+            "qty": 1
+          },
+          {
+            "name": "Mistblade Shinobi",
+            "qty": 1
+          },
+          {
+            "name": "Moonblade Shinobi",
+            "qty": 1
+          },
+          {
+            "name": "Moonsnare Specialist",
+            "qty": 1
+          },
+          {
+            "name": "Murderous Cut",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Remora",
+            "qty": 1
+          },
+          {
+            "name": "Mystical Tutor",
+            "qty": 1
+          },
+          {
+            "name": "Nashi, Moon Sage's Scion",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Ninja of the Deep Hours",
+            "qty": 1
+          },
+          {
+            "name": "Ninja of the New Moon",
+            "qty": 1
+          },
+          {
+            "name": "Opal Palace",
+            "qty": 1
+          },
+          {
+            "name": "Ornithopter",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Prismatic Vista",
+            "qty": 1
+          },
+          {
+            "name": "Reflecting Pool",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Rhystic Study",
+            "qty": 1
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Sakashima's Student",
+            "qty": 1
+          },
+          {
+            "name": "Satoru Umezawa",
+            "qty": 1
+          },
+          {
+            "name": "Scroll Rack",
+            "qty": 1
+          },
+          {
+            "name": "Sensei's Divining Top",
+            "qty": 1
+          },
+          {
+            "name": "Shipwreck Marsh",
+            "qty": 1
+          },
+          {
+            "name": "Signal Pest",
+            "qty": 1
+          },
+          {
+            "name": "Silent-Blade Oni",
+            "qty": 1
+          },
+          {
+            "name": "Silver-Fur Master",
+            "qty": 1
+          },
+          {
+            "name": "Slither Blade",
+            "qty": 1
+          },
+          {
+            "name": "Snuff Out",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Spectral Sailor",
+            "qty": 1
+          },
+          {
+            "name": "Sunken Hollow",
+            "qty": 1
+          },
+          {
+            "name": "Swamp",
+            "qty": 2
+          },
+          {
+            "name": "Swan Song",
+            "qty": 1
+          },
+          {
+            "name": "Tainted Isle",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Dominance",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Deceit",
+            "qty": 1
+          },
+          {
+            "name": "Temple of the False God",
+            "qty": 1
+          },
+          {
+            "name": "Temporal Mastery",
+            "qty": 1
+          },
+          {
+            "name": "Temporal Trespass",
+            "qty": 1
+          },
+          {
+            "name": "Terramorphic Expanse",
+            "qty": 1
+          },
+          {
+            "name": "Tetsuko Umezawa, Fugitive",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Throat Slitter",
+            "qty": 1
+          },
+          {
+            "name": "Tormented Soul",
+            "qty": 1
+          },
+          {
+            "name": "Treasure Cruise",
+            "qty": 1
+          },
+          {
+            "name": "Underground River",
+            "qty": 1
+          },
+          {
+            "name": "Vampiric Tutor",
+            "qty": 1
+          },
+          {
+            "name": "Walker of Secret Ways",
+            "qty": 1
+          },
+          {
+            "name": "Watery Grave",
+            "qty": 1
+          },
+          {
+            "name": "Yuriko, the Tiger's Shadow",
+            "qty": 1
+          }
+        ],
+        "commander": "Yuriko, the Tiger's Shadow",
+        "colors": [
+          "U",
+          "B"
+        ],
+        "deckText": "1 Aminatou's Augury\n1 Arcane Denial\n1 Arcane Signet\n1 Baleful Strix\n1 Blinkmoth Infusion\n1 Brainstorm\n1 Changeling Outcast\n1 Choked Estuary\n1 Clearwater Pathway\n1 Cloud of Faeries\n1 Command Tower\n1 Commit // Memory\n1 Consign // Oblivion\n1 Counterspell\n1 Cyclonic Rift\n1 Darkwater Catacombs\n1 Dig Through Time\n1 Dimir Aqueduct\n1 Dimir Signet\n1 Dismal Backwater\n1 Dismember\n1 Dokuchi Silencer\n1 Draco\n1 Drowned Catacomb\n1 Enter the Infinite\n1 Evolving Wilds\n1 Exotic Orchard\n1 Fabled Passage\n1 Fabricate\n1 Faerie Seer\n1 Fallen Shinobi\n1 Fellwar Stone\n1 Force of Will\n1 Gudul Lurker\n1 Higure, the Still Wind\n1 Hope of Ghirapur\n1 Ingenious Infiltrator\n1 Ink-Eyes, Servant of Oni\n4 Island\n1 Jwar Isle Refuge\n1 Kaito Shizuki\n1 Mausoleum Wanderer\n1 Mind Stone\n1 Mist-Syndicate Naga\n1 Mistblade Shinobi\n1 Moonblade Shinobi\n1 Moonsnare Specialist\n1 Murderous Cut\n1 Myriad Landscape\n1 Mystic Remora\n1 Mystical Tutor\n1 Nashi, Moon Sage's Scion\n1 Negate\n1 Ninja of the Deep Hours\n1 Ninja of the New Moon\n1 Opal Palace\n1 Ornithopter\n1 Ponder\n1 Preordain\n1 Prismatic Vista\n1 Reflecting Pool\n1 Reliquary Tower\n1 Rhystic Study\n1 Rogue's Passage\n1 Sakashima's Student\n1 Satoru Umezawa\n1 Scroll Rack\n1 Sensei's Divining Top\n1 Shipwreck Marsh\n1 Signal Pest\n1 Silent-Blade Oni\n1 Silver-Fur Master\n1 Slither Blade\n1 Snuff Out\n1 Sol Ring\n1 Spectral Sailor\n1 Sunken Hollow\n2 Swamp\n1 Swan Song\n1 Tainted Isle\n1 Talisman of Dominance\n1 Temple of Deceit\n1 Temple of the False God\n1 Temporal Mastery\n1 Temporal Trespass\n1 Terramorphic Expanse\n1 Tetsuko Umezawa, Fugitive\n1 Thought Vessel\n1 Throat Slitter\n1 Tormented Soul\n1 Treasure Cruise\n1 Underground River\n1 Vampiric Tutor\n1 Walker of Secret Ways\n1 Watery Grave\n1 Yuriko, the Tiger's Shadow",
+        "format": "Commander",
+        "summary": "Transformed: Mana base improvement. Power Casual, budget Moderate. Avg CMC ~3.59.",
+        "plan": "This pass tightens the mana base for [[Yuriko, the Tiger's Shadow]] by replacing basic lands with more flexible duals and fetches. The added lands improve color access and smooth early turns while still supporting a casual, moderate-budget build. [[Consult the Necrosages]] was cut because it does not contribute to the mana-base-focused goal of this pass.",
+        "why": "This pass tightens the mana base for [[Yuriko, the Tiger's Shadow]] by replacing basic lands with more flexible duals and fetches. The added lands improve color access and smooth early turns while still supporting a casual, moderate-budget build. [[Consult the Necrosages]] was cut because it does not contribute to the mana-base-focused goal of this pass.",
+        "changeReasons": {
+          "added": {
+            "clearwater pathway": "[[Clearwater Pathway]] gives flexible early access to either blue or black mana.",
+            "drowned catacomb": "[[Drowned Catacomb]] improves dual-color consistency with minimal drawback in a two-color deck.",
+            "fabled passage": "[[Fabled Passage]] fixes either color while helping thin basics from the deck.",
+            "prismatic vista": "[[Prismatic Vista]] gives reliable untapped fixing for whichever basic color is needed.",
+            "shipwreck marsh": "[[Shipwreck Marsh]] adds another efficient blue-black dual land for smoother development.",
+            "temple of the false god": "[[Temple of the False God]] adds burst mana later in the game once land count is established.",
+            "watery grave": "[[Watery Grave]] provides strong dual-color access and can enter untapped when needed."
+          },
+          "removed": {
+            "swamp": "[[Swamp]] was reduced to make room for stronger color-fixing lands.",
+            "island": "[[Island]] was reduced to make room for more flexible mana sources.",
+            "consult the necrosages": "[[Consult the Necrosages]] was outside the mana-base improvement scope of this pass."
+          }
+        },
+        "warnings": [
+          "Model output had 103 cards after color filter; list trimmed to 100.",
+          "Mana base pass removed non-mana additions that fell outside the pass scope."
+        ],
+        "transformIntent": "improve_mana_base",
+        "previewFacts": {
+          "land_count": 31,
+          "ramp_count": 37,
+          "draw_count": 15,
+          "interaction_count": 6,
+          "avg_cmc": 3.59,
+          "curve_histogram": [
+            19,
+            16,
+            10,
+            6,
+            18
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected"
+          ]
+        }
+      }
+    }
+  ]
+}

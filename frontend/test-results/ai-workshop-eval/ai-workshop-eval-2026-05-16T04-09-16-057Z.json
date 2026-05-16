@@ -1,0 +1,211 @@
+{
+  "generatedAt": "2026-05-16T04:09:30.792Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "modern-burn",
+      "name": "Modern Burn",
+      "format": "Modern",
+      "sourceLabel": "sample_constructed"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "improve_mana_base",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Arid Mesa",
+          "qty": 4
+        },
+        {
+          "name": "Sacred Foundry",
+          "qty": 2
+        },
+        {
+          "name": "Scalding Tarn",
+          "qty": 4
+        },
+        {
+          "name": "Wooded Foothills",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Mountain",
+          "qty": 14
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "List has 64 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: Mana base improvement. Power Focused, budget Moderate. Avg CMC ~1.88.",
+      "why": "This pass tightens the mana base by replacing excess basic [[Mountain]]s with fetchlands and a dual land package. [[Arid Mesa]], [[Scalding Tarn]], and [[Wooded Foothills]] improve color access and shuffle utility, while [[Sacred Foundry]] adds reliable dual-color coverage. The result is more consistent land selection for a focused Modern build.",
+      "elapsedMs": 12423,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          40,
+          12,
+          8,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 28,
+        "ramp_count": 16,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 4
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 4
+          },
+          {
+            "name": "Arid Mesa",
+            "qty": 4
+          },
+          {
+            "name": "Scalding Tarn",
+            "qty": 4
+          },
+          {
+            "name": "Wooded Foothills",
+            "qty": 4
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Eidolon of the Great Revel\n4 Rift Bolt\n4 Boros Charm\n4 Roiling Vortex\n4 Mountain\n4 Sunbaked Canyon\n4 Inspiring Vantage\n4 Sacred Foundry\n4 Arid Mesa\n4 Scalding Tarn\n4 Wooded Foothills",
+        "format": "Modern",
+        "summary": "Transformed: Mana base improvement. Power Focused, budget Moderate. Avg CMC ~1.88.",
+        "plan": "This pass tightens the mana base by replacing excess basic [[Mountain]]s with fetchlands and a dual land package. [[Arid Mesa]], [[Scalding Tarn]], and [[Wooded Foothills]] improve color access and shuffle utility, while [[Sacred Foundry]] adds reliable dual-color coverage. The result is more consistent land selection for a focused Modern build.",
+        "why": "This pass tightens the mana base by replacing excess basic [[Mountain]]s with fetchlands and a dual land package. [[Arid Mesa]], [[Scalding Tarn]], and [[Wooded Foothills]] improve color access and shuffle utility, while [[Sacred Foundry]] adds reliable dual-color coverage. The result is more consistent land selection for a focused Modern build.",
+        "changeReasons": {
+          "added": {
+            "arid mesa": "[[Arid Mesa]] upgrades basic land slots into flexible access to key red or white sources.",
+            "scalding tarn": "[[Scalding Tarn]] improves fetch-based color fixing while supporting cleaner land selection.",
+            "wooded foothills": "[[Wooded Foothills]] adds more fetch consistency to find the right red-based source on time.",
+            "sacred foundry": "[[Sacred Foundry]] gives the fetch package an efficient untapped red-white dual to find."
+          },
+          "removed": {
+            "mountain": "[[Mountain]] was trimmed because too many basics reduce color flexibility compared with fetchable dual support."
+          }
+        },
+        "warnings": [
+          "List has 64 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "improve_mana_base",
+        "previewFacts": {
+          "land_count": 28,
+          "ramp_count": 16,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.88,
+          "curve_histogram": [
+            12,
+            12,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "mana_high",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    }
+  ]
+}

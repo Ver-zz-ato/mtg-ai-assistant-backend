@@ -1,0 +1,215 @@
+{
+  "generatedAt": "2026-05-16T04:56:25.644Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "modern-burn",
+      "name": "Modern Burn",
+      "format": "Modern",
+      "sourceLabel": "sample_constructed"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "pass": 0,
+    "warn": 1,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "general",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "General cleanup changed more than 24 cards; that feels aggressive for a cleanup pass."
+      ],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Arid Mesa",
+          "qty": 2
+        },
+        {
+          "name": "Goblin Guide",
+          "qty": 4
+        },
+        {
+          "name": "Searing Blaze",
+          "qty": 4
+        },
+        {
+          "name": "Wooded Foothills",
+          "qty": 2
+        }
+      ],
+      "removed": [
+        {
+          "name": "Mountain",
+          "qty": 14
+        }
+      ],
+      "finalCount": 58,
+      "targetCount": 60,
+      "warnings": [
+        "List has 58 cards after validation; target is 60 for Modern."
+      ],
+      "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.8.",
+      "why": "This pass fills the list back to 60 cards while sharpening a focused Modern burn plan. [[Goblin Guide]] adds fast pressure, [[Searing Blaze]] improves tempo by pairing damage with creature removal, and the fetch lands make landfall more reliable for [[Searing Blaze]]. Cutting excess [[Mountain]]s keeps the mana base lean while upgrading overall card quality.",
+      "elapsedMs": 8265,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          40,
+          12,
+          8,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 18,
+        "ramp_count": 14,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.8,
+        "curve_histogram": [
+          16,
+          16,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Goblin Guide",
+            "qty": 4
+          },
+          {
+            "name": "Searing Blaze",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 4
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 2
+          },
+          {
+            "name": "Arid Mesa",
+            "qty": 2
+          },
+          {
+            "name": "Wooded Foothills",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Eidolon of the Great Revel\n4 Rift Bolt\n4 Boros Charm\n4 Roiling Vortex\n4 Goblin Guide\n4 Searing Blaze\n4 Mountain\n4 Sunbaked Canyon\n4 Inspiring Vantage\n2 Sacred Foundry\n2 Arid Mesa\n2 Wooded Foothills",
+        "format": "Modern",
+        "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.8.",
+        "plan": "This pass fills the list back to 60 cards while sharpening a focused Modern burn plan. [[Goblin Guide]] adds fast pressure, [[Searing Blaze]] improves tempo by pairing damage with creature removal, and the fetch lands make landfall more reliable for [[Searing Blaze]]. Cutting excess [[Mountain]]s keeps the mana base lean while upgrading overall card quality.",
+        "why": "This pass fills the list back to 60 cards while sharpening a focused Modern burn plan. [[Goblin Guide]] adds fast pressure, [[Searing Blaze]] improves tempo by pairing damage with creature removal, and the fetch lands make landfall more reliable for [[Searing Blaze]]. Cutting excess [[Mountain]]s keeps the mana base lean while upgrading overall card quality.",
+        "changeReasons": {
+          "added": {
+            "goblin guide": "[[Goblin Guide]] gives the deck a premier one-drop that starts damage immediately.",
+            "searing blaze": "[[Searing Blaze]] adds efficient reach while also clearing blockers.",
+            "arid mesa": "[[Arid Mesa]] improves landfall consistency for [[Searing Blaze]] and upgrades the mana base.",
+            "wooded foothills": "[[Wooded Foothills]] adds more fetch access to trigger landfall and smooth draws."
+          },
+          "removed": {
+            "mountain": "[[Mountain]] was trimmed to make room for stronger spells and fetch lands."
+          }
+        },
+        "warnings": [
+          "List has 58 cards after validation; target is 60 for Modern."
+        ],
+        "transformIntent": "general",
+        "previewFacts": {
+          "land_count": 18,
+          "ramp_count": 14,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.8,
+          "curve_histogram": [
+            16,
+            16,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    }
+  ]
+}

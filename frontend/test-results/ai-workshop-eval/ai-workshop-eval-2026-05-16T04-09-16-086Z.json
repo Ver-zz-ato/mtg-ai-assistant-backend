@@ -1,0 +1,558 @@
+{
+  "generatedAt": "2026-05-16T04:09:41.440Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "atraxa-superfriends",
+      "name": "Atraxa, Praetors' Voice - Superfriends",
+      "format": "Commander",
+      "sourceLabel": "sample_commander"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "atraxa-superfriends",
+      "deckName": "Atraxa, Praetors' Voice - Superfriends",
+      "format": "Commander",
+      "pass": "general",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_commander",
+      "added": [
+        {
+          "name": "Contentious Plan",
+          "qty": 1
+        },
+        {
+          "name": "Demonic Tutor",
+          "qty": 1
+        },
+        {
+          "name": "Drown in Dreams",
+          "qty": 1
+        },
+        {
+          "name": "Heroic Intervention",
+          "qty": 1
+        },
+        {
+          "name": "Oath of Nissa",
+          "qty": 1
+        },
+        {
+          "name": "Spark Double",
+          "qty": 1
+        },
+        {
+          "name": "Teferi's Protection",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Alchemist's Refuge",
+          "qty": 1
+        },
+        {
+          "name": "Blue Sun's Zenith",
+          "qty": 1
+        },
+        {
+          "name": "Fact or Fiction",
+          "qty": 1
+        },
+        {
+          "name": "Gavony Township",
+          "qty": 1
+        },
+        {
+          "name": "Nicol Bolas, Dragon-God",
+          "qty": 1
+        },
+        {
+          "name": "Pull from Tomorrow",
+          "qty": 1
+        },
+        {
+          "name": "Reliquary Tower",
+          "qty": 1
+        },
+        {
+          "name": "Stroke of Genius",
+          "qty": 1
+        }
+      ],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Source deck lists 1 line(s) that appear outside Atraxa, Praetors' Voice's color identity (replacements may be needed).",
+        "Model output had 106 cards after color filter; list trimmed to 100."
+      ],
+      "summary": "Transformed: General refinement. Power Casual, budget Moderate. Avg CMC ~3.31.",
+      "why": "These swaps tighten [[Atraxa, Praetors' Voice]] around efficient counters support, protection, and cleaner card quality for a casual general-refinement pass. The additions improve proliferation, tutoring, and board resilience, while the cuts trim slower draw sinks, off-plan utility lands, and a card outside the deck's color identity. Overall, the deck becomes smoother and more focused without pushing far beyond the stated power and budget goals.",
+      "elapsedMs": 16406,
+      "previewFactsBefore": {
+        "land_count": 39,
+        "ramp_count": 30,
+        "draw_count": 12,
+        "interaction_count": 10,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          47,
+          11,
+          16,
+          10,
+          17
+        ],
+        "warning_flags": []
+      },
+      "previewFactsAfter": {
+        "land_count": 36,
+        "ramp_count": 40,
+        "draw_count": 12,
+        "interaction_count": 10,
+        "avg_cmc": 3.31,
+        "curve_histogram": [
+          9,
+          13,
+          16,
+          10,
+          16
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Atraxa, Praetors' Voice",
+            "qty": 1
+          },
+          {
+            "name": "Jace, the Mind Sculptor",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Hero of Dominaria",
+            "qty": 1
+          },
+          {
+            "name": "Liliana Vess",
+            "qty": 1
+          },
+          {
+            "name": "Garruk Wildspeaker",
+            "qty": 1
+          },
+          {
+            "name": "Elspeth, Sun's Champion",
+            "qty": 1
+          },
+          {
+            "name": "Tamiyo, Field Researcher",
+            "qty": 1
+          },
+          {
+            "name": "Oko, Thief of Crowns",
+            "qty": 1
+          },
+          {
+            "name": "Vraska, Golgari Queen",
+            "qty": 1
+          },
+          {
+            "name": "Kiora, Behemoth Beckoner",
+            "qty": 1
+          },
+          {
+            "name": "Nissa, Who Shakes the World",
+            "qty": 1
+          },
+          {
+            "name": "Ajani, Mentor of Heroes",
+            "qty": 1
+          },
+          {
+            "name": "Kaya, Orzhov Usurper",
+            "qty": 1
+          },
+          {
+            "name": "Sorin, Grim Nemesis",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Dovin Baan",
+            "qty": 1
+          },
+          {
+            "name": "Tezzeret the Seeker",
+            "qty": 1
+          },
+          {
+            "name": "Venser, the Sojourner",
+            "qty": 1
+          },
+          {
+            "name": "Karn Liberated",
+            "qty": 1
+          },
+          {
+            "name": "Ugin, the Spirit Dragon",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Commander's Sphere",
+            "qty": 1
+          },
+          {
+            "name": "Chromatic Lantern",
+            "qty": 1
+          },
+          {
+            "name": "Kodama's Reach",
+            "qty": 1
+          },
+          {
+            "name": "Cultivate",
+            "qty": 1
+          },
+          {
+            "name": "Farseek",
+            "qty": 1
+          },
+          {
+            "name": "Nature's Lore",
+            "qty": 1
+          },
+          {
+            "name": "Three Visits",
+            "qty": 1
+          },
+          {
+            "name": "Birds of Paradise",
+            "qty": 1
+          },
+          {
+            "name": "Deepglow Skate",
+            "qty": 1
+          },
+          {
+            "name": "Inexorable Tide",
+            "qty": 1
+          },
+          {
+            "name": "Contagion Engine",
+            "qty": 1
+          },
+          {
+            "name": "Viral Drake",
+            "qty": 1
+          },
+          {
+            "name": "Thrummingbird",
+            "qty": 1
+          },
+          {
+            "name": "Karn's Bastion",
+            "qty": 1
+          },
+          {
+            "name": "Evolution Sage",
+            "qty": 1
+          },
+          {
+            "name": "Flux Channeler",
+            "qty": 1
+          },
+          {
+            "name": "Grateful Apparition",
+            "qty": 1
+          },
+          {
+            "name": "Winding Constrictor",
+            "qty": 1
+          },
+          {
+            "name": "Doubling Season",
+            "qty": 1
+          },
+          {
+            "name": "Oath of Teferi",
+            "qty": 1
+          },
+          {
+            "name": "The Chain Veil",
+            "qty": 1
+          },
+          {
+            "name": "Cyclonic Rift",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Swords to Plowshares",
+            "qty": 1
+          },
+          {
+            "name": "Path to Exile",
+            "qty": 1
+          },
+          {
+            "name": "Anguished Unmaking",
+            "qty": 1
+          },
+          {
+            "name": "Toxic Deluge",
+            "qty": 1
+          },
+          {
+            "name": "Supreme Verdict",
+            "qty": 1
+          },
+          {
+            "name": "Rhystic Study",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Remora",
+            "qty": 1
+          },
+          {
+            "name": "Sylvan Library",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Arena",
+            "qty": 1
+          },
+          {
+            "name": "Consecrated Sphinx",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Demonic Tutor",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Protection",
+            "qty": 1
+          },
+          {
+            "name": "Heroic Intervention",
+            "qty": 1
+          },
+          {
+            "name": "Drown in Dreams",
+            "qty": 1
+          },
+          {
+            "name": "Contentious Plan",
+            "qty": 1
+          },
+          {
+            "name": "Oath of Nissa",
+            "qty": 1
+          },
+          {
+            "name": "Spark Double",
+            "qty": 1
+          },
+          {
+            "name": "Command Tower",
+            "qty": 1
+          },
+          {
+            "name": "Breeding Pool",
+            "qty": 1
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 1
+          },
+          {
+            "name": "Temple Garden",
+            "qty": 1
+          },
+          {
+            "name": "Hallowed Fountain",
+            "qty": 1
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Watery Grave",
+            "qty": 1
+          },
+          {
+            "name": "Sunpetal Grove",
+            "qty": 1
+          },
+          {
+            "name": "Hinterland Harbor",
+            "qty": 1
+          },
+          {
+            "name": "Woodland Cemetery",
+            "qty": 1
+          },
+          {
+            "name": "Glacial Fortress",
+            "qty": 1
+          },
+          {
+            "name": "Drowned Catacomb",
+            "qty": 1
+          },
+          {
+            "name": "Isolated Chapel",
+            "qty": 1
+          },
+          {
+            "name": "Evolving Wilds",
+            "qty": 1
+          },
+          {
+            "name": "Terramorphic Expanse",
+            "qty": 1
+          },
+          {
+            "name": "Exotic Orchard",
+            "qty": 1
+          },
+          {
+            "name": "Reflecting Pool",
+            "qty": 1
+          },
+          {
+            "name": "Mana Confluence",
+            "qty": 1
+          },
+          {
+            "name": "City of Brass",
+            "qty": 1
+          },
+          {
+            "name": "Opal Palace",
+            "qty": 1
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Forest",
+            "qty": 4
+          },
+          {
+            "name": "Island",
+            "qty": 4
+          },
+          {
+            "name": "Plains",
+            "qty": 3
+          },
+          {
+            "name": "Swamp",
+            "qty": 3
+          }
+        ],
+        "commander": "Atraxa, Praetors' Voice",
+        "colors": [
+          "W",
+          "U",
+          "B",
+          "G"
+        ],
+        "deckText": "1 Atraxa, Praetors' Voice\n1 Jace, the Mind Sculptor\n1 Teferi, Hero of Dominaria\n1 Liliana Vess\n1 Garruk Wildspeaker\n1 Elspeth, Sun's Champion\n1 Tamiyo, Field Researcher\n1 Oko, Thief of Crowns\n1 Vraska, Golgari Queen\n1 Kiora, Behemoth Beckoner\n1 Nissa, Who Shakes the World\n1 Ajani, Mentor of Heroes\n1 Kaya, Orzhov Usurper\n1 Sorin, Grim Nemesis\n1 Narset, Parter of Veils\n1 Dovin Baan\n1 Tezzeret the Seeker\n1 Venser, the Sojourner\n1 Karn Liberated\n1 Ugin, the Spirit Dragon\n1 Sol Ring\n1 Arcane Signet\n1 Commander's Sphere\n1 Chromatic Lantern\n1 Kodama's Reach\n1 Cultivate\n1 Farseek\n1 Nature's Lore\n1 Three Visits\n1 Birds of Paradise\n1 Deepglow Skate\n1 Inexorable Tide\n1 Contagion Engine\n1 Viral Drake\n1 Thrummingbird\n1 Karn's Bastion\n1 Evolution Sage\n1 Flux Channeler\n1 Grateful Apparition\n1 Winding Constrictor\n1 Doubling Season\n1 Oath of Teferi\n1 The Chain Veil\n1 Cyclonic Rift\n1 Counterspell\n1 Swords to Plowshares\n1 Path to Exile\n1 Anguished Unmaking\n1 Toxic Deluge\n1 Supreme Verdict\n1 Rhystic Study\n1 Mystic Remora\n1 Sylvan Library\n1 Phyrexian Arena\n1 Consecrated Sphinx\n1 Brainstorm\n1 Ponder\n1 Preordain\n1 Demonic Tutor\n1 Teferi's Protection\n1 Heroic Intervention\n1 Drown in Dreams\n1 Contentious Plan\n1 Oath of Nissa\n1 Spark Double\n1 Command Tower\n1 Breeding Pool\n1 Overgrown Tomb\n1 Temple Garden\n1 Hallowed Fountain\n1 Godless Shrine\n1 Watery Grave\n1 Sunpetal Grove\n1 Hinterland Harbor\n1 Woodland Cemetery\n1 Glacial Fortress\n1 Drowned Catacomb\n1 Isolated Chapel\n1 Evolving Wilds\n1 Terramorphic Expanse\n1 Exotic Orchard\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Opal Palace\n1 Rogue's Passage\n4 Forest\n4 Island\n3 Plains\n3 Swamp",
+        "format": "Commander",
+        "summary": "Transformed: General refinement. Power Casual, budget Moderate. Avg CMC ~3.31.",
+        "plan": "These swaps tighten [[Atraxa, Praetors' Voice]] around efficient counters support, protection, and cleaner card quality for a casual general-refinement pass. The additions improve proliferation, tutoring, and board resilience, while the cuts trim slower draw sinks, off-plan utility lands, and a card outside the deck's color identity. Overall, the deck becomes smoother and more focused without pushing far beyond the stated power and budget goals.",
+        "why": "These swaps tighten [[Atraxa, Praetors' Voice]] around efficient counters support, protection, and cleaner card quality for a casual general-refinement pass. The additions improve proliferation, tutoring, and board resilience, while the cuts trim slower draw sinks, off-plan utility lands, and a card outside the deck's color identity. Overall, the deck becomes smoother and more focused without pushing far beyond the stated power and budget goals.",
+        "changeReasons": {
+          "added": {
+            "contentious plan": "[[Contentious Plan]] adds cheap card flow while advancing proliferate synergies.",
+            "demonic tutor": "[[Demonic Tutor]] gives efficient access to the deck's best answer or payoff.",
+            "drown in dreams": "[[Drown in Dreams]] scales well as flexible card draw in a multiplayer game.",
+            "heroic intervention": "[[Heroic Intervention]] protects your board from sweepers and spot removal.",
+            "oath of nissa": "[[Oath of Nissa]] improves early consistency by finding lands, creatures, or planeswalkers.",
+            "spark double": "[[Spark Double]] copies a key creature or planeswalker without legend-rule pressure.",
+            "teferi's protection": "[[Teferi's Protection]] is a premium safeguard that preserves your position through danger."
+          },
+          "removed": {
+            "alchemist's refuge": "[[Alchemist's Refuge]] is colorless utility that is less important than stronger spell slots here.",
+            "blue sun's zenith": "[[Blue Sun's Zenith]] is a mana-hungry draw spell that is less efficient for this build.",
+            "fact or fiction": "[[Fact or Fiction]] is solid value but less synergistic than the incoming options.",
+            "gavony township": "[[Gavony Township]] is slower, colorless utility that does not support the plan as directly.",
+            "nicol bolas, dragon-god": "[[Nicol Bolas, Dragon-God]] falls outside [[Atraxa, Praetors' Voice]]'s color identity.",
+            "pull from tomorrow": "[[Pull from Tomorrow]] is another large draw sink being trimmed for more impactful effects.",
+            "reliquary tower": "[[Reliquary Tower]] is unnecessary utility when the deck would rather have stronger colored sources or action.",
+            "stroke of genius": "[[Stroke of Genius]] is a high-cost draw outlet that is less efficient than the replacements."
+          }
+        },
+        "warnings": [
+          "Source deck lists 1 line(s) that appear outside Atraxa, Praetors' Voice's color identity (replacements may be needed).",
+          "Model output had 106 cards after color filter; list trimmed to 100."
+        ],
+        "transformIntent": "general",
+        "previewFacts": {
+          "land_count": 36,
+          "ramp_count": 40,
+          "draw_count": 12,
+          "interaction_count": 10,
+          "avg_cmc": 3.31,
+          "curve_histogram": [
+            9,
+            13,
+            16,
+            10,
+            16
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected"
+          ]
+        }
+      }
+    }
+  ]
+}

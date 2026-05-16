@@ -1,0 +1,1415 @@
+{
+  "generatedAt": "2026-05-16T01:21:59.723Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "modern-burn",
+      "name": "Modern Burn",
+      "format": "Modern",
+      "sourceLabel": "sample_constructed"
+    }
+  ],
+  "summary": {
+    "total": 8,
+    "pass": 7,
+    "warn": 1,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "fix_legality",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "No legality changes needed. This deck already passes current Modern legality and color identity checks.",
+      "elapsedMs": 319,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 18
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Eidolon of the Great Revel\n4 Rift Bolt\n4 Boros Charm\n4 Roiling Vortex\n18 Mountain\n4 Sunbaked Canyon\n4 Inspiring Vantage\n2 Sacred Foundry",
+        "format": "Modern",
+        "summary": "No legality changes needed. This deck already passes current Modern legality and color identity checks.",
+        "transformIntent": "fix_legality",
+        "previewFacts": {
+          "land_count": 28,
+          "ramp_count": 28,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.88,
+          "curve_histogram": [
+            12,
+            12,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "mana_high",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "general",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Goblin Guide",
+          "qty": 4
+        },
+        {
+          "name": "Lightning Helix",
+          "qty": 4
+        },
+        {
+          "name": "Searing Blaze",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Mountain",
+          "qty": 10
+        },
+        {
+          "name": "Sacred Foundry",
+          "qty": 2
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "List has 68 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.82.",
+      "elapsedMs": 2319,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 16,
+        "ramp_count": 16,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.82,
+        "curve_histogram": [
+          16,
+          20,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Goblin Guide",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Helix",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Searing Blaze",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 8
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Goblin Guide\n4 Eidolon of the Great Revel\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Rift Bolt\n4 Boros Charm\n4 Lightning Helix\n4 Roiling Vortex\n4 Searing Blaze\n8 Mountain\n4 Sunbaked Canyon\n4 Inspiring Vantage",
+        "format": "Modern",
+        "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.82.",
+        "warnings": [
+          "List has 68 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "general",
+        "previewFacts": {
+          "land_count": 16,
+          "ramp_count": 16,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.82,
+          "curve_histogram": [
+            16,
+            20,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "mana_low",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "improve_mana_base",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Mana base pass reduced both land count and ramp count."
+      ],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Arid Mesa",
+          "qty": 4
+        },
+        {
+          "name": "Goblin Guide",
+          "qty": 4
+        },
+        {
+          "name": "Sacred Foundry",
+          "qty": 2
+        },
+        {
+          "name": "Wooded Foothills",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Mountain",
+          "qty": 14
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "List has 64 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: Mana base improvement. Power Focused, budget Moderate. Avg CMC ~1.78.",
+      "elapsedMs": 2267,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 24,
+        "ramp_count": 16,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.78,
+        "curve_histogram": [
+          16,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Goblin Guide",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 4
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 4
+          },
+          {
+            "name": "Arid Mesa",
+            "qty": 4
+          },
+          {
+            "name": "Wooded Foothills",
+            "qty": 4
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Eidolon of the Great Revel\n4 Rift Bolt\n4 Boros Charm\n4 Roiling Vortex\n4 Goblin Guide\n4 Mountain\n4 Sunbaked Canyon\n4 Inspiring Vantage\n4 Sacred Foundry\n4 Arid Mesa\n4 Wooded Foothills",
+        "format": "Modern",
+        "summary": "Transformed: Mana base improvement. Power Focused, budget Moderate. Avg CMC ~1.78.",
+        "warnings": [
+          "List has 64 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "improve_mana_base",
+        "previewFacts": {
+          "land_count": 24,
+          "ramp_count": 16,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.78,
+          "curve_histogram": [
+            16,
+            12,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "tighten_curve",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Goblin Guide",
+          "qty": 4
+        },
+        {
+          "name": "Sacred Foundry",
+          "qty": 2
+        },
+        {
+          "name": "Searing Blaze",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Mountain",
+          "qty": 10
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "List has 64 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: Curve tightening. Power Focused, budget Moderate. Avg CMC ~1.8.",
+      "elapsedMs": 2203,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 20,
+        "ramp_count": 20,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.8,
+        "curve_histogram": [
+          16,
+          16,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Goblin Guide",
+            "qty": 4
+          },
+          {
+            "name": "Searing Blaze",
+            "qty": 4
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 8
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Eidolon of the Great Revel\n4 Rift Bolt\n4 Boros Charm\n4 Roiling Vortex\n4 Goblin Guide\n4 Searing Blaze\n4 Sunbaked Canyon\n4 Inspiring Vantage\n4 Sacred Foundry\n8 Mountain",
+        "format": "Modern",
+        "summary": "Transformed: Curve tightening. Power Focused, budget Moderate. Avg CMC ~1.8.",
+        "warnings": [
+          "List has 64 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "tighten_curve",
+        "previewFacts": {
+          "land_count": 20,
+          "ramp_count": 20,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.8,
+          "curve_histogram": [
+            16,
+            16,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "add_interaction",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Arid Mesa",
+          "qty": 2
+        },
+        {
+          "name": "Lightning Helix",
+          "qty": 2
+        },
+        {
+          "name": "Path to Exile",
+          "qty": 2
+        },
+        {
+          "name": "Searing Blaze",
+          "qty": 2
+        },
+        {
+          "name": "Skullcrack",
+          "qty": 2
+        },
+        {
+          "name": "Smash to Smithereens",
+          "qty": 2
+        },
+        {
+          "name": "Wooded Foothills",
+          "qty": 2
+        }
+      ],
+      "removed": [
+        {
+          "name": "Mountain",
+          "qty": 14
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "List has 64 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: More interaction. Power Focused, budget Moderate. Avg CMC ~1.86.",
+      "elapsedMs": 2824,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 18,
+        "ramp_count": 14,
+        "draw_count": 4,
+        "interaction_count": 4,
+        "avg_cmc": 1.86,
+        "curve_histogram": [
+          14,
+          20,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Searing Blaze",
+            "qty": 2
+          },
+          {
+            "name": "Path to Exile",
+            "qty": 2
+          },
+          {
+            "name": "Skullcrack",
+            "qty": 2
+          },
+          {
+            "name": "Lightning Helix",
+            "qty": 2
+          },
+          {
+            "name": "Smash to Smithereens",
+            "qty": 2
+          },
+          {
+            "name": "Mountain",
+            "qty": 4
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 2
+          },
+          {
+            "name": "Arid Mesa",
+            "qty": 2
+          },
+          {
+            "name": "Wooded Foothills",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Eidolon of the Great Revel\n4 Rift Bolt\n4 Boros Charm\n4 Roiling Vortex\n2 Searing Blaze\n2 Path to Exile\n2 Skullcrack\n2 Lightning Helix\n2 Smash to Smithereens\n4 Mountain\n4 Sunbaked Canyon\n4 Inspiring Vantage\n2 Sacred Foundry\n2 Arid Mesa\n2 Wooded Foothills",
+        "format": "Modern",
+        "summary": "Transformed: More interaction. Power Focused, budget Moderate. Avg CMC ~1.86.",
+        "warnings": [
+          "List has 64 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "add_interaction",
+        "previewFacts": {
+          "land_count": 18,
+          "ramp_count": 14,
+          "draw_count": 4,
+          "interaction_count": 4,
+          "avg_cmc": 1.86,
+          "curve_histogram": [
+            14,
+            20,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "lower_budget",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Goblin Guide",
+          "qty": 4
+        },
+        {
+          "name": "Light Up the Stage",
+          "qty": 4
+        },
+        {
+          "name": "Lightning Helix",
+          "qty": 2
+        },
+        {
+          "name": "Searing Blaze",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Eidolon of the Great Revel",
+          "qty": 4
+        },
+        {
+          "name": "Inspiring Vantage",
+          "qty": 4
+        },
+        {
+          "name": "Sacred Foundry",
+          "qty": 2
+        },
+        {
+          "name": "Sunbaked Canyon",
+          "qty": 4
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "Legality filter removed 1 card line(s) not legal in Modern.",
+        "List has 68 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: Budget reduction. Power Focused, budget Moderate. Avg CMC ~1.9.",
+      "elapsedMs": 2275,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 18,
+        "ramp_count": 18,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.9,
+        "curve_histogram": [
+          16,
+          14,
+          12,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "ambiguous_archetype",
+          "hybrid_plan_detected",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Goblin Guide",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Searing Blaze",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Light Up the Stage",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Helix",
+            "qty": 2
+          },
+          {
+            "name": "Mountain",
+            "qty": 18
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Goblin Guide\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Rift Bolt\n4 Boros Charm\n4 Searing Blaze\n4 Roiling Vortex\n4 Light Up the Stage\n2 Lightning Helix\n18 Mountain",
+        "format": "Modern",
+        "summary": "Transformed: Budget reduction. Power Focused, budget Moderate. Avg CMC ~1.9.",
+        "warnings": [
+          "Legality filter removed 1 card line(s) not legal in Modern.",
+          "List has 68 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "lower_budget",
+        "previewFacts": {
+          "land_count": 18,
+          "ramp_count": 18,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.9,
+          "curve_histogram": [
+            16,
+            14,
+            12,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "ambiguous_archetype",
+            "hybrid_plan_detected",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "more_casual",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Arid Mesa",
+          "qty": 3
+        },
+        {
+          "name": "Lightning Helix",
+          "qty": 4
+        },
+        {
+          "name": "Scalding Tarn",
+          "qty": 2
+        },
+        {
+          "name": "Searing Blaze",
+          "qty": 3
+        },
+        {
+          "name": "Skullcrack",
+          "qty": 3
+        }
+      ],
+      "removed": [
+        {
+          "name": "Eidolon of the Great Revel",
+          "qty": 1
+        },
+        {
+          "name": "Mountain",
+          "qty": 14
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "List has 62 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: More casual. Power Focused, budget Moderate. Avg CMC ~1.9.",
+      "elapsedMs": 2663,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 19,
+        "ramp_count": 14,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.9,
+        "curve_histogram": [
+          12,
+          21,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 3
+          },
+          {
+            "name": "Lightning Helix",
+            "qty": 4
+          },
+          {
+            "name": "Searing Blaze",
+            "qty": 3
+          },
+          {
+            "name": "Skullcrack",
+            "qty": 3
+          },
+          {
+            "name": "Mountain",
+            "qty": 4
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 2
+          },
+          {
+            "name": "Arid Mesa",
+            "qty": 3
+          },
+          {
+            "name": "Scalding Tarn",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Lightning Bolt\n4 Lava Spike\n4 Skewer the Critics\n4 Rift Bolt\n4 Boros Charm\n4 Roiling Vortex\n3 Eidolon of the Great Revel\n4 Lightning Helix\n3 Searing Blaze\n3 Skullcrack\n4 Mountain\n4 Sunbaked Canyon\n4 Inspiring Vantage\n2 Sacred Foundry\n3 Arid Mesa\n2 Scalding Tarn",
+        "format": "Modern",
+        "summary": "Transformed: More casual. Power Focused, budget Moderate. Avg CMC ~1.9.",
+        "warnings": [
+          "List has 62 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "more_casual",
+        "previewFacts": {
+          "land_count": 19,
+          "ramp_count": 14,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.9,
+          "curve_histogram": [
+            12,
+            21,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "modern-burn",
+      "deckName": "Modern Burn",
+      "format": "Modern",
+      "pass": "more_optimized",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_constructed",
+      "added": [
+        {
+          "name": "Goblin Guide",
+          "qty": 4
+        },
+        {
+          "name": "Sacred Foundry",
+          "qty": 2
+        },
+        {
+          "name": "Searing Blaze",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Mountain",
+          "qty": 10
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "List has 64 cards after validation; trimmed to 60 for Modern."
+      ],
+      "summary": "Transformed: More optimized. Power Focused, budget Moderate. Avg CMC ~1.8.",
+      "elapsedMs": 1927,
+      "previewFactsBefore": {
+        "land_count": 28,
+        "ramp_count": 28,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.88,
+        "curve_histogram": [
+          12,
+          12,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "mana_high",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 20,
+        "ramp_count": 20,
+        "draw_count": 4,
+        "interaction_count": 0,
+        "avg_cmc": 1.8,
+        "curve_histogram": [
+          16,
+          16,
+          8,
+          0,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Monastery Swiftspear",
+            "qty": 4
+          },
+          {
+            "name": "Goblin Guide",
+            "qty": 4
+          },
+          {
+            "name": "Eidolon of the Great Revel",
+            "qty": 4
+          },
+          {
+            "name": "Lightning Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Lava Spike",
+            "qty": 4
+          },
+          {
+            "name": "Rift Bolt",
+            "qty": 4
+          },
+          {
+            "name": "Skewer the Critics",
+            "qty": 4
+          },
+          {
+            "name": "Boros Charm",
+            "qty": 4
+          },
+          {
+            "name": "Searing Blaze",
+            "qty": 4
+          },
+          {
+            "name": "Roiling Vortex",
+            "qty": 4
+          },
+          {
+            "name": "Sunbaked Canyon",
+            "qty": 4
+          },
+          {
+            "name": "Inspiring Vantage",
+            "qty": 4
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 8
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Monastery Swiftspear\n4 Goblin Guide\n4 Eidolon of the Great Revel\n4 Lightning Bolt\n4 Lava Spike\n4 Rift Bolt\n4 Skewer the Critics\n4 Boros Charm\n4 Searing Blaze\n4 Roiling Vortex\n4 Sunbaked Canyon\n4 Inspiring Vantage\n4 Sacred Foundry\n8 Mountain",
+        "format": "Modern",
+        "summary": "Transformed: More optimized. Power Focused, budget Moderate. Avg CMC ~1.8.",
+        "warnings": [
+          "List has 64 cards after validation; trimmed to 60 for Modern."
+        ],
+        "transformIntent": "more_optimized",
+        "previewFacts": {
+          "land_count": 20,
+          "ramp_count": 20,
+          "draw_count": 4,
+          "interaction_count": 0,
+          "avg_cmc": 1.8,
+          "curve_histogram": [
+            16,
+            16,
+            8,
+            0,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    }
+  ]
+}

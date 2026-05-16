@@ -1,0 +1,1581 @@
+{
+  "generatedAt": "2026-05-16T02:18:01.205Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "atraxa-superfriends",
+      "name": "Atraxa, Praetors' Voice - Superfriends",
+      "format": "Commander",
+      "sourceLabel": "sample_commander"
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "pass": 1,
+    "warn": 1,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "atraxa-superfriends",
+      "deckName": "Atraxa, Praetors' Voice - Superfriends",
+      "format": "Commander",
+      "pass": "tighten_curve",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Curve pass increased avg CMC from 0 to 2.82."
+      ],
+      "sourceLabel": "sample_commander",
+      "added": [
+        {
+          "name": "Arcane Denial",
+          "qty": 1
+        },
+        {
+          "name": "Ashiok, Dream Render",
+          "qty": 1
+        },
+        {
+          "name": "Assassin's Trophy",
+          "qty": 1
+        },
+        {
+          "name": "Contentious Plan",
+          "qty": 1
+        },
+        {
+          "name": "Dovin's Veto",
+          "qty": 1
+        },
+        {
+          "name": "Experimental Augury",
+          "qty": 1
+        },
+        {
+          "name": "Fabled Passage",
+          "qty": 1
+        },
+        {
+          "name": "Fellwar Stone",
+          "qty": 1
+        },
+        {
+          "name": "Flooded Strand",
+          "qty": 1
+        },
+        {
+          "name": "Indatha Triome",
+          "qty": 1
+        },
+        {
+          "name": "Marsh Flats",
+          "qty": 1
+        },
+        {
+          "name": "Misty Rainforest",
+          "qty": 1
+        },
+        {
+          "name": "Polluted Delta",
+          "qty": 1
+        },
+        {
+          "name": "Serum Visions",
+          "qty": 1
+        },
+        {
+          "name": "Spara's Headquarters",
+          "qty": 1
+        },
+        {
+          "name": "Swan Song",
+          "qty": 1
+        },
+        {
+          "name": "Talisman of Curiosity",
+          "qty": 1
+        },
+        {
+          "name": "Talisman of Dominance",
+          "qty": 1
+        },
+        {
+          "name": "Talisman of Progress",
+          "qty": 1
+        },
+        {
+          "name": "Talisman of Unity",
+          "qty": 1
+        },
+        {
+          "name": "Teferi, Time Raveler",
+          "qty": 1
+        },
+        {
+          "name": "Teferi's Ageless Insight",
+          "qty": 1
+        },
+        {
+          "name": "Windswept Heath",
+          "qty": 1
+        },
+        {
+          "name": "Zagoth Triome",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Blue Sun's Zenith",
+          "qty": 1
+        },
+        {
+          "name": "Chromatic Lantern",
+          "qty": 1
+        },
+        {
+          "name": "Commander's Sphere",
+          "qty": 1
+        },
+        {
+          "name": "Consecrated Sphinx",
+          "qty": 1
+        },
+        {
+          "name": "Cultivate",
+          "qty": 1
+        },
+        {
+          "name": "Dovin Baan",
+          "qty": 1
+        },
+        {
+          "name": "Elspeth, Sun's Champion",
+          "qty": 1
+        },
+        {
+          "name": "Evolving Wilds",
+          "qty": 1
+        },
+        {
+          "name": "Forest",
+          "qty": 2
+        },
+        {
+          "name": "Island",
+          "qty": 2
+        },
+        {
+          "name": "Karn Liberated",
+          "qty": 1
+        },
+        {
+          "name": "Kodama's Reach",
+          "qty": 1
+        },
+        {
+          "name": "Liliana Vess",
+          "qty": 1
+        },
+        {
+          "name": "Nicol Bolas, Dragon-God",
+          "qty": 1
+        },
+        {
+          "name": "Nissa, Who Shakes the World",
+          "qty": 1
+        },
+        {
+          "name": "Plains",
+          "qty": 2
+        },
+        {
+          "name": "Pull from Tomorrow",
+          "qty": 1
+        },
+        {
+          "name": "Rogue's Passage",
+          "qty": 1
+        },
+        {
+          "name": "Sorin, Grim Nemesis",
+          "qty": 1
+        },
+        {
+          "name": "Stroke of Genius",
+          "qty": 1
+        },
+        {
+          "name": "Swamp",
+          "qty": 2
+        },
+        {
+          "name": "Terramorphic Expanse",
+          "qty": 1
+        },
+        {
+          "name": "Ugin, the Spirit Dragon",
+          "qty": 1
+        }
+      ],
+      "finalCount": 98,
+      "targetCount": 100,
+      "warnings": [
+        "Source deck lists 1 line(s) that appear outside Atraxa, Praetors' Voice's color identity (replacements may be needed).",
+        "List has 98 cards after validation; target is 100 for Commander."
+      ],
+      "summary": "Transformed: Curve tightening. Power Casual, budget Moderate. Avg CMC ~2.82.",
+      "why": "This pass lowers the deck’s average mana cost by replacing expensive finishers, slow ramp, and basic-heavy mana with cheaper interaction, efficient draw, and faster fixing. [[Atraxa, Praetors' Voice]] benefits from landing earlier support pieces and protecting board development with low-cost spells. The land updates also improve color access while trimming slower fixing to better match a tightened casual curve.",
+      "elapsedMs": 28413,
+      "previewFactsBefore": {
+        "land_count": 39,
+        "ramp_count": 30,
+        "draw_count": 12,
+        "interaction_count": 10,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          47,
+          11,
+          16,
+          10,
+          17
+        ],
+        "warning_flags": []
+      },
+      "previewFactsAfter": {
+        "land_count": 37,
+        "ramp_count": 39,
+        "draw_count": 17,
+        "interaction_count": 8,
+        "avg_cmc": 2.82,
+        "curve_histogram": [
+          10,
+          20,
+          12,
+          10,
+          9
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": []
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Atraxa, Praetors' Voice",
+            "qty": 1
+          },
+          {
+            "name": "Jace, the Mind Sculptor",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Hero of Dominaria",
+            "qty": 1
+          },
+          {
+            "name": "Garruk Wildspeaker",
+            "qty": 1
+          },
+          {
+            "name": "Tamiyo, Field Researcher",
+            "qty": 1
+          },
+          {
+            "name": "Oko, Thief of Crowns",
+            "qty": 1
+          },
+          {
+            "name": "Vraska, Golgari Queen",
+            "qty": 1
+          },
+          {
+            "name": "Kiora, Behemoth Beckoner",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Kaya, Orzhov Usurper",
+            "qty": 1
+          },
+          {
+            "name": "Ajani, Mentor of Heroes",
+            "qty": 1
+          },
+          {
+            "name": "Tezzeret the Seeker",
+            "qty": 1
+          },
+          {
+            "name": "Venser, the Sojourner",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Fellwar Stone",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Progress",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Dominance",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Curiosity",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Unity",
+            "qty": 1
+          },
+          {
+            "name": "Farseek",
+            "qty": 1
+          },
+          {
+            "name": "Nature's Lore",
+            "qty": 1
+          },
+          {
+            "name": "Three Visits",
+            "qty": 1
+          },
+          {
+            "name": "Birds of Paradise",
+            "qty": 1
+          },
+          {
+            "name": "Deepglow Skate",
+            "qty": 1
+          },
+          {
+            "name": "Inexorable Tide",
+            "qty": 1
+          },
+          {
+            "name": "Contagion Engine",
+            "qty": 1
+          },
+          {
+            "name": "Viral Drake",
+            "qty": 1
+          },
+          {
+            "name": "Thrummingbird",
+            "qty": 1
+          },
+          {
+            "name": "Karn's Bastion",
+            "qty": 1
+          },
+          {
+            "name": "Evolution Sage",
+            "qty": 1
+          },
+          {
+            "name": "Flux Channeler",
+            "qty": 1
+          },
+          {
+            "name": "Grateful Apparition",
+            "qty": 1
+          },
+          {
+            "name": "Winding Constrictor",
+            "qty": 1
+          },
+          {
+            "name": "Doubling Season",
+            "qty": 1
+          },
+          {
+            "name": "Oath of Teferi",
+            "qty": 1
+          },
+          {
+            "name": "The Chain Veil",
+            "qty": 1
+          },
+          {
+            "name": "Cyclonic Rift",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Swan Song",
+            "qty": 1
+          },
+          {
+            "name": "Swords to Plowshares",
+            "qty": 1
+          },
+          {
+            "name": "Path to Exile",
+            "qty": 1
+          },
+          {
+            "name": "Anguished Unmaking",
+            "qty": 1
+          },
+          {
+            "name": "Assassin's Trophy",
+            "qty": 1
+          },
+          {
+            "name": "Toxic Deluge",
+            "qty": 1
+          },
+          {
+            "name": "Supreme Verdict",
+            "qty": 1
+          },
+          {
+            "name": "Rhystic Study",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Remora",
+            "qty": 1
+          },
+          {
+            "name": "Sylvan Library",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Arena",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "Fact or Fiction",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Serum Visions",
+            "qty": 1
+          },
+          {
+            "name": "Dovin's Veto",
+            "qty": 1
+          },
+          {
+            "name": "Contentious Plan",
+            "qty": 1
+          },
+          {
+            "name": "Experimental Augury",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Time Raveler",
+            "qty": 1
+          },
+          {
+            "name": "Ashiok, Dream Render",
+            "qty": 1
+          },
+          {
+            "name": "Command Tower",
+            "qty": 1
+          },
+          {
+            "name": "Breeding Pool",
+            "qty": 1
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 1
+          },
+          {
+            "name": "Temple Garden",
+            "qty": 1
+          },
+          {
+            "name": "Hallowed Fountain",
+            "qty": 1
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Watery Grave",
+            "qty": 1
+          },
+          {
+            "name": "Sunpetal Grove",
+            "qty": 1
+          },
+          {
+            "name": "Hinterland Harbor",
+            "qty": 1
+          },
+          {
+            "name": "Woodland Cemetery",
+            "qty": 1
+          },
+          {
+            "name": "Glacial Fortress",
+            "qty": 1
+          },
+          {
+            "name": "Drowned Catacomb",
+            "qty": 1
+          },
+          {
+            "name": "Isolated Chapel",
+            "qty": 1
+          },
+          {
+            "name": "Exotic Orchard",
+            "qty": 1
+          },
+          {
+            "name": "Reflecting Pool",
+            "qty": 1
+          },
+          {
+            "name": "Mana Confluence",
+            "qty": 1
+          },
+          {
+            "name": "City of Brass",
+            "qty": 1
+          },
+          {
+            "name": "Opal Palace",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Alchemist's Refuge",
+            "qty": 1
+          },
+          {
+            "name": "Gavony Township",
+            "qty": 1
+          },
+          {
+            "name": "Flooded Strand",
+            "qty": 1
+          },
+          {
+            "name": "Polluted Delta",
+            "qty": 1
+          },
+          {
+            "name": "Windswept Heath",
+            "qty": 1
+          },
+          {
+            "name": "Misty Rainforest",
+            "qty": 1
+          },
+          {
+            "name": "Marsh Flats",
+            "qty": 1
+          },
+          {
+            "name": "Fabled Passage",
+            "qty": 1
+          },
+          {
+            "name": "Indatha Triome",
+            "qty": 1
+          },
+          {
+            "name": "Zagoth Triome",
+            "qty": 1
+          },
+          {
+            "name": "Spara's Headquarters",
+            "qty": 1
+          },
+          {
+            "name": "Forest",
+            "qty": 2
+          },
+          {
+            "name": "Island",
+            "qty": 2
+          },
+          {
+            "name": "Plains",
+            "qty": 1
+          },
+          {
+            "name": "Swamp",
+            "qty": 1
+          }
+        ],
+        "commander": "Atraxa, Praetors' Voice",
+        "colors": [
+          "W",
+          "U",
+          "B",
+          "G"
+        ],
+        "deckText": "1 Atraxa, Praetors' Voice\n1 Jace, the Mind Sculptor\n1 Teferi, Hero of Dominaria\n1 Garruk Wildspeaker\n1 Tamiyo, Field Researcher\n1 Oko, Thief of Crowns\n1 Vraska, Golgari Queen\n1 Kiora, Behemoth Beckoner\n1 Narset, Parter of Veils\n1 Kaya, Orzhov Usurper\n1 Ajani, Mentor of Heroes\n1 Tezzeret the Seeker\n1 Venser, the Sojourner\n1 Sol Ring\n1 Arcane Signet\n1 Fellwar Stone\n1 Talisman of Progress\n1 Talisman of Dominance\n1 Talisman of Curiosity\n1 Talisman of Unity\n1 Farseek\n1 Nature's Lore\n1 Three Visits\n1 Birds of Paradise\n1 Deepglow Skate\n1 Inexorable Tide\n1 Contagion Engine\n1 Viral Drake\n1 Thrummingbird\n1 Karn's Bastion\n1 Evolution Sage\n1 Flux Channeler\n1 Grateful Apparition\n1 Winding Constrictor\n1 Doubling Season\n1 Oath of Teferi\n1 The Chain Veil\n1 Cyclonic Rift\n1 Counterspell\n1 Arcane Denial\n1 Swan Song\n1 Swords to Plowshares\n1 Path to Exile\n1 Anguished Unmaking\n1 Assassin's Trophy\n1 Toxic Deluge\n1 Supreme Verdict\n1 Rhystic Study\n1 Mystic Remora\n1 Sylvan Library\n1 Phyrexian Arena\n1 Teferi's Ageless Insight\n1 Fact or Fiction\n1 Brainstorm\n1 Ponder\n1 Preordain\n1 Serum Visions\n1 Dovin's Veto\n1 Contentious Plan\n1 Experimental Augury\n1 Teferi, Time Raveler\n1 Ashiok, Dream Render\n1 Command Tower\n1 Breeding Pool\n1 Overgrown Tomb\n1 Temple Garden\n1 Hallowed Fountain\n1 Godless Shrine\n1 Watery Grave\n1 Sunpetal Grove\n1 Hinterland Harbor\n1 Woodland Cemetery\n1 Glacial Fortress\n1 Drowned Catacomb\n1 Isolated Chapel\n1 Exotic Orchard\n1 Reflecting Pool\n1 Mana Confluence\n1 City of Brass\n1 Opal Palace\n1 Reliquary Tower\n1 Alchemist's Refuge\n1 Gavony Township\n1 Flooded Strand\n1 Polluted Delta\n1 Windswept Heath\n1 Misty Rainforest\n1 Marsh Flats\n1 Fabled Passage\n1 Indatha Triome\n1 Zagoth Triome\n1 Spara's Headquarters\n2 Forest\n2 Island\n1 Plains\n1 Swamp",
+        "format": "Commander",
+        "summary": "Transformed: Curve tightening. Power Casual, budget Moderate. Avg CMC ~2.82.",
+        "plan": "This pass lowers the deck’s average mana cost by replacing expensive finishers, slow ramp, and basic-heavy mana with cheaper interaction, efficient draw, and faster fixing. [[Atraxa, Praetors' Voice]] benefits from landing earlier support pieces and protecting board development with low-cost spells. The land updates also improve color access while trimming slower fixing to better match a tightened casual curve.",
+        "why": "This pass lowers the deck’s average mana cost by replacing expensive finishers, slow ramp, and basic-heavy mana with cheaper interaction, efficient draw, and faster fixing. [[Atraxa, Praetors' Voice]] benefits from landing earlier support pieces and protecting board development with low-cost spells. The land updates also improve color access while trimming slower fixing to better match a tightened casual curve.",
+        "changeReasons": {
+          "added": {
+            "arcane denial": "[[Arcane Denial]] adds cheap interaction that protects your board while keeping mana open.",
+            "ashiok, dream render": "[[Ashiok, Dream Render]] is a low-cost disruptive planeswalker that fits the leaner curve.",
+            "assassin's trophy": "[[Assassin's Trophy]] gives efficient universal removal at two mana.",
+            "contentious plan": "[[Contentious Plan]] is a cheap cantrip that also proliferates for [[Atraxa, Praetors' Voice]].",
+            "dovin's veto": "[[Dovin's Veto]] provides reliable low-cost protection against noncreature spells.",
+            "experimental augury": "[[Experimental Augury]] offers inexpensive card selection plus proliferate synergy.",
+            "fabled passage": "[[Fabled Passage]] improves fixing without taking a spell slot at higher mana value.",
+            "fellwar stone": "[[Fellwar Stone]] accelerates mana earlier than the removed three-mana rocks.",
+            "flooded strand": "[[Flooded Strand]] upgrades mana consistency and finds needed colors efficiently.",
+            "indatha triome": "[[Indatha Triome]] adds flexible three-color fixing in one land slot.",
+            "marsh flats": "[[Marsh Flats]] improves color access and smooths early land development.",
+            "misty rainforest": "[[Misty Rainforest]] helps assemble cleaner early mana for a four-color deck.",
+            "polluted delta": "[[Polluted Delta]] increases fetch-based fixing and overall consistency.",
+            "serum visions": "[[Serum Visions]] gives one-mana card smoothing to support a lower curve.",
+            "spara's headquarters": "[[Spara's Headquarters]] provides broad fixing while supporting the updated mana base.",
+            "swan song": "[[Swan Song]] is highly efficient protection for key turns and permanents.",
+            "talisman of curiosity": "[[Talisman of Curiosity]] gives two-mana acceleration that is faster than sorcery ramp.",
+            "talisman of dominance": "[[Talisman of Dominance]] adds efficient early ramp and color fixing.",
+            "talisman of progress": "[[Talisman of Progress]] helps cast interactive spells sooner with low-cost ramp.",
+            "talisman of unity": "[[Talisman of Unity]] supports faster multicolor development at two mana.",
+            "teferi, time raveler": "[[Teferi, Time Raveler]] is a cheaper planeswalker that adds tempo and protection.",
+            "teferi's ageless insight": "[[Teferi's Ageless Insight]] boosts draw output while costing less than top-end draw spells.",
+            "windswept heath": "[[Windswept Heath]] improves fixing and complements the upgraded fetch package.",
+            "zagoth triome": "[[Zagoth Triome]] adds another flexible tri-land to stabilize colors early."
+          },
+          "removed": {
+            "forest": "Extra [[Forest]] copies were trimmed to make room for stronger multicolor fixing.",
+            "island": "Extra [[Island]] copies were cut as the mana base shifted toward fetches and dual-fixing lands.",
+            "plains": "Extra [[Plains]] copies were removed to support a more efficient four-color land base.",
+            "swamp": "Extra [[Swamp]] copies were trimmed for lands that fix multiple colors.",
+            "blue sun's zenith": "[[Blue Sun's Zenith]] is a mana-intensive draw spell that is clunky in a tighter curve.",
+            "chromatic lantern": "[[Chromatic Lantern]] was replaced by cheaper ramp to speed up early turns.",
+            "commander's sphere": "[[Commander's Sphere]] is slower than the new two-mana mana rocks.",
+            "consecrated sphinx": "[[Consecrated Sphinx]] is powerful but expensive for this curve-tightening pass.",
+            "cultivate": "[[Cultivate]] was cut for faster acceleration that comes down a turn earlier.",
+            "dovin baan": "[[Dovin Baan]] was removed as a slower planeswalker with less immediate impact.",
+            "elspeth, sun's champion": "[[Elspeth, Sun's Champion]] sits too high on the curve for this update.",
+            "evolving wilds": "[[Evolving Wilds]] was outclassed by stronger fixing upgrades.",
+            "karn liberated": "[[Karn Liberated]] is a costly top-end threat that does not support the lower curve plan.",
+            "kodama's reach": "[[Kodama's Reach]] was cut for cheaper ramp options that improve tempo.",
+            "liliana vess": "[[Liliana Vess]] is a five-mana planeswalker that is slow for the new build.",
+            "nicol bolas, dragon-god": "[[Nicol Bolas, Dragon-God]] was removed as an off-color card outside [[Atraxa, Praetors' Voice]]'s identity.",
+            "nissa, who shakes the world": "[[Nissa, Who Shakes the World]] is a higher-cost payoff that does not fit the tightened curve.",
+            "pull from tomorrow": "[[Pull from Tomorrow]] is another expensive X-draw spell that was streamlined out.",
+            "rogue's passage": "[[Rogue's Passage]] was cut because colorless utility lands strain a tighter four-color mana base.",
+            "sorin, grim nemesis": "[[Sorin, Grim Nemesis]] is a six-mana planeswalker that is too slow for this pass.",
+            "stroke of genius": "[[Stroke of Genius]] is a mana-hungry draw spell that slows the deck down.",
+            "terramorphic expanse": "[[Terramorphic Expanse]] was replaced by more efficient fixing lands.",
+            "ugin, the spirit dragon": "[[Ugin, the Spirit Dragon]] is powerful but far above the target curve."
+          }
+        },
+        "warnings": [
+          "Source deck lists 1 line(s) that appear outside Atraxa, Praetors' Voice's color identity (replacements may be needed).",
+          "List has 98 cards after validation; target is 100 for Commander."
+        ],
+        "transformIntent": "tighten_curve",
+        "previewFacts": {
+          "land_count": 37,
+          "ramp_count": 39,
+          "draw_count": 17,
+          "interaction_count": 8,
+          "avg_cmc": 2.82,
+          "curve_histogram": [
+            10,
+            20,
+            12,
+            10,
+            9
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": []
+        }
+      }
+    },
+    {
+      "deckId": "atraxa-superfriends",
+      "deckName": "Atraxa, Praetors' Voice - Superfriends",
+      "format": "Commander",
+      "pass": "lower_budget",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_commander",
+      "added": [
+        {
+          "name": "Adarkar Wastes",
+          "qty": 1
+        },
+        {
+          "name": "Arcane Denial",
+          "qty": 1
+        },
+        {
+          "name": "Ash Barrens",
+          "qty": 1
+        },
+        {
+          "name": "Astral Cornucopia",
+          "qty": 1
+        },
+        {
+          "name": "Basri Ket",
+          "qty": 1
+        },
+        {
+          "name": "Blossoming Sands",
+          "qty": 1
+        },
+        {
+          "name": "Brushland",
+          "qty": 2
+        },
+        {
+          "name": "Caves of Koilos",
+          "qty": 1
+        },
+        {
+          "name": "Contagion Clasp",
+          "qty": 1
+        },
+        {
+          "name": "Contentious Plan",
+          "qty": 1
+        },
+        {
+          "name": "Dismal Backwater",
+          "qty": 1
+        },
+        {
+          "name": "Dovin's Veto",
+          "qty": 1
+        },
+        {
+          "name": "Drown in Ichor",
+          "qty": 1
+        },
+        {
+          "name": "Everflowing Chalice",
+          "qty": 1
+        },
+        {
+          "name": "Experimental Augury",
+          "qty": 1
+        },
+        {
+          "name": "Jiang Yanggu, Wildcrafter",
+          "qty": 1
+        },
+        {
+          "name": "Jungle Hollow",
+          "qty": 1
+        },
+        {
+          "name": "Kasmina, Enigmatic Mentor",
+          "qty": 1
+        },
+        {
+          "name": "Llanowar Wastes",
+          "qty": 1
+        },
+        {
+          "name": "Merciless Eviction",
+          "qty": 1
+        },
+        {
+          "name": "Myriad Landscape",
+          "qty": 1
+        },
+        {
+          "name": "Ob Nixilis Reignited",
+          "qty": 1
+        },
+        {
+          "name": "Painful Truths",
+          "qty": 1
+        },
+        {
+          "name": "Path of Ancestry",
+          "qty": 1
+        },
+        {
+          "name": "Pir, Imaginative Rascal",
+          "qty": 1
+        },
+        {
+          "name": "Rampant Growth",
+          "qty": 1
+        },
+        {
+          "name": "Scoured Barrens",
+          "qty": 1
+        },
+        {
+          "name": "Temple of Deceit",
+          "qty": 1
+        },
+        {
+          "name": "Temple of Mystery",
+          "qty": 1
+        },
+        {
+          "name": "Temple of Plenty",
+          "qty": 1
+        },
+        {
+          "name": "Temple of Silence",
+          "qty": 1
+        },
+        {
+          "name": "Tezzeret's Gambit",
+          "qty": 1
+        },
+        {
+          "name": "Thornwood Falls",
+          "qty": 1
+        },
+        {
+          "name": "Tranquil Cove",
+          "qty": 1
+        },
+        {
+          "name": "Underground River",
+          "qty": 1
+        },
+        {
+          "name": "Urban Evolution",
+          "qty": 1
+        },
+        {
+          "name": "Yavimaya Coast",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Alchemist's Refuge",
+          "qty": 1
+        },
+        {
+          "name": "Breeding Pool",
+          "qty": 1
+        },
+        {
+          "name": "Chromatic Lantern",
+          "qty": 1
+        },
+        {
+          "name": "City of Brass",
+          "qty": 1
+        },
+        {
+          "name": "Consecrated Sphinx",
+          "qty": 1
+        },
+        {
+          "name": "Cyclonic Rift",
+          "qty": 1
+        },
+        {
+          "name": "Doubling Season",
+          "qty": 1
+        },
+        {
+          "name": "Drowned Catacomb",
+          "qty": 1
+        },
+        {
+          "name": "Gavony Township",
+          "qty": 1
+        },
+        {
+          "name": "Glacial Fortress",
+          "qty": 1
+        },
+        {
+          "name": "Godless Shrine",
+          "qty": 1
+        },
+        {
+          "name": "Hallowed Fountain",
+          "qty": 1
+        },
+        {
+          "name": "Hinterland Harbor",
+          "qty": 1
+        },
+        {
+          "name": "Island",
+          "qty": 1
+        },
+        {
+          "name": "Isolated Chapel",
+          "qty": 1
+        },
+        {
+          "name": "Jace, the Mind Sculptor",
+          "qty": 1
+        },
+        {
+          "name": "Karn Liberated",
+          "qty": 1
+        },
+        {
+          "name": "Mana Confluence",
+          "qty": 1
+        },
+        {
+          "name": "Mystic Remora",
+          "qty": 1
+        },
+        {
+          "name": "Nicol Bolas, Dragon-God",
+          "qty": 1
+        },
+        {
+          "name": "Oko, Thief of Crowns",
+          "qty": 1
+        },
+        {
+          "name": "Overgrown Tomb",
+          "qty": 1
+        },
+        {
+          "name": "Phyrexian Arena",
+          "qty": 1
+        },
+        {
+          "name": "Reflecting Pool",
+          "qty": 1
+        },
+        {
+          "name": "Reliquary Tower",
+          "qty": 1
+        },
+        {
+          "name": "Rhystic Study",
+          "qty": 1
+        },
+        {
+          "name": "Rogue's Passage",
+          "qty": 1
+        },
+        {
+          "name": "Stroke of Genius",
+          "qty": 1
+        },
+        {
+          "name": "Sunpetal Grove",
+          "qty": 1
+        },
+        {
+          "name": "Sylvan Library",
+          "qty": 1
+        },
+        {
+          "name": "Teferi, Hero of Dominaria",
+          "qty": 1
+        },
+        {
+          "name": "Temple Garden",
+          "qty": 1
+        },
+        {
+          "name": "Tezzeret the Seeker",
+          "qty": 1
+        },
+        {
+          "name": "The Chain Veil",
+          "qty": 1
+        },
+        {
+          "name": "Three Visits",
+          "qty": 1
+        },
+        {
+          "name": "Toxic Deluge",
+          "qty": 1
+        },
+        {
+          "name": "Ugin, the Spirit Dragon",
+          "qty": 1
+        },
+        {
+          "name": "Watery Grave",
+          "qty": 1
+        },
+        {
+          "name": "Woodland Cemetery",
+          "qty": 1
+        }
+      ],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Source deck lists 1 line(s) that appear outside Atraxa, Praetors' Voice's color identity (replacements may be needed)."
+      ],
+      "summary": "Transformed: Budget reduction. Power Casual, budget Moderate. Avg CMC ~3.08.",
+      "why": "This pass lowers total cost by replacing premium lands and high-price staples with cheaper fixing, scalable ramp, and straightforward proliferate support for [[Atraxa, Praetors' Voice]]. The changes keep the deck in a casual range while preserving counter synergies and smoothing mana on a moderate budget. It also replaces the off-color [[Nicol Bolas, Dragon-God]] with legal, budget-friendly options.",
+      "elapsedMs": 38518,
+      "previewFactsBefore": {
+        "land_count": 39,
+        "ramp_count": 30,
+        "draw_count": 12,
+        "interaction_count": 10,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          47,
+          11,
+          16,
+          10,
+          17
+        ],
+        "warning_flags": []
+      },
+      "previewFactsAfter": {
+        "land_count": 39,
+        "ramp_count": 46,
+        "draw_count": 11,
+        "interaction_count": 10,
+        "avg_cmc": 3.08,
+        "curve_histogram": [
+          9,
+          15,
+          14,
+          10,
+          13
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Atraxa, Praetors' Voice",
+            "qty": 1
+          },
+          {
+            "name": "Liliana Vess",
+            "qty": 1
+          },
+          {
+            "name": "Garruk Wildspeaker",
+            "qty": 1
+          },
+          {
+            "name": "Elspeth, Sun's Champion",
+            "qty": 1
+          },
+          {
+            "name": "Tamiyo, Field Researcher",
+            "qty": 1
+          },
+          {
+            "name": "Vraska, Golgari Queen",
+            "qty": 1
+          },
+          {
+            "name": "Kiora, Behemoth Beckoner",
+            "qty": 1
+          },
+          {
+            "name": "Nissa, Who Shakes the World",
+            "qty": 1
+          },
+          {
+            "name": "Ajani, Mentor of Heroes",
+            "qty": 1
+          },
+          {
+            "name": "Kaya, Orzhov Usurper",
+            "qty": 1
+          },
+          {
+            "name": "Sorin, Grim Nemesis",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Dovin Baan",
+            "qty": 1
+          },
+          {
+            "name": "Venser, the Sojourner",
+            "qty": 1
+          },
+          {
+            "name": "Kasmina, Enigmatic Mentor",
+            "qty": 1
+          },
+          {
+            "name": "Jiang Yanggu, Wildcrafter",
+            "qty": 1
+          },
+          {
+            "name": "Basri Ket",
+            "qty": 1
+          },
+          {
+            "name": "Ob Nixilis Reignited",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Commander's Sphere",
+            "qty": 1
+          },
+          {
+            "name": "Astral Cornucopia",
+            "qty": 1
+          },
+          {
+            "name": "Everflowing Chalice",
+            "qty": 1
+          },
+          {
+            "name": "Kodama's Reach",
+            "qty": 1
+          },
+          {
+            "name": "Cultivate",
+            "qty": 1
+          },
+          {
+            "name": "Farseek",
+            "qty": 1
+          },
+          {
+            "name": "Nature's Lore",
+            "qty": 1
+          },
+          {
+            "name": "Rampant Growth",
+            "qty": 1
+          },
+          {
+            "name": "Birds of Paradise",
+            "qty": 1
+          },
+          {
+            "name": "Deepglow Skate",
+            "qty": 1
+          },
+          {
+            "name": "Inexorable Tide",
+            "qty": 1
+          },
+          {
+            "name": "Contagion Clasp",
+            "qty": 1
+          },
+          {
+            "name": "Contagion Engine",
+            "qty": 1
+          },
+          {
+            "name": "Viral Drake",
+            "qty": 1
+          },
+          {
+            "name": "Thrummingbird",
+            "qty": 1
+          },
+          {
+            "name": "Karn's Bastion",
+            "qty": 1
+          },
+          {
+            "name": "Evolution Sage",
+            "qty": 1
+          },
+          {
+            "name": "Flux Channeler",
+            "qty": 1
+          },
+          {
+            "name": "Grateful Apparition",
+            "qty": 1
+          },
+          {
+            "name": "Winding Constrictor",
+            "qty": 1
+          },
+          {
+            "name": "Pir, Imaginative Rascal",
+            "qty": 1
+          },
+          {
+            "name": "Oath of Teferi",
+            "qty": 1
+          },
+          {
+            "name": "Contentious Plan",
+            "qty": 1
+          },
+          {
+            "name": "Tezzeret's Gambit",
+            "qty": 1
+          },
+          {
+            "name": "Drown in Ichor",
+            "qty": 1
+          },
+          {
+            "name": "Experimental Augury",
+            "qty": 1
+          },
+          {
+            "name": "Swords to Plowshares",
+            "qty": 1
+          },
+          {
+            "name": "Path to Exile",
+            "qty": 1
+          },
+          {
+            "name": "Anguished Unmaking",
+            "qty": 1
+          },
+          {
+            "name": "Merciless Eviction",
+            "qty": 1
+          },
+          {
+            "name": "Supreme Verdict",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Dovin's Veto",
+            "qty": 1
+          },
+          {
+            "name": "Painful Truths",
+            "qty": 1
+          },
+          {
+            "name": "Fact or Fiction",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Urban Evolution",
+            "qty": 1
+          },
+          {
+            "name": "Command Tower",
+            "qty": 1
+          },
+          {
+            "name": "Exotic Orchard",
+            "qty": 1
+          },
+          {
+            "name": "Opal Palace",
+            "qty": 1
+          },
+          {
+            "name": "Evolving Wilds",
+            "qty": 1
+          },
+          {
+            "name": "Terramorphic Expanse",
+            "qty": 1
+          },
+          {
+            "name": "Ash Barrens",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Path of Ancestry",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Mystery",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Silence",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Plenty",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Deceit",
+            "qty": 1
+          },
+          {
+            "name": "Thornwood Falls",
+            "qty": 1
+          },
+          {
+            "name": "Tranquil Cove",
+            "qty": 1
+          },
+          {
+            "name": "Dismal Backwater",
+            "qty": 1
+          },
+          {
+            "name": "Jungle Hollow",
+            "qty": 1
+          },
+          {
+            "name": "Blossoming Sands",
+            "qty": 1
+          },
+          {
+            "name": "Scoured Barrens",
+            "qty": 1
+          },
+          {
+            "name": "Yavimaya Coast",
+            "qty": 1
+          },
+          {
+            "name": "Caves of Koilos",
+            "qty": 1
+          },
+          {
+            "name": "Llanowar Wastes",
+            "qty": 1
+          },
+          {
+            "name": "Brushland",
+            "qty": 2
+          },
+          {
+            "name": "Adarkar Wastes",
+            "qty": 1
+          },
+          {
+            "name": "Underground River",
+            "qty": 1
+          },
+          {
+            "name": "Forest",
+            "qty": 4
+          },
+          {
+            "name": "Island",
+            "qty": 3
+          },
+          {
+            "name": "Plains",
+            "qty": 3
+          },
+          {
+            "name": "Swamp",
+            "qty": 3
+          }
+        ],
+        "commander": "Atraxa, Praetors' Voice",
+        "colors": [
+          "W",
+          "U",
+          "B",
+          "G"
+        ],
+        "deckText": "1 Atraxa, Praetors' Voice\n1 Liliana Vess\n1 Garruk Wildspeaker\n1 Elspeth, Sun's Champion\n1 Tamiyo, Field Researcher\n1 Vraska, Golgari Queen\n1 Kiora, Behemoth Beckoner\n1 Nissa, Who Shakes the World\n1 Ajani, Mentor of Heroes\n1 Kaya, Orzhov Usurper\n1 Sorin, Grim Nemesis\n1 Narset, Parter of Veils\n1 Dovin Baan\n1 Venser, the Sojourner\n1 Kasmina, Enigmatic Mentor\n1 Jiang Yanggu, Wildcrafter\n1 Basri Ket\n1 Ob Nixilis Reignited\n1 Sol Ring\n1 Arcane Signet\n1 Commander's Sphere\n1 Astral Cornucopia\n1 Everflowing Chalice\n1 Kodama's Reach\n1 Cultivate\n1 Farseek\n1 Nature's Lore\n1 Rampant Growth\n1 Birds of Paradise\n1 Deepglow Skate\n1 Inexorable Tide\n1 Contagion Clasp\n1 Contagion Engine\n1 Viral Drake\n1 Thrummingbird\n1 Karn's Bastion\n1 Evolution Sage\n1 Flux Channeler\n1 Grateful Apparition\n1 Winding Constrictor\n1 Pir, Imaginative Rascal\n1 Oath of Teferi\n1 Contentious Plan\n1 Tezzeret's Gambit\n1 Drown in Ichor\n1 Experimental Augury\n1 Swords to Plowshares\n1 Path to Exile\n1 Anguished Unmaking\n1 Merciless Eviction\n1 Supreme Verdict\n1 Counterspell\n1 Arcane Denial\n1 Dovin's Veto\n1 Painful Truths\n1 Fact or Fiction\n1 Pull from Tomorrow\n1 Blue Sun's Zenith\n1 Brainstorm\n1 Ponder\n1 Preordain\n1 Urban Evolution\n1 Command Tower\n1 Exotic Orchard\n1 Opal Palace\n1 Evolving Wilds\n1 Terramorphic Expanse\n1 Ash Barrens\n1 Myriad Landscape\n1 Path of Ancestry\n1 Temple of Mystery\n1 Temple of Silence\n1 Temple of Plenty\n1 Temple of Deceit\n1 Thornwood Falls\n1 Tranquil Cove\n1 Dismal Backwater\n1 Jungle Hollow\n1 Blossoming Sands\n1 Scoured Barrens\n1 Yavimaya Coast\n1 Caves of Koilos\n1 Llanowar Wastes\n2 Brushland\n1 Adarkar Wastes\n1 Underground River\n4 Forest\n3 Island\n3 Plains\n3 Swamp",
+        "format": "Commander",
+        "summary": "Transformed: Budget reduction. Power Casual, budget Moderate. Avg CMC ~3.08.",
+        "plan": "This pass lowers total cost by replacing premium lands and high-price staples with cheaper fixing, scalable ramp, and straightforward proliferate support for [[Atraxa, Praetors' Voice]]. The changes keep the deck in a casual range while preserving counter synergies and smoothing mana on a moderate budget. It also replaces the off-color [[Nicol Bolas, Dragon-God]] with legal, budget-friendly options.",
+        "why": "This pass lowers total cost by replacing premium lands and high-price staples with cheaper fixing, scalable ramp, and straightforward proliferate support for [[Atraxa, Praetors' Voice]]. The changes keep the deck in a casual range while preserving counter synergies and smoothing mana on a moderate budget. It also replaces the off-color [[Nicol Bolas, Dragon-God]] with legal, budget-friendly options.",
+        "changeReasons": {
+          "added": {
+            "brushland": "[[Brushland]] is a much cheaper dual land that still gives reliable green-white fixing.",
+            "adarkar wastes": "[[Adarkar Wastes]] replaces pricier blue-white lands with efficient budget fixing.",
+            "arcane denial": "[[Arcane Denial]] gives the deck a low-cost, flexible counterspell on budget.",
+            "ash barrens": "[[Ash Barrens]] improves color access cheaply while still functioning as a land drop.",
+            "astral cornucopia": "[[Astral Cornucopia]] ramps well with proliferate and fits the counters plan.",
+            "basri ket": "[[Basri Ket]] adds budget planeswalker utility and makes +1/+1 counters for Atraxa to grow.",
+            "blossoming sands": "[[Blossoming Sands]] is a simple low-cost replacement for expensive green-white fixing.",
+            "caves of koilos": "[[Caves of Koilos]] provides untapped budget fixing for white and black.",
+            "contagion clasp": "[[Contagion Clasp]] supplies removal plus repeatable proliferate at a low price.",
+            "contentious plan": "[[Contentious Plan]] is an inexpensive way to draw a card and proliferate.",
+            "dismal backwater": "[[Dismal Backwater]] is a budget blue-black dual that helps stabilize mana.",
+            "dovin's veto": "[[Dovin's Veto]] is efficient, dependable interaction for a casual control shell.",
+            "drown in ichor": "[[Drown in Ichor]] is affordable removal that also proliferates.",
+            "everflowing chalice": "[[Everflowing Chalice]] scales nicely and becomes better with proliferate triggers.",
+            "experimental augury": "[[Experimental Augury]] adds cheap card selection and another proliferate effect.",
+            "jiang yanggu, wildcrafter": "[[Jiang Yanggu, Wildcrafter]] turns countered creatures into mana sources and supports the counter theme.",
+            "jungle hollow": "[[Jungle Hollow]] is a low-cost black-green dual that keeps the mana base affordable.",
+            "kasmina, enigmatic mentor": "[[Kasmina, Enigmatic Mentor]] offers budget planeswalker value and extra bodies to protect your board.",
+            "llanowar wastes": "[[Llanowar Wastes]] is a cheap untapped source for green-black mana.",
+            "merciless eviction": "[[Merciless Eviction]] gives the deck a versatile sweeper without premium pricing.",
+            "myriad landscape": "[[Myriad Landscape]] is slow but useful budget ramp in a four-color mana base.",
+            "ob nixilis reignited": "[[Ob Nixilis Reignited]] provides affordable card draw and removal on a planeswalker body.",
+            "painful truths": "[[Painful Truths]] is efficient budget card draw in a multicolor deck.",
+            "path of ancestry": "[[Path of Ancestry]] is strong budget fixing in Commander with incidental scry value.",
+            "pir, imaginative rascal": "[[Pir, Imaginative Rascal]] boosts counter placement and directly supports Atraxa's game plan.",
+            "rampant growth": "[[Rampant Growth]] is reliable budget land ramp that helps fix colors early.",
+            "scoured barrens": "[[Scoured Barrens]] is a cheap white-black dual for a lower-cost mana base.",
+            "temple of deceit": "[[Temple of Deceit]] trades speed for affordable fixing and useful scrying.",
+            "temple of mystery": "[[Temple of Mystery]] is a budget-friendly dual that helps smooth draws.",
+            "temple of plenty": "[[Temple of Plenty]] keeps green-white fixing inexpensive while adding scry value.",
+            "temple of silence": "[[Temple of Silence]] is a low-cost dual that supports consistency on budget.",
+            "tezzeret's gambit": "[[Tezzeret's Gambit]] draws cards and proliferates efficiently for this strategy.",
+            "thornwood falls": "[[Thornwood Falls]] is a simple budget replacement for pricier blue-green lands.",
+            "tranquil cove": "[[Tranquil Cove]] lowers mana-base cost while still covering blue-white needs.",
+            "underground river": "[[Underground River]] offers untapped budget fixing for blue and black.",
+            "urban evolution": "[[Urban Evolution]] is a budget value spell that draws cards and helps hit extra land drops.",
+            "yavimaya coast": "[[Yavimaya Coast]] is a cheaper untapped source for green-blue mana."
+          },
+          "removed": {
+            "alchemist's refuge": "[[Alchemist's Refuge]] is cut to lower cost and simplify the mana base.",
+            "breeding pool": "[[Breeding Pool]] is an expensive dual land replaced by cheaper fixing.",
+            "chromatic lantern": "[[Chromatic Lantern]] is useful but trimmed for less expensive ramp options.",
+            "city of brass": "[[City of Brass]] is efficient but costs more than needed for a casual budget build.",
+            "consecrated sphinx": "[[Consecrated Sphinx]] is a powerful staple that raises the deck's price significantly.",
+            "cyclonic rift": "[[Cyclonic Rift]] is removed mainly because it is a premium-priced staple.",
+            "doubling season": "[[Doubling Season]] is highly synergistic but too expensive for this budget pass.",
+            "drowned catacomb": "[[Drowned Catacomb]] is cut in favor of cheaper blue-black lands.",
+            "gavony township": "[[Gavony Township]] is replaced to keep the mana base cheaper and cleaner.",
+            "glacial fortress": "[[Glacial Fortress]] is trimmed as part of swapping to lower-cost fixing.",
+            "godless shrine": "[[Godless Shrine]] is a strong dual but too expensive for the new budget target.",
+            "hallowed fountain": "[[Hallowed Fountain]] is removed to reduce mana-base cost.",
+            "hinterland harbor": "[[Hinterland Harbor]] is replaced by more affordable green-blue sources.",
+            "island": "[[Island]] is cut to make room for more flexible budget color fixing.",
+            "isolated chapel": "[[Isolated Chapel]] is trimmed for cheaper white-black lands.",
+            "jace, the mind sculptor": "[[Jace, the Mind Sculptor]] is a premium planeswalker outside this budget goal.",
+            "karn liberated": "[[Karn Liberated]] is powerful but too costly for a casual budget revision.",
+            "mana confluence": "[[Mana Confluence]] is efficient fixing, but its price is unnecessary here.",
+            "mystic remora": "[[Mystic Remora]] is removed because it is a comparatively expensive draw staple.",
+            "nicol bolas, dragon-god": "[[Nicol Bolas, Dragon-God]] is outside [[Atraxa, Praetors' Voice]]'s color identity and must be removed.",
+            "oko, thief of crowns": "[[Oko, Thief of Crowns]] is a strong but expensive planeswalker for this pass.",
+            "overgrown tomb": "[[Overgrown Tomb]] is cut to replace premium fixing with cheaper options.",
+            "phyrexian arena": "[[Phyrexian Arena]] is serviceable, but lower-cost draw options reduce total price.",
+            "reflecting pool": "[[Reflecting Pool]] is removed to lower the cost of the mana base.",
+            "reliquary tower": "[[Reliquary Tower]] is cut because stronger color fixing matters more than no maximum hand size here.",
+            "rhystic study": "[[Rhystic Study]] is one of the deck's priciest staples and a clear budget cut.",
+            "rogue's passage": "[[Rogue's Passage]] is trimmed to prioritize colored sources and budget consistency.",
+            "stroke of genius": "[[Stroke of Genius]] is replaced by cheaper card-advantage options.",
+            "sunpetal grove": "[[Sunpetal Grove]] is cut as part of reducing land-base expense.",
+            "sylvan library": "[[Sylvan Library]] is a premium staple that does not fit the reduced budget.",
+            "teferi, hero of dominaria": "[[Teferi, Hero of Dominaria]] is removed to bring down both cost and overall card power.",
+            "temple garden": "[[Temple Garden]] is a premium land swapped for budget green-white fixing.",
+            "tezzeret the seeker": "[[Tezzeret the Seeker]] is cut because it is a pricier planeswalker than the budget target allows.",
+            "the chain veil": "[[The Chain Veil]] is removed to reduce cost and streamline the deck's planeswalker package.",
+            "three visits": "[[Three Visits]] is replaced by cheaper ramp that fills a similar role.",
+            "toxic deluge": "[[Toxic Deluge]] is an efficient sweeper but too expensive for this budget pass.",
+            "ugin, the spirit dragon": "[[Ugin, the Spirit Dragon]] is a high-cost finisher financially and strategically for casual budget play.",
+            "watery grave": "[[Watery Grave]] is removed to cut mana-base expense.",
+            "woodland cemetery": "[[Woodland Cemetery]] is replaced with more affordable black-green fixing."
+          }
+        },
+        "warnings": [
+          "Source deck lists 1 line(s) that appear outside Atraxa, Praetors' Voice's color identity (replacements may be needed)."
+        ],
+        "transformIntent": "lower_budget",
+        "previewFacts": {
+          "land_count": 39,
+          "ramp_count": 46,
+          "draw_count": 11,
+          "interaction_count": 10,
+          "avg_cmc": 3.08,
+          "curve_histogram": [
+            9,
+            15,
+            14,
+            10,
+            13
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected"
+          ]
+        }
+      }
+    }
+  ]
+}

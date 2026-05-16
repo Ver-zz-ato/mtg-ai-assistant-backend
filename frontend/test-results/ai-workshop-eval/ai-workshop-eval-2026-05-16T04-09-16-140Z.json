@@ -1,0 +1,532 @@
+{
+  "generatedAt": "2026-05-16T04:09:42.775Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "yuriko-ninjas",
+      "name": "Yuriko, the Tiger's Shadow - Ninja Tribal",
+      "format": "Commander",
+      "sourceLabel": "sample_commander"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "yuriko-ninjas",
+      "deckName": "Yuriko, the Tiger's Shadow - Ninja Tribal",
+      "format": "Commander",
+      "pass": "general",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_commander",
+      "added": [
+        {
+          "name": "Arcane Adaptation",
+          "qty": 1
+        },
+        {
+          "name": "Bident of Thassa",
+          "qty": 1
+        },
+        {
+          "name": "Brainstorm",
+          "qty": 1
+        },
+        {
+          "name": "Island",
+          "qty": 1
+        },
+        {
+          "name": "Reconnaissance Mission",
+          "qty": 1
+        },
+        {
+          "name": "Soothsaying",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Aminatou's Augury",
+          "qty": 1
+        },
+        {
+          "name": "Blinkmoth Infusion",
+          "qty": 1
+        },
+        {
+          "name": "Cloud of Faeries",
+          "qty": 1
+        },
+        {
+          "name": "Consign // Oblivion",
+          "qty": 1
+        },
+        {
+          "name": "Consult the Necrosages",
+          "qty": 1
+        },
+        {
+          "name": "Enter the Infinite",
+          "qty": 1
+        },
+        {
+          "name": "Fabricate",
+          "qty": 1
+        }
+      ],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Model output had 113 cards after color filter; list trimmed to 100."
+      ],
+      "summary": "Transformed: General refinement. Power Casual, budget Moderate. Avg CMC ~3.16.",
+      "why": "These swaps tighten [[Yuriko, the Tiger's Shadow]] around cheaper setup, cleaner card flow, and more reliable combat payoff. The additions improve topdeck control, tribal support, and repeatable draw, while the cuts remove clunky or lower-impact spells for a smoother casual game plan. The extra [[Island]] also helps stabilize the mana after the trim to 100 cards.",
+      "elapsedMs": 17178,
+      "previewFactsBefore": {
+        "land_count": 31,
+        "ramp_count": 27,
+        "draw_count": 15,
+        "interaction_count": 10,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          50,
+          16,
+          11,
+          6,
+          16
+        ],
+        "warning_flags": []
+      },
+      "previewFactsAfter": {
+        "land_count": 32,
+        "ramp_count": 38,
+        "draw_count": 15,
+        "interaction_count": 6,
+        "avg_cmc": 3.16,
+        "curve_histogram": [
+          21,
+          15,
+          10,
+          8,
+          14
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Yuriko, the Tiger's Shadow",
+            "qty": 1
+          },
+          {
+            "name": "Ninja of the Deep Hours",
+            "qty": 1
+          },
+          {
+            "name": "Sakashima's Student",
+            "qty": 1
+          },
+          {
+            "name": "Walker of Secret Ways",
+            "qty": 1
+          },
+          {
+            "name": "Throat Slitter",
+            "qty": 1
+          },
+          {
+            "name": "Ink-Eyes, Servant of Oni",
+            "qty": 1
+          },
+          {
+            "name": "Silent-Blade Oni",
+            "qty": 1
+          },
+          {
+            "name": "Mistblade Shinobi",
+            "qty": 1
+          },
+          {
+            "name": "Ninja of the New Moon",
+            "qty": 1
+          },
+          {
+            "name": "Mist-Syndicate Naga",
+            "qty": 1
+          },
+          {
+            "name": "Changeling Outcast",
+            "qty": 1
+          },
+          {
+            "name": "Ingenious Infiltrator",
+            "qty": 1
+          },
+          {
+            "name": "Higure, the Still Wind",
+            "qty": 1
+          },
+          {
+            "name": "Fallen Shinobi",
+            "qty": 1
+          },
+          {
+            "name": "Moonblade Shinobi",
+            "qty": 1
+          },
+          {
+            "name": "Moonsnare Specialist",
+            "qty": 1
+          },
+          {
+            "name": "Dokuchi Silencer",
+            "qty": 1
+          },
+          {
+            "name": "Nashi, Moon Sage's Scion",
+            "qty": 1
+          },
+          {
+            "name": "Silver-Fur Master",
+            "qty": 1
+          },
+          {
+            "name": "Satoru Umezawa",
+            "qty": 1
+          },
+          {
+            "name": "Kaito Shizuki",
+            "qty": 1
+          },
+          {
+            "name": "Ornithopter",
+            "qty": 1
+          },
+          {
+            "name": "Tormented Soul",
+            "qty": 1
+          },
+          {
+            "name": "Faerie Seer",
+            "qty": 1
+          },
+          {
+            "name": "Mausoleum Wanderer",
+            "qty": 1
+          },
+          {
+            "name": "Spectral Sailor",
+            "qty": 1
+          },
+          {
+            "name": "Slither Blade",
+            "qty": 1
+          },
+          {
+            "name": "Gudul Lurker",
+            "qty": 1
+          },
+          {
+            "name": "Tetsuko Umezawa, Fugitive",
+            "qty": 1
+          },
+          {
+            "name": "Hope of Ghirapur",
+            "qty": 1
+          },
+          {
+            "name": "Signal Pest",
+            "qty": 1
+          },
+          {
+            "name": "Baleful Strix",
+            "qty": 1
+          },
+          {
+            "name": "Draco",
+            "qty": 1
+          },
+          {
+            "name": "Temporal Trespass",
+            "qty": 1
+          },
+          {
+            "name": "Temporal Mastery",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Treasure Cruise",
+            "qty": 1
+          },
+          {
+            "name": "Commit // Memory",
+            "qty": 1
+          },
+          {
+            "name": "Rhystic Study",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Remora",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 2
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Scroll Rack",
+            "qty": 1
+          },
+          {
+            "name": "Sensei's Divining Top",
+            "qty": 1
+          },
+          {
+            "name": "Vampiric Tutor",
+            "qty": 1
+          },
+          {
+            "name": "Mystical Tutor",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Swan Song",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Force of Will",
+            "qty": 1
+          },
+          {
+            "name": "Cyclonic Rift",
+            "qty": 1
+          },
+          {
+            "name": "Dismember",
+            "qty": 1
+          },
+          {
+            "name": "Snuff Out",
+            "qty": 1
+          },
+          {
+            "name": "Murderous Cut",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Dimir Signet",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Dominance",
+            "qty": 1
+          },
+          {
+            "name": "Fellwar Stone",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Bident of Thassa",
+            "qty": 1
+          },
+          {
+            "name": "Reconnaissance Mission",
+            "qty": 1
+          },
+          {
+            "name": "Soothsaying",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Adaptation",
+            "qty": 1
+          },
+          {
+            "name": "Command Tower",
+            "qty": 1
+          },
+          {
+            "name": "Sunken Hollow",
+            "qty": 1
+          },
+          {
+            "name": "Choked Estuary",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Deceit",
+            "qty": 1
+          },
+          {
+            "name": "Dimir Aqueduct",
+            "qty": 1
+          },
+          {
+            "name": "Underground River",
+            "qty": 1
+          },
+          {
+            "name": "Darkwater Catacombs",
+            "qty": 1
+          },
+          {
+            "name": "Tainted Isle",
+            "qty": 1
+          },
+          {
+            "name": "Jwar Isle Refuge",
+            "qty": 1
+          },
+          {
+            "name": "Dismal Backwater",
+            "qty": 1
+          },
+          {
+            "name": "Evolving Wilds",
+            "qty": 1
+          },
+          {
+            "name": "Terramorphic Expanse",
+            "qty": 1
+          },
+          {
+            "name": "Exotic Orchard",
+            "qty": 1
+          },
+          {
+            "name": "Reflecting Pool",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Opal Palace",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 8
+          },
+          {
+            "name": "Swamp",
+            "qty": 6
+          }
+        ],
+        "commander": "Yuriko, the Tiger's Shadow",
+        "colors": [
+          "U",
+          "B"
+        ],
+        "deckText": "1 Yuriko, the Tiger's Shadow\n1 Ninja of the Deep Hours\n1 Sakashima's Student\n1 Walker of Secret Ways\n1 Throat Slitter\n1 Ink-Eyes, Servant of Oni\n1 Silent-Blade Oni\n1 Mistblade Shinobi\n1 Ninja of the New Moon\n1 Mist-Syndicate Naga\n1 Changeling Outcast\n1 Ingenious Infiltrator\n1 Higure, the Still Wind\n1 Fallen Shinobi\n1 Moonblade Shinobi\n1 Moonsnare Specialist\n1 Dokuchi Silencer\n1 Nashi, Moon Sage's Scion\n1 Silver-Fur Master\n1 Satoru Umezawa\n1 Kaito Shizuki\n1 Ornithopter\n1 Tormented Soul\n1 Faerie Seer\n1 Mausoleum Wanderer\n1 Spectral Sailor\n1 Slither Blade\n1 Gudul Lurker\n1 Tetsuko Umezawa, Fugitive\n1 Hope of Ghirapur\n1 Signal Pest\n1 Baleful Strix\n1 Draco\n1 Temporal Trespass\n1 Temporal Mastery\n1 Dig Through Time\n1 Treasure Cruise\n1 Commit // Memory\n1 Rhystic Study\n1 Mystic Remora\n2 Brainstorm\n1 Ponder\n1 Preordain\n1 Scroll Rack\n1 Sensei's Divining Top\n1 Vampiric Tutor\n1 Mystical Tutor\n1 Counterspell\n1 Swan Song\n1 Arcane Denial\n1 Negate\n1 Force of Will\n1 Cyclonic Rift\n1 Dismember\n1 Snuff Out\n1 Murderous Cut\n1 Sol Ring\n1 Arcane Signet\n1 Dimir Signet\n1 Talisman of Dominance\n1 Fellwar Stone\n1 Mind Stone\n1 Thought Vessel\n1 Bident of Thassa\n1 Reconnaissance Mission\n1 Soothsaying\n1 Arcane Adaptation\n1 Command Tower\n1 Sunken Hollow\n1 Choked Estuary\n1 Temple of Deceit\n1 Dimir Aqueduct\n1 Underground River\n1 Darkwater Catacombs\n1 Tainted Isle\n1 Jwar Isle Refuge\n1 Dismal Backwater\n1 Evolving Wilds\n1 Terramorphic Expanse\n1 Exotic Orchard\n1 Reflecting Pool\n1 Myriad Landscape\n1 Opal Palace\n1 Reliquary Tower\n1 Rogue's Passage\n8 Island\n6 Swamp",
+        "format": "Commander",
+        "summary": "Transformed: General refinement. Power Casual, budget Moderate. Avg CMC ~3.16.",
+        "plan": "These swaps tighten [[Yuriko, the Tiger's Shadow]] around cheaper setup, cleaner card flow, and more reliable combat payoff. The additions improve topdeck control, tribal support, and repeatable draw, while the cuts remove clunky or lower-impact spells for a smoother casual game plan. The extra [[Island]] also helps stabilize the mana after the trim to 100 cards.",
+        "why": "These swaps tighten [[Yuriko, the Tiger's Shadow]] around cheaper setup, cleaner card flow, and more reliable combat payoff. The additions improve topdeck control, tribal support, and repeatable draw, while the cuts remove clunky or lower-impact spells for a smoother casual game plan. The extra [[Island]] also helps stabilize the mana after the trim to 100 cards.",
+        "changeReasons": {
+          "added": {
+            "arcane adaptation": "[[Arcane Adaptation]] makes the team Ninjas so [[Yuriko, the Tiger's Shadow]] synergies apply more consistently.",
+            "bident of thassa": "[[Bident of Thassa]] turns successful attacks into steady card draw for an evasive board.",
+            "brainstorm": "[[Brainstorm]] is a cheap way to set up the top of the library for [[Yuriko, the Tiger's Shadow]].",
+            "island": "[[Island]] improves basic mana consistency after the list cleanup.",
+            "reconnaissance mission": "[[Reconnaissance Mission]] rewards multiple evasive attackers with repeatable card draw.",
+            "soothsaying": "[[Soothsaying]] gives repeatable topdeck manipulation to improve [[Yuriko, the Tiger's Shadow]] triggers."
+          },
+          "removed": {
+            "aminatou's augury": "[[Aminatou's Augury]] is very expensive and too slow for this lighter refinement pass.",
+            "blinkmoth infusion": "[[Blinkmoth Infusion]] is an oversized spell with little practical synergy here.",
+            "cloud of faeries": "[[Cloud of Faeries]] is low impact on its own compared with the added support pieces.",
+            "consign // oblivion": "[[Consign // Oblivion]] is flexible but inefficient for this streamlined build.",
+            "consult the necrosages": "[[Consult the Necrosages]] is a modest effect that does not efficiently support the main plan.",
+            "enter the infinite": "[[Enter the Infinite]] is far too costly for a casual [[Yuriko, the Tiger's Shadow]] deck aiming to function smoothly.",
+            "fabricate": "[[Fabricate]] is narrower than the added cards and less important to the deck's core game plan."
+          }
+        },
+        "warnings": [
+          "Model output had 113 cards after color filter; list trimmed to 100."
+        ],
+        "transformIntent": "general",
+        "previewFacts": {
+          "land_count": 32,
+          "ramp_count": 38,
+          "draw_count": 15,
+          "interaction_count": 6,
+          "avg_cmc": 3.16,
+          "curve_histogram": [
+            21,
+            15,
+            10,
+            8,
+            14
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected"
+          ]
+        }
+      }
+    }
+  ]
+}

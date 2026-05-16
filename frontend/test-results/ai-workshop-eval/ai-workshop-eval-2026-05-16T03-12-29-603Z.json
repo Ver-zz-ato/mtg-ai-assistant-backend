@@ -1,0 +1,479 @@
+{
+  "generatedAt": "2026-05-16T03:12:32.815Z",
+  "baseUrl": "http://localhost:3000",
+  "decks": [
+    {
+      "id": "edgar-markov-vampires",
+      "name": "Edgar Markov - Vampire Tribal",
+      "format": "Commander",
+      "sourceLabel": "sample_commander"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "edgar-markov-vampires",
+      "deckName": "Edgar Markov - Vampire Tribal",
+      "format": "Commander",
+      "pass": "fix_legality",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_commander",
+      "added": [],
+      "removed": [],
+      "finalCount": 99,
+      "targetCount": 100,
+      "warnings": [
+        "Source deck has 99 cards after validation; target is 100 for Commander."
+      ],
+      "summary": "Deck size needs review. This list passed legality checks, but it is 99 cards after validation instead of the expected 100.",
+      "why": "This pass did not suggest filler cards. The list is legal for Commander, but its deck size still needs manual review before you save it.",
+      "elapsedMs": 2150,
+      "previewFactsBefore": {
+        "land_count": 37,
+        "ramp_count": 43,
+        "draw_count": 6,
+        "interaction_count": 10,
+        "avg_cmc": 3.15,
+        "curve_histogram": [
+          7,
+          16,
+          18,
+          10,
+          11
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 37,
+        "ramp_count": 43,
+        "draw_count": 6,
+        "interaction_count": 10,
+        "avg_cmc": 3.15,
+        "curve_histogram": [
+          7,
+          16,
+          18,
+          10,
+          11
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Edgar Markov",
+            "qty": 1
+          },
+          {
+            "name": "Bloodline Keeper",
+            "qty": 1
+          },
+          {
+            "name": "Captivating Vampire",
+            "qty": 1
+          },
+          {
+            "name": "Vampire Nocturnus",
+            "qty": 1
+          },
+          {
+            "name": "Stromkirk Captain",
+            "qty": 1
+          },
+          {
+            "name": "Dusk Legion Zealot",
+            "qty": 1
+          },
+          {
+            "name": "Legion Lieutenant",
+            "qty": 1
+          },
+          {
+            "name": "Champion of Dusk",
+            "qty": 1
+          },
+          {
+            "name": "Forerunner of the Legion",
+            "qty": 1
+          },
+          {
+            "name": "Mavren Fein, Dusk Apostle",
+            "qty": 1
+          },
+          {
+            "name": "Sanctum Seeker",
+            "qty": 1
+          },
+          {
+            "name": "Vito, Thorn of the Dusk Rose",
+            "qty": 1
+          },
+          {
+            "name": "Elenda, the Dusk Rose",
+            "qty": 1
+          },
+          {
+            "name": "Malakir Bloodwitch",
+            "qty": 1
+          },
+          {
+            "name": "Kalitas, Bloodchief of Ghet",
+            "qty": 1
+          },
+          {
+            "name": "Anowon, the Ruin Sage",
+            "qty": 1
+          },
+          {
+            "name": "Bloodghast",
+            "qty": 1
+          },
+          {
+            "name": "Vampire Nighthawk",
+            "qty": 1
+          },
+          {
+            "name": "Kalastria Highborn",
+            "qty": 1
+          },
+          {
+            "name": "Falkenrath Aristocrat",
+            "qty": 1
+          },
+          {
+            "name": "Olivia Voldaren",
+            "qty": 1
+          },
+          {
+            "name": "Olivia, Mobilized for War",
+            "qty": 1
+          },
+          {
+            "name": "Necropolis Regent",
+            "qty": 1
+          },
+          {
+            "name": "Drana, Liberator of Malakir",
+            "qty": 1
+          },
+          {
+            "name": "Bloodlord of Vaasgoth",
+            "qty": 1
+          },
+          {
+            "name": "Viscera Seer",
+            "qty": 1
+          },
+          {
+            "name": "Blood Artist",
+            "qty": 1
+          },
+          {
+            "name": "Zulaport Cutthroat",
+            "qty": 1
+          },
+          {
+            "name": "Butcher of Malakir",
+            "qty": 1
+          },
+          {
+            "name": "Cordial Vampire",
+            "qty": 1
+          },
+          {
+            "name": "Stromkirk Condemned",
+            "qty": 1
+          },
+          {
+            "name": "Vampire Cutthroat",
+            "qty": 1
+          },
+          {
+            "name": "Indulgent Aristocrat",
+            "qty": 1
+          },
+          {
+            "name": "Legion's Landing",
+            "qty": 1
+          },
+          {
+            "name": "Sorin, Imperious Bloodlord",
+            "qty": 1
+          },
+          {
+            "name": "Sorin, Lord of Innistrad",
+            "qty": 1
+          },
+          {
+            "name": "Shared Animosity",
+            "qty": 1
+          },
+          {
+            "name": "Door of Destinies",
+            "qty": 1
+          },
+          {
+            "name": "Herald's Horn",
+            "qty": 1
+          },
+          {
+            "name": "Vanquisher's Banner",
+            "qty": 1
+          },
+          {
+            "name": "Urza's Incubator",
+            "qty": 1
+          },
+          {
+            "name": "Coat of Arms",
+            "qty": 1
+          },
+          {
+            "name": "Blade of the Bloodchief",
+            "qty": 1
+          },
+          {
+            "name": "Cover of Darkness",
+            "qty": 1
+          },
+          {
+            "name": "Stensia Masquerade",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Arena",
+            "qty": 1
+          },
+          {
+            "name": "Path to Exile",
+            "qty": 1
+          },
+          {
+            "name": "Swords to Plowshares",
+            "qty": 1
+          },
+          {
+            "name": "Anguished Unmaking",
+            "qty": 1
+          },
+          {
+            "name": "Utter End",
+            "qty": 1
+          },
+          {
+            "name": "Chaos Warp",
+            "qty": 1
+          },
+          {
+            "name": "Dreadbore",
+            "qty": 1
+          },
+          {
+            "name": "Terminate",
+            "qty": 1
+          },
+          {
+            "name": "Crackling Doom",
+            "qty": 1
+          },
+          {
+            "name": "Merciless Eviction",
+            "qty": 1
+          },
+          {
+            "name": "Wrath of God",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Commander's Sphere",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Indulgence",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Conviction",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Hierarchy",
+            "qty": 1
+          },
+          {
+            "name": "Boros Signet",
+            "qty": 1
+          },
+          {
+            "name": "Command Tower",
+            "qty": 1
+          },
+          {
+            "name": "Blood Crypt",
+            "qty": 1
+          },
+          {
+            "name": "Sacred Foundry",
+            "qty": 1
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Dragonskull Summit",
+            "qty": 1
+          },
+          {
+            "name": "Clifftop Retreat",
+            "qty": 1
+          },
+          {
+            "name": "Isolated Chapel",
+            "qty": 1
+          },
+          {
+            "name": "Nomad Outpost",
+            "qty": 1
+          },
+          {
+            "name": "Savai Triome",
+            "qty": 1
+          },
+          {
+            "name": "Luxury Suite",
+            "qty": 1
+          },
+          {
+            "name": "Vault of Champions",
+            "qty": 1
+          },
+          {
+            "name": "Spectator Seating",
+            "qty": 1
+          },
+          {
+            "name": "Battlefield Forge",
+            "qty": 1
+          },
+          {
+            "name": "Caves of Koilos",
+            "qty": 1
+          },
+          {
+            "name": "Sulfurous Springs",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Triumph",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Silence",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Malice",
+            "qty": 1
+          },
+          {
+            "name": "Evolving Wilds",
+            "qty": 1
+          },
+          {
+            "name": "Terramorphic Expanse",
+            "qty": 1
+          },
+          {
+            "name": "Path of Ancestry",
+            "qty": 1
+          },
+          {
+            "name": "Unclaimed Territory",
+            "qty": 1
+          },
+          {
+            "name": "Cavern of Souls",
+            "qty": 1
+          },
+          {
+            "name": "Swamp",
+            "qty": 4
+          },
+          {
+            "name": "Plains",
+            "qty": 4
+          },
+          {
+            "name": "Mountain",
+            "qty": 3
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Castle Locthwain",
+            "qty": 1
+          }
+        ],
+        "commander": "Edgar Markov",
+        "colors": [
+          "W",
+          "B",
+          "R"
+        ],
+        "deckText": "1 Edgar Markov\n1 Bloodline Keeper\n1 Captivating Vampire\n1 Vampire Nocturnus\n1 Stromkirk Captain\n1 Dusk Legion Zealot\n1 Legion Lieutenant\n1 Champion of Dusk\n1 Forerunner of the Legion\n1 Mavren Fein, Dusk Apostle\n1 Sanctum Seeker\n1 Vito, Thorn of the Dusk Rose\n1 Elenda, the Dusk Rose\n1 Malakir Bloodwitch\n1 Kalitas, Bloodchief of Ghet\n1 Anowon, the Ruin Sage\n1 Bloodghast\n1 Vampire Nighthawk\n1 Kalastria Highborn\n1 Falkenrath Aristocrat\n1 Olivia Voldaren\n1 Olivia, Mobilized for War\n1 Necropolis Regent\n1 Drana, Liberator of Malakir\n1 Bloodlord of Vaasgoth\n1 Viscera Seer\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Butcher of Malakir\n1 Cordial Vampire\n1 Stromkirk Condemned\n1 Vampire Cutthroat\n1 Indulgent Aristocrat\n1 Legion's Landing\n1 Sorin, Imperious Bloodlord\n1 Sorin, Lord of Innistrad\n1 Shared Animosity\n1 Door of Destinies\n1 Herald's Horn\n1 Vanquisher's Banner\n1 Urza's Incubator\n1 Coat of Arms\n1 Blade of the Bloodchief\n1 Cover of Darkness\n1 Stensia Masquerade\n1 Phyrexian Arena\n1 Path to Exile\n1 Swords to Plowshares\n1 Anguished Unmaking\n1 Utter End\n1 Chaos Warp\n1 Dreadbore\n1 Terminate\n1 Crackling Doom\n1 Merciless Eviction\n1 Wrath of God\n1 Sol Ring\n1 Arcane Signet\n1 Commander's Sphere\n1 Talisman of Indulgence\n1 Talisman of Conviction\n1 Talisman of Hierarchy\n1 Boros Signet\n1 Command Tower\n1 Blood Crypt\n1 Sacred Foundry\n1 Godless Shrine\n1 Dragonskull Summit\n1 Clifftop Retreat\n1 Isolated Chapel\n1 Nomad Outpost\n1 Savai Triome\n1 Luxury Suite\n1 Vault of Champions\n1 Spectator Seating\n1 Battlefield Forge\n1 Caves of Koilos\n1 Sulfurous Springs\n1 Temple of Triumph\n1 Temple of Silence\n1 Temple of Malice\n1 Evolving Wilds\n1 Terramorphic Expanse\n1 Path of Ancestry\n1 Unclaimed Territory\n1 Cavern of Souls\n4 Swamp\n4 Plains\n3 Mountain\n1 Rogue's Passage\n1 Castle Locthwain",
+        "format": "Commander",
+        "summary": "Deck size needs review. This list passed legality checks, but it is 99 cards after validation instead of the expected 100.",
+        "why": "This pass did not suggest filler cards. The list is legal for Commander, but its deck size still needs manual review before you save it.",
+        "changeReasons": null,
+        "warnings": [
+          "Source deck has 99 cards after validation; target is 100 for Commander."
+        ],
+        "transformIntent": "fix_legality",
+        "previewFacts": {
+          "land_count": 37,
+          "ramp_count": 43,
+          "draw_count": 6,
+          "interaction_count": 10,
+          "avg_cmc": 3.15,
+          "curve_histogram": [
+            7,
+            16,
+            18,
+            10,
+            11
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected"
+          ]
+        }
+      }
+    }
+  ]
+}
