@@ -312,6 +312,10 @@ export function buildGroundedReason(
   if (category === "card_draw" && gameplay) return `Adds ${gameplay.replace(/_/g, " ")} support without drifting away from your core game plan.`;
   if (category === "mana_base" && (gameplay || theme)) return `Supports the mana plan through ${[gameplay, theme].filter(Boolean).join(" / ").replace(/_/g, " ")} synergy.`;
   if (category === "win_condition" && (gameplay || archetype)) return `Acts like a cleaner ${[gameplay, archetype].filter(Boolean).join(" / ").replace(/_/g, " ")} closer for this deck.`;
+  if (category === "mana_base") return "Supports the mana plan without pulling the deck off-theme.";
+  if (category === "interaction") return "Gives the deck a cleaner way to answer threats without breaking theme.";
+  if (category === "card_draw") return "Adds more card flow while staying aligned with the deck's plan.";
+  if (category === "win_condition") return "Helps close games in a way that still matches the deck's plan.";
   if (theme && gameplay) return `Fits your ${theme.replace(/_/g, " ")} plan and reinforces ${gameplay.replace(/_/g, " ")}.`;
   if (theme && archetype) return `Matches your ${theme.replace(/_/g, " ")} strategy in a ${archetype.replace(/_/g, " ")} shell.`;
   if (gameplay) return `Supports the deck through ${gameplay.replace(/_/g, " ")} without feeling off-plan.`;
