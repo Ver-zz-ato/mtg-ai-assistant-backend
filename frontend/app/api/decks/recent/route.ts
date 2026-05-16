@@ -6,12 +6,15 @@ import { withMetrics } from "@/lib/observability/withMetrics";
 export const runtime = 'edge';
 export const revalidate = 60; // 1 minute
 
-// Cookie-free client so this route can be cached safely
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(url, anon, { auth: { persistSession: false } });
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) throw new Error("Supabase public env is required");
+  return createClient(url, anon, { auth: { persistSession: false } });
+}
 
 async function getHandler(request: NextRequest) {
+  const supabase = getSupabase();
   const { searchParams } = new URL(request.url);
   const limit = Math.min(parseInt(searchParams.get("limit") || "12", 10) || 12, 24);
 

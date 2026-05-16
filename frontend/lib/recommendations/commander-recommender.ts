@@ -2,13 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { bannedDataToMaps, getBannedCards } from "@/lib/data/get-banned-cards";
 import { isCommanderEligible, postgrestCommanderEligibleCatalogOr } from "@/lib/deck/deck-enrichment";
 
-export const CARD_TAG_RULE_VERSION = 1;
-export const CARD_TAG_RULE_SOURCE = "rules_v1";
+export const CARD_TAG_RULE_VERSION = 2;
+export const CARD_TAG_RULE_SOURCE = "rules_v2";
 
 type NullableString = string | null | undefined;
 
 export type ScryfallTagSourceRow = {
   name: string;
+  printed_name?: NullableString;
   type_line?: NullableString;
   oracle_text?: NullableString;
   keywords?: string[] | null;
@@ -94,13 +95,40 @@ type CommanderPreference = {
 
 const THEME_PATTERNS: Array<[string, RegExp]> = [
   ["tokens", /\b(create|created|creating).{0,48}\btoken\b|\bpopulate\b|\bamass\b|\bincubate\b/i],
-  ["graveyard", /\bgraveyard\b|\bmill\b|\bsurveil\b|\bfrom your graveyard\b/i],
+  ["graveyard", /\bmill\b|\bsurveil\b|\bfrom your graveyard\b|\bcast .* from your graveyard\b|\breturn target .* from your graveyard\b|\bwhenever .* leaves your graveyard\b/i],
   ["sacrifice", /\bsacrifice\b|\bdies\b|\bwhen(?:ever)? .* dies\b/i],
-  ["artifacts", /\bartifact\b/i],
-  ["enchantments", /\benchantment\b|\baura\b|\bconstellation\b/i],
-  ["spellslinger", /\binstant\b|\bsorcery\b|\bwhenever you cast (?:an )?instant or sorcery\b|\bspells? you cast\b/i],
+  ["artifacts", /\bartifact creature\b|\bartifact spell\b|\bartifacts? you control\b|\bwhenever .* artifact\b/i],
+  ["enchantments", /\benchantment spell\b|\benchantments? you control\b|\baura\b|\bconstellation\b|\bwhenever .* enchantment\b/i],
+  ["spellslinger", /\bwhenever you cast (?:an )?instant or sorcery\b|\binstant and sorcery spells you cast\b|\bcopy target spell\b|\bspells? you cast cost\b/i],
   ["lands", /\blandfall\b|\badditional land\b|\bsearch your library for a land\b|\bwhenever a land enters\b/i],
   ["lifegain", /\bgain(?:ed)? life\b|\blife total\b|\bwhenever you gain life\b/i],
+  ["blink", /\bexile\b.{0,50}\breturn\b.{0,50}\bto the battlefield\b|\bblink\b/i],
+  ["etb", /\benters the battlefield\b|\bwhenever .* enters the battlefield\b/i],
+  ["death_triggers", /\bwhen(?:ever)? .* dies\b|\bleaves the battlefield\b/i],
+  ["treasure", /\btreasure token\b|\btreasures? you control\b/i],
+  ["clues", /\bclue token\b|\bclues? you control\b/i],
+  ["food", /\bfood token\b|\bfoods? you control\b/i],
+  ["blood", /\bblood token\b|\bblood tokens? you control\b/i],
+  ["energy", /\bget \w+ ?\{e\}\b|\benergy counter\b/i],
+  ["proliferate", /\bproliferate\b/i],
+  ["counters_plus1", /\+\d\/\+\d counter\b|\b\+1\/\+1 counter\b/i],
+  ["poison", /\bpoison counter\b|\btoxic \d\b/i],
+  ["infect", /\binfect\b/i],
+  ["landfall", /\blandfall\b|\bwhenever a land enters the battlefield\b/i],
+  ["discard", /\bdiscards? (?:a|one|two|\w+) card\b|\bwhenever .* discard\b/i],
+  ["wheel", /\beach player discards (?:their|his or her) hand\b|\bthen draws that many cards\b/i],
+  ["theft", /\bgain control of target\b|\bcast .* from an opponent'?s\b/i],
+  ["extra_turns", /\btake an extra turn\b/i],
+  ["extra_combat", /\badditional combat phase\b|\buntap all attacking creatures\b/i],
+  ["burn", /\bdeals? \d+ damage to any target\b|\bdeals? damage to each opponent\b/i],
+  ["lifedrain", /\beach opponent loses\b|\btarget opponent loses\b|\byou gain that much life\b/i],
+  ["reanimator", /\breturn target creature card from your graveyard to the battlefield\b|\bput target creature card from a graveyard onto the battlefield\b/i],
+  ["self_mill", /\bmill \d+\b|\bput the top .* of your library into your graveyard\b/i],
+  ["storm", /\bstorm\b|\bcopy it for each spell cast before it\b/i],
+  ["equipment", /\bequipment\b|\bequip \{/i],
+  ["auras", /\baura\b|\benchant creature\b|\benchant permanent\b/i],
+  ["vehicles", /\bvehicle\b|\bcrew \d\b/i],
+  ["legendary_matters", /\blegendary spells?\b|\blegendary permanent\b|\bhistoric\b/i],
   ["dragons", /\bdragon\b/i],
   ["elves", /\belf\b|\belves\b/i],
   ["zombies", /\bzombie\b/i],
@@ -113,17 +141,29 @@ const GAMEPLAY_PATTERNS: Array<[string, RegExp]> = [
   ["card_draw", /\bdraw a card\b|\bdraw cards\b|\bwhenever .* draw\b/i],
   ["interaction", /\bcounter target\b|\bexile target\b|\bdestroy target\b|\bfight target\b|\bopponent sacrifices\b/i],
   ["removal", /\bdestroy target\b|\bexile target\b|\breturn target .* to .* hand\b/i],
-  ["recursion", /\breturn target .* from your graveyard\b|\breanimate\b|\bfrom your graveyard\b/i],
+  ["recursion", /\breturn target .* from your graveyard\b|\breanimate\b|\bcast .* from your graveyard\b|\bplay .* from your graveyard\b/i],
   ["protection", /\bhexproof\b|\bindestructible\b|\bprotection from\b|\bward\b/i],
   ["payoff", /\bwhenever\b|\bat the beginning of\b|\bfor each\b/i],
   ["engine", /\bwhenever\b.{0,60}\byou\b|\bat the beginning of each\b/i],
+  ["enabler", /\byou may play\b|\byou may cast\b|\badditional land\b|\bcreatures? you control have\b/i],
+  ["finisher", /\bwin the game\b|\bdouble strike\b|\boverrun\b|\bcombat damage to a player\b|\bextra combat phase\b/i],
+  ["support", /\bsearch your library\b|\blook at the top\b|\bscry\b|\bsurveil\b/i],
+  ["removal_single", /\bdestroy target\b|\bexile target\b|\breturn target .* to .* hand\b|\bfight target\b/i],
+  ["removal_boardwipe", /\bdestroy all\b|\bexile all\b|\beach creature gets -\d\/-\d\b|\ball creatures get -\d\/-\d\b/i],
+  ["ramp_land", /\bsearch your library for (?:a|up to .*?) land\b|\bput (?:a|those) land cards? onto the battlefield\b/i],
+  ["ramp_rocks", /\badd \{\w\}\b|\btreasure token\b|\bartifact\b.{0,30}\badd \{/i],
+  ["draw_repeatable", /\bwhenever .* draw\b|\bat the beginning of your .* draw\b|\bwhenever you .* draw a card\b/i],
+  ["draw_burst", /\bdraw (?:two|three|four|five|\w+) cards\b|\beach player draws\b/i],
+  ["protection_self", /\bhexproof\b|\bward\b|\bcan't be the target\b/i],
+  ["protection_team", /\bcreatures you control have hexproof\b|\bcreatures you control gain indestructible\b/i],
+  ["tutor", /\bsearch your library for\b/i],
 ];
 
 const ARCHETYPE_PATTERNS: Array<[string, RegExp]> = [
   ["aggro", /\bhaste\b|\bmenace\b|\bdouble strike\b|\bcombat damage\b|\battacking\b/i],
   ["control", /\bcounter target\b|\btap target\b|\bcan't\b|\bskip\b|\bopponents can't\b/i],
-  ["combo", /\binfinite\b|\buntap\b|\bcopy that spell\b|\bwhenever you cast\b/i],
-  ["value", /\bdraw a card\b|\breturn target\b|\bcreate .* token\b|\bwhenever\b/i],
+  ["combo", /\binfinite\b|\buntap\b|\bcopy that spell\b|\bspells? you cast cost\b|\bcast .* from your graveyard\b/i],
+  ["value", /\bdraw a card\b|\breturn target\b|\bcreate .* token\b|\bwhenever you\b|\bat the beginning of your\b/i],
   ["politics", /\bmonarch\b|\beach player\b|\btarget opponent chooses\b|\bvote\b/i],
   ["chaos", /\brandom\b|\bflip a coin\b|\bchaos\b/i],
   ["midrange", /\btrample\b|\bflying\b|\bward\b|\bdeathtouch\b/i],
@@ -138,6 +178,13 @@ const COMMANDER_PATTERNS: Array<[string, RegExp]> = [
   ["stax_like", /\bcan't untap\b|\bspells cost\b|\bplayers can't\b/i],
   ["big_mana", /\badd \{|\bdouble the amount of mana\b|\bseven or more mana\b/i],
   ["spell_combo", /\bcopy target spell\b|\bwhenever you cast an instant or sorcery\b/i],
+  ["build_around_commander", /\bother creatures you control\b|\bwhenever you cast\b|\bwhenever another\b|\bspells you cast\b/i],
+  ["goodstuff_commander", /\bdraw a card\b|\badd \{|\bsearch your library\b|\breturn target\b/i],
+  ["linear_commander", /\bdragons?\b|\belves?\b|\bzombies?\b|\bgoblins?\b|\bvampires?\b|\bartifacts? you control\b|\benchantments? you control\b/i],
+  ["open_ended_commander", /\bwhenever you cast a spell\b|\bwhenever one or more\b|\bonce each turn\b/i],
+  ["tribal_commander", /\bdragons?\b|\belves?\b|\bzombies?\b|\bgoblins?\b|\bvampires?\b/i],
+  ["combo_commander", /\bcopy target spell\b|\buntap\b|\bspells? you cast cost\b/i],
+  ["control_commander", /\bcounter target\b|\bopponents can't\b|\btap target\b|\bdetain\b/i],
 ];
 
 const VIBE_KEYWORDS: Record<string, string[]> = {
@@ -151,10 +198,40 @@ const VIBE_KEYWORDS: Record<string, string[]> = {
   enchantments: ["enchantments"],
   lands: ["lands", "big_mana"],
   tribal: ["tribal", "dragons", "elves", "zombies", "goblins", "vampires"],
+  blink: ["blink", "etb", "value"],
+  counters: ["counters_plus1", "proliferate", "midrange"],
+  treasure: ["treasure", "ramp", "big_mana"],
+  poison: ["poison", "infect", "aggro"],
+  discard: ["discard", "wheel", "control"],
+  reanimator: ["reanimator", "graveyard", "recursion"],
+  aristocrats: ["sacrifice", "aristocrats", "death_triggers"],
+  burn: ["burn", "aggro"],
+  equipment: ["equipment", "aggro"],
+  legends: ["legendary_matters", "value"],
 };
 
 function uniqueSorted(items: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(items).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+}
+
+function toDisplayName(name: string): string {
+  const minorWords = new Set(["a", "an", "and", "at", "for", "from", "in", "of", "on", "the", "to", "with"]);
+  const capitalizeToken = (token: string, force: boolean): string => {
+    const lower = token.toLowerCase();
+    if (!force && minorWords.has(lower)) return lower;
+    return lower.replace(/(^|['-])([a-z])/g, (_match, prefix: string, char: string) => `${prefix}${char.toUpperCase()}`);
+  };
+
+  return String(name || "")
+    .split(" // ")
+    .map((face) =>
+      face
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((token, index) => capitalizeToken(token, index === 0))
+        .join(" "),
+    )
+    .join(" // ");
 }
 
 function normalizeText(input: NullableString): string {
@@ -171,8 +248,16 @@ function countMatches(text: string, patterns: RegExp[]): number {
   return patterns.reduce((total, pattern) => total + (pattern.test(text) ? 1 : 0), 0);
 }
 
-function stringIncludesAny(text: string, needles: string[]): boolean {
-  return needles.some((needle) => text.includes(needle));
+function hasTag(tags: Iterable<string>, tag: string): boolean {
+  return Array.from(tags).includes(tag);
+}
+
+function addIf(set: Set<string>, condition: boolean, tag: string): void {
+  if (condition) set.add(tag);
+}
+
+function sharesAny(tags: string[], desired: Set<string>): boolean {
+  return tags.some((tag) => desired.has(tag));
 }
 
 export function deriveCardTagCacheRow(row: ScryfallTagSourceRow): CardTagCacheRow {
@@ -190,11 +275,35 @@ export function deriveCardTagCacheRow(row: ScryfallTagSourceRow): CardTagCacheRo
   if (["dragons", "elves", "zombies", "goblins", "vampires"].some((tag) => themeTags.has(tag))) {
     themeTags.add("tribal");
   }
+  addIf(themeTags, row.is_artifact === true && /\blegendary\b/i.test(typeLine), "artifacts");
+  addIf(themeTags, row.is_enchantment === true, "enchantments");
+  addIf(themeTags, row.is_planeswalker === true, "superfriends");
+  addIf(themeTags, /\bvehicle\b/i.test(typeLine), "vehicles");
+  addIf(themeTags, /\bequipment\b/i.test(typeLine), "equipment");
+  addIf(themeTags, /\baura\b/i.test(typeLine), "auras");
+  addIf(themeTags, /\blegendary\b/i.test(typeLine), "legendary_matters");
+  addIf(themeTags, hasTag(themeTags, "reanimator"), "graveyard");
+  addIf(themeTags, hasTag(themeTags, "self_mill"), "graveyard");
+  addIf(themeTags, hasTag(themeTags, "blink"), "etb");
+  addIf(themeTags, hasTag(themeTags, "treasure"), "artifacts");
+  addIf(themeTags, hasTag(themeTags, "clues"), "artifacts");
+  addIf(themeTags, hasTag(themeTags, "food"), "artifacts");
+  addIf(themeTags, hasTag(themeTags, "blood"), "artifacts");
 
   const gameplayTags = new Set<string>();
   for (const [tag, pattern] of GAMEPLAY_PATTERNS) {
     if (pattern.test(joined)) gameplayTags.add(tag);
   }
+  addIf(gameplayTags, hasTag(themeTags, "treasure"), "ramp");
+  addIf(gameplayTags, hasTag(themeTags, "landfall") || hasTag(themeTags, "lands"), "ramp_land");
+  addIf(gameplayTags, hasTag(themeTags, "artifacts"), "ramp_rocks");
+  addIf(gameplayTags, hasTag(themeTags, "etb") || hasTag(themeTags, "blink"), "engine");
+  addIf(gameplayTags, hasTag(themeTags, "death_triggers"), "payoff");
+  addIf(gameplayTags, hasTag(themeTags, "reanimator"), "recursion");
+  addIf(gameplayTags, hasTag(themeTags, "burn"), "finisher");
+  addIf(gameplayTags, hasTag(themeTags, "wheel"), "draw_burst");
+  addIf(gameplayTags, hasTag(themeTags, "sacrifice"), "enabler");
+  addIf(gameplayTags, /\bat the beginning of each end step\b|\bonce each turn\b/i.test(joined), "engine");
 
   const archetypeTags = new Set<string>();
   for (const [tag, pattern] of ARCHETYPE_PATTERNS) {
@@ -203,6 +312,12 @@ export function deriveCardTagCacheRow(row: ScryfallTagSourceRow): CardTagCacheRo
   if (themeTags.has("tokens") || themeTags.has("tribal")) archetypeTags.add("aggro");
   if (themeTags.has("graveyard") || gameplayTags.has("card_draw")) archetypeTags.add("value");
   if (themeTags.has("spellslinger")) archetypeTags.add("combo");
+  if (themeTags.has("blink") || themeTags.has("etb")) archetypeTags.add("value");
+  if (themeTags.has("discard") || themeTags.has("theft") || gameplayTags.has("removal_boardwipe")) archetypeTags.add("control");
+  if (themeTags.has("burn") || themeTags.has("extra_combat") || themeTags.has("equipment")) archetypeTags.add("aggro");
+  if (themeTags.has("storm") || themeTags.has("extra_turns")) archetypeTags.add("combo");
+  if (themeTags.has("proliferate") || themeTags.has("counters_plus1")) archetypeTags.add("midrange");
+  if (themeTags.has("wheel")) archetypeTags.add("chaos");
 
   const commanderTags = new Set<string>();
   for (const [tag, pattern] of COMMANDER_PATTERNS) {
@@ -212,27 +327,43 @@ export function deriveCardTagCacheRow(row: ScryfallTagSourceRow): CardTagCacheRo
   if (themeTags.has("graveyard") || themeTags.has("sacrifice")) commanderTags.add("aristocrats");
   if (themeTags.has("spellslinger")) commanderTags.add("spell_combo");
   if (gameplayTags.has("ramp") || themeTags.has("lands")) commanderTags.add("big_mana");
+  if (themeTags.has("tribal")) commanderTags.add("tribal_commander");
+  if (archetypeTags.has("combo")) commanderTags.add("combo_commander");
+  if (archetypeTags.has("control")) commanderTags.add("control_commander");
+  if (gameplayTags.has("engine") || gameplayTags.has("payoff")) commanderTags.add("build_around_commander");
+  if (gameplayTags.has("card_draw") && gameplayTags.has("ramp")) commanderTags.add("goodstuff_commander");
+  if (themeTags.has("tokens") || themeTags.has("tribal") || themeTags.has("artifacts") || themeTags.has("enchantments")) {
+    commanderTags.add("linear_commander");
+  }
+  if (gameplayTags.has("support") || gameplayTags.has("enabler")) commanderTags.add("open_ended_commander");
 
   const commanderEligible = isCommanderEligible(row.type_line ?? undefined, row.oracle_text ?? undefined);
 
   const interactionScore =
-    countMatches(joined, [/\bcounter target\b/i, /\bdestroy target\b/i, /\bexile target\b/i, /\bopponents can't\b/i]) +
+    countMatches(joined, [/\bcounter target\b/i, /\bdestroy target\b/i, /\bexile target\b/i, /\bopponents can't\b/i, /\bdestroy all\b/i]) +
+    (gameplayTags.has("removal_single") ? 1 : 0) +
+    (gameplayTags.has("removal_boardwipe") ? 2 : 0) +
     (keywords.includes("flash") ? 1 : 0);
   const complexityScore =
-    countMatches(joined, [/\bsearch your library\b/i, /\bchoose\b/i, /\bwhenever\b/i, /\bcopy\b/i]) +
+    countMatches(joined, [/\bsearch your library\b/i, /\bchoose\b/i, /\bwhenever\b/i, /\bcopy\b/i, /\bonce each turn\b/i]) +
     (commanderTags.has("superfriends") ? 2 : 0) +
-    (commanderTags.has("spell_combo") ? 2 : 0);
+    (commanderTags.has("spell_combo") ? 2 : 0) +
+    (themeTags.has("storm") ? 2 : 0);
   const powerScore =
     (archetypeTags.has("combo") ? 2 : 0) +
     (commanderTags.has("stax_like") ? 2 : 0) +
     (gameplayTags.has("interaction") ? 1 : 0) +
     (gameplayTags.has("ramp") ? 1 : 0) +
-    (colorIdentity.length >= 4 ? 1 : 0);
+    (colorIdentity.length >= 4 ? 1 : 0) +
+    (gameplayTags.has("tutor") ? 1 : 0) +
+    (themeTags.has("extra_turns") ? 1 : 0);
   const budgetScore =
     (colorIdentity.length >= 4 ? 2 : 0) +
     (commanderTags.has("superfriends") ? 2 : 0) +
     (commanderTags.has("spell_combo") ? 1 : 0) +
-    (themeTags.has("dragons") ? 1 : 0);
+    (themeTags.has("dragons") ? 1 : 0) +
+    (themeTags.has("vehicles") ? 1 : 0) +
+    (themeTags.has("equipment") ? 1 : 0);
 
   const popularityScore = Number(
     Math.max(
@@ -243,6 +374,8 @@ export function deriveCardTagCacheRow(row: ScryfallTagSourceRow): CardTagCacheRo
           (colorIdentity.length * 0.08) +
           (themeTags.size * 0.03) +
           (gameplayTags.has("card_draw") ? 0.08 : 0) +
+          (themeTags.has("tribal") ? 0.06 : 0) +
+          (themeTags.has("treasure") ? 0.04 : 0) +
           (commanderEligible ? 0.12 : 0),
       ),
     ).toFixed(3),
@@ -304,11 +437,34 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
   const themeAnswer = normalizeText(answers.theme);
   if (themeAnswer) desiredThemeTags.add(themeAnswer);
   if (themeAnswer === "tokens") desiredCommanderTags.add("go_wide");
-  if (themeAnswer === "graveyard") desiredCommanderTags.add("aristocrats");
-  if (themeAnswer === "artifacts") desiredGameplayTags.add("engine");
-  if (themeAnswer === "enchantments") desiredArchetypes.add("control");
-  if (themeAnswer === "spells") desiredThemeTags.add("spellslinger");
-  if (themeAnswer === "tribal") desiredThemeTags.add("tribal");
+  if (themeAnswer === "tokens") desiredArchetypes.add("aggro");
+  if (themeAnswer === "graveyard") {
+    desiredCommanderTags.add("aristocrats");
+    desiredGameplayTags.add("recursion");
+    desiredArchetypes.add("value");
+  }
+  if (themeAnswer === "artifacts") {
+    desiredGameplayTags.add("engine");
+    desiredArchetypes.add("value");
+  }
+  if (themeAnswer === "enchantments") {
+    desiredArchetypes.add("control");
+    desiredArchetypes.add("value");
+  }
+  if (themeAnswer === "spells") {
+    desiredThemeTags.add("spellslinger");
+    desiredCommanderTags.add("spell_combo");
+    desiredArchetypes.add("combo");
+  }
+  if (themeAnswer === "tribal") {
+    desiredThemeTags.add("tribal");
+    desiredArchetypes.add("aggro");
+  }
+  if (themeAnswer === "lands") {
+    desiredThemeTags.add("landfall");
+    desiredCommanderTags.add("big_mana");
+  }
+  if (themeAnswer === "lifegain") desiredThemeTags.add("lifedrain");
 
   const pace = normalizeText(answers.pace);
   if (pace === "aggro") desiredArchetypes.add("aggro");
@@ -321,12 +477,26 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
   if (interaction === "chaos") desiredArchetypes.add("chaos");
   if (interaction === "moderate") desiredArchetypes.add("midrange");
 
+  const complexity = normalizeText(answers.complexity);
+  if (complexity.includes("simple")) {
+    desiredCommanderTags.add("linear_commander");
+  }
+  if (complexity.includes("complex")) {
+    desiredCommanderTags.add("open_ended_commander");
+    desiredGameplayTags.add("engine");
+  }
+
   const vibe = normalizeText(input.vibe ?? input.profileDescription);
   for (const [needle, mappedTags] of Object.entries(VIBE_KEYWORDS)) {
     if (!vibe.includes(needle)) continue;
     for (const tag of mappedTags) {
-      if (["go_wide", "aristocrats", "spell_combo", "big_mana"].includes(tag)) desiredCommanderTags.add(tag);
+      if (
+        ["go_wide", "aristocrats", "spell_combo", "big_mana", "build_around_commander", "linear_commander", "open_ended_commander"].includes(tag)
+      ) desiredCommanderTags.add(tag);
       else if (["aggro", "control", "combo", "value", "politics", "chaos", "midrange"].includes(tag)) desiredArchetypes.add(tag);
+      else if (
+        ["ramp", "interaction", "recursion", "engine", "payoff", "enabler", "finisher", "support", "card_draw", "draw_burst"].includes(tag)
+      ) desiredGameplayTags.add(tag);
       else desiredThemeTags.add(tag);
     }
   }
@@ -362,6 +532,16 @@ function scoreTagMatches(candidateTags: string[], desired: Set<string>, weight: 
   return candidateTags.reduce((score, tag) => score + (desired.has(tag) ? weight : 0), 0);
 }
 
+function scoreArchetypeMismatch(candidateTags: string[], desired: Set<string>): number {
+  if (desired.size === 0 || candidateTags.length === 0) return 0;
+  if (sharesAny(candidateTags, desired)) return 0;
+  if (desired.has("value") && candidateTags.includes("aggro")) return -10;
+  if (desired.has("control") && candidateTags.includes("aggro")) return -8;
+  if (desired.has("combo") && candidateTags.includes("midrange")) return -6;
+  if (desired.has("aggro") && candidateTags.includes("control")) return -6;
+  return -4;
+}
+
 function scoreBandMatch<T extends string>(actual: T, desired: T, exactWeight: number): number {
   return actual === desired ? exactWeight : 0;
 }
@@ -381,11 +561,22 @@ function descriptionLabel(candidate: RecommendationCandidate): string {
 
 function buildFitReason(candidate: RecommendationCandidate, pref: CommanderPreference): string {
   const matchedTheme = candidate.theme_tags.find((tag) => pref.desiredThemeTags.has(tag));
-  if (matchedTheme) return `Leans into ${matchedTheme.replace(/_/g, " ")} with a ${archetypeLabel(candidate)} shell.`;
-  const matchedCommanderTag = candidate.commander_tags.find((tag) => pref.desiredCommanderTags.has(tag));
-  if (matchedCommanderTag) return `Strong ${matchedCommanderTag.replace(/_/g, " ")} commander with ${candidate.commander_interaction} interaction.`;
+  const matchedArchetype = candidate.archetype_tags.find((tag) => pref.desiredArchetypes.has(tag));
   const matchedGameplay = candidate.gameplay_tags.find((tag) => pref.desiredGameplayTags.has(tag));
+  const matchedCommanderTag = candidate.commander_tags.find((tag) => pref.desiredCommanderTags.has(tag));
+  if (matchedTheme && matchedGameplay) {
+    return `Matches ${matchedTheme.replace(/_/g, " ")} with real ${matchedGameplay.replace(/_/g, " ")} support.`;
+  }
+  if (matchedTheme && matchedCommanderTag) {
+    return `Pushes ${matchedTheme.replace(/_/g, " ")} through a strong ${matchedCommanderTag.replace(/_/g, " ")} shell.`;
+  }
+  if (matchedTheme && matchedArchetype) {
+    return `Blends ${matchedTheme.replace(/_/g, " ")} with a ${matchedArchetype.replace(/_/g, " ")} plan.`;
+  }
+  if (matchedTheme) return `Leans into ${matchedTheme.replace(/_/g, " ")} without wandering off-plan.`;
+  if (matchedCommanderTag) return `Strong ${matchedCommanderTag.replace(/_/g, " ")} commander with ${candidate.commander_interaction} interaction.`;
   if (matchedGameplay) return `Fits a ${matchedGameplay.replace(/_/g, " ")} plan without forcing one narrow line.`;
+  if (matchedArchetype) return `Good fit if you want a cleaner ${matchedArchetype.replace(/_/g, " ")} game plan.`;
   return `Broad ${archetypeLabel(candidate)} option with ${descriptionLabel(candidate)} support.`;
 }
 
@@ -429,14 +620,26 @@ function diversifyRecommendations(
 
 function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPreference): number {
   let score = 0;
-  score += scoreTagMatches(candidate.theme_tags, pref.desiredThemeTags, 16);
-  score += scoreTagMatches(candidate.gameplay_tags, pref.desiredGameplayTags, 8);
-  score += scoreTagMatches(candidate.archetype_tags, pref.desiredArchetypes, 12);
-  score += scoreTagMatches(candidate.commander_tags, pref.desiredCommanderTags, 12);
+  score += scoreTagMatches(candidate.theme_tags, pref.desiredThemeTags, 18);
+  score += scoreTagMatches(candidate.gameplay_tags, pref.desiredGameplayTags, 12);
+  score += scoreTagMatches(candidate.archetype_tags, pref.desiredArchetypes, 14);
+  score += scoreTagMatches(candidate.commander_tags, pref.desiredCommanderTags, 14);
   score += scoreBandMatch(candidate.commander_power_band, pref.desiredPowerBand, 8);
   score += scoreBandMatch(candidate.commander_budget_band, pref.desiredBudgetBand, 8);
   score += scoreBandMatch(candidate.commander_complexity, pref.desiredComplexity, 6);
   score += scoreBandMatch(candidate.commander_interaction, pref.desiredInteraction, 6);
+  score += scoreArchetypeMismatch(candidate.archetype_tags, pref.desiredArchetypes);
+  if (pref.desiredThemeTags.has("graveyard") && candidate.gameplay_tags.includes("recursion")) score += 10;
+  if (pref.desiredThemeTags.has("tokens") && candidate.commander_tags.includes("go_wide")) score += 10;
+  if (pref.desiredThemeTags.has("spellslinger") && candidate.commander_tags.includes("spell_combo")) score += 8;
+  if (pref.desiredThemeTags.has("enchantments") && candidate.theme_tags.includes("enchantments")) score += 8;
+  if (pref.desiredThemeTags.has("artifacts") && candidate.theme_tags.includes("artifacts")) score += 8;
+  if (pref.desiredThemeTags.has("blink") && candidate.theme_tags.includes("etb")) score += 8;
+  if (pref.desiredThemeTags.has("reanimator") && candidate.gameplay_tags.includes("recursion")) score += 8;
+  if (pref.desiredThemeTags.has("treasure") && candidate.gameplay_tags.includes("ramp")) score += 6;
+  if (pref.desiredThemeTags.has("equipment") && candidate.archetype_tags.includes("aggro")) score += 6;
+  if (pref.desiredCommanderTags.has("linear_commander") && candidate.commander_tags.includes("linear_commander")) score += 4;
+  if (pref.desiredCommanderTags.has("open_ended_commander") && candidate.commander_tags.includes("open_ended_commander")) score += 4;
   if (pref.seedNames.includes(candidate.name)) score += 10;
   score += Math.round((candidate.popularity_score ?? 0) * 8);
   return score;
@@ -449,7 +652,7 @@ export async function fetchScryfallTagSourceRows(
   let query = admin
     .from("scryfall_cache")
     .select(
-      "name, type_line, oracle_text, keywords, mana_cost, cmc, color_identity, colors, legalities, is_land, is_creature, is_instant, is_sorcery, is_artifact, is_enchantment, is_planeswalker, small, normal, art_crop",
+      "name, printed_name, type_line, oracle_text, keywords, mana_cost, cmc, color_identity, colors, legalities, is_land, is_creature, is_instant, is_sorcery, is_artifact, is_enchantment, is_planeswalker, small, normal, art_crop",
     )
     .order("name", { ascending: true });
 
@@ -499,7 +702,7 @@ export async function buildCommanderRecommendations(
   const { data: cacheRows, error: cacheError } = await admin
     .from("scryfall_cache")
     .select(
-      "name, type_line, oracle_text, color_identity, colors, legalities, is_land, is_creature, is_instant, is_sorcery, is_artifact, is_enchantment, is_planeswalker, small, normal, art_crop",
+      "name, printed_name, type_line, oracle_text, color_identity, colors, legalities, is_land, is_creature, is_instant, is_sorcery, is_artifact, is_enchantment, is_planeswalker, small, normal, art_crop",
     )
     .or(postgrestCommanderEligibleCatalogOr())
     .limit(5000);
@@ -527,7 +730,7 @@ export async function buildCommanderRecommendations(
   const finalRows = diversified.length >= limit ? diversified : ranked.slice(0, limit);
 
   return finalRows.map(({ candidate, score }) => ({
-    name: candidate.name,
+    name: String(candidate.printed_name || "").trim() || toDisplayName(candidate.name),
     description: descriptionLabel(candidate),
     archetype: archetypeLabel(candidate).replace(/_/g, " "),
     fitReason: buildFitReason(candidate, pref),

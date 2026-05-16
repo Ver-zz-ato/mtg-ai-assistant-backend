@@ -2,12 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { CachePresets } from "@/lib/api/cache";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
-const supabase = serviceKey
-  ? createClient(url, serviceKey, { auth: { persistSession: false } })
-  : createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
-
 export const revalidate = 300; // 5 min - precons change infrequently
 export const dynamic = "force-dynamic";
 
@@ -38,8 +32,19 @@ function countCards(deckText: string | null | undefined): number {
   return total;
 }
 
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) throw new Error("NEXT_PUBLIC_SUPABASE_URL is required");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = serviceKey || anonKey;
+  if (!key) throw new Error("Supabase key is required");
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
 export async function GET(req: Request) {
   try {
+    const supabase = getSupabase();
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
     const commander = searchParams.get("commander") || "";
