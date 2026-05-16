@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { inferDeckAim } from "@/lib/deck/inference";
 import { fetchCard } from "@/lib/deck/inference";
+import { enrichDeck } from "@/lib/deck/deck-enrichment";
+import { tagCards } from "@/lib/deck/card-role-tags";
+import { buildDeckFacts } from "@/lib/deck/deck-facts";
+import { buildSynergyDiagnostics } from "@/lib/deck/synergy-diagnostics";
+import { buildDeckPlanProfile } from "@/lib/deck/deck-plan-profile";
 
 export async function POST(
   req: NextRequest,
@@ -34,7 +39,7 @@ export async function POST(
 
     // Only infer if deck_aim is not already set (don't overwrite user edits)
     if (deck.deck_aim) {
-      return NextResponse.json({ ok: true, aim: deck.deck_aim, inferred: false });
+      return NextResponse.json({ ok: true, aim: deck.deck_aim, inferred: false, confidence: 1, why: ["User-authored deck aim already exists."], alternatives: [] });
     }
 
     // Fetch deck cards
@@ -65,8 +70,38 @@ export async function POST(
       null // archetype - can be enhanced later
     );
 
+    let confidence = 0.45;
+    let why: string[] = [];
+    let alternatives: string[] = [];
+    try {
+      const enriched = await enrichDeck(entries.map((entry) => ({ name: entry.name, qty: entry.count })), {
+        format: (String(deck.format || "Commander") as "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper"),
+        commander: deck.commander || null,
+      });
+      const tagged = tagCards(enriched);
+      const facts = buildDeckFacts(tagged, {
+        format: (String(deck.format || "Commander") as "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper"),
+        commander: deck.commander || null,
+      });
+      const synergy = buildSynergyDiagnostics(tagged, deck.commander || null, facts);
+      const profile = buildDeckPlanProfile(facts, synergy);
+      confidence = Math.max(0.2, Math.min(0.98, profile.primaryPlan.confidence || profile.overallConfidence || 0.45));
+      why = [
+        `Primary plan reads as ${profile.primaryPlan.name}.`,
+        profile.synergyChains[0]?.description ? `Core synergy: ${profile.synergyChains[0].description}` : "",
+        profile.winRoutes[0]?.description ? `Likely win route: ${profile.winRoutes[0].description}` : "",
+      ].filter(Boolean);
+      alternatives = [
+        profile.secondaryPlan?.name || "",
+        ...facts.archetype_candidates.slice(0, 3).map((entry) => entry.name),
+      ].filter((value, index, array) => value && array.indexOf(value) === index && value !== inferredAim).slice(0, 3);
+    } catch {
+      why = inferredAim ? [`The card mix and commander point toward a ${inferredAim} plan.`] : [];
+      alternatives = [];
+    }
+
     if (!inferredAim) {
-      return NextResponse.json({ ok: true, aim: null, inferred: false, reason: 'Could not infer aim' });
+      return NextResponse.json({ ok: true, aim: null, inferred: false, reason: 'Could not infer aim', confidence, why, alternatives });
     }
 
     // Save inferred aim to database
@@ -84,7 +119,7 @@ export async function POST(
       return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, aim: inferredAim, inferred: true });
+    return NextResponse.json({ ok: true, aim: inferredAim, inferred: true, confidence, why, alternatives });
   } catch (error: any) {
     console.error('Error inferring deck aim:', error);
     return NextResponse.json({ ok: false, error: error.message || "Server error" }, { status: 500 });

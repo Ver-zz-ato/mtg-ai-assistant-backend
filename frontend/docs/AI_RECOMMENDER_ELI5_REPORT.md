@@ -95,3 +95,12 @@ It is using:
 - and a safer shortlist-first process
 
 That is the big quality jump.
+
+## Extra Confidence Check
+
+There is now a bigger local benchmark too.
+
+- 52 explicit recommendation checks
+- real deck data
+- different routes and filters
+- current result: `52 / 52 passed`

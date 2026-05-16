@@ -390,6 +390,14 @@ export type NormalizedTransformInput = {
   refinement: string | null;
   constraints: string | null;
   notes: string | null;
+  transformRules: {
+    maxChanges: number | null;
+    preserveCommanderPackage: boolean;
+    lockManaBase: boolean;
+    onlyChangeNonlands: boolean;
+    preserveCards: string[];
+    avoidCards: string[];
+  };
 };
 
 export function normalizeTransformBody(body: unknown): { ok: true; input: NormalizedTransformInput } | { ok: false; error: string } {
@@ -428,6 +436,27 @@ export function normalizeTransformBody(body: unknown): { ok: true; input: Normal
   const notes = typeof b.notes === "string" ? b.notes.trim().slice(0, 8000) || null : null;
   const buildMode = strOrNull(b.buildMode, 64);
   const refinement = strOrNull(b.refinement, 64);
+  const rawRules = b.transformRules && typeof b.transformRules === "object"
+    ? (b.transformRules as Record<string, unknown>)
+    : {};
+  const maxChangesRaw = Number(rawRules.maxChanges);
+  const maxChanges = Number.isFinite(maxChangesRaw) && maxChangesRaw > 0
+    ? Math.max(1, Math.min(99, Math.floor(maxChangesRaw)))
+    : null;
+  const preserveCards = Array.isArray(rawRules.preserveCards)
+    ? rawRules.preserveCards
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, 24)
+    : [];
+  const avoidCards = Array.isArray(rawRules.avoidCards)
+    ? rawRules.avoidCards
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, 24)
+    : [];
 
   return {
     ok: true,
@@ -442,6 +471,14 @@ export function normalizeTransformBody(body: unknown): { ok: true; input: Normal
       refinement,
       constraints,
       notes,
+      transformRules: {
+        maxChanges,
+        preserveCommanderPackage: rawRules.preserveCommanderPackage === true,
+        lockManaBase: rawRules.lockManaBase === true,
+        onlyChangeNonlands: rawRules.onlyChangeNonlands === true,
+        preserveCards,
+        avoidCards,
+      },
     },
   };
 }
@@ -488,6 +525,12 @@ export function buildTransformUserPrompt(input: NormalizedTransformInput): strin
   const extra: string[] = [];
   if (input.constraints) extra.push(`Constraints: ${input.constraints}`);
   if (input.notes) extra.push(`Notes: ${input.notes}`);
+  if (input.transformRules.maxChanges != null) extra.push(`Hard cap: keep total swaps at or under ${input.transformRules.maxChanges} unless legality forces more.`);
+  if (input.transformRules.preserveCommanderPackage) extra.push("Hard rule: preserve the commander and the deck's core commander package unless legality forces a change.");
+  if (input.transformRules.lockManaBase) extra.push("Hard rule: keep lands, ramp, and fixing intact unless legality forces a change.");
+  if (input.transformRules.onlyChangeNonlands) extra.push("Hard rule: do not change lands unless legality forces a change.");
+  if (input.transformRules.preserveCards.length) extra.push(`Hard preserve cards: ${input.transformRules.preserveCards.join(", ")}.`);
+  if (input.transformRules.avoidCards.length) extra.push(`Hard avoid cards when possible: ${input.transformRules.avoidCards.join(", ")}.`);
   const extraBlock = extra.length ? `\n${extra.join("\n")}\n` : "";
 
   const compliance =

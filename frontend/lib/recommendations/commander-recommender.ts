@@ -679,6 +679,40 @@ function preferredCommanderTag(candidate: RecommendationCandidate): string | und
   return candidate.commander_tags.find((tag) => !GENERIC_COMMANDER_TAGS.has(tag)) ?? candidate.commander_tags[0];
 }
 
+function candidateSatisfiesCommanderThemePreference(candidate: RecommendationCandidate, pref: CommanderPreference): boolean {
+  if (pref.desiredThemeTags.size === 0) return true;
+  for (const desiredTheme of pref.desiredThemeTags) {
+    if (!themeGateSatisfied(candidate, desiredTheme)) return false;
+    switch (desiredTheme) {
+      case "tokens":
+        if (!(candidate.theme_tags.includes("tokens") || candidate.commander_tags.includes("go_wide"))) return false;
+        break;
+      case "graveyard":
+      case "reanimator":
+        if (!(candidate.theme_tags.includes("graveyard") || candidate.theme_tags.includes("reanimator") || candidate.gameplay_tags.includes("recursion"))) return false;
+        break;
+      case "spellslinger":
+        if (!(candidate.theme_tags.includes("spellslinger") || candidate.commander_tags.includes("spell_combo"))) return false;
+        break;
+      case "tribal":
+        if (!(candidate.theme_tags.includes("tribal") || candidate.commander_tags.includes("tribal_commander"))) return false;
+        break;
+      case "enchantments":
+        if (!candidate.theme_tags.includes("enchantments")) return false;
+        break;
+      case "artifacts":
+        if (!candidate.theme_tags.includes("artifacts")) return false;
+        break;
+      case "blink":
+        if (!(candidate.theme_tags.includes("blink") || candidate.theme_tags.includes("etb"))) return false;
+        break;
+      default:
+        break;
+    }
+  }
+  return true;
+}
+
 function themeGateSatisfied(candidate: RecommendationCandidate, desiredTheme: string): boolean {
   const haystack = buildThemeHaystack(candidate);
   const hasCreatureTokenEvidence = /\bcreature token\b|\bcreate .* creature token\b|\bpopulate\b|\bamass\b|\bincubate\b/i.test(haystack);
@@ -760,27 +794,28 @@ function buildFitReason(candidate: RecommendationCandidate, pref: CommanderPrefe
   if (matchedCommanderTag) return `Adds a ${commanderTag} angle while keeping the plan coherent.`;
   if (matchedGameplay) return `Fits because it gives you more ${gameplay} in the spots that matter.`;
   if (matchedArchetype) return `Good fit if you want a more reliable ${archetype} shell.`;
-  return `Broad ${archetypeLabel(candidate)} option with ${descriptionLabel(candidate)} support.`;
+  return `Flexible ${archetypeLabel(candidate)} option that still keeps the game plan coherent.`;
 }
 
-function buildFallbackVariantReason(candidate: RecommendationCandidate): string[] {
+function buildFallbackVariantReason(candidate: RecommendationCandidate, pref: CommanderPreference): string[] {
+  const desiredTheme = humanizeTag(Array.from(pref.desiredThemeTags)[0] ?? "");
   const theme = humanizeTag(preferredThemeTag(candidate) ?? candidate.theme_tags[0] ?? "theme");
   const gameplay = humanizeTag(candidate.gameplay_tags[0] ?? "engine");
   const archetype = humanizeTag(candidate.archetype_tags[0] ?? "plan");
   const commanderTag = humanizeTag(preferredCommanderTag(candidate) ?? candidate.commander_tags[0] ?? "commander");
   return [
-    `Keeps the ${theme} plan grounded through ${gameplay}.`,
-    `Offers a ${archetype} angle without dropping the ${theme} core.`,
-    `Adds a ${commanderTag} shell while staying close to the deck's main plan.`,
+    desiredTheme ? `Keeps the ${desiredTheme} plan grounded through ${gameplay}.` : `Keeps the main plan grounded through ${gameplay}.`,
+    desiredTheme ? `Offers a ${archetype} angle without dropping the ${desiredTheme} core.` : `Offers a ${archetype} angle without getting too generic.`,
+    desiredTheme ? `Adds a ${commanderTag} shell while still respecting the ${desiredTheme} identity.` : `Adds a ${commanderTag} shell while staying close to the deck's main plan.`,
   ];
 }
 
-function dedupeFitReasons(rows: Array<{ candidate: RecommendationCandidate; fitReason: string }>): Array<{ candidate: RecommendationCandidate; fitReason: string }> {
+function dedupeFitReasons(rows: Array<{ candidate: RecommendationCandidate; fitReason: string }>, pref: CommanderPreference): Array<{ candidate: RecommendationCandidate; fitReason: string }> {
   const seen = new Set<string>();
   return rows.map((row) => {
     const normalized = row.fitReason.trim().toLowerCase();
     if (!normalized || seen.has(normalized)) {
-      for (const variant of buildFallbackVariantReason(row.candidate)) {
+      for (const variant of buildFallbackVariantReason(row.candidate, pref)) {
         const key = variant.toLowerCase();
         if (!seen.has(key)) {
           seen.add(key);
@@ -1004,10 +1039,9 @@ export async function buildCommanderRecommendations(
     })
     .sort((a, b) => b.score - a.score || a.candidate.name.localeCompare(b.candidate.name));
 
-  const diversified = diversifyRecommendations(ranked.slice(0, 40), limit);
   const strictThemeRows =
     pref.desiredThemeTags.size > 0
-      ? ranked.filter(({ candidate }) => Array.from(pref.desiredThemeTags).every((theme) => themeGateSatisfied(candidate, theme))).slice(0, 40)
+      ? ranked.filter(({ candidate }) => candidateSatisfiesCommanderThemePreference(candidate, pref)).slice(0, 40)
       : [];
   const deterministicPool =
     strictThemeRows.length > 0
@@ -1054,6 +1088,7 @@ export async function buildCommanderRecommendations(
       .map((pick) => {
         const row = rowByDisplayName.get(pick.name);
         if (!row) return null;
+        if (!candidateSatisfiesCommanderThemePreference(row.candidate, pref)) return null;
         return {
           ...row,
           candidate: {
@@ -1076,6 +1111,7 @@ export async function buildCommanderRecommendations(
       fitReason: rerankReason || candidate.rerankReason || buildFitReason(candidate, pref),
       matchScore: score,
     })),
+    pref,
   );
 
   return finalized.map(({ candidate, fitReason, matchScore }: any) => ({

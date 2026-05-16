@@ -15,11 +15,18 @@ import {
   normalizeManatapDeckFormatKey,
 } from '@/lib/format/manatap-deck-format';
 import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
+import { createClient } from '@/lib/supabase/server';
+import { createClientWithBearerToken } from '@/lib/server-supabase';
+import { buildGroundedPlaystyleProfile } from '@/lib/quiz/playstyle-grounding';
+import { buildAiRouteExecutionContext, buildTierCapabilityBlock, runStructuredAiFlow } from '@/lib/ai/structured-pipeline';
 
 export const runtime = 'nodejs';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MINI_MODEL = DEFAULT_FALLBACK_MODEL;
+const ROUTE_PATH = '/api/playstyle/explain';
+const FEATURE_KEY = 'playstyle_explain';
+const RATE_LIMIT_KEY = ROUTE_PATH;
 
 // In-memory cache with 1-hour TTL
 const explainCache = new Map<string, { data: ExplainResult; expiry: number }>();
@@ -50,7 +57,8 @@ function generateCacheKey(req: ExplainRequest): string {
     .sort()
     .join('|');
   const archetypes = req.topArchetypes.map(a => a.label).sort().join(',');
-  return `${roundedTraits}::${archetypes}::${req.level}::fmt:${fmt}`;
+  const avoids = (req.avoidList || []).map((a) => a.label).sort().join(',');
+  return `${roundedTraits}::${archetypes}::${req.level}::fmt:${fmt}::avoid:${avoids}`;
 }
 
 /**
@@ -194,6 +202,31 @@ Format response as JSON:
   }
 }
 
+async function resolveExplainTier(req: NextRequest): Promise<{ userId: string | null; isPro: boolean; isGuest: boolean }> {
+  try {
+    let supabase = await createClient();
+    let { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
+    if (!user) return { userId: null, isPro: false, isGuest: true };
+    const { checkProStatus } = await import("@/lib/server-pro-check");
+    const isPro = await checkProStatus(user.id);
+    return { userId: user.id, isPro, isGuest: false };
+  } catch {
+    return { userId: null, isPro: false, isGuest: true };
+  }
+}
+
 export async function POST(req: NextRequest) {
   const t0 = Date.now();
   const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : '';
@@ -262,17 +295,120 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ...cached.data, cached: true });
     }
     
-    // Try AI, fallback to local
-    let result: ExplainResult;
+    const auth = await resolveExplainTier(req);
+    const fmtTitle = formatKeyToDisplayTitle(normalizeManatapDeckFormatKey(body.format));
+    const grounded = buildGroundedPlaystyleProfile({
+      traits: body.traits,
+      topArchetypes: body.topArchetypes || [],
+      avoidList: body.avoidList || [],
+      profileLabel: body.profileLabel,
+      formatTitle: fmtTitle,
+    });
+
+    const deterministic = fallbackExplanation(body);
+    const context = buildAiRouteExecutionContext({
+      userId: auth.userId,
+      isGuest: auth.isGuest,
+      isPro: auth.isPro,
+      featureKey: FEATURE_KEY,
+      rateLimitKey: RATE_LIMIT_KEY,
+    });
+
+    let result: ExplainResult = deterministic;
     let source: 'openai' | 'fallback' = 'openai';
     try {
-      result = await callOpenAIMini(body);
+      const flow = await runStructuredAiFlow<ExplainResult>({
+        context,
+        routePath: ROUTE_PATH,
+        deterministic,
+        judge: {
+          passName: 'judge',
+          maxTokens: body.level === 'short' ? 500 : 900,
+          buildMessages: () => [
+            {
+              role: 'system',
+              content: [
+                isCommanderFormatKey(normalizeManatapDeckFormatKey(body.format))
+                  ? "You are an expert MTG Commander playstyle analyst."
+                  : `You are an expert MTG ${fmtTitle} playstyle analyst.`,
+                "Write personalized playstyle summaries from the supplied deterministic profile only.",
+                "Return strict JSON: {\"paragraph\":\"...\",\"becauseBullets\":[\"...\",\"...\"]}.",
+                "Do not invent extra archetypes or preferences beyond the provided profile.",
+                buildTierCapabilityBlock(context),
+              ].join("\n\n"),
+            },
+            {
+              role: 'user',
+              content: [
+                `Profile summary: ${grounded.profileSummary}`,
+                `Dominant axis: ${grounded.dominantAxis}`,
+                `Secondary axis: ${grounded.secondaryAxis}`,
+                `Variance: ${grounded.variancePreference}`,
+                `Interaction: ${grounded.interactionProfile}`,
+                `Game length: ${grounded.gameLengthProfile}`,
+                `Budget: ${grounded.budgetProfile}`,
+                `Archetype family: ${grounded.archetypeFamily}`,
+                grounded.antiArchetype ? `Likely avoids: ${grounded.antiArchetype}` : "",
+                `Level: ${body.level}`,
+                `Bullet anchors: ${grounded.bullets.join(" | ")}`,
+              ].filter(Boolean).join("\n"),
+            },
+          ],
+          parse: (text, current) => {
+            try {
+              const parsed = JSON.parse(text) as ExplainResult;
+              const bulletCount = body.level === 'short' ? 3 : 5;
+              return {
+                paragraph: String(parsed.paragraph || '').trim() || current.paragraph,
+                becauseBullets: Array.isArray(parsed.becauseBullets)
+                  ? parsed.becauseBullets.map((b) => String(b).trim()).filter(Boolean).slice(0, bulletCount)
+                  : current.becauseBullets,
+              };
+            } catch {
+              return current;
+            }
+          },
+        },
+        writer: {
+          passName: 'writer',
+          maxTokens: body.level === 'short' ? 400 : 700,
+          buildMessages: (current) => [
+            {
+              role: 'system',
+              content: "Rewrite the explanation to be crisp, stable, and non-repetitive. Return the same strict JSON shape only.",
+            },
+            {
+              role: 'user',
+              content: [
+                `Deterministic profile: ${grounded.profileSummary}`,
+                `Current draft JSON: ${JSON.stringify(current)}`,
+                "Keep the meaning, improve the wording, and avoid swingy overclaims.",
+              ].join("\n"),
+            },
+          ],
+          parse: (text, current) => {
+            try {
+              const parsed = JSON.parse(text) as ExplainResult;
+              return {
+                paragraph: String(parsed.paragraph || '').trim() || current.paragraph,
+                becauseBullets: Array.isArray(parsed.becauseBullets)
+                  ? parsed.becauseBullets.map((b) => String(b).trim()).filter(Boolean).slice(0, current.becauseBullets.length || 3)
+                  : current.becauseBullets,
+              };
+            } catch {
+              return current;
+            }
+          },
+        },
+      });
+      result = flow.value;
+      source = flow.fallbackUsed ? 'fallback' : 'openai';
     } catch (aiError) {
       console.warn('AI explanation failed, using fallback:', aiError);
       source = 'fallback';
-      result = fallbackExplanation(body);
+      result = deterministic;
     }
-    
+
     // Ensure we have valid data
     if (!result.paragraph) {
       source = 'fallback';

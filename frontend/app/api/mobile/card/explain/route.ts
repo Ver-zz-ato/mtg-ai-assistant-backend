@@ -7,12 +7,15 @@ import {
 } from "@/lib/feature-limits";
 import { hashGuestToken, hashString } from "@/lib/guest-tracking";
 import { createClient, createClientWithBearerToken } from "@/lib/server-supabase";
+import { buildGroundedCardExplainPacket } from "@/lib/mobile/card-explain-grounding";
+import { buildAiRouteExecutionContext, runStructuredAiFlow, buildTierCapabilityBlock } from "@/lib/ai/structured-pipeline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ROUTE_PATH = "/api/mobile/card/explain";
 const FEATURE = "card_explain_mobile";
+const RATE_LIMIT_KEY = ROUTE_PATH;
 const VALID_MODES = new Set(["eli5", "tactics"]);
 const MAX_CARD_FIELD_CHARS = 4_000;
 const PROD_ORIGINS = new Set(["https://www.manatap.ai", "https://manatap.ai"]);
@@ -226,18 +229,6 @@ export async function POST(req: NextRequest) {
     const dailyLimit =
       tier === "pro" ? CARD_EXPLAIN_PRO : tier === "free" ? CARD_EXPLAIN_FREE : CARD_EXPLAIN_GUEST;
 
-    if (mode === "tactics" && !isPro) {
-      return jsonError(req, 403, {
-        code: "PRO_REQUIRED",
-        error: "Deeper tactics are a Pro feature.",
-        tier,
-        limit: dailyLimit,
-        remaining: 0,
-        resetAt: null,
-        proRequired: true,
-      });
-    }
-
     const { getGuestToken } = await import("@/lib/api/get-guest-token");
     const { guestToken } = await getGuestToken(req);
     const ip = getIp(req);
@@ -312,17 +303,16 @@ export async function POST(req: NextRequest) {
     const collectorNumber = trimmedString(card?.collectorNumber, 80);
     const priorExplanation = trimmedString(body.priorExplanation, 2_000);
 
-    const { getModelForTier } = await import("@/lib/ai/model-by-tier");
-    const modelForTier = getModelForTier({
-      isGuest: tier === "guest",
+    const executionContext = buildAiRouteExecutionContext({
       userId: realUserId,
+      isGuest: tier === "guest",
       isPro,
-      useCase: "chat",
+      source: usageSource ?? null,
+      sourcePage,
+      featureKey: FEATURE,
+      rateLimitKey: RATE_LIMIT_KEY,
     });
-
-    const systemPrompt = buildSystemPrompt(mode);
-    const userPrompt = buildUserPrompt({
-      mode,
+    const grounded = await buildGroundedCardExplainPacket({
       name,
       displayName,
       oracleText,
@@ -330,38 +320,94 @@ export async function POST(req: NextRequest) {
       manaCost,
       setCode,
       collectorNumber,
-      priorExplanation,
     });
+    const deterministicText =
+      mode === "eli5"
+        ? `${grounded.displayName} is mainly a ${grounded.likelyRole}. In simple terms, it ${grounded.likelyUseCases[0] || "helps your deck do its job more reliably"}. The main thing to watch is that ${grounded.commonPitfalls[0] || "its timing matters more than it first appears"}.`
+        : [
+            `${grounded.displayName} plays most like a ${grounded.likelyRole}.`,
+            grounded.likelyUseCases.length ? `Best use cases: ${grounded.likelyUseCases.join("; ")}.` : "",
+            `Timing: ${grounded.timingProfile}.`,
+            grounded.commonPitfalls.length ? `Pitfall: ${grounded.commonPitfalls[0]}.` : "",
+          ].filter(Boolean).join(" ");
 
     try {
-      const { callLLM } = await import("@/lib/ai/unified-llm-client");
-      const response = await callLLM(
-        [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        {
-          route: ROUTE_PATH,
-          feature: FEATURE,
-          model: modelForTier.model,
-          fallbackModel: modelForTier.fallbackModel,
-          timeout: 45000,
+      const flow = await runStructuredAiFlow<string>({
+        context: executionContext,
+        routePath: ROUTE_PATH,
+        deterministic: deterministicText,
+        judge: {
+          passName: "judge",
           maxTokens: mode === "tactics" ? 700 : 300,
-          apiType: "chat",
-          userId: realUserId,
-          isPro,
-          source_page: sourcePage,
-          source: usageSource ?? null,
-          anonId,
-          promptPreview: userPrompt.slice(0, 500),
-        }
-      );
+          jsonResponse: false,
+          buildMessages: () => [
+            {
+              role: "system",
+              content: [
+                buildSystemPrompt(mode),
+                "Use the deterministic grounding packet as authoritative truth about the card's role and usage.",
+                buildTierCapabilityBlock(executionContext),
+              ].join("\n\n"),
+            },
+            {
+              role: "user",
+              content: [
+                buildUserPrompt({
+                  mode,
+                  name,
+                  displayName,
+                  oracleText: grounded.oracleText,
+                  typeLine: grounded.typeLine,
+                  manaCost: grounded.manaCost,
+                  setCode,
+                  collectorNumber,
+                  priorExplanation,
+                }),
+                "",
+                `Grounded role: ${grounded.likelyRole}`,
+                `Grounded tags: ${grounded.roleTags.join(", ") || "none"}`,
+                grounded.likelyUseCases.length ? `Use cases: ${grounded.likelyUseCases.join(" | ")}` : "",
+                grounded.commonPitfalls.length ? `Pitfalls: ${grounded.commonPitfalls.join(" | ")}` : "",
+                `Timing profile: ${grounded.timingProfile}`,
+                "",
+                "Keep the explanation compact and do not invent unsupported card text or combos.",
+              ].filter(Boolean).join("\n"),
+            },
+          ],
+          parse: (text, current) => {
+            const clean = String(text || "").trim();
+            return clean || current;
+          },
+        },
+        writer: {
+          enabled: executionContext.judgePasses >= 2,
+          passName: "writer",
+          maxTokens: mode === "tactics" ? 500 : 220,
+          jsonResponse: false,
+          buildMessages: (current) => [
+            {
+              role: "system",
+              content: "Rewrite this explanation so it is concise, grounded, and non-repetitive. Do not add new factual claims.",
+            },
+            {
+              role: "user",
+              content: [
+                `Role: ${grounded.likelyRole}`,
+                `Draft explanation: ${current}`,
+                `Use cases: ${grounded.likelyUseCases.join(" | ") || "none"}`,
+                `Timing: ${grounded.timingProfile}`,
+              ].join("\n"),
+            },
+          ],
+          parse: (text, current) => String(text || "").trim() || current,
+        },
+      });
 
       return jsonResponse(req, {
         ok: true,
         mode,
         tier,
-        text: response.text.trim(),
+        text: flow.value.trim(),
         remaining: rateLimit.remaining,
         limit: rateLimit.limit,
         resetAt: rateLimit.resetAt,

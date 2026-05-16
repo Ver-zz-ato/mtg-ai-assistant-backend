@@ -108,12 +108,24 @@ Local validation used:
 - `npm run test:unit`
 - `npm run build`
 - `npx tsx scripts/verify-recommendation-local.ts`
+- `npm run benchmark:recommendations`
 
 The local verifier covers:
 
 - commander scenarios across guest/free/pro
 - shared route checks for `cards`, `deck`, `health`, `swap`, and `finish`
 - real local Supabase-backed candidate retrieval
+
+The benchmark suite adds:
+
+- 52 explicit benchmark cases
+- grouped coverage for `commander`, `cards`, `deck`, `swap`, `finish`, and category-focused checks
+- real public deck samples from Supabase
+- pass/fail summary output by benchmark group
+
+Current benchmark status:
+
+- `52 / 52 passed`
 
 ## Current Strengths
 

@@ -23,6 +23,8 @@ import { summarizeTransformIntent } from "@/lib/deck/transform-intent";
 import { warnSourceOffColor } from "@/lib/deck/transform-warnings";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 import { precheckFixLegalitySourceDeck } from "@/lib/deck/transform-legality-check";
+import { enforceTransformRules } from "@/lib/deck/transform-enforcement";
+import { getCachedPrices } from "@/lib/ai/price-utils";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -753,6 +755,34 @@ export async function POST(req: NextRequest) {
       }
       cards = scopedCards;
     }
+
+    let priceByName: Map<string, number> | undefined;
+    try {
+      const priceRecord = await getCachedPrices([
+        ...new Set([...sourceRows.map((row) => row.name), ...cards.map((row) => row.name)]),
+      ]);
+      priceByName = new Map(
+        Object.entries(priceRecord)
+          .filter(([, value]) => typeof value?.usd === "number" && Number.isFinite(value.usd))
+          .map(([name, value]) => [name, Number(value.usd)]),
+      );
+    } catch {
+      priceByName = undefined;
+    }
+
+    const enforced = enforceTransformRules({
+      sourceRows,
+      resultRows: cards,
+      targetCount: rules.mainDeckTarget,
+      rules: input.transformRules,
+      isCommander,
+      commanderName,
+      transformIntent: input.transformIntent,
+      budget: input.budget,
+      priceByName,
+    });
+    if (enforced.warnings.length) warnings.push(...enforced.warnings);
+    cards = enforced.rows;
 
     const finalQty = totalDeckQty(cards);
     if (finalQty > rules.mainDeckTarget) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
+import { getServerSupabase } from '@/lib/server-supabase';
+import { buildGroundedScaffoldDeck } from '@/lib/deck/scaffold-builder';
 
 export const runtime = 'nodejs';
 
@@ -28,70 +30,58 @@ export async function POST(req: NextRequest){
     }
 
     if (!user) return NextResponse.json({ ok:false, error:'auth_required' }, { status:401 });
+    const { checkProStatus } = await import("@/lib/server-pro-check");
+    const isPro = await checkProStatus(user.id);
     const body = await req.json().catch(()=>({}));
     const intent = body?.intent || {};
-    // Compose a naive deck_text
-    const colors: string[] = Array.isArray(intent?.colors)? intent.colors : [];
-    const format: string = String(intent?.format||'Commander');
-    const title: string = String(intent?.title||'Draft Deck');
-    const must: string[] = Array.isArray(intent?.mustInclude)? intent.mustInclude : [];
-
-    // Land base heuristic
-    const basics: Record<string,string> = { W:'Plains', U:'Island', B:'Swamp', R:'Mountain', G:'Forest' };
-    const landColors = colors.length? colors : ['U','R'];
-    const totalLands = format.toLowerCase().includes('commander') ? 36 : 24;
-    const per = Math.max(1, Math.floor(totalLands/Math.max(1, landColors.length)));
-    const landLines: string[] = landColors.map(c=>`${per} ${basics[c]}`).slice(0,5);
-
-    // Quotas
-    const ramp = format.toLowerCase().includes('commander') ? 10 : 6;
-    const draw = format.toLowerCase().includes('commander') ? 8 : 6;
-    const removal = format.toLowerCase().includes('commander') ? 8 : 6;
-
-    // Simple fillers
-    const rampLines = Array.from({length: Math.max(1,ramp- (must.length>0?1:0))}).map(()=>`1 Rampant Growth`);
-    const drawLines = Array.from({length: Math.max(1,draw)}).map(()=>`1 Opt`);
-    const removalLines = Array.from({length: Math.max(1,removal)}).map(()=>`1 Go for the Throat`);
-
-    const mustLines = must.map(n=>`1 ${norm(n)}`);
-    const deckText = [...mustLines, ...rampLines, ...drawLines, ...removalLines, ...landLines].join('\n');
-
-    const plan = String(intent?.plan||'optimized');
-    const colorNames = landColors.map(c=>({W:'White',U:'Blue',B:'Black',R:'Red',G:'Green'}[c])).join('/');
-    const deckTitle = title || `${format} ${colorNames} ${String(intent?.archetype||'Draft')}`.trim();
+    const format: string = String(intent?.format || 'Commander');
+    const title: string = String(intent?.title || 'Draft Deck');
+    const plan = String(intent?.plan || 'optimized');
+    const colorNames = (Array.isArray(intent?.colors) ? intent.colors : []).map((c:string)=>({W:'White',U:'Blue',B:'Black',R:'Red',G:'Green'}[String(c).toUpperCase()] || String(c))).join('/');
+    const deckTitle = title || `${format} ${colorNames} ${String(intent?.archetype||intent?.theme||'Draft')}`.trim();
+    const admin = await getServerSupabase();
+    const scaffold = await buildGroundedScaffoldDeck(admin, {
+      colors: Array.isArray(intent?.colors) ? intent.colors : [],
+      format,
+      title: deckTitle,
+      mustInclude: Array.isArray(intent?.mustInclude) ? intent.mustInclude.map((name: string) => norm(name)).filter(Boolean) : [],
+      archetype: typeof intent?.archetype === "string" ? intent.archetype : null,
+      theme: typeof intent?.theme === "string" ? intent.theme : null,
+      vibe: typeof intent?.vibe === "string" ? intent.vibe : null,
+      commander: typeof intent?.commander === "string" ? norm(intent.commander) : typeof intent?.commanderName === "string" ? norm(intent.commanderName) : null,
+      budget: typeof intent?.budget === "string" ? intent.budget : null,
+      power: typeof intent?.power === "string" ? intent.power : null,
+      plan,
+    }, {
+      userId: user?.id ?? null,
+      isPro,
+      isGuest: false,
+    });
+    const deckText = scaffold.deckText;
 
     // Preview mode: return deck data without creating
     if (body?.preview === true) {
-      const decklist: Array<{ name: string; qty: number }> = [];
-      for (const line of deckText.split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean)) {
-        const m = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
-        const qty = m ? Math.max(1, parseInt(m[1], 10)) : 1;
-        const name = sanitizedNameForDeckPersistence(m ? m[2] : line);
-        if (!name) continue;
-        decklist.push({ name, qty });
-      }
-      const overallAim = `A scaffold ${format} deck for the ${String(intent?.archetype||'Draft')} archetype. Customize in the editor.`;
       return NextResponse.json({
         ok: true,
         preview: true,
-        decklist,
-        commander: deckTitle,
-        colors: landColors.map(c=>c.toUpperCase()),
-        overallAim,
-        title: deckTitle,
-        deckText,
-        format,
-        plan,
+        decklist: scaffold.decklist,
+        commander: scaffold.commander || deckTitle,
+        colors: scaffold.colors,
+        overallAim: scaffold.overallAim,
+        title: scaffold.title,
+        deckText: scaffold.deckText,
+        format: scaffold.format,
+        plan: scaffold.plan,
       });
     }
 
     // Insert deck
-    const { data: deckIns, error: dErr } = await sb.from('decks').insert({ user_id: user.id, title: deckTitle, format: format, plan: plan, is_public: false }).select('id').single();
+    const { data: deckIns, error: dErr } = await sb.from('decks').insert({ user_id: user.id, title: scaffold.title, format: scaffold.format, plan: scaffold.plan, is_public: false, commander: scaffold.commander, deck_text: scaffold.deckText }).select('id').single();
     if (dErr) return NextResponse.json({ ok:false, error: dErr.message }, { status:500 });
     const deckId = deckIns?.id as string;
 
     // Upsert cards
-    const lines = deckText.split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean);
+    const lines = scaffold.deckText.split(/\r?\n/).map((l:string)=>l.trim()).filter(Boolean);
     for (const l of lines.slice(0,200)){
       const m = l.match(/^(\d+)\s*[xX]?\s+(.+)$/);
       const qty = m? Math.max(1, parseInt(m[1],10)) : 1;
