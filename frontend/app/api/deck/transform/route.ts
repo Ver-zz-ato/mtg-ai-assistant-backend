@@ -79,7 +79,8 @@ export async function POST(req: NextRequest) {
       if (precheck?.alreadyLegal || precheck?.needsDeckSizeOnlyReview) {
         const previewFacts = await buildGenerationPreviewFacts(
           precheck.validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n"),
-          precheck.commanderName === "Unknown" ? null : precheck.commanderName
+          precheck.commanderName === "Unknown" ? null : precheck.commanderName,
+          precheck.analyzeFormat as "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper",
         ).catch(() => undefined);
 
         return NextResponse.json({
@@ -243,7 +244,11 @@ export async function POST(req: NextRequest) {
 
     let previewFacts: Awaited<ReturnType<typeof buildGenerationPreviewFacts>> = undefined;
     try {
-      previewFacts = await buildGenerationPreviewFacts(deckText, commanderName === "Unknown" ? null : commanderName);
+      previewFacts = await buildGenerationPreviewFacts(
+        deckText,
+        commanderName === "Unknown" ? null : commanderName,
+        analyzeFormat,
+      );
     } catch {
       // optional
     }

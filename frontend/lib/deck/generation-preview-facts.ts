@@ -18,10 +18,11 @@ export type GenerationPreviewFacts = {
 
 export async function buildGenerationPreviewFacts(
   deckText: string,
-  commander: string | null
+  commander: string | null,
+  format: "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper" = "Commander",
 ): Promise<GenerationPreviewFacts | undefined> {
   try {
-    const s = await buildDeckContextSummary(deckText, { format: "Commander", commander });
+    const s = await buildDeckContextSummary(deckText, { format, commander });
     const df = s.deck_facts;
     if (df) {
       return {

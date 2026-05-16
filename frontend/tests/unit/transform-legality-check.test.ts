@@ -161,6 +161,53 @@ async function main() {
     assert.equal(result?.validatedRows.length, 60);
   }
 
+  {
+    const commander = "Budget Commander";
+    const cards = Array.from({ length: 98 }, (_, i) => `Budget Card ${i + 1}`);
+    const details = makeDeckMap({
+      [commander]: { legalities: { commander: "legal" }, color_identity: ["B"] },
+      "Jeweled Lotus": { legalities: { commander: "banned" }, color_identity: [] },
+      ...Object.fromEntries(cards.map((name) => [name, { legalities: { commander: "legal" }, color_identity: ["B"] }])),
+    });
+    const deckText = commanderDeckText(commander, [...cards, "Jeweled Lotus"]);
+
+    const result = await precheckFixLegalitySourceDeck(
+      { sourceDeckText: deckText, format: "Commander", commander },
+      {
+        getCommanderColors: async () => ["B"],
+        getCardDetails: async () => details,
+        filterRowsForFormat: filterRowsByLegalities,
+        warnOffColor: async () => null,
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result?.alreadyLegal, false, "banned Commander card should force legality repair");
+    assert.match(result?.warnings.join("\n") ?? "", /not legal in Commander/i);
+    assert.equal(result?.validatedRows.some((row) => row.name === "Jeweled Lotus"), false);
+  }
+
+  {
+    const cards = Array.from({ length: 60 }, (_, i) => `Pauper Card ${i + 1}`);
+    const details = makeDeckMap(
+      Object.fromEntries(cards.map((name) => [name, { legalities: { pauper: "legal" } }])),
+    );
+    const deckText = cards.map((name) => `1 ${name}`).join("\n");
+
+    const result = await precheckFixLegalitySourceDeck(
+      { sourceDeckText: deckText, format: "Pauper" },
+      {
+        getCardDetails: async () => details,
+        filterRowsForFormat: filterRowsByLegalities,
+        warnOffColor: async () => null,
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result?.alreadyLegal, true, "legal Pauper deck should no-op");
+    assert.equal(result?.validatedRows.length, 60);
+  }
+
   console.log("transform-legality-check: ok");
 }
 

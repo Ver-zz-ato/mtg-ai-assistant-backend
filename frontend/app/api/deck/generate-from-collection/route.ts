@@ -436,7 +436,11 @@ export async function POST(req: NextRequest) {
 
     let previewFacts: Awaited<ReturnType<typeof buildGenerationPreviewFacts>> = undefined;
     try {
-      previewFacts = await buildGenerationPreviewFacts(deckText, commanderName === "Unknown" ? null : commanderName);
+      previewFacts = await buildGenerationPreviewFacts(
+        deckText,
+        commanderName === "Unknown" ? null : commanderName,
+        "Commander",
+      );
     } catch {
       // optional
     }

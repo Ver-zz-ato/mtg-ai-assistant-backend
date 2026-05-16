@@ -44,6 +44,24 @@ async function main() {
   const interactionBlock = buildTransformIntentPromptBlock("add_interaction");
   assert.match(interactionBlock, /more answers/i);
 
+  const budgetBlock = buildTransformIntentPromptBlock("lower_budget");
+  assert.match(budgetBlock, /cheaper substitutes/i);
+
+  const casualBlock = buildTransformIntentPromptBlock("more_casual");
+  assert.match(casualBlock, /table-friendly/i);
+
+  const optimizedBlock = buildTransformIntentPromptBlock("more_optimized");
+  assert.match(optimizedBlock, /improve consistency/i);
+
+  const generalBlock = buildTransformIntentPromptBlock("general");
+  assert.match(generalBlock, /keep the deck recognizable/i);
+
+  const importedBlock = buildTransformIntentPromptBlock("refine_imported_deck");
+  assert.match(importedBlock, /Typical import cleanup/i);
+
+  const templateBlock = buildTransformIntentPromptBlock("transform_template");
+  assert.match(templateBlock, /shell adaptation/i);
+
   console.log("transform-intent: ok");
 }
 
