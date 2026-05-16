@@ -34,6 +34,8 @@ import {
   filterSwapSuggestionsByTagSimilarity,
   summarizeTagProfileForPrompt,
 } from "@/lib/recommendations/tag-grounding";
+import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from "@/lib/recommendations/recommendation-pipeline";
+import { getRecommendationTierConfig, resolveRecommendationTier } from "@/lib/recommendations/recommendation-tier";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -112,9 +114,11 @@ async function aiSuggest(
   commander?: string | null,
   allowedColors?: string[] | null,
   usageSource?: string | null,
-  sourcePage?: string | null
+  sourcePage?: string | null,
+  recommendationTier?: "guest" | "free" | "pro"
 ): Promise<Array<{ from: string; to: string; reason?: string }>> {
-  const model = process.env.MODEL_SWAP_SUGGESTIONS || DEFAULT_FALLBACK_MODEL;
+  const tierConfig = getRecommendationTierConfig(recommendationTier ?? "guest");
+  const model = tierConfig.model || process.env.MODEL_SWAP_SUGGESTIONS || DEFAULT_FALLBACK_MODEL;
   const formatKey = normalizeManatapDeckFormatKey(format);
   const formatTitle = formatKeyToDisplayTitle(formatKey);
   const isCommander = isCommanderFormatKey(formatKey);
@@ -179,8 +183,8 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
         route: '/api/deck/swap-suggestions',
         feature: 'swap_suggestions',
         model,
-        fallbackModel: DEFAULT_FALLBACK_MODEL,
-        timeout: 90000,
+        fallbackModel: tierConfig.fallbackModel || DEFAULT_FALLBACK_MODEL,
+        timeout: tierConfig.latencyBudgetMs,
         maxTokens: 4096,
         apiType: 'responses',
         userId: userId || null,
@@ -240,6 +244,7 @@ export async function POST(req: NextRequest) {
 
     let supabase = await createClient();
     let { data: { user } } = await supabase.auth.getUser();
+    let isPro = false;
 
     // Bearer fallback for mobile
     if (!user) {
@@ -257,7 +262,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (user) {
-      const isPro = await checkProStatus(user.id);
+      isPro = await checkProStatus(user.id);
       const dailyCap = isPro ? SWAP_SUGGESTIONS_PRO : SWAP_SUGGESTIONS_FREE;
       const userKeyHash = `user:${await hashString(user.id)}`;
       const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/swap-suggestions', dailyCap, 1);
@@ -356,7 +361,7 @@ export async function POST(req: NextRequest) {
     // If AI requested, try it first
     if (useAI) {
       const { data: { user } } = await supabase.auth.getUser();
-      const isPro = user ? await checkProStatus(user.id) : false;
+      isPro = user ? await checkProStatus(user.id) : false;
       let anonId: string | null = null;
       if (user?.id) anonId = await hashString(user.id);
       else {
@@ -364,6 +369,7 @@ export async function POST(req: NextRequest) {
         const guestToken = (await cookies()).get('guest_session_token')?.value;
         if (guestToken) anonId = await hashGuestToken(guestToken);
       }
+      const recommendationTier = resolveRecommendationTier({ isGuest: !user, userId: user?.id ?? null, isPro });
       const aiContext = [
         deckText,
         roleSummaryPrompt ? `SHARED ROLE CLASSIFIER SUMMARY:\n${roleSummaryPrompt}` : "",
@@ -371,7 +377,7 @@ export async function POST(req: NextRequest) {
         ownershipPrompt,
       ].filter(Boolean).join("\n\n");
       const aiDeckText = aiContext || deckText;
-      const ai = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage);
+      const ai = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage, recommendationTier);
       for (const s of ai) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;
@@ -494,6 +500,39 @@ export async function POST(req: NextRequest) {
         groundedToRows,
         deckProfile,
       );
+
+      const recommendationTier = resolveRecommendationTier({ isGuest: !user, userId: user?.id ?? null, isPro });
+      const tierConfig = getRecommendationTierConfig(recommendationTier);
+      const intent = buildRecommendationIntent({
+        routeKind: "swap",
+        routeLabel: "swap_suggestions",
+        formatLabel: format,
+        profile: deckProfile,
+        selectionCount: Math.min(7, validatedSuggestions.length),
+        isGuest: !user,
+        isPro,
+        userId: user?.id ?? null,
+      });
+      const rankedPool = rankGroundedCandidates(groundedToRows as any, deckProfile, intent).slice(0, tierConfig.candidateLimit);
+      const reranked = await aiRerankRecommendations({
+        candidates: rankedPool,
+        intent,
+        userId: user?.id ?? null,
+        isPro,
+      }).catch(() => null);
+      if (reranked?.picks?.length) {
+        const existingByTo = new Map(validatedSuggestions.map((s) => [normalizeScryfallCacheName(s.to), s]));
+        const nextSuggestions = reranked.picks
+          .map((pick) => {
+            const row = existingByTo.get(normalizeScryfallCacheName(pick.name));
+            if (!row) return null;
+            return { ...row, rationale: pick.reason || row.rationale };
+          })
+          .filter((row): row is Suggestion => !!row);
+        if (nextSuggestions.length > 0) {
+          validatedSuggestions = nextSuggestions;
+        }
+      }
     }
 
     const annotatedSuggestions = validatedSuggestions.map((s) => {

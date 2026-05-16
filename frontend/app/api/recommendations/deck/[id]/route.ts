@@ -6,7 +6,9 @@ import { isWithinColorIdentity } from '@/lib/deck/mtgValidators';
 import { parseDeckText } from '@/lib/deck/parseDeckText';
 import { normalizeName } from '@/lib/mtg/normalize';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { checkProStatus } from '@/lib/server-pro-check';
 import {
+  type GroundedCardCandidate,
   buildGroundedReason,
   buildTagProfile,
   fetchGroundedCandidatesForProfile,
@@ -14,6 +16,7 @@ import {
   hydratePriceAndImages,
   scoreCandidateAgainstProfile,
 } from '@/lib/recommendations/tag-grounding';
+import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from '@/lib/recommendations/recommendation-pipeline';
 
 export const runtime = 'nodejs';
 
@@ -58,6 +61,7 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const isPro = await checkProStatus(user.id);
 
     // Get the deck
     const { data: deck } = await supabase
@@ -78,6 +82,7 @@ export async function GET(
       imageNormal?: string;
       price?: number;
     }> = [];
+    const rerankPool: GroundedCardCandidate[] = [];
 
     // Parse current deck cards (shared parser: strips set tails, section lines, etc.)
     const deckCards = new Set<string>();
@@ -218,6 +223,7 @@ export async function GET(
         limitPerBucket: 72,
       });
       const hydratedGrounded = await hydratePriceAndImages(admin, groundedPool);
+      rerankPool.push(...hydratedGrounded);
       const scoredGrounded = hydratedGrounded
         .map((row) => ({
           name: String(row.printed_name || row.name),
@@ -252,6 +258,47 @@ export async function GET(
     }
 
     recommendations.push(...selected);
+
+    if (admin && deckProfile && rerankPool.length > 0) {
+      const intent = buildRecommendationIntent({
+        routeKind: "deck",
+        routeLabel: "deck_recommendations",
+        formatLabel,
+        profile: deckProfile,
+        selectionCount: recommendations.length || 5,
+        commanderColors: isCommander ? colors : undefined,
+        isGuest: false,
+        isPro,
+        userId: user.id,
+      });
+      const ranked = rankGroundedCandidates(rerankPool, deckProfile, intent).slice(0, 28);
+      const reranked = await aiRerankRecommendations({
+        candidates: ranked,
+        intent,
+        userId: user.id,
+        isPro,
+      }).catch(() => null);
+      if (reranked?.picks?.length) {
+        const byName = new Map(ranked.map((row) => [String(row.printed_name || row.name), row]));
+        const nextRecs: Array<{ name: string; reason: string; imageUrl?: string; imageNormal?: string; price?: number }> = [];
+        for (const pick of reranked.picks) {
+          const row = byName.get(pick.name);
+          if (!row) continue;
+          nextRecs.push({
+            name: pick.name,
+            reason: pick.reason || row.groundedReason,
+            imageUrl: row.small ?? row.normal ?? undefined,
+            imageNormal: row.normal ?? row.small ?? undefined,
+            price: row.price,
+          });
+          if (nextRecs.length >= (recommendations.length || 5)) break;
+        }
+        if (nextRecs.length > 0) {
+          recommendations.length = 0;
+          recommendations.push(...nextRecs);
+        }
+      }
+    }
 
     // Fetch card images and prices (scryfall_cache.name = oracle PK; price_cache uses normalizeName)
     for (const rec of recommendations) {

@@ -14,6 +14,7 @@ import {
 } from '@/lib/collections/ownership-context';
 import { getAdmin } from '@/app/api/_lib/supa';
 import {
+  type GroundedCardCandidate,
   buildGroundedReason,
   buildTagProfile,
   fetchGroundedCandidatesForProfile,
@@ -22,6 +23,8 @@ import {
   scoreCandidateAgainstProfile,
   summarizeTagProfileForPrompt,
 } from '@/lib/recommendations/tag-grounding';
+import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from '@/lib/recommendations/recommendation-pipeline';
+import { getRecommendationTierConfig, resolveRecommendationTier } from '@/lib/recommendations/recommendation-tier';
 
 export const runtime = 'nodejs';
 
@@ -261,6 +264,7 @@ Use this context to make targeted suggestions that fill gaps. For example, if ra
         commanderColors: isCommanderFormat && deckProfile.colorIdentity.length ? deckProfile.colorIdentity : undefined,
         excludeNames: Array.from(deckNormInList),
         limitPerBucket: 48,
+        desiredCategory: category as any,
       });
       fallbackGroundedSuggestions = groundedCandidates
         .map((row) => ({
@@ -307,8 +311,10 @@ When USER COLLECTION CONTEXT is present, prefer genuinely owned close-fit cards 
 Never suggest a card whose English oracle name is already on the user's list (surplus copies are pointless). Prefer novel cards only.
 Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionContext}`;
 
-    const model = process.env.MODEL_DECK_SCAN || DEFAULT_FALLBACK_MODEL;
-    const fallbackModel = DEFAULT_FALLBACK_MODEL;
+    const recommendationTier = resolveRecommendationTier({ isGuest: false, userId: user.id, isPro });
+    const tierConfig = getRecommendationTierConfig(recommendationTier);
+    const model = tierConfig.model || process.env.MODEL_DECK_SCAN || DEFAULT_FALLBACK_MODEL;
+    const fallbackModel = tierConfig.fallbackModel || DEFAULT_FALLBACK_MODEL;
 
     // Call OpenAI using unified wrapper
     try {
@@ -520,6 +526,49 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
       }
 
       console.log('✅ [health-suggestions] Returning response with', validatedSuggestions.length, 'suggestions');
+      if (deckProfile && admin) {
+        const candidateNames = [
+          ...validatedSuggestions.map((s) => s.card),
+          ...fallbackGroundedSuggestions.map((row) => row.card),
+        ];
+        const groundedPool = await fetchTagGroundedRowsByNames(admin, candidateNames);
+        if (groundedPool.length > 0) {
+          const intent = buildRecommendationIntent({
+            routeKind: "health",
+            routeLabel: "health_suggestions",
+            formatLabel: format,
+            profile: deckProfile,
+            desiredCategory: category as any,
+            selectionCount: Math.min(7, Math.max(3, validatedSuggestions.length || fallbackGroundedSuggestions.length || 5)),
+            isGuest: false,
+            isPro,
+            userId: user.id,
+          });
+          const rankedPool = rankGroundedCandidates(groundedPool as GroundedCardCandidate[], deckProfile, intent).slice(0, tierConfig.candidateLimit);
+          const reranked = await aiRerankRecommendations({
+            candidates: rankedPool,
+            intent,
+            userId: user.id,
+            isPro,
+          }).catch(() => null);
+          if (reranked?.picks?.length) {
+            const existingByCard = new Map(validatedSuggestions.map((s) => [normalizeCardName(s.card), s]));
+            const groundedByName = new Map(rankedPool.map((row) => [String(row.printed_name || row.name), row]));
+            const rewritten = reranked.picks
+              .map((pick) => {
+                const existing = existingByCard.get(normalizeCardName(pick.name));
+                if (existing) return { card: existing.card, reason: pick.reason || existing.reason };
+                const grounded = groundedByName.get(pick.name);
+                if (!grounded) return null;
+                return { card: pick.name, reason: pick.reason || grounded.groundedReason };
+              })
+              .filter((row): row is { card: string; reason: string } => !!row)
+              .slice(0, Math.min(7, validatedSuggestions.length || fallbackGroundedSuggestions.length || 5));
+            if (rewritten.length > 0) validatedSuggestions = rewritten;
+          }
+        }
+      }
+
       const annotatedSuggestions = validatedSuggestions.map((s) => {
         const ownership = annotateOwnership(ownershipContext, s.card);
         return {

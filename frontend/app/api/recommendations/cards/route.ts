@@ -4,7 +4,9 @@ import { fetchAllSupabaseRows } from '@/lib/supabase/fetchAllRows';
 import { normalizeScryfallCacheName } from '@/lib/server/scryfallCacheRow';
 import { normalizeName } from '@/lib/mtg/normalize';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { checkProStatus } from '@/lib/server-pro-check';
 import {
+  type GroundedCardCandidate,
   buildGroundedReason,
   buildTagProfile,
   fetchGroundedCandidatesForProfile,
@@ -12,6 +14,7 @@ import {
   hydratePriceAndImages,
   scoreCandidateAgainstProfile,
 } from '@/lib/recommendations/tag-grounding';
+import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from '@/lib/recommendations/recommendation-pipeline';
 
 export const runtime = 'nodejs';
 
@@ -32,6 +35,7 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const isPro = await checkProStatus(user.id);
 
     const recommendations: Array<{
       name: string;
@@ -39,6 +43,7 @@ export async function GET(request: NextRequest) {
       imageUrl?: string;
       price?: number;
     }> = [];
+    const rerankPool: GroundedCardCandidate[] = [];
 
     // Step 1: Get user's decks
     const { data: decks } = await supabase
@@ -105,6 +110,7 @@ export async function GET(request: NextRequest) {
       let selected = missingCards.slice(0, 3);
       if (admin && deckProfile) {
         const groundedMissing = await fetchTagGroundedRowsByNames(admin, missingCards);
+        rerankPool.push(...groundedMissing);
         selected = groundedMissing
           .map((row) => ({
             name: String(row.printed_name || row.name),
@@ -183,6 +189,7 @@ export async function GET(request: NextRequest) {
           limitPerBucket: 48,
         });
         const hydrated = await hydratePriceAndImages(admin, groundedCandidates);
+        rerankPool.push(...hydrated);
         newRecs = hydrated
           .filter((row) => !collectionCards.has(String(row.printed_name || row.name)))
           .sort((a, b) => scoreCandidateAgainstProfile(b, deckProfile) - scoreCandidateAgainstProfile(a, deckProfile))
@@ -212,6 +219,45 @@ export async function GET(request: NextRequest) {
     }
 
     // Step 6: Fetch card images and prices (cache PK vs price_cache key differ — see CARD_DATA_GUARDRAILS)
+    if (admin && deckProfile && rerankPool.length > 0) {
+      const intent = buildRecommendationIntent({
+        routeKind: "cards",
+        routeLabel: "recommended_cards",
+        formatLabel,
+        profile: deckProfile,
+        selectionCount: Math.max(3, recommendations.length || 3),
+        isGuest: false,
+        isPro,
+        userId: user.id,
+      });
+      const ranked = rankGroundedCandidates(rerankPool, deckProfile, intent).slice(0, 24);
+      const reranked = await aiRerankRecommendations({
+        candidates: ranked,
+        intent,
+        userId: user.id,
+        isPro,
+      }).catch(() => null);
+      if (reranked?.picks?.length) {
+        const byName = new Map(ranked.map((row) => [String(row.printed_name || row.name), row]));
+        const nextRecs: Array<{ name: string; reason: string; imageUrl?: string; price?: number }> = [];
+        for (const pick of reranked.picks) {
+          const row = byName.get(pick.name);
+          if (!row) continue;
+          nextRecs.push({
+            name: pick.name,
+            reason: pick.reason || row.groundedReason,
+            imageUrl: row.small ?? row.normal ?? undefined,
+            price: row.price,
+          });
+          if (nextRecs.length >= Math.max(3, recommendations.length || 3)) break;
+        }
+        if (nextRecs.length > 0) {
+          recommendations.length = 0;
+          recommendations.push(...nextRecs);
+        }
+      }
+    }
+
     for (const rec of recommendations) {
       try {
         const cachePk = normalizeScryfallCacheName(rec.name);

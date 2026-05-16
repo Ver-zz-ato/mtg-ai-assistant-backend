@@ -40,11 +40,15 @@ import { enrichDeck } from "@/lib/deck/deck-enrichment";
 import { formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
 import { getAdmin } from "@/app/api/_lib/supa";
 import {
+  type GroundedCardCandidate,
+  fetchGroundedCandidatesForProfile,
   buildTagProfile,
   fetchTagGroundedRowsByNames,
   rerankNamedRowsByProfile,
   summarizeTagProfileForPrompt,
 } from "@/lib/recommendations/tag-grounding";
+import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from "@/lib/recommendations/recommendation-pipeline";
+import { getRecommendationTierConfig, resolveRecommendationTier } from "@/lib/recommendations/recommendation-tier";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const FINISH_COMPLETION_TOKENS = 4096;
@@ -336,12 +340,14 @@ export async function POST(req: Request) {
   }
 
   const tierGuest = !user;
-  const modelRes = getModelForTier({
-    isGuest: tierGuest,
-    userId: user?.id ?? null,
-    isPro,
-    useCase: "deck_analysis",
-  });
+  const recommendationTier = resolveRecommendationTier({ isGuest: tierGuest, userId: user?.id ?? null, isPro });
+  const tierConfig = getRecommendationTierConfig(recommendationTier);
+  const modelRes = {
+    model: tierConfig.model,
+    fallbackModel: tierConfig.fallbackModel,
+    tier: recommendationTier,
+    tierLabel: recommendationTier,
+  };
 
   const payload = prepareOpenAIBody({
     model: modelRes.model,
@@ -508,6 +514,74 @@ export async function POST(req: Request) {
     for (const suggestion of suggestionsOut) {
       const meta = byName.get(normalizeCardName(suggestion.card));
       if (meta?.reason) suggestion.reason = meta.reason;
+    }
+  }
+
+  if (admin && deckProfile) {
+    const groundedPool = await fetchGroundedCandidatesForProfile(admin, {
+      formatLabel: analyzeFormat,
+      topThemeTags: deckProfile.topThemeTags,
+      topGameplayTags: deckProfile.topGameplayTags,
+      topArchetypeTags: deckProfile.topArchetypeTags,
+      commanderColors: analyzeFormat === "Commander" ? commanderCi : undefined,
+      excludeNames: entries.map((e) => normalizeScryfallCacheName(e.name)),
+      limitPerBucket: 56,
+      desiredCategory: "win_condition",
+    });
+    const poolRows = await fetchTagGroundedRowsByNames(
+      admin,
+      [...new Set([...suggestionsOut.map((s) => s.card), ...groundedPool.map((row) => String(row.printed_name || row.name))])],
+    );
+    if (poolRows.length > 0) {
+      const intent = buildRecommendationIntent({
+        routeKind: "finish",
+        routeLabel: "finish_suggestions",
+        formatLabel: analyzeFormat,
+        profile: deckProfile,
+        desiredCategory: "win_condition",
+        selectionCount: maxSuggestions,
+        commanderColors: analyzeFormat === "Commander" ? commanderCi : undefined,
+        isGuest: tierGuest,
+        isPro,
+        userId: user?.id ?? null,
+      });
+      const rankedPool = rankGroundedCandidates(poolRows as GroundedCardCandidate[], deckProfile, intent).slice(0, tierConfig.candidateLimit);
+      const reranked = await aiRerankRecommendations({
+        candidates: rankedPool,
+        intent,
+        userId: user?.id ?? null,
+        isPro,
+      }).catch(() => null);
+      if (reranked?.picks?.length) {
+        const byNorm = new Map(suggestionsOut.map((s) => [normalizeCardName(s.card), s]));
+        const byDisplay = new Map(rankedPool.map((row) => [String(row.printed_name || row.name), row]));
+        const nextSuggestions = reranked.picks
+          .map((pick) => {
+            const existing = byNorm.get(normalizeCardName(pick.name));
+            if (existing) {
+              return { ...existing, reason: pick.reason || existing.reason };
+            }
+            const grounded = byDisplay.get(pick.name);
+            if (!grounded) return null;
+            return {
+              card: pick.name,
+              qty: 1,
+              zone: "mainboard" as const,
+              role: "Synergy",
+              reason: pick.reason || grounded.groundedReason,
+              priority: "medium" as const,
+              confidence: 0.72,
+              legality: "legal" as const,
+              source: "ai" as const,
+            };
+          })
+          .filter((row): row is FinishSuggestionOut => !!row)
+          .slice(0, maxSuggestions);
+        if (nextSuggestions.length > 0) {
+          suggestionsOut.length = 0;
+          suggestionsOut.push(...nextSuggestions);
+        }
+      }
     }
   }
 

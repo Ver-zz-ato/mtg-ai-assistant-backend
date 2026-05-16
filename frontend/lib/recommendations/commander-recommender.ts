@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { bannedDataToMaps, getBannedCards, type BannedCardsData } from "@/lib/data/get-banned-cards";
 import { isCommanderEligible, postgrestCommanderEligibleCatalogOr } from "@/lib/deck/deck-enrichment";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
+import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from "@/lib/recommendations/recommendation-pipeline";
+import { type TagProfile } from "@/lib/recommendations/tag-grounding";
 
 export const CARD_TAG_RULE_VERSION = 2;
 export const CARD_TAG_RULE_SOURCE = "rules_v2";
@@ -82,6 +84,12 @@ export type CommanderRecommendation = {
   colorIdentity?: string[];
 };
 
+type CommanderBuildOptions = {
+  userId?: string | null;
+  isPro?: boolean;
+  isGuest?: boolean;
+};
+
 type CommanderPreference = {
   desiredThemeTags: Set<string>;
   desiredGameplayTags: Set<string>;
@@ -100,7 +108,7 @@ const THEME_PATTERNS: Array<[string, RegExp]> = [
   ["sacrifice", /\bsacrifice\b|\bdies\b|\bwhen(?:ever)? .* dies\b/i],
   ["artifacts", /\bartifact creature\b|\bartifact spell\b|\bartifacts? you control\b|\bwhenever .* artifact\b/i],
   ["enchantments", /\benchantment spell\b|\benchantments? you control\b|\baura\b|\bconstellation\b|\bwhenever .* enchantment\b/i],
-  ["spellslinger", /\bwhenever you cast (?:an )?instant or sorcery\b|\binstant and sorcery spells you cast\b|\bcopy target spell\b|\bspells? you cast cost\b/i],
+  ["spellslinger", /\bwhenever you cast (?:an )?instant or sorcery\b|\binstant and sorcery spells you cast\b|\bcopy target spell\b|\bstorm\b/i],
   ["lands", /\blandfall\b|\badditional land\b|\bsearch your library for a land\b|\bwhenever a land enters\b/i],
   ["lifegain", /\bgain(?:ed)? life\b|\blife total\b|\bwhenever you gain life\b/i],
   ["blink", /\bexile\b.{0,50}\breturn\b.{0,50}\bto the battlefield\b|\bblink\b/i],
@@ -211,6 +219,15 @@ const VIBE_KEYWORDS: Record<string, string[]> = {
   legends: ["legendary_matters", "value"],
 };
 
+const THEME_ALIASES: Record<string, string> = {
+  spells: "spellslinger",
+  spell: "spellslinger",
+  reanimator: "graveyard",
+  lands: "landfall",
+  lifegain: "lifegain",
+  counters: "counters_plus1",
+};
+
 const GENERIC_THEME_TAGS = new Set(["legendary_matters"]);
 const GENERIC_COMMANDER_TAGS = new Set([
   "build_around_commander",
@@ -222,12 +239,31 @@ const GENERIC_COMMANDER_TAGS = new Set([
 const THEME_GATE_PATTERNS: Record<string, RegExp> = {
   tokens: /\bcreature token\b|\bcreate .* token\b|\bpopulate\b|\bamass\b|\bincubate\b/i,
   graveyard: /\bgraveyard\b|\breturn target .* from your graveyard\b|\bcast .* from your graveyard\b|\bmill\b|\bsurveil\b/i,
-  spellslinger: /\binstant or sorcery\b|\bcopy target spell\b|\bspells? you cast cost\b|\bwhenever you cast (?:an )?instant or sorcery\b|\bstorm\b/i,
+  spellslinger: /\binstant or sorcery\b|\bcopy target spell\b|\binstant and sorcery spells you cast\b|\bwhenever you cast (?:an )?instant or sorcery\b|\bstorm\b/i,
   tribal: /\bdragon\b|\belf\b|\bzombie\b|\bgoblin\b|\bvampire\b/i,
   enchantments: /\benchantment\b|\baura\b|\bconstellation\b/i,
   artifacts: /\bartifact\b|\btreasure token\b|\bclue token\b|\bfood token\b|\bblood token\b/i,
   blink: /\bexile\b.{0,50}\breturn\b.{0,50}\bto the battlefield\b|\benters the battlefield\b/i,
 };
+
+const TOKEN_PAYOFF_PATTERN = /\bcreatures? you control\b|\bfor each creature you control\b|\battacking creatures?\b|\bother tokens? you control\b/i;
+const TREASURE_ONLY_PATTERN = /\btreasure token\b|\bclue token\b|\bfood token\b|\bblood token\b/i;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildThemeHaystack(candidate: RecommendationCandidate): string {
+  const selfNames = [String(candidate.printed_name || ""), String(candidate.name || "")]
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  let oracle = normalizeText(candidate.oracle_text);
+  for (const selfName of selfNames) {
+    oracle = oracle.replace(new RegExp(`\\b${escapeRegExp(selfName)}\\b`, "gi"), "this card");
+  }
+  const typeLine = normalizeText(candidate.type_line);
+  return `${oracle} ${typeLine}`;
+}
 
 function uniqueSorted(items: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(items).filter(Boolean))).sort((a, b) => a.localeCompare(b));
@@ -301,6 +337,31 @@ function addIf(set: Set<string>, condition: boolean, tag: string): void {
 
 function sharesAny(tags: string[], desired: Set<string>): boolean {
   return tags.some((tag) => desired.has(tag));
+}
+
+function preferenceToProfile(pref: CommanderPreference): TagProfile {
+  const topThemeTags = uniqueSorted(Array.from(pref.desiredThemeTags));
+  const topGameplayTags = uniqueSorted(Array.from(pref.desiredGameplayTags));
+  const topArchetypeTags = uniqueSorted(Array.from(pref.desiredArchetypes));
+  const topCommanderTags = uniqueSorted(Array.from(pref.desiredCommanderTags));
+  return {
+    topThemeTags,
+    topGameplayTags,
+    topArchetypeTags,
+    topCommanderTags,
+    colorIdentity: [],
+    profileSummary: [
+      topThemeTags.length ? `themes: ${topThemeTags.join(", ")}` : "",
+      topGameplayTags.length ? `roles: ${topGameplayTags.join(", ")}` : "",
+      topArchetypeTags.length ? `plan: ${topArchetypeTags.join(", ")}` : "",
+    ].filter(Boolean).join(" | "),
+    counts: {
+      theme: new Map(topThemeTags.map((tag) => [tag, 1])),
+      gameplay: new Map(topGameplayTags.map((tag) => [tag, 1])),
+      archetype: new Map(topArchetypeTags.map((tag) => [tag, 1])),
+      commander: new Map(topCommanderTags.map((tag) => [tag, 1])),
+    },
+  };
 }
 
 export function deriveCardTagCacheRow(row: ScryfallTagSourceRow): CardTagCacheRow {
@@ -477,7 +538,8 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
   const desiredCommanderTags = new Set<string>();
 
   const answers = input.answers ?? {};
-  const themeAnswer = normalizeText(answers.theme);
+  const rawThemeAnswer = normalizeText(answers.theme);
+  const themeAnswer = THEME_ALIASES[rawThemeAnswer] ?? rawThemeAnswer;
   if (themeAnswer) desiredThemeTags.add(themeAnswer);
   if (themeAnswer === "tokens") desiredCommanderTags.add("go_wide");
   if (themeAnswer === "tokens") desiredArchetypes.add("aggro");
@@ -494,8 +556,7 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
     desiredArchetypes.add("control");
     desiredArchetypes.add("value");
   }
-  if (themeAnswer === "spells") {
-    desiredThemeTags.add("spellslinger");
+  if (themeAnswer === "spellslinger") {
     desiredCommanderTags.add("spell_combo");
     desiredArchetypes.add("combo");
     desiredGameplayTags.add("card_draw");
@@ -505,8 +566,7 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
     desiredThemeTags.add("tribal");
     desiredArchetypes.add("aggro");
   }
-  if (themeAnswer === "lands") {
-    desiredThemeTags.add("landfall");
+  if (themeAnswer === "landfall") {
     desiredCommanderTags.add("big_mana");
   }
   if (themeAnswer === "lifegain") desiredThemeTags.add("lifedrain");
@@ -620,21 +680,21 @@ function preferredCommanderTag(candidate: RecommendationCandidate): string | und
 }
 
 function themeGateSatisfied(candidate: RecommendationCandidate, desiredTheme: string): boolean {
-  const oracle = normalizeText(candidate.oracle_text);
-  const typeLine = normalizeText(candidate.type_line);
-  const haystack = `${oracle} ${typeLine}`;
-  const hasCreatureTokenEvidence = THEME_GATE_PATTERNS.tokens.test(haystack);
+  const haystack = buildThemeHaystack(candidate);
+  const hasCreatureTokenEvidence = /\bcreature token\b|\bcreate .* creature token\b|\bpopulate\b|\bamass\b|\bincubate\b/i.test(haystack);
+  const hasTokenPayoff = TOKEN_PAYOFF_PATTERN.test(haystack) && (candidate.commander_tags.includes("go_wide") || candidate.gameplay_tags.includes("payoff"));
+  const isTreasureOnly = TREASURE_ONLY_PATTERN.test(haystack) && !hasCreatureTokenEvidence;
   const hasGraveyardEvidence = THEME_GATE_PATTERNS.graveyard.test(haystack);
-  const hasSpellslingerEvidence = THEME_GATE_PATTERNS.spellslinger.test(haystack);
+  const hasSpellslingerEvidence = /\binstant or sorcery\b|\bcopy target spell\b|\binstant and sorcery spells you cast\b|\bwhenever you cast (?:an )?instant or sorcery\b|\bstorm\b/i.test(haystack);
 
   switch (desiredTheme) {
     case "tokens":
-      return candidate.commander_tags.includes("go_wide") || hasCreatureTokenEvidence;
+      return !isTreasureOnly && (hasCreatureTokenEvidence || hasTokenPayoff || (candidate.theme_tags.includes("tokens") && candidate.commander_tags.includes("go_wide")));
     case "graveyard":
     case "reanimator":
-      return candidate.theme_tags.includes("graveyard") || candidate.theme_tags.includes("reanimator") || candidate.gameplay_tags.includes("recursion") || hasGraveyardEvidence;
+      return hasGraveyardEvidence && (candidate.theme_tags.includes("graveyard") || candidate.theme_tags.includes("reanimator") || candidate.theme_tags.includes("self_mill") || candidate.gameplay_tags.includes("recursion"));
     case "spellslinger":
-      return hasSpellslingerEvidence || (candidate.theme_tags.includes("spellslinger") && candidate.gameplay_tags.includes("card_draw"));
+      return hasSpellslingerEvidence && (candidate.theme_tags.includes("spellslinger") || candidate.commander_tags.includes("spell_combo") || candidate.gameplay_tags.includes("card_draw"));
     case "tribal":
       return candidate.theme_tags.includes("tribal") || candidate.commander_tags.includes("tribal_commander") || THEME_GATE_PATTERNS.tribal.test(haystack);
     case "enchantments":
@@ -677,8 +737,9 @@ function buildFitReason(candidate: RecommendationCandidate, pref: CommanderPrefe
     return `Leans into spellslinger sequencing without drifting into random midrange.`;
   }
   if (matchedTheme === "tokens") {
-    if (candidate.commander_tags.includes("go_wide")) return `Turns token starts into a real go-wide kill plan.`;
     if (candidate.gameplay_tags.includes("payoff")) return `Pays off token boards instead of just making extra material.`;
+    if (candidate.gameplay_tags.includes("ramp")) return `Turns token starts into a wider board without stalling on mana.`;
+    if (candidate.commander_tags.includes("go_wide")) return `Turns token starts into a real go-wide kill plan.`;
     return `Supports a token-heavy table presence without going off-theme.`;
   }
   if (matchedTheme === "graveyard") {
@@ -700,6 +761,36 @@ function buildFitReason(candidate: RecommendationCandidate, pref: CommanderPrefe
   if (matchedGameplay) return `Fits because it gives you more ${gameplay} in the spots that matter.`;
   if (matchedArchetype) return `Good fit if you want a more reliable ${archetype} shell.`;
   return `Broad ${archetypeLabel(candidate)} option with ${descriptionLabel(candidate)} support.`;
+}
+
+function buildFallbackVariantReason(candidate: RecommendationCandidate): string[] {
+  const theme = humanizeTag(preferredThemeTag(candidate) ?? candidate.theme_tags[0] ?? "theme");
+  const gameplay = humanizeTag(candidate.gameplay_tags[0] ?? "engine");
+  const archetype = humanizeTag(candidate.archetype_tags[0] ?? "plan");
+  const commanderTag = humanizeTag(preferredCommanderTag(candidate) ?? candidate.commander_tags[0] ?? "commander");
+  return [
+    `Keeps the ${theme} plan grounded through ${gameplay}.`,
+    `Offers a ${archetype} angle without dropping the ${theme} core.`,
+    `Adds a ${commanderTag} shell while staying close to the deck's main plan.`,
+  ];
+}
+
+function dedupeFitReasons(rows: Array<{ candidate: RecommendationCandidate; fitReason: string }>): Array<{ candidate: RecommendationCandidate; fitReason: string }> {
+  const seen = new Set<string>();
+  return rows.map((row) => {
+    const normalized = row.fitReason.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) {
+      for (const variant of buildFallbackVariantReason(row.candidate)) {
+        const key = variant.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          return { ...row, fitReason: variant };
+        }
+      }
+    }
+    seen.add(normalized);
+    return row;
+  });
 }
 
 function colorIdentityBucket(colors: string[] | null | undefined): string {
@@ -744,10 +835,10 @@ function scoreCandidate(candidate: RecommendationCandidate, pref: CommanderPrefe
   let score = 0;
   const oracle = normalizeText(candidate.oracle_text);
   const typeLine = normalizeText(candidate.type_line);
-  const haystack = `${oracle} ${typeLine}`;
+  const haystack = buildThemeHaystack(candidate);
   const hasCreatureTokenEvidence = THEME_GATE_PATTERNS.tokens.test(haystack);
   const hasGraveyardEvidence = THEME_GATE_PATTERNS.graveyard.test(haystack);
-  const hasSpellslingerEvidence = THEME_GATE_PATTERNS.spellslinger.test(haystack);
+  const hasSpellslingerEvidence = /\binstant or sorcery\b|\bcopy target spell\b|\binstant and sorcery spells you cast\b|\bwhenever you cast (?:an )?instant or sorcery\b|\bstorm\b/i.test(haystack);
   const themeMatchCount = candidate.theme_tags.filter((tag) => pref.desiredThemeTags.has(tag)).length;
   const gameplayMatchCount = candidate.gameplay_tags.filter((tag) => pref.desiredGameplayTags.has(tag)).length;
   const archetypeMatchCount = candidate.archetype_tags.filter((tag) => pref.desiredArchetypes.has(tag)).length;
@@ -852,6 +943,7 @@ export async function retagCardsByNames(admin: SupabaseClient, names: string[]):
 export async function buildCommanderRecommendations(
   admin: SupabaseClient,
   input: CommanderRecommendationRequest,
+  options?: CommanderBuildOptions,
 ): Promise<CommanderRecommendation[]> {
   const limit = Math.max(6, Math.min(input.limit ?? 6, 12));
   const bannedMaps = bannedDataToMaps(await getBannedCardsForRecommendations(admin));
@@ -913,14 +1005,85 @@ export async function buildCommanderRecommendations(
     .sort((a, b) => b.score - a.score || a.candidate.name.localeCompare(b.candidate.name));
 
   const diversified = diversifyRecommendations(ranked.slice(0, 40), limit);
-  const finalRows = diversified.length >= limit ? diversified : ranked.slice(0, limit);
+  const strictThemeRows =
+    pref.desiredThemeTags.size > 0
+      ? ranked.filter(({ candidate }) => Array.from(pref.desiredThemeTags).every((theme) => themeGateSatisfied(candidate, theme))).slice(0, 40)
+      : [];
+  const deterministicPool =
+    strictThemeRows.length > 0
+      ? [
+          ...strictThemeRows,
+          ...ranked.filter(({ candidate }) => !strictThemeRows.some((strictRow) => strictRow.candidate.name === candidate.name)),
+        ].slice(0, 40)
+      : ranked.slice(0, 40);
+  const deterministicRows = diversifyRecommendations(deterministicPool, limit).slice(0, limit);
+  let finalRows = deterministicRows;
 
-  return finalRows.map(({ candidate, score }) => ({
+  const profile = preferenceToProfile(pref);
+  const intent = buildRecommendationIntent({
+    routeKind: "commander",
+    routeLabel: "commander_recommendations",
+    formatLabel: String(input.format || "Commander"),
+    profile,
+    selectionCount: limit,
+    isGuest: options?.isGuest,
+    isPro: options?.isPro,
+    userId: options?.userId ?? null,
+    queryText: input.vibe ?? input.profileDescription ?? null,
+    budgetBand: pref.desiredBudgetBand,
+    powerBand: pref.desiredPowerBand,
+  });
+  const rerankable = rankGroundedCandidates(
+    deterministicPool.map((row) => ({ ...row.candidate })) as any,
+    profile,
+    intent,
+  ).slice(0, 40);
+  const reranked = await aiRerankRecommendations({
+    candidates: rerankable,
+    intent,
+    userId: options?.userId ?? null,
+    isPro: options?.isPro,
+  }).catch(() => null);
+
+  if (reranked?.picks?.length) {
+    const rowByDisplayName = new Map<string, typeof deterministicRows[number]>();
+    for (const row of ranked) {
+      rowByDisplayName.set(String(row.candidate.printed_name || "").trim() || toDisplayName(row.candidate.name), row);
+    }
+    const pickedRows = reranked.picks
+      .map((pick) => {
+        const row = rowByDisplayName.get(pick.name);
+        if (!row) return null;
+        return {
+          ...row,
+          candidate: {
+            ...row.candidate,
+            printed_name: pick.name,
+            oracle_text: row.candidate.oracle_text,
+          },
+          rerankReason: pick.reason,
+        };
+      })
+      .filter(Boolean) as Array<typeof ranked[number] & { candidate: RecommendationCandidate; rerankReason: string }>;
+    if (pickedRows.length >= Math.min(4, limit)) {
+      finalRows = pickedRows.map(({ candidate, score, rerankReason }) => ({ candidate, score, rerankReason })) as any;
+    }
+  }
+
+  const finalized = dedupeFitReasons(
+    finalRows.map(({ candidate, score, rerankReason }: any) => ({
+      candidate,
+      fitReason: rerankReason || candidate.rerankReason || buildFitReason(candidate, pref),
+      matchScore: score,
+    })),
+  );
+
+  return finalized.map(({ candidate, fitReason, matchScore }: any) => ({
     name: String(candidate.printed_name || "").trim() || toDisplayName(candidate.name),
     description: descriptionLabel(candidate),
     archetype: archetypeLabel(candidate).replace(/_/g, " "),
-    fitReason: buildFitReason(candidate, pref),
-    matchScore: score,
+    fitReason,
+    matchScore,
     imageUri: candidate.art_crop ?? candidate.normal ?? candidate.small ?? undefined,
     colorIdentity: candidate.color_identity ?? [],
   }));

@@ -68,9 +68,18 @@ type FetchCandidatesInput = {
   excludeNames?: string[];
   requireCommanderEligible?: boolean;
   limitPerBucket?: number;
+  desiredCategory?: CategoryKey;
 };
 
-type CategoryKey = "mana_base" | "interaction" | "card_draw" | "win_condition" | "owned_upgrades";
+export type CategoryKey = "mana_base" | "interaction" | "card_draw" | "win_condition" | "owned_upgrades";
+
+const CATEGORY_BUCKET_TAGS: Record<CategoryKey, string[]> = {
+  mana_base: ["ramp", "ramp_land", "ramp_rocks"],
+  interaction: ["interaction", "removal_single", "removal_boardwipe", "protection"],
+  card_draw: ["card_draw", "draw_repeatable", "draw_burst", "engine"],
+  win_condition: ["finisher", "payoff", "engine"],
+  owned_upgrades: ["engine", "payoff", "support"],
+};
 
 const EMPTY_COUNTS = {
   theme: new Map<string, number>(),
@@ -220,6 +229,9 @@ export async function fetchGroundedCandidatesForProfile(
   pushBuckets("gameplay_tags", input.topGameplayTags ?? []);
   pushBuckets("archetype_tags", input.topArchetypeTags ?? []);
   pushBuckets("commander_tags", input.topCommanderTags ?? []);
+  if (input.desiredCategory) {
+    pushBuckets("gameplay_tags", CATEGORY_BUCKET_TAGS[input.desiredCategory] ?? []);
+  }
 
   const bucketRows = await Promise.all(tagPromises);
   const names = [...new Set(bucketRows.flat().filter(Boolean))].filter(
@@ -240,7 +252,21 @@ export async function fetchGroundedCandidatesForProfile(
   const { allowed } = await filterRecommendationRowsByName(
     rows.map((row) => ({ name: row.printed_name || row.name })),
     input.formatLabel,
-    { logPrefix: "tag-grounding" },
+    {
+      logPrefix: "tag-grounding",
+      getDetailsForNamesCachedOverride: async () => {
+        const details = new Map<string, { legalities?: Record<string, string> | null; color_identity?: string[] }>();
+        for (const row of rows) {
+          details.set(normalizeScryfallCacheName(row.printed_name || row.name), {
+            legalities: (row.legalities && typeof row.legalities === "object")
+              ? (row.legalities as Record<string, string>)
+              : null,
+            color_identity: Array.isArray(row.color_identity) ? row.color_identity.map((value) => String(value)) : [],
+          });
+        }
+        return details;
+      },
+    },
   );
   const allowedNames = new Set(allowed.map((row) => normalizeScryfallCacheName(row.name)));
   return rows.filter((row) => allowedNames.has(row.name));
