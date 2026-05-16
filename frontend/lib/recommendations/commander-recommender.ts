@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { bannedDataToMaps, getBannedCards } from "@/lib/data/get-banned-cards";
+import { bannedDataToMaps, getBannedCards, type BannedCardsData } from "@/lib/data/get-banned-cards";
 import { isCommanderEligible, postgrestCommanderEligibleCatalogOr } from "@/lib/deck/deck-enrichment";
 
 export const CARD_TAG_RULE_VERSION = 2;
@@ -212,6 +212,30 @@ const VIBE_KEYWORDS: Record<string, string[]> = {
 
 function uniqueSorted(items: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(items).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeBannedCardsData(value: unknown): BannedCardsData | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Partial<BannedCardsData>;
+  if (!Array.isArray(source.Commander) || !Array.isArray(source.Modern)) return null;
+  return {
+    Commander: Array.isArray(source.Commander) ? source.Commander : [],
+    Modern: Array.isArray(source.Modern) ? source.Modern : [],
+    Pioneer: Array.isArray(source.Pioneer) ? source.Pioneer : [],
+    Standard: Array.isArray(source.Standard) ? source.Standard : [],
+    Pauper: Array.isArray(source.Pauper) ? source.Pauper : [],
+    Brawl: Array.isArray(source.Brawl) ? source.Brawl : [],
+  };
+}
+
+async function getBannedCardsForRecommendations(admin: SupabaseClient): Promise<BannedCardsData> {
+  try {
+    const { data, error } = await admin.from("app_config").select("value").eq("key", "banned_cards").maybeSingle();
+    if (error) throw new Error(error.message);
+    const normalized = normalizeBannedCardsData(data?.value);
+    if (normalized) return normalized;
+  } catch {}
+  return getBannedCards();
 }
 
 function toDisplayName(name: string): string {
@@ -686,7 +710,7 @@ export async function buildCommanderRecommendations(
   input: CommanderRecommendationRequest,
 ): Promise<CommanderRecommendation[]> {
   const limit = Math.max(6, Math.min(input.limit ?? 6, 12));
-  const bannedMaps = bannedDataToMaps(await getBannedCards());
+  const bannedMaps = bannedDataToMaps(await getBannedCardsForRecommendations(admin));
   const bannedCommanderMap = bannedMaps.Commander ?? {};
 
   const { data: tagRows, error: tagError } = await admin
