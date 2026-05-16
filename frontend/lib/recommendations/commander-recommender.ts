@@ -145,6 +145,7 @@ const THEME_PATTERNS: Array<[string, RegExp]> = [
   ["vampires", /\bvampire\b/i],
 ];
 
+
 const GAMEPLAY_PATTERNS: Array<[string, RegExp]> = [
   ["ramp", /\badd \{|\bsearch your library for .* land\b|\btreasure token\b|\bextra mana\b/i],
   ["card_draw", /\bdraw a card\b|\bdraw cards\b|\bwhenever .* draw\b/i],
@@ -631,6 +632,12 @@ export function buildCommanderPreference(input: CommanderRecommendationRequest):
   };
 }
 
+function prefersStrongThemeMatch(input: CommanderRecommendationRequest): boolean {
+  const themeAnswer = normalizeText(input.answers?.theme);
+  const vibe = normalizeText(input.vibe ?? input.profileDescription);
+  return Boolean(themeAnswer || vibe);
+}
+
 function scoreTagMatches(candidateTags: string[], desired: Set<string>, weight: number): number {
   if (!candidateTags.length || desired.size === 0) return 0;
   return candidateTags.reduce((score, tag) => score + (desired.has(tag) ? weight : 0), 0);
@@ -681,36 +688,98 @@ function preferredCommanderTag(candidate: RecommendationCandidate): string | und
 
 function candidateSatisfiesCommanderThemePreference(candidate: RecommendationCandidate, pref: CommanderPreference): boolean {
   if (pref.desiredThemeTags.size === 0) return true;
+  const primaryTheme = preferredThemeTag(candidate);
+  const primaryCommanderTag = preferredCommanderTag(candidate);
   for (const desiredTheme of pref.desiredThemeTags) {
     if (!themeGateSatisfied(candidate, desiredTheme)) return false;
     switch (desiredTheme) {
       case "tokens":
         if (!(candidate.theme_tags.includes("tokens") || candidate.commander_tags.includes("go_wide"))) return false;
+        if (!(primaryTheme === "tokens" || primaryCommanderTag === "go_wide")) return false;
         break;
       case "graveyard":
       case "reanimator":
         if (!(candidate.theme_tags.includes("graveyard") || candidate.theme_tags.includes("reanimator") || candidate.gameplay_tags.includes("recursion"))) return false;
+        if (!(primaryTheme === "graveyard" || primaryTheme === "reanimator" || candidate.gameplay_tags[0] === "recursion")) return false;
         break;
       case "spellslinger":
         if (!(candidate.theme_tags.includes("spellslinger") || candidate.commander_tags.includes("spell_combo"))) return false;
+        if (!(primaryTheme === "spellslinger" || primaryCommanderTag === "spell_combo")) return false;
         break;
       case "tribal":
         if (!(candidate.theme_tags.includes("tribal") || candidate.commander_tags.includes("tribal_commander"))) return false;
+        if (!(primaryTheme === "tribal" || primaryCommanderTag === "tribal_commander")) return false;
         break;
       case "enchantments":
         if (!candidate.theme_tags.includes("enchantments")) return false;
+        if (primaryTheme !== "enchantments") return false;
         break;
       case "artifacts":
         if (!candidate.theme_tags.includes("artifacts")) return false;
+        if (primaryTheme !== "artifacts") return false;
         break;
       case "blink":
         if (!(candidate.theme_tags.includes("blink") || candidate.theme_tags.includes("etb"))) return false;
+        if (!(primaryTheme === "blink" || primaryTheme === "etb")) return false;
+        break;
+      default:
+        break;
+    }
+  }
+  if (pref.desiredArchetypes.size > 0 && !candidate.archetype_tags.some((tag) => pref.desiredArchetypes.has(tag))) {
+    return false;
+  }
+  return true;
+}
+
+function candidateMatchesCommanderThemeIdentity(candidate: RecommendationCandidate, pref: CommanderPreference): boolean {
+  if (pref.desiredThemeTags.size === 0) return true;
+  const primaryTheme = preferredThemeTag(candidate);
+  const primaryCommanderTag = preferredCommanderTag(candidate);
+  for (const desiredTheme of pref.desiredThemeTags) {
+    if (!themeGateSatisfied(candidate, desiredTheme)) return false;
+    switch (desiredTheme) {
+      case "tokens":
+        if (!(primaryTheme === "tokens" || primaryCommanderTag === "go_wide")) return false;
+        break;
+      case "graveyard":
+      case "reanimator":
+        if (!(primaryTheme === "graveyard" || primaryTheme === "reanimator" || candidate.gameplay_tags[0] === "recursion")) return false;
+        break;
+      case "spellslinger":
+        if (!(primaryTheme === "spellslinger" || primaryCommanderTag === "spell_combo")) return false;
+        break;
+      case "tribal":
+        if (!(primaryTheme === "tribal" || primaryCommanderTag === "tribal_commander")) return false;
+        break;
+      case "enchantments":
+        if (primaryTheme !== "enchantments") return false;
+        break;
+      case "artifacts":
+        if (primaryTheme !== "artifacts") return false;
+        break;
+      case "blink":
+        if (!(primaryTheme === "blink" || primaryTheme === "etb")) return false;
         break;
       default:
         break;
     }
   }
   return true;
+}
+
+function candidateMatchesCommanderFallbackTheme(candidate: RecommendationCandidate, desiredTheme: string): boolean {
+  if (!themeGateSatisfied(candidate, desiredTheme)) return false;
+  switch (desiredTheme) {
+    case "graveyard":
+    case "reanimator":
+      return candidate.theme_tags.includes("graveyard") || candidate.theme_tags.includes("reanimator") || candidate.theme_tags.includes("self_mill") || candidate.gameplay_tags.includes("recursion");
+    case "lands":
+    case "landfall":
+      return candidate.theme_tags.includes("lands") || candidate.theme_tags.includes("landfall") || candidate.commander_tags.includes("big_mana") || candidate.gameplay_tags.includes("ramp");
+    default:
+      return true;
+  }
 }
 
 function themeGateSatisfied(candidate: RecommendationCandidate, desiredTheme: string): boolean {
@@ -1027,6 +1096,7 @@ export async function buildCommanderRecommendations(
     if (bannedCommanderMap[tagRow.name]) continue;
     const usageCount = commanderUsage.get(tagRow.name) ?? 0;
     if (usageCount <= 0 && (tagRow.popularity_score ?? 0) < 0.72) continue;
+    if (prefersStrongThemeMatch(input) && usageCount < 3 && (tagRow.popularity_score ?? 0) < 0.88) continue;
     candidates.push({ ...sourceRow, ...tagRow });
   }
 
@@ -1043,12 +1113,34 @@ export async function buildCommanderRecommendations(
     pref.desiredThemeTags.size > 0
       ? ranked.filter(({ candidate }) => candidateSatisfiesCommanderThemePreference(candidate, pref)).slice(0, 40)
       : [];
+  const relaxedThemeRows =
+    pref.desiredThemeTags.size > 0
+      ? ranked.filter(({ candidate }) => candidateMatchesCommanderThemeIdentity(candidate, pref)).slice(0, 40)
+      : [];
+  const fallbackThemeRows =
+    pref.desiredThemeTags.size === 1
+      ? ranked
+          .filter(({ candidate }) => candidateMatchesCommanderFallbackTheme(candidate, Array.from(pref.desiredThemeTags)[0] || ""))
+          .slice(0, 40)
+      : [];
   const deterministicPool =
-    strictThemeRows.length > 0
-      ? [
-          ...strictThemeRows,
-          ...ranked.filter(({ candidate }) => !strictThemeRows.some((strictRow) => strictRow.candidate.name === candidate.name)),
-        ].slice(0, 40)
+    pref.desiredThemeTags.size > 0
+      ? strictThemeRows.length > 0
+        ? [
+            ...strictThemeRows,
+            ...relaxedThemeRows.filter(({ candidate }) => !strictThemeRows.some((strictRow) => strictRow.candidate.name === candidate.name)),
+            ...(
+              fallbackThemeRows.length
+                ? fallbackThemeRows
+                : ranked
+            ).filter(({ candidate }) => !strictThemeRows.some((strictRow) => strictRow.candidate.name === candidate.name) && !relaxedThemeRows.some((relaxedRow) => relaxedRow.candidate.name === candidate.name)),
+          ].slice(0, 40)
+        : relaxedThemeRows.length > 0
+          ? [
+              ...relaxedThemeRows,
+              ...(fallbackThemeRows.length ? fallbackThemeRows : ranked).filter(({ candidate }) => !relaxedThemeRows.some((relaxedRow) => relaxedRow.candidate.name === candidate.name)),
+            ].slice(0, 40)
+          : (fallbackThemeRows.length ? fallbackThemeRows : ranked).slice(0, 40)
       : ranked.slice(0, 40);
   const deterministicRows = diversifyRecommendations(deterministicPool, limit).slice(0, limit);
   let finalRows = deterministicRows;
@@ -1072,12 +1164,15 @@ export async function buildCommanderRecommendations(
     profile,
     intent,
   ).slice(0, 40);
-  const reranked = await aiRerankRecommendations({
-    candidates: rerankable,
-    intent,
-    userId: options?.userId ?? null,
-    isPro: options?.isPro,
-  }).catch(() => null);
+  const shouldUseAiRerank = pref.desiredThemeTags.size === 0 || deterministicRows.length < Math.min(4, limit);
+  const reranked = shouldUseAiRerank
+    ? await aiRerankRecommendations({
+        candidates: rerankable,
+        intent,
+        userId: options?.userId ?? null,
+        isPro: options?.isPro,
+      }).catch(() => null)
+    : null;
 
   if (reranked?.picks?.length) {
     const rowByDisplayName = new Map<string, typeof deterministicRows[number]>();

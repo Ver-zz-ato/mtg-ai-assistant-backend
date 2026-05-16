@@ -137,31 +137,46 @@ function scaffoldCandidateDisplayName(candidate: GroundedCardCandidate): string 
   return String(candidate.printed_name || "").trim() || toDisplayName(candidate.name);
 }
 
+function scaffoldThemeHaystack(candidate: GroundedCardCandidate): string {
+  return `${String(candidate.oracle_text || "")} ${String(candidate.type_line || "")}`.toLowerCase();
+}
+
 function candidateHasPrimaryTheme(candidate: GroundedCardCandidate, profile: TagProfile): boolean {
   const primary = profile.topThemeTags[0];
   if (!primary) return true;
   const themeTags = candidate.theme_tags || [];
   const commanderTags = candidate.commander_tags || [];
   const gameplayTags = candidate.gameplay_tags || [];
+  const haystack = scaffoldThemeHaystack(candidate);
   switch (primary) {
     case "tokens":
-      return themeTags.includes("tokens") || commanderTags.includes("go_wide") || gameplayTags.includes("payoff");
+      return (
+        (themeTags.includes("tokens") || commanderTags.includes("go_wide")) &&
+        (/\bcreate\b.{0,80}\btoken\b|\bcreature token\b|\bpopulate\b|\bamass\b|\bincubate\b/i.test(haystack) ||
+          /\bcreatures? you control\b|\bother tokens? you control\b|\bfor each creature you control\b/i.test(haystack))
+      );
     case "graveyard":
     case "reanimator":
-      return themeTags.includes("graveyard") || themeTags.includes("reanimator") || gameplayTags.includes("recursion");
+      return (
+        (themeTags.includes("graveyard") || themeTags.includes("reanimator") || gameplayTags.includes("recursion")) &&
+        /\bgraveyard\b|\breturn target .* from your graveyard\b|\bcast .* from your graveyard\b|\bmill\b|\bsurveil\b/i.test(haystack)
+      );
     case "spellslinger":
-      return themeTags.includes("spellslinger") || commanderTags.includes("spell_combo");
+      return (
+        (themeTags.includes("spellslinger") || commanderTags.includes("spell_combo")) &&
+        /\binstant or sorcery\b|\bnoncreature spell\b|\bcopy target spell\b|\bwhenever you cast (?:an )?instant or sorcery\b|\bmagecraft\b|\bstorm\b/i.test(haystack)
+      );
     case "artifacts":
-      return themeTags.includes("artifacts");
+      return themeTags.includes("artifacts") && /\bartifact\b|\bequipment\b|\btreasure token\b|\bclue token\b/i.test(haystack);
     case "enchantments":
-      return themeTags.includes("enchantments");
+      return themeTags.includes("enchantments") && /\benchantment\b|\baura\b|\bconstellation\b/i.test(haystack);
     case "tribal":
-      return themeTags.includes("tribal") || commanderTags.includes("tribal_commander");
+      return (themeTags.includes("tribal") || commanderTags.includes("tribal_commander")) && /\bdragon\b|\belf\b|\bzombie\b|\bgoblin\b|\bvampire\b|\bmerfolk\b|\bsliver\b/i.test(haystack);
     case "blink":
-      return themeTags.includes("blink") || themeTags.includes("etb");
+      return (themeTags.includes("blink") || themeTags.includes("etb")) && /\bexile\b.{0,50}\breturn\b.{0,50}\bto the battlefield\b|\benters the battlefield\b/i.test(haystack);
     case "lands":
     case "landfall":
-      return themeTags.includes("lands") || themeTags.includes("landfall") || commanderTags.includes("big_mana");
+      return (themeTags.includes("lands") || themeTags.includes("landfall") || commanderTags.includes("big_mana")) && /\blandfall\b|\byou may play an additional land\b|\bsearch your library for (?:a|up to .*?) land\b|\bwhenever a land enters\b/i.test(haystack);
     default:
       return themeTags.includes(primary) || gameplayTags.includes(primary) || commanderTags.includes(primary);
   }
@@ -178,8 +193,8 @@ function candidatePassesBudget(candidate: GroundedCardCandidate, intent: Scaffol
 
 function candidatePopularityFloor(candidate: GroundedCardCandidate, profile: TagProfile): boolean {
   const popularity = Number(candidate.popularity_score ?? 0);
-  if (candidateHasPrimaryTheme(candidate, profile)) return popularity >= 0.55;
-  return popularity >= 0.82;
+  if (candidateHasPrimaryTheme(candidate, profile)) return popularity >= 0.68;
+  return popularity >= 0.9;
 }
 
 function filterRankedForScaffold(
@@ -187,17 +202,17 @@ function filterRankedForScaffold(
   profile: TagProfile,
   intent: ScaffoldIntent,
   role: "anchor" | "ramp" | "draw" | "interaction" | "finisher" | "utility",
-): GroundedCardCandidate[] {
+): RankedGroundedCandidate[] {
   return ranked
     .filter((candidate) => candidatePassesBudget(candidate, intent))
     .filter((candidate) => candidatePopularityFloor(candidate, profile))
     .filter((candidate) => {
-      if (role === "anchor") return candidate.scoreBreakdown.themeFit >= 18 || candidate.scoreBreakdown.archetypeFit >= 10;
-      if (role === "ramp") return candidate.scoreBreakdown.roleFit >= 10 && candidateHasPrimaryTheme(candidate, profile);
-      if (role === "draw") return candidate.scoreBreakdown.roleFit >= 10 && candidateHasPrimaryTheme(candidate, profile);
-      if (role === "interaction") return candidate.scoreBreakdown.roleFit >= 10;
-      if (role === "finisher") return candidate.scoreBreakdown.roleFit >= 10 && candidateHasPrimaryTheme(candidate, profile);
-      return (candidate.scoreBreakdown.themeFit >= 18 || candidate.scoreBreakdown.archetypeFit >= 10 || candidate.scoreBreakdown.roleFit >= 10) && candidateHasPrimaryTheme(candidate, profile);
+      if (role === "anchor") return candidateHasPrimaryTheme(candidate, profile) && Number(candidate.popularity_score ?? 0) >= 0.8 && (candidate.scoreBreakdown.themeFit >= 22 || candidate.scoreBreakdown.archetypeFit >= 12);
+      if (role === "ramp") return candidate.scoreBreakdown.roleFit >= 12 && candidateHasPrimaryTheme(candidate, profile);
+      if (role === "draw") return candidate.scoreBreakdown.roleFit >= 12 && candidateHasPrimaryTheme(candidate, profile);
+      if (role === "interaction") return candidate.scoreBreakdown.roleFit >= 12 && (candidateHasPrimaryTheme(candidate, profile) || candidate.scoreBreakdown.themeFit >= 16);
+      if (role === "finisher") return candidate.scoreBreakdown.roleFit >= 12 && candidateHasPrimaryTheme(candidate, profile);
+      return (candidate.scoreBreakdown.themeFit >= 22 || candidate.scoreBreakdown.archetypeFit >= 12 || candidate.scoreBreakdown.roleFit >= 12) && candidateHasPrimaryTheme(candidate, profile);
     })
     .map((candidate) => ({ ...candidate, printed_name: scaffoldCandidateDisplayName(candidate) }));
 }
@@ -382,23 +397,28 @@ export async function buildGroundedScaffoldDeck(admin: SupabaseClient, intent: S
   const rankedDrawCandidates = rankedDraw.map((candidate) => ({ ...candidate, printed_name: scaffoldCandidateDisplayName(candidate) }));
   const rankedInteractionCandidates = rankedInteraction.map((candidate) => ({ ...candidate, printed_name: scaffoldCandidateDisplayName(candidate) }));
   const rankedFinishCandidates = rankedFinish.map((candidate) => ({ ...candidate, printed_name: scaffoldCandidateDisplayName(candidate) }));
+  const fallbackPrimaryTheme = rankedThemeCandidates.filter((candidate) => candidateHasPrimaryTheme(candidate, profile) && candidatePassesBudget(candidate, intent));
   const filteredTheme = filterRankedForScaffold(rankedTheme, profile, intent, "anchor");
   const filteredRamp = filterRankedForScaffold(rankedRamp, profile, intent, "ramp");
   const filteredDraw = filterRankedForScaffold(rankedDraw, profile, intent, "draw");
   const filteredInteraction = filterRankedForScaffold(rankedInteraction, profile, intent, "interaction");
   const filteredFinish = filterRankedForScaffold(rankedFinish, profile, intent, "finisher");
   const filteredUtility = filterRankedForScaffold(rankedTheme, profile, intent, "utility");
-  const anchorPicks = await aiRerankRecommendations({
-    candidates: (filteredTheme.length ? filteredTheme : rankedThemeCandidates).slice(0, 20),
-    intent: recommendationIntent,
-    userId: aiContext.userId ?? null,
-    isPro: !!aiContext.isPro,
-  }).catch(() => ({ picks: [], fallbackUsed: true, model: "deterministic" }));
-  const anchorCandidates = (filteredTheme.length ? filteredTheme : rankedThemeCandidates).filter((candidate) =>
+  const shouldUseAiAnchorRerank = profile.topThemeTags.length === 0;
+  const anchorPicks = shouldUseAiAnchorRerank
+    ? await aiRerankRecommendations({
+        candidates: (filteredTheme.length ? filteredTheme : fallbackPrimaryTheme.length ? fallbackPrimaryTheme : rankedThemeCandidates).slice(0, 20),
+        intent: recommendationIntent,
+        userId: aiContext.userId ?? null,
+        isPro: !!aiContext.isPro,
+      }).catch(() => ({ picks: [], fallbackUsed: true, model: "deterministic" }))
+    : { picks: [], fallbackUsed: true, model: "deterministic" as const };
+  const anchorPool = filteredTheme.length ? filteredTheme : fallbackPrimaryTheme.length ? fallbackPrimaryTheme : rankedThemeCandidates;
+  const anchorCandidates = anchorPool.filter((candidate) =>
     anchorPicks.picks.some((pick) => pick.name.toLowerCase() === scaffoldCandidateDisplayName(candidate).toLowerCase()),
   );
 
-  for (const candidate of pickTopUnique(anchorCandidates.length ? anchorCandidates : (filteredTheme.length ? filteredTheme : rankedThemeCandidates), slotPlan.anchors, used)) {
+  for (const candidate of pickTopUnique(anchorCandidates.length ? anchorCandidates : anchorPool, slotPlan.anchors, used)) {
     addCard(decklist, scaffoldCandidateDisplayName(candidate), 1, rules.maxCopies === 1);
   }
   for (const candidate of pickTopUnique(filteredRamp.length ? filteredRamp : rankedRampCandidates, slotPlan.ramp, used)) addCard(decklist, scaffoldCandidateDisplayName(candidate), 1, rules.maxCopies === 1);
@@ -406,8 +426,8 @@ export async function buildGroundedScaffoldDeck(admin: SupabaseClient, intent: S
   for (const candidate of pickTopUnique(filteredInteraction.length ? filteredInteraction : rankedInteractionCandidates, slotPlan.interaction, used)) addCard(decklist, scaffoldCandidateDisplayName(candidate), 1, rules.maxCopies === 1);
   for (const candidate of pickTopUnique(filteredFinish.length ? filteredFinish : rankedFinishCandidates, slotPlan.finishers, used)) addCard(decklist, scaffoldCandidateDisplayName(candidate), 1, rules.maxCopies === 1);
 
-  const combinedFallback = [...filteredUtility, ...filteredDraw, ...filteredInteraction, ...filteredRamp, ...filteredFinish];
-  for (const candidate of pickTopUnique(combinedFallback.length ? combinedFallback : rankedThemeCandidates, slotPlan.utility, used)) {
+  const combinedFallback = [...filteredUtility, ...fallbackPrimaryTheme, ...filteredDraw, ...filteredInteraction, ...filteredRamp, ...filteredFinish];
+  for (const candidate of pickTopUnique(combinedFallback.length ? combinedFallback : fallbackPrimaryTheme.length ? fallbackPrimaryTheme : rankedThemeCandidates, slotPlan.utility, used)) {
     addCard(decklist, scaffoldCandidateDisplayName(candidate), 1, rules.maxCopies === 1);
   }
 

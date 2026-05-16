@@ -2,6 +2,8 @@ import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
 import { tagCards } from "@/lib/deck/card-role-tags";
 import { buildDeckFacts } from "@/lib/deck/deck-facts";
+import { getServiceRoleClient } from "@/lib/server-supabase";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
 export type CompareDeckGrounding = {
   label: string;
@@ -52,6 +54,21 @@ function countTagged(tags: string[], wanted: string[]): boolean {
   return wanted.some((tag) => tags.includes(tag));
 }
 
+function cardTextSignals(card: { oracle_text?: string; type_line?: string; mana_cost?: string }): {
+  ramp: boolean;
+  draw: boolean;
+  interaction: boolean;
+  finisher: boolean;
+} {
+  const text = `${String(card.oracle_text || "")} ${String(card.type_line || "")} ${String(card.mana_cost || "")}`.toLowerCase();
+  return {
+    ramp: /\badd \{[wubrgc]\}|\bsearch your library for (?:a|up to .*?) land\b|\bcreate (?:a|two|three|\w+) treasure token\b|\byou may play an additional land\b|\brampant growth\b/i.test(text),
+    draw: /\bdraw (?:a|two|three|\w+) card\b|\bwhenever .* draw a card\b|\bat the beginning of .* draw\b|\binvestigate\b/i.test(text),
+    interaction: /\bcounter target\b|\bdestroy target\b|\bexile target\b|\breturn target .* to .* hand\b|\bdeals? \d+ damage to target\b|\ball creatures get -\d/i.test(text),
+    finisher: /\bdouble strike\b|\bextra combat\b|\bcreatures you control get \+\d\/\+\d\b|\byou win the game\b|\bfor each creature you control\b|\bwhenever .* attacks\b/i.test(text),
+  };
+}
+
 function inferArchetypesFromTags(tagged: ReturnType<typeof tagCards>): string[] {
   const counts = new Map<string, number>();
   for (const card of tagged) {
@@ -64,6 +81,44 @@ function inferArchetypesFromTags(tagged: ReturnType<typeof tagCards>): string[] 
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 2)
     .map(([tag]) => tag);
+}
+
+async function loadCompareEnrichedEntries(
+  entries: Array<{ name: string; qty: number }>,
+): Promise<Array<{ name: string; qty: number; type_line?: string; oracle_text?: string; color_identity?: string[]; cmc?: number; mana_cost?: string; legalities?: Record<string, string>; colors?: string[]; keywords?: string[]; is_land?: boolean; is_creature?: boolean }>> {
+  const admin = getServiceRoleClient();
+  const names = [...new Set(entries.map((row) => normalizeScryfallCacheName(row.name)).filter(Boolean))];
+  if (admin && names.length) {
+    const { data } = await admin
+      .from("scryfall_cache")
+      .select("name, type_line, oracle_text, color_identity, cmc, mana_cost, legalities, colors, keywords, is_land, is_creature")
+      .in("name", names);
+    const byName = new Map<string, any>();
+    for (const row of data ?? []) byName.set(normalizeScryfallCacheName(String((row as any).name || "")), row);
+    return entries.map((entry) => {
+      const row = byName.get(normalizeScryfallCacheName(entry.name));
+      return row
+        ? {
+            name: entry.name,
+            qty: entry.qty,
+            type_line: row.type_line ?? undefined,
+            oracle_text: row.oracle_text ?? undefined,
+            color_identity: Array.isArray(row.color_identity) ? row.color_identity : [],
+            cmc: typeof row.cmc === "number" ? row.cmc : undefined,
+            mana_cost: row.mana_cost ?? undefined,
+            legalities: row.legalities ?? {},
+            colors: Array.isArray(row.colors) ? row.colors : [],
+            keywords: Array.isArray(row.keywords) ? row.keywords : [],
+            ...(typeof row.is_land === "boolean" ? { is_land: row.is_land } : {}),
+            ...(typeof row.is_creature === "boolean" ? { is_creature: row.is_creature } : {}),
+          }
+        : { name: entry.name, qty: entry.qty };
+    });
+  }
+  return enrichDeck(entries, {
+    format: "Commander",
+    commander: null,
+  }).catch(() => []);
 }
 
 export function splitComparedDeckBlocks(raw: string): Array<{ label: string; deckText: string }> {
@@ -115,10 +170,7 @@ export async function buildDeckCompareGrounding(
   for (const [index, block] of blocks.entries()) {
     const parsed = parseDeckText(block.deckText);
     const entries = parsed.length >= 20 ? parsed : fallbackDeckEntries(block.deckText);
-    const enriched = await enrichDeck(entries.map((row) => ({ name: row.name, qty: row.qty })), {
-      format: (formatLabel as "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper") || "Commander",
-      commander: null,
-    }).catch(() => []);
+    const enriched = await loadCompareEnrichedEntries(entries.map((row) => ({ name: row.name, qty: row.qty })));
     const tagged = tagCards(enriched);
     const facts = buildDeckFacts(tagged, {
       format: (formatLabel as "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper") || "Commander",
@@ -126,11 +178,28 @@ export async function buildDeckCompareGrounding(
     });
     const totalCards = Math.max(1, entries.reduce((sum, row) => sum + (row.qty || 0), 0));
     const lands = facts.land_count ?? tagged.filter((card) => card.is_land).reduce((sum, card) => sum + (card.qty || 0), 0);
-    const totalNonLand = Math.max(1, totalCards - lands);
-    const ramp = tagged.filter((card) => countTagged(card.tags.map((entry) => entry.tag), ["ramp", "land_ramp", "ramp_land", "mana_rock", "ramp_rocks"])).reduce((sum, card) => sum + (card.qty || 0), 0);
-    const draw = tagged.filter((card) => countTagged(card.tags.map((entry) => entry.tag), ["draw", "card_draw", "repeatable_draw", "draw_repeatable", "draw_burst"])).reduce((sum, card) => sum + (card.qty || 0), 0);
-    const removal = tagged.filter((card) => countTagged(card.tags.map((entry) => entry.tag), ["interaction", "removal", "spot_removal", "board_wipe", "counterspell", "removal_single", "removal_boardwipe"])).reduce((sum, card) => sum + (card.qty || 0), 0);
-    const wincons = tagged.filter((card) => countTagged(card.tags.map((entry) => entry.tag), ["finisher", "payoff"])).reduce((sum, card) => sum + (card.qty || 0), 0);
+    const uniqueNonLandCards = tagged.filter((card) => !card.is_land);
+    const totalNonLand = Math.max(1, uniqueNonLandCards.length);
+    const ramp = uniqueNonLandCards.filter((card) => {
+      const tags = card.tags.map((entry) => entry.tag);
+      const signals = cardTextSignals(card);
+      return signals.ramp || countTagged(tags, ["ramp_land", "mana_rock", "ramp_rocks"]);
+    }).length;
+    const draw = uniqueNonLandCards.filter((card) => {
+      const tags = card.tags.map((entry) => entry.tag);
+      const signals = cardTextSignals(card);
+      return signals.draw || countTagged(tags, ["card_draw", "repeatable_draw", "draw_repeatable", "draw_burst"]);
+    }).length;
+    const removal = uniqueNonLandCards.filter((card) => {
+      const tags = card.tags.map((entry) => entry.tag);
+      const signals = cardTextSignals(card);
+      return signals.interaction || countTagged(tags, ["interaction", "spot_removal", "board_wipe", "counterspell", "removal_single", "removal_boardwipe"]);
+    }).length;
+    const wincons = uniqueNonLandCards.filter((card) => {
+      const tags = card.tags.map((entry) => entry.tag);
+      const signals = cardTextSignals(card);
+      return signals.finisher || countTagged(tags, ["finisher"]);
+    }).length;
     const curveTop = facts.curve_histogram?.[4] ?? 0;
     const speedScore = ((facts.curve_histogram?.[0] ?? 0) + (facts.curve_histogram?.[1] ?? 0) + ramp) - curveTop;
     const resilience = draw + Math.max(0, removal - 2) + Math.max(0, wincons - 1);
@@ -153,10 +222,10 @@ export async function buildDeckCompareGrounding(
       manaStability,
       archetypes,
       summary: [
-        `ramp ${ramp}`,
-        `draw ${draw}`,
-        `interaction ${removal}`,
-        `wincons ${wincons}`,
+        `ramp ${Math.round((ramp / totalNonLand) * 100)}%`,
+        `draw ${Math.round((draw / totalNonLand) * 100)}%`,
+        `interaction ${Math.round((removal / totalNonLand) * 100)}%`,
+        `finishers ${Math.round((wincons / totalNonLand) * 100)}%`,
         archetypes.length ? `archetypes ${archetypes.join("/")}` : "",
       ].filter(Boolean).join(" | "),
     });
