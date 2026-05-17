@@ -1,8 +1,45 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import type { MetaLabelPayload } from "@/lib/meta/freshness";
 
 export const runtime = 'edge';
 export const revalidate = 300; // 5 minutes
+
+type CommanderRow = {
+  name: string;
+  count?: number;
+};
+
+type CardRow = {
+  name: string;
+  count?: number;
+};
+
+function toSlug(n: string) {
+  return n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function parseCommanderRows(data: unknown): CommanderRow[] {
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((row): row is CommanderRow => !!row && typeof row === "object" && typeof (row as { name?: unknown }).name === "string")
+    .map((row) => ({
+      name: row.name.trim(),
+      count: typeof row.count === "number" ? row.count : 0,
+    }))
+    .filter((row) => row.name.length > 0);
+}
+
+function parseCardRows(data: unknown): CardRow[] {
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((row): row is CardRow => !!row && typeof row === "object" && typeof (row as { name?: unknown }).name === "string")
+    .map((row) => ({
+      name: row.name.trim(),
+      count: typeof row.count === "number" ? row.count : 0,
+    }))
+    .filter((row) => row.name.length > 0);
+}
 
 /**
  * GET /api/meta/trending
@@ -16,6 +53,93 @@ export async function GET(request: Request) {
     const windowParam = url.searchParams.get("window");
     const useToday = windowParam === "today";
 
+    const { data: metaRows, error: metaError } = await supabase
+      .from("meta_signals")
+      .select("signal_type, data, updated_at")
+      .in("signal_type", [
+        "trending-commanders",
+        "most-played-commanders",
+        "trending-cards",
+        "discover-meta-label",
+      ]);
+
+    if (!metaError && Array.isArray(metaRows) && metaRows.length > 0) {
+      let trendingCommanders: CommanderRow[] = [];
+      let mostPlayedCommanders: CommanderRow[] = [];
+      let trendingCards: CardRow[] = [];
+      let labelPayload: MetaLabelPayload | null = null;
+      let lastUpdated: string | null = null;
+
+      for (const row of metaRows) {
+        const signalType = (row as { signal_type?: string }).signal_type;
+        const data = (row as { data?: unknown }).data;
+        const updatedAt = (row as { updated_at?: string | null }).updated_at ?? null;
+        if (updatedAt && (!lastUpdated || updatedAt > lastUpdated)) lastUpdated = updatedAt;
+
+        if (signalType === "trending-commanders") {
+          trendingCommanders = parseCommanderRows(data);
+        } else if (signalType === "most-played-commanders") {
+          mostPlayedCommanders = parseCommanderRows(data);
+        } else if (signalType === "trending-cards") {
+          trendingCards = parseCardRows(data);
+        } else if (
+          signalType === "discover-meta-label" &&
+          data &&
+          typeof data === "object" &&
+          !Array.isArray(data)
+        ) {
+          labelPayload = data as MetaLabelPayload;
+        }
+      }
+
+      const primaryCommanders = useToday ? trendingCommanders : mostPlayedCommanders;
+      const totalDecks = mostPlayedCommanders.reduce(
+        (sum, row) => sum + (typeof row.count === "number" ? row.count : 0),
+        0,
+      );
+
+      if (
+        primaryCommanders.length > 0 ||
+        trendingCommanders.length > 0 ||
+        mostPlayedCommanders.length > 0 ||
+        trendingCards.length > 0
+      ) {
+        return NextResponse.json(
+          {
+            ok: true,
+            topCommanders: primaryCommanders.slice(0, useToday ? 12 : 10).map((row) => ({
+              name: row.name,
+              count: row.count ?? 0,
+              slug: toSlug(row.name),
+            })),
+            trendingCommanders: trendingCommanders.slice(0, 10).map((row) => ({
+              name: row.name,
+              count: row.count ?? 0,
+              slug: toSlug(row.name),
+            })),
+            mostPlayedCommanders: mostPlayedCommanders.slice(0, 10).map((row) => ({
+              name: row.name,
+              count: row.count ?? 0,
+              slug: toSlug(row.name),
+            })),
+            popularCards: trendingCards.slice(0, 10).map((row) => ({
+              name: row.name,
+              count: row.count ?? 0,
+            })),
+            formatDistribution: {},
+            totalDecks,
+            lastUpdated,
+            labelPayload,
+          },
+          {
+            headers: {
+              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+            }
+          }
+        );
+      }
+    }
+
     // Prefer "today" for homepage strip; fallback to 6 months
     const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
     const todayStart = new Date();
@@ -24,11 +148,12 @@ export async function GET(request: Request) {
 
     const fromDate = useToday ? todayStartIso : sixMonthsAgo;
 
-    let { data: decks, error: decksError } = await supabase
+    const { data: initialDecks, error: decksError } = await supabase
       .from("decks")
       .select("commander, format, created_at")
       .eq("is_public", true)
       .gte("created_at", fromDate);
+    let decks = initialDecks;
     
     // Fallback 1: If no recent public decks (or today empty), try 6-month window then all public
     if (!decksError && (!decks || decks.length === 0) && useToday) {
@@ -87,10 +212,6 @@ export async function GET(request: Request) {
       formatCounts[format] = (formatCounts[format] || 0) + 1;
     });
 
-    // Sort commanders by count; add slug for linking (curated + fallback pages)
-    function toSlug(n: string) {
-      return n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    }
     const topCommanders = Object.entries(commanderCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
@@ -129,12 +250,12 @@ export async function GET(request: Request) {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in meta trending:", error);
+    const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json(
-      { ok: false, error: error.message || "Internal server error" },
+      { ok: false, error: message },
       { status: 500 }
     );
   }
 }
-

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   costAuditClientLog,
   costAuditRequestId,
   isCostAuditClientEnabled,
 } from "@/lib/observability/cost-audit";
+import { formatMetaFreshnessPill, type MetaLabelPayload } from "@/lib/meta/freshness";
+import { fetchJson } from "@/lib/http";
 
 type TrendingCommander = {
   name: string;
@@ -14,10 +16,19 @@ type TrendingCommander = {
   slug?: string;
 };
 
+type TrendingResponse = {
+  ok?: boolean;
+  topCommanders?: TrendingCommander[];
+  lastUpdated?: string | null;
+  labelPayload?: MetaLabelPayload | null;
+};
+
 export function TrendingCommandersStrip() {
   const [commanders, setCommanders] = useState<TrendingCommander[]>([]);
   const [artMap, setArtMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [labelPayload, setLabelPayload] = useState<MetaLabelPayload | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,32 +44,34 @@ export function TrendingCommandersStrip() {
         });
       }
       try {
-        const res = await fetch("/api/meta/trending?window=today", { cache: "no-store" });
-        const data = await res.json();
+        const data = await fetchJson<TrendingResponse>("/api/meta/trending?window=today", {
+          cache: "no-store",
+        });
         if (isCostAuditClientEnabled()) {
           costAuditClientLog({
             event: "client.meta.trending_done",
             component: "TrendingCommandersStrip",
             session,
             durationMs: Date.now() - t0,
-            ok: res.ok && data?.ok,
-            status: res.status,
+            ok: !!data?.ok,
+            status: 200,
             commanderRows: Array.isArray(data?.topCommanders) ? data.topCommanders.length : 0,
           });
         }
         if (!cancelled && data?.ok && Array.isArray(data.topCommanders)) {
           const list = data.topCommanders.slice(0, 12);
           setCommanders(list);
+          setLastUpdated(data.lastUpdated ?? null);
+          setLabelPayload(data.labelPayload ?? null);
           const map: Record<string, string> = {};
           const tArt = Date.now();
           await Promise.all(
-            list.map(async (cmd: TrendingCommander) => {
+            list.map(async (cmd) => {
               try {
-                const r = await fetch(
+                const j = await fetchJson<{ ok?: boolean; art?: string }>(
                   `/api/commander-art?name=${encodeURIComponent(cmd.name)}`,
                   { cache: "force-cache" }
                 );
-                const j = await r.json();
                 if (j?.ok && j?.art) map[cmd.name] = j.art;
               } catch {}
             })
@@ -86,7 +99,6 @@ export function TrendingCommandersStrip() {
             err: "exception",
           });
         }
-        // Silently fail
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -97,13 +109,17 @@ export function TrendingCommandersStrip() {
     };
   }, []);
 
-  function handleAnalyze(name: string, slug?: string) {
+  const freshness = useMemo(
+    () => formatMetaFreshnessPill(lastUpdated, labelPayload),
+    [lastUpdated, labelPayload]
+  );
+
+  function handleAnalyze(name: string) {
     const message = `Build a Commander deck for ${name}`;
     window.dispatchEvent(
       new CustomEvent("quiz-build-deck", { detail: { message } })
     );
-    // Optionally scroll chat into view
-    const chatArea = document.querySelector('[data-chat-area]');
+    const chatArea = document.querySelector("[data-chat-area]");
     chatArea?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
@@ -116,10 +132,10 @@ export function TrendingCommandersStrip() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-lg font-semibold text-neutral-200">
-              🔥 Trending Commanders Right Now
+              Commander Meta Movers
             </h2>
             <p className="text-xs text-neutral-500 mt-0.5">
-              Based on decks analyzed and built today.
+              Loading the latest meta snapshot.
             </p>
           </div>
         </div>
@@ -150,17 +166,17 @@ export function TrendingCommandersStrip() {
             id="trending-commanders-heading"
             className="text-lg font-semibold text-neutral-200"
           >
-            🔥 Trending Commanders Right Now
+            Commander Meta Movers
           </h2>
           <p className="text-xs text-neutral-500 mt-0.5">
-            Based on decks analyzed and built today.
+            {freshness ?? "Latest commander movement from the shared meta feed."}
           </p>
         </div>
         <Link
-          href="/commanders"
+          href="/meta/trending-commanders"
           className="text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors shrink-0"
         >
-          View all commanders →
+          View commander meta →
         </Link>
       </div>
 
@@ -174,7 +190,6 @@ export function TrendingCommandersStrip() {
               key={cmd.name}
               className="shrink-0 w-44 min-w-[11rem] rounded-lg bg-neutral-800/80 border border-neutral-700 hover:bg-neutral-700/90 hover:border-neutral-600 transition-all duration-200 overflow-hidden flex flex-col"
             >
-              {/* Art pill - clickable to commander page */}
               {cmd.slug ? (
                 <Link
                   href={`/commanders/${cmd.slug}`}
@@ -188,7 +203,7 @@ export function TrendingCommandersStrip() {
                     />
                   ) : (
                     <div className="w-full h-full bg-neutral-700 flex items-center justify-center text-neutral-500 text-2xl">
-                      🃏
+                      Card
                     </div>
                   )}
                 </Link>
@@ -202,46 +217,46 @@ export function TrendingCommandersStrip() {
                     />
                   ) : (
                     <div className="w-full h-full bg-neutral-700 flex items-center justify-center text-neutral-500 text-2xl">
-                      🃏
+                      Card
                     </div>
                   )}
                 </div>
               )}
               <div className="p-3 flex flex-col flex-1">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                {cmd.slug ? (
-                  <Link
-                    href={`/commanders/${cmd.slug}`}
-                    className="font-bold text-white text-sm truncate flex-1 hover:text-cyan-300 transition-colors"
-                  >
-                    {cmd.name}
-                  </Link>
-                ) : (
-                  <span className="font-bold text-white text-sm truncate flex-1">
-                    {cmd.name}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  {cmd.slug ? (
+                    <Link
+                      href={`/commanders/${cmd.slug}`}
+                      className="font-bold text-white text-sm truncate flex-1 hover:text-cyan-300 transition-colors"
+                    >
+                      {cmd.name}
+                    </Link>
+                  ) : (
+                    <span className="font-bold text-white text-sm truncate flex-1">
+                      {cmd.name}
+                    </span>
+                  )}
+                  <span className="text-xs text-neutral-400 shrink-0 bg-neutral-700/80 px-2 py-0.5 rounded">
+                    {cmd.count} new decks
                   </span>
-                )}
-                <span className="text-xs text-neutral-400 shrink-0 bg-neutral-700/80 px-2 py-0.5 rounded">
-                  {cmd.count} deck{cmd.count !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <div className="mt-auto flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleAnalyze(cmd.name, cmd.slug)}
-                  className="flex-1 px-3 py-1.5 text-xs font-medium bg-neutral-600 hover:bg-neutral-500 text-white rounded-md transition-colors"
-                >
-                  Analyze this commander
-                </button>
-                {cmd.slug && (
-                  <Link
-                    href={`/commanders/${cmd.slug}`}
-                    className="px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-500 rounded-md transition-all duration-200 shrink-0"
+                </div>
+                <div className="mt-auto flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAnalyze(cmd.name)}
+                    className="flex-1 px-3 py-1.5 text-xs font-medium bg-neutral-600 hover:bg-neutral-500 text-white rounded-md transition-colors"
                   >
-                    View
-                  </Link>
-                )}
-              </div>
+                    Analyze this commander
+                  </button>
+                  {cmd.slug ? (
+                    <Link
+                      href={`/commanders/${cmd.slug}`}
+                      className="px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-500 rounded-md transition-all duration-200 shrink-0"
+                    >
+                      View
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             </div>
           ))}
