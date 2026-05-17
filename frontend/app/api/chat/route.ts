@@ -560,14 +560,14 @@ async function checkFreeUserLimit(supabase: any, userId: string): Promise<{ allo
     
     if (error) {
       console.error('[checkFreeUserLimit] Error:', error);
-      return { allowed: true, count: 0 }; // Allow on error
+      return { allowed: false, count: count || 0 };
     }
     
     const messageCount = count || 0;
     return { allowed: messageCount < FREE_DAILY_MESSAGE_LIMIT, count: messageCount };
   } catch (err) {
     logger.error('[checkFreeUserLimit] Exception:', err);
-    return { allowed: true, count: 0 };
+    return { allowed: false, count: 0 };
   }
 }
 
@@ -611,7 +611,9 @@ export async function POST(req: NextRequest) {
         const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
         const { hashString } = await import('@/lib/guest-tracking');
         const ipKeyHash = `ip:${await hashString(ip)}`;
-        const durableLimit = await checkDurableRateLimit(supabase, ipKeyHash, '/api/chat', GUEST_MESSAGE_LIMIT, 1);
+        const durableLimit = await checkDurableRateLimit(supabase, ipKeyHash, '/api/chat', GUEST_MESSAGE_LIMIT, 1, {
+          identity: 'anonymous',
+        });
         if (!durableLimit.allowed) {
           status = 429;
           return err(`You've used your ${GUEST_MESSAGE_LIMIT} free messages today. Sign in for more!`, "RATE_LIMIT_DAILY", status, {
@@ -665,7 +667,10 @@ export async function POST(req: NextRequest) {
       
       // Rate limits: Free users: 50/day, Pro: 500/day (from shared limits)
       const dailyLimit = isPro ? PRO_DAILY_MESSAGE_LIMIT : FREE_DAILY_MESSAGE_LIMIT;
-      const durableLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/chat', dailyLimit, 1);
+      const durableLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/chat', dailyLimit, 1, {
+        identity: isPro ? 'pro' : 'free',
+        verifiedUserId: isPro ? userId : null,
+      });
       
       if (!durableLimit.allowed) {
         status = 429;
@@ -676,7 +681,10 @@ export async function POST(req: NextRequest) {
       // Skip for eval runs (e.g. AI test V3/V4) so suite runs don't hit the limit
       if (!evalRunId) {
         const minuteKeyHash = `chat:minute:${userKeyHash}`;
-        const minuteLimit = await checkDurableRateLimit(supabase, minuteKeyHash, '/api/chat', 10, 1/1440); // 1 minute = 1/1440 days
+        const minuteLimit = await checkDurableRateLimit(supabase, minuteKeyHash, '/api/chat', 10, 1 / 1440, {
+          identity: isPro ? 'pro' : 'free',
+          verifiedUserId: isPro ? userId : null,
+        }); // 1 minute = 1/1440 days
         if (!minuteLimit.allowed) {
           status = 429;
           return err(`Too many requests. Please slow down (10 requests per minute limit).`, "RATE_LIMIT_PER_MINUTE", status, { resetAt: minuteLimit.resetAt });

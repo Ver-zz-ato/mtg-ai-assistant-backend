@@ -1555,7 +1555,10 @@ export async function runDeckAnalyzeCore(
       }
       dailyLimit = DECK_ANALYZE_GUEST;
     }
-    const durableLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/analyze', dailyLimit, 1);
+    const durableLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/analyze', dailyLimit, 1, {
+      identity: user ? (isPro ? 'pro' : 'free') : keyHash.startsWith('guest:') ? 'guest' : 'anonymous',
+      verifiedUserId: user && isPro ? user.id : null,
+    });
     if (!durableLimit.allowed) {
       const errMsg = user
         ? (isPro ? "You've reached your daily limit. Contact support if you need higher limits." : `You've used your ${DECK_ANALYZE_FREE} free analyses today. Upgrade to Pro for more!`)
@@ -1566,8 +1569,11 @@ export async function runDeckAnalyzeCore(
       );
     }
   } catch (error) {
-    // Fail open - don't block requests if rate limit check fails
     console.error('[deck/analyze] Rate limit check failed:', error);
+    return new Response(
+      JSON.stringify({ ok: false, code: 'RATE_LIMIT_UNAVAILABLE', error: 'AI analysis is temporarily unavailable. Please try again shortly.' }),
+      { status: 503, headers: { "content-type": "application/json" } }
+    );
   }
   }
 

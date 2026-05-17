@@ -341,7 +341,11 @@ export async function POST(req: NextRequest) {
           keyHash,
           "/api/deck/generate-constructed",
           dailyLimit,
-          1
+          1,
+          {
+            identity: user ? (isPro ? 'pro' : 'free') : keyHash.startsWith('guest:') ? 'guest' : 'anonymous',
+            verifiedUserId: user && isPro ? user.id : null,
+          }
         );
         if (!durableLimit.allowed) {
           const errMsg = user
@@ -362,6 +366,14 @@ export async function POST(req: NextRequest) {
         }
       } catch (e) {
         console.error("[generate-constructed] Rate limit check failed:", e);
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "RATE_LIMIT_UNAVAILABLE",
+            error: "AI constructed deck generation is temporarily unavailable. Please try again shortly.",
+          },
+          { status: 503 }
+        );
       }
     }
 

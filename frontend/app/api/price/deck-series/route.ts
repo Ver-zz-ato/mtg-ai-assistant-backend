@@ -53,7 +53,10 @@ export async function GET(req: NextRequest) {
     const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
     const { hashString } = await import("@/lib/guest-tracking");
     const userKeyHash = `user:${await hashString(user.id)}`;
-    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, DECK_SERIES_ROUTE, dailyCap, 1);
+    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, DECK_SERIES_ROUTE, dailyCap, 1, {
+      identity: isPro ? 'pro' : 'free',
+      verifiedUserId: isPro ? user.id : null,
+    });
     const skipLimitInDev = process.env.NODE_ENV === "development" && process.env.SKIP_PRICE_RATE_LIMIT === "1";
     if (!skipLimitInDev && !rateLimit.allowed) {
       return NextResponse.json({

@@ -83,12 +83,16 @@ export async function POST(req: NextRequest) {
 
     let keyHash: string;
     let dailyCap: number;
+    let limiterIdentity: 'guest' | 'free' | 'pro' = 'guest';
+    let verifiedUserId: string | null = null;
 
     if (user?.id) {
       const { checkProStatus } = await import('@/lib/server-pro-check');
       const isPro = await checkProStatus(user.id);
       keyHash = `user:${await hashString(user.id)}`;
       dailyCap = isPro ? SUGGESTION_WHY_PRO : SUGGESTION_WHY_FREE;
+      limiterIdentity = isPro ? 'pro' : 'free';
+      verifiedUserId = isPro ? user.id : null;
     } else {
       const { hashGuestToken } = await import('@/lib/guest-tracking');
       const { cookies } = await import('next/headers');
@@ -102,7 +106,10 @@ export async function POST(req: NextRequest) {
       dailyCap = SUGGESTION_WHY_GUEST;
     }
 
-    const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/suggestion-why', dailyCap, 1);
+    const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/suggestion-why', dailyCap, 1, {
+      identity: limiterIdentity,
+      verifiedUserId,
+    });
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { ok: false, error: "Daily limit reached. Try again tomorrow.", code: 'RATE_LIMIT_DAILY' },

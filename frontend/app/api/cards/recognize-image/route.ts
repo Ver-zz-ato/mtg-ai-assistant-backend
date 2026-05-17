@@ -390,7 +390,10 @@ export async function POST(req: NextRequest) {
         : isAnonymousUser && user?.id
           ? `guest:${await hashString(`anonymous-user:${user.id}`)}`
           : `ip:${await hashString(ip)}`;
-    const rateLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1);
+    const rateLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1, {
+      identity: userTier,
+      verifiedUserId: userTier === 'pro' && realUserId ? realUserId : null,
+    });
     if (!rateLimit.allowed) {
       return NextResponse.json(
         {

@@ -140,7 +140,11 @@ export async function POST(req: NextRequest) {
         keyHash,
         "/api/deck/generate-from-collection",
         dailyLimit,
-        1
+        1,
+        {
+          identity: isPro ? 'pro' : 'free',
+          verifiedUserId: isPro ? user.id : null,
+        }
       );
       if (!durableLimit.allowed) {
         const errMsg = isPro
@@ -159,6 +163,14 @@ export async function POST(req: NextRequest) {
       }
     } catch (e) {
       console.error("[generate-from-collection] Rate limit check failed:", e);
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "RATE_LIMIT_UNAVAILABLE",
+          error: "AI deck generation from collection is temporarily unavailable. Please try again shortly.",
+        },
+        { status: 503 }
+      );
     }
 
     // Fetch collection cards if collectionId provided

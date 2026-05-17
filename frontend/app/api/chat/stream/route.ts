@@ -184,7 +184,9 @@ export async function POST(req: NextRequest) {
         const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
         const { hashString } = await import('@/lib/guest-tracking');
         const ipKeyHash = `ip:${await hashString(ip)}`;
-        const durableLimit = await checkDurableRateLimit(supabase, ipKeyHash, '/api/chat', GUEST_MESSAGE_LIMIT, 1);
+        const durableLimit = await checkDurableRateLimit(supabase, ipKeyHash, '/api/chat', GUEST_MESSAGE_LIMIT, 1, {
+          identity: 'anonymous',
+        });
         if (!durableLimit.allowed) {
           return new Response(JSON.stringify({
             fallback: true, reason: "guest_limit_exceeded",
@@ -217,7 +219,10 @@ export async function POST(req: NextRequest) {
       const userKeyHash = `user:${await hashString(userId)}`;
       
       const dailyLimit = isPro ? PRO_DAILY_MESSAGE_LIMIT : FREE_DAILY_MESSAGE_LIMIT;
-      const durableLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/chat/stream', dailyLimit, 1);
+      const durableLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/chat/stream', dailyLimit, 1, {
+        identity: isPro ? 'pro' : 'free',
+        verifiedUserId: isPro ? userId : null,
+      });
       
       if (!durableLimit.allowed) {
         return new Response(JSON.stringify({ 

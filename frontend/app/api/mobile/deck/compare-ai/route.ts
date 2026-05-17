@@ -65,7 +65,11 @@ export async function POST(req: NextRequest) {
         userKeyHash,
         "deck_compare_ai",
         DECK_COMPARE_AI_MOBILE_FREE_DAILY,
-        1
+        1,
+        {
+          identity: 'free',
+          verifiedUserId: null,
+        }
       );
       if (!rateLimit.allowed) {
         return NextResponse.json(

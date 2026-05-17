@@ -611,7 +611,11 @@ export async function POST(req: NextRequest) {
           keyHash,
           "/api/deck/transform",
           DECK_TRANSFORM_FREE,
-          1
+          1,
+          {
+            identity: isPro ? 'pro' : 'free',
+            verifiedUserId: isPro ? user.id : null,
+          }
         );
         if (!durableLimit.allowed) {
           return NextResponse.json(
@@ -627,6 +631,14 @@ export async function POST(req: NextRequest) {
         }
       } catch (e) {
         console.error("[deck/transform] Rate limit check failed:", e);
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "RATE_LIMIT_UNAVAILABLE",
+            error: "AI Workshop is temporarily unavailable. Please try again shortly.",
+          },
+          { status: 503 }
+        );
       }
     }
 

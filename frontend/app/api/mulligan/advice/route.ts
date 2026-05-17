@@ -81,7 +81,11 @@ export async function POST(req: NextRequest) {
     keyHash,
     "/api/mulligan/advice",
     limit,
-    1
+    1,
+    {
+      identity: effectiveTier === 'guest' ? (keyHash.startsWith('guest:') ? 'guest' : 'anonymous') : effectiveTier,
+      verifiedUserId: effectiveTier === 'pro' && user ? user.id : null,
+    }
   );
 
   if (!rateLimit.allowed) {

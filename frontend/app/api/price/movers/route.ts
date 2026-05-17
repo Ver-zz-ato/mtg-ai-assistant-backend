@@ -84,7 +84,10 @@ export async function GET(req: NextRequest) {
       rateLimitKey = `ip:${await hashString(ip)}`;
     }
 
-    const rateLimit = await checkDurableRateLimit(supabase, rateLimitKey, MOVERS_ROUTE, dailyCap, 1);
+    const rateLimit = await checkDurableRateLimit(supabase, rateLimitKey, MOVERS_ROUTE, dailyCap, 1, {
+      identity: user ? (isPro ? 'pro' : 'free') : 'anonymous',
+      verifiedUserId: user && isPro ? user.id : null,
+    });
     const skipLimitInDev = process.env.NODE_ENV === "development" && process.env.SKIP_PRICE_RATE_LIMIT === "1";
     if (!skipLimitInDev && !rateLimit.allowed) {
       return NextResponse.json({

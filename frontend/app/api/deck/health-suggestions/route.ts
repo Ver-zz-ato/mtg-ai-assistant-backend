@@ -128,7 +128,10 @@ export async function POST(req: NextRequest) {
     const { checkDurableRateLimit } = await import('@/lib/api/durable-rate-limit');
     const { hashString } = await import('@/lib/guest-tracking');
     const userKeyHash = `user:${await hashString(user.id)}`;
-    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/health-suggestions', dailyCap, 1);
+    const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/deck/health-suggestions', dailyCap, 1, {
+      identity: isPro ? 'pro' : 'free',
+      verifiedUserId: isPro ? user.id : null,
+    });
 
     if (!rateLimit.allowed) {
       return NextResponse.json({

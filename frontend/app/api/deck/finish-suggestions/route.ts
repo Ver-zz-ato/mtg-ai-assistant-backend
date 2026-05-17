@@ -168,7 +168,10 @@ export async function POST(req: Request) {
         }
         dailyLimit = DECK_ANALYZE_GUEST;
       }
-      const durableLimit = await checkDurableRateLimit(supabase, keyHash, "/api/deck/finish-suggestions", dailyLimit, 1);
+      const durableLimit = await checkDurableRateLimit(supabase, keyHash, "/api/deck/finish-suggestions", dailyLimit, 1, {
+        identity: user ? (isPro ? 'pro' : 'free') : keyHash.startsWith('guest:') ? 'guest' : 'anonymous',
+        verifiedUserId: user && isPro ? user.id : null,
+      });
       if (!durableLimit.allowed) {
         const errMsg = user
           ? isPro
@@ -182,6 +185,14 @@ export async function POST(req: Request) {
       }
     } catch (e) {
       console.error("[finish-suggestions] Rate limit check failed:", e);
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "RATE_LIMIT_UNAVAILABLE",
+          error: "AI finish suggestions are temporarily unavailable. Please try again shortly.",
+        },
+        { status: 503 },
+      );
     }
   }
 

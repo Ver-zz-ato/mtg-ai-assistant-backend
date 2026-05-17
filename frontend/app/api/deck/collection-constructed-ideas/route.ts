@@ -253,7 +253,10 @@ export async function POST(req: NextRequest) {
     const dailyLimit = isPro ? GENERATE_FROM_COLLECTION_PRO : GENERATE_FROM_COLLECTION_FREE;
     const keyHash = `user:${user.id}`;
     try {
-      const durableLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1);
+      const durableLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1, {
+        identity: isPro ? 'pro' : 'free',
+        verifiedUserId: isPro ? user.id : null,
+      });
       if (!durableLimit.allowed) {
         const errMsg = isPro
           ? "You've reached your daily limit. Contact support if you need higher limits."
@@ -271,6 +274,14 @@ export async function POST(req: NextRequest) {
       }
     } catch (e) {
       console.error("[collection-constructed-ideas] Rate limit check failed:", e);
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "RATE_LIMIT_UNAVAILABLE",
+          error: "Collection-based AI ideas are temporarily unavailable. Please try again shortly.",
+        },
+        { status: 503 }
+      );
     }
 
     const { data: col } = await supabase

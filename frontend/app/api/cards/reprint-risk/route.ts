@@ -44,7 +44,10 @@ export async function POST(req: NextRequest) {
       const isPro = await checkProStatus(user.id);
       const dailyLimit = isPro ? REPRINT_RISK_PRO : REPRINT_RISK_FREE;
       const userKeyHash = `user:${await hashString(user.id)}`;
-      const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/cards/reprint-risk', dailyLimit, 1);
+      const rateLimit = await checkDurableRateLimit(supabase, userKeyHash, '/api/cards/reprint-risk', dailyLimit, 1, {
+        identity: isPro ? 'pro' : 'free',
+        verifiedUserId: isPro ? user.id : null,
+      });
       if (!rateLimit.allowed) {
         return NextResponse.json({
           ok: false,
@@ -62,7 +65,9 @@ export async function POST(req: NextRequest) {
       const keyHash = guestToken
         ? `guest:${await hashGuestToken(guestToken)}`
         : `ip:${await hashString((req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown')}`;
-      const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/cards/reprint-risk', GUEST_DAILY_FEATURE_LIMIT, 1);
+      const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/cards/reprint-risk', GUEST_DAILY_FEATURE_LIMIT, 1, {
+        identity: keyHash.startsWith('guest:') ? 'guest' : 'anonymous',
+      });
       if (!rateLimit.allowed) {
         return NextResponse.json({
           ok: false,
