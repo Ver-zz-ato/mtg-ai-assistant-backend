@@ -202,7 +202,7 @@ export async function GET(req: NextRequest) {
       posthogHogql(qByDimension("name_resolution", "dim")),
       posthogHogql(qByDimension("match_source", "dim")),
       posthogHogql(qByDimension("add_confirm_method", "dim")),
-      posthogHogql(qByDimension("source_screen", "dim")),
+      posthogHogql(qByDimension("source_context", "dim")),
       posthogHogql(qByEventDimension("scan_ai_fallback_started", "assist_mode", "dim")),
       posthogHogql(qAiBlockedByReason),
       posthogHogql(qFallbackFailed),

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
+import { containsProfanity, PROFANITY_REJECTION_MESSAGE } from "@/lib/profanity";
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -62,9 +63,8 @@ export async function POST(req: NextRequest) {
     // Profanity filter for user messages (matches shoutbox policy)
     try {
       if (message.role === "user") {
-        const { containsProfanity } = await import("@/lib/profanity");
         if (containsProfanity(message.content)) {
-          return NextResponse.json<Envelope<never>>({ ok: false, error: "Please keep it civil." }, { status: 400 });
+          return NextResponse.json<Envelope<never>>({ ok: false, error: PROFANITY_REJECTION_MESSAGE }, { status: 400 });
         }
       }
     } catch {}

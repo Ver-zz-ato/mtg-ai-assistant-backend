@@ -50,8 +50,11 @@ export function sanitizeName(input: string, max = 120): string {
   return s;
 }
 
+export const PROFANITY_REJECTION_MESSAGE =
+  "Please rephrase that without profanity, and I'll be happy to help.";
+
 const PUBLIC_TEXT_ERROR =
-  "Please remove offensive language before making this public.";
+  "Please rephrase that without offensive language before sharing it.";
 
 /**
  * Use when saving or publishing user-authored text (deck title, profile name, etc.).

@@ -41,6 +41,7 @@ import {
 } from "@/lib/ai/intelligence/packet";
 import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registry";
 import { GENERAL_COMMANDER_FORMAT_INSTRUCTION } from "@/lib/ai/commander-format-instruction";
+import { containsProfanity, PROFANITY_REJECTION_MESSAGE } from "@/lib/profanity";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -1719,8 +1720,9 @@ export async function POST(req: NextRequest) {
 
     // Very light moderation pass (profanity guard)
     try {
-      const bad = /\b(fuck|shit|slur|rape|nazi)\b/i.test(String(text||''));
-      if (bad) { return err('content_blocked', 'blocked', 400); }
+      if (containsProfanity(String(text || ""))) {
+        return err(PROFANITY_REJECTION_MESSAGE, "content_blocked", 400);
+      }
     } catch {}
 
     // Multi-agent lite: research -> answer -> review (tight timeouts)

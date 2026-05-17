@@ -14,7 +14,7 @@ Migration: `db/migrations/097_mobile_admin_control.sql`
 
 **RLS:** Enabled on all three tables with **no** policies for `anon` / `authenticated` — direct client access is denied. The Next.js server uses the **service role** client (`getAdmin()`), which bypasses RLS.
 
-**Overlap:** The legacy `app_config` key `app_changelog` (JSON blob) still exists for older tooling (`/admin/JustForDavy/app-whats-new`). New bootstrap **What’s New** data comes from the `app_changelog` **table**.
+**Overlap:** The legacy `app_config` key `app_changelog` (JSON blob) still exists for older tooling (`/admin/JustForDavy/app-whats-new`). New bootstrap **What’s New** data comes from the `app_changelog` **table**. Treat the table-backed bootstrap payload as canonical for launch.
 
 ## Admin routes (UI)
 
@@ -85,6 +85,17 @@ Caching: `Cache-Control: public, s-maxage=60, stale-while-revalidate=120`.
 ```
 
 Assembly logic is centralized in `lib/mobile/bootstrap.ts` (`buildMobileBootstrapPayload`).
+
+## Mobile support dependency note
+
+`GET /api/mobile/bootstrap` is not just a convenience route. It is the server-owned control plane for:
+
+- feature rollout (`feature_flags`)
+- remote tuning / copy (`remote_config`)
+- mobile tier limits (`remote_config["mobile.tiers.limits"]`)
+- What’s New content (`app_changelog`)
+
+If these tables are empty, stale, or misconfigured, the mobile app still runs, but feature gating and launch messaging can drift from expectations.
 
 ## Adding a feature flag
 

@@ -1,4 +1,4 @@
-import { containsProfanity } from "@/lib/profanity";
+import { containsProfanity, PROFANITY_REJECTION_MESSAGE } from "@/lib/profanity";
 import { broadcast, pushHistory, type Shout } from "../hub";
 import { createClient } from "@/lib/supabase/server";
 import { notifyDiscordShoutboxRealMessage } from "@/lib/shoutbox/discord-alert";
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const cleanUser = String(user).trim().slice(0, 24) || "Anon";
 
   if (!cleanText) return Response.json({ ok: false, error: "Empty message" }, { status: 400 });
-  if (containsProfanity(cleanText)) return Response.json({ ok:false, error: "Please keep it civil." }, { status: 400 });
+  if (containsProfanity(cleanText)) return Response.json({ ok:false, error: PROFANITY_REJECTION_MESSAGE }, { status: 400 });
   if (containsProfanity(cleanUser)) return Response.json({ ok:false, error: "Please choose a different display name." }, { status: 400 });
 
   const last = lastByUser.get(cleanUser) ?? 0;

@@ -12,6 +12,7 @@
 | meta-signals | `/api/cron/meta-signals` | 05:15 daily |
 | top-cards | `/api/cron/top-cards` | 05:30 daily |
 | cleanup-rate-limits | `/api/cron/cleanup-rate-limits` | 06:00 Sundays |
+| cleanup-shared-links | `/api/cron/cleanup-shared-links` | 06:15 daily |
 | ops-report/daily | `/api/cron/ops-report/daily` | 06:00 daily |
 | ops-report/weekly | `/api/cron/ops-report/weekly` | 07:00 Sundays |
 | budget-swaps-update | `/api/cron/budget-swaps-update` | 03:00 Sundays |
@@ -47,8 +48,9 @@ npx tsx scripts/run-crons.ts all https://www.manatap.ai
 - **deck-costs** → populates `deck_costs` from `deck_cards` + `price_cache`
 - **commander-aggregates** → needs `deck_costs`; populates `commander_aggregates` (deck_count, median_deck_cost, top_cards, etc.). **Commander Intelligence** on commander pages reads from this cache — run this cron after bulk-importing decks to refresh deck counts.
 - **meta-signals** → populates `meta_signals` (blended **Scryfall** EDHREC + ManaTap decks), optional rows in **`meta_commander_daily`** / **`meta_card_daily`** when those tables exist (migration in Manatap-APP `docs/supabase/migrations/20260419_meta_external_daily.sql`). Does **not** require `commander_aggregates`. Writes `app_config`: `job:last:meta-signals`, `job:meta-signals:attempt`, `job:meta-signals:detail` (JSON status for admin QA).
+- **cleanup-shared-links** → deletes expired rows from `shared_health_reports`, `shared_analysis_reports`, and related `shared_item_comments`. This keeps public share links and comment visibility aligned with expiry behavior used by the mobile app and website.
 
-Run in order: price-snapshot → deck-costs → commander-aggregates → meta-signals → top-cards.
+Run in order: price-snapshot → deck-costs → commander-aggregates → meta-signals → top-cards. `cleanup-shared-links` is independent but should stay scheduled before launch if expiring share links are user-facing.
 
 ## Snapshot source of truth
 

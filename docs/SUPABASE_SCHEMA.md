@@ -1200,13 +1200,25 @@ CREATE TABLE public.shared_health_reports (
   deck_id uuid,
   snapshot_json jsonb NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
   CONSTRAINT shared_health_reports_pkey PRIMARY KEY (id),
   CONSTRAINT shared_health_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT shared_health_reports_deck_id_fkey FOREIGN KEY (deck_id) REFERENCES public.decks(id)
 );
+CREATE TABLE public.shared_analysis_reports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  deck_id uuid,
+  snapshot_json jsonb NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT shared_analysis_reports_pkey PRIMARY KEY (id),
+  CONSTRAINT shared_analysis_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT shared_analysis_reports_deck_id_fkey FOREIGN KEY (deck_id) REFERENCES public.decks(id)
+);
 CREATE TABLE public.shared_item_comments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  resource_type text NOT NULL CHECK (resource_type = ANY (ARRAY['collection'::text, 'roast'::text, 'health_report'::text, 'custom_card'::text])),
+  resource_type text NOT NULL CHECK (resource_type = ANY (ARRAY['collection'::text, 'roast'::text, 'health_report'::text, 'analysis_report'::text, 'custom_card'::text])),
   resource_id text NOT NULL,
   user_id uuid NOT NULL,
   content text NOT NULL,
