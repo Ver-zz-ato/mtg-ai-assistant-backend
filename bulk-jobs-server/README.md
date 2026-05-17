@@ -13,7 +13,10 @@ Vercel mysteriously returns 405 on POST requests for these bulk import routes, e
 - `POST /bulk-price-import` - Update prices for cached cards
 - `POST /price-snapshot` - Create historical price snapshots
 
-All POST endpoints require `x-cron-key` header for authentication.
+All POST endpoints require the shared cron secret for authentication.
+
+- Preferred: `Authorization: Bearer <CRON_SECRET>`
+- Temporary compatibility: `x-cron-key: <CRON_SECRET>` is still accepted for older callers
 
 ## Deploy to Render
 
@@ -26,6 +29,7 @@ All POST endpoints require `x-cron-key` header for authentication.
 7. Add environment variables:
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
+   - `CRON_SECRET`
    - `CRON_KEY`
 8. Deploy!
 
@@ -40,7 +44,14 @@ npm start
 Test with:
 ```bash
 curl -X POST http://localhost:3001/bulk-scryfall \
-  -H "x-cron-key: YOUR_KEY" \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  -H "Content-Type: application/json"
+```
+
+Legacy compatibility test:
+```bash
+curl -X POST http://localhost:3001/bulk-scryfall \
+  -H "x-cron-key: $CRON_SECRET" \
   -H "Content-Type: application/json"
 ```
 

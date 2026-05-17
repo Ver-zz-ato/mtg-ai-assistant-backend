@@ -7,7 +7,12 @@ Write-Host ""
 
 # Configuration
 $BaseUrl = "https://www.manatap.ai"
-$CronKey = "Boobies"
+$CronSecret = if ($env:CRON_SECRET) { $env:CRON_SECRET } elseif ($env:CRON_KEY) { $env:CRON_KEY } else { $null }
+
+if (-not $CronSecret) {
+    Write-Host "CRON_SECRET (or legacy CRON_KEY) must be set before running this script." -ForegroundColor Red
+    exit 1
+}
 
 # Test function
 function Test-Endpoint {
@@ -27,7 +32,8 @@ function Test-Endpoint {
     try {
         # Make request
         $Headers = @{
-            "x-cron-key" = $CronKey
+            "Authorization" = "Bearer $CronSecret"
+            "x-cron-key" = $CronSecret
             "Content-Type" = "application/json"
             "User-Agent" = "Test-Script-PowerShell/1.0"
         }

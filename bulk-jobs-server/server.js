@@ -1,6 +1,6 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fetch = (...args) => import('node-fetch').then(({ default: fetchImpl }) => fetchImpl(...args));
 require('dotenv').config();
 
 const app = express();
@@ -8,22 +8,60 @@ const PORT = process.env.PORT || 3001;
 
 app.use(express.json());
 
+function getCronSecret() {
+  return String(process.env.CRON_SECRET || process.env.CRON_KEY || '').trim();
+}
+
+function getSupabaseUrl() {
+  return String(process.env.SUPABASE_URL || '').trim();
+}
+
+function getSupabaseServiceRoleKey() {
+  return String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '').trim();
+}
+
+function createSupabaseAdminClient() {
+  const url = getSupabaseUrl();
+  const key = getSupabaseServiceRoleKey();
+  if (!url || !key) {
+    throw new Error('missing_supabase_admin_config');
+  }
+  return createClient(url, key);
+}
+
 // Initialize Supabase Admin Client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabase = createSupabaseAdminClient();
 
 // Auth middleware
 function checkAuth(req, res, next) {
-  const cronKey = String(process.env.CRON_KEY || '').trim();
-  const headerKey = String(req.headers['x-cron-key'] || '').trim();
+  const cronSecret = getCronSecret();
+  const authorization = String(req.headers.authorization || '').trim();
+  const legacyHeaderKey = String(req.headers['x-cron-key'] || '').trim();
+  const expectedAuthorization = cronSecret ? `Bearer ${cronSecret}` : '';
+  const authorizedWithBearer = !!expectedAuthorization && authorization === expectedAuthorization;
+  const authorizedWithLegacyHeader = !!cronSecret && legacyHeaderKey === cronSecret;
 
-  if (!cronKey || !headerKey || headerKey !== cronKey) {
-    if (!cronKey) {
-      console.warn('[checkAuth] CRON_KEY is not set on this server — refusing all protected routes');
-    }
+  if (!cronSecret) {
+    console.error('[bulk-jobs auth] refusing protected route: missing CRON_SECRET/CRON_KEY');
+    return res.status(500).json({ ok: false, error: 'server_misconfigured' });
+  }
+
+  if (!(authorizedWithBearer || authorizedWithLegacyHeader)) {
+    console.warn('[bulk-jobs auth] unauthorized request', {
+      path: req.path,
+      timestamp: new Date().toISOString(),
+      hasAuthorizationHeader: !!authorization,
+      hasLegacyCronHeader: !!legacyHeaderKey,
+    });
     return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
+
+  if (authorizedWithLegacyHeader && !authorizedWithBearer) {
+    // Temporary compatibility: older callers may still send x-cron-key directly.
+    console.warn('[bulk-jobs auth] legacy x-cron-key auth used', {
+      path: req.path,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   next();
@@ -35,7 +73,15 @@ function norm(name) {
 }
 
 function deriveTypeFlagsFromTypeLine(typeLine) {
-  const nil = { is_land: null, is_creature: null, is_instant: null, is_sorcery: null, is_enchantment: null, is_artifact: null, is_planeswalker: null };
+  const nil = {
+    is_land: null,
+    is_creature: null,
+    is_instant: null,
+    is_sorcery: null,
+    is_enchantment: null,
+    is_artifact: null,
+    is_planeswalker: null,
+  };
   if (typeLine == null || !String(typeLine).trim()) return nil;
   const tl = String(typeLine);
   const has = (w) => new RegExp(`\\b${w}\\b`, 'i').test(tl);
@@ -54,7 +100,10 @@ function deriveTypeFlagsFromTypeLine(typeLine) {
 function buildScryfallCacheRowFromApiCard(card) {
   const raw = String(card.name ?? '').trim();
   if (!raw) {
-    console.warn('[scryfall_cache] bulk-jobs skip: empty top-level card.name', { set: card.set, collector_number: card.collector_number });
+    console.warn('[scryfall_cache] bulk-jobs skip: empty top-level card.name', {
+      set: card.set,
+      collector_number: card.collector_number,
+    });
     return null;
   }
   const nameKey = norm(raw);
@@ -78,13 +127,21 @@ function buildScryfallCacheRowFromApiCard(card) {
   const color_identity = Array.isArray(card.color_identity) ? card.color_identity : [];
   const colors = Array.isArray(card.colors) ? card.colors : null;
   const keywords = Array.isArray(card.keywords) ? card.keywords : null;
-  const power = card.power != null && String(card.power).trim() !== '' ? String(card.power) : (front.power != null && String(front.power).trim() !== '' ? String(front.power) : null);
-  const toughness = card.toughness != null && String(card.toughness).trim() !== '' ? String(card.toughness) : (front.toughness != null && String(front.toughness).trim() !== '' ? String(front.toughness) : null);
-  const loyalty = card.loyalty != null && String(card.loyalty).trim() !== '' ? String(card.loyalty) : (front.loyalty != null && String(front.loyalty).trim() !== '' ? String(front.loyalty) : null);
+  const power = card.power != null && String(card.power).trim() !== ''
+    ? String(card.power)
+    : (front.power != null && String(front.power).trim() !== '' ? String(front.power) : null);
+  const toughness = card.toughness != null && String(card.toughness).trim() !== ''
+    ? String(card.toughness)
+    : (front.toughness != null && String(front.toughness).trim() !== '' ? String(front.toughness) : null);
+  const loyalty = card.loyalty != null && String(card.loyalty).trim() !== ''
+    ? String(card.loyalty)
+    : (front.loyalty != null && String(front.loyalty).trim() !== '' ? String(front.loyalty) : null);
   const flags = deriveTypeFlagsFromTypeLine(type_line);
   const rarity = card.rarity ? String(card.rarity).toLowerCase().trim() : null;
   const set = card.set ? String(card.set).toUpperCase().trim() : null;
-  const collector_number = card.collector_number != null && String(card.collector_number).trim() !== '' ? String(card.collector_number).trim() : null;
+  const collector_number = card.collector_number != null && String(card.collector_number).trim() !== ''
+    ? String(card.collector_number).trim()
+    : null;
   let legalities = null;
   if (card.legalities && typeof card.legalities === 'object' && !Array.isArray(card.legalities)) {
     const keys = Object.keys(card.legalities);
@@ -122,21 +179,20 @@ app.get('/health', (req, res) => {
 
 // 1. BULK SCRYFALL IMPORT
 app.post('/bulk-scryfall', checkAuth, async (req, res) => {
-  console.log('🔥 Bulk Scryfall import started');
-  
+  console.log('Bulk Scryfall import started');
+
   try {
     // Return 202 Accepted immediately
-    res.status(202).json({ 
-      ok: true, 
+    res.status(202).json({
+      ok: true,
       message: 'Bulk Scryfall import started',
-      note: 'Job running in background, will take 3-10 minutes'
+      note: 'Job running in background, will take 3-10 minutes',
     });
-    
+
     // Run job in background
-    runBulkScryfallImport();
-    
+    void runBulkScryfallImport();
   } catch (error) {
-    console.error('❌ Bulk Scryfall import failed:', error);
+    console.error('Bulk Scryfall import failed:', error);
     if (!res.headersSent) {
       res.status(500).json({ ok: false, error: error.message });
     }
@@ -145,30 +201,30 @@ app.post('/bulk-scryfall', checkAuth, async (req, res) => {
 
 async function runBulkScryfallImport() {
   try {
-    console.log('🚀 Starting bulk Scryfall import...');
-    
+    console.log('Starting bulk Scryfall import...');
+
     // Get Scryfall bulk data URL
     const bulkDataResp = await fetch('https://api.scryfall.com/bulk-data');
     const bulkData = await bulkDataResp.json();
-    const defaultCardsEntry = bulkData.data.find(d => d.type === 'default_cards');
-    
+    const defaultCardsEntry = bulkData.data.find((d) => d.type === 'default_cards');
+
     if (!defaultCardsEntry) {
       throw new Error('Could not find default_cards bulk data');
     }
-    
-    console.log('📥 Downloading bulk data from:', defaultCardsEntry.download_uri);
-    console.log('⚠️ Memory optimization: Processing in small batches to fit 512MB limit');
-    
+
+    console.log('Downloading bulk data from:', defaultCardsEntry.download_uri);
+    console.log('Memory optimization: Processing in small batches to fit 512MB limit');
+
     // Fetch data but process in chunks to avoid memory overflow
     const cardsResp = await fetch(defaultCardsEntry.download_uri);
     const cards = await cardsResp.json();
-    
-    console.log(`📊 Processing ${cards.length} cards in memory-efficient batches...`);
-    
+
+    console.log(`Processing ${cards.length} cards in memory-efficient batches...`);
+
     // Process in SMALLER batches of 500 and clear memory aggressively
     const batchSize = 500;
     let processed = 0;
-    
+
     for (let i = 0; i < cards.length; i += batchSize) {
       const batch = cards.slice(i, i + batchSize);
       const rows = batch.map((card) => buildScryfallCacheRowFromApiCard(card)).filter(Boolean);
@@ -176,46 +232,44 @@ async function runBulkScryfallImport() {
 
       const { error } = await supabase.from('scryfall_cache').upsert(rows, {
         onConflict: 'name',
-        ignoreDuplicates: false
+        ignoreDuplicates: false,
       });
-      
+
       if (error) {
-        console.error(`❌ Error in batch ${i}-${i + batchSize}:`, error);
+        console.error(`Error in batch ${i}-${i + batchSize}:`, error);
       } else {
         processed += rows.length;
         if (processed % 5000 === 0 || processed === cards.length) {
-          console.log(`✅ Processed ${processed}/${cards.length} cards (${Math.round(processed/cards.length*100)}%)`);
+          console.log(`Processed ${processed}/${cards.length} cards (${Math.round((processed / cards.length) * 100)}%)`);
         }
       }
-      
+
       // Force garbage collection hint every 10 batches
       if (i % (batchSize * 10) === 0) {
         if (global.gc) global.gc();
       }
     }
-    
-    console.log(`🎉 Bulk Scryfall import completed! Processed ${processed} cards`);
-    
+
+    console.log(`Bulk Scryfall import completed! Processed ${processed} cards`);
   } catch (error) {
-    console.error('❌ Bulk Scryfall import failed:', error);
+    console.error('Bulk Scryfall import failed:', error);
   }
 }
 
 // 2. BULK PRICE IMPORT
 app.post('/bulk-price-import', checkAuth, async (req, res) => {
-  console.log('💰 Bulk price import started');
-  
+  console.log('Bulk price import started');
+
   try {
-    res.status(202).json({ 
-      ok: true, 
+    res.status(202).json({
+      ok: true,
       message: 'Bulk price import started',
-      note: 'Job running in background, will take 3-5 minutes'
+      note: 'Job running in background, will take 3-5 minutes',
     });
-    
-    runBulkPriceImport();
-    
+
+    void runBulkPriceImport();
   } catch (error) {
-    console.error('❌ Bulk price import failed:', error);
+    console.error('Bulk price import failed:', error);
     if (!res.headersSent) {
       res.status(500).json({ ok: false, error: error.message });
     }
@@ -224,9 +278,9 @@ app.post('/bulk-price-import', checkAuth, async (req, res) => {
 
 async function runBulkPriceImport() {
   try {
-    console.log('🚀 Starting lightweight price refresh...');
-    console.log('💡 This uses Scryfall API (no bulk download) to update existing price_cache entries');
-    
+    console.log('Starting lightweight price refresh...');
+    console.log('This uses Scryfall API (no bulk download) to update existing price_cache entries');
+
     // Get all cards from price_cache that need updating (older than 24 hours)
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: staleCards, error: fetchError } = await supabase
@@ -234,110 +288,107 @@ async function runBulkPriceImport() {
       .select('card_name')
       .or(`updated_at.lt.${yesterday},updated_at.is.null`)
       .limit(1000); // Only refresh 1000 cards per run to stay within memory
-    
+
     if (fetchError) {
       throw new Error(`Failed to fetch stale prices: ${fetchError.message}`);
     }
-    
+
     if (!staleCards || staleCards.length === 0) {
-      console.log('✅ All prices are up to date!');
+      console.log('All prices are up to date!');
       return;
     }
-    
-    console.log(`🎯 Found ${staleCards.length} cards needing price updates`);
-    
+
+    console.log(`Found ${staleCards.length} cards needing price updates`);
+
     // Update prices in chunks of 75 (Scryfall API limit)
     const chunkSize = 75;
     let updated = 0;
-    
+
     for (let i = 0; i < staleCards.length; i += chunkSize) {
       const chunk = staleCards.slice(i, i + chunkSize);
-      const identifiers = chunk.map(c => ({ name: c.card_name }));
-      
+      const identifiers = chunk.map((c) => ({ name: c.card_name }));
+
       try {
         const response = await fetch('https://api.scryfall.com/cards/collection', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ identifiers })
+          body: JSON.stringify({ identifiers }),
         });
-        
+
         if (!response.ok) {
-          console.warn(`⚠️ Scryfall API error for chunk ${i}:`, response.status);
+          console.warn(`Scryfall API error for chunk ${i}:`, response.status);
           continue;
         }
-        
+
         const result = await response.json();
         const cards = result.data || [];
-        
+
         // Update price_cache with fresh prices (using bulk import schema)
-        const rows = cards.map(card => ({
+        const rows = cards.map((card) => ({
           card_name: card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim(),
           usd_price: card.prices?.usd ? parseFloat(card.prices.usd) : null,
           usd_foil_price: card.prices?.usd_foil ? parseFloat(card.prices.usd_foil) : null,
           eur_price: card.prices?.eur ? parseFloat(card.prices.eur) : null,
           tix_price: card.prices?.tix ? parseFloat(card.prices.tix) : null,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         }));
-        
+
         const { error: upsertError } = await supabase
           .from('price_cache')
           .upsert(rows, { onConflict: 'card_name' });
-        
+
         if (upsertError) {
-          console.error(`❌ Error updating chunk ${i}:`, upsertError.message);
+          console.error(`Error updating chunk ${i}:`, upsertError.message);
         } else {
           updated += rows.length;
-          console.log(`✅ Updated ${updated}/${staleCards.length} prices`);
+          console.log(`Updated ${updated}/${staleCards.length} prices`);
         }
-        
+
         // Rate limit: wait 100ms between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (chunkError) {
-        console.error(`❌ Error processing chunk ${i}:`, chunkError.message);
+        console.error(`Error processing chunk ${i}:`, chunkError.message);
       }
     }
-    
-    console.log(`🎉 Price refresh completed! Updated ${updated}/${staleCards.length} prices`);
-    
+
+    console.log(`Price refresh completed! Updated ${updated}/${staleCards.length} prices`);
+
     // Record last run timestamp for verification
     try {
       const { error: configError } = await supabase
         .from('app_config')
         .upsert(
           { key: 'job:last:bulk_price_import', value: new Date().toISOString() },
-          { onConflict: 'key' }
+          { onConflict: 'key' },
         );
       if (configError) {
-        console.warn('⚠️ Failed to update app_config timestamp:', configError.message);
+        console.warn('Failed to update app_config timestamp:', configError.message);
       } else {
-        console.log('✅ Updated verification timestamp in app_config');
+        console.log('Updated verification timestamp in app_config');
       }
     } catch (configErr) {
-      console.warn('⚠️ Error updating app_config:', configErr.message);
+      console.warn('Error updating app_config:', configErr.message);
     }
-    
   } catch (error) {
-    console.error('❌ Price refresh failed:', error);
+    console.error('Price refresh failed:', error);
     throw error;
   }
 }
 
 // 3. PRICE SNAPSHOT BULK
 app.post('/price-snapshot', checkAuth, async (req, res) => {
-  console.log('📈 Price snapshot started');
-  
+  console.log('Price snapshot started');
+
   try {
-    res.status(202).json({ 
-      ok: true, 
+    res.status(202).json({
+      ok: true,
       message: 'Price snapshot started',
-      note: 'Job running in background, will take 5-10 minutes'
+      note: 'Job running in background, will take 5-10 minutes',
     });
-    
-    runPriceSnapshot();
-    
+
+    void runPriceSnapshot();
   } catch (error) {
-    console.error('❌ Price snapshot failed:', error);
+    console.error('Price snapshot failed:', error);
     if (!res.headersSent) {
       res.status(500).json({ ok: false, error: error.message });
     }
@@ -346,11 +397,11 @@ app.post('/price-snapshot', checkAuth, async (req, res) => {
 
 async function runPriceSnapshot() {
   try {
-    console.log('🚀 Starting lightweight price snapshot...');
-    console.log('💡 This uses existing price_cache data (no bulk download)');
-    
+    console.log('Starting lightweight price snapshot...');
+    console.log('This uses existing price_cache data (no bulk download)');
+
     const today = new Date().toISOString().split('T')[0];
-    
+
     // Get all cards with prices from price_cache (using bulk import schema).
     // IMPORTANT: paginate explicitly so we do not silently cap at ~1000 rows.
     const cards = [];
@@ -371,24 +422,24 @@ async function runPriceSnapshot() {
       if (page.length < PAGE_SIZE) break;
       offset += PAGE_SIZE;
       if (offset % 10000 === 0) {
-        console.log(`📥 Loaded ${offset} price_cache rows for snapshot so far...`);
+        console.log(`Loaded ${offset} price_cache rows for snapshot so far...`);
       }
     }
-    
-    console.log(`📊 Creating snapshots for ${cards.length} cards with at least one price (USD or EUR)...`);
-    console.log(`💡 This will create price history for every priced card in price_cache`);
-    
+
+    console.log(`Creating snapshots for ${cards.length} cards with at least one price (USD or EUR)...`);
+    console.log(`This will create price history for every priced card in price_cache`);
+
     // Fetch FX for GBP conversion
-    let usd_gbp = 0.78;
+    let usdGbp = 0.78;
     try {
       const fxRes = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=GBP', { cache: 'no-store' });
       const fxData = await fxRes.json();
-      usd_gbp = Number(fxData?.rates?.GBP || 0.78);
-      console.log(`💱 USD to GBP rate: ${usd_gbp}`);
-    } catch (e) {
-      console.warn('⚠️ Could not fetch GBP exchange rate, using default 0.78');
+      usdGbp = Number(fxData?.rates?.GBP || 0.78);
+      console.log(`USD to GBP rate: ${usdGbp}`);
+    } catch {
+      console.warn('Could not fetch GBP exchange rate, using default 0.78');
     }
-    
+
     // Create snapshot rows in price_snapshots format:
     // Each card gets 3 rows (USD, EUR, GBP) for complete price history
     const snapshots = [];
@@ -399,15 +450,15 @@ async function runPriceSnapshot() {
           name_norm: card.card_name,
           currency: 'USD',
           unit: parseFloat(card.usd_price),
-          source: 'PriceCache'
+          source: 'PriceCache',
         });
         // Also create GBP snapshot from USD (converted)
         snapshots.push({
           snapshot_date: today,
           name_norm: card.card_name,
           currency: 'GBP',
-          unit: parseFloat((parseFloat(card.usd_price) * usd_gbp).toFixed(2)),
-          source: 'PriceCache'
+          unit: parseFloat((parseFloat(card.usd_price) * usdGbp).toFixed(2)),
+          source: 'PriceCache',
         });
       }
       if (card.eur_price) {
@@ -416,65 +467,69 @@ async function runPriceSnapshot() {
           name_norm: card.card_name,
           currency: 'EUR',
           unit: parseFloat(card.eur_price),
-          source: 'PriceCache'
+          source: 'PriceCache',
         });
       }
     }
-    
-    console.log(`📦 Generated ${snapshots.length} snapshot rows (USD+EUR+GBP for all ${cards.length} cards)`);
-    
+
+    console.log(`Generated ${snapshots.length} snapshot rows (USD+EUR+GBP for all ${cards.length} cards)`);
+
     // Insert in batches
     const batchSize = 1000;
     let processed = 0;
-    
+
     for (let i = 0; i < snapshots.length; i += batchSize) {
       const batch = snapshots.slice(i, i + batchSize);
-      
+
       const { error } = await supabase.from('price_snapshots').upsert(batch, {
         onConflict: 'snapshot_date,name_norm,currency',
-        ignoreDuplicates: true
+        ignoreDuplicates: true,
       });
-      
+
       if (error) {
-        console.error(`❌ Error in batch ${i}-${i + batchSize}:`, error.message);
+        console.error(`Error in batch ${i}-${i + batchSize}:`, error.message);
       } else {
         processed += batch.length;
-        console.log(`✅ Inserted ${processed}/${snapshots.length} snapshots (${Math.round(processed/snapshots.length*100)}%)`);
+        console.log(`Inserted ${processed}/${snapshots.length} snapshots (${Math.round((processed / snapshots.length) * 100)}%)`);
       }
     }
-    
-    console.log(`🎉 Price snapshot completed! Inserted ${processed} snapshots for ${today}`);
-    
+
+    console.log(`Price snapshot completed! Inserted ${processed} snapshots for ${today}`);
+
     // Record last run timestamp for verification
     try {
       const { error: configError } = await supabase
         .from('app_config')
         .upsert(
           { key: 'job:last:price_snapshot_bulk', value: new Date().toISOString() },
-          { onConflict: 'key' }
+          { onConflict: 'key' },
         );
       if (configError) {
-        console.warn('⚠️ Failed to update app_config timestamp:', configError.message);
+        console.warn('Failed to update app_config timestamp:', configError.message);
       } else {
-        console.log('✅ Updated verification timestamp in app_config');
+        console.log('Updated verification timestamp in app_config');
       }
     } catch (configErr) {
-      console.warn('⚠️ Error updating app_config:', configErr.message);
+      console.warn('Error updating app_config:', configErr.message);
     }
-    
   } catch (error) {
-    console.error('❌ Price snapshot failed:', error);
+    console.error('Price snapshot failed:', error);
     throw error;
   }
 }
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Bulk Jobs Server running on port ${PORT}`);
-  console.log(`📍 Endpoints:`);
-  console.log(`   GET  /health`);
-  console.log(`   POST /bulk-scryfall`);
-  console.log(`   POST /bulk-price-import`);
-  console.log(`   POST /price-snapshot`);
+console.log('Bulk Jobs Server configuration', {
+  supabaseUrlConfigured: !!getSupabaseUrl(),
+  supabaseServiceRoleConfigured: !!getSupabaseServiceRoleKey(),
+  cronSecretConfigured: !!getCronSecret(),
 });
 
+// Start server
+app.listen(PORT, () => {
+  console.log(`Bulk Jobs Server running on port ${PORT}`);
+  console.log('Endpoints:');
+  console.log('  GET  /health');
+  console.log('  POST /bulk-scryfall');
+  console.log('  POST /bulk-price-import');
+  console.log('  POST /price-snapshot');
+});

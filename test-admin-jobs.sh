@@ -9,7 +9,12 @@ echo ""
 
 # Configuration
 BASE_URL="https://www.manatap.ai"
-CRON_KEY="Boobies"
+CRON_SECRET="${CRON_SECRET:-${CRON_KEY:-}}"
+
+if [ -z "$CRON_SECRET" ]; then
+    echo "CRON_SECRET (or legacy CRON_KEY) must be set before running this script."
+    exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -32,7 +37,8 @@ test_endpoint() {
     
     # Make request
     HTTP_CODE=$(curl -X POST \
-        -H "x-cron-key: $CRON_KEY" \
+        -H "Authorization: Bearer $CRON_SECRET" \
+        -H "x-cron-key: $CRON_SECRET" \
         -H "Content-Type: application/json" \
         -H "User-Agent: Test-Script/1.0" \
         -w "\n%{http_code}" \
@@ -141,4 +147,3 @@ else
     echo -e "${RED}❌ Some tests failed. Fix issues before enabling automation.${NC}"
     exit 1
 fi
-
