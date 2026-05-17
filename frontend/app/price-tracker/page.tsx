@@ -45,6 +45,18 @@ export default function PriceTrackerPage(){
   const [moversError, setMoversError] = React.useState<string | null>(null);
   const [moversWindowDays, setMoversWindowDays] = React.useState(7);
 
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const prefill =
+      params.get("card") ||
+      params.get("name") ||
+      params.get("q");
+    const next = String(prefill || "").trim();
+    if (!next) return;
+    setNames(next);
+  }, []);
+
   const from = React.useMemo(() => {
     const days = parseInt(range, 10);
     const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

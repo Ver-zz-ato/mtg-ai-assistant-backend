@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCommanderBySlug, getFirst50CommanderSlugs } from "@/lib/commanders";
 import {
   renderCommanderIntro,
@@ -52,6 +52,14 @@ function webPageJsonLd(slug: string, name: string, description: string) {
   });
 }
 
+function humanizeSlug(slug: string): string {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const profile = getCommanderBySlug(slug);
@@ -77,7 +85,10 @@ export default async function CommanderHubPage({ params }: Props) {
   const { slug } = await params;
   const profile = getCommanderBySlug(slug);
   const fallback = !profile ? await getCommanderFromDecksBySlug(slug) : null;
-  if (!profile && !fallback) notFound();
+  if (!profile && !fallback) {
+    const cardName = humanizeSlug(slug);
+    redirect(`/price-tracker?card=${encodeURIComponent(cardName)}`);
+  }
 
   const name = profile?.name ?? fallback!.name;
   const isFallback = !!fallback && !profile;
