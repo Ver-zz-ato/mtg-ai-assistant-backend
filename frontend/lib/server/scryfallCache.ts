@@ -28,12 +28,19 @@ export async function getImagesForNamesCached(names: string[]) {
   const out = new Map<string, ImageInfo>();
 
   // 1) try DB cache
-  type Row = { name: string; small: string|null; normal: string|null; art_crop: string|null; updated_at?: string|null };
+  type Row = {
+    name: string;
+    small: string | null;
+    normal: string | null;
+    art_crop: string | null;
+    printed_name?: string | null;
+    updated_at?: string | null;
+  };
   let rows: Row[] = [];
   try {
     const { data } = await supabase
       .from("scryfall_cache")
-      .select("name, small, normal, art_crop, updated_at")
+      .select("name, small, normal, art_crop, printed_name, updated_at")
       .in("name", keys);
     rows = (data || []) as any;
     for (const row of rows) {
@@ -45,7 +52,10 @@ export async function getImagesForNamesCached(names: string[]) {
   const present = new Set(rows.map(r=>r.name));
   const misses = keys.filter((k) => !present.has(k));
   const stale = rows.filter(r => isStale(r.updated_at)).map(r => r.name);
-  const toFetch = Array.from(new Set([...misses, ...stale])).slice(0, MAX_REFRESH_PER_REQUEST);
+  const localized = rows
+    .filter((r) => typeof r.printed_name === "string" && r.printed_name.trim() !== "")
+    .map((r) => r.name);
+  const toFetch = Array.from(new Set([...misses, ...stale, ...localized])).slice(0, MAX_REFRESH_PER_REQUEST);
 
   // 2) fetch needed from Scryfall and upsert (Phase 2B: PK = canonical oracle name, not request key)
   if (toFetch.length) {

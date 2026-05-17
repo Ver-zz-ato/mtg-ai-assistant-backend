@@ -198,10 +198,10 @@ export default function DeckOverview({
               <button
                 type="button"
                 onClick={() => setEditingCommander(true)}
-                className="text-[40px] leading-none font-bold text-red-500 hover:text-red-400 transition-colors flex items-center gap-2 shrink-0"
+                className="text-[20px] leading-none font-bold text-red-500 hover:text-red-400 transition-colors flex items-center gap-1 shrink-0"
                 title="Edit commander"
               >
-                <svg className="w-10 h-10 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
                 Edit
@@ -242,11 +242,13 @@ export default function DeckOverview({
                       maxWidth: '90vw',
                       maxHeight: '90vh'
                     }}>
-                      <img 
-                        src={commanderImage.normal} 
-                        alt={commander}
-                        className="w-48 h-64 rounded border-2 border-blue-500 shadow-2xl"
-                      />
+                      <div className="rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl w-72 md:w-80 transition-opacity duration-150 ease-out opacity-100" style={{ minWidth: '18rem' }}>
+                        <img 
+                          src={commanderImage.normal} 
+                          alt={commander}
+                          className="block w-full h-auto max-h-[70vh] max-w-none object-contain rounded"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

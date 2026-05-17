@@ -1110,7 +1110,11 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         for (const card of Array.isArray(imgResponse.data) ? imgResponse.data : []) {
           const key = norm(card?.name || '');
           if (!key) continue;
-          imgsByKey[key] = { small: card?.small, normal: card?.normal || card?.art_crop || card?.small };
+          const uris = card?.image_uris || {};
+          imgsByKey[key] = {
+            small: uris.small,
+            normal: uris.normal || uris.art_crop || uris.small,
+          };
         }
         
         // Fetch prices and deltas - use GET /api/price for each card to get deltas
