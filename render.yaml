@@ -7,4 +7,6 @@
     envVars:
       - key: CRON_KEY
         sync: false
+      - key: LEGACY_DEBUG_TOKEN
+        sync: false
     pythonVersion: 3.10.13

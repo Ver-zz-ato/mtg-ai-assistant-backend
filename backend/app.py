@@ -1,4 +1,5 @@
 # backend/app.py
+import hmac
 import os
 import re
 from collections import Counter, defaultdict
@@ -63,6 +64,7 @@ except (TypeError, ValueError):
     TEMP = 0.3
 
 MAXTOK = int(os.getenv("MAXTOK", "800"))
+DEBUG_ROUTE_TOKEN = (os.getenv("LEGACY_DEBUG_TOKEN") or "").strip()
 
 SCRYFALL = "https://api.scryfall.com"
 SPELLBOOK = "https://commanderspellbook.com/api"
@@ -162,6 +164,15 @@ def healthz():
 
 @app.route("/debug")
 def debug():
+    # Legacy backend debug output is operationally useful but should never be public in production.
+    # We only allow it when either:
+    # - the app is explicitly running in debug mode, or
+    # - a dedicated debug token is configured and supplied by the caller.
+    app_debug = bool(getattr(app, "debug", False))
+    if not app_debug:
+        provided = (request.headers.get("X-Debug-Token") or request.args.get("token") or "").strip()
+        if not DEBUG_ROUTE_TOKEN or not provided or not hmac.compare_digest(provided, DEBUG_ROUTE_TOKEN):
+            return jsonify({"ok": False, "error": "Not found"}), 404
     return jsonify({
         "use_openai": USE_OPENAI,
         "has_openai_key": bool(OPENAI_KEY),

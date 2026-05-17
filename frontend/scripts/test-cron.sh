@@ -5,7 +5,7 @@
 
 # Configuration
 BASE_URL="${BASE_URL:-https://www.manatap.ai}"
-CRON_SECRET="${CRON_SECRET:-Boobies}"
+CRON_SECRET="${CRON_SECRET:-}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -13,6 +13,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+if [ -z "$CRON_SECRET" ]; then
+    echo -e "${RED}CRON_SECRET is required. Export the real secret before running this script.${NC}"
+    exit 1
+fi
 
 # Function to test endpoint connectivity
 test_connection() {
