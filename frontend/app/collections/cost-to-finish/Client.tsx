@@ -928,7 +928,7 @@ export default function CostToFinishClient() {
       </header>
 
       {/* Layout: If no results, show Setup + Example side-by-side. If results, show 3-column layout */}
-      <div className={`w-full ${rowsToShow.length === 0 && !busy ? 'grid md:grid-cols-[minmax(320px,400px)_1fr] gap-6 items-start' : 'space-y-6 2xl:space-y-0 2xl:grid 2xl:grid-cols-[minmax(300px,360px)_1fr_minmax(560px,700px)] 2xl:gap-6 items-start'}`}>
+      <div className={`w-full ${rowsToShow.length === 0 && !busy ? 'grid md:grid-cols-[minmax(320px,400px)_1fr] gap-6 items-start' : 'space-y-6 xl:space-y-0 xl:grid xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)] xl:gap-6 items-start'}`}>
         {/* LEFT COLUMN: Setup */}
         <div className="space-y-3 w-full shrink-0 relative z-10">
           {deckPreview && (
@@ -1149,7 +1149,7 @@ export default function CostToFinishClient() {
                     </div>
                     
                   {/* Stats grid */}
-                  <div className="grid grid-cols-3 gap-3 text-sm mb-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm mb-3">
                     <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-3 text-center">
                       <div className="opacity-70 text-sm mb-1">💾 Cards Owned</div>
                       <div className="text-2xl font-bold text-emerald-400">{owned}</div>
@@ -2002,7 +2002,7 @@ export default function CostToFinishClient() {
 
         {/* RIGHT COLUMN: Top Missing Cards - only show when there are results */}
         {rowsToShow.length > 0 && (
-        <div className="w-full 2xl:min-w-0 2xl:max-w-full shrink-0 space-y-3 relative z-10">
+        <div className="w-full xl:col-span-2 min-w-0 shrink-0 space-y-3 relative z-10">
           {/* Top Missing Cards */}
           {rowsToShow.length > 0 && (() => {
             const topCards = rowsToShow.slice().sort((a, b) => (b.unit || 0) - (a.unit || 0)).slice(0, 5);
