@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 
 const RETENTION_MS = 48 * 60 * 60 * 1000; // 48 hours
 
 export async function GET(req: NextRequest) {
-  // Verify cron authorization
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
   const isDev = process.env.NODE_ENV === "development";
   
-  if (!isDev && cronKey && hdr !== cronKey) {
+  if (!isDev && !verifyCronRequest(req, { routePath: "/api/shout/cleanup" })) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   

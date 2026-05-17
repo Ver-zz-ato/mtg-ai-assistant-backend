@@ -137,7 +137,7 @@ Summary of all discovery-related work for LLM context. Use this when extending, 
 
 - **Lib:** `lib/commander-aggregates.ts` — `getCommanderAggregates(slug)`
 - **Cron:** `POST/GET /api/cron/commander-aggregates` (daily 5:00 UTC via Vercel)
-- **Refresh:** Run cron manually with `x-cron-key` header or `?key=CRON_KEY`
+- **Refresh:** Run cron manually with `Authorization: Bearer <CRON_SECRET>`. Temporary `?key=<CRON_SECRET>` compatibility may still exist on some routes during migration.
 
 ### Commander Hub UI
 

@@ -6,7 +6,7 @@
  *   npx tsx scripts/run-crons.ts [cron-name]
  *   npx tsx scripts/run-crons.ts all
  *
- * Env: CRON_KEY or CRON_SECRET or RENDER_CRON_SECRET, NEXT_PUBLIC_APP_URL (or pass baseUrl as 2nd arg)
+ * Env: CRON_SECRET, NEXT_PUBLIC_APP_URL (or pass baseUrl as 2nd arg)
  *
  * Cron names: deck-costs, commander-aggregates, meta-signals, top-cards,
  *   cleanup-price-cache, cleanup-guest-sessions, cleanup-rate-limits,
@@ -25,11 +25,7 @@ for (const p of [path.join(process.cwd(), ".env.local"), ".env.local"]) {
   }
 }
 
-const CRON_KEY =
-  process.env.CRON_KEY ||
-  process.env.CRON_SECRET ||
-  process.env.RENDER_CRON_SECRET ||
-  "";
+const CRON_SECRET = process.env.CRON_SECRET || "";
 const BASE =
   process.argv[3] || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -47,19 +43,24 @@ const CRONS: Record<string, string> = {
   "update-banned-lists": "/api/cron/update-banned-lists",
 };
 
-async function runCron(name: string, path: string): Promise<boolean> {
-  const url = `${BASE}${path}?key=${encodeURIComponent(CRON_KEY)}`;
+async function runCron(name: string, cronPath: string): Promise<boolean> {
+  // TODO: remove legacy ?key= support after all external/manual callers are migrated.
+  const url = `${BASE}${cronPath}${CRON_SECRET ? `?key=${encodeURIComponent(CRON_SECRET)}` : ""}`;
   try {
     const res = await fetch(url, {
       method: "GET",
-      headers: CRON_KEY ? { "x-cron-key": CRON_KEY } : {},
+      headers: CRON_SECRET
+        ? {
+            Authorization: `Bearer ${CRON_SECRET}`,
+          }
+        : {},
     });
     const body = await res.json().catch(() => ({}));
     const ok = res.ok && (body?.ok !== false);
-    console.log(ok ? "✓" : "✗", name, res.status, body?.updated ?? body?.error ?? "");
+    console.log(ok ? "ok" : "x", name, res.status, body?.updated ?? body?.error ?? "");
     return ok;
   } catch (e: any) {
-    console.log("✗", name, "Error:", e?.message ?? e);
+    console.log("x", name, "Error:", e?.message ?? e);
     return false;
   }
 }
@@ -67,8 +68,8 @@ async function runCron(name: string, path: string): Promise<boolean> {
 async function main() {
   const target = process.argv[2] || "all";
 
-  if (!CRON_KEY) {
-    console.log("⚠ CRON_KEY / CRON_SECRET / RENDER_CRON_SECRET not set. Crons may return 401.");
+  if (!CRON_SECRET) {
+    console.log("WARN CRON_SECRET not set. Crons may return 401.");
   }
 
   console.log("Base URL:", BASE);
@@ -83,21 +84,21 @@ async function main() {
       "top-cards",
     ];
     for (const name of order) {
-      const p = CRONS[name];
-      if (p) await runCron(name, p);
+      const cronPath = CRONS[name];
+      if (cronPath) await runCron(name, cronPath);
     }
     console.log("\nDone. Run 'ops-daily' or 'ops-weekly' separately if needed.");
     return;
   }
 
-  const p = CRONS[target];
-  if (!p) {
+  const cronPath = CRONS[target];
+  if (!cronPath) {
     console.log("Unknown cron:", target);
     console.log("Available:", Object.keys(CRONS).join(", "));
     process.exit(1);
   }
 
-  await runCron(target, p);
+  await runCron(target, cronPath);
 }
 
 main().catch((e) => {

@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { runCardTagRefresh } from "@/lib/data/card-tag-refresh";
+import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
 
 function isAuthorized(req: NextRequest): boolean {
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const headerKey = req.headers.get("x-cron-key") || "";
-  const queryKey = new URL(req.url).searchParams.get("key") || "";
-  const vercelId = req.headers.get("x-vercel-id");
-  return !!cronKey && (!!vercelId || headerKey === cronKey || queryKey === cronKey);
+  return verifyCronRequest(req, { routePath: "/api/cron/card-tag-refresh" });
 }
 
 async function runJob() {

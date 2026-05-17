@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 export const maxDuration = 180; // 3 minutes - longer for price updates
@@ -22,84 +23,87 @@ function norm(name: string): string {
 }
 
 function isAdmin(user: any): boolean {
-  const ids = String(process.env.ADMIN_USER_IDS || '').split(/[\s,]+/).filter(Boolean);
-  const emails = String(process.env.ADMIN_EMAILS || '').split(/[\s,]+/).filter(Boolean).map(s=>s.toLowerCase());
-  const uid = String(user?.id || '');
-  const email = String(user?.email || '').toLowerCase();
+  const ids = String(process.env.ADMIN_USER_IDS || "").split(/[\s,]+/).filter(Boolean);
+  const emails = String(process.env.ADMIN_EMAILS || "").split(/[\s,]+/).filter(Boolean).map((s) => s.toLowerCase());
+  const uid = String(user?.id || "");
+  const email = String(user?.email || "").toLowerCase();
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
 export async function POST(req: NextRequest) {
-  console.log("💰 Daily price update endpoint called");
-  
+  console.log("Daily price update endpoint called");
+
   let actor: string | null = null;
-  
+
   try {
-    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-    const hdr = req.headers.get("x-cron-key") || "";
-    console.log("🔑 Auth check - cronKey exists:", !!cronKey, "header exists:", !!hdr);
+    let useAdmin = verifyCronRequest(req, {
+      routePath: "/api/cron/daily-price-update",
+      logUnauthorizedOnFailure: false,
+    });
 
-    let useAdmin = false;
-
-    if (cronKey && hdr === cronKey) {
-      useAdmin = true;
-      actor = 'cron';
-      console.log("✅ Cron key auth successful");
+    if (useAdmin) {
+      actor = "cron";
+      console.log("cron auth successful");
     } else {
-      console.log("🔍 Trying user auth...");
+      console.log("Trying user auth...");
       try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user && isAdmin(user)) {
           useAdmin = true;
           actor = user.id as string;
-          console.log("✅ Admin user auth successful");
+          console.log("admin user auth successful");
         }
       } catch (authError: any) {
-        console.log("❌ User auth failed:", authError.message);
+        console.log("user auth failed:", authError.message);
       }
     }
 
     if (!useAdmin) {
-      console.log("❌ Authorization failed");
+      logUnauthorizedCronAttempt(req, { routePath: "/api/cron/daily-price-update" });
+      console.log("authorization failed");
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
-    console.log("🚀 Authorization successful, starting daily price update...");
+    console.log("Authorization successful, starting daily price update...");
   } catch (setupError: any) {
-    console.error("💥 Setup error:", setupError);
-    return NextResponse.json({ 
-      ok: false, 
-      error: "setup_failed",
-      details: setupError.message 
-    }, { status: 500 });
+    console.error("Setup error:", setupError);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "setup_failed",
+        details: setupError.message,
+      },
+      { status: 500 },
+    );
   }
 
   try {
-    console.log("💰 Starting daily price update...");
+    console.log("Starting daily price update...");
     const startTime = Date.now();
 
-    // Check if this is a test run
-    const testMode = req.headers.get('x-test-mode') === 'true';
+    const testMode = req.headers.get("x-test-mode") === "true";
     if (testMode) {
-      console.log("🧪 Test mode - validating connections only");
-      
+      console.log("Test mode - validating connections only");
+
       const admin = getAdmin();
       if (!admin) {
         throw new Error("Admin client not available");
       }
-      
-      const { data, error } = await admin.from('scryfall_cache').select('name').limit(1);
+
+      const { data, error } = await admin.from("scryfall_cache").select("name").limit(1);
       if (error) {
         throw new Error(`Database test failed: ${error.message}`);
       }
-      
-      return NextResponse.json({ 
-        ok: true, 
+
+      return NextResponse.json({
+        ok: true,
         test_mode: true,
         database_ok: true,
         sample_cache_entries: data?.length || 0,
-        message: "Test successful - ready for price updates"
+        message: "Test successful - ready for price updates",
       });
     }
 
@@ -108,20 +112,17 @@ export async function POST(req: NextRequest) {
       throw new Error("Admin client not available");
     }
 
-    // Get batch parameters
-    const batchSize = parseInt(req.headers.get('x-batch-size') || '100'); // Small batches for API limits
-    const pageNum = parseInt(req.headers.get('x-page') || '1');
-    const maxCards = parseInt(req.headers.get('x-max-cards') || '1000'); // Daily limit to avoid hitting API limits - increased from 500
-    
-    console.log(`💰 Processing daily price update: page ${pageNum}, batch size ${batchSize}, max ${maxCards} cards`);
+    const batchSize = parseInt(req.headers.get("x-batch-size") || "100");
+    const pageNum = parseInt(req.headers.get("x-page") || "1");
+    const maxCards = parseInt(req.headers.get("x-max-cards") || "1000");
 
-    // Get a sample of cards from our cache that need price updates
-    // Focus on recently added or popular cards, or random sample
+    console.log(`Processing daily price update: page ${pageNum}, batch size ${batchSize}, max ${maxCards} cards`);
+
     const offset = (pageNum - 1) * maxCards;
     const { data: cachedCards, error: cacheError } = await admin
-      .from('scryfall_cache')
-      .select('name')
-      .order('updated_at', { ascending: false }) // Recently updated cards first
+      .from("scryfall_cache")
+      .select("name")
+      .order("updated_at", { ascending: false })
       .range(offset, offset + maxCards - 1);
 
     if (cacheError) {
@@ -129,50 +130,48 @@ export async function POST(req: NextRequest) {
     }
 
     if (!cachedCards || cachedCards.length === 0) {
-      console.log("📄 No more cards to update");
+      console.log("No more cards to update");
       return NextResponse.json({
         ok: true,
         updated: 0,
         processed: 0,
         page: pageNum,
         has_more: false,
-        message: "No more cards to update"
+        message: "No more cards to update",
       });
     }
 
-    console.log(`💰 Found ${cachedCards.length} cached cards to update prices for`);
+    console.log(`Found ${cachedCards.length} cached cards to update prices for`);
 
-    // Process cards in small batches to respect API limits
     let updated = 0;
     let processed = 0;
     let apiCalls = 0;
-    const maxApiCalls = 200; // Moderate API limit per run - increased from 50
+    const maxApiCalls = 200;
 
     for (let i = 0; i < cachedCards.length && apiCalls < maxApiCalls; i += batchSize) {
       const batch = cachedCards.slice(i, i + batchSize);
-      
+
       for (const cachedCard of batch) {
         if (apiCalls >= maxApiCalls) {
-          console.log(`🛑 Reached API limit (${maxApiCalls} calls), stopping for this run`);
+          console.log(`Reached API limit (${maxApiCalls} calls), stopping for this run`);
           break;
         }
 
         try {
-          // Fetch individual card data from Scryfall
           const searchUrl = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cachedCard.name)}`;
-          console.log(`🔍 Fetching price for: ${cachedCard.name}`);
-          
+          console.log(`Fetching price for: ${cachedCard.name}`);
+
           const cardResponse = await fetch(searchUrl, {
             headers: {
-              'User-Agent': 'MTG-AI-Assistant/1.0'
-            }
+              "User-Agent": "MTG-AI-Assistant/1.0",
+            },
           });
-          
+
           apiCalls++;
-          
+
           if (!cardResponse.ok) {
             if (cardResponse.status === 404) {
-              console.log(`⚠️ Card not found: ${cachedCard.name}`);
+              console.log(`Card not found: ${cachedCard.name}`);
               processed++;
               continue;
             }
@@ -180,86 +179,82 @@ export async function POST(req: NextRequest) {
           }
 
           const cardData: ScryfallCard = await cardResponse.json();
-          
+
           if (cardData.prices) {
-            // Update price cache
             const priceData = {
               card_name: norm(cachedCard.name),
               usd_price: cardData.prices.usd ? parseFloat(cardData.prices.usd) : null,
               usd_foil_price: cardData.prices.usd_foil ? parseFloat(cardData.prices.usd_foil) : null,
               eur_price: cardData.prices.eur ? parseFloat(cardData.prices.eur) : null,
               tix_price: cardData.prices.tix ? parseFloat(cardData.prices.tix) : null,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             };
 
             const { error: priceError } = await admin
-              .from('price_cache')
-              .upsert([priceData], { 
-                onConflict: 'card_name',
-                ignoreDuplicates: false 
+              .from("price_cache")
+              .upsert([priceData], {
+                onConflict: "card_name",
+                ignoreDuplicates: false,
               });
 
             if (priceError) {
-              console.error(`❌ Price update failed for ${cachedCard.name}:`, priceError.message);
+              console.error(`Price update failed for ${cachedCard.name}:`, priceError.message);
             } else {
               updated++;
-              console.log(`✅ Updated price for: ${cachedCard.name}`);
+              console.log(`Updated price for: ${cachedCard.name}`);
             }
           }
 
           processed++;
-          
-          // Small delay to be respectful to Scryfall API
-          await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
-
+          await new Promise((resolve) => setTimeout(resolve, 100));
         } catch (cardError: any) {
-          console.error(`❌ Error processing ${cachedCard.name}:`, cardError.message);
+          console.error(`Error processing ${cachedCard.name}:`, cardError.message);
           processed++;
           continue;
         }
       }
-      
-      // Longer delay between batches
+
       if (i + batchSize < cachedCards.length && apiCalls < maxApiCalls) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay between batches
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
 
-    // Record progress
     try {
-      await admin.from('admin_audit').insert({ 
-        actor_id: actor || 'cron', 
-        action: 'daily_price_update', 
+      await admin.from("admin_audit").insert({
+        actor_id: actor || "cron",
+        action: "daily_price_update",
         target: updated,
-        details: `page_${pageNum}_${processed}_processed_${apiCalls}_api_calls` 
+        details: `page_${pageNum}_${processed}_processed_${apiCalls}_api_calls`,
       });
     } catch (auditError) {
-      console.warn("⚠️ Audit logging failed:", auditError);
+      console.warn("Audit logging failed:", auditError);
     }
 
     const duration = Date.now() - startTime;
     const hasMore = cachedCards.length === maxCards && apiCalls < maxApiCalls;
-    
-    console.log(`✅ Daily price update completed in ${duration}ms: ${updated} prices updated, ${apiCalls} API calls made`);
 
-    return NextResponse.json({ 
-      ok: true, 
-      updated: updated, 
-      processed: processed,
+    console.log(`Daily price update completed in ${duration}ms: ${updated} prices updated, ${apiCalls} API calls made`);
+
+    return NextResponse.json({
+      ok: true,
+      updated,
+      processed,
       api_calls_made: apiCalls,
       page: pageNum,
       batch_size: batchSize,
       cards_in_batch: cachedCards.length,
       has_more: hasMore,
       duration_ms: duration,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error: any) {
-    console.error("❌ Daily price update failed:", error);
-    return NextResponse.json({ 
-      ok: false, 
-      error: error?.message || "daily_price_update_failed" 
-    }, { status: 500 });
+    console.error("Daily price update failed:", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error?.message || "daily_price_update_failed",
+      },
+      { status: 500 },
+    );
   }
 }

@@ -5,7 +5,7 @@
 
 # Configuration
 BASE_URL="${BASE_URL:-https://www.manatap.ai}"
-CRON_KEY="${CRON_KEY:-Boobies}"
+CRON_SECRET="${CRON_SECRET:-Boobies}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -19,7 +19,7 @@ test_connection() {
     echo -e "${BLUE}🧪 Testing endpoint connectivity...${NC}"
     
     response=$(curl -w "%{http_code}" -s -o test_response.json -X POST \
-        -H "x-cron-key: $CRON_KEY" \
+        -H "Authorization: Bearer $CRON_SECRET" \
         -H "x-test-mode: true" \
         -H "Content-Type: application/json" \
         "$BASE_URL/api/cron/daily-price-update")
@@ -43,7 +43,7 @@ run_price_update() {
     echo -e "${BLUE}💰 Running daily price update...${NC}"
     
     response=$(curl -w "%{http_code}" -s -o price_response.json -X POST \
-        -H "x-cron-key: $CRON_KEY" \
+        -H "Authorization: Bearer $CRON_SECRET" \
         -H "x-max-cards: 100" \
         -H "Content-Type: application/json" \
         "$BASE_URL/api/cron/daily-price-update")
@@ -72,7 +72,7 @@ run_cache_cleanup() {
     echo -e "${BLUE}🧹 Running cache cleanup...${NC}"
     
     response=$(curl -w "%{http_code}" -s -o cleanup_response.json -X POST \
-        -H "x-cron-key: $CRON_KEY" \
+        -H "Authorization: Bearer $CRON_SECRET" \
         -H "Content-Type: application/json" \
         "$BASE_URL/api/cron/cleanup-price-cache")
     

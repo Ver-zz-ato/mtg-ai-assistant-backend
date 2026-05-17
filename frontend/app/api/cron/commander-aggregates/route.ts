@@ -3,6 +3,7 @@ import { getAdmin } from "@/app/api/_lib/supa";
 import { getFirst50CommanderSlugs, getCommanderBySlug } from "@/lib/commanders";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 const JOB_ID = "commander-aggregates";
 
@@ -93,12 +94,7 @@ async function computeAggregatesForCommander(
 }
 
 function isAuthorized(req: NextRequest): boolean {
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
-  const vercelId = req.headers.get("x-vercel-id");
-  const url = new URL(req.url);
-  const queryKey = url.searchParams.get("key") || "";
-  return !!cronKey && (!!vercelId || hdr === cronKey || queryKey === cronKey);
+  return verifyCronRequest(req, { routePath: "/api/cron/commander-aggregates" });
 }
 
 export async function GET(req: NextRequest) {

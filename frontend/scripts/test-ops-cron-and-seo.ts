@@ -20,28 +20,26 @@ for (const p of [path.join(process.cwd(), ".env.local"), ".env.local"]) {
 }
 
 const BASE = process.argv[2] || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const CRON_SECRET = process.env.CRON_SECRET || process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
+const CRON_SECRET = process.env.CRON_SECRET || "";
 
 async function testCronAuth() {
   console.log("\n--- Cron auth ---");
   console.log("Base URL:", BASE);
 
-  // 1. Without secret → expect 401
   const noSecret = await fetch(`${BASE}/api/cron/ops-report/weekly`, { method: "GET" });
   const noSecretOk = noSecret.status === 401;
-  console.log(noSecretOk ? "✓" : "✗", "No secret →", noSecret.status, noSecretOk ? "(expected 401)" : "");
+  console.log(noSecretOk ? "ok" : "x", "No secret ->", noSecret.status, noSecretOk ? "(expected 401)" : "");
 
-  // 2. With secret → expect 200
   if (!CRON_SECRET) {
-    console.log("⊘ CRON_SECRET not set — skipping auth-with-secret test");
+    console.log("skip CRON_SECRET not set -> skipping auth-with-secret test");
   } else {
     const withSecret = await fetch(`${BASE}/api/cron/ops-report/weekly`, {
       method: "GET",
-      headers: { "x-cron-key": CRON_SECRET },
+      headers: { Authorization: `Bearer ${CRON_SECRET}` },
     });
     const body = await withSecret.json().catch(() => ({}));
     const withSecretOk = withSecret.status === 200 && body?.ok !== false;
-    console.log(withSecretOk ? "✓" : "✗", "With secret →", withSecret.status, withSecretOk ? "(expected 200)" : "", body?.report_id ? `report_id=${body.report_id}` : "");
+    console.log(withSecretOk ? "ok" : "x", "With secret ->", withSecret.status, withSecretOk ? "(expected 200)" : "", body?.report_id ? `report_id=${body.report_id}` : "");
   }
 }
 
@@ -51,7 +49,7 @@ async function checkSeoQueries() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
-    console.log("⊘ SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — skipping seo_queries check");
+    console.log("skip SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set -> skipping seo_queries check");
     return;
   }
 
@@ -64,7 +62,7 @@ async function checkSeoQueries() {
     .limit(5);
 
   if (error) {
-    console.log("✗ Error:", error.message);
+    console.log("x Error:", error.message);
     return;
   }
 
@@ -77,7 +75,7 @@ async function checkSeoQueries() {
 
   const withDateEnd = await admin.from("seo_queries").select("id").not("date_end", "is", null).limit(1);
   const hasDateEnd = (withDateEnd.data?.length ?? 0) > 0;
-  console.log(hasDateEnd ? "✓" : "⊘", "date_end populated:", hasDateEnd ? "yes" : "no (legacy or empty)");
+  console.log(hasDateEnd ? "ok" : "skip", "date_end populated:", hasDateEnd ? "yes" : "no (legacy or empty)");
 }
 
 async function main() {

@@ -331,9 +331,12 @@ export default function AdminAIUsagePage() {
               </summary>
               <div className="absolute right-0 top-full mt-1 w-56 rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-lg z-10">
                 <button type="button" onClick={async () => {
-                  const key = prompt("CRON_KEY:");
+                  const key = prompt("CRON_SECRET:");
                   if (!key) return;
-                  const r = await fetch("/api/cron/prewarm-scryfall", { method: "POST", headers: { "x-cron-key": key } });
+                  const r = await fetch("/api/cron/prewarm-scryfall", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${key}` },
+                  });
                   const j = await r.json().catch(() => ({}));
                   alert(r.ok && j?.ok ? `Prewarmed ${j.warmed} names` : j?.error || "Failed");
                 }} className="block w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-800">Prewarm Scryfall</button>

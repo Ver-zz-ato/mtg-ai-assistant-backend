@@ -2,22 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { submitToIndexNow } from "@/lib/seo/indexnow";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
-  const token =
-    req.headers.get("x-admin-token") ||
-    req.headers.get("x-cron-secret") ||
-    req.headers.get("x-cron-key") ||
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  const expected =
-    process.env.ADMIN_TOKEN ||
-    process.env.CRON_SECRET ||
-    process.env.CRON_KEY ||
-    process.env.RENDER_CRON_SECRET ||
-    "";
-  if (expected && token && token === expected) return true;
+  if (verifyCronRequest(req, { routePath: "/api/admin/indexnow/submit", logUnauthorizedOnFailure: false })) {
+    return true;
+  }
+
+  const adminToken = String(req.headers.get("x-admin-token") || "").trim();
+  const expectedAdminToken = String(process.env.ADMIN_TOKEN || "").trim();
+  if (expectedAdminToken && adminToken === expectedAdminToken) {
+    return true;
+  }
 
   const supabase = await getServerSupabase();
   const {
@@ -29,7 +27,8 @@ async function isAuthorized(req: NextRequest): Promise<boolean> {
 export async function POST(req: NextRequest) {
   try {
     if (!(await isAuthorized(req))) {
-      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+      logUnauthorizedCronAttempt(req, { routePath: "/api/admin/indexnow/submit" });
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
     const body = await req.json().catch(() => ({}));

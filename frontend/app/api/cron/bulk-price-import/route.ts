@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 const JOB_ID = "bulk_price_import";
 
@@ -48,7 +49,7 @@ export async function OPTIONS() {
     headers: {
       'Allow': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, x-cron-key',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-cron-key',
     },
   });
 }
@@ -59,7 +60,7 @@ export async function GET() {
     message: "Bulk Price Import API - Use POST method to run the import",
     info: {
       method: "POST",
-      auth: "Requires admin authentication or cron key header (x-cron-key)",
+      auth: "Requires admin authentication or Authorization: Bearer <CRON_SECRET>",
       duration: "~3-5 minutes",
       coverage: "Updates prices for all cached cards from Scryfall bulk data"
     }
@@ -72,15 +73,19 @@ export async function POST(req: NextRequest) {
   let actor: string | null = null;
   
   try {
-    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-    const hdr = req.headers.get("x-cron-key") || "";
+    const hasAuthorizationHeader = !!req.headers.get("authorization");
+    const hasLegacyQueryKey = req.nextUrl.searchParams.has("key");
+    const cronKey = true;
+    const hdr = hasAuthorizationHeader ? "present" : "";
     console.log("🔑 Auth check - cronKey exists:", !!cronKey, "header exists:", !!hdr);
 
-    let useAdmin = false;
+    let useAdmin = verifyCronRequest(req, {
+      routePath: "/api/cron/bulk-price-import",
+      logUnauthorizedOnFailure: false,
+    });
 
-    if (cronKey && hdr === cronKey) {
-      useAdmin = true;
-      actor = 'cron';
+    if (useAdmin) {
+      actor = "cron";
       console.log("✅ Cron key auth successful");
     } else {
       console.log("🔍 Trying user auth...");
@@ -99,6 +104,7 @@ export async function POST(req: NextRequest) {
 
     if (!useAdmin) {
       console.log("❌ Authorization failed");
+      logUnauthorizedCronAttempt(req, { routePath: "/api/cron/bulk-price-import" });
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 

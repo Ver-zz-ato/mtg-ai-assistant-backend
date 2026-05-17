@@ -5,6 +5,7 @@ import { runPriceSnapshotFromScryfallBulk } from "@/lib/server/priceSnapshotFrom
 import { getAdmin } from "@/app/api/_lib/supa";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 const JOB_ID = "price_snapshot_bulk";
 
@@ -25,25 +26,31 @@ function isAdmin(user: any): boolean {
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   const startTime = Date.now();
   const attemptStartedAt = new Date().toISOString();
+
   try {
-    console.log("🚀 Starting bulk price snapshot job...");
+    console.log("[bulk-jobs/price-snapshot] starting job");
     let supabase: any = await createClient();
-    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-    const hdr = _req.headers.get("x-cron-key") || "";
     const { data: ures } = await supabase.auth.getUser();
     const user = ures?.user;
 
-    if (!user && cronKey && hdr === cronKey && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    const cronAuthorized = verifyCronRequest(req, {
+      routePath: "/api/bulk-jobs/price-snapshot",
+      logUnauthorizedOnFailure: false,
+    });
+
+    if (!user && cronAuthorized && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
       supabase = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
         auth: { persistSession: false },
       });
     } else if (!user) {
-      return NextResponse.json({ ok: false, error: "unauthorized - no user" }, { status: 401 });
-    } else if (user && !isAdmin(user)) {
-      return NextResponse.json({ ok: false, error: "forbidden - admin required" }, { status: 403 });
+      logUnauthorizedCronAttempt(req, { routePath: "/api/bulk-jobs/price-snapshot" });
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    } else if (!isAdmin(user)) {
+      logUnauthorizedCronAttempt(req, { routePath: "/api/bulk-jobs/price-snapshot" });
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
     const admin = getAdmin();
@@ -51,15 +58,14 @@ export async function POST(_req: NextRequest) {
 
     const result = await runPriceSnapshotFromScryfallBulk(supabase);
 
-    console.log("📝 Recording job completion timestamp...");
     try {
       const admin2 = getAdmin();
       if (admin2) {
-        const actor = user?.id || (hdr && cronKey && hdr === cronKey ? "cron" : null);
+        const actor = user?.id || (cronAuthorized ? "cron" : null);
         await admin2.from("admin_audit").insert({ actor_id: actor, action: "price_snapshot_bulk", target: result.snapshot_date });
       }
     } catch (e) {
-      console.warn("⚠️ Could not record audit log:", e);
+      console.warn("[bulk-jobs/price-snapshot] could not record audit log", e);
     }
 
     const duration = Math.round((Date.now() - startTime) / 1000);
@@ -73,7 +79,7 @@ export async function POST(_req: NextRequest) {
       runResult: "success",
       compactLine: `Snapshot ${result.snapshot_date}: ${result.inserted.toLocaleString()} rows (USD/EUR/GBP) · ${result.unique_cards.toLocaleString()} unique names · ${duration}s`,
       destination: "price_snapshots",
-      source: "Scryfall default_cards bulk → median USD/EUR + GBP via FX",
+      source: "Scryfall default_cards bulk -> median USD/EUR + GBP via FX",
       durationMs,
       counts: {
         snapshot_rows: result.inserted,
@@ -88,11 +94,6 @@ export async function POST(_req: NextRequest) {
     const adminPersist = getAdmin();
     if (adminPersist) await persistAdminJobRun(adminPersist, JOB_ID, detail);
 
-    console.log(`🎉 Price snapshot job completed successfully in ${duration} seconds!`);
-    console.log(`   • Unique cards: ${result.unique_cards}`);
-    console.log(`   • Total snapshots: ${result.inserted} (USD+EUR+GBP)`);
-    console.log(`   • Snapshot date: ${result.snapshot_date}`);
-
     return NextResponse.json({
       ok: true,
       inserted: result.inserted,
@@ -102,8 +103,7 @@ export async function POST(_req: NextRequest) {
       duration_seconds: duration,
     });
   } catch (e: any) {
-    const duration = Math.round((Date.now() - startTime) / 1000);
-    console.error(`❌ Price snapshot job failed after ${duration} seconds:`, e);
+    console.error("[bulk-jobs/price-snapshot] failed", e);
     try {
       const admin = getAdmin();
       if (admin) {
@@ -118,9 +118,7 @@ export async function POST(_req: NextRequest) {
           lastError: String(e?.message || "server_error"),
         });
       }
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });
   }
 }

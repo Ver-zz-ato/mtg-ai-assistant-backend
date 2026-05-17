@@ -135,7 +135,7 @@ try {
         }
         
         if ($CronKey) {
-            $Headers["x-cron-key"] = $CronKey
+            $Headers["Authorization"] = "Bearer $CronKey"
             Write-Host "Using CRON_KEY authentication" -ForegroundColor Gray
         } else {
             Write-Host "WARNING: No CRON_KEY - will attempt admin session auth" -ForegroundColor Yellow
@@ -251,4 +251,3 @@ try {
     Write-Host ""
     Read-Host "Press Enter to exit"
 }
-

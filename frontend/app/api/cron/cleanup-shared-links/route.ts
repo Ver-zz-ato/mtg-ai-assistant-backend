@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,11 +17,7 @@ const TARGETS: CleanupTarget[] = [
 ];
 
 function isAuthorized(req: NextRequest): boolean {
-  const cronKey = process.env.CRON_KEY || process.env.CRON_SECRET || process.env.RENDER_CRON_SECRET || "";
-  const headerKey = req.headers.get("x-cron-key") || "";
-  const queryKey = req.nextUrl.searchParams.get("key") || "";
-  const isFromVercel = !!req.headers.get("x-vercel-id");
-  return isFromVercel || (!!cronKey && (headerKey === cronKey || queryKey === cronKey));
+  return verifyCronRequest(req, { routePath: "/api/cron/cleanup-shared-links" });
 }
 
 async function cleanupTarget(admin: ReturnType<typeof getAdmin>, target: CleanupTarget, nowIso: string) {

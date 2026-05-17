@@ -19,11 +19,12 @@
 | mtg-legality-refresh | `/api/cron/mtg-legality-refresh` | 02:00 Sundays |
 | update-banned-lists | `/api/cron/update-banned-lists` | legacy / manual (optional) |
 
-### Securing `mtg-legality-refresh`
+### Securing Cron Routes
 
-- **Do not** rely on `x-vercel-id` for this route (it is not a secret).
-- **Vercel schedule:** add **`CRON_SECRET`** in the Vercel project env. Vercel sends `Authorization: Bearer <CRON_SECRET>` on cron invocations ([docs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs)). Use the same value as `CRON_KEY` if you want one shared secret.
-- **Manual / scripts / admin cron runner:** `x-cron-key` or `?key=` must match `CRON_KEY`, `CRON_SECRET`, or `RENDER_CRON_SECRET`.
+- **Do not** rely on `x-vercel-id`. It is not a secret and can be spoofed by any caller that can send custom headers.
+- **Vercel schedule:** set **`CRON_SECRET`** in the Vercel project env. Vercel sends `Authorization: Bearer <CRON_SECRET>` on cron invocations ([docs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs)).
+- **Manual / scripts / admin cron runner:** use the same `Authorization: Bearer <CRON_SECRET>` header.
+- **Temporary compatibility only:** some routes still accept `?key=<CRON_SECRET>` to avoid breaking existing manual callers during migration. Remove this once all callers are updated.
 
 ## Manual run
 
@@ -35,7 +36,7 @@ npx tsx scripts/run-crons.ts commander-aggregates
 npx tsx scripts/run-crons.ts meta-signals
 ```
 
-Requires `CRON_KEY` or `CRON_SECRET` or `RENDER_CRON_SECRET` in `.env.local`.
+Requires `CRON_SECRET` in `.env.local`.
 
 For production, use your deployed URL:
 ```bash

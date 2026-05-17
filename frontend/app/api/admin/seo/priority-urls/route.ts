@@ -1,16 +1,16 @@
 /**
  * Returns priority URLs for manual GSC "Request indexing" after major deploys.
- * Protected: admin auth OR X-Admin-Token / X-Cron-Secret header.
+ * Protected: admin auth or the shared cron verifier.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { getFirst50CommanderSlugs } from "@/lib/commanders";
 import { getPublishedSeoPagesForSitemap } from "@/lib/seo-pages";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 const BASE = "https://www.manatap.ai";
 
-/** Blog slugs, latest first (curated; used when no DB) */
 const BLOG_SLUGS_LATEST = [
   "how-manatap-ai-works",
   "devlog-23-days-soft-launch",
@@ -27,46 +27,34 @@ const BLOG_SLUGS_LATEST = [
 ];
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
-  const token =
-    req.headers.get("x-admin-token") ||
-    req.headers.get("x-cron-secret") ||
-    req.headers.get("x-cron-key") ||
-    req.headers.get("authorization")?.replace("Bearer ", "");
-  const expected =
-    process.env.ADMIN_TOKEN ||
-    process.env.CRON_SECRET ||
-    process.env.CRON_KEY ||
-    process.env.RENDER_CRON_SECRET ||
-    "";
-  if (expected && token && token === expected) return true;
+  if (verifyCronRequest(req, { routePath: "/api/admin/seo/priority-urls", logUnauthorizedOnFailure: false })) {
+    return true;
+  }
+
+  const adminToken = String(req.headers.get("x-admin-token") || "").trim();
+  const expectedAdminToken = String(process.env.ADMIN_TOKEN || "").trim();
+  if (expectedAdminToken && adminToken === expectedAdminToken) {
+    return true;
+  }
+
   const supabase = await getServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   return !!(user && isAdmin(user));
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const authorized = await isAuthorized(req);
-    if (!authorized) {
-      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    if (!(await isAuthorized(req))) {
+      logUnauthorizedCronAttempt(req, { routePath: "/api/admin/seo/priority-urls" });
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
-    const limit = Math.min(
-      Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || "100", 10)),
-      200
-    );
+    const limit = Math.min(Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || "100", 10)), 200);
     const format = req.nextUrl.searchParams.get("format") || "json";
 
-    const staticPaths = [
-      "",
-      "commanders",
-      "cards",
-      "blog",
-      "meta",
-      "strategies",
-      "commander-archetypes",
-    ];
-
+    const staticPaths = ["", "commanders", "cards", "blog", "meta", "strategies", "commander-archetypes"];
     const commanderSlugs = getFirst50CommanderSlugs().slice(0, 50);
     const blogSlugs = BLOG_SLUGS_LATEST.slice(0, 20);
     const seoLimit = Math.max(0, limit - staticPaths.length - commanderSlugs.length - blogSlugs.length);

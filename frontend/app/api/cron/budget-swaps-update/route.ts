@@ -10,6 +10,7 @@ import { callLLM } from "@/lib/ai/unified-llm-client";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 const JOB_ID = "budget-swaps-update";
 
@@ -17,12 +18,7 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 function isAuthorized(req: NextRequest): boolean {
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
-  const vercelId = req.headers.get("x-vercel-id");
-  const url = new URL(req.url);
-  const queryKey = url.searchParams.get("key") || "";
-  return !!cronKey && (!!vercelId || hdr === cronKey || queryKey === cronKey);
+  return verifyCronRequest(req, { routePath: "/api/cron/budget-swaps-update" });
 }
 
 export async function GET(req: NextRequest) {

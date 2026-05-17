@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 const JOB_ID = "deck-costs";
 
@@ -19,12 +20,7 @@ function norm(name: string): string {
 }
 
 function isAuthorized(req: NextRequest): boolean {
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
-  const vercelId = req.headers.get("x-vercel-id");
-  const url = new URL(req.url);
-  const queryKey = url.searchParams.get("key") || "";
-  return !!cronKey && (!!vercelId || hdr === cronKey || queryKey === cronKey);
+  return verifyCronRequest(req, { routePath: "/api/cron/deck-costs" });
 }
 
 export async function GET(req: NextRequest) {

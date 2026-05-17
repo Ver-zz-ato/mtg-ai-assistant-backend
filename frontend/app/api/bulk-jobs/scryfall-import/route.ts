@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { retagCardsByNames } from "@/lib/recommendations/commander-recommender";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 interface ScryfallCard {
   name: string;
@@ -44,16 +45,14 @@ export async function POST(req: NextRequest) {
   let actor: string | null = null; // Declare actor at function scope
   
   try {
-    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-    const hdr = req.headers.get("x-cron-key") || "";
-    console.log("🔑 Auth check - cronKey exists:", !!cronKey, "header exists:", !!hdr);
+    let useAdmin = verifyCronRequest(req, {
+      routePath: "/api/bulk-jobs/scryfall-import",
+      logUnauthorizedOnFailure: false,
+    });
 
-    let useAdmin = false;
-
-    if (cronKey && hdr === cronKey) {
-      useAdmin = true;
-      actor = 'cron';
-      console.log("✅ Cron key auth successful");
+    if (useAdmin) {
+      actor = "cron";
+      console.log("cron auth successful");
     } else {
       console.log("🔍 Trying user auth...");
       try {
@@ -70,7 +69,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (!useAdmin) {
-      console.log("❌ Authorization failed");
+      logUnauthorizedCronAttempt(req, { routePath: "/api/bulk-jobs/scryfall-import" });
+      console.log("authorization failed");
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 

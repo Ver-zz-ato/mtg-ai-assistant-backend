@@ -3,6 +3,7 @@ import { broadcast, pushHistory, type Shout, getHistory } from "../hub";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -350,20 +351,21 @@ function isNearDuplicateMessage(text: string, recentNormalized: string[]): boole
 }
 
 async function handleGenerate(req: NextRequest) {
-  // Check authorization: Vercel cron (x-vercel-id), x-cron-key, or seed/force params
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
-  const vercelId = req.headers.get("x-vercel-id");
+  // Seed and force remain manual escape hatches. Automated cron auth must still come
+  // through the centralized verifier so we do not trust spoofable headers like x-vercel-id.
   const isDev = process.env.NODE_ENV === "development";
 
   const url = new URL(req.url);
   const forceGenerate = url.searchParams.get('force') === 'true';
   const seedWhenEmpty = url.searchParams.get('seed') === 'true';
 
-  const isFromVercelCron = !!vercelId;
-  const hasValidCronKey = cronKey && hdr === cronKey;
+  const cronAuthorized = verifyCronRequest(req, {
+    routePath: "/api/shout/auto-generate",
+    logUnauthorizedOnFailure: false,
+  });
 
-  if (!isDev && !forceGenerate && !seedWhenEmpty && !isFromVercelCron && !hasValidCronKey) {
+  if (!isDev && !forceGenerate && !seedWhenEmpty && !cronAuthorized) {
+    logUnauthorizedCronAttempt(req, { routePath: "/api/shout/auto-generate" });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   

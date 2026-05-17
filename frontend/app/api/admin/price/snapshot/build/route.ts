@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { logAdminAction, readJsonBody, requireTypedConfirmation } from "@/lib/admin/danger-actions";
+import { isAdmin } from "@/lib/admin-check";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 
@@ -34,17 +36,22 @@ export async function POST(req: NextRequest) {
   try {
     const body = await readJsonBody(req);
     let supabase: any = await createClient();
-    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || '';
-    const hdr = req.headers.get('x-cron-key') || '';
+    const cronAuthorized = verifyCronRequest(req, {
+      routePath: "/api/admin/price/snapshot/build",
+      logUnauthorizedOnFailure: false,
+    });
 
     const { data: ures } = await supabase.auth.getUser();
     const user = ures?.user;
 
-    // Allow CRON_KEY-header calls by escalating to service role (if provided)
-    if (!user && cronKey && hdr === cronKey && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    // Centralized cron auth keeps the bearer-token check consistent across routes.
+    if (!user && cronAuthorized && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
       supabase = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     } else if (!user) {
+      logUnauthorizedCronAttempt(req, { routePath: "/api/admin/price/snapshot/build" });
       return NextResponse.json({ ok:false, error:'unauthorized' }, { status:401 });
+    } else if (!isAdmin(user)) {
+      return NextResponse.json({ ok:false, error:'forbidden' }, { status:403 });
     }
     if (user) {
       const confirmation = requireTypedConfirmation(req, body, "RUN");
@@ -52,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     await logAdminAction({
-      actorId: user?.id || (hdr && cronKey && hdr === cronKey ? "cron" : null),
+      actorId: user?.id || (cronAuthorized ? "cron" : null),
       action: "price_snapshot_build_started",
       target: "manual",
     });
@@ -120,7 +127,7 @@ export async function POST(req: NextRequest) {
       const admin = getAdmin();
       if (admin) {
         await admin.from('app_config').upsert({ key: 'job:last:price_snapshot_build', value: new Date().toISOString() }, { onConflict: 'key' });
-        const actor = user?.id || (hdr && cronKey && hdr === cronKey ? 'cron' : null);
+        const actor = user?.id || (cronAuthorized ? 'cron' : null);
         await logAdminAction({ actorId: actor, action: 'price_snapshot_build', target: snapshot_date, payload: { inserted, names: names.length } });
       }
     } catch {}

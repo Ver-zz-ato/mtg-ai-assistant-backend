@@ -6,12 +6,13 @@ import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
 import { Readable, type Transform } from "node:stream";
 import { parser } from "stream-json";
 import { streamArray } from "stream-json/streamers/StreamArray";
-
-const JOB_ID = "bulk_scryfall";
 import {
   buildScryfallCacheRowFromApiCard,
   normalizeScryfallCacheName,
 } from "@/lib/server/scryfallCacheRow";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
+
+const JOB_ID = "bulk_scryfall";
 
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
@@ -23,7 +24,7 @@ export async function OPTIONS() {
     headers: {
       'Allow': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, x-cron-key',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-cron-key',
     },
   });
 }
@@ -32,7 +33,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     message: "Bulk Scryfall Import API",
-    method: "Use POST with x-cron-key header to trigger import",
+    method: "Use POST with Authorization: Bearer <CRON_SECRET> to trigger import",
     status: "Ready"
   });
 }
@@ -77,27 +78,22 @@ export async function POST(req: NextRequest) {
   let actor: string | null = null; // Declare actor at function scope
   
   try {
-    // Authentication for cron job (similar to other cron routes)
-    const cronKeyHeader = req.headers.get("x-cron-key") || "";
-    const vercelId = req.headers.get("x-vercel-id"); // Vercel automatically adds this
-    const url = new URL(req.url);
-    const cronKeyQuery = url.searchParams.get("key") || "";
-    
-    const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-    
-    // Allow if:
-    // 1. Request has x-vercel-id (from Vercel cron) - trusted if coming from Vercel
-    // 2. x-cron-key header matches CRON_KEY (for external/manual triggers)
-    // 3. key query parameter matches CRON_KEY (alternative for manual triggers)
-    const isFromVercel = !!vercelId;
-    const hasValidHeader = cronKey && cronKeyHeader === cronKey;
-    const hasValidQuery = cronKey && cronKeyQuery === cronKey;
-    
-    let useAdmin = false;
+    // Centralized verification avoids trusting spoofable headers like x-vercel-id.
+    // Temporary ?key=<CRON_SECRET> compatibility is handled in verifyCronRequest.
+    const vercelId = null;
+    const cronKeyHeader = null;
+    const cronKeyQuery = null;
+    const cronKey = null;
+    let useAdmin = verifyCronRequest(req, {
+      routePath: "/api/cron/bulk-scryfall",
+      logUnauthorizedOnFailure: false,
+    });
 
-    if (isFromVercel || hasValidHeader || hasValidQuery) {
-      useAdmin = true;
-      actor = 'cron';
+    if (useAdmin) {
+      actor = "cron";
+      const isFromVercel = false;
+      const hasValidHeader = false;
+      const hasValidQuery = false;
       console.log("✅ Cron auth successful", { isFromVercel, hasValidHeader, hasValidQuery });
     }
     if (!useAdmin) {
@@ -122,6 +118,7 @@ export async function POST(req: NextRequest) {
         hasQueryKey: !!cronKeyQuery,
         cronKeySet: !!cronKey
       });
+      logUnauthorizedCronAttempt(req, { routePath: "/api/cron/bulk-scryfall" });
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 

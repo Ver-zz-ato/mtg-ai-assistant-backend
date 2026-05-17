@@ -5,6 +5,12 @@ import { runPriceSnapshotFromScryfallBulk } from "@/lib/server/priceSnapshotFrom
 import { getAdmin } from "@/app/api/_lib/supa";
 import { markAdminJobAttempt, persistAdminJobRun } from "@/lib/admin/adminJobRunLog";
 import type { AdminJobDetail } from "@/lib/admin/adminJobDetail";
+import {
+  getCronAuthorizationHeaderValue,
+  getCronSecret,
+  logUnauthorizedCronAttempt,
+  verifyCronRequest,
+} from "@/lib/server/verifyCronRequest";
 
 const JOB_ID = "price_snapshot_bulk";
 
@@ -25,7 +31,7 @@ function isAdmin(user: any): boolean {
 }
 
 function getCronKey(): string {
-  return process.env.CRON_KEY || process.env.CRON_SECRET || process.env.RENDER_CRON_SECRET || "";
+  return getCronSecret();
 }
 
 function getBulkJobsBaseUrl(): string {
@@ -47,6 +53,7 @@ async function triggerExternalBulkSnapshot(cronKey: string): Promise<{ delegated
     const res = await fetch(endpoint, {
       method: "POST",
       headers: {
+        Authorization: getCronAuthorizationHeaderValue(),
         "x-cron-key": cronKey,
         "Content-Type": "application/json",
       },
@@ -65,10 +72,9 @@ async function triggerExternalBulkSnapshot(cronKey: string): Promise<{ delegated
 async function runSnapshot(req: NextRequest) {
   const attemptStartedAt = new Date().toISOString();
   try {
-    const isVercelCron = !!req.headers.get("x-vercel-cron");
-    const key = req.nextUrl.searchParams.get("key") || "";
     const cronKey = getCronKey();
-    if (!(isVercelCron || (cronKey && key && key === cronKey))) {
+    if (!verifyCronRequest(req, { routePath: "/api/cron/price/snapshot" })) {
+      logUnauthorizedCronAttempt(req, { routePath: "/api/cron/price/snapshot" });
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
@@ -171,13 +177,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const cronKey = getCronKey();
-    const hdr = req.headers.get("x-cron-key") || "";
+    const hasAuthorizationHeader = !!req.headers.get("authorization");
+    const hdr = hasAuthorizationHeader ? "present" : "";
     console.log("🔑 Auth check - cronKey exists:", !!cronKey, "header exists:", !!hdr);
 
-    let useAdmin = false;
+    let useAdmin = verifyCronRequest(req, {
+      routePath: "/api/cron/price/snapshot",
+      logUnauthorizedOnFailure: false,
+    });
 
-    if (cronKey && hdr === cronKey) {
-      useAdmin = true;
+    if (useAdmin) {
       console.log("✅ Cron key auth successful");
     } else {
       console.log("🔍 Trying user auth...");

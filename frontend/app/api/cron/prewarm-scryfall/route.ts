@@ -4,6 +4,7 @@ import { getImagesForNamesCached, getDetailsForNamesCached } from "@/lib/server/
 import { sanitizeImageCacheInputName } from "@/lib/server/scryfallCacheRow";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 
@@ -12,28 +13,26 @@ function clean(s: string) {
 }
 
 function isAdmin(user: any): boolean {
-  const ids = String(process.env.ADMIN_USER_IDS || '').split(/[\s,]+/).filter(Boolean);
-  const emails = String(process.env.ADMIN_EMAILS || '').split(/[\s,]+/).filter(Boolean).map(s=>s.toLowerCase());
-  const uid = String(user?.id || '');
-  const email = String(user?.email || '').toLowerCase();
+  const ids = String(process.env.ADMIN_USER_IDS || "").split(/[\s,]+/).filter(Boolean);
+  const emails = String(process.env.ADMIN_EMAILS || "").split(/[\s,]+/).filter(Boolean).map((s) => s.toLowerCase());
+  const uid = String(user?.id || "");
+  const email = String(user?.email || "").toLowerCase();
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
 export async function POST(req: NextRequest) {
-  // Allow either: CRON header OR signed-in admin user
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
-
   let useAdmin = false;
   let actor: string | null = null;
 
-  if (cronKey && hdr === cronKey) {
+  if (verifyCronRequest(req, { routePath: "/api/cron/prewarm-scryfall", logUnauthorizedOnFailure: false })) {
     useAdmin = true;
-    actor = 'cron';
+    actor = "cron";
   } else {
     try {
       const sb = await getServerSupabase();
-      const { data: { user } } = await sb.auth.getUser();
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
       if (user && isAdmin(user)) {
         useAdmin = true;
         actor = user.id as string;
@@ -42,14 +41,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (!useAdmin) {
+    logUnauthorizedCronAttempt(req, { routePath: "/api/cron/prewarm-scryfall" });
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   try {
-    // Use normal server supabase for reading (RLS should allow public), service-role for writes
     const supabase = await createClient();
 
-    // 1) Popular commanders: approximate by counting commanders among recent public decks
     const { data: decks } = await supabase
       .from("decks")
       .select("id, title, commander, deck_text")
@@ -69,7 +67,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2) For coverage, grab top few cards per deck
     const results = await Promise.all(
       rows.map(async (d) => {
         const { data } = await supabase
@@ -78,9 +75,8 @@ export async function POST(req: NextRequest) {
           .eq("deck_id", d.id)
           .order("qty", { ascending: false })
           .limit(5);
-        const nm = Array.isArray(data) ? (data as any[]).map((x) => String(x.name)) : [];
-        return nm;
-      })
+        return Array.isArray(data) ? (data as any[]).map((x) => String(x.name)) : [];
+      }),
     );
     for (const arr of results) for (const n of arr) names.add(clean(n));
 
@@ -88,16 +84,17 @@ export async function POST(req: NextRequest) {
       .map((n) => sanitizeImageCacheInputName(clean(String(n))))
       .filter((x): x is string => x != null)
       .slice(0, 400);
-    // Warm both images and details paths; helpers will upsert and respect TTL
+
     await getImagesForNamesCached(list);
     await getDetailsForNamesCached(list);
 
-    // Record last run in app_config and audit log (service role)
     try {
       const admin = getAdmin();
       if (admin) {
-        await admin.from('app_config').upsert({ key: 'job:last:prewarm_scryfall', value: new Date().toISOString() }, { onConflict: 'key' });
-        await admin.from('admin_audit').insert({ actor_id: actor || 'cron', action: 'cron_prewarm_scryfall', target: list.length });
+        await admin
+          .from("app_config")
+          .upsert({ key: "job:last:prewarm_scryfall", value: new Date().toISOString() }, { onConflict: "key" });
+        await admin.from("admin_audit").insert({ actor_id: actor || "cron", action: "cron_prewarm_scryfall", target: list.length });
       }
     } catch {}
 

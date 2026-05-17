@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,21 +19,11 @@ function isAdmin(user: { id?: string; email?: string } | null): boolean {
   return (!!uid && ids.includes(uid)) || (!!email && emails.includes(email));
 }
 
-function hasCronAccess(req: NextRequest): boolean {
-  const cronKey =
-    process.env.CRON_KEY ||
-    process.env.CRON_SECRET ||
-    process.env.RENDER_CRON_SECRET ||
-    "";
-  if (!cronKey) return false;
-  const url = new URL(req.url);
-  const headerKey = req.headers.get("x-cron-key") || "";
-  const queryKey = url.searchParams.get("key") || "";
-  return headerKey === cronKey || queryKey === cronKey;
-}
-
 async function isAuthorized(req: NextRequest): Promise<boolean> {
-  if (hasCronAccess(req)) return true;
+  if (verifyCronRequest(req, { routePath: "/api/admin/data/card-tag-cache-status", logUnauthorizedOnFailure: false })) {
+    return true;
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -43,7 +34,8 @@ async function isAuthorized(req: NextRequest): Promise<boolean> {
 export async function GET(req: NextRequest) {
   try {
     if (!(await isAuthorized(req))) {
-      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+      logUnauthorizedCronAttempt(req, { routePath: "/api/admin/data/card-tag-cache-status" });
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
     const admin = getAdmin();

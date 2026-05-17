@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
 import { logAdminAction, readJsonBody, requireTypedConfirmation } from "@/lib/admin/danger-actions";
+import { getCronAuthorizationHeaderValue, getCronSecret } from "@/lib/server/verifyCronRequest";
 
 const ALLOWED_CRONS = [
   "deck-costs",
@@ -36,13 +37,8 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const cronKey =
-      process.env.CRON_KEY ||
-      process.env.CRON_SECRET ||
-      process.env.RENDER_CRON_SECRET ||
-      "";
-    if (!cronKey) {
-      return NextResponse.json({ ok: false, error: "CRON_KEY not configured" }, { status: 500 });
+    if (!getCronSecret()) {
+      return NextResponse.json({ ok: false, error: "CRON_SECRET not configured" }, { status: 500 });
     }
 
     const base =
@@ -61,7 +57,9 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(url, {
       method: "POST",
-      headers: { "x-cron-key": cronKey },
+      headers: {
+        Authorization: getCronAuthorizationHeaderValue(),
+      },
     });
     const data = await res.json().catch(() => ({}));
 

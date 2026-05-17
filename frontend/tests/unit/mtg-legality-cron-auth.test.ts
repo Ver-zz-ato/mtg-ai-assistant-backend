@@ -1,57 +1,104 @@
 /**
- * Unit tests: MTG legality refresh cron auth (secret-only, no x-vercel-id trust).
+ * Unit tests: shared cron verifier.
  * Run: npx tsx tests/unit/mtg-legality-cron-auth.test.ts
  */
 import assert from "node:assert";
-import { isMtgLegalityCronAuthorized } from "@/app/api/_lib/mtg-legality-cron-auth";
+import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
+const ORIGINAL_CRON_SECRET = process.env.CRON_SECRET;
 const SECRET = "test-cron-secret-hex-123456";
 
-function auth(
-  overrides: Partial<{
-    authorizationHeader: string | null;
-    xCronKey: string | null;
-    queryKey: string | null;
-  }> = {}
-) {
-  return isMtgLegalityCronAuthorized([SECRET], {
-    authorizationHeader: null,
-    xCronKey: null,
-    queryKey: null,
-    ...overrides,
-  });
+type RequestLikeOptions = {
+  authorizationHeader?: string | null;
+  queryKey?: string | null;
+  xVercelId?: string | null;
+};
+
+function makeRequest(options: RequestLikeOptions = {}) {
+  const url = new URL("https://example.com/api/cron/mtg-legality-refresh");
+  if (options.queryKey) {
+    url.searchParams.set("key", options.queryKey);
+  }
+
+  const headers = new Headers();
+  if (options.authorizationHeader != null) {
+    headers.set("authorization", options.authorizationHeader);
+  }
+  if (options.xVercelId != null) {
+    headers.set("x-vercel-id", options.xVercelId);
+  }
+
+  return {
+    nextUrl: url,
+    headers,
+    method: "POST",
+  } as any;
 }
 
-// No configured secrets → never authorize (caller should 401)
-assert.strictEqual(
-  isMtgLegalityCronAuthorized([], {
-    authorizationHeader: "Bearer x",
-    xCronKey: null,
-    queryKey: null,
-  }),
-  false
-);
+try {
+  process.env.CRON_SECRET = "";
+  assert.strictEqual(
+    verifyCronRequest(makeRequest({ authorizationHeader: "Bearer x" }), {
+      logUnauthorizedOnFailure: false,
+    }),
+    false,
+  );
 
-// Unauthenticated
-assert.strictEqual(auth(), false);
-assert.strictEqual(auth({ authorizationHeader: null, xCronKey: "", queryKey: "" }), false);
+  process.env.CRON_SECRET = SECRET;
 
-// Wrong secret variants
-assert.strictEqual(auth({ authorizationHeader: "Bearer wrong" }), false);
-assert.strictEqual(auth({ xCronKey: "wrong" }), false);
-assert.strictEqual(auth({ queryKey: "wrong" }), false);
-assert.strictEqual(auth({ authorizationHeader: `Bearer ${SECRET}extra` }), false);
+  assert.strictEqual(
+    verifyCronRequest(makeRequest(), { logUnauthorizedOnFailure: false }),
+    false,
+  );
+  assert.strictEqual(
+    verifyCronRequest(makeRequest({ authorizationHeader: "Bearer wrong" }), {
+      logUnauthorizedOnFailure: false,
+    }),
+    false,
+  );
+  assert.strictEqual(
+    verifyCronRequest(makeRequest({ authorizationHeader: `Bearer ${SECRET}extra` }), {
+      logUnauthorizedOnFailure: false,
+    }),
+    false,
+  );
 
-// Correct Bearer (Vercel cron pattern)
-assert.strictEqual(auth({ authorizationHeader: `Bearer ${SECRET}` }), true);
-assert.strictEqual(auth({ authorizationHeader: `bearer ${SECRET}` }), true);
+  assert.strictEqual(
+    verifyCronRequest(makeRequest({ authorizationHeader: `Bearer ${SECRET}` }), {
+      logUnauthorizedOnFailure: false,
+    }),
+    true,
+  );
 
-// Correct x-cron-key / ?key=
-assert.strictEqual(auth({ xCronKey: SECRET }), true);
-assert.strictEqual(auth({ queryKey: SECRET }), true);
+  assert.strictEqual(
+    verifyCronRequest(makeRequest({ queryKey: SECRET }), {
+      logUnauthorizedOnFailure: false,
+    }),
+    true,
+  );
 
-// x-vercel-id is not an input to isMtgLegalityCronAuthorized — no bypass via extra headers here
-assert.strictEqual(auth({ authorizationHeader: "Bearer not-the-secret", xCronKey: "" }), false);
+  assert.strictEqual(
+    verifyCronRequest(makeRequest({ queryKey: SECRET }), {
+      allowLegacyQueryParam: false,
+      logUnauthorizedOnFailure: false,
+    }),
+    false,
+  );
 
-console.log("mtg-legality-cron-auth.test.ts: all assertions passed.");
+  assert.strictEqual(
+    verifyCronRequest(makeRequest({ xVercelId: "spoofed" }), {
+      logUnauthorizedOnFailure: false,
+    }),
+    false,
+  );
+
+  console.log("mtg-legality-cron-auth.test.ts: all assertions passed.");
+} finally {
+  if (ORIGINAL_CRON_SECRET === undefined) {
+    delete process.env.CRON_SECRET;
+  } else {
+    process.env.CRON_SECRET = ORIGINAL_CRON_SECRET;
+  }
+}
+
 export {};

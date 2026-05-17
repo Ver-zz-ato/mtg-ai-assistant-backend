@@ -6,17 +6,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { refreshBannedListsOnly } from "@/lib/data/mtg-legality-refresh";
+import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 function isAuthorized(req: NextRequest): boolean {
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const hdr = req.headers.get("x-cron-key") || "";
-  const vercelId = req.headers.get("x-vercel-id");
-  const url = new URL(req.url);
-  const queryKey = url.searchParams.get("key") || "";
-  return !!cronKey && (!!vercelId || hdr === cronKey || queryKey === cronKey);
+  return verifyCronRequest(req, { routePath: "/api/cron/update-banned-lists" });
 }
 
 export async function GET(req: NextRequest) {

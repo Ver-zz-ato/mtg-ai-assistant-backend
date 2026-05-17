@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { isAdmin } from "@/lib/admin-check";
+import { getCronAuthorizationHeaderValue, getCronSecret } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,10 +19,6 @@ const JOBS = {
 } as const;
 
 type JobKey = keyof typeof JOBS;
-
-function getCronKey(): string {
-  return process.env.CRON_KEY || process.env.CRON_SECRET || process.env.RENDER_CRON_SECRET || "";
-}
 
 function getBulkJobsBaseUrl(): string {
   return (
@@ -59,16 +56,17 @@ export async function POST(req: NextRequest) {
 
     const { renderPath, internalPath } = JOBS[job];
     const base = getBulkJobsBaseUrl();
-    const cronKey = getCronKey();
+    const cronSecret = getCronSecret();
 
     let res: Response;
 
-    if (base && cronKey) {
+    if (base && cronSecret) {
       const url = `${base}${renderPath}`;
       res = await fetch(url, {
         method: "POST",
         headers: {
-          "x-cron-key": cronKey,
+          Authorization: getCronAuthorizationHeaderValue(),
+          "x-cron-key": cronSecret,
           "Content-Type": "application/json",
           "User-Agent": "Manatap-Admin-EssentialJob/1.0",
         },

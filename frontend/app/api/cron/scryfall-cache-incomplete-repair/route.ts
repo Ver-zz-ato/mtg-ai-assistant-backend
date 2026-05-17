@@ -6,6 +6,7 @@ import {
   mergeScryfallCacheRowFromApiCard,
   normalizeScryfallCacheName,
 } from "@/lib/server/scryfallCacheRow";
+import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,26 +60,20 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     message:
-      "POST with x-cron-key or admin session. Query: batchSize (default 300, max 500), after=<PK string> for resume.",
+      "POST with Authorization: Bearer <CRON_SECRET> or admin session. Temporary legacy support also accepts ?key=<CRON_SECRET>. Query: batchSize (default 300, max 500), after=<PK string> for resume.",
     source: "Scryfall /cards/collection + mergeScryfallCacheRowFromApiCard",
     docs: "db/SCRYFALL_CACHE_INCOMPLETE_REPAIR.md",
   });
 }
 
 export async function POST(req: NextRequest) {
-  const cronKeyHeader = req.headers.get("x-cron-key") || "";
   const url = new URL(req.url);
-  const cronKeyQuery = url.searchParams.get("key") || "";
-  const cronKey = process.env.CRON_KEY || process.env.RENDER_CRON_SECRET || "";
-  const vercelId = req.headers.get("x-vercel-id");
 
-  let authorized = false;
-  let actor: string | null = null;
-
-  if (vercelId || (cronKey && cronKeyHeader === cronKey) || (cronKey && cronKeyQuery === cronKey)) {
-    authorized = true;
-    actor = "cron";
-  }
+  let authorized = verifyCronRequest(req, {
+    routePath: "/api/cron/scryfall-cache-incomplete-repair",
+    logUnauthorizedOnFailure: false,
+  });
+  let actor: string | null = authorized ? "cron" : null;
   if (!authorized) {
     try {
       const supabase = await createClient();
@@ -95,6 +90,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!authorized) {
+    logUnauthorizedCronAttempt(req, { routePath: "/api/cron/scryfall-cache-incomplete-repair" });
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
