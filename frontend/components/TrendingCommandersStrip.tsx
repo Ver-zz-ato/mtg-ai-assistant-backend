@@ -188,7 +188,7 @@ export function TrendingCommandersStrip() {
           {commanders.map((cmd) => (
             <div
               key={cmd.name}
-              className="shrink-0 w-44 min-w-[11rem] rounded-lg bg-neutral-800/80 border border-neutral-700 hover:bg-neutral-700/90 hover:border-neutral-600 transition-all duration-200 overflow-hidden flex flex-col"
+              className="shrink-0 w-52 min-w-[13rem] rounded-lg bg-neutral-800/80 border border-neutral-700 hover:bg-neutral-700/90 hover:border-neutral-600 transition-all duration-200 overflow-hidden flex flex-col"
             >
               {cmd.slug ? (
                 <Link
@@ -223,20 +223,20 @@ export function TrendingCommandersStrip() {
                 </div>
               )}
               <div className="p-3 flex flex-col flex-1">
-                <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="mb-2">
                   {cmd.slug ? (
                     <Link
                       href={`/commanders/${cmd.slug}`}
-                      className="font-bold text-white text-sm truncate flex-1 hover:text-cyan-300 transition-colors"
+                      className="block font-bold text-white text-[1.02rem] leading-5 min-h-[2.5rem] break-words hover:text-cyan-300 transition-colors"
                     >
                       {cmd.name}
                     </Link>
                   ) : (
-                    <span className="font-bold text-white text-sm truncate flex-1">
+                    <span className="block font-bold text-white text-[1.02rem] leading-5 min-h-[2.5rem] break-words">
                       {cmd.name}
                     </span>
                   )}
-                  <span className="text-xs text-neutral-400 shrink-0 bg-neutral-700/80 px-2 py-0.5 rounded">
+                  <span className="mt-2 inline-flex text-xs text-neutral-300 bg-neutral-700/80 px-2 py-0.5 rounded">
                     {cmd.count} new decks
                   </span>
                 </div>
