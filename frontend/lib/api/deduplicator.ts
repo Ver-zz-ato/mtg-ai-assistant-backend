@@ -116,8 +116,9 @@ export async function deduplicatedFetch(
     timestamp: now,
   });
   
-  // Clean up after the request completes
-  promise.finally(() => {
+  // Clean up after the request settles without leaving a dangling rejected
+  // promise chain that browsers can report as an unhandled rejection.
+  const scheduleCleanup = () => {
     // Keep in cache for CACHE_DURATION_MS after completion
     // to catch rapid subsequent calls
     setTimeout(() => {
@@ -126,7 +127,8 @@ export async function deduplicatedFetch(
         requestCache.delete(cacheKey);
       }
     }, CACHE_DURATION_MS);
-  });
+  };
+  promise.then(scheduleCleanup, scheduleCleanup);
   
   return promise;
 }
