@@ -113,5 +113,13 @@ void (async () => {
   assert.ok(trending.some((row) => row.name === "Rhystic Study"));
   assert.ok(!trending.some((row) => row.name === "Arcane Signet"));
   assert.ok(trending.some((row) => row.dataScope === "global"));
+
+  const seeded = blendTrendingCardsWithGlobal([], cardGlobal, {
+    minRows: TRENDING_CARDS_MIN_DISPLAY_ROWS,
+  });
+  assert.strictEqual(seeded.length, TRENDING_CARDS_MIN_DISPLAY_ROWS);
+  assert.strictEqual(seeded[0]?.name, "Blasphemous Act");
+  assert.ok(seeded.every((row) => row.dataScope === "global"));
+  assert.ok(!seeded.some((row) => row.name === "Arcane Signet"));
   console.log("discover-blend ok");
 })();

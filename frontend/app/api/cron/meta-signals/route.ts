@@ -658,6 +658,10 @@ async function runMetaSignals() {
 
   if (trendingCardsOut.length === 0) {
     warnings.push("trending-cards section is empty after compute and fallbacks.");
+  } else if (trendingCardsRaw.length === 0 && trendingCardsOut.some((row) => row.dataScope === "global")) {
+    warnings.push(
+      `trending-cards internal trend output was empty; seeded ${trendingCardsOut.length} rows from global popularity.`
+    );
   } else if (trendingCardsRaw.length > 0 && trendingCardsOut.length > trendingCardsRaw.length) {
     warnings.push(
       `trending-cards internal trend output was sparse (${trendingCardsRaw.length}); topped up from global popularity to ${trendingCardsOut.length}.`

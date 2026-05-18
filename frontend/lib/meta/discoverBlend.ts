@@ -255,12 +255,33 @@ export function blendTrendingCardsWithGlobal(
   globalPopular: NormalizedGlobalMetaRow[],
   opts?: { minRows?: number }
 ): BlendedCardRow[] {
-  if (internalRows.length === 0) return [];
   const gMap = new Map(globalPopular.map((g) => [g.nameNorm, g]));
-  const maxI = Math.max(...internalRows.map((r) => r.count), 1);
   const maxG = Math.max(...globalPopular.map((g) => g.score), 1) || 1;
   const extOk = globalPopular.length > 0;
   const minRows = Math.max(0, opts?.minRows ?? 0);
+  const rows: BlendedCardRow[] = [];
+
+  if (internalRows.length === 0) {
+    if (!extOk || minRows <= 0) return rows;
+    const seen = new Set<string>();
+    for (const g of globalPopular) {
+      if (rows.length >= minRows || rows.length >= TRENDING_CARDS_OUTPUT_LIMIT) break;
+      if (!g?.name || isStapleDenied(g.name)) continue;
+      if (seen.has(g.nameNorm)) continue;
+      seen.add(g.nameNorm);
+      rows.push({
+        name: g.name,
+        count: 1,
+        blendedScore: Number((g.score / maxG).toFixed(4)),
+        badge: "Popular",
+        priceLabel: priceLabelFromMeta(g.meta),
+        dataScope: "global",
+      });
+    }
+    return rows;
+  }
+
+  const maxI = Math.max(...internalRows.map((r) => r.count), 1);
   const scored = internalRows.map((r) => {
     const nn = normName(r.name);
     const g = gMap.get(nn);
@@ -270,13 +291,13 @@ export function blendTrendingCardsWithGlobal(
     return { name: r.name, count: r.count, blended, gPart };
   });
   scored.sort((a, b) => b.blended - a.blended);
-  const rows: BlendedCardRow[] = scored.slice(0, TRENDING_CARDS_OUTPUT_LIMIT).map((s) => ({
+  rows.push(...scored.slice(0, TRENDING_CARDS_OUTPUT_LIMIT).map((s) => ({
     name: s.name,
     count: s.count,
     blendedScore: Number(s.blended.toFixed(4)),
     badge: s.gPart > 0.45 ? "Popular" : undefined,
     dataScope: extOk ? "blend" : "internal",
-  }));
+  })));
   if (rows.length >= minRows || !extOk) return rows;
 
   const seen = new Set(rows.map((row) => normName(row.name)));
