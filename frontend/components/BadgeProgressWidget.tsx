@@ -2,7 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import type { BadgeProgress } from '@/lib/badge-calculator';
+
+type BadgeProgress = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  current: number;
+  target: number;
+  progress: number;
+  unlocked: boolean;
+};
 
 export default function BadgeProgressWidget() {
   const [badges, setBadges] = useState<BadgeProgress[]>([]);

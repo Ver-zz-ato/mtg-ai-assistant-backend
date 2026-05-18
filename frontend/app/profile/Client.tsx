@@ -24,6 +24,8 @@ const COLOR_PIE = ["W","U","B","R","G"] as const;
 const FORMATS = ["Commander","Modern","Standard","Pioneer","Pauper"] as const;
 
 type Usage = { messages: number; input_tokens: number; output_tokens: number; cost_usd: number };
+type DisplayBadge = { key:string; label:string; emoji:string; desc:string };
+type BadgeProgressItem = { id:string; name:string; description:string; icon:string; current:number; target:number; progress:number; unlocked:boolean };
 
 function norm(name: string): string { return String(name||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
 function cleanName(s: string): string {
@@ -33,6 +35,17 @@ function cleanName(s: string): string {
     .replace(/\[[^\]]+\]/g, '')   // remove bracketed tags
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function mapCanonicalEarnedBadges(rows: BadgeProgressItem[]): DisplayBadge[] {
+  return rows
+    .filter((row) => row.unlocked)
+    .map((row) => ({
+      key: row.id,
+      label: row.name,
+      emoji: row.icon || '🏆',
+      desc: row.description,
+    }));
 }
 
 // Email Verification Section Component
@@ -499,9 +512,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     })();
   }, [recentDecks, deckBg]);
 
-  // Derive badges on client to show in the right rail
-  const badges = useMemo(() => {
-    const out: { key: string; label: string; emoji: string; desc: string }[] = [];
+  // Legacy website badge list remains as the fallback if canonical badge progress is unavailable.
+  const legacyBadges = useMemo(() => {
+    const out: DisplayBadge[] = [];
     if (deckCount >= 1) out.push({ key: 'first_deck', label: 'First Deck', emoji: '🏆', desc: 'Created your first deck' });
     if (deckCount >= 5) out.push({ key: 'brewer_i', label: 'Brewer I', emoji: '⚗️', desc: 'Built 5+ decks' });
     if (deckCount >= 15) out.push({ key: 'brewer_ii', label: 'Brewer II', emoji: '⚗️', desc: 'Built 15+ decks' });
@@ -515,12 +528,44 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     if ((tools?.mull_iters_total||0) >= 25000) out.push({ key:'mulligan_master', label:'Mulligan Master', emoji:'♻️', desc:'Run 25k+ mulligan iterations' });
     return out;
   }, [deckCount, collectionCount, usage?.messages, tools?.prob_runs, tools?.prob_saves, tools?.mull_iters_total]);
+  const [canonicalBadgeProgress, setCanonicalBadgeProgress] = useState<BadgeProgressItem[] | null>(null);
+  useEffect(() => {
+    if (!authUser?.id) {
+      setCanonicalBadgeProgress(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/profile/badge-progress', { cache: 'no-store' });
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        const rows = Array.isArray(j?.allBadges) ? j.allBadges : (Array.isArray(j?.badges) ? j.badges : []);
+        if (!r.ok || j?.ok !== true || rows.length === 0) {
+          setCanonicalBadgeProgress(null);
+          return;
+        }
+        setCanonicalBadgeProgress(rows as BadgeProgressItem[]);
+      } catch {
+        if (!cancelled) setCanonicalBadgeProgress(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser?.id]);
+  const canonicalEarnedBadges = useMemo(
+    () => (canonicalBadgeProgress ? mapCanonicalEarnedBadges(canonicalBadgeProgress) : []),
+    [canonicalBadgeProgress],
+  );
+  // Canonical earned badges now drive the signed-in badge rail and picker when available.
+  const profileBadges = canonicalEarnedBadges.length > 0 ? canonicalEarnedBadges : legacyBadges;
 
   const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'wishlist'|'watchlist'|'security'|'billing'>('profile');
 
   // Extra analytical badges derived from recent decks: On-Curve 90, Mana Maestro, Combomancer
   // Deferred and gated so we don't run heavy /api/deck/analyze on every profile load (causes 12s spikes if user navigates away).
-  const [extraBadges, setExtraBadges] = useState<Array<{ key:string; label:string; emoji:string; desc:string }>>([]);
+  const [extraBadges, setExtraBadges] = useState<DisplayBadge[]>([]);
   React.useEffect(()=>{
     if (tab !== 'profile') return;
     const ac = new AbortController();
@@ -870,7 +915,8 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     </div>
                   </section>
                   <BadgesAndProgressSection
-                    badges={[...badges, ...extraBadges]}
+                    badges={profileBadges}
+                    extraBadges={extraBadges}
                     username={username}
                     deckCount={deckCount}
                     collectionCount={collectionCount}
@@ -880,7 +926,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   />
                   <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
                     <div className="text-lg font-semibold flex items-center gap-2"><span>🏆</span> Achievement Progress</div>
-                    <ProfileAchievementProgress />
+                    <ProfileAchievementProgress badges={canonicalBadgeProgress} />
                   </section>
                 </aside>
               </div>
@@ -1274,7 +1320,8 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
 
 type BadgesAndProgressSectionProps = {
-  badges: Array<{ key:string; label:string; emoji:string; desc:string }>;
+  badges: DisplayBadge[];
+  extraBadges: DisplayBadge[];
   username: string;
   deckCount: number;
   collectionCount: number;
@@ -1283,7 +1330,7 @@ type BadgesAndProgressSectionProps = {
   likesMap: Record<string, {count:number; liked:boolean}>;
 };
 function BadgesAndProgressSection(props: BadgesAndProgressSectionProps){
-  const { badges, username, deckCount, collectionCount, pinnedCount, signatureSet, likesMap } = props;
+  const { badges, extraBadges, username, deckCount, collectionCount, pinnedCount, signatureSet, likesMap } = props;
   const [collapsed, setCollapsed] = React.useState(false);
   return (
     <section className="rounded-xl border border-neutral-800 overflow-hidden">
@@ -1300,6 +1347,24 @@ function BadgesAndProgressSection(props: BadgesAndProgressSectionProps){
         <div className="p-4 pt-0 space-y-3 overflow-y-auto max-h-[55vh]">
           {badges.length === 0 && (<div className="text-xs opacity-70">No badges yet.</div>)}
           <PinnedBadgesSelector badges={badges} username={username} />
+          {extraBadges.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs opacity-70">Website-only deck insight badges</div>
+              <ul className="space-y-2">
+                {extraBadges.map((b) => (
+                  <li key={b.key} className="rounded-lg overflow-hidden border border-neutral-700 bg-gradient-to-r from-neutral-900 to-neutral-800">
+                    <div className="p-3 flex items-center gap-3">
+                      <div className="text-xl">{b.emoji}</div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-sm">{b.label}</div>
+                        <div className="text-xs opacity-80">{b.desc}</div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <NextBadgesProgress deckCount={deckCount} collectionCount={collectionCount} pinnedCount={pinnedCount} signatureSet={signatureSet} likesMap={likesMap} />
         </div>
       </div>
@@ -1307,11 +1372,15 @@ function BadgesAndProgressSection(props: BadgesAndProgressSectionProps){
   );
 }
 
-type BadgeProgressItem = { id:string; name:string; description:string; icon:string; current:number; target:number; progress:number; unlocked:boolean };
-function ProfileAchievementProgress(){
-  const [badges, setBadges] = React.useState<BadgeProgressItem[]>([]);
+function ProfileAchievementProgress({ badges: initialBadges }: { badges: BadgeProgressItem[] | null }){
+  const [badges, setBadges] = React.useState<BadgeProgressItem[]>(initialBadges ?? []);
   const [loading, setLoading] = React.useState(true);
   React.useEffect(()=>{
+    if (initialBadges && initialBadges.length > 0) {
+      setBadges(initialBadges);
+      setLoading(false);
+      return;
+    }
     (async()=>{
       try{
         const r = await fetch('/api/profile/badge-progress', { cache:'no-store' });
@@ -1320,7 +1389,7 @@ function ProfileAchievementProgress(){
       } catch{}
       finally { setLoading(false); }
     })();
-  }, []);
+  }, [initialBadges]);
   if (loading) return <div className="text-xs opacity-70">Loading achievements…</div>;
   if (badges.length === 0) return null;
   return (
@@ -1505,7 +1574,7 @@ function PinnedBadgesChips(){
   );
 }
 
-function PinnedBadgesSelector({ badges, username }: { badges: Array<{ key:string; label:string; emoji:string; desc:string }>; username: string }){
+function PinnedBadgesSelector({ badges, username }: { badges: DisplayBadge[]; username: string }){
   const [pins, setPins] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
   const [showShareBanner, setShowShareBanner] = React.useState<any>(null);
