@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase, createClientWithBearerToken } from "@/lib/server-supabase";
 import { captureServer } from "@/lib/server/analytics";
 import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
+import { syncUserBadgeState } from "@/lib/badges/canonical";
 
 export const runtime = "nodejs";
 
@@ -59,13 +60,23 @@ export async function POST(req: NextRequest) {
       messages_30d = mc || 0;
     } catch {}
 
-    // simple badges
-    const badges: string[] = [];
-    if (deck_count >= 1) badges.push('First Deck');
-    if (deck_count >= 5) badges.push('Brewer');
-    if (deck_count >= 10) badges.push('Master Builder');
-    if (collection_count >= 3) badges.push('Collector');
-    if (messages_30d >= 50) badges.push('Chatterbox');
+    let canonicalBadges: string[] = [];
+    try {
+      const synced = await syncUserBadgeState(user.id);
+      canonicalBadges = synced.earnedNames;
+    } catch {}
+
+    let existingBadges: string[] = [];
+    try {
+      const { data: existingRow } = await supabase
+        .from("profiles_public")
+        .select("badges")
+        .eq("id", user.id)
+        .maybeSingle();
+      existingBadges = Array.isArray(existingRow?.badges) ? existingRow.badges.map((b: unknown) => String(b)) : [];
+    } catch {}
+
+    const badges = Array.from(new Set([...existingBadges, ...canonicalBadges])).filter(Boolean);
 
     const row = {
       id: user.id,

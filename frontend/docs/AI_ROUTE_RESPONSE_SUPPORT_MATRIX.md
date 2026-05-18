@@ -47,7 +47,7 @@ Limited formats may be recognized by legality/import helpers, but routes below s
 | `/api/playstyle/explain` | Playstyle quiz explanation | Commander, Modern, Pioneer, Standard, Pauper | Short JSON explanation, no Commander assumptions in constructed | `verify-ai-route-responses` |
 | `/api/decks/health-report` | Pro health report | Commander, Modern, Pioneer, Standard, Pauper | Format-aware health report | Not in default stress script because it requires a saved owned deck |
 | `/api/deck/health-suggestions` | Saved-deck category suggestions | Commander, Modern, Pioneer, Standard, Pauper | Format-aware suggestions for owned decks | Not in default stress script because it requires a saved owned deck |
-| `/api/custom-cards/generate` | Custom card creation | N/A | Creative card JSON; not a deck-format tool | Out of format-support scope |
+| `/api/custom-cards/generate` | Custom card creation | N/A | Creative card JSON; guest 5/day, free 10/day, Pro unlimited with `RATE_LIMIT_DAILY` support | Out of format-support scope |
 | `/api/shout/auto-generate` | Shoutbox automation | N/A | Social/activity text; not a deck-format tool | Out of format-support scope |
 | `/api/admin/*` AI routes | Admin diagnostics | N/A | Internal/admin-only | Out of public response-quality scope |
 

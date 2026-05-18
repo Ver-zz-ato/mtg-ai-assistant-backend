@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getUserAndSupabase } from '@/lib/api/get-user-from-request';
+import { checkDurableRateLimit } from '@/lib/api/durable-rate-limit';
+import { getGuestToken } from '@/lib/api/get-guest-token';
+import { CUSTOM_CARD_GENERATE_FREE, CUSTOM_CARD_GENERATE_GUEST } from '@/lib/feature-limits';
+import { extractIP, hashGuestToken, hashString } from '@/lib/guest-tracking';
+import { checkProStatus } from '@/lib/server-pro-check';
 
 type StyleChip = 'Aggro' | 'Control' | 'Tribal' | 'Meme' | 'Commander' | 'Broken';
 type ColorHint = 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
@@ -10,6 +16,7 @@ const TITLE = ['Destroyer', 'Whisper', 'Weaver', 'Walker', 'Breaker', 'Herald', 
 const CREATURE_SUBTYPES = ['Goblin', 'Elf', 'Zombie', 'Wizard', 'Dragon', 'Angel', 'Vampire', 'Merfolk', 'Human', 'Spirit', 'Beast', 'Rogue', 'Knight', 'Druid', 'Construct'] as const;
 
 const VALID_STYLES: readonly StyleChip[] = ['Aggro', 'Control', 'Tribal', 'Meme', 'Commander', 'Broken'] as const;
+const ROUTE_PATH = '/api/custom-cards/generate';
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
@@ -177,6 +184,50 @@ function buildName(style: StyleChip, prompt: string): [string, string, string] {
 
 export async function POST(req: NextRequest) {
   try {
+    const { supabase, user } = await getUserAndSupabase(req);
+    const isAnonymousUser = user?.is_anonymous === true;
+    const realUserId = user && !isAnonymousUser ? user.id : null;
+    const isPro = realUserId ? await checkProStatus(realUserId) : false;
+    const tier = realUserId ? (isPro ? 'pro' : 'free') : 'guest';
+
+    if (!isPro) {
+      const dailyLimit = tier === 'free' ? CUSTOM_CARD_GENERATE_FREE : CUSTOM_CARD_GENERATE_GUEST;
+      const { guestToken } = await getGuestToken(req);
+      const ip = extractIP(req);
+      const keyHash = realUserId
+        ? `user:${await hashString(realUserId)}`
+        : guestToken
+          ? `guest:${await hashGuestToken(guestToken)}`
+          : isAnonymousUser && user?.id
+            ? `guest:${await hashString(`anonymous-user:${user.id}`)}`
+            : `ip:${await hashString(ip)}`;
+
+      const rateLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1, {
+        identity: tier,
+        verifiedUserId: null,
+      });
+
+      if (!rateLimit.allowed) {
+        const error =
+          tier === 'guest'
+            ? `You've used your ${CUSTOM_CARD_GENERATE_GUEST} guest custom card generations today. Sign in for more.`
+            : `You've used your ${CUSTOM_CARD_GENERATE_FREE} free custom card generations today. Upgrade to Pro for more.`;
+
+        return NextResponse.json(
+          {
+            ok: false,
+            code: 'RATE_LIMIT_DAILY',
+            error,
+            proUpsell: tier === 'free' ? 'Upgrade to Pro for unlimited custom card generations.' : undefined,
+            resetAt: rateLimit.resetAt ?? null,
+            requiresAuth: tier === 'guest',
+            tier,
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     const body = await req.json().catch(() => ({}));
     const prompt = String(body?.prompt ?? '').trim().slice(0, 240);
     const styleIn = String(body?.style ?? '');
@@ -217,4 +268,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
   }
 }
-

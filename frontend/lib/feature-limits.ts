@@ -61,6 +61,10 @@ export const CARD_EXPLAIN_GUEST = 5;
 export const CARD_EXPLAIN_FREE = 10;
 export const CARD_EXPLAIN_PRO = 50;
 
+/** Custom card generator: guest 5/day, free 10/day, Pro unlimited. */
+export const CUSTOM_CARD_GENERATE_GUEST = 5;
+export const CUSTOM_CARD_GENERATE_FREE = 10;
+
 /** Mobile card scanner AI assist: guest 3/day, free 10/day, Pro 100/day. */
 export const SCAN_AI_GUEST = 3;
 export const SCAN_AI_FREE = 10;

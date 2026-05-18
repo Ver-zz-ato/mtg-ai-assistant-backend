@@ -21,6 +21,31 @@ The **ManaTap mobile app** does not query these website-only tables directly.
 
 ---
 
+### Badge system additions (phase 1, 2026-05-18)
+
+Additive shared badge foundation introduced for mobile + website profile parity:
+
+- `badge_definitions`
+  - canonical registry for active badges, metric keys, thresholds, labels, icons, category, and sort order
+- `user_badges`
+  - durable unlock ledger with one row per `user_id + badge_id`
+- `user_badge_progress`
+  - latest server-computed progress snapshot per `user_id + badge_id`
+
+RLS expectations:
+
+- `badge_definitions`: readable by `anon` / `authenticated`
+- `user_badges`: authenticated users can read their own rows
+- `user_badge_progress`: authenticated users can read their own rows
+- writes are intended to happen server-side with service-role clients
+
+The legacy compatibility surface remains:
+
+- `profiles_public.badges` is still populated for public profile compatibility
+- `profiles_public.pinned_badges` remains unchanged
+
+---
+
 <!-- WARNING: This schema is for context only and is not meant to be run. -->
 <!-- Table order and constraints may not be valid for execution. -->
 
