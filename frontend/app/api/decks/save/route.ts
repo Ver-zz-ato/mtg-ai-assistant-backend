@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizeName } from "@/lib/profanity";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
@@ -129,18 +130,27 @@ export async function POST(req: NextRequest) {
 
     // 2) Parse and normalize card names (auto-correct capitalization)
     const parsed = parseDeckText(body.deckText);
+    const zonedParsed = parseDeckTextWithZones(body.deckText, {
+      isCommanderFormat: !body.format || /^commander$/i.test(String(body.format).trim()),
+    });
     let unrecognizedCards: Array<{ originalName: string; qty: number; suggestions: string[] }> = [];
     
-    if (parsed.length > 0) {
+    if (zonedParsed.length > 0) {
       // Normalize card names to proper capitalization
       const normalized = await normalizeCardNames(parsed);
       unrecognizedCards = normalized.unrecognized;
-      
-      // Use normalized names (properly capitalized) for cards that matched
-      const rows = normalized.cards.map((c) => ({
+
+      const normalizedNameByKey = new Map<string, string>();
+      for (const card of normalized.cards) {
+        normalizedNameByKey.set(card.originalName.toLowerCase(), card.name);
+      }
+
+      // Use normalized names (properly capitalized) while preserving mainboard vs sideboard.
+      const rows = zonedParsed.map((c) => ({
         deck_id: deckId,
-        name: c.name, // This is now properly capitalized from cache
+        name: normalizedNameByKey.get(c.name.toLowerCase()) ?? c.name,
         qty: c.qty,
+        zone: c.zone === "sideboard" ? "sideboard" : "mainboard",
       }));
 
       // bulk insert in chunks of ~300 to be safe

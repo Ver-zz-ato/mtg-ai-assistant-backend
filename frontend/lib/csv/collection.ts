@@ -25,14 +25,14 @@ function detectFormat(header: string): string {
   if (lower.includes("tcgplayer id") || (lower.includes("product name") && lower.includes("set name"))) {
     return "tcgplayer";
   }
+  if (lower.includes("alter") && lower.includes("signed") && lower.includes("card")) {
+    return "archidekt";
+  }
   if ((lower.includes("edition") && lower.includes("qty")) || lower.includes("card kingdom")) {
     return "cardkingdom";
   }
   if (lower.includes("tradelist count") || (lower.includes("collector number") && lower.includes("edition") && lower.includes("tags"))) {
     return "moxfield";
-  }
-  if (lower.includes("alter") && lower.includes("signed") && lower.includes("card")) {
-    return "archidekt";
   }
   if (/name/.test(lower) && /qty|count|quantity|quantityx/.test(lower)) {
     return "generic-header";

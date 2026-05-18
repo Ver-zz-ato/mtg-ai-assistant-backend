@@ -24,6 +24,7 @@ const HEADER_ALIASES: Record<string, "name" | "qty" | "set" | "collector" | "foi
   counts: "qty",
   totalqty: "qty",
   totalquantity: "qty",
+  tradelistcount: "qty",
   owned: "qty",
   have: "qty",
   amount: "qty",
@@ -177,7 +178,7 @@ function parseAdvanced(raw: string): { items: AdvancedItem[]; report: ParseRepor
       let name = "", qty = 0, set: string|undefined, collector: string|undefined, foil: boolean|undefined;
       for (let c = 0; c < cols.length && c < map.length; c++) {
         const key = map[c]; const val = cols[c];
-        if (key === "name") name = val.replace(/^"|"$/g, "");
+        if (key === "name") name = val;
         else if (key === "qty") qty = parseQty(val);
         else if (key === "set") set = val || undefined;
         else if (key === "collector") collector = val || undefined;

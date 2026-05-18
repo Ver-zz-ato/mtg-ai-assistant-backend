@@ -5,6 +5,7 @@ import {
   sanitizedNameForDeckPersistence,
 } from "@/lib/deck/cleanCardName";
 import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 import { parseDeckOrCollectionCSV } from "@/lib/csv/parse";
 import { parseCollectionCsvText } from "@/lib/csv/collection";
 
@@ -49,5 +50,39 @@ assert.deepEqual(parseDeckText(manatapAmpersandExport), [
   { name: "Plains", qty: 8 },
   { name: "Bebop, Skull & Crossbones", qty: 1 },
 ]);
+
+const moxfieldCollectionExport = [
+  "Tradelist Count,Name,Edition,Collector Number,Tags",
+  "2,Sol Ring,Commander Masters,403,Staples",
+  "1,\"Fire // Ice\",Modern Horizons 2,999,Split",
+].join("\n");
+
+assert.deepEqual(parseDeckOrCollectionCSV(moxfieldCollectionExport), [
+  { name: "Sol Ring", qty: 2 },
+  { name: "Fire // Ice", qty: 1 },
+]);
+assert.equal(parseCollectionCsvText(moxfieldCollectionExport).report.detectedFormat, "moxfield");
+
+const archidektQuotedExport = [
+  "Qty,Card,Edition,Condition,Language,Foil,Alter,Signed",
+  "3,Path to Exile,Double Masters,NM,English,,FALSE,FALSE",
+  "1,\"\"\"Ach! Hans, Run!\"\"\",Unfinity,NM,English,,FALSE,FALSE",
+].join("\n");
+
+assert.deepEqual(parseDeckOrCollectionCSV(archidektQuotedExport), [
+  { name: "Path to Exile", qty: 3 },
+  { name: "\"Ach! Hans, Run!\"", qty: 1 },
+]);
+assert.equal(parseCollectionCsvText(archidektQuotedExport).report.detectedFormat, "archidekt");
+
+assert.deepEqual(
+  parseDeckTextWithZones(["Mainboard", "4 Lightning Bolt", "", "Sideboard", "2 Pyroblast"].join("\n"), {
+    isCommanderFormat: false,
+  }),
+  [
+    { name: "Lightning Bolt", qty: 4, zone: "mainboard" },
+    { name: "Pyroblast", qty: 2, zone: "sideboard" },
+  ],
+);
 
 console.log("deck-card-name-parsing.test.ts passed");
