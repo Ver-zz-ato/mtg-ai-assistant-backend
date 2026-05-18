@@ -6,6 +6,7 @@ import {
   blendMostPlayedCommanders,
   blendTrendingCardsWithGlobal,
   blendTrendingCommanders,
+  TRENDING_CARDS_MIN_DISPLAY_ROWS,
   toLegacyCardShape,
   toLegacyCommanderShape,
 } from "@/lib/meta/discoverBlend";
@@ -487,7 +488,9 @@ async function runMetaSignals() {
     landNamesLower: landKeys,
   });
 
-  const trendingCardsBlended = blendTrendingCardsWithGlobal(trendingCardsRaw, globalPopularCards);
+  const trendingCardsBlended = blendTrendingCardsWithGlobal(trendingCardsRaw, globalPopularCards, {
+    minRows: TRENDING_CARDS_MIN_DISPLAY_ROWS,
+  });
   let trendingCardsOut = toLegacyCardShape(trendingCardsBlended);
   if (trendingCardsOut.length === 0) {
     const fromPrev = asNameCountArray(prevSignals["trending-cards"]).map((r) =>
@@ -655,6 +658,10 @@ async function runMetaSignals() {
 
   if (trendingCardsOut.length === 0) {
     warnings.push("trending-cards section is empty after compute and fallbacks.");
+  } else if (trendingCardsRaw.length > 0 && trendingCardsOut.length > trendingCardsRaw.length) {
+    warnings.push(
+      `trending-cards internal trend output was sparse (${trendingCardsRaw.length}); topped up from global popularity to ${trendingCardsOut.length}.`
+    );
   }
 
   const sourcesObj = {

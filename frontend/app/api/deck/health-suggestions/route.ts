@@ -6,6 +6,9 @@ import { tryDeckFormatStringToAnalyzeFormat } from '@/lib/deck/formatRules';
 import { parseMainboardEntriesForAnalysis } from '@/lib/deck/formatCompliance';
 import { getLimitedSupportNote } from '@/lib/deck/formatSupportMatrix';
 import { DEFAULT_FALLBACK_MODEL } from '@/lib/ai/default-models';
+import { enrichDeck } from '@/lib/deck/deck-enrichment';
+import { tagCards } from '@/lib/deck/card-role-tags';
+import { buildDeckFacts } from '@/lib/deck/deck-facts';
 import {
   annotateOwnership,
   appendOwnershipToReason,
@@ -202,30 +205,20 @@ export async function POST(req: NextRequest) {
     // Analyze current deck composition for context
     let compositionContext = '';
     try {
-      const cardNamesLower = (deckCards || []).map((c: any) => c.name.toLowerCase());
-      
-      // Detect current role counts (simplified heuristics)
-      const rampKeywords = ['sol ring', 'arcane signet', 'signet', 'talisman', 'mana crypt', 'mana vault', 'cultivate', 'kodama\'s reach', 'farseek', 'rampant growth', 'three visits', 'nature\'s lore', 'llanowar', 'birds of paradise', 'elvish mystic', 'land tax'];
-      const drawKeywords = ['brainstorm', 'ponder', 'preordain', 'rhystic study', 'mystic remora', 'sylvan library', 'phyrexian arena', 'necropotence', 'harmonize', 'read the bones', 'sign in blood', 'divination', 'night\'s whisper', 'impulse', 'fact or fiction'];
-      const removalKeywords = ['swords to plowshares', 'path to exile', 'beast within', 'chaos warp', 'counterspell', 'swan song', 'force of will', 'cyclonic rift', 'wrath of god', 'damnation', 'toxic deluge', 'terminate', 'mortify', 'anguished unmaking', 'vindicate', 'assassin\'s trophy'];
-      
-      let rampCount = 0;
-      let drawCount = 0;
-      let removalCount = 0;
-      let landCount = 0;
-      
-      for (const name of cardNamesLower) {
-        if (rampKeywords.some(k => name.includes(k))) rampCount++;
-        if (drawKeywords.some(k => name.includes(k))) drawCount++;
-        if (removalKeywords.some(k => name.includes(k))) removalCount++;
-        if (name.includes('land') || name.includes('forest') || name.includes('island') || name.includes('swamp') || name.includes('mountain') || name.includes('plains') || name.includes('command tower') || name.includes('shock') || name.includes('fetch')) landCount++;
-      }
-      
-      // Add basic land count from deck_text pattern matching
-      const deckText = String(deck.deck_text || '');
-      const basicLandMatch = deckText.match(/\d+x?\s*(basic\s+)?(forest|island|swamp|mountain|plains)/gi);
-      if (basicLandMatch) landCount += basicLandMatch.length;
-      
+      const enriched = await enrichDeck(
+        (deckCards || []).map((c: any) => ({
+          name: String(c?.name || ''),
+          qty: Number(c?.qty || 1),
+        })),
+        { format: analyzeFormat, commander: commander || null }
+      );
+      const tagged = tagCards(enriched);
+      const facts = buildDeckFacts(tagged, { format: analyzeFormat, commander: commander || null });
+      const rampCount = facts.ramp_count;
+      const drawCount = facts.draw_count;
+      const removalCount = facts.interaction_count;
+      const landCount = facts.land_count;
+
       compositionContext = `\n\n**DECK COMPOSITION ANALYSIS**:
 - Current ramp sources: ~${rampCount} cards
 - Current draw sources: ~${drawCount} cards  

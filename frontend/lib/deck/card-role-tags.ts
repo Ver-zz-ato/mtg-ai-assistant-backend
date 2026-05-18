@@ -52,13 +52,23 @@ function tag(
 // --- Composable tag rules ---
 
 function checkRamp(card: EnrichedCard): TagWithMeta | null {
+  if (isLandForDeck(card)) return null;
   const o = (card.oracle_text || "").toLowerCase();
   const n = (card.name || "").toLowerCase();
   if (/add \{[wubrgxc]+\}/i.test(o) || /add one mana of any color/i.test(o)) {
     return tag("ramp", 0.95, SOURCE_ORACLE_REGEX);
   }
+  if (/add [^{]{0,20}mana of any one color/i.test(o)) {
+    return tag("ramp", 0.92, SOURCE_ORACLE_REGEX);
+  }
   if (/search your library for (a|up to \d+)\s*(?:basic\s+)?land/i.test(o)) {
     return tag("land_ramp", 0.92, SOURCE_ORACLE_REGEX);
+  }
+  if (/put .{0,80}land .{0,40}onto the battlefield/i.test(o) || /you may play an additional land/i.test(o)) {
+    return tag("land_ramp", 0.88, SOURCE_ORACLE_REGEX);
+  }
+  if (/create .{0,40}treasure/i.test(o)) {
+    return tag("ramp", 0.84, SOURCE_ORACLE_REGEX);
   }
   if (/signet|talisman|sol ring|mana rock|arcane signet/i.test(n)) {
     return tag("mana_rock", 0.9, SOURCE_HEURISTIC);
@@ -71,8 +81,11 @@ function checkRamp(card: EnrichedCard): TagWithMeta | null {
 
 function checkDraw(card: EnrichedCard): TagWithMeta | null {
   const o = (card.oracle_text || "").toLowerCase();
-  if (/draw a card/i.test(o) && !/each opponent draws/i.test(o)) {
+  if (/draw (?:a|one|two|three|x|\d+) cards?/i.test(o) && !/each opponent draws/i.test(o)) {
     return tag("draw", 0.9, SOURCE_ORACLE_REGEX);
+  }
+  if (/investigate/i.test(o)) {
+    return tag("draw", 0.78, SOURCE_ORACLE_REGEX);
   }
   if (/exile.*cards?.*(?:from the top|until).*cast/i.test(o) || /impulse|exile the top/i.test(o)) {
     return tag("impulse_draw", 0.85, SOURCE_ORACLE_REGEX);
@@ -96,7 +109,14 @@ function checkInteraction(card: EnrichedCard): TagWithMeta | null {
   if (/counter target spell/i.test(o) || /counter (?:that|the) spell/i.test(o)) {
     return tag("counterspell", 0.95, SOURCE_ORACLE_REGEX);
   }
-  if (/destroy target (?:creature|enchantment|artifact|planeswalker)/i.test(o) || /exile target (?:creature|permanent)/i.test(o)) {
+  if (
+    /destroy target (?:creature|enchantment|artifact|planeswalker|battle|permanent)/i.test(o) ||
+    /exile target (?:creature|permanent|artifact|enchantment|planeswalker|battle)/i.test(o) ||
+    /return target (?:creature|nonland permanent|spell) to (?:its owner'?s|their) hand/i.test(o) ||
+    /target player sacrifices? (?:a|an|one|two) /i.test(o) ||
+    /fight target/i.test(o) ||
+    /deals? \d+ damage to (?:any target|target creature|target planeswalker|target battle)/i.test(o)
+  ) {
     return tag("spot_removal", 0.9, SOURCE_ORACLE_REGEX);
   }
   if (/destroy all|exile all|each (?:creature|permanent|opponent).*loses|board wipe|wrath/i.test(o)) {
@@ -257,6 +277,10 @@ function supplementKeywordTags(card: EnrichedCard, existing: TagWithMeta[]): Tag
   // Landfall — lands-matter / payoffs (nonlands only; lands with landfall are still land-role via fixing)
   if (kws.has("landfall") && !isLandForDeck(card) && !have.has("payoff")) {
     add.push(tag("payoff", 0.52, SOURCE_KEYWORDS));
+  }
+
+  if (kws.has("cycling") && !have.has("draw") && !have.has("impulse_draw")) {
+    add.push(tag("draw", 0.56, SOURCE_KEYWORDS));
   }
 
   // Graveyard-linked keyword actions (subset of Scryfall `keywords`; does not tag removal/wipes)

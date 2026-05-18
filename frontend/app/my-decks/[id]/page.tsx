@@ -14,6 +14,9 @@ import FormatSelector from "./FormatSelector";
 import PanelWrapper from "./PanelWrapper";
 import DeckPriceMini from "@/components/DeckPriceMini";
 import { getMainboardCardCount } from "@/lib/deck/formatRules";
+import { enrichDeck } from "@/lib/deck/deck-enrichment";
+import { tagCards } from "@/lib/deck/card-role-tags";
+import { buildDeckFacts } from "@/lib/deck/deck-facts";
 
 type Params = { id: string };
 type Search = { r?: string };
@@ -189,38 +192,51 @@ export default async function Page({ params, searchParams }: { params: Promise<P
     });
   }
 
-  // Core meters: lands/ramp/draw/removal heuristic counts - mutually exclusive
-  const core: { lands: number; ramp: number; draw: number; removal: number } = { lands:0, ramp:0, draw:0, removal:0 };
-  for (const { name, qty } of arr) {
-    const d = details[norm(name)];
-    const tl = String(d?.type_line||'');
-    const text = String(d?.oracle_text||'').toLowerCase();
-    const nameLower = String(name||'').toLowerCase();
-    const q = Math.max(1, Number(qty)||1);
-    
-    // Priority order: Lands > Ramp > Draw > Removal (mutually exclusive)
-    if (/\bland\b/i.test(tl)) {
-      core.lands += q;
-    } else if (
-      // Ramp: mana rocks, land search, or cards that add mana
-      /signet|talisman|sol ring|mana crypt|mana vault|chrome mox|mox diamond/i.test(nameLower) ||
-      /add \{[wubrg]\}/i.test(text) ||
-      /search your library for (a|up to .*?) land/i.test(text) ||
-      /rampant growth|cultivate|kodama's reach|farseek|nature's lore|three visits/i.test(nameLower)
-    ) {
-      core.ramp += q;
-    } else if (
-      // Draw: cards that draw cards (not just scry)
-      /draw (a|one|two|three|X|\d+) card/i.test(text) ||
-      /investigate/i.test(text) ||
-      /impulse|brainstorm|ponder|preordain|serum visions|opt/i.test(nameLower)
-    ) {
-      core.draw += q;
-    } else if (
-      // Removal: targeted destruction, exile, counter, or damage to any target
-      /destroy target|exile target|counter target spell|fight target|deal \d+ damage to any target/i.test(text)
-    ) {
-      core.removal += q;
+  // Core meters: prefer shared metadata-first deck facts so website deck scan matches app/AI paths.
+  let core: { lands: number; ramp: number; draw: number; removal: number } = { lands:0, ramp:0, draw:0, removal:0 };
+  try {
+    const enriched = await enrichDeck(arr.map((c) => ({ name: c.name, qty: c.qty })), {
+      format: format === "modern" ? "Modern" : format === "pioneer" ? "Pioneer" : format === "standard" ? "Standard" : format === "pauper" ? "Pauper" : "Commander",
+      commander: deck?.commander || null,
+    });
+    const tagged = tagCards(enriched);
+    const facts = buildDeckFacts(tagged, {
+      format: format === "modern" ? "Modern" : format === "pioneer" ? "Pioneer" : format === "standard" ? "Standard" : format === "pauper" ? "Pauper" : "Commander",
+      commander: deck?.commander || null,
+    });
+    core = {
+      lands: facts.land_count,
+      ramp: facts.ramp_count,
+      draw: facts.draw_count,
+      removal: facts.interaction_count,
+    };
+  } catch {
+    for (const { name, qty } of arr) {
+      const d = details[norm(name)];
+      const tl = String(d?.type_line||'');
+      const text = String(d?.oracle_text||'').toLowerCase();
+      const nameLower = String(name||'').toLowerCase();
+      const q = Math.max(1, Number(qty)||1);
+      if (/\bland\b/i.test(tl)) {
+        core.lands += q;
+      } else if (
+        /signet|talisman|sol ring|mana crypt|mana vault|chrome mox|mox diamond/i.test(nameLower) ||
+        /add \{[wubrg]\}/i.test(text) ||
+        /search your library for (a|up to .*?) land/i.test(text) ||
+        /rampant growth|cultivate|kodama's reach|farseek|nature's lore|three visits/i.test(nameLower)
+      ) {
+        core.ramp += q;
+      } else if (
+        /draw (a|one|two|three|X|\d+) card/i.test(text) ||
+        /investigate/i.test(text) ||
+        /impulse|brainstorm|ponder|preordain|serum visions|opt/i.test(nameLower)
+      ) {
+        core.draw += q;
+      } else if (
+        /destroy target|exile target|counter target spell|fight target|deal \d+ damage to any target/i.test(text)
+      ) {
+        core.removal += q;
+      }
     }
   }
 
