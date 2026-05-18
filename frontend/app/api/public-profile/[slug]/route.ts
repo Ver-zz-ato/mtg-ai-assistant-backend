@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, getServiceRoleClient } from "@/lib/supabase/server";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderSlugByName } from "@/lib/commanders";
+import { syncUserBadgeState } from "@/lib/badges/canonical";
 
 function fallbackCommanderSlug(name: string): string {
   return String(name || "")
@@ -106,6 +107,20 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
 
     const db = getServiceRoleClient() ?? (await createClient());
     const userId = String(prof.id);
+    const legacyBadges = Array.isArray(prof.badges) ? prof.badges.filter(Boolean) : [];
+    let canonicalBadges: string[] | null = null;
+    let badgeSummary: { earnedCount: number; totalCount: number } | null = null;
+    try {
+      const synced = await syncUserBadgeState(userId);
+      const earnedCount = synced.progress.filter((row) => row.unlocked).length;
+      canonicalBadges = synced.earnedNames;
+      badgeSummary = {
+        earnedCount,
+        totalCount: synced.progress.length,
+      };
+    } catch {}
+    const publicBadges =
+      Array.isArray(canonicalBadges) && canonicalBadges.length > 0 ? canonicalBadges : legacyBadges;
 
     let decks: any[] = [];
     try {
@@ -272,7 +287,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
           deck_count: prof.deck_count,
           collection_count: prof.collection_count,
           messages_30d: prof.messages_30d,
-          badges: Array.isArray(prof.badges) ? prof.badges : [],
+          badges: publicBadges,
+          legacy_badges: legacyBadges,
+          badge_summary: badgeSummary,
           pinned_badges: prof.pinned_badges,
           custom_card: null,
         },

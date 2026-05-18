@@ -1,5 +1,6 @@
 // app/u/[slug]/page.tsx
 import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
 import { loadProfilesPublicBySlug } from "@/lib/server/publicProfile";
 import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
 
@@ -11,6 +12,42 @@ type Params = { slug: string };
 
 import LikeButton from "@/components/likes/LikeButton";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
+
+type PublicProfileApiShape = {
+  ok: true;
+  profile: {
+    badges?: string[] | null;
+    legacy_badges?: string[] | null;
+    badge_summary?: {
+      earnedCount?: number;
+      totalCount?: number;
+    } | null;
+  };
+};
+
+function pageBaseFromHeaders(h: Headers) {
+  const envBase = (process.env.NEXT_PUBLIC_BASE_URL || "").trim().replace(/\/$/, "");
+  if (envBase) return envBase;
+  const proto = h.get("x-forwarded-proto") || "http";
+  const host = h.get("x-forwarded-host") || h.get("host") || "localhost:3000";
+  return `${proto}://${host}`.replace(/\/$/, "");
+}
+
+async function fetchPublicProfileApi(slug: string): Promise<PublicProfileApiShape | null> {
+  try {
+    const h = await headers();
+    const base = pageBaseFromHeaders(h);
+    const res = await fetch(`${base}/api/public-profile/${encodeURIComponent(slug)}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    const json = (await res.json().catch(() => null)) as PublicProfileApiShape | null;
+    if (!res.ok || !json?.ok || !json.profile) return null;
+    return json;
+  } catch {
+    return null;
+  }
+}
 
 export default async function Page({ params }: { params: Promise<Params> }) {
   // Utilities for Scryfall data (server-side)
@@ -164,6 +201,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   }
   const { slug } = await params;
   const supabase = await createClient();
+  const apiProfile = await fetchPublicProfileApi(slug);
   const prof: any = await loadProfilesPublicBySlug(slug);
 
   if (!prof || prof.is_public === false) {
@@ -339,6 +377,20 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
     return n.slice(0, 2).toUpperCase();
   })();
+
+  const displayBadges: string[] = (() => {
+    const canonical = Array.isArray(apiProfile?.profile?.badges) ? apiProfile.profile.badges.filter(Boolean) : [];
+    if (canonical.length > 0) return canonical;
+    const legacy = Array.isArray(apiProfile?.profile?.legacy_badges) ? apiProfile.profile.legacy_badges.filter(Boolean) : [];
+    if (legacy.length > 0) return legacy;
+    return Array.isArray(prof.pinned_badges) ? prof.pinned_badges.filter(Boolean) : [];
+  })();
+
+  const publicBadgeSummary = apiProfile?.profile?.badge_summary ?? null;
+  const badgeCountLabel =
+    typeof publicBadgeSummary?.earnedCount === "number" && typeof publicBadgeSummary?.totalCount === "number"
+      ? `${publicBadgeSummary.earnedCount} of ${publicBadgeSummary.totalCount} unlocked`
+      : `${displayBadges.length} unlocked`;
 
   /** Public hero: official card art only (favorite → top public commander → first deck list art). */
   const publicHeroArt = (() => {
@@ -608,14 +660,17 @@ export default async function Page({ params }: { params: Promise<Params> }) {
 
         </section>
         <aside className="col-span-12 md:col-span-4 space-y-4">
-          {Array.isArray(prof.pinned_badges) && prof.pinned_badges.length > 0 && (
+          {displayBadges.length > 0 && (
             <section className="rounded-xl border-2 border-neutral-800 bg-gradient-to-br from-neutral-900/50 to-neutral-950/50 p-4 hover:border-amber-500/30 transition-colors shadow-xl">
               <div className="flex items-center gap-2 mb-3">
                 <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
-                <div className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">Achievements</div>
+                <div>
+                  <div className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">Achievements</div>
+                  <div className="text-[11px] text-neutral-400">{badgeCountLabel}</div>
+                </div>
               </div>
               <div className="space-y-3">
-                {prof.pinned_badges.slice(0,3).map((b: string, i: number) => {
+                {displayBadges.slice(0,3).map((b: string, i: number) => {
                   // Badge descriptions mapping
                   const badgeDescriptions: Record<string, {emoji: string, desc: string, color: string}> = {
                     'First Deck': {emoji: '🏆', desc: 'Created your first deck', color: 'from-blue-500/20 to-blue-600/10'},

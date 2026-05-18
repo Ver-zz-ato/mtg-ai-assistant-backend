@@ -390,7 +390,9 @@ async function collectBadgeMetrics(
     ),
     countRows(admin.from("budget_swap_analytics").select("id", { count: "exact", head: true }).eq("user_id", userId)),
     countRows(admin.from("custom_cards").select("id", { count: "exact", head: true }).eq("user_id", userId)),
-    selectMaybeSingle(admin.from("profiles").select("pro_since").eq("id", userId).maybeSingle()),
+    selectMaybeSingle<{ pro_since?: string | null }>(
+      admin.from("profiles").select("pro_since").eq("id", userId).maybeSingle(),
+    ),
     admin.auth.admin.getUserById(userId),
     countUserChatMessages(admin, userId),
     sumUserCollectionCards(admin, userId),
