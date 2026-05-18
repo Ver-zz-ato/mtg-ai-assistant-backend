@@ -291,13 +291,17 @@ export function blendTrendingCardsWithGlobal(
     return { name: r.name, count: r.count, blended, gPart };
   });
   scored.sort((a, b) => b.blended - a.blended);
-  rows.push(...scored.slice(0, TRENDING_CARDS_OUTPUT_LIMIT).map((s) => ({
-    name: s.name,
-    count: s.count,
-    blendedScore: Number(s.blended.toFixed(4)),
-    badge: s.gPart > 0.45 ? "Popular" : undefined,
-    dataScope: extOk ? "blend" : "internal",
-  })));
+  rows.push(
+    ...scored.slice(0, TRENDING_CARDS_OUTPUT_LIMIT).map(
+      (s): BlendedCardRow => ({
+        name: s.name,
+        count: s.count,
+        blendedScore: Number(s.blended.toFixed(4)),
+        badge: s.gPart > 0.45 ? "Popular" : undefined,
+        dataScope: extOk ? "blend" : "internal",
+      })
+    )
+  );
   if (rows.length >= minRows || !extOk) return rows;
 
   const seen = new Set(rows.map((row) => normName(row.name)));
