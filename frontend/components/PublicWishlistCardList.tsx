@@ -7,7 +7,7 @@ type Item = {
   qty: number;
 };
 
-type CardImageMap = Record<string, { small?: string; normal?: string }>;
+type CardImageMap = Record<string, { small?: string; normal?: string; art_crop?: string }>;
 
 function normalizeCardKey(name: string): string {
   return String(name || '')
@@ -39,7 +39,11 @@ export default function PublicWishlistCardList({ items, priceMap = new Map() }: 
         const m = await getImagesForNames(names);
         const obj: CardImageMap = {}; 
         m.forEach((v: any, k: string) => { 
-          obj[normalizeCardKey(k)] = { small: v.small, normal: v.normal }; 
+          obj[normalizeCardKey(k)] = {
+            small: v.small,
+            normal: v.normal || v.small || v.art_crop,
+            art_crop: v.art_crop || v.normal || v.small,
+          };
         });
         setImgMap(obj);
       } catch { 
@@ -84,14 +88,14 @@ export default function PublicWishlistCardList({ items, priceMap = new Map() }: 
             
             // Get card image
             let key = normalizeCardKey(item.name);
-            let src = imgMap[key]?.small;
-            let normalSrc = imgMap[key]?.normal;
+            let src = imgMap[key]?.small || imgMap[key]?.normal || imgMap[key]?.art_crop;
+            let normalSrc = imgMap[key]?.normal || imgMap[key]?.small || imgMap[key]?.art_crop;
             
             // Handle DFCs
             if (!src && item.name.includes('//')) {
               const frontFace = normalizeCardKey(item.name.split('//')[0].trim());
-              src = imgMap[frontFace]?.small;
-              normalSrc = imgMap[frontFace]?.normal;
+              src = imgMap[frontFace]?.small || imgMap[frontFace]?.normal || imgMap[frontFace]?.art_crop;
+              normalSrc = imgMap[frontFace]?.normal || imgMap[frontFace]?.small || imgMap[frontFace]?.art_crop;
               
               if (!src) {
                 const imgKeys = Object.keys(imgMap).filter(k => {
@@ -100,8 +104,8 @@ export default function PublicWishlistCardList({ items, priceMap = new Map() }: 
                   return parts[0] !== parts[1];
                 });
                 if (imgKeys.length > 0) {
-                  src = imgMap[imgKeys[0]]?.small;
-                  normalSrc = imgMap[imgKeys[0]]?.normal;
+                  src = imgMap[imgKeys[0]]?.small || imgMap[imgKeys[0]]?.normal || imgMap[imgKeys[0]]?.art_crop;
+                  normalSrc = imgMap[imgKeys[0]]?.normal || imgMap[imgKeys[0]]?.small || imgMap[imgKeys[0]]?.art_crop;
                   key = imgKeys[0];
                 }
               } else {

@@ -267,17 +267,18 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   function fmt(n:number){ try{ return new Intl.NumberFormat(undefined, { style:'currency', currency }).format(n||0); } catch { return `$${(n||0).toFixed(2)}`; } }
 
   // Image map for hover previews
-  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string }>>({});
+  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; art_crop?: string }>>({});
+  const normalizeCardKey = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
   React.useEffect(()=>{ (async()=>{
-    try{
-      const names = Array.from(new Set(items.map(i=>i.name))).slice(0,400);
-      if (!names.length) { setImgMap({}); return; }
-      const m = await getImagesForNames(names);
-      const obj: Record<string, { small?: string; normal?: string }> = {};
-      m.forEach((v:any,k:string)=>{ obj[k.toLowerCase()] = { small: v.small, normal: v.normal||v.art_crop||v.small }; });
-      setImgMap(obj);
-    } catch { setImgMap({}); }
-  })(); }, [items.map(i=>i.name).join('|')]);
+      try{
+        const names = Array.from(new Set(items.map(i=>i.name))).slice(0,400);
+        if (!names.length) { setImgMap({}); return; }
+        const m = await getImagesForNames(names);
+        const obj: Record<string, { small?: string; normal?: string; art_crop?: string }> = {};
+        m.forEach((v:any,k:string)=>{ obj[normalizeCardKey(k)] = { small: v.small, normal: v.normal || v.small || v.art_crop, art_crop: v.art_crop || v.normal || v.small }; });
+        setImgMap(obj);
+      } catch { setImgMap({}); }
+    })(); }, [items.map(i=>i.name).join('|')]);
 
   const { preview, bind } = useHoverPreview();
   const [fixOpen, setFixOpen] = React.useState(false);
@@ -939,7 +940,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                   <td className="p-2 w-8 align-middle"><input type="checkbox" checked={selSet.has(it.name)} onChange={()=>toggleOne(it.name)} /></td>
                   <td className="p-2">
                     <div className="flex items-center gap-3">
-                      {(() => { const key = it.name.toLowerCase(); const img = imgMap[key]?.small || it.thumb || ''; const big = imgMap[key]?.normal || img || ''; return img ? (<img src={img} alt="" className="w-12 h-16 object-cover rounded border border-neutral-800" {...(bind(big) as any)} />) : (<div className="w-12 h-16 rounded bg-neutral-900 border border-neutral-800" />); })()}
+                      {(() => { const key = normalizeCardKey(it.name); const img = imgMap[key]?.small || imgMap[key]?.normal || imgMap[key]?.art_crop || it.thumb || ''; const big = imgMap[key]?.normal || imgMap[key]?.small || imgMap[key]?.art_crop || img || ''; return img ? (<img src={img} alt="" className="w-12 h-16 object-cover rounded border border-neutral-800" {...(bind(big) as any)} />) : (<div className="w-12 h-16 rounded bg-neutral-900 border border-neutral-800" />); })()}
                       <span className="truncate max-w-[38ch]" title={it.name}>{it.name}</span>
                     </div>
                   </td>

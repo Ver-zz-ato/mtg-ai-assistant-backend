@@ -944,7 +944,7 @@ function WatchlistCard({
   item: { id: string; name: string }; 
   onRemove: () => void; 
   onAddToChart: () => void;
-  imgMap: Record<string, { small?: string; normal?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }>;
+  imgMap: Record<string, { small?: string; normal?: string; art_crop?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }>;
 }) {
   const [hoverPos, setHoverPos] = React.useState<{ x: number; y: number } | null>(null);
   
@@ -953,6 +953,8 @@ function WatchlistCard({
   const norm = (n: string) => n.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
   const key = norm(item.name);
   const img = imgMap[key] || {};
+  const thumbSrc = img.small || img.normal || img.art_crop;
+  const previewSrc = img.normal || img.small || img.art_crop;
   const price = img.price || 0;
   const delta24h = img.delta_24h || 0;
   const delta7d = img.delta_7d || 0;
@@ -974,12 +976,12 @@ function WatchlistCard({
           {/* Thumbnail with hover */}
           <div
             className="w-12 h-16 flex-shrink-0 bg-neutral-800 rounded overflow-hidden relative cursor-pointer"
-            onMouseEnter={(e) => img.normal && setHoverPos({ x: e.clientX, y: e.clientY })}
-            onMouseMove={(e) => img.normal && setHoverPos({ x: e.clientX, y: e.clientY })}
+            onMouseEnter={(e) => previewSrc && setHoverPos({ x: e.clientX, y: e.clientY })}
+            onMouseMove={(e) => previewSrc && setHoverPos({ x: e.clientX, y: e.clientY })}
             onMouseLeave={() => setHoverPos(null)}
           >
-            {img.small ? (
-              <img src={img.small} alt={item.name} className="w-full h-full object-cover" />
+            {thumbSrc ? (
+              <img src={thumbSrc} alt={item.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">?</div>
             )}
@@ -1044,7 +1046,7 @@ function WatchlistCard({
       </motion.li>
 
       {/* Hover preview */}
-      {hoverPos && img.normal && (
+      {hoverPos && previewSrc && (
         <div
           className="fixed pointer-events-none z-50"
           style={{ left: hoverPos.x + 15, top: hoverPos.y - 10 }}
@@ -1053,7 +1055,7 @@ function WatchlistCard({
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.2 }}
-            src={img.normal}
+            src={previewSrc}
             alt={item.name}
             className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
           />
@@ -1071,7 +1073,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
   const [loading, setLoading] = React.useState(true);
   const [q, setQ] = React.useState('');
   const [adding, setAdding] = React.useState(false);
-  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }>>({});
+  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; art_crop?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }>>({});
   const [showAddValidation, setShowAddValidation] = React.useState(false);
   const [addValidationItems, setAddValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
 
@@ -1106,7 +1108,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         // Fetch images
         const r1 = await fetch('/api/cards/batch-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names }) });
         const imgResponse = await r1.json().catch(() => ({ data: [] }));
-        const imgsByKey: Record<string, { small?: string; normal?: string }> = {};
+        const imgsByKey: Record<string, { small?: string; normal?: string; art_crop?: string }> = {};
         for (const card of Array.isArray(imgResponse.data) ? imgResponse.data : []) {
           const key = norm(card?.name || '');
           if (!key) continue;
@@ -1114,6 +1116,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
           imgsByKey[key] = {
             small: uris.small,
             normal: uris.normal || uris.art_crop || uris.small,
+            art_crop: uris.art_crop || uris.normal || uris.small,
           };
         }
         
@@ -1135,7 +1138,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         const pricesMap = new Map(priceResults.map(r => [r.name, r]));
         
         // Merge into imgMap
-        const map: Record<string, { small?: string; normal?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }> = {};
+        const map: Record<string, { small?: string; normal?: string; art_crop?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }> = {};
         for (const name of names) {
           const key = norm(name);
           const imgData = imgsByKey[key] || {};
@@ -1143,6 +1146,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
           map[key] = {
             small: imgData.small,
             normal: imgData.normal,
+            art_crop: imgData.art_crop,
             price: priceData.price,
             delta_24h: priceData.delta_24h,
             delta_7d: priceData.delta_7d,

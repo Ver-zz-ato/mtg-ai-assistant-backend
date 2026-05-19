@@ -160,10 +160,11 @@ function WatchlistEditor() {
   const [addName, setAddName] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [images, setImages] = useState<Record<string, { small?: string; normal?: string }>>({});
+  const [images, setImages] = useState<Record<string, { small?: string; normal?: string; art_crop?: string }>>({});
   const [previewCard, setPreviewCard] = useState<{ src: string; x: number; y: number } | null>(null);
   const [editingTarget, setEditingTarget] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const normalizeKey = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
   const [bulkValidationItems, setBulkValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
   const [showBulkValidation, setShowBulkValidation] = React.useState(false);
   const [pendingTargetPrice, setPendingTargetPrice] = React.useState<number | null>(null);
@@ -359,7 +360,8 @@ function WatchlistEditor() {
   };
 
   const handleMouseEnter = (e: React.MouseEvent, card: string) => {
-    const img = images[card.toLowerCase()]?.normal;
+    const key = normalizeKey(card);
+    const img = images[key]?.normal || images[key]?.small || images[key]?.art_crop;
     if (!img) return;
     const rect = (e.target as HTMLElement).getBoundingClientRect();
     setPreviewCard({ src: img, x: rect.right + 10, y: rect.top });
@@ -380,7 +382,7 @@ function WatchlistEditor() {
       try {
         const names = items.map(i => i.name);
         const imgsMap = await getImagesForNames(names);
-        const imgsRecord: Record<string, { small?: string; normal?: string }> = {};
+        const imgsRecord: Record<string, { small?: string; normal?: string; art_crop?: string }> = {};
         imgsMap.forEach((value, key) => {
           imgsRecord[key] = value;
         });
@@ -530,7 +532,7 @@ function WatchlistEditor() {
                   const current = priceData?.current || 0;
                   const targetHit = item.target_price && current > 0 && current <= item.target_price;
 
-                  const cardImg = images[item.name.toLowerCase()];
+                    const cardImg = images[normalizeKey(item.name)];
                   
                   // Calculate visual states
                   const delta7d = priceData?.delta_7d || 0;
@@ -559,9 +561,9 @@ function WatchlistEditor() {
                     <tr key={item.id} className={`${rowBgClass}`}>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          {cardImg?.small && (
+                          {(cardImg?.small || cardImg?.normal || cardImg?.art_crop) && (
                             <img 
-                              src={cardImg.small} 
+                              src={cardImg.small || cardImg.normal || cardImg.art_crop} 
                               alt={item.name}
                               className="w-12 h-16 rounded object-cover cursor-pointer border border-neutral-800"
                               onMouseEnter={(e) => handleMouseEnter(e, item.name)}
