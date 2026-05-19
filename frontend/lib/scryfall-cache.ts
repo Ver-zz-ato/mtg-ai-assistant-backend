@@ -15,6 +15,13 @@ function norm(name: string): string {
     .trim();
 }
 
+function coerceImageInfo(raw: Partial<ImageInfo> | null | undefined): ImageInfo {
+  const small = raw?.small || raw?.normal || raw?.art_crop;
+  const normal = raw?.normal || raw?.small || raw?.art_crop;
+  const art_crop = raw?.art_crop || raw?.normal || raw?.small;
+  return { small, normal, art_crop };
+}
+
 export async function getImagesForNames(names: string[]): Promise<Map<string, ImageInfo>> {
   const out = new Map<string, ImageInfo>();
   if (!Array.isArray(names) || names.length === 0) return out;
@@ -58,11 +65,11 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
             const key = norm(card?.name || "");
             if (!key) continue;
             const imageUris = card?.image_uris || {};
-            const imageInfo: ImageInfo = {
+            const imageInfo = coerceImageInfo({
               small: card?.small || imageUris?.small,
               normal: card?.normal || imageUris?.normal,
               art_crop: card?.art_crop || imageUris?.art_crop,
-            };
+            });
             if (imageInfo.small || imageInfo.normal || imageInfo.art_crop) {
               memCache.set(key, imageInfo);
               out.set(key, imageInfo);

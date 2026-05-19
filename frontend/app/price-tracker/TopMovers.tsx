@@ -37,7 +37,7 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
   const [isExpanded, setIsExpanded] = React.useState(true);
   const [sortField, setSortField] = React.useState<SortField>("pct");
   const [sortDir, setSortDir] = React.useState<SortDirection>("desc");
-  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string }>>({});
+  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; art_crop?: string }>>({});
   const [priceTrends, setPriceTrends] = React.useState<Record<string, Array<{ date: string; unit: number }>>>({});
   const [hoverCard, setHoverCard] = React.useState<{ name: string; x: number; y: number } | null>(null);
   const [selectedCard, setSelectedCard] = React.useState<string | null>(null);
@@ -96,9 +96,9 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
       try {
         const names = rows.slice(0, 50).map(r => r.name);
         const images = await getImagesForNames(names);
-        const map: Record<string, { small?: string; normal?: string }> = {};
+        const map: Record<string, { small?: string; normal?: string; art_crop?: string }> = {};
         images.forEach((info, key) => {
-          map[key] = { small: info.small, normal: info.normal };
+          map[key] = { small: info.small, normal: info.normal, art_crop: info.art_crop };
         });
         setImgMap(map);
       } catch {}
@@ -358,6 +358,8 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
                     {sorted.map(r => {
                       const key = norm(r.name);
                       const img = imgMap[key];
+                      const thumbSrc = img?.small || img?.normal || img?.art_crop;
+                      const previewSrc = img?.normal || img?.small || img?.art_crop;
                       const trend = priceTrends[r.name] || priceTrends[key];
                       const inWatchlist = watch.includes(r.name) || selectedForWatchlist.has(r.name);
                       return (
@@ -365,12 +367,12 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
                           <tr className="border-b border-neutral-900 hover:bg-neutral-900/50 transition-colors">
                             <td className="py-2 px-3">
                               <div className="flex items-center gap-2">
-                                {img?.small && (
+                                {thumbSrc && (
                                   <img
-                                    src={img.small}
+                                    src={thumbSrc}
                                     alt={r.name}
                                     className="w-8 h-11 object-cover rounded border border-neutral-700 cursor-pointer"
-                                    onMouseEnter={(e) => img.normal && setHoverCard({ name: r.name, x: e.clientX, y: e.clientY })}
+                                    onMouseEnter={(e) => previewSrc && setHoverCard({ name: r.name, x: e.clientX, y: e.clientY })}
                                     onMouseMove={(e) => hoverCard?.name === r.name && setHoverCard({ name: r.name, x: e.clientX, y: e.clientY })}
                                     onMouseLeave={() => setHoverCard(null)}
                                   />
@@ -448,7 +450,7 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
       )}
 
       {/* Card hover preview */}
-      {hoverCard && imgMap[norm(hoverCard.name)]?.normal && (
+      {hoverCard && (imgMap[norm(hoverCard.name)]?.normal || imgMap[norm(hoverCard.name)]?.small || imgMap[norm(hoverCard.name)]?.art_crop) && (
         <div
           className="fixed z-[9999] pointer-events-none"
           style={{ left: hoverCard.x + 15, top: hoverCard.y - 10 }}
@@ -456,7 +458,7 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
           <motion.img
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            src={imgMap[norm(hoverCard.name)]?.normal}
+            src={imgMap[norm(hoverCard.name)]?.normal || imgMap[norm(hoverCard.name)]?.small || imgMap[norm(hoverCard.name)]?.art_crop}
             alt={hoverCard.name}
             className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
           />
@@ -482,4 +484,3 @@ function Sparkline({ data }: { data: number[] }) {
     </svg>
   );
 }
-
