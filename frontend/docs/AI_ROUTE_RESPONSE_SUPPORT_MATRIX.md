@@ -33,7 +33,7 @@ Limited formats may be recognized by legality/import helpers, but routes below s
 | `/api/chat` | Website/app main chat | Commander, Modern, Pioneer, Standard, Pauper | MTG-only, format-aware, server-persisted | Chat regression suite |
 | `/api/chat/stream` | Website/app streaming chat + deck chat | Commander, Modern, Pioneer, Standard, Pauper | MTG-only, format-aware, server-persisted stream | Chat regression suite |
 | `/api/deck/analyze` | Website deck analysis | Commander, Modern, Pioneer, Standard, Pauper | Structured analysis, legal suggestions, no silent Commander fallback for explicit formats | `verify-ai-route-responses --heavy` |
-| `/api/mobile/deck/analyze` | App deck analysis | Commander, Modern, Pioneer, Standard, Pauper | App-safe structured analysis | `verify-ai-route-responses --heavy` |
+| `/api/mobile/deck/analyze` | App deck analysis | Commander, Modern, Pioneer, Standard, Pauper | App-safe structured analysis; optional Pro-only `proAnalysis` strategic block for authenticated Pro users (diagnostics, benchmarking, pressure points, impact plan, game stages, threat profile, confidence) | `verify-ai-route-responses --heavy` |
 | `/api/deck/roast` | Website deck roast | Commander, Modern, Pioneer, Standard, Pauper | Roast tone, card links as `[[Card]]`, format-aware | `verify-ai-route-responses` |
 | `/api/mobile/deck/roast-ai` | App deck roast | Commander, Modern, Pioneer, Standard, Pauper | JSON roast payload, format-aware | `verify-ai-route-responses` |
 | `/api/mobile/card/explain` | App card modal explain/tactics | Card-level, format-neutral | Must explain supplied oracle text only; no invented price/legality | `verify-ai-route-responses` |
