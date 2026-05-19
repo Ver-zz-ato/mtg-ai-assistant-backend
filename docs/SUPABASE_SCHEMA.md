@@ -46,6 +46,14 @@ The legacy compatibility surface remains:
 
 ---
 
+### Deck size enforcement (2026-05-19)
+
+- `public.deck_cards` now has a trigger-level hard cap of **200 total cards per deck across all zones**.
+- This is enforced in the database so it applies to both the **website** and the **mobile app**, including direct Supabase writes.
+- Expected 60-card / 100-card format checks still exist separately in app code; this new rule is only the universal upper bound.
+
+---
+
 <!-- WARNING: This schema is for context only and is not meant to be run. -->
 <!-- Table order and constraints may not be valid for execution. -->
 

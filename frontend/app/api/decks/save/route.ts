@@ -7,6 +7,7 @@ import { parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
+import { getDeckHardCapMessage } from "@/lib/deck/formatCompliance";
 
 type SaveBody = {
   title?: string;
@@ -89,6 +90,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json().catch(() => ({}))) as SaveBody;
+    const zonedParsed = parseDeckTextWithZones(body.deckText ?? "", {
+      isCommanderFormat: !body.format || /^commander$/i.test(String(body.format).trim()),
+    });
+    const totalCardCount = zonedParsed.reduce((sum, card) => sum + Math.max(0, Number(card.qty) || 0), 0);
+    const deckHardCapMessage = getDeckHardCapMessage(totalCardCount);
+    if (deckHardCapMessage) {
+      return NextResponse.json({ ok: false, error: deckHardCapMessage }, { status: 400 });
+    }
 
     const rawTitle = String(body.title ?? '').trim();
     const cleanTitle = sanitizeName(rawTitle, 120);
@@ -130,9 +139,6 @@ export async function POST(req: NextRequest) {
 
     // 2) Parse and normalize card names (auto-correct capitalization)
     const parsed = parseDeckText(body.deckText);
-    const zonedParsed = parseDeckTextWithZones(body.deckText, {
-      isCommanderFormat: !body.format || /^commander$/i.test(String(body.format).trim()),
-    });
     let unrecognizedCards: Array<{ originalName: string; qty: number; suggestions: string[] }> = [];
     
     if (zonedParsed.length > 0) {

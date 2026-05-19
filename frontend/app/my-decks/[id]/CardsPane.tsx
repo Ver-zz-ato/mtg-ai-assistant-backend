@@ -277,8 +277,9 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
       if (!json.ok) {
         // Revert optimistic update
         setCards(prev => prev.filter(c => c.id !== tempId));
-        
-        const retry = confirm(`Failed to add ${n}. Retry?`);
+
+        const message = json?.error || `Failed to add ${n}.`;
+        const retry = confirm(`${message} Retry?`);
         if (retry) {
           add(n, q, n, effectiveZone);
         }
@@ -489,8 +490,9 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
         } else {
           setCards(prev => prev.map(c => c.id === id ? { ...c, qty: previousQty } : c));
         }
-        
-        const retry = confirm(`Failed to update ${card.name}. Retry?`);
+
+        const message = json?.error || `Failed to update ${card.name}.`;
+        const retry = confirm(`${message} Retry?`);
         if (retry) {
           delta(id, d);
         }

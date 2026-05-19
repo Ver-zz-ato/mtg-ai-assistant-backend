@@ -9,6 +9,7 @@ import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
+import { getDeckHardCapMessage } from "@/lib/deck/formatCompliance";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -101,6 +102,12 @@ async function _POST(req: NextRequest) {
     const parsed = Req.safeParse(raw);
     if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
     const payload = parsed.data;
+    const zonedCards = parseDeckTextWithZones(payload.deck_text || "", {
+      isCommanderFormat: !payload.format || /^commander$/i.test(String(payload.format).trim()),
+    });
+    const totalCardCount = zonedCards.reduce((sum, card) => sum + Math.max(0, Number(card.qty) || 0), 0);
+    const deckHardCapMessage = getDeckHardCapMessage(totalCardCount);
+    if (deckHardCapMessage) return err(deckHardCapMessage, "bad_request", 400);
 
     const cleanTitle = sanitizeName(payload.title, 120);
     const makePublic = false;
@@ -164,7 +171,6 @@ async function _POST(req: NextRequest) {
     if (error) return err(error.message, "db_error", 500);
 
     // Parse & upsert deck_cards — preserve mainboard vs sideboard (UNIQUE deck_id,name,zone)
-    const zonedCards = parseDeckTextWithZones(payload.deck_text || "");
     let insertedCount = 0;
 
     if (zonedCards.length) {

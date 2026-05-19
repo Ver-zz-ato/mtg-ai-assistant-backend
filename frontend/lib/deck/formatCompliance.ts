@@ -11,6 +11,17 @@ import {
 } from "@/lib/deck/formatRules";
 import { parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 
+export const MAX_DECK_CARD_COUNT = 200;
+
+export function isWithinDeckHardCap(cardCount: number): boolean {
+  return cardCount <= MAX_DECK_CARD_COUNT;
+}
+
+export function getDeckHardCapMessage(cardCount: number): string | null {
+  if (isWithinDeckHardCap(cardCount)) return null;
+  return `Decklists cannot exceed ${MAX_DECK_CARD_COUNT} total cards (you have ${cardCount}). Remove ${cardCount - MAX_DECK_CARD_COUNT} cards before saving.`;
+}
+
 export function getExpectedCount(format: string | null | undefined): number | null {
   const n = normalizeDeckFormat(format);
   if (!n) return null;

@@ -5,8 +5,17 @@ import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText"
 import { isCommanderFormatString } from "@/lib/deck/formatRules";
 import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
 import { canonicalize } from "@/lib/cards/canonicalize";
+import { getDeckHardCapMessage } from "@/lib/deck/formatCompliance";
 
 export const runtime = "nodejs";
+
+function toDeckCardsUserError(message: string | null | undefined): string {
+  const raw = String(message ?? "").trim();
+  if (/decklists cannot exceed 200 total cards/i.test(raw) || /attempted\s+20\d/i.test(raw)) {
+    return getDeckHardCapMessage(201) ?? "Decklists cannot exceed 200 total cards.";
+  }
+  return raw || "Deck update failed";
+}
 
 function getDeckId(url: string) {
   const sp = new URL(url).searchParams;
@@ -170,14 +179,20 @@ async function importDeckText(supabase: SupabaseServerClient, deckId: string, de
     return NextResponse.json({ ok: false, error: "No cards found in decklist" }, { status: 400 });
   }
 
+  const totalCardCount = insertBatch.reduce((sum, card) => sum + Math.max(0, Number(card.qty) || 0), 0);
+  const deckHardCapMessage = getDeckHardCapMessage(totalCardCount);
+  if (deckHardCapMessage) {
+    return NextResponse.json({ ok: false, error: deckHardCapMessage }, { status: 400 });
+  }
+
   const { error: delErr } = await supabase.from("deck_cards").delete().eq("deck_id", deckId);
   if (delErr) {
-    return NextResponse.json({ ok: false, error: delErr.message }, { status: 400 });
+    return NextResponse.json({ ok: false, error: toDeckCardsUserError(delErr.message) }, { status: 400 });
   }
 
   const { error: insErr } = await supabase.from("deck_cards").insert(insertBatch);
   if (insErr) {
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 });
+    return NextResponse.json({ ok: false, error: toDeckCardsUserError(insErr.message) }, { status: 400 });
   }
 
   const { error: deckUpdateErr } = await supabase
@@ -264,7 +279,7 @@ export async function POST(req: NextRequest) {
         .from("deck_cards")
         .update({ qty: newQty })
         .eq("id", existing.id);
-      if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 400 });
+      if (upErr) return NextResponse.json({ ok: false, error: toDeckCardsUserError(upErr.message) }, { status: 400 });
       try {
         const { logSuggestionOutcome } = await import("@/lib/data-moat/log-suggestion-outcome");
         const sid = body?.suggestion_id ?? body?.suggestionId;
@@ -292,7 +307,7 @@ export async function POST(req: NextRequest) {
       .select("id, qty")
       .single();
 
-    if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 });
+    if (insErr) return NextResponse.json({ ok: false, error: toDeckCardsUserError(insErr.message) }, { status: 400 });
     try {
       const { logSuggestionOutcome } = await import("@/lib/data-moat/log-suggestion-outcome");
       const sid = body?.suggestion_id ?? body?.suggestionId;
@@ -357,13 +372,13 @@ export async function PATCH(req: NextRequest) {
     if (target?.id) {
       const merged = Math.max(0, (target.qty || 0) + qty);
       const { error: upT } = await supabase.from("deck_cards").update({ qty: merged }).eq("id", target.id);
-      if (upT) return NextResponse.json({ ok: false, error: upT.message }, { status: 400 });
+      if (upT) return NextResponse.json({ ok: false, error: toDeckCardsUserError(upT.message) }, { status: 400 });
       const { error: delM } = await supabase.from("deck_cards").delete().eq("id", row.id);
-      if (delM) return NextResponse.json({ ok: false, error: delM.message }, { status: 400 });
+      if (delM) return NextResponse.json({ ok: false, error: toDeckCardsUserError(delM.message) }, { status: 400 });
       return NextResponse.json({ ok: true, id: target.id, qty: merged, merged: true, zone: newZoneRaw });
     }
     const { error: upZ } = await supabase.from("deck_cards").update({ zone: newZoneRaw }).eq("id", row.id);
-    if (upZ) return NextResponse.json({ ok: false, error: upZ.message }, { status: 400 });
+    if (upZ) return NextResponse.json({ ok: false, error: toDeckCardsUserError(upZ.message) }, { status: 400 });
     return NextResponse.json({ ok: true, id: row.id, zone: newZoneRaw });
   }
 
@@ -383,13 +398,13 @@ export async function PATCH(req: NextRequest) {
     if (existing?.id && existing.id !== row.id) {
       const mergedQty = (existing.qty || 0) + (row.qty || 0);
       const { error: up1 } = await supabase.from('deck_cards').update({ qty: mergedQty }).eq('id', existing.id);
-      if (up1) return NextResponse.json({ ok:false, error: up1.message }, { status:400 });
+      if (up1) return NextResponse.json({ ok:false, error: toDeckCardsUserError(up1.message) }, { status:400 });
       const { error: del } = await supabase.from('deck_cards').delete().eq('id', row.id);
-      if (del) return NextResponse.json({ ok:false, error: del.message }, { status:400 });
+      if (del) return NextResponse.json({ ok:false, error: toDeckCardsUserError(del.message) }, { status:400 });
       return NextResponse.json({ ok:true, id: existing.id, qty: mergedQty, merged: true, name: newName });
     } else {
       const { error: up } = await supabase.from('deck_cards').update({ name: newName }).eq('id', row.id);
-      if (up) return NextResponse.json({ ok:false, error: up.message }, { status:400 });
+      if (up) return NextResponse.json({ ok:false, error: toDeckCardsUserError(up.message) }, { status:400 });
       return NextResponse.json({ ok:true, id: row.id, name: newName });
     }
   }
@@ -405,7 +420,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: true });
   } else {
     const { error: upErr } = await supabase.from("deck_cards").update({ qty: newQty }).eq("id", id);
-    if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 400 });
+    if (upErr) return NextResponse.json({ ok: false, error: toDeckCardsUserError(upErr.message) }, { status: 400 });
     return NextResponse.json({ ok: true, qty: newQty });
   }
   } catch (e: any) {
@@ -423,7 +438,7 @@ export async function DELETE(req: NextRequest) {
     if (id) {
       const supabase = await createClient();
       const { error } = await supabase.from("deck_cards").delete().eq("id", id);
-      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      if (error) return NextResponse.json({ ok: false, error: toDeckCardsUserError(error.message) }, { status: 400 });
       return NextResponse.json({ ok: true, deleted: true });
     }
     
@@ -456,7 +471,7 @@ export async function DELETE(req: NextRequest) {
     const newQty = Math.max(0, (existing.qty || 0) - qty);
     if (newQty <= 0) {
       const { error } = await supabase.from("deck_cards").delete().eq("id", existing.id);
-      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      if (error) return NextResponse.json({ ok: false, error: toDeckCardsUserError(error.message) }, { status: 400 });
       return NextResponse.json({ ok: true, deleted: true });
     } else {
       const { error } = await supabase.from("deck_cards").update({ qty: newQty }).eq("id", existing.id);
