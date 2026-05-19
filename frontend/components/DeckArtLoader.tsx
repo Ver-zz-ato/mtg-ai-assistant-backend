@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 interface DeckArtLoaderProps {
   deckId: string;
   commander?: string;
+  coverCardName?: string;
+  coverForceOverride?: boolean;
   title?: string;
   deckText?: string;
   /** When provided, used immediately and no per-deck fetch is made (e.g. from batch-art-for-decks). */
@@ -65,7 +67,17 @@ function prioritizeCards(names: string[]): string[] {
   return [...nonBasic, ...basic]; // Non-basics first
 }
 
-export default function DeckArtLoader({ deckId, commander, title, deckText, initialArt, batchOnly, children }: DeckArtLoaderProps) {
+export default function DeckArtLoader({
+  deckId,
+  commander,
+  coverCardName,
+  coverForceOverride,
+  title,
+  deckText,
+  initialArt,
+  batchOnly,
+  children,
+}: DeckArtLoaderProps) {
   const [art, setArt] = useState<string | undefined>(initialArt);
   const [loading, setLoading] = useState(!initialArt);
   const [error, setError] = useState(false);
@@ -165,12 +177,21 @@ export default function DeckArtLoader({ deckId, commander, title, deckText, init
         const candidates: string[] = [];
         const priorityCandidates: string[] = []; // Commander and title (highest priority)
         
-        // Add commander (highest priority)
+        // Explicit cover art wins only when forced, or when no commander is set.
+        if (coverCardName && (!commander || coverForceOverride)) {
+          const cleaned = cleanName(coverCardName);
+          if (cleaned) {
+            candidates.push(cleaned);
+            priorityCandidates.push(cleaned);
+          }
+        }
+
+        // Add commander (default priority when no forced override)
         if (commander) {
           const cleaned = cleanName(commander);
           if (cleaned) {
             candidates.push(cleaned);
-            priorityCandidates.push(cleaned); // Track as priority
+            if (!coverForceOverride) priorityCandidates.push(cleaned);
           }
         }
         

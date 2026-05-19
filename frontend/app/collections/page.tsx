@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import CollectionPageCoachBubbles from "./ClientWithCoach";
 
 // Basic shapes
-type Collection = { id: string; name: string; created_at: string | null };
+type Collection = { id: string; name: string; created_at: string | null; hero_card_name?: string | null };
 
 type Stats = {
   totalCards: number;
@@ -82,12 +82,17 @@ function CollectionsPageClientBody() {
               const prices: Record<string, number> = (pr.ok && pj?.ok) ? (pj.prices || {}) : {};
               const norm = (s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
               estValueUSD = items.reduce((acc, it) => acc + (prices[norm(it.name)] || 0) * (Number(it.qty) || 0), 0);
-              let best = { name: '', score: -1 };
-              for (const it of items) {
-                const unit = prices[norm(it.name)] || 0; const score = unit * (Number(it.qty)||1);
-                if (score > best.score) best = { name: it.name, score };
+              const heroName = c.hero_card_name?.trim();
+              if (heroName && items.some((it) => it.name === heroName)) {
+                coverName = heroName;
+              } else {
+                let best = { name: '', score: -1 };
+                for (const it of items) {
+                  const unit = prices[norm(it.name)] || 0; const score = unit * (Number(it.qty)||1);
+                  if (score > best.score) best = { name: it.name, score };
+                }
+                coverName = best.name || (items.sort((a,b)=> (b.qty||0)-(a.qty||0))[0]?.name || null);
               }
-              coverName = best.name || (items.sort((a,b)=> (b.qty||0)-(a.qty||0))[0]?.name || null);
             }
           } catch {}
 

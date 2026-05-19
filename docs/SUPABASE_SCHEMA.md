@@ -619,6 +619,8 @@ CREATE TABLE public.collection_meta (
   CONSTRAINT collection_meta_pkey PRIMARY KEY (collection_id),
   CONSTRAINT collection_meta_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id)
 );
+-- `collection_meta.data` currently carries lightweight collection UI metadata such as
+-- `hero_card_name`, which lets app + website collection tiles respect a user-picked hero card.
 CREATE TABLE public.collections (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -769,6 +771,9 @@ CREATE TABLE public.decks (
   CONSTRAINT decks_pkey PRIMARY KEY (id),
   CONSTRAINT decks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
+-- `decks.meta` includes optional UI hero-cover keys:
+-- `deck_cover_card_name` (chosen card name) and `deck_cover_force_override`
+-- (`true` when a manual hero pick should override commander art on list/detail surfaces).
 CREATE TABLE public.error_logs (
   id bigint NOT NULL DEFAULT nextval('error_logs_id_seq'::regclass),
   created_at timestamp with time zone DEFAULT now(),

@@ -16,6 +16,7 @@ interface DeckRow {
   id: string;
   title: string | null;
   commander: string | null;
+  meta?: Record<string, unknown> | null;
   created_at: string | null;
   updated_at: string | null;
   is_public: boolean;
@@ -54,6 +55,11 @@ function MyDeckGridCard({
   const stats = deckStats.get(r.id);
   const isPinned = pinnedIds.includes(r.id);
   const isThisSwiped = swipedDeckId === r.id;
+  const coverCardName =
+    typeof r.meta?.deck_cover_card_name === 'string' && r.meta.deck_cover_card_name.trim()
+      ? r.meta.deck_cover_card_name.trim()
+      : undefined;
+  const coverForceOverride = r.meta?.deck_cover_force_override === true;
 
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => setSwipedDeckId(r.id),
@@ -67,6 +73,8 @@ function MyDeckGridCard({
       <DeckArtLoader
         deckId={r.id}
         commander={r.commander || undefined}
+        coverCardName={coverCardName}
+        coverForceOverride={coverForceOverride}
         title={r.title || undefined}
       >
         {(art, loading) => (
