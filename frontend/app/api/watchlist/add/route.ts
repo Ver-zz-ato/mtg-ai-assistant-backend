@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase/server';
+import { checkProStatus } from '@/lib/server-pro-check';
 
 export const runtime = 'nodejs';
 
@@ -13,15 +14,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
     }
 
-    // Check if user is Pro
-    const { data: profile } = await (supabase as any)
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .maybeSingle();
-    
-    const isPro = profile?.is_pro || user?.user_metadata?.pro;
-    
+    const isPro = await checkProStatus(user.id);
+
     if (!isPro) {
       try {
         const { logOpsEvent } = await import('@/lib/ops-events');

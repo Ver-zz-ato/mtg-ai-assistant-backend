@@ -5,8 +5,8 @@ import { getAdmin } from '@/app/api/_lib/supa';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Pro entitlement ID in RevenueCat (must match mobile app). */
-const PRO_ENTITLEMENT_ID = 'pro';
+/** Pro entitlement IDs in RevenueCat (must match mobile app and server entitlement checks). */
+const PRO_ENTITLEMENT_IDS = ['pro', 'Manatap.ai Pro'] as const;
 
 const processedEvents = new Set<string>();
 const MAX_CACHE_SIZE = 500;
@@ -320,7 +320,7 @@ export async function POST(req: NextRequest) {
 
   // Check if this event pertains to our "pro" entitlement
   const entitlementIds = body.entitlement_ids ?? (body.entitlement_id ? [body.entitlement_id] : []);
-  const hasProEntitlement = entitlementIds.includes(PRO_ENTITLEMENT_ID);
+  const hasProEntitlement = entitlementIds.some((id) => PRO_ENTITLEMENT_IDS.includes(id as (typeof PRO_ENTITLEMENT_IDS)[number]));
 
   if (GRANT_EVENTS.has(eventType)) {
     if (!hasProEntitlement && eventType !== 'TRANSFER') {

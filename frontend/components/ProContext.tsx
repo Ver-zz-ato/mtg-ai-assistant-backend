@@ -114,6 +114,12 @@ export default function ProProvider({ children }: { children: React.ReactNode })
             const apiRes = await fetch('/api/user/pro-status');
             if (apiRes.ok) {
               const apiData = await apiRes.json();
+              if (apiData.ok && apiData.isPro !== undefined) {
+                isProUser = isProUser || apiData.isPro === true;
+              }
+              if (apiData.ok && apiData.hasBillingAccount !== undefined) {
+                hasBilling = apiData.hasBillingAccount;
+              }
               // Never downgrade Pro resolved from profile if API tier drifts.
               if (apiData.ok && apiData.modelTier != null && !isProUser) {
                 tier = apiData.modelTier;

@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import { capture } from "@/lib/ph";
 import { usePrefs } from "@/components/PrefsContext";
@@ -13,11 +12,11 @@ import GuestLandingPage from "@/components/GuestLandingPage";
 import { getImagesForNames } from "@/lib/scryfall-cache";
 import { EmptyWishlistState } from "@/components/EmptyStates";
 import WishlistSkeleton from "@/components/WishlistSkeleton";
+import { useProStatus } from "@/hooks/useProStatus";
 
 export default function WishlistPage() {
-  const sb = useMemo(() => createBrowserSupabaseClient(), []);
-  const { user, loading: authLoading } = useAuth(); // NEW: Get auth state from context
-  const [pro, setPro] = useState<boolean>(false);
+  const { user } = useAuth(); // NEW: Get auth state from context
+  const { isPro: pro } = useProStatus();
 
   // Load pro status when user changes
   useEffect(() => {
@@ -25,12 +24,6 @@ export default function WishlistPage() {
       try {
         capture('wishlist_page_view');
       } catch {}
-      
-      const md: any = user.user_metadata || {};
-      const proStatus = Boolean(md.pro || md.is_pro);
-      setPro(proStatus);
-    } else {
-      setPro(false);
     }
   }, [user])
 
