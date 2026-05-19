@@ -5,7 +5,16 @@ import { showProToast } from "@/lib/pro-ux";
 import { motion, AnimatePresence } from "framer-motion";
 import { getImagesForNames } from "@/lib/scryfall-cache";
 
-type MoverRow = { name: string; prior: number; latest: number; delta: number; pct: number };
+type MoverRow = {
+  name: string;
+  prior: number;
+  latest: number;
+  delta: number;
+  pct: number;
+  small?: string;
+  normal?: string;
+  art_crop?: string;
+};
 
 type SortField = "name" | "prior" | "latest" | "delta" | "pct";
 type SortDirection = "asc" | "desc";
@@ -358,8 +367,8 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
                     {sorted.map(r => {
                       const key = norm(r.name);
                       const img = imgMap[key];
-                      const thumbSrc = img?.small || img?.normal || img?.art_crop;
-                      const previewSrc = img?.normal || img?.small || img?.art_crop;
+                      const thumbSrc = r.small || r.normal || r.art_crop || img?.small || img?.normal || img?.art_crop;
+                      const previewSrc = r.normal || r.small || r.art_crop || img?.normal || img?.small || img?.art_crop;
                       const trend = priceTrends[r.name] || priceTrends[key];
                       const inWatchlist = watch.includes(r.name) || selectedForWatchlist.has(r.name);
                       return (
@@ -376,6 +385,9 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
                                     onMouseMove={(e) => hoverCard?.name === r.name && setHoverCard({ name: r.name, x: e.clientX, y: e.clientY })}
                                     onMouseLeave={() => setHoverCard(null)}
                                   />
+                                )}
+                                {!thumbSrc && (
+                                  <div className="w-8 h-11 rounded border border-neutral-800 bg-neutral-950/70 flex-shrink-0" aria-hidden="true" />
                                 )}
                                 <button
                                   onClick={() => onAddToChart?.(r.name)}
@@ -450,7 +462,11 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
       )}
 
       {/* Card hover preview */}
-      {hoverCard && (imgMap[norm(hoverCard.name)]?.normal || imgMap[norm(hoverCard.name)]?.small || imgMap[norm(hoverCard.name)]?.art_crop) && (
+      {hoverCard && (() => {
+        const row = sorted.find((item) => item.name === hoverCard.name);
+        const previewSrc = row?.normal || row?.small || row?.art_crop || imgMap[norm(hoverCard.name)]?.normal || imgMap[norm(hoverCard.name)]?.small || imgMap[norm(hoverCard.name)]?.art_crop;
+        return !!previewSrc;
+      })() && (
         <div
           className="fixed z-[9999] pointer-events-none"
           style={{ left: hoverCard.x + 15, top: hoverCard.y - 10 }}
@@ -458,7 +474,10 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
           <motion.img
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            src={imgMap[norm(hoverCard.name)]?.normal || imgMap[norm(hoverCard.name)]?.small || imgMap[norm(hoverCard.name)]?.art_crop}
+            src={(() => {
+              const row = sorted.find((item) => item.name === hoverCard.name);
+              return row?.normal || row?.small || row?.art_crop || imgMap[norm(hoverCard.name)]?.normal || imgMap[norm(hoverCard.name)]?.small || imgMap[norm(hoverCard.name)]?.art_crop;
+            })()}
             alt={hoverCard.name}
             className="w-64 rounded-lg shadow-2xl border-2 border-neutral-700"
           />

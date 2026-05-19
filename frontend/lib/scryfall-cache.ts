@@ -2,6 +2,8 @@
 // Helper to batch-fetch card images via the internal cache-backed endpoint.
 // This keeps client-side display behavior aligned with imports/search/fix-name flows.
 
+import { getImagesForNames as getImagesFromScryfall } from "@/lib/scryfall";
+
 export type ImageInfo = { small?: string; normal?: string; art_crop?: string };
 
 const memCache: Map<string, ImageInfo> = new Map(); // in-memory cache for session
@@ -77,8 +79,32 @@ export async function getImagesForNames(names: string[]): Promise<Map<string, Im
           }
         }
       }
+
+      const unresolvedNorm = batchNorm.filter((n) => !out.has(n));
+      if (unresolvedNorm.length > 0) {
+        const fallbackImages = await getImagesFromScryfall(unresolvedNorm.map((n) => origForNorm.get(n)!));
+        fallbackImages.forEach((info, key) => {
+          const imageInfo = coerceImageInfo(info);
+          if (imageInfo.small || imageInfo.normal || imageInfo.art_crop) {
+            memCache.set(key, imageInfo);
+            out.set(key, imageInfo);
+          }
+        });
+      }
     } catch (err) {
       console.warn("[getImagesForNames] Batch image fetch failed:", err);
+      try {
+        const fallbackImages = await getImagesFromScryfall(batchOrigNames);
+        fallbackImages.forEach((info, key) => {
+          const imageInfo = coerceImageInfo(info);
+          if (imageInfo.small || imageInfo.normal || imageInfo.art_crop) {
+            memCache.set(key, imageInfo);
+            out.set(key, imageInfo);
+          }
+        });
+      } catch (fallbackErr) {
+        console.warn("[getImagesForNames] Direct Scryfall fallback failed:", fallbackErr);
+      }
     }
   }
 

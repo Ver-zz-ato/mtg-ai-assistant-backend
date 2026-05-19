@@ -201,7 +201,30 @@ export async function GET(req: NextRequest) {
       .sort((a,b) => Math.abs(b.pct) - Math.abs(a.pct))
       .slice(0, limit);
 
-    const body: Record<string, unknown> = { ok: true, latest, prior, rows: out };
+    type ArtRow = { name: string; small?: string | null; normal?: string | null; art_crop?: string | null };
+    const moverNames = out.map((row) => row.name).filter(Boolean);
+    const artByName = new Map<string, ArtRow>();
+    if (moverNames.length > 0) {
+      const { data: artRows } = await db
+        .from('scryfall_cache')
+        .select('name, small, normal, art_crop')
+        .in('name', moverNames);
+      for (const row of (artRows || []) as ArtRow[]) {
+        artByName.set(String(row.name), row);
+      }
+    }
+
+    const rowsWithArt = out.map((row) => {
+      const art = artByName.get(row.name);
+      return {
+        ...row,
+        small: art?.small || undefined,
+        normal: art?.normal || undefined,
+        art_crop: art?.art_crop || undefined,
+      };
+    });
+
+    const body: Record<string, unknown> = { ok: true, latest, prior, rows: rowsWithArt };
     if (debug) {
       body._debug = { usedAdmin: !!admin, rawRowCount: rows.length, byNameKeys: Object.keys(byName).length, prior, latest };
     }
