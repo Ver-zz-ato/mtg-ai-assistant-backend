@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { isAdmin } from "@/lib/admin-check";
-import { AI_USAGE_SOURCE_MANATAP_APP, isAppAiUsageRow } from "@/lib/ai/manatap-client-origin";
+import {
+  AI_USAGE_SOURCE_MANATAP_APP,
+  getAppAiUsagePostgrestOrClause,
+  isAppAiUsageRow,
+} from "@/lib/ai/manatap-client-origin";
 
 export const runtime = "nodejs";
 
@@ -52,7 +56,7 @@ export async function GET(req: NextRequest) {
       .select(selectCols)
       .gte("created_at", from)
       .lte("created_at", to)
-      .or(`source.eq.${AI_USAGE_SOURCE_MANATAP_APP},source_page.like.app%`)
+      .or(getAppAiUsagePostgrestOrClause())
       .order("created_at", { ascending: false });
     if (modelFilter) q = q.eq("model", modelFilter);
     if (routeFilter) q = q.eq("route", routeFilter);

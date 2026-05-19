@@ -971,6 +971,8 @@ export async function POST(req: NextRequest) {
     let requestMode: "deckId" | "deckText" | "unknown" = "unknown";
     let requestCommander: string | null = null;
     let requestFormat: string | null = null;
+    let requestSourcePage: string | null = null;
+    let requestUsageSource: string | null = null;
     let isPro = false;
     /** Single read: runDeckAnalyzeCore also needs this JSON for usageSource/sourcePage; a second req.json() can be empty. */
     let parsedBody: Record<string, unknown> = {};
@@ -982,6 +984,10 @@ export async function POST(req: NextRequest) {
       requestMode = hasDeckId ? "deckId" : hasDeckText ? "deckText" : "unknown";
       requestCommander = pickTrimmedString(parsedBody.commander);
       requestFormat = pickTrimmedString(parsedBody.format);
+      requestSourcePage =
+        pickTrimmedString(parsedBody.sourcePage) ?? pickTrimmedString(parsedBody.source_page);
+      const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
+      requestUsageSource = resolveAiUsageSourceForRequest(req, parsedBody, null) ?? null;
     } catch {
       requestMode = "unknown";
     }
@@ -1096,8 +1102,10 @@ export async function POST(req: NextRequest) {
         counts: (body.counts as Record<string, unknown> | undefined) ?? null,
         commander: responseCommander,
         format: responseFormat,
-        userId: null,
-        isPro: false,
+        userId: auth?.user?.id ?? null,
+        isPro,
+        sourcePage: requestSourcePage,
+        usageSource: requestUsageSource,
       });
       console.log("[mobile/deck/analyze][debug] after explainer", {
         hasExplainerSummary: typeof analysis?.summary === "string" && analysis.summary.trim().length > 0,

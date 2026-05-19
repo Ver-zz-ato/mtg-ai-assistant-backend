@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { costUSD } from "@/lib/ai/pricing";
-import { AI_USAGE_SOURCE_MANATAP_APP, isAppAiUsageRow } from "@/lib/ai/manatap-client-origin";
+import {
+  getAppAiUsagePostgrestOrClause,
+  isAppAiUsageRow,
+} from "@/lib/ai/manatap-client-origin";
 import { isAdmin } from "@/lib/admin-check";
 
 const LEGACY_PRICING_CUTOFF = "2026-02-14";
@@ -68,7 +71,7 @@ export async function GET(req: NextRequest) {
       .from("ai_usage")
       .select(selectCols)
       .gte("created_at", cutoff)
-      .or(`source.eq.${AI_USAGE_SOURCE_MANATAP_APP},source_page.like.app%`)
+      .or(getAppAiUsagePostgrestOrClause())
       .order("created_at", { ascending: false })
       .limit(FETCH_CAP);
 

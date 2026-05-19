@@ -66,6 +66,8 @@ export async function generateAppSafeDeckExplanation(params: {
   format?: string | null;
   userId?: string | null;
   isPro?: boolean;
+  sourcePage?: string | null;
+  usageSource?: string | null;
 }): Promise<AppAnalyzeExplanation> {
   const model = process.env.MODEL_DECK_ANALYZE_APP_EXPLAIN || DEFAULT_FALLBACK_MODEL;
   const compactSuggestions = params.suggestions.slice(0, 8).map((s, index) => ({
@@ -123,6 +125,8 @@ ${JSON.stringify(
         apiType: "chat",
         userId: params.userId ?? null,
         isPro: params.isPro ?? false,
+        source_page: params.sourcePage ?? null,
+        source: params.usageSource ?? null,
       }
     );
     const parsed = parseSections((response.text || "").trim());

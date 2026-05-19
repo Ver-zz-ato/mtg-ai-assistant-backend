@@ -11,12 +11,19 @@
  * Eval runs: when `eval_run_id` is non-empty, `source` is always `ai_test` (wins over app marker).
  */
 export const AI_USAGE_SOURCE_MANATAP_APP = "manatap_app";
-const MOBILE_ONLY_AI_USAGE_ROUTES = new Set([
+export const MOBILE_ONLY_AI_USAGE_ROUTES = [
   "deck_analyze_mobile_explain",
   "deck_roast_mobile",
   "card_explain_mobile",
   "deck_compare_mobile",
-]);
+];
+const MOBILE_ONLY_AI_USAGE_ROUTE_SET = new Set(MOBILE_ONLY_AI_USAGE_ROUTES);
+
+/** PostgREST OR clause used by admin AI usage queries for mobile-app rows. */
+export function getAppAiUsagePostgrestOrClause(): string {
+  const routeList = MOBILE_ONLY_AI_USAGE_ROUTES.join(",");
+  return `source.eq.${AI_USAGE_SOURCE_MANATAP_APP},source_page.like.app%,route.in.(${routeList})`;
+}
 
 export function resolveAiUsageSourceForRequest(
   req: Request,
@@ -50,6 +57,6 @@ export function isAppAiUsageRow(row: {
   const sp = row.source_page != null ? String(row.source_page).trim() : "";
   if (sp.toLowerCase().startsWith("app_")) return true;
   const route = row.route != null ? String(row.route).trim() : "";
-  if (MOBILE_ONLY_AI_USAGE_ROUTES.has(route)) return true;
+  if (MOBILE_ONLY_AI_USAGE_ROUTE_SET.has(route)) return true;
   return false;
 }
