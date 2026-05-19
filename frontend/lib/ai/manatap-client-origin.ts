@@ -11,6 +11,12 @@
  * Eval runs: when `eval_run_id` is non-empty, `source` is always `ai_test` (wins over app marker).
  */
 export const AI_USAGE_SOURCE_MANATAP_APP = "manatap_app";
+const MOBILE_ONLY_AI_USAGE_ROUTES = new Set([
+  "deck_analyze_mobile_explain",
+  "deck_roast_mobile",
+  "card_explain_mobile",
+  "deck_compare_mobile",
+]);
 
 export function resolveAiUsageSourceForRequest(
   req: Request,
@@ -37,10 +43,13 @@ export function resolveAiUsageSourceForRequest(
 export function isAppAiUsageRow(row: {
   source?: string | null;
   source_page?: string | null;
+  route?: string | null;
 }): boolean {
   const s = row.source != null ? String(row.source).trim() : "";
   if (s === AI_USAGE_SOURCE_MANATAP_APP) return true;
   const sp = row.source_page != null ? String(row.source_page).trim() : "";
   if (sp.toLowerCase().startsWith("app_")) return true;
+  const route = row.route != null ? String(row.route).trim() : "";
+  if (MOBILE_ONLY_AI_USAGE_ROUTES.has(route)) return true;
   return false;
 }

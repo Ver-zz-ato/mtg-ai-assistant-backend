@@ -5,6 +5,7 @@
  */
 import assert from "node:assert";
 import { getRouteForInsert } from "@/lib/ai/log-usage";
+import { isAppAiUsageRow } from "@/lib/ai/manatap-client-origin";
 
 // getRouteForInsert: never returns null/empty
 assert.strictEqual(getRouteForInsert({ route: "chat_stream" }), "chat_stream");
@@ -35,6 +36,27 @@ const ROUTES_FROM_CALLLM = [
 for (const r of ROUTES_FROM_CALLLM) {
   assert.strictEqual(getRouteForInsert({ route: r }), r);
 }
+
+assert.strictEqual(
+  isAppAiUsageRow({ source: "manatap_app", source_page: null, route: "chat_stream" }),
+  true
+);
+assert.strictEqual(
+  isAppAiUsageRow({ source: null, source_page: "app_home_chat", route: "chat_stream" }),
+  true
+);
+assert.strictEqual(
+  isAppAiUsageRow({ source: null, source_page: null, route: "deck_analyze_mobile_explain" }),
+  true
+);
+assert.strictEqual(
+  isAppAiUsageRow({ source: null, source_page: null, route: "deck_roast_mobile" }),
+  true
+);
+assert.strictEqual(
+  isAppAiUsageRow({ source: null, source_page: "/ · Chat.tsx", route: "chat_stream" }),
+  false
+);
 
 console.log("ai-usage-route.test.ts: all assertions passed.");
 export {};

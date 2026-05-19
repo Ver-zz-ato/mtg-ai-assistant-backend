@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
     const rowsRaw = (Array.isArray(batch) ? batch : []) as unknown[];
     const filtered = rowsRaw.filter((r): r is Record<string, unknown> => r != null && typeof r === "object").filter((r) =>
       isAppAiUsageRow({
+        route: r.route as string | null,
         source: r.source as string | null,
         source_page: r.source_page as string | null,
       })

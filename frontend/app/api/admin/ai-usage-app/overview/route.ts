@@ -9,7 +9,8 @@ export const runtime = "nodejs";
 const LEGACY_PRICING_CUTOFF = "2026-02-14";
 
 /**
- * App-only AI usage overview: `source = manatap_app` OR `source_page` like `app%`.
+ * App-only AI usage overview: `source = manatap_app`, `source_page` like `app%`,
+ * or known mobile-only AI routes when attribution markers are unexpectedly null.
  * Rows are re-validated with isAppAiUsageRow() after fetch (defensive).
  */
 export async function GET(req: NextRequest) {
@@ -69,6 +70,7 @@ export async function GET(req: NextRequest) {
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     const list = ((rows || []) as Array<Record<string, unknown>>).filter((r) =>
       isAppAiUsageRow({
+        route: r.route as string | null,
         source: r.source as string | null,
         source_page: r.source_page as string | null,
       })
@@ -229,6 +231,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       filter: {
         description: "source = manatap_app OR source_page starts with app_",
+        description_fallback: "Also includes known mobile-only routes if source/source_page tagging is missing.",
         source_marker: AI_USAGE_SOURCE_MANATAP_APP,
       },
       totals: {
