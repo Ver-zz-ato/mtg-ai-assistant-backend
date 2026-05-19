@@ -17,7 +17,7 @@ export const POST = withLogging(async (req: NextRequest) => {
       return NextResponse.json({ error: "Invalid names array" }, { status: 400 });
     }
 
-    const cacheKey = `batch-images:${names.sort().join(",")}`;
+    const cacheKey = `batch-images:v2:${[...names].map((name: string) => String(name).trim()).sort().join(",")}`;
     const cached = memoGet<any>(cacheKey);
     if (cached) {
       return NextResponse.json(cached, { status: 200 });
