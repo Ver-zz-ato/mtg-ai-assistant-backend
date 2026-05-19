@@ -4,11 +4,17 @@ import { checkProStatus } from '@/lib/server-pro-check';
 
 export const runtime = 'nodejs';
 
+type WatchlistRow = { id: string };
+type ScryfallNamedResponse = { name?: string };
+type AddWatchlistRequest = {
+  name?: string;
+  target_price?: number | string | null;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await getSupabaseServer();
-    const { data: ures } = await (supabase as any).auth.getUser();
-    const user = ures?.user;
+    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
@@ -19,7 +25,7 @@ export async function POST(req: NextRequest) {
     if (!isPro) {
       try {
         const { logOpsEvent } = await import('@/lib/ops-events');
-        await logOpsEvent(supabase as any, {
+        await logOpsEvent(supabase, {
           event_type: 'ops_pro_access_denied',
           route: '/api/watchlist/add',
           status: 'ok',
@@ -31,7 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'pro_required' }, { status: 403 });
     }
 
-    const body = await req.json().catch(() => ({}));
+    const body = (await req.json().catch(() => ({}))) as AddWatchlistRequest;
     const cardName = String(body?.name || '').trim();
     const targetPrice = body?.target_price ? Number(body.target_price) : null;
 
@@ -40,20 +46,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Get or create watchlist
-    let { data: watchlist } = await (supabase as any)
+    let { data: watchlist } = await supabase
       .from('watchlists')
       .select('id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
       .limit(1)
-      .maybeSingle();
+      .maybeSingle<WatchlistRow>();
 
     if (!watchlist) {
-      const { data: newWl, error: createErr } = await (supabase as any)
+      const { data: newWl, error: createErr } = await supabase
         .from('watchlists')
         .insert({ user_id: user.id, name: 'My Watchlist', is_public: false })
         .select('id')
-        .maybeSingle();
+        .maybeSingle<WatchlistRow>();
       
       if (createErr || !newWl) {
         return NextResponse.json({ ok: false, error: 'failed to create watchlist' }, { status: 500 });
@@ -65,12 +71,14 @@ export async function POST(req: NextRequest) {
     // Normalize card name using Scryfall
     let normalizedName = cardName;
     try {
+      // Raw external fetch is intentional here because this hits Scryfall directly.
+      // eslint-disable-next-line no-restricted-globals
       const scryfallRes = await fetch(
         `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`
       );
       
       if (scryfallRes.ok) {
-        const scryfallData: any = await scryfallRes.json();
+        const scryfallData = (await scryfallRes.json()) as ScryfallNamedResponse;
         normalizedName = scryfallData?.name || cardName;
       }
     } catch (e) {
@@ -78,17 +86,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if already exists
-    const { data: existing } = await (supabase as any)
+    const { data: existing } = await supabase
       .from('watchlist_items')
       .select('id')
       .eq('watchlist_id', watchlist.id)
       .eq('name', normalizedName)
-      .maybeSingle();
+      .maybeSingle<WatchlistRow>();
 
     if (existing) {
       // Update target price if provided
       if (targetPrice !== null) {
-        const { error: updateErr } = await (supabase as any)
+        const { error: updateErr } = await supabase
           .from('watchlist_items')
           .update({ target_price: targetPrice, updated_at: new Date().toISOString() })
           .eq('id', existing.id);
@@ -102,7 +110,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert new item
-    const { error: insertErr } = await (supabase as any)
+    const { error: insertErr } = await supabase
       .from('watchlist_items')
       .insert({
         watchlist_id: watchlist.id,
@@ -127,9 +135,12 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, name: normalizedName });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('Watchlist add error:', e);
-    return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : 'server_error' },
+      { status: 500 }
+    );
   }
 }
 

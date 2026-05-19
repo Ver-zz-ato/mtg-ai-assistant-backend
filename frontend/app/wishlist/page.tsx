@@ -1,6 +1,7 @@
+/* eslint-disable no-restricted-globals, @next/next/no-img-element */
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import { capture } from "@/lib/ph";
 import { usePrefs } from "@/components/PrefsContext";
@@ -13,6 +14,19 @@ import { getImagesForNames } from "@/lib/scryfall-cache";
 import { EmptyWishlistState } from "@/components/EmptyStates";
 import WishlistSkeleton from "@/components/WishlistSkeleton";
 import { useProStatus } from "@/hooks/useProStatus";
+
+type CurrencyCode = 'USD' | 'EUR' | 'GBP';
+type WishlistOption = { id: string; name: string; is_public?: boolean };
+type CollectionOption = { id: string; name: string };
+type WishlistItem = { name: string; qty: number; unit: number; thumb?: string };
+type CompareState = { missing: Array<{ name: string; need: number; unit: number }>; total: number; currency: CurrencyCode } | null;
+type FuzzyResult = { suggestion?: string; all?: string[] };
+type ImageMapValue = { small?: string; normal?: string; art_crop?: string };
+type FixNameItem = { name: string; suggestions: string[]; choice?: string };
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export default function WishlistPage() {
   const { user } = useAuth(); // NEW: Get auth state from context
@@ -82,28 +96,28 @@ export default function WishlistPage() {
         )}
       </div>
       
-      <WishlistEditor pro={pro} />
+      <WishlistEditor />
     </main>
   );
 }
 
-function WishlistEditor({ pro }: { pro: boolean }) {
-  const [wishlists, setWishlists] = React.useState<Array<{id:string; name:string; is_public?: boolean}>>([]);
+function WishlistEditor() {
+  const [wishlists, setWishlists] = React.useState<WishlistOption[]>([]);
   const [wishlistId, setWishlistId] = React.useState<string>('');
   // Use global currency prefs
   const { currency: globalCurrency, setCurrency: setGlobalCurrency } = usePrefs();
-  const currency = (globalCurrency as any as 'USD'|'EUR'|'GBP') || 'USD';
-  const setCurrency = (c: 'USD'|'EUR'|'GBP') => setGlobalCurrency?.(c);
-  const [items, setItems] = React.useState<Array<{ name:string; qty:number; unit:number; thumb?:string }>>([]);
+  const currency = (globalCurrency as CurrencyCode | undefined) || 'USD';
+  const setCurrency = (c: CurrencyCode) => setGlobalCurrency?.(c);
+  const [items, setItems] = React.useState<WishlistItem[]>([]);
   const [total, setTotal] = React.useState<number>(0);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [adding, setAdding] = React.useState<boolean>(false);
   const [addName, setAddName] = React.useState<string>('');
   const [addQty, setAddQty] = React.useState<number>(1);
   const [error, setError] = React.useState<string|null>(null);
-  const [collections, setCollections] = React.useState<Array<{ id:string; name:string }>>([]);
+  const [collections, setCollections] = React.useState<CollectionOption[]>([]);
   const [collectionId, setCollectionId] = React.useState<string>('');
-  const [compare, setCompare] = React.useState<{ missing: Array<{ name:string; need:number; unit:number }>; total:number; currency:string }|null>(null);
+  const [compare, setCompare] = React.useState<CompareState>(null);
   // Keyboard + selection state
   const [sel, setSel] = React.useState<number>(-1);
   const [selSet, setSelSet] = React.useState<Set<string>>(new Set());
@@ -124,15 +138,13 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   // Single card validation state
   const [addValidationItems, setAddValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice: string; qty: number }>>([]);
   const [showAddValidation, setShowAddValidation] = React.useState(false);
-  const [pendingAddName, setPendingAddName] = React.useState<string>('');
-  const [pendingAddQty, setPendingAddQty] = React.useState<number>(1);
 
   React.useEffect(()=>{ (async()=>{
     try{
       setLoading(true);
       const r = await fetch('/api/wishlists/list', { cache:'no-store' });
       const j = await r.json().catch(()=>({}));
-      const wls = Array.isArray(j?.wishlists) ? (j.wishlists as any[]) : [];
+      const wls = Array.isArray(j?.wishlists) ? (j.wishlists as WishlistOption[]) : [];
       setWishlists(wls);
       const first = wls[0]?.id ? String(wls[0].id) : '';
       setWishlistId(prev => prev || first);
@@ -140,12 +152,12 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       try{
         const cr = await fetch('/api/collections/list', { cache:'no-store' });
         const cj = await cr.json().catch(()=>({}));
-        const cols = Array.isArray(cj?.collections)? cj.collections as any[] : [];
+        const cols = Array.isArray(cj?.collections)? cj.collections as CollectionOption[] : [];
         setCollections(cols);
         if (!collectionId && cols[0]?.id) setCollectionId(String(cols[0].id));
       } catch{}
     } finally { setLoading(false); }
-  })(); }, []);
+  })(); }, [collectionId]);
 
   React.useEffect(()=>{ (async()=>{
     if (!wishlistId) { setItems([]); setTotal(0); return; }
@@ -260,18 +272,21 @@ function WishlistEditor({ pro }: { pro: boolean }) {
   function fmt(n:number){ try{ return new Intl.NumberFormat(undefined, { style:'currency', currency }).format(n||0); } catch { return `$${(n||0).toFixed(2)}`; } }
 
   // Image map for hover previews
-  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string; art_crop?: string }>>({});
+  const [imgMap, setImgMap] = React.useState<Record<string, ImageMapValue>>({});
   const normalizeCardKey = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  const imageCardNames = React.useMemo(
+    () => Array.from(new Set(items.map((item) => item.name))).slice(0, 400),
+    [items]
+  );
   React.useEffect(()=>{ (async()=>{
       try{
-        const names = Array.from(new Set(items.map(i=>i.name))).slice(0,400);
-        if (!names.length) { setImgMap({}); return; }
-        const m = await getImagesForNames(names);
-        const obj: Record<string, { small?: string; normal?: string; art_crop?: string }> = {};
-        m.forEach((v:any,k:string)=>{ obj[normalizeCardKey(k)] = { small: v.small, normal: v.normal || v.small || v.art_crop, art_crop: v.art_crop || v.normal || v.small }; });
+        if (!imageCardNames.length) { setImgMap({}); return; }
+        const m = await getImagesForNames(imageCardNames);
+        const obj: Record<string, ImageMapValue> = {};
+        m.forEach((v: ImageMapValue,k:string)=>{ obj[normalizeCardKey(k)] = { small: v.small, normal: v.normal || v.small || v.art_crop, art_crop: v.art_crop || v.normal || v.small }; });
         setImgMap(obj);
       } catch { setImgMap({}); }
-    })(); }, [items.map(i=>i.name).join('|')]);
+    })(); }, [imageCardNames]);
 
   const { preview, bind } = useHoverPreview();
   const [fixOpen, setFixOpen] = React.useState(false);
@@ -290,7 +305,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ names: [name] })
         });
-        const validationJson = await validationRes.json().catch(() => ({}));
+        const validationJson = await validationRes.json().catch(() => ({} as { results?: Record<string, FuzzyResult> }));
         const fuzzyResults = validationJson?.results || {};
         
         const suggestion = fuzzyResults[name]?.suggestion;
@@ -312,8 +327,6 @@ function WishlistEditor({ pro }: { pro: boolean }) {
               choice: allSuggestions[0] || suggestion,
               qty: q
             }]);
-            setPendingAddName(name);
-            setPendingAddQty(q);
             setShowAddValidation(true);
             return;
           }
@@ -340,7 +353,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
     
     try{
       setAdding(true);
-      const body: any = { names:[name], qty: q };
+      const body: { names: string[]; qty: number; wishlist_id?: string } = { names:[name], qty: q };
       if (wishlistId) body.wishlist_id = wishlistId;
       const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
       const j = await r.json().catch(()=>({}));
@@ -402,7 +415,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
         },
         onExecute: () => {}
       });
-    } catch(e:any){ 
+    } catch{ 
       // Revert on network error
       setItems(prev => prev.filter(it => it !== tempItem));
       setAddName(name);
@@ -422,8 +435,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       const j = await r.json().catch(()=>({}));
       if (!r.ok || j?.ok===false) throw new Error(j?.error||'Update failed');
       setItems(prev => prev.map(it => it.name===name ? { ...it, qty: Math.max(0,next) } : it));
-      setTotal(prev => items.reduce((s,it)=> s + (it.name===name ? (it.unit||0)*Math.max(0,next) : (it.unit||0)*Math.max(0,it.qty||0)), 0));
-    } catch(e:any){ alert(e?.message||'Update failed'); }
+      setTotal(items.reduce((s,it)=> s + (it.name===name ? (it.unit||0)*Math.max(0,next) : (it.unit||0)*Math.max(0,it.qty||0)), 0));
+    } catch(e: unknown){ alert(getErrorMessage(e, 'Update failed')); }
   }
   
   function focusAdd(){ try{ addWrapRef.current?.querySelector('input')?.focus(); } catch{} }
@@ -478,11 +491,11 @@ function WishlistEditor({ pro }: { pro: boolean }) {
             setTotal(previousTotal);
             alert(`Failed to remove ${name}`);
           }
-        } catch(e:any){
+        } catch(e: unknown){
           // Restore on network error
           setItems(previousItems);
           setTotal(previousTotal);
-          alert(e?.message || 'Remove failed');
+          alert(getErrorMessage(e, 'Remove failed'));
         }
       },
     });
@@ -525,8 +538,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
       } else {
         throw new Error(j2?.error||'Reload failed');
       }
-    } catch(e:any){ 
-      alert(e?.message||'Rename failed'); 
+    } catch(e: unknown){ 
+      alert(getErrorMessage(e, 'Rename failed')); 
       // Reload items anyway to ensure UI is in sync
       try {
         const qs = new URLSearchParams({ wishlistId, currency });
@@ -618,9 +631,9 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                       const { toastError } = await import('@/lib/toast-client');
                       toastError(json?.error || 'Failed to update share status');
                     }
-                  } catch (e: any) {
+                  } catch (e: unknown) {
                     const { toastError } = await import('@/lib/toast-client');
-                    toastError(e?.message || 'Share failed');
+                    toastError(getErrorMessage(e, 'Share failed'));
                   }
                 }}
                 className="px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg"
@@ -636,7 +649,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm opacity-80">Currency</label>
-          <select value={currency} onChange={(e)=>setCurrency(e.target.value as any)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
+          <select value={currency} onChange={(e)=>setCurrency(e.target.value as CurrencyCode)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
             <option>USD</option>
             <option>EUR</option>
             <option>GBP</option>
@@ -653,6 +666,11 @@ function WishlistEditor({ pro }: { pro: boolean }) {
           </button>
         </div>
       </div>
+      {error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-950/20 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 items-end">
         <label className="text-sm flex-1 min-w-[260px]">
@@ -740,7 +758,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                     const groups: Record<string,string[]> = {};
                     for (const p of allNames){ const k = String(p.qty); (groups[k] ||= []).push(p.name); }
                     for (const [k, names] of Object.entries(groups)){
-                      const body:any = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
+                      const body: { names: string[]; qty: number; wishlist_id?: string } = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
                       const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
                       const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk add failed');
                       const wid = String(j?.wishlist_id||wishlistId||''); if (wid && wid !== wishlistId) setWishlistId(wid);
@@ -762,8 +780,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                   setPendingValidatedNames([]);
                   setShowBulk(false);
                   setBulkText('');
-                } catch(e:any) {
-                  alert(e?.message||'Bulk add failed');
+                } catch(e: unknown) {
+                  alert(getErrorMessage(e, 'Bulk add failed'));
                 }
               }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg">
                 Apply Fixed Names & Add
@@ -819,8 +837,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                   setAddValidationItems([]);
                   setPendingAddName('');
                   setPendingAddQty(1);
-                } catch(e: any) {
-                  alert(e?.message||'Add failed');
+                } catch(e: unknown) {
+                  alert(getErrorMessage(e, 'Add failed'));
                 }
               }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg">
                 Apply Fixed Name & Add
@@ -834,7 +852,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
         <div className="rounded border border-neutral-800 p-3 text-sm">
           <div className="flex items-center justify-between">
             <div className="font-medium">Missing from selected collection</div>
-            <div className="tabular-nums">Est. {new Intl.NumberFormat(undefined, { style:'currency', currency: compare.currency as any }).format(compare.total||0)}</div>
+            <div className="tabular-nums">Est. {new Intl.NumberFormat(undefined, { style:'currency', currency: compare.currency }).format(compare.total||0)}</div>
           </div>
           <ul className="mt-2 max-h-40 overflow-auto space-y-1">
             {compare.missing.map((m,i)=> (
@@ -933,7 +951,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                   <td className="p-2 w-8 align-middle"><input type="checkbox" checked={selSet.has(it.name)} onChange={()=>toggleOne(it.name)} /></td>
                   <td className="p-2">
                     <div className="flex items-center gap-3">
-                      {(() => { const key = normalizeCardKey(it.name); const img = imgMap[key]?.small || imgMap[key]?.normal || imgMap[key]?.art_crop || it.thumb || ''; const big = imgMap[key]?.normal || imgMap[key]?.small || imgMap[key]?.art_crop || img || ''; return img ? (<img src={img} alt="" className="w-12 h-16 object-cover rounded border border-neutral-800" {...(bind(big) as any)} />) : (<div className="w-12 h-16 rounded bg-neutral-900 border border-neutral-800" />); })()}
+                      {(() => { const key = normalizeCardKey(it.name); const img = imgMap[key]?.small || imgMap[key]?.normal || imgMap[key]?.art_crop || it.thumb || ''; const big = imgMap[key]?.normal || imgMap[key]?.small || imgMap[key]?.art_crop || img || ''; return img ? (<img src={img} alt="" className="w-12 h-16 object-cover rounded border border-neutral-800" {...bind(big)} />) : (<div className="w-12 h-16 rounded bg-neutral-900 border border-neutral-800" />); })()}
                       <span className="truncate max-w-[38ch]" title={it.name}>{it.name}</span>
                     </div>
                   </td>
@@ -973,7 +991,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
               <div className="text-base font-semibold">Bulk add to wishlist</div>
               <button className="text-sm opacity-80 hover:opacity-100" onClick={()=>setShowBulk(false)}>Close</button>
             </div>
-            <div className="text-xs opacity-80 mb-2">Paste one card per line. Formats supported: "2 Sol Ring", "Sol Ring x2", "Sol Ring". Use Ctrl+B to open, Ctrl+F to focus search, +/- to change qty on selection, Delete to remove.</div>
+            <div className="text-xs opacity-80 mb-2">Paste one card per line. Formats supported: &quot;2 Sol Ring&quot;, &quot;Sol Ring x2&quot;, &quot;Sol Ring&quot;. Use Ctrl+B to open, Ctrl+F to focus search, +/- to change qty on selection, Delete to remove.</div>
             <textarea value={bulkText} onChange={(e)=>setBulkText(e.target.value)} className="w-full min-h-40 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" placeholder={"2 Sol Ring\n1 Lightning Greaves\n3 Counterspell"} />
             <div className="mt-2 flex items-center justify-between">
               <div className="flex items-center gap-3 text-sm">
@@ -1042,7 +1060,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                       setBulkText('');
                       const { toast } = await import('@/lib/toast-client');
                       toast(`Added ${parsed.length} card${parsed.length !== 1 ? 's' : ''} to wishlist`, 'success');
-                    } catch(e:any) {
+                    } catch(e: unknown) {
                       // If validation fails, try adding anyway (fallback)
                       console.error('Bulk validation failed:', e);
                       await performBulkAdd(parsed.map(p => ({ name: p.name, qty: p.qty })), bulkMode);
@@ -1051,10 +1069,10 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                       const { toast } = await import('@/lib/toast-client');
                       toast(`Added ${parsed.length} card${parsed.length !== 1 ? 's' : ''} to wishlist`, 'success');
                     }
-                  } catch(e:any) {
+                  } catch(e: unknown) {
                     console.error('Bulk add error:', e);
                     const { toastError } = await import('@/lib/toast-client');
-                    toastError(e?.message || 'Failed to add cards. Please try again.');
+                    toastError(getErrorMessage(e, 'Failed to add cards. Please try again.'));
                   } finally {
                     setBulkAdding(false);
                   }
@@ -1066,7 +1084,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                         const groups: Record<string,string[]> = {};
                         for (const p of validated){ const k = String(p.qty); (groups[k] ||= []).push(p.name); }
                         for (const [k, names] of Object.entries(groups)){
-                          const body:any = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
+                          const body: { names: string[]; qty: number; wishlist_id?: string } = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
                           const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
                           const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk add failed');
                           const wid = String(j?.wishlist_id||wishlistId||''); if (wid && wid !== wishlistId) setWishlistId(wid);
@@ -1083,7 +1101,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                       const qs = new URLSearchParams({ wishlistId, currency });
                       const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
                       const jj = await rr.json().catch(()=>({})); if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
-                    } catch(e:any) {
+                    } catch(e: unknown) {
                       throw e;
                     }
                   }
@@ -1147,8 +1165,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                     } else {
                       alert(j?.error || 'Failed to create wishlist');
                     }
-                  } catch (e: any) {
-                    alert(e?.message || 'Failed to create wishlist');
+                  } catch (e: unknown) {
+                    alert(getErrorMessage(e, 'Failed to create wishlist'));
                   }
                 }}
                 disabled={!newWishlistName.trim()}
@@ -1211,8 +1229,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                     } else {
                       alert(j?.error || 'Failed to rename wishlist');
                     }
-                  } catch (e: any) {
-                    alert(e?.message || 'Failed to rename wishlist');
+                  } catch (e: unknown) {
+                    alert(getErrorMessage(e, 'Failed to rename wishlist'));
                   }
                 }}
                 disabled={!newWishlistName.trim()}
@@ -1279,8 +1297,8 @@ function WishlistEditor({ pro }: { pro: boolean }) {
                     } else {
                       alert(j?.error || 'Failed to delete wishlist');
                     }
-                  } catch (e: any) {
-                    alert(e?.message || 'Failed to delete wishlist');
+                  } catch (e: unknown) {
+                    alert(getErrorMessage(e, 'Failed to delete wishlist'));
                   }
                 }}
                 disabled={newWishlistName !== 'DELETE'}
@@ -1298,7 +1316,7 @@ function WishlistEditor({ pro }: { pro: boolean }) {
 
 function FixNamesModalWishlist({ wishlistId, open, onClose }: { wishlistId: string; open: boolean; onClose: ()=>void }){
   const [loading, setLoading] = React.useState(false);
-  const [items, setItems] = React.useState<Array<{ name: string; suggestions: string[]; choice?: string }>>([]);
+  const [items, setItems] = React.useState<FixNameItem[]>([]);
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(()=>{ if(!open) return; (async()=>{
@@ -1307,11 +1325,11 @@ function FixNamesModalWishlist({ wishlistId, open, onClose }: { wishlistId: stri
       const r = await fetch(`/api/wishlists/fix-names?wishlistId=${encodeURIComponent(wishlistId)}`, { cache:'no-store' });
       const j = await r.json().catch(()=>({}));
       if (!r.ok || j?.ok===false) throw new Error(j?.error||'Load failed');
-      const arr: any[] = Array.isArray(j.items)? j.items : [];
+      const arr = Array.isArray(j.items)? (j.items as FixNameItem[]) : [];
       setItems(arr.map(it => ({ ...it, choice: (it.suggestions||[])[0] || '' })));
-    } catch(e:any){ alert(e?.message||'Failed to load fixes'); onClose(); }
+    } catch(e: unknown){ alert(getErrorMessage(e, 'Failed to load fixes')); onClose(); }
     finally { setLoading(false); }
-  })(); }, [open, wishlistId]);
+  })(); }, [open, wishlistId, onClose]);
 
   async function apply(){
     try{
@@ -1322,7 +1340,7 @@ function FixNamesModalWishlist({ wishlistId, open, onClose }: { wishlistId: stri
       const j = await r.json().catch(()=>({}));
       if (!r.ok || j?.ok===false) throw new Error(j?.error||'Apply failed');
       onClose(); try{ window.location.reload(); } catch{}
-    } catch(e:any){ alert(e?.message||'Apply failed'); } finally { setSaving(false); }
+    } catch(e: unknown){ alert(getErrorMessage(e, 'Apply failed')); } finally { setSaving(false); }
   }
   if (!open) return null;
   return (
