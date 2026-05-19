@@ -835,8 +835,6 @@ function WishlistEditor() {
                   
                   setShowAddValidation(false);
                   setAddValidationItems([]);
-                  setPendingAddName('');
-                  setPendingAddQty(1);
                 } catch(e: unknown) {
                   alert(getErrorMessage(e, 'Add failed'));
                 }
@@ -910,7 +908,12 @@ function WishlistEditor() {
                     const q = new URLSearchParams({ wishlistId, collectionId, currency });
                     const r = await fetch(`/api/wishlists/compare?${q.toString()}`, { cache:'no-store' });
                     const j = await r.json().catch(()=>({}));
-                    if (r.ok && j?.ok) setCompare({ missing: Array.isArray(j.missing)? j.missing : [], total: Number(j.total||0), currency: String(j.currency||currency) });
+                    if (r.ok && j?.ok) {
+                      const compareCurrency: CurrencyCode = j.currency === 'USD' || j.currency === 'EUR' || j.currency === 'GBP'
+                        ? j.currency
+                        : currency;
+                      setCompare({ missing: Array.isArray(j.missing)? j.missing : [], total: Number(j.total||0), currency: compareCurrency });
+                    }
                   } catch{}
                 }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600/80 to-violet-600/80 hover:from-purple-500 hover:to-violet-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg">
                   <span className="flex items-center gap-1.5">
