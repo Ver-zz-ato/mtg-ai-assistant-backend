@@ -118,10 +118,12 @@ export async function POST(req: NextRequest) {
     const playstyle = input.playstyle;
     const powerLevel = input.powerLevel;
     const format = input.format;
+    const seedCard = input.seedCard;
+    const isCommanderRequest = String(format || "Commander").toLowerCase().includes("commander");
 
-    if (!collectionId && !commander) {
+    if (!collectionId && !commander && !(isCommanderRequest && seedCard)) {
       return NextResponse.json(
-        { ok: false, error: "Provide collectionId and/or commander (at least one required)" },
+        { ok: false, error: "Provide collectionId, commander, or a Commander seed card (at least one required)" },
         { status: 400 }
       );
     }
@@ -254,8 +256,6 @@ export async function POST(req: NextRequest) {
     let finishReason = completion.finishReason;
     let cards = aggregateCards(parseAiDeckOutputLines(content));
 
-    const fmtLower = (format || "Commander").toLowerCase();
-    const isCommanderRequest = fmtLower.includes("commander");
     let totalQty = totalDeckQty(cards);
 
     /** Commander: need exactly 100 physical cards (sum of line quantities), not unique row count. */
@@ -442,7 +442,7 @@ export async function POST(req: NextRequest) {
       ? `A ${powerLevel} ${playstyle} Commander deck led by ${commanderName}.`
       : `A ${powerLevel} Commander deck led by ${commanderName}.`;
     const title = sanitizeName(
-      commander ? `${commander} (AI)` : `AI Deck from Collection`,
+      commanderName && commanderName !== "Unknown" ? `${commanderName} (AI)` : `AI Deck from Collection`,
       120
     );
 

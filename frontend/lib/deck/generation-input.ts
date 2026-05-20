@@ -359,7 +359,7 @@ CRITICAL RULES:
 export function buildGenerationUserPrompt(input: NormalizedGenerationInput, collectionList: string): string {
   const commanderLine = input.commander
     ? `Commander: ${input.commander}. Build a 100-card Commander deck with this commander in the 99 or as the commander (include it once).`
-    : "No commander specified. Pick a well-known commander that fits the collection and build a 100-card Commander deck. Include the commander.";
+    : "No commander specified. Pick a well-known commander that fits the seed card / idea / collection, and output that commander as the VERY FIRST line in the decklist as \"1 Commander Name\". Then build the full 100-card Commander deck around it.";
 
   const structured = structuredIntentSection(input);
   const compliance = buildDirectiveComplianceReminder(input);

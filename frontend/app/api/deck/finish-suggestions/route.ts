@@ -51,7 +51,8 @@ import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandida
 import { getRecommendationTierConfig, resolveRecommendationTier } from "@/lib/recommendations/recommendation-tier";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const FINISH_COMPLETION_TOKENS = 4096;
+const FINISH_COMPLETION_TOKENS = 2200;
+const OPENAI_TIMEOUT_MS = 90000;
 
 type FinishBody = {
   deckId?: string;
@@ -370,7 +371,10 @@ export async function POST(req: Request) {
   } as Record<string, unknown>);
 
   let rawContent = "";
+  let openAiTimeoutId: ReturnType<typeof setTimeout> | null = null;
   try {
+    const controller = new AbortController();
+    openAiTimeoutId = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
     // eslint-disable-next-line no-restricted-globals -- OpenAI streaming-compatible POST
     const resp = await fetch(OPENAI_URL, {
       method: "POST",
@@ -378,8 +382,11 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
+      signal: controller.signal,
       body: JSON.stringify(payload),
     });
+    clearTimeout(openAiTimeoutId);
+    openAiTimeoutId = null;
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "");
       console.warn("[finish-suggestions] OpenAI error:", resp.status, errText.slice(0, 200));
@@ -389,6 +396,17 @@ export async function POST(req: Request) {
       rawContent = extractChatCompletionContent(data);
     }
   } catch (e) {
+    if (openAiTimeoutId) clearTimeout(openAiTimeoutId);
+    if (e instanceof Error && e.name === "AbortError") {
+      console.warn("[finish-suggestions] OpenAI timed out", {
+        model: modelRes.model,
+        fallbackModel: modelRes.fallbackModel,
+        tier: modelRes.tier,
+        elapsedMs: Date.now() - t0,
+        maxCompletionTokens: FINISH_COMPLETION_TOKENS,
+      });
+      return NextResponse.json({ ok: false, error: "AI deck suggestions took too long. Please try again." }, { status: 504 });
+    }
     console.warn("[finish-suggestions] fetch failed:", e);
     warnings.push("Network error calling AI.");
   }
