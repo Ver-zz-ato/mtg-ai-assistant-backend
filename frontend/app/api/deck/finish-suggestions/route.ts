@@ -13,6 +13,7 @@ import { rowsToDeckTextForAnalysis, parseMainboardEntriesForAnalysis } from "@/l
 import { normalizeCardName, isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { extractChatCompletionContent } from "@/lib/deck/generation-helpers";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import {
@@ -39,15 +40,13 @@ import {
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
 import { formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { detectModules, type ModuleFlags } from "@/lib/prompts/moduleDetection";
 import {
-  type GroundedCardCandidate,
-  fetchGroundedCandidatesForProfile,
   buildTagProfile,
   fetchTagGroundedRowsByNames,
   rerankNamedRowsByProfile,
   summarizeTagProfileForPrompt,
 } from "@/lib/recommendations/tag-grounding";
-import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from "@/lib/recommendations/recommendation-pipeline";
 import { getRecommendationTierConfig, resolveRecommendationTier } from "@/lib/recommendations/recommendation-tier";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -106,6 +105,51 @@ function normalizePriority(p: unknown): "high" | "medium" | "low" {
   const s = String(p || "").toLowerCase();
   if (s === "high" || s === "medium" || s === "low") return s;
   return "medium";
+}
+
+function looksLikeAntiRecommendation(reason: string): boolean {
+  return /\bnot recommended\b|\bdoes not meaningfully contain\b|\bdoesn't meaningfully contain\b|\boff-plan\b|\bwrong deck\b|\bnot a fit\b|\bnot the right fit\b|\bavoid\b/i.test(reason);
+}
+
+function buildModuleGuidance(flags: ModuleFlags): string {
+  const lines: string[] = [];
+  if (flags.spellslinger) {
+    lines.push("Detected shell: spellslinger. Prefer cheap interaction, cantrip velocity, spell payoffs, commander protection, and Curiosity-style combo support.");
+    lines.push("For spellslinger, reject token-swarm, tribal, or creature-board engines unless they explicitly reward casting instants or sorceries.");
+  }
+  if (flags.aristocrats) {
+    lines.push("Detected shell: aristocrats. Prefer free sacrifice outlets, death payoffs, recursive fodder, and repeatable token makers.");
+  }
+  if (flags.landfall) {
+    lines.push("Detected shell: landfall. Prefer extra land drops, landfall payoffs, and land-based value engines.");
+  }
+  if (flags.graveyard) {
+    lines.push("Detected shell: graveyard recursion. Prefer self-mill, recursion, and graveyard payoffs over generic value cards.");
+  }
+  return lines.join("\n");
+}
+
+function detectArchetypeConflict(detailRow: CachedSuggestionDetail | null | undefined, flags: ModuleFlags): string | null {
+  if (!detailRow) return null;
+  const oracle = String(detailRow.oracle_text || "").toLowerCase();
+  const typeLine = String(detailRow.type_line || "").toLowerCase();
+
+  if (flags.spellslinger) {
+    const hasSpellSynergy =
+      /\binstant or sorcery\b|\binstants? and sorceries?\b|\bnoncreature spell\b|\bwhenever you cast (?:an )?instant or sorcery\b|\bcopy target spell\b|\bstorm\b|\bmagecraft\b|\bprowess\b/.test(oracle);
+    const isTokenSwarmCard =
+      /\bcreate .* token\b|\bcreature tokens?\b|\bother tokens? you control\b|\bfor each creature you control\b|\battacking creatures?\b/.test(oracle);
+    const isTribalPayoff =
+      /\bchoose a creature type\b|\bdragons? you control\b|\bwizards? you control\b|\bother wizards?\b|\bother dragons?\b/.test(oracle);
+    const isCreatureBoardEngine =
+      /\bwhenever a creature you control\b|\bwhenever one or more creatures\b|\bwhenever .* attacks\b/.test(oracle) ||
+      (/\bcreature\b/.test(typeLine) && /\bcreatures? you control get\b/.test(oracle));
+    if (!hasSpellSynergy && (isTokenSwarmCard || isTribalPayoff || isCreatureBoardEngine)) {
+      return "spellslinger_conflict";
+    }
+  }
+
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -293,6 +337,14 @@ export async function POST(req: Request) {
     admin && entries.length > 0
       ? buildTagProfile(await fetchTagGroundedRowsByNames(admin, entries.map((e) => e.name)))
       : null;
+  let moduleFlags: ModuleFlags = {
+    cascade: false,
+    aristocrats: false,
+    landfall: false,
+    spellslinger: false,
+    graveyard: false,
+  };
+  let moduleGuidancePrompt = "";
   let roleSummaryPrompt = "";
   try {
     const enriched = await enrichDeck(entries.map((e) => ({ name: e.name, qty: e.count })), {
@@ -302,6 +354,17 @@ export async function POST(req: Request) {
     roleSummaryPrompt = formatRoleSummaryForPrompt(summarizeDeckRoles(enriched));
   } catch {
     roleSummaryPrompt = "";
+  }
+  try {
+    const deckDetails = await getDetailsForNamesCached(entries.map((e) => e.name));
+    moduleFlags = detectModules(
+      entries.map((e) => ({ name: e.name, count: e.count })),
+      deckDetails,
+      resolvedCommander || null,
+    ).flags;
+    moduleGuidancePrompt = buildModuleGuidance(moduleFlags);
+  } catch {
+    moduleGuidancePrompt = "";
   }
 
   const { text: promptDeckText, truncated } = truncateDeckTextForPrompt(deckText, MAX_DECK_ANALYZE_DECK_TEXT_CHARS);
@@ -332,6 +395,11 @@ export async function POST(req: Request) {
     budgetTone,
     "When USER COLLECTION CONTEXT is present, prefer owned close-fit cards first and label those reasons with 'Owned'. Separate true purchases from owned placeholders and missing buys.",
     "Only suggest realistic, playable cards that fit the deck's apparent strategy.",
+    "Do not suggest cards from a different archetype just because they are generically strong or share a color.",
+    "Do not suggest creature-token cards for spellslinger decks unless they directly reward casting instants/sorceries.",
+    "Do not suggest enchantment-matters cards unless the deck clearly shows enchantment synergy.",
+    "Do not suggest cards that require unsupported subthemes the current list does not meaningfully contain.",
+    "Never include anti-recommendations, caveats, or 'not recommended' cards in the suggestions array.",
     "Use English card names as printed on the English oracle.",
     `Limit suggestions array length to at most ${maxSuggestions}.`,
   ].join("\n");
@@ -348,6 +416,7 @@ export async function POST(req: Request) {
     deckPlan ? `Plan/style: ${deckPlan}` : "",
     roleSummaryPrompt ? `SHARED ROLE CLASSIFIER SUMMARY:\n${roleSummaryPrompt}` : "",
     deckProfile ? `TAG GROUNDED PROFILE:\n${summarizeTagProfileForPrompt(deckProfile)}` : "",
+    moduleGuidancePrompt ? `DETECTED ARCHETYPE GUIDANCE:\n${moduleGuidancePrompt}` : "",
     ownershipPrompt,
     `Return strictly JSON with key "suggestions" only.`,
   ].filter(Boolean);
@@ -360,9 +429,15 @@ export async function POST(req: Request) {
   const tierGuest = !user;
   const recommendationTier = resolveRecommendationTier({ isGuest: tierGuest, userId: user?.id ?? null, isPro });
   const tierConfig = getRecommendationTierConfig(recommendationTier);
+  const tierModel = getModelForTier({
+    isGuest: tierGuest,
+    userId: user?.id ?? null,
+    isPro,
+    useCase: "deck_analysis",
+  });
   const modelRes = {
-    model: tierConfig.model,
-    fallbackModel: tierConfig.fallbackModel,
+    model: process.env.MODEL_FINISH_SUGGESTIONS || (isPro ? tierModel.model : "gpt-5.4"),
+    fallbackModel: tierModel.fallbackModel,
     tier: recommendationTier,
     tierLabel: recommendationTier,
   };
@@ -519,6 +594,18 @@ export async function POST(req: Request) {
     const conf = typeof raw.confidence === "number" && Number.isFinite(raw.confidence)
       ? Math.max(0, Math.min(1, raw.confidence))
       : 0.7;
+    if (conf < 0.25) continue;
+
+    const rawReason = typeof raw.reason === "string" && raw.reason.trim() ? raw.reason.trim().slice(0, 400) : "";
+    if (rawReason && looksLikeAntiRecommendation(rawReason)) {
+      warnings.push(`Skipped low-fit suggestion: ${name}`);
+      continue;
+    }
+    const archetypeConflict = detectArchetypeConflict(detailRow ?? null, moduleFlags);
+    if (archetypeConflict) {
+      warnings.push(`Skipped off-plan suggestion: ${name}`);
+      continue;
+    }
 
     const ownership = annotateOwnership(ownershipContext, name);
 
@@ -528,7 +615,7 @@ export async function POST(req: Request) {
       zone,
       role: typeof raw.role === "string" && raw.role.trim() ? raw.role.trim().slice(0, 120) : "Synergy",
       reason: appendOwnershipToReason(
-        typeof raw.reason === "string" && raw.reason.trim() ? raw.reason.trim().slice(0, 400) : "",
+        rawReason,
         ownership,
       ),
       priority: normalizePriority(raw.priority),
@@ -550,89 +637,14 @@ export async function POST(req: Request) {
       suggestionsOut.map((s) => ({ name: s.card, reason: s.reason })),
       groundedRows,
       deckProfile,
-      { desiredCategory: "win_condition", reasonKey: "reason" },
+      undefined,
     );
-    const byName = new Map(reranked.map((row, index) => [normalizeCardName(row.name), { index, reason: row.reason }]));
+    const byName = new Map(reranked.map((row, index) => [normalizeCardName(row.name), { index }]));
     suggestionsOut.sort((a, b) => {
       const aMeta = byName.get(normalizeCardName(a.card));
       const bMeta = byName.get(normalizeCardName(b.card));
       return (aMeta?.index ?? 999) - (bMeta?.index ?? 999);
     });
-    for (const suggestion of suggestionsOut) {
-      const meta = byName.get(normalizeCardName(suggestion.card));
-      if (meta?.reason) suggestion.reason = meta.reason;
-    }
-  }
-
-  if (admin && deckProfile) {
-    const groundedPool = await fetchGroundedCandidatesForProfile(admin, {
-      formatLabel: analyzeFormat,
-      topThemeTags: deckProfile.topThemeTags,
-      topGameplayTags: deckProfile.topGameplayTags,
-      topArchetypeTags: deckProfile.topArchetypeTags,
-      commanderColors: analyzeFormat === "Commander" ? commanderCi : undefined,
-      excludeNames: entries.map((e) => normalizeScryfallCacheName(e.name)),
-      limitPerBucket: 56,
-      desiredCategory: "win_condition",
-    });
-    const poolRows = await fetchTagGroundedRowsByNames(
-      admin,
-      [...new Set([...suggestionsOut.map((s) => s.card), ...groundedPool.map((row) => String(row.printed_name || row.name))])],
-    );
-    if (poolRows.length > 0) {
-      const intent = buildRecommendationIntent({
-        routeKind: "finish",
-        routeLabel: "finish_suggestions",
-        formatLabel: analyzeFormat,
-        profile: deckProfile,
-        desiredCategory: "win_condition",
-        selectionCount: maxSuggestions,
-        commanderColors: analyzeFormat === "Commander" ? commanderCi : undefined,
-        isGuest: tierGuest,
-        isPro,
-        userId: user?.id ?? null,
-      });
-      const rankedPool = rankGroundedCandidates(poolRows as GroundedCardCandidate[], deckProfile, intent).slice(0, tierConfig.candidateLimit);
-      const reranked = await aiRerankRecommendations({
-        candidates: rankedPool,
-        intent,
-        userId: user?.id ?? null,
-        isPro,
-      }).catch(() => null);
-      if (reranked?.picks?.length) {
-        const byNorm = new Map(suggestionsOut.map((s) => [normalizeCardName(s.card), s]));
-        const byDisplay = new Map(rankedPool.map((row) => [String(row.printed_name || row.name), row]));
-        const nextSuggestions = reranked.picks
-          .map((pick) => {
-            const existing = byNorm.get(normalizeCardName(pick.name));
-            if (existing) {
-              return { ...existing, reason: pick.reason || existing.reason };
-            }
-            const grounded = byDisplay.get(pick.name);
-            if (!grounded) return null;
-            const ownership = annotateOwnership(ownershipContext, pick.name);
-            return {
-              card: pick.name,
-              qty: 1,
-              zone: "mainboard" as const,
-              role: "Synergy",
-              reason: appendOwnershipToReason(pick.reason || grounded.groundedReason, ownership),
-              priority: "medium" as const,
-              confidence: 0.72,
-              legality: "legal" as const,
-              ownership: ownership.ownership,
-              ownedQty: ownership.ownedQty,
-              source: "ai" as const,
-            };
-          })
-          .filter((row): row is FinishSuggestionOut => !!row)
-          .slice(0, maxSuggestions);
-        if (nextSuggestions.length > 0) {
-          suggestionsOut.length = 0;
-          suggestionsOut.push(...nextSuggestions);
-        }
-      }
-    }
   }
 
   if (suggestionsOut.length === 0) {

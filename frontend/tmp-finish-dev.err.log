@@ -1,0 +1,5 @@
+[@sentry/nextjs] DEPRECATION WARNING: disableLogger is deprecated and will be removed in a future version. Use webpack.treeshake.removeDebugLogging instead. (Not supported with Turbopack.)
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead. (Not supported with Turbopack.)
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+⚠ Duplicate page detected. app\sitemap.ts and app\sitemap.xml\route.ts resolve to /sitemap.xml
+⚠ Duplicate page detected. app\sitemap.ts and app\sitemap.xml\route.ts resolve to /sitemap.xml
