@@ -66,6 +66,12 @@ export function clampMaxSuggestions(raw?: number): number {
   return Math.min(20, Math.max(1, n));
 }
 
+export function hasFatalFinishSuggestionAiWarnings(warnings: string[]): boolean {
+  return warnings.some((warning) =>
+    /Could not parse AI JSON output|AI JSON root was not an object|AI suggestions array contained no usable entries/i.test(warning),
+  );
+}
+
 export type RawAiSuggestion = {
   card?: string;
   qty?: number;

@@ -13,7 +13,6 @@ import { rowsToDeckTextForAnalysis, parseMainboardEntriesForAnalysis } from "@/l
 import { normalizeCardName, isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
-import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { extractChatCompletionContent } from "@/lib/deck/generation-helpers";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import {
@@ -26,6 +25,7 @@ import { bannedDataToMaps, getBannedCards } from "@/lib/data/get-banned-cards";
 import {
   clampMaxSuggestions,
   computeFinishTargetStats,
+  hasFatalFinishSuggestionAiWarnings,
   parseFinishSuggestionsJson,
   resolveFinishAnalyzeFormat,
   truncateDeckTextForPrompt,
@@ -180,7 +180,13 @@ export async function POST(req: Request) {
             : `You've used your ${DECK_ANALYZE_FREE} free deck suggestion runs today. Upgrade to Pro for more!`
           : `You've used your ${DECK_ANALYZE_GUEST} free deck suggestion runs today. Sign in for more!`;
         return NextResponse.json(
-          { ok: false, code: "RATE_LIMIT_DAILY", error: errMsg, resetAt: durableLimit.resetAt },
+          {
+            ok: false,
+            code: "RATE_LIMIT_DAILY",
+            error: errMsg,
+            resetAt: durableLimit.resetAt,
+            proUpsell: !user || !isPro,
+          },
           { status: 429 },
         );
       }
@@ -371,6 +377,7 @@ export async function POST(req: Request) {
   } as Record<string, unknown>);
 
   let rawContent = "";
+  let upstreamFailure: { status: number; code: string; error: string } | null = null;
   let openAiTimeoutId: ReturnType<typeof setTimeout> | null = null;
   try {
     const controller = new AbortController();
@@ -390,6 +397,11 @@ export async function POST(req: Request) {
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "");
       console.warn("[finish-suggestions] OpenAI error:", resp.status, errText.slice(0, 200));
+      upstreamFailure = {
+        status: 502,
+        code: "AI_PROVIDER_ERROR",
+        error: "The AI provider returned an error. Please try again.",
+      };
       warnings.push("AI provider returned an error; suggestions may be empty.");
     } else {
       const data = await resp.json();
@@ -408,11 +420,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "AI deck suggestions took too long. Please try again." }, { status: 504 });
     }
     console.warn("[finish-suggestions] fetch failed:", e);
+    upstreamFailure = {
+      status: 503,
+      code: "AI_NETWORK_ERROR",
+      error: "AI deck suggestions are temporarily unavailable. Please try again.",
+    };
     warnings.push("Network error calling AI.");
   }
 
   const parsed = parseFinishSuggestionsJson(rawContent || "{}");
   warnings.push(...parsed.warnings);
+  const parseFailure = rawContent.trim().length > 0 && hasFatalFinishSuggestionAiWarnings(parsed.warnings);
 
   const bannedMaps = bannedDataToMaps(await getBannedCards());
   const banNormForEval = banNormSetForUserFormat(bannedMaps, analyzeFormat);
@@ -592,15 +610,18 @@ export async function POST(req: Request) {
             }
             const grounded = byDisplay.get(pick.name);
             if (!grounded) return null;
+            const ownership = annotateOwnership(ownershipContext, pick.name);
             return {
               card: pick.name,
               qty: 1,
               zone: "mainboard" as const,
               role: "Synergy",
-              reason: pick.reason || grounded.groundedReason,
+              reason: appendOwnershipToReason(pick.reason || grounded.groundedReason, ownership),
               priority: "medium" as const,
               confidence: 0.72,
               legality: "legal" as const,
+              ownership: ownership.ownership,
+              ownedQty: ownership.ownedQty,
               source: "ai" as const,
             };
           })
@@ -611,6 +632,26 @@ export async function POST(req: Request) {
           suggestionsOut.push(...nextSuggestions);
         }
       }
+    }
+  }
+
+  if (suggestionsOut.length === 0) {
+    if (upstreamFailure) {
+      return NextResponse.json(
+        { ok: false, code: upstreamFailure.code, error: upstreamFailure.error, warnings },
+        { status: upstreamFailure.status },
+      );
+    }
+    if (parseFailure) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "AI_INVALID_RESPONSE",
+          error: "The AI returned invalid suggestion data. Please try again.",
+          warnings,
+        },
+        { status: 502 },
+      );
     }
   }
 

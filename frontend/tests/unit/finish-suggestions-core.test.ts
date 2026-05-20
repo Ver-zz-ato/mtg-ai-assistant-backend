@@ -1,6 +1,7 @@
 import assert from "node:assert";
 import {
   computeFinishTargetStats,
+  hasFatalFinishSuggestionAiWarnings,
   parseFinishSuggestionsJson,
   resolveFinishAnalyzeFormat,
 } from "../../lib/deck/finish-suggestions-core";
@@ -37,5 +38,11 @@ const fenced = parseFinishSuggestionsJson(
   "```json\n{\"suggestions\":[{\"card\":\"Abigail Forest Beast\",\"qty\":1}]}\n```",
 );
 ok(fenced.suggestions.length === 1);
+
+console.log("[finish-suggestions-core] fatal warning classification");
+ok(hasFatalFinishSuggestionAiWarnings(["Could not parse AI JSON output."]) === true);
+ok(hasFatalFinishSuggestionAiWarnings(["AI JSON root was not an object."]) === true);
+ok(hasFatalFinishSuggestionAiWarnings(["AI suggestions array contained no usable entries."]) === true);
+ok(hasFatalFinishSuggestionAiWarnings(["Decklist was truncated for AI context length."]) === false);
 
 console.log("[finish-suggestions-core] OK");

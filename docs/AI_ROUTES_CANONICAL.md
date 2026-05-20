@@ -200,6 +200,7 @@ Validation:
 - Legality filter runs after AI output.
 - Commander color identity is checked only for Commander.
 - Price estimates are added where available.
+- Upstream/provider failures now return an explicit API error instead of a silent empty-success payload.
 
 ### `POST /api/deck/swap-suggestions`
 
