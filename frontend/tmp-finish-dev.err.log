@@ -3,3 +3,539 @@
 ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
 ⚠ Duplicate page detected. app\sitemap.ts and app\sitemap.xml\route.ts resolve to /sitemap.xml
 ⚠ Duplicate page detected. app\sitemap.ts and app\sitemap.xml\route.ts resolve to /sitemap.xml
+[rec-legality] tag-grounding [
+  { name: '______', reason: 'not_legal' },
+  { name: 'a chaotic night in vegas', reason: 'not_legal' },
+  { name: 'a-acererak the archlich', reason: 'not_legal' },
+  { name: 'a-blood artist', reason: 'not_legal' },
+  { name: 'a-briar hydra', reason: 'not_legal' },
+  { name: 'a-glittermonger', reason: 'not_legal' },
+  { name: 'a-guildsworn prowler', reason: 'not_legal' },
+  { name: 'a-hall of tagsin', reason: 'not_legal' },
+  { name: 'a-harald unites the elves', reason: 'not_legal' },
+  { name: 'a-ominous parcel', reason: 'not_legal' },
+  { name: 'a-oran-rief ooze', reason: 'not_legal' },
+  { name: 'a-orcish bowmasters', reason: 'not_legal' },
+  { name: 'a-return upon the tide', reason: 'not_legal' },
+  { name: 'a-revel ruiner', reason: 'not_legal' },
+  { name: "a-shessra, death's whisper", reason: 'not_legal' },
+  { name: 'a-sigil of myrkul', reason: 'not_legal' },
+  { name: 'a-skemfar avenger', reason: 'not_legal' },
+  { name: 'a-sorin, imperious bloodlord', reason: 'not_legal' },
+  { name: 'a-spell satchel', reason: 'not_legal' },
+  { name: 'a-split the spoils', reason: 'not_legal' },
+  { name: 'a-sunbathing rootwalla', reason: 'not_legal' },
+  { name: 'a-tenured inkcaster', reason: 'not_legal' },
+  { name: 'a-the meathook massacre', reason: 'missing_legality' },
+  { name: 'a-thornmantle striker', reason: 'not_legal' },
+  { name: 'a-thran spider', reason: 'not_legal' },
+  { name: 'a-town', reason: 'not_legal' },
+  { name: 'a-tyvar kell', reason: 'not_legal' },
+  { name: 'a-uurg, spawn of turg', reason: 'not_legal' },
+  { name: 'a-vampire scrivener', reason: 'not_legal' },
+  { name: 'accessories to murder', reason: 'not_legal' },
+  { name: 'acornelia, fashionable filcher', reason: 'not_legal' },
+  { name: 'adamantium bonding tank', reason: 'missing_legality' },
+  { name: 'agyrem', reason: 'not_legal' },
+  { name: 'alex borteh bio', reason: 'not_legal' },
+  { name: 'caught in a parallel universe', reason: 'not_legal' },
+  { name: 'the eon fog', reason: 'not_legal' },
+  { name: 'the explorer', reason: 'not_legal' },
+  { name: 'the faction dragon', reason: 'not_legal' },
+  { name: 'the five stages of grief', reason: 'not_legal' },
+  { name: 'the forgotten place', reason: 'not_legal' },
+  { name: 'the fourth sphere', reason: 'not_legal' },
+  { name: 'the heron moon', reason: 'not_legal' },
+  { name: 'the keeper of dark pacts', reason: 'not_legal' },
+  { name: 'the lux foundation library', reason: 'not_legal' }
+]
+[rec-legality] tag-grounding [
+  { name: '______', reason: 'not_legal' },
+  {
+    name: 'a-binding geist // a-spectral binding',
+    reason: 'not_legal'
+  },
+  { name: 'a-goggles of night', reason: 'not_legal' },
+  { name: 'a-goma fada vanguard', reason: 'not_legal' },
+  {
+    name: 'a-gutter skulker // a-gutter shortcut',
+    reason: 'not_legal'
+  },
+  { name: 'a-hall of tagsin', reason: 'not_legal' },
+  { name: "a-lantern bearer // a-lanterns' lift", reason: 'not_legal' },
+  { name: 'a-leyline of resonance', reason: 'not_legal' },
+  {
+    name: 'a-mischievous catgeist // a-catlike curiosity',
+    reason: 'not_legal'
+  },
+  { name: 'a-ominous parcel', reason: 'not_legal' },
+  { name: 'a-peerless samurai', reason: 'not_legal' },
+  { name: 'a-ready to rumble', reason: 'not_legal' },
+  { name: 'a-rockslide sorcerer', reason: 'not_legal' },
+  {
+    name: 'a-rowan, scholar of sparks // a-will, scholar of frost',
+    reason: 'not_legal'
+  },
+  { name: 'a-saheeli, filigree master', reason: 'not_legal' },
+  { name: 'a-sewer crocodile', reason: 'not_legal' },
+  { name: 'a-shipwreck sifters', reason: 'not_legal' },
+  { name: 'a-sizzling soloist', reason: 'not_legal' },
+  { name: 'a-sorcerer class', reason: 'not_legal' },
+  { name: 'a-spell satchel', reason: 'not_legal' },
+  { name: 'a-splitting the powerstone', reason: 'not_legal' },
+  { name: 'a-stitched assistant', reason: 'not_legal' },
+  { name: 'a-symmetry sage', reason: 'not_legal' },
+  { name: 'a-thousand-faced shadow', reason: 'not_legal' },
+  { name: 'a-thran spider', reason: 'not_legal' },
+  { name: 'a-tome shredder', reason: 'not_legal' },
+  { name: 'a-town', reason: 'not_legal' },
+  { name: 'a-umara mystic', reason: 'not_legal' },
+  { name: 'a-urza, powerstone prodigy', reason: 'not_legal' },
+  { name: "a-urza's command", reason: 'not_legal' },
+  { name: 'a-visions of phyrexia', reason: 'not_legal' },
+  { name: 'a-vivi ornitier', reason: 'not_legal' },
+  { name: 'a-wizard class', reason: 'not_legal' },
+  { name: 'a-you come to a river', reason: 'not_legal' },
+  { name: 'absorb energy', reason: 'not_legal' },
+  { name: 'abstract iguanart', reason: 'not_legal' },
+  { name: 'academy at tolaria west', reason: 'not_legal' },
+  { name: 'accessories to murder', reason: 'not_legal' },
+  {
+    name: 'accident-prone apprentice // amphibian accident',
+    reason: 'not_legal'
+  },
+  { name: 'across the multiverse', reason: 'not_legal' },
+  { name: 'adamantium bonding tank', reason: 'missing_legality' },
+  { name: 'advanced tactics', reason: 'not_legal' },
+  { name: 'alex borteh bio', reason: 'not_legal' },
+  { name: 'animate library', reason: 'not_legal' },
+  { name: 'animate spell', reason: 'not_legal' },
+  { name: 'caught in a parallel universe', reason: 'not_legal' },
+  { name: 'the eon fog', reason: 'not_legal' },
+  { name: 'the fish brewer', reason: 'not_legal' },
+  { name: 'the five stages of grief', reason: 'not_legal' },
+  { name: 'the forgotten place', reason: 'not_legal' },
+  { name: 'the fourth sphere', reason: 'not_legal' },
+  { name: 'the heron moon', reason: 'not_legal' },
+  { name: 'the lux foundation library', reason: 'not_legal' }
+]
+[rec-legality] tag-grounding [
+  { name: '_____ _____ _____ trespasser', reason: 'not_legal' },
+  { name: '_____ _____ rocketship', reason: 'not_legal' },
+  { name: '_____ balls of fire', reason: 'not_legal' },
+  { name: '______', reason: 'not_legal' },
+  { name: '________ goblin', reason: 'not_legal' },
+  { name: `"hoovin' and groovin'" // "mosh out"`, reason: 'not_legal' },
+  { name: '"lifetime" pass holder', reason: 'not_legal' },
+  { name: '"name sticker" goblin', reason: 'not_legal' },
+  { name: 'a chaotic night in vegas', reason: 'not_legal' },
+  { name: 'a girl and her dogs', reason: 'not_legal' },
+  { name: 'a-acererak the archlich', reason: 'not_legal' },
+  { name: 'a-briar hydra', reason: 'not_legal' },
+  { name: 'a-glamorous outlaw', reason: 'not_legal' },
+  { name: 'a-glittermonger', reason: 'not_legal' },
+  { name: 'a-goggles of night', reason: 'not_legal' },
+  { name: 'a-goma fada vanguard', reason: 'not_legal' },
+  { name: 'a-guildsworn prowler', reason: 'not_legal' },
+  { name: 'a-hall of tagsin', reason: 'not_legal' },
+  { name: 'a-harald unites the elves', reason: 'not_legal' },
+  { name: "a-krydle of baldur's gate", reason: 'not_legal' },
+  { name: 'a-leyline of resonance', reason: 'not_legal' },
+  { name: 'a-ominous parcel', reason: 'not_legal' },
+  { name: 'a-omnath, locus of creation', reason: 'not_legal' },
+  { name: 'a-oran-rief ooze', reason: 'not_legal' },
+  { name: 'a-orcish bowmasters', reason: 'not_legal' },
+  { name: 'a-paragon of modernity', reason: 'not_legal' },
+  { name: 'a-peerless samurai', reason: 'not_legal' },
+  { name: 'a-phylath, world sculptor', reason: 'not_legal' },
+  { name: 'a-plate armor', reason: 'not_legal' },
+  { name: "a-raiyuu, storm's edge", reason: 'not_legal' },
+  { name: 'a-rakish revelers', reason: 'not_legal' },
+  { name: 'a-return upon the tide', reason: 'not_legal' },
+  { name: 'a-revel ruiner', reason: 'not_legal' },
+  { name: 'a-rockslide sorcerer', reason: 'not_legal' },
+  {
+    name: 'a-rowan, scholar of sparks // a-will, scholar of frost',
+    reason: 'not_legal'
+  },
+  { name: 'a-rulik mons, warren chief', reason: 'not_legal' },
+  { name: 'a-saheeli, filigree master', reason: 'not_legal' },
+  { name: 'a-satoru umezawa', reason: 'not_legal' },
+  { name: 'a-scout the wilderness', reason: 'not_legal' },
+  { name: 'a-shattered seraph', reason: 'not_legal' },
+  { name: "a-shessra, death's whisper", reason: 'not_legal' },
+  { name: 'a-shipwreck sifters', reason: 'not_legal' },
+  { name: 'a-sigil of myrkul', reason: 'not_legal' },
+  { name: 'a-silver-fur master', reason: 'not_legal' },
+  { name: 'a-sizzling soloist', reason: 'not_legal' },
+  { name: 'a-skemfar avenger', reason: 'not_legal' },
+  { name: 'a-sorcerer class', reason: 'not_legal' },
+  { name: 'a-sorin, imperious bloodlord', reason: 'not_legal' },
+  { name: 'a-speakeasy server', reason: 'not_legal' },
+  { name: 'a-spell satchel', reason: 'not_legal' },
+  { name: 'a-split the spoils', reason: 'not_legal' },
+  { name: 'a-splitting the powerstone', reason: 'not_legal' },
+  { name: 'a-sprouting goblin', reason: 'not_legal' },
+  { name: 'a-stimulus package', reason: 'not_legal' },
+  { name: 'a-stitched assistant', reason: 'not_legal' },
+  { name: 'a-sunbathing rootwalla', reason: 'not_legal' },
+  { name: 'a-symmetry sage', reason: 'not_legal' },
+  { name: 'a-syndicate infiltrator', reason: 'not_legal' },
+  { name: 'a-tanazir quandrix', reason: 'not_legal' },
+  { name: 'a-tatyova, steward of tides', reason: 'not_legal' },
+  { name: 'a-teferi, time raveler', reason: 'not_legal' },
+  { name: 'a-tenured inkcaster', reason: 'not_legal' },
+  { name: 'a-the meathook massacre', reason: 'missing_legality' },
+  { name: 'a-thornmantle striker', reason: 'not_legal' },
+  { name: 'a-thousand-faced shadow', reason: 'not_legal' },
+  { name: 'a-thran spider', reason: 'not_legal' },
+  { name: 'a-tome shredder', reason: 'not_legal' },
+  { name: 'a-town', reason: 'not_legal' },
+  { name: 'a-triumphant adventurer', reason: 'not_legal' },
+  { name: 'a-tyvar kell', reason: 'not_legal' },
+  { name: 'a-umara mystic', reason: 'not_legal' },
+  { name: 'a-urza, powerstone prodigy', reason: 'not_legal' },
+  { name: "a-urza's command", reason: 'not_legal' },
+  { name: 'a-uurg, spawn of turg', reason: 'not_legal' },
+  { name: 'a-vampire scrivener', reason: 'not_legal' },
+  { name: 'a-vega, the watcher', reason: 'not_legal' },
+  { name: 'a-visions of phyrexia', reason: 'not_legal' },
+  { name: 'a-vivi ornitier', reason: 'not_legal' },
+  { name: 'a-winota, joiner of forces', reason: 'not_legal' },
+  { name: 'a-wizard class', reason: 'not_legal' },
+  { name: 'a-young blue dragon // a-sand augury', reason: 'not_legal' },
+  {
+    name: 'a-young red dragon // a-bathe in gold',
+    reason: 'not_legal'
+  },
+  { name: 'aang and katara', reason: 'not_legal' },
+  { name: 'aang, a lot to learn', reason: 'not_legal' },
+  { name: 'aang, air nomad', reason: 'not_legal' },
+  { name: 'aang, airbending master', reason: 'not_legal' },
+  { name: "aang's defense", reason: 'not_legal' },
+  { name: 'abandoned outpost', reason: 'not_legal' },
+  { name: 'abby, merciless soldier', reason: 'not_legal' },
+  { name: "abdel adrian gorion's ward", reason: 'missing_legality' },
+  { name: "abdel adrian, gorion's ward", reason: 'not_legal' },
+  { name: 'abduction', reason: 'not_legal' },
+  { name: 'aberrant', reason: 'not_legal' },
+  { name: 'abeyance', reason: 'not_legal' },
+  { name: 'abian, luvion usurper', reason: 'not_legal' },
+  { name: 'abjure', reason: 'not_legal' },
+  { name: 'aboroth', reason: 'not_legal' },
+  { name: 'absolver thrull', reason: 'not_legal' },
+  { name: 'absorb vis', reason: 'not_legal' },
+  { name: 'abstergo entertainment', reason: 'not_legal' },
+  ... 103 more items
+]
+[rec-legality] tag-grounding [
+  { name: '_____ _____ _____ trespasser', reason: 'not_legal' },
+  { name: '_____ _____ rocketship', reason: 'not_legal' },
+  { name: '_____ balls of fire', reason: 'not_legal' },
+  { name: `"hoovin' and groovin'" // "mosh out"`, reason: 'not_legal' },
+  { name: '"lifetime" pass holder', reason: 'not_legal' },
+  { name: '"name sticker" goblin', reason: 'banned' },
+  { name: 'a chaotic night in vegas', reason: 'not_legal' },
+  { name: 'a girl and her dogs', reason: 'not_legal' },
+  { name: 'a-acererak the archlich', reason: 'not_legal' },
+  { name: 'a-blood artist', reason: 'not_legal' },
+  { name: 'a-briar hydra', reason: 'not_legal' },
+  { name: 'a-glamorous outlaw', reason: 'not_legal' },
+  { name: 'a-goggles of night', reason: 'not_legal' },
+  { name: 'a-goma fada vanguard', reason: 'not_legal' },
+  { name: 'a-guildsworn prowler', reason: 'not_legal' },
+  { name: 'a-harald unites the elves', reason: 'not_legal' },
+  { name: 'a-karn, living legacy', reason: 'not_legal' },
+  { name: "a-krydle of baldur's gate", reason: 'not_legal' },
+  { name: 'a-leyline of resonance', reason: 'not_legal' },
+  { name: 'a-ominous parcel', reason: 'not_legal' },
+  { name: 'a-omnath, locus of creation', reason: 'not_legal' },
+  { name: 'a-oran-rief ooze', reason: 'not_legal' },
+  { name: 'a-orcish bowmasters', reason: 'not_legal' },
+  { name: 'a-peerless samurai', reason: 'not_legal' },
+  { name: 'a-phylath, world sculptor', reason: 'not_legal' },
+  { name: 'a-plate armor', reason: 'not_legal' },
+  { name: "a-raiyuu, storm's edge", reason: 'not_legal' },
+  { name: 'a-rakish revelers', reason: 'not_legal' },
+  { name: 'a-return upon the tide', reason: 'not_legal' },
+  { name: 'a-revel ruiner', reason: 'not_legal' },
+  { name: 'a-rockslide sorcerer', reason: 'not_legal' },
+  {
+    name: 'a-rowan, scholar of sparks // a-will, scholar of frost',
+    reason: 'not_legal'
+  },
+  { name: 'a-rulik mons, warren chief', reason: 'not_legal' },
+  { name: 'a-saheeli, filigree master', reason: 'not_legal' },
+  { name: 'a-satoru umezawa', reason: 'not_legal' },
+  { name: 'a-shattered seraph', reason: 'not_legal' },
+  { name: "a-shessra, death's whisper", reason: 'not_legal' },
+  { name: 'a-shipwreck sifters', reason: 'not_legal' },
+  { name: 'a-sigil of myrkul', reason: 'not_legal' },
+  { name: 'a-silver-fur master', reason: 'not_legal' },
+  { name: 'a-sizzling soloist', reason: 'not_legal' },
+  { name: 'a-skemfar avenger', reason: 'not_legal' },
+  { name: 'a-sorcerer class', reason: 'not_legal' },
+  { name: 'a-sorin, imperious bloodlord', reason: 'not_legal' },
+  { name: 'a-speakeasy server', reason: 'not_legal' },
+  { name: 'a-spell satchel', reason: 'not_legal' },
+  { name: 'a-split the spoils', reason: 'not_legal' },
+  { name: 'a-splitting the powerstone', reason: 'not_legal' },
+  { name: 'a-sprouting goblin', reason: 'not_legal' },
+  { name: 'a-stimulus package', reason: 'not_legal' },
+  { name: 'a-stitched assistant', reason: 'not_legal' },
+  { name: 'a-sunbathing rootwalla', reason: 'not_legal' },
+  { name: 'a-symmetry sage', reason: 'not_legal' },
+  { name: 'a-syndicate infiltrator', reason: 'not_legal' },
+  { name: 'a-tanazir quandrix', reason: 'not_legal' },
+  { name: 'a-tatyova, steward of tides', reason: 'not_legal' },
+  { name: 'a-teferi, time raveler', reason: 'not_legal' },
+  { name: 'a-tenured inkcaster', reason: 'not_legal' },
+  { name: 'a-the meathook massacre', reason: 'missing_legality' },
+  { name: 'a-thornmantle striker', reason: 'not_legal' },
+  { name: 'a-thousand-faced shadow', reason: 'not_legal' },
+  { name: 'a-thran spider', reason: 'not_legal' },
+  { name: 'a-tome shredder', reason: 'not_legal' },
+  { name: 'a-triumphant adventurer', reason: 'not_legal' },
+  { name: 'a-tyvar kell', reason: 'not_legal' },
+  { name: 'a-umara mystic', reason: 'not_legal' },
+  { name: 'a-urza, powerstone prodigy', reason: 'not_legal' },
+  { name: "a-urza's command", reason: 'not_legal' },
+  { name: 'a-uurg, spawn of turg', reason: 'not_legal' },
+  { name: 'a-vampire scrivener', reason: 'not_legal' },
+  { name: 'a-vega, the watcher', reason: 'not_legal' },
+  { name: 'a-visions of phyrexia', reason: 'not_legal' },
+  { name: 'a-vivi ornitier', reason: 'not_legal' },
+  { name: 'a-winota, joiner of forces', reason: 'not_legal' },
+  { name: 'a-wizard class', reason: 'not_legal' },
+  { name: 'a-young blue dragon // a-sand augury', reason: 'not_legal' },
+  {
+    name: 'a-young red dragon // a-bathe in gold',
+    reason: 'not_legal'
+  },
+  { name: 'aang and katara', reason: 'not_legal' },
+  { name: 'aang, a lot to learn', reason: 'not_legal' },
+  { name: 'aang, air nomad', reason: 'not_legal' },
+  { name: 'aang, airbending master', reason: 'not_legal' },
+  { name: 'aang, at the crossroads', reason: 'missing_legality' },
+  {
+    name: 'aang, at the crossroads // aang, destined savior',
+    reason: 'not_legal'
+  },
+  { name: 'aang, the last airbender', reason: 'not_legal' },
+  { name: "aang's iceberg", reason: 'not_legal' },
+  { name: 'aatchik, emerald radian', reason: 'not_legal' },
+  { name: 'abandon reason', reason: 'not_legal' },
+  { name: 'abandoned sarcophagus', reason: 'not_legal' },
+  { name: 'abbot of keral keep', reason: 'not_legal' },
+  { name: 'abby, merciless soldier', reason: 'not_legal' },
+  { name: "abdel adrian gorion's ward", reason: 'missing_legality' },
+  { name: "abdel adrian, gorion's ward", reason: 'not_legal' },
+  { name: 'abduction', reason: 'not_legal' },
+  { name: 'aberrant', reason: 'not_legal' },
+  { name: 'aberrant manawurm', reason: 'not_legal' },
+  { name: 'abhorrent oculus', reason: 'not_legal' },
+  { name: 'abhorrent overlord', reason: 'not_legal' },
+  {
+    name: 'abigale, poet laureate // heroic stanza',
+    reason: 'not_legal'
+  },
+  { name: 'aboroth', reason: 'not_legal' },
+  { name: 'absolving lammasu', reason: 'not_legal' },
+  ... 131 more items
+]
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'bala ged recovery',
+  apiCardName: 'Bala Ged Recovery // Bala Ged Sanctuary',
+  set: 'znr',
+  collector_number: '180',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'bala ged recovery',
+  apiCardName: 'Bala Ged Recovery // Bala Ged Sanctuary',
+  set: 'znr',
+  collector_number: '180',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'alias // augment',
+  apiCardName: 'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki',
+  set: 'neo',
+  collector_number: '141',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'alias // augment',
+  apiCardName: 'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki',
+  set: 'neo',
+  collector_number: '141',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'needleverge pathway',
+  apiCardName: 'Needleverge Pathway // Pillarverge Pathway',
+  set: 'znr',
+  collector_number: '263',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'curious homunculus',
+  apiCardName: 'Curious Homunculus // Voracious Reader',
+  set: 'emn',
+  collector_number: '54',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'primal amulet',
+  apiCardName: 'Primal Amulet // Primal Wellspring',
+  set: 'xln',
+  collector_number: '243',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'curious homunculus',
+  apiCardName: 'Curious Homunculus // Voracious Reader',
+  set: 'emn',
+  collector_number: '54',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'primal amulet',
+  apiCardName: 'Primal Amulet // Primal Wellspring',
+  set: 'xln',
+  collector_number: '243',
+  source: 'getDetailsForNamesCached'
+}
+[Security Event] rate_limit_triggered: {
+  key_hash: 'ip:eff8e7ca50662...',
+  route_path: '/api/deck/finish-suggestions',
+  limit: 5,
+  count: 6,
+  is_guest: true
+}
+[Security Event] rate_limit_triggered: {
+  key_hash: 'ip:eff8e7ca50662...',
+  route_path: '/api/deck/finish-suggestions',
+  limit: 5,
+  count: 7,
+  is_guest: true
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'needleverge pathway',
+  apiCardName: 'Needleverge Pathway // Pillarverge Pathway',
+  set: 'znr',
+  collector_number: '263',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'curious homunculus',
+  apiCardName: 'Curious Homunculus // Voracious Reader',
+  set: 'emn',
+  collector_number: '54',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'curious homunculus',
+  apiCardName: 'Curious Homunculus // Voracious Reader',
+  set: 'emn',
+  collector_number: '54',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getEnrichmentForNames: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'needleverge pathway',
+  apiCardName: 'Needleverge Pathway // Pillarverge Pathway',
+  set: 'znr',
+  collector_number: '263',
+  source: 'getEnrichmentForNames'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: 'needleverge pathway',
+  apiCardName: 'Needleverge Pathway // Pillarverge Pathway',
+  set: 'znr',
+  collector_number: '263',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getDetailsForNamesCached'
+}
+[scryfall_cache] getDetailsForNamesCached: lookup key does not match normalized API card.name — skip cache upsert {
+  lookupKey: "imodane's recruiter",
+  apiCardName: "Imodane's Recruiter // Train Troops",
+  set: 'woe',
+  collector_number: '229',
+  source: 'getDetailsForNamesCached'
+}
