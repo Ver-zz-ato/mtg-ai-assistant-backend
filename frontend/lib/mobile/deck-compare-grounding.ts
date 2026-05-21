@@ -291,6 +291,22 @@ function buildGroundedVerdict(fasterDeck: string, lateGameDeck: string): string 
   return `${fasterDeck} looks quicker, while ${lateGameDeck} has the stronger long-game plan.`;
 }
 
+function longGameScore(deck: CompareDeckGrounding): number {
+  const intent = `${deck.intelligence.intent} ${deck.intelligence.secondaryIntent || ""}`.toLowerCase();
+  const longGameBonus =
+    /\b(control|big mana|tron|value|counters|proliferate)\b/.test(intent) ? 24 :
+    /\b(burn|prowess|aggro|tempo|ninjas)\b/.test(intent) ? -10 :
+    0;
+  return (
+    deck.intelligence.resilienceScore * 1.15 +
+    deck.intelligence.consistencyScore * 0.75 +
+    deck.intelligence.interactionScore * 0.35 +
+    deck.intelligence.closingScore * 0.35 +
+    deck.intelligence.manaQualityScore * 0.2 +
+    longGameBonus
+  );
+}
+
 function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -353,8 +369,14 @@ function inferIntentFromNames(input: {
   if (has(/\burza's tower\b/) && has(/\burza's mine\b/) && has(/\burza's power plant\b/)) {
     return { intent: "big mana", secondaryIntent: "tron" };
   }
+  if (has(/\b(lava spike|boros charm|eidolon of the great revel|goblin guide)\b/)) {
+    return { intent: "burn", secondaryIntent: "aggro" };
+  }
   if (has(/\bmonastery swiftspear\b/) && has(/\b(lightning bolt|lava dart|manamorphose|expressive iteration|preordain)\b/)) {
     return { intent: "prowess", secondaryIntent: "spellslinger" };
+  }
+  if (has(/\b(control|supreme verdict|solitude|memory deluge|teferi, time raveler|the wandering emperor)\b/)) {
+    return { intent: "control", secondaryIntent: "interaction" };
   }
   if (has(/\byuriko\b/)) return { intent: "ninjas", secondaryIntent: "tempo" };
   if (has(/\bkorvold\b/)) return { intent: "treasure", secondaryIntent: "aristocrats" };
@@ -664,7 +686,7 @@ export async function buildDeckCompareGrounding(
 
   const fasterDeck = winnerByNumber(decks, (deck) => deck.intelligence.tempoScore, "max", 6);
   const resilientDeck = winnerByNumber(decks, (deck) => deck.intelligence.resilienceScore, "max", 6);
-  const lateGameDeck = winnerByNumber(decks, (deck) => deck.intelligence.resilienceScore + deck.intelligence.closingScore, "max", 10);
+  const lateGameDeck = winnerByNumber(decks, longGameScore, "max", 10);
   const recoveryDeck = winnerByNumber(decks, (deck) => deck.intelligence.consistencyScore + deck.intelligence.resilienceScore, "max", 10);
   const explosiveDeck = winnerByNumber(decks, (deck) => deck.intelligence.closingScore + deck.intelligence.tempoScore, "max", 10);
   const interactionDeck = winnerByNumber(decks, (deck) => deck.intelligence.interactionScore, "max", 6);
