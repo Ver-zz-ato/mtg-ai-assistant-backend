@@ -91,6 +91,40 @@ function parseDeck(text: string): string[] {
   return Array.from(new Set(out));
 }
 
+function normalizedCardKey(name: string): string {
+  return normalizeScryfallCacheName(canonicalize(name).canonicalName || name);
+}
+
+function isCommanderLikeFormat(format: string): boolean {
+  return format.toLowerCase().includes("commander") || format.toLowerCase().includes("edh");
+}
+
+function isValidBudgetSwap(input: {
+  from: string;
+  to: string;
+  priceFrom: number;
+  priceTo: number;
+  budget: number;
+  deckNameKeys: Set<string>;
+  format: string;
+}): boolean {
+  if (!(input.priceFrom > 0 && input.priceTo > 0)) return false;
+  if (input.priceFrom <= input.budget) return false;
+  if (input.priceTo >= input.priceFrom) return false;
+  if (input.priceTo > input.budget) return false;
+  const fromKey = normalizedCardKey(input.from);
+  const toKey = normalizedCardKey(input.to);
+  if (!toKey || fromKey === toKey) return false;
+  if (input.deckNameKeys.has(toKey)) return false;
+
+  // These are acceptable Commander budget fetch substitutes, but they are usually traps in 60-card competitive mana bases.
+  if (!isCommanderLikeFormat(input.format) && /^(evolving wilds|terramorphic expanse|fabled passage)$/i.test(input.to.trim())) {
+    return false;
+  }
+
+  return true;
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -149,6 +183,8 @@ async function aiSuggest(
 
 CRITICAL RULES:
 1. Price: Only suggest swaps where the replacement costs LESS than the threshold.
+   - Do not suggest replacements above the threshold, even if they are cheaper than the original.
+   - Do not suggest a replacement already present in the submitted deck.
 2. Role: Replacement MUST fill the SAME deck role:
    - Ramp → Ramp only (mana rocks, land fetch, dorks)
    - Removal → Removal only (destroy, exile, bounce, counter)
@@ -167,6 +203,7 @@ ${protectedRoleCardsPrompt ? `\n${protectedRoleCardsPrompt}` : ""}
 RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences explaining role match).
 Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both are lands that tap for mana based on creatures - same ramp role."}]
 If USER COLLECTION CONTEXT is present, prefer owned replacements from the sample when they are close fits, and mention "Owned" in the reason.
+If SHARED ROLE CLASSIFIER SUMMARY or TAG GROUNDED PROFILE is present in the deck text, use it to preserve deck intent and avoid generic swaps.
 Quality over quantity. If no good swaps exist, return empty array [].`;
   
   const input = `Format: ${formatTitle}\nCurrency: ${currency}\nThreshold: ${budget}${isCommander && commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
@@ -302,6 +339,7 @@ export async function POST(req: NextRequest) {
     }
 
     const names = parseDeck(deckText);
+    const deckNameKeys = new Set(names.map(normalizedCardKey));
     const admin = getAdmin();
     const deckProfile =
       admin && names.length > 0
@@ -397,7 +435,7 @@ export async function POST(req: NextRequest) {
         
         const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase);
         const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
-        if (!(pf > 0 && pt > 0) || pt >= pf) continue; // must be cheaper
+        if (!isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format })) continue;
         const delta = pt - pf;
         const rationale = s.reason || `${toCanon} is a budget-friendly alternative to ${from}.`;
         const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
@@ -422,7 +460,7 @@ export async function POST(req: NextRequest) {
         for (const cand of cands) {
           const toCanon = canonicalize(cand).canonicalName || cand;
           const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
-          if (pt > 0 && pt < pf) {
+          if (isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format })) {
             const delta = pt - pf;
             const rationale = `${toCanon} is a budget-friendly alternative to ${from}.`;
             const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
@@ -432,6 +470,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const dedupedSuggestions = new Map<string, Suggestion>();
+    for (const suggestion of suggestions) {
+      const key = `${normalizedCardKey(suggestion.from)}=>${normalizedCardKey(suggestion.to)}`;
+      const existing = dedupedSuggestions.get(key);
+      if (!existing || suggestion.price_delta < existing.price_delta) {
+        dedupedSuggestions.set(key, suggestion);
+      }
+    }
+    suggestions.length = 0;
+    suggestions.push(...dedupedSuggestions.values());
     suggestions.sort((a, b) => (a.price_to - a.price_from) - (b.price_to - b.price_from));
 
     // COLOR IDENTITY VALIDATION: Filter out off-color swaps for Commander format
