@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getServiceRoleClient } from "@/lib/supabase/server";
 import crypto from "node:crypto";
 import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 
@@ -46,14 +46,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<Params> }) {
     if (!sameOriginOrBearerPresent(req)) return NextResponse.json({ ok: false, error: 'bad_origin' }, { status: 403 });
     const body = await req.json().catch(()=>({}));
     const action = (body?.action || 'toggle') as 'like'|'unlike'|'toggle';
+    const auditDb = getServiceRoleClient() ?? supabase;
 
     // Windowed rate limit: 20 actions / 5 minutes per user and per IP
     try {
       const cutoff = new Date(Date.now() - 5 * 60_000).toISOString();
       const ipHash = ipHashFromReq(req);
       const [{ count: uCount }, { count: ipCount }] = await Promise.all([
-        supabase.from('likes_audit').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', cutoff),
-        ipHash ? supabase.from('likes_audit').select('id', { count: 'exact', head: true }).eq('ip_hash', ipHash).gte('created_at', cutoff) : Promise.resolve({ count: 0 }) as any,
+        auditDb.from('likes_audit').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', cutoff),
+        ipHash ? auditDb.from('likes_audit').select('id', { count: 'exact', head: true }).eq('ip_hash', ipHash).gte('created_at', cutoff) : Promise.resolve({ count: 0 }) as any,
       ]);
       const over = (uCount||0) >= 20 || (ipCount||0) >= 20;
       if (over) {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<Params> }) {
     }
 
     // Audit
-    try { await supabase.from('likes_audit').insert({ deck_id: id, user_id: user.id, ip_hash: ipHash, action }); } catch {}
+    try { await auditDb.from('likes_audit').insert({ deck_id: id, user_id: user.id, ip_hash: ipHash, action }); } catch {}
 
     const [{ count: c }, { count: lc }] = await Promise.all([
       supabase.from('deck_likes').select('deck_id', { count: 'exact', head: true }).eq('deck_id', id),

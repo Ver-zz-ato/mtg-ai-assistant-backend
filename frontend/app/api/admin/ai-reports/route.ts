@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getServiceRoleClient } from "@/lib/supabase/server";
 
 async function isAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -18,13 +18,14 @@ export async function GET(req: NextRequest) {
     if (!(await isAdmin(supabase))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    const adminDb = getServiceRoleClient() ?? supabase;
     
     const url = new URL(req.url);
     const status = url.searchParams.get('status') || 'pending';
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
     const offset = parseInt(url.searchParams.get('offset') || '0');
     
-    let query = supabase
+    let query = adminDb
       .from('ai_response_reports')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -55,6 +56,7 @@ export async function PATCH(req: NextRequest) {
     if (!(await isAdmin(supabase))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    const adminDb = getServiceRoleClient() ?? supabase;
     
     const { data: { user } } = await supabase.auth.getUser();
     const body = await req.json();
@@ -65,7 +67,7 @@ export async function PATCH(req: NextRequest) {
     }
     
     // Update the report
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminDb
       .from('ai_response_reports')
       .update({
         status: status || undefined,
@@ -83,14 +85,14 @@ export async function PATCH(req: NextRequest) {
     // If corrected response provided, save to ai_human_reviews for training
     if (correctedResponse?.trim() && status === 'resolved') {
       // Get the original report to include context
-      const { data: report } = await supabase
+      const { data: report } = await adminDb
         .from('ai_response_reports')
         .select('*')
         .eq('id', reportId)
         .single();
       
       if (report) {
-        const { error: reviewError } = await supabase.from('ai_human_reviews').insert({
+        const { error: reviewError } = await adminDb.from('ai_human_reviews').insert({
           source: 'user_report',
           route: '/api/chat',
           input: {

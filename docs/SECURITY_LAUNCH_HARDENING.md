@@ -67,6 +67,7 @@ Code-derived status:
 - `scryfall_cache` has public read RLS in migration `037_scryfall_cache_rls_read.sql`.
 - `api_usage_rate_limits` is locked down in migrations `041` and `042`; `increment_rate_limit` should be executable by `service_role` only.
 - Badge tables introduced in migration `044` have RLS and intended read policies.
+- Migration `frontend/db/migrations/114_security_advisor_safe_hardening.sql` pins `search_path` for flagged functions, tightens public insert checks for `feedback` and `ai_response_reports`, and locks `likes_audit`, `ai_human_reviews`, and `ai_pairwise_results` to service-role access.
 - Several website-only tables have documented grant hardening in `docs/SUPABASE_SCHEMA.md`.
 - Older `frontend/db/migrations/*` include security-definer/admin patterns that should be compared against the live DB before launch.
 
@@ -119,4 +120,3 @@ Monitor these as first-launch health signals:
 - Guest abuse by IP/guest token.
 
 Set alert thresholds before launch rather than after a spend spike.
-
