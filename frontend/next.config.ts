@@ -4,6 +4,7 @@ import type { NextConfig } from "next";
 
 // Full Next.js config
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "cards.scryfall.io" },
