@@ -1,5 +1,8 @@
 // app/api/deck/analyze/route.ts
 
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 import {
   type SfCard,
   type InferredDeckContext,

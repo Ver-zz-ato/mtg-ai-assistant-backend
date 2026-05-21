@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -314,7 +315,7 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
         feature: 'swap_suggestions',
         model,
         fallbackModel: tierConfig.fallbackModel || DEFAULT_FALLBACK_MODEL,
-        timeout: tierConfig.latencyBudgetMs,
+        timeout: 120000,
         maxTokens: 4096,
         apiType: 'responses',
         userId: userId || null,

@@ -4,6 +4,7 @@ import { DECK_COMPARE_PRO } from "@/lib/feature-limits";
 import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   try {
@@ -130,7 +131,7 @@ Keep the analysis concise but insightful (300-500 words). Format with clear sect
           feature: 'deck_compare',
           model,
           fallbackModel: DEFAULT_FALLBACK_MODEL,
-          timeout: 90000,
+          timeout: 120000,
           maxTokens: 4096,
           apiType: 'chat',
           userId: user.id,

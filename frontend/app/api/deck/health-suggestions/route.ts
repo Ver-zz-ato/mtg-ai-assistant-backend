@@ -30,6 +30,7 @@ import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandida
 import { getRecommendationTierConfig, resolveRecommendationTier } from '@/lib/recommendations/recommendation-tier';
 
 export const runtime = 'nodejs';
+export const maxDuration = 120;
 
 /** Normalized keys for a deck card name (full card + MDFC face names). */
 function addNormalizedDeckNameKeys(raw: string, into: Set<string>) {
@@ -326,7 +327,7 @@ Output ONLY the numbered list, no preamble.${colorIdentityHint}${compositionCont
           feature: 'deck_scan',
           model,
           fallbackModel,
-          timeout: 60000,
+          timeout: 120000,
           maxTokens: 4096,
           apiType: 'chat',
           userId: user.id,

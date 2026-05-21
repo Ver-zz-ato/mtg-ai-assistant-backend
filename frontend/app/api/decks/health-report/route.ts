@@ -21,6 +21,7 @@ import {
 } from '@/lib/collections/ownership-context';
 
 export const runtime = 'nodejs';
+export const maxDuration = 120;
 
 function normalizeFactsFormat(raw: string): AnalyzeFormat | null {
   return tryDeckFormatStringToAnalyzeFormat(raw);
@@ -316,7 +317,7 @@ ${decklistForPrompt}`;
         feature: 'health_report',
         model,
         fallbackModel: DEFAULT_FALLBACK_MODEL,
-        timeout: 90000,
+        timeout: 120000,
         maxTokens: 8192,
         apiType: 'chat',
         userId: user.id,

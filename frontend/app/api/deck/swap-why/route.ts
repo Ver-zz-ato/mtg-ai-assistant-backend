@@ -1,4 +1,5 @@
 export const runtime = 'nodejs';
+export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { canonicalize } from '@/lib/cards/canonicalize';
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest){
           feature: 'swap_why',
           model,
           fallbackModel: DEFAULT_FALLBACK_MODEL,
-          timeout: 60000,
+          timeout: 120000,
           maxTokens: 1024,
           apiType: 'responses',
           userId: user?.id || null,

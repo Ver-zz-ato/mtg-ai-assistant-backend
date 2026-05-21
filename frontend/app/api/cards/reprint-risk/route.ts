@@ -7,6 +7,7 @@ import { hashString, hashGuestToken } from "@/lib/guest-tracking";
 import { GUEST_DAILY_FEATURE_LIMIT, REPRINT_RISK_FREE, REPRINT_RISK_PRO } from "@/lib/feature-limits";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
 // Simple helper to fetch number of prints for a card from Scryfall
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
             feature: 'reprint_risk',
             model,
             fallbackModel: DEFAULT_FALLBACK_MODEL,
-            timeout: 60000,
+            timeout: 120000,
             maxTokens: 4096,
             apiType: 'responses',
             userId: user?.id || null,

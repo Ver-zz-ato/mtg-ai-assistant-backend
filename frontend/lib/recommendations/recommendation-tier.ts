@@ -38,7 +38,7 @@ export function getRecommendationTierConfig(tier: RecommendationTier): Recommend
       judgePasses: 2,
       useCriticPass: true,
       shortReasons: false,
-      latencyBudgetMs: 30000,
+      latencyBudgetMs: 120000,
     };
   }
   if (tier === "free") {
@@ -51,7 +51,7 @@ export function getRecommendationTierConfig(tier: RecommendationTier): Recommend
       judgePasses: 2,
       useCriticPass: false,
       shortReasons: false,
-      latencyBudgetMs: 14000,
+      latencyBudgetMs: 120000,
     };
   }
   return {
@@ -63,6 +63,6 @@ export function getRecommendationTierConfig(tier: RecommendationTier): Recommend
     judgePasses: 1,
     useCriticPass: false,
     shortReasons: true,
-    latencyBudgetMs: 9000,
+    latencyBudgetMs: 120000,
   };
 }

@@ -22,6 +22,7 @@ import { buildDeckCompareGrounding } from "@/lib/mobile/deck-compare-grounding";
 import type { CompareDeckGrounding, DeterministicComparisonMatrix } from "@/lib/mobile/deck-compare-grounding";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 const ROUTE_PATH = "/api/mobile/deck/compare-ai";
 const FEATURE_KEY = "deck_compare_mobile";
@@ -468,7 +469,7 @@ export async function POST(req: NextRequest) {
       const flowResult = await runStructuredAiFlow({
         context: {
           ...executionContext,
-          latencyBudgetMs: isPro ? 30000 : 26000,
+          latencyBudgetMs: 120000,
           model,
           fallbackModel: DEFAULT_FALLBACK_MODEL,
         },
@@ -477,7 +478,7 @@ export async function POST(req: NextRequest) {
         judge: {
           passName: "judge",
           maxTokens: 2200,
-          timeoutMs: isPro ? 28000 : 24000,
+          timeoutMs: 120000,
           buildMessages: () => [
             {
               role: "system",
@@ -507,7 +508,7 @@ export async function POST(req: NextRequest) {
           enabled: isPro,
           passName: "writer",
           maxTokens: 1000,
-          timeoutMs: 20000,
+          timeoutMs: 120000,
           buildMessages: (current) => [
             {
               role: "system",
@@ -536,7 +537,7 @@ export async function POST(req: NextRequest) {
           enabled: isPro,
           passName: "critic",
           maxTokens: 900,
-          timeoutMs: 18000,
+          timeoutMs: 120000,
           buildMessages: (current) => [
             {
               role: "system",

@@ -12,6 +12,7 @@ import {
 import { MULLIGAN_ADVICE_FORMATS, runMulliganAdvice } from "@/lib/mulligan/advice-handler";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 const AdviceSchema = z.object({
   modelTier: z.enum(["mini", "full"]).optional(),

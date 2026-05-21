@@ -19,6 +19,7 @@ import {
 } from "@/lib/ai/intelligence/packet";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 const ROUTE_PATH = "/api/mobile/deck/roast-ai";
 

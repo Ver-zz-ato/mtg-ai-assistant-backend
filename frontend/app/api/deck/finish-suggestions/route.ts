@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
@@ -13,6 +14,7 @@ import { rowsToDeckTextForAnalysis, parseMainboardEntriesForAnalysis } from "@/l
 import { normalizeCardName, isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
+import { DEFAULT_FREE_MODEL } from "@/lib/ai/default-models";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { extractChatCompletionContent } from "@/lib/deck/generation-helpers";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
@@ -51,7 +53,7 @@ import { getRecommendationTierConfig, resolveRecommendationTier } from "@/lib/re
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const FINISH_COMPLETION_TOKENS = 2200;
-const OPENAI_TIMEOUT_MS = 90000;
+const OPENAI_TIMEOUT_MS = 110000;
 
 type FinishBody = {
   deckId?: string;
@@ -402,6 +404,7 @@ export async function POST(req: Request) {
     "Never include anti-recommendations, caveats, or 'not recommended' cards in the suggestions array.",
     "Use English card names as printed on the English oracle.",
     `Limit suggestions array length to at most ${maxSuggestions}.`,
+    "Keep each reason under 150 characters. Prefer compact, specific suggestions over long explanations.",
   ].join("\n");
 
   const userPromptParts = [
@@ -436,7 +439,9 @@ export async function POST(req: Request) {
     useCase: "deck_analysis",
   });
   const modelRes = {
-    model: process.env.MODEL_FINISH_SUGGESTIONS || (isPro ? tierModel.model : "gpt-5.4"),
+    model:
+      process.env.MODEL_FINISH_SUGGESTIONS ||
+      (isPro ? process.env.MODEL_FINISH_SUGGESTIONS_PRO || tierModel.model : process.env.MODEL_FINISH_SUGGESTIONS_FREE || DEFAULT_FREE_MODEL),
     fallbackModel: tierModel.fallbackModel,
     tier: recommendationTier,
     tierLabel: recommendationTier,

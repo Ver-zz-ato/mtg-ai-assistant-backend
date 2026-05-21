@@ -43,6 +43,9 @@ import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registr
 import { GENERAL_COMMANDER_FORMAT_INSTRUCTION } from "@/lib/ai/commander-format-instruction";
 import { containsProfanity, PROFANITY_REJECTION_MESSAGE } from "@/lib/profanity";
 
+export const runtime = "nodejs";
+export const maxDuration = 120;
+
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Do NOT suggest cards already in the decklist.";
@@ -507,7 +510,7 @@ async function callOpenAI(
         feature: 'chat',
         model: effectiveModel,
         fallbackModel: tierRes.fallbackModel,
-        timeout: 30000,
+        timeout: 120000,
         maxTokens,
         stop,
         apiType: 'chat',
@@ -2064,7 +2067,7 @@ export async function POST(req: NextRequest) {
             { role: 'system', content: 'You are an outline generator for a Magic: The Gathering assistant. Given the user request (they have deck context). Output only a short outline: 3-6 section titles and one line each for what to cover. No prose, no greeting.' },
             { role: 'user', content: text },
           ],
-          { route: '/api/chat', feature: 'chat', model: tierRes.fallbackModel, fallbackModel: tierRes.fallbackModel, timeout: 15000, maxTokens: OUTLINE_MAX_TOKENS, apiType: 'chat', userId: userId ?? null, isPro: isPro ?? false, retryOn429: false, retryOn5xx: false, skipRecordAiUsage: true }
+          { route: '/api/chat', feature: 'chat', model: tierRes.fallbackModel, fallbackModel: tierRes.fallbackModel, timeout: 120000, maxTokens: OUTLINE_MAX_TOKENS, apiType: 'chat', userId: userId ?? null, isPro: isPro ?? false, retryOn429: false, retryOn5xx: false, skipRecordAiUsage: true }
         );
         const outline = (outlineResp.text || '').trim();
         if (outline) {
