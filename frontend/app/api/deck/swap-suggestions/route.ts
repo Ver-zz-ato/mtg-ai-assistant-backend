@@ -14,7 +14,8 @@ import { hashString, hashGuestToken } from "@/lib/guest-tracking";
 import { GUEST_DAILY_FEATURE_LIMIT, SWAP_SUGGESTIONS_FREE, SWAP_SUGGESTIONS_PRO } from "@/lib/feature-limits";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
-import { formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
+import { classifyCardRoles, formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
+import type { CanonicalDeckRole } from "@/lib/deck/role-classifier";
 import {
   formatKeyToDisplayTitle,
   isCommanderFormatKey,
@@ -60,6 +61,18 @@ type ScryfallPriceResponse = {
 };
 
 type AiSwapResponse = Array<{ from: string; to: string; reason?: string }>;
+
+type RoleGroup =
+  | "mana"
+  | "draw"
+  | "tutor"
+  | "interaction"
+  | "recursion"
+  | "graveyard"
+  | "token"
+  | "engine"
+  | "combo"
+  | "wincon";
 
 async function scryPrice(name: string, currency = "USD"): Promise<number> {
   try {
@@ -123,6 +136,48 @@ function isValidBudgetSwap(input: {
   }
 
   return true;
+}
+
+function roleGroupsForRoles(roles: CanonicalDeckRole[]): Set<RoleGroup> {
+  const groups = new Set<RoleGroup>();
+  for (const role of roles) {
+    if (role === "land" || role === "ramp" || role === "fixing") groups.add("mana");
+    if (role === "draw") groups.add("draw");
+    if (role === "tutor") groups.add("tutor");
+    if (role === "removal" || role === "interaction" || role === "protection" || role === "hate") groups.add("interaction");
+    if (role === "recursion") groups.add("recursion");
+    if (role === "graveyard") groups.add("graveyard");
+    if (role === "token") groups.add("token");
+    if (role === "engine") groups.add("engine");
+    if (role === "combo") groups.add("combo");
+    if (role === "wincon") groups.add("wincon");
+  }
+  return groups;
+}
+
+function roleGroupsCompatible(fromGroups: Set<RoleGroup>, toGroups: Set<RoleGroup>): boolean {
+  if (fromGroups.size === 0 || toGroups.size === 0) return true;
+  for (const group of fromGroups) {
+    if (toGroups.has(group)) return true;
+  }
+  return false;
+}
+
+async function filterSuggestionsByRoleParity(suggestions: Suggestion[]): Promise<Suggestion[]> {
+  if (suggestions.length === 0) return suggestions;
+  const names = [...new Set(suggestions.flatMap((s) => [s.from, s.to]))];
+  const enriched = await enrichDeck(names.map((name) => ({ name, qty: 1 }))).catch(() => []);
+  if (enriched.length === 0) return suggestions;
+
+  const byName = new Map(enriched.map((card) => [normalizedCardKey(card.name), card]));
+  return suggestions.filter((suggestion) => {
+    const fromCard = byName.get(normalizedCardKey(suggestion.from));
+    const toCard = byName.get(normalizedCardKey(suggestion.to));
+    if (!fromCard || !toCard) return true;
+    const fromGroups = roleGroupsForRoles(classifyCardRoles(fromCard).roles);
+    const toGroups = roleGroupsForRoles(classifyCardRoles(toCard).roles);
+    return roleGroupsCompatible(fromGroups, toGroups);
+  });
 }
 
 export async function GET() {
@@ -543,6 +598,8 @@ export async function POST(req: NextRequest) {
     } catch (legErr) {
       console.warn("[swap-suggestions] Legality filter failed:", legErr);
     }
+
+    validatedSuggestions = await filterSuggestionsByRoleParity(validatedSuggestions);
 
     if (admin && deckProfile && validatedSuggestions.length > 0) {
       const groundedFromRows = await fetchTagGroundedRowsByNames(admin, validatedSuggestions.map((s) => s.from));
