@@ -118,18 +118,25 @@ function countTagged(tags: string[], wanted: string[]): boolean {
   return wanted.some((tag) => tags.includes(tag));
 }
 
+function isLikelyLandCard(card: { name?: string; type_line?: string; is_land?: boolean }): boolean {
+  if (isLandForDeck(card as Parameters<typeof isLandForDeck>[0])) return true;
+  const name = String(card.name || "").toLowerCase();
+  return /^(plains|island|swamp|mountain|forest|wastes)$/.test(name);
+}
+
 function cardTextSignals(card: { oracle_text?: string; type_line?: string; mana_cost?: string }): {
   ramp: boolean;
   draw: boolean;
   interaction: boolean;
   finisher: boolean;
 } {
-  const text = `${String(card.oracle_text || "")} ${String(card.type_line || "")} ${String(card.mana_cost || "")}`.toLowerCase();
+  const name = String((card as { name?: string }).name || "").toLowerCase();
+  const text = `${String(card.oracle_text || "")} ${String(card.type_line || "")} ${String(card.mana_cost || "")} ${name}`.toLowerCase();
   return {
-    ramp: /\badd \{[wubrgc]\}|\bsearch your library for (?:a|up to .*?) land\b|\bcreate (?:a|two|three|\w+) treasure token\b|\byou may play an additional land\b|\brampant growth\b/i.test(text),
-    draw: /\bdraw (?:a|two|three|\w+) card\b|\bwhenever .* draw a card\b|\bat the beginning of .* draw\b|\binvestigate\b/i.test(text),
-    interaction: /\bcounter target\b|\bdestroy target\b|\bexile target\b|\breturn target .* to .* hand\b|\bdeals? \d+ damage to target\b|\ball creatures get -\d/i.test(text),
-    finisher: /\bdouble strike\b|\bextra combat\b|\bcreatures you control get \+\d\/\+\d\b|\byou win the game\b|\bfor each creature you control\b|\bwhenever .* attacks\b/i.test(text),
+    ramp: /\badd \{[wubrgc]\}|\bsearch your library for (?:a|up to .*?) land\b|\bcreate (?:a|two|three|\w+) treasure token\b|\byou may play an additional land\b|\b(rampant growth|cultivate|kodama's reach|sol ring|arcane signet|signet|talisman|farseek|birds of paradise)\b/i.test(text),
+    draw: /\bdraw (?:a|two|three|\w+) card\b|\bwhenever .* draw a card\b|\bat the beginning of .* draw\b|\binvestigate\b|\b(brainstorm|ponder|preordain|opt|rhystic study|mystic remora|the great henge)\b/i.test(text),
+    interaction: /\bcounter target\b|\bdestroy target\b|\bexile target\b|\breturn target .* to .* hand\b|\bdeals? \d+ damage to target\b|\ball creatures get -\d|\b(counterspell|swords to plowshares|path to exile|beast within|chaos warp|cyclonic rift|farewell|vandalblast|lightning bolt)\b/i.test(text),
+    finisher: /\bdouble strike\b|\bextra combat\b|\bcreatures you control get \+\d\/\+\d\b|\byou win the game\b|\bfor each creature you control\b|\bwhenever .* attacks\b|\b(craterhoof behemoth|thassa's oracle|exsanguinate|torment of hailfire|approach of the second sun|laboratory maniac)\b/i.test(text),
   };
 }
 
@@ -180,10 +187,11 @@ async function loadCompareEnrichedEntries(
         : { name: entry.name, qty: entry.qty };
     });
   }
-  return enrichDeck(entries, {
+  const enriched = await enrichDeck(entries, {
     format: "Commander",
     commander: null,
   }).catch(() => []);
+  return enriched.length ? enriched : entries.map((entry) => ({ name: entry.name, qty: entry.qty }));
 }
 
 async function loadPriceMap(entries: Array<{ name: string; qty: number }>): Promise<Map<string, number>> {
@@ -351,7 +359,7 @@ function buildIntelligenceProfile(args: {
   priceByKey: Map<string, number>;
 }): CompareDeckIntelligenceProfile {
   const { commander, entries, tagged, facts, priceByKey } = args;
-  const nonlands = tagged.filter((card) => !isLandForDeck(card));
+  const nonlands = tagged.filter((card) => !isLikelyLandCard(card));
   const totalNonLand = Math.max(1, nonlands.reduce((sum, card) => sum + (card.qty || 0), 0));
   const synergy = buildSynergyDiagnostics(tagged, commander, facts);
   const plan = buildDeckPlanProfile(facts, synergy);
@@ -498,7 +506,7 @@ export async function buildDeckCompareGrounding(
     });
     const totalCards = Math.max(1, entries.reduce((sum, row) => sum + (row.qty || 0), 0));
     const lands = facts.land_count ?? tagged.filter((card) => card.is_land).reduce((sum, card) => sum + (card.qty || 0), 0);
-    const uniqueNonLandCards = tagged.filter((card) => !card.is_land);
+    const uniqueNonLandCards = tagged.filter((card) => !isLikelyLandCard(card));
     const totalNonLand = Math.max(1, uniqueNonLandCards.length);
     const ramp = uniqueNonLandCards.filter((card) => {
       const tags = card.tags.map((entry) => entry.tag);
