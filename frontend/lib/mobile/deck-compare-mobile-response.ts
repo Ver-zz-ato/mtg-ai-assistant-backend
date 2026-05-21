@@ -294,10 +294,11 @@ function normalizeSummaryBlock(
   sections: MobileDeckCompareSections,
   deckCount: number
 ): MobileDeckCompareSummary {
-  const defFast = "Deck B";
-  const defSlow = "Deck A";
-  const defConsistent = "Deck A";
-  const defCeiling = deckCount >= 3 ? "Deck C" : "Deck B";
+  void deckCount;
+  const defFast = "Contested";
+  const defSlow = "Contested";
+  const defConsistent = "Contested";
+  const defCeiling = "Contested";
   const fb = (v: unknown, def: string) => {
     const t = trimStr(v, 80);
     return t || def;

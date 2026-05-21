@@ -36,7 +36,7 @@ export const SUGGESTION_WHY_PRO = 100;
 export const DECK_COMPARE_PRO = 20;
 
 /** POST /api/mobile/deck/compare-ai: free tier daily cap (Pro skips durable limiter on that route). */
-export const DECK_COMPARE_AI_MOBILE_FREE_DAILY = 2;
+export const DECK_COMPARE_AI_MOBILE_FREE_DAILY = 5;
 
 /** Pro Health Report (full deck health): Pro-only, 10/day. Used by mobile POST /api/decks/health-report. */
 export const HEALTH_REPORT_PRO = 10;

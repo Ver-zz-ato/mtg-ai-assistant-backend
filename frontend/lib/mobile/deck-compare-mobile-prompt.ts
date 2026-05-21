@@ -21,7 +21,11 @@ export function buildMobileDeckCompareSystemPrompt(formatLabel: string): string 
     "Do not use markdown headings (no # or ##).",
     "Compare speed, interaction density, finishers, consistency, resilience, tempo, and late-game — not card-by-card essays.",
     `If you name new cards as ideas, only cards legal in ${fl}; use [[double brackets]] for card names.`,
-    "For 3-deck comparisons, keep the same JSON shape; verdict strings may name Deck A, Deck B, or Deck C as appropriate.",
+    "Use actual deck titles/commanders in user-facing text; do not expose Deck A, Deck B, or Deck C unless the input has no real title.",
+    "Do not force a winner. If an edge is close, tied, or table-dependent, use Contested, Tie, Same list, or No clear edge.",
+    "When GROUND TRUTH includes intelligence fields, use them: intent, power, tempo, consistency, interaction, resilience, closing, mana, synergy, commander_synergy, price, key_cards, engines, payoffs, premium, risks.",
+    "Explain conclusions from those fields; do not ignore strong numeric differences.",
+    "For 3-deck comparisons, keep the same JSON shape and consider all three decks in every verdict.",
   ].join(" ");
 }
 
@@ -88,7 +92,7 @@ export function buildMobileDeckCompareUserPrompt(params: {
     "}",
     "Rules:",
     "- Always include summary, sections, full_analysis, and ui.",
-    "- ui.verdict_cards: exactly 4 objects; short labels; winners must match names from the deck lists.",
+    "- ui.verdict_cards: exactly 4 objects; short labels; winners must match names from the deck lists, or be Contested/Tie/Same list/No clear edge.",
     schemaDimensionHints(fl),
     "- ui.deck_strengths: phrases only (no paragraphs); at most 3 strings per deck_a and deck_b.",
     "- For three-deck comparisons, add optional deck_c array inside deck_strengths only if the third list is meaningfully distinct; otherwise omit deck_c.",
@@ -97,6 +101,9 @@ export function buildMobileDeckCompareUserPrompt(params: {
     "- full_analysis values: tighter prose than a blog post; avoid rambling.",
     "- summary fields must be very short (verdict is the only 1–2 sentences).",
     "- Prefer game outcomes and play patterns over vague flavor.",
+    "- If the GROUND TRUTH says Contested, do not convert it into a deck winner.",
+    "- If lists are identical or near-tied, say that clearly instead of manufacturing an edge.",
+    "- Avoid repeating one deck name as winner for every category unless the supplied stats strongly justify a real sweep.",
   ].join("\n");
 
   const constructedLens = isCommanderFormatLabel(fl)
