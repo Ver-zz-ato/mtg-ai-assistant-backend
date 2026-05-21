@@ -300,7 +300,7 @@ function toDisplayName(name: string): string {
   const capitalizeToken = (token: string, force: boolean): string => {
     const lower = token.toLowerCase();
     if (!force && minorWords.has(lower)) return lower;
-    return lower.replace(/(^|['-])([a-z])/g, (_match, prefix: string, char: string) => `${prefix}${char.toUpperCase()}`);
+    return lower.replace(/(^|-)([a-z])/g, (_match, prefix: string, char: string) => `${prefix}${char.toUpperCase()}`);
   };
 
   return String(name || "")
