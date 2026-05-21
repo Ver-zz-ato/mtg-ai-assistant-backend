@@ -155,8 +155,46 @@ function roleGroupsForRoles(roles: CanonicalDeckRole[]): Set<RoleGroup> {
   return groups;
 }
 
+function addNameBasedRoleHints(
+  groups: Set<RoleGroup>,
+  card: { name?: string; oracle_text?: string; type_line?: string },
+): Set<RoleGroup> {
+  const out = new Set(groups);
+  const name = String(card.name || "").toLowerCase();
+  const text = `${card.oracle_text || ""} ${card.type_line || ""}`.toLowerCase();
+
+  if (/\b(the one ring|rhystic study|mystic remora|esper sentinel|phyrexian arena|necropotence|black market connections|curiosity)\b/i.test(name)) {
+    out.add("draw");
+    out.add("engine");
+  }
+  if (/\b(dockside extortionist|goldspan dragon|professional face-breaker|treasure nabber|mana crypt|mana vault|sol ring|thought vessel|arcane signet|gaea's cradle|circle of dreams druid|nykthos, shrine to nyx|ancient tomb)\b/i.test(name)) {
+    out.add("mana");
+  }
+  if (/\b(demonic tutor|vampiric tutor|diabolic tutor|diabolic intent|beseech the queen|grim tutor)\b/i.test(name)) {
+    out.add("tutor");
+  }
+  if (/\b(force of will|force of negation|fierce guardianship|pact of negation|mana drain|counterspell|arcane denial|negate|swan song)\b/i.test(name)) {
+    out.add("interaction");
+  }
+  if (/\b(thassa's oracle|demonic consultation|tainted pact)\b/i.test(name)) {
+    out.add("combo");
+    out.add("wincon");
+  }
+  if (/\bcreate .*treasure|treasure tokens?|add (?:one|two|three|\{[wubrgc]\})|tap.*add\b/i.test(text)) {
+    out.add("mana");
+  }
+  if (/\bdraw (?:a|one|two|three|\d+|x) cards?|whenever .*draw|at the beginning .*draw\b/i.test(text)) {
+    out.add("draw");
+  }
+  return out;
+}
+
 function roleGroupsCompatible(fromGroups: Set<RoleGroup>, toGroups: Set<RoleGroup>): boolean {
   if (fromGroups.size === 0 || toGroups.size === 0) return true;
+  const strictGroups: RoleGroup[] = ["draw", "tutor", "combo"];
+  for (const group of strictGroups) {
+    if (fromGroups.has(group)) return toGroups.has(group);
+  }
   for (const group of fromGroups) {
     if (toGroups.has(group)) return true;
   }
@@ -174,8 +212,8 @@ async function filterSuggestionsByRoleParity(suggestions: Suggestion[]): Promise
     const fromCard = byName.get(normalizedCardKey(suggestion.from));
     const toCard = byName.get(normalizedCardKey(suggestion.to));
     if (!fromCard || !toCard) return true;
-    const fromGroups = roleGroupsForRoles(classifyCardRoles(fromCard).roles);
-    const toGroups = roleGroupsForRoles(classifyCardRoles(toCard).roles);
+    const fromGroups = addNameBasedRoleHints(roleGroupsForRoles(classifyCardRoles(fromCard).roles), fromCard);
+    const toGroups = addNameBasedRoleHints(roleGroupsForRoles(classifyCardRoles(toCard).roles), toCard);
     return roleGroupsCompatible(fromGroups, toGroups);
   });
 }
