@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_FALLBACK_MODEL, DEFAULT_FREE_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
+import { DEFAULT_FALLBACK_MODEL, DEFAULT_FREE_MODEL } from "@/lib/ai/default-models";
 import { createClient } from "@/lib/supabase/server";
 import { DECK_COMPARE_AI_MOBILE_FREE_DAILY } from "@/lib/feature-limits";
 import {
@@ -344,10 +344,12 @@ export async function POST(req: NextRequest) {
       featureKey: FEATURE_KEY,
       rateLimitKey: RATE_LIMIT_KEY,
     });
+    // Mobile compare needs to return inside an interactive app loading modal.
+    // Do not inherit MODEL_DECK_COMPARE here; that env is used by the heavier web compare route.
     const model =
       process.env.MODEL_DECK_COMPARE_MOBILE ||
-      process.env.MODEL_DECK_COMPARE ||
-      (isPro ? DEFAULT_PRO_DECK_MODEL : DEFAULT_FREE_MODEL);
+      (isPro ? process.env.MODEL_DECK_COMPARE_MOBILE_PRO : process.env.MODEL_DECK_COMPARE_MOBILE_FREE) ||
+      DEFAULT_FREE_MODEL;
     const grounded = await buildDeckCompareGrounding(decks.trim(), formatLabel).catch(() => null);
     if (grounded && isSameListComparison) {
       grounded.matrix.fasterDeck = "Same list";
