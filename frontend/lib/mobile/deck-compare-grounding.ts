@@ -363,11 +363,19 @@ function buildIntelligenceProfile(args: {
   const totalNonLand = Math.max(1, nonlands.reduce((sum, card) => sum + (card.qty || 0), 0));
   const synergy = buildSynergyDiagnostics(tagged, commander, facts);
   const plan = buildDeckPlanProfile(facts, synergy);
+  const signalRampCards = nonlands.filter((card) => cardTextSignals(card).ramp).map((card) => card.name);
+  const signalDrawCards = nonlands.filter((card) => cardTextSignals(card).draw).map((card) => card.name);
+  const signalInteractionCards = nonlands.filter((card) => cardTextSignals(card).interaction).map((card) => card.name);
+  const signalFinisherCards = nonlands.filter((card) => cardTextSignals(card).finisher).map((card) => card.name);
 
   const fastMana = nonlands.filter(isFastManaCard).length;
   const tutors = facts.role_counts.tutor ?? 0;
   const comboPieces = facts.role_counts.combo_piece ?? 0;
-  const cheapInteraction = nonlands.filter(isFreeOrCheapInteraction).length;
+  const cheapInteraction = Math.max(nonlands.filter(isFreeOrCheapInteraction).length, signalInteractionCards.length);
+  const rampCount = Math.max(facts.ramp_count, signalRampCards.length);
+  const drawCount = Math.max(facts.draw_count, signalDrawCards.length);
+  const interactionCount = Math.max(facts.interaction_count, signalInteractionCards.length);
+  const finisherCount = Math.max(facts.role_counts.finisher ?? 0, signalFinisherCards.length);
   const lowCurveCards = (facts.curve_histogram[0] ?? 0) + (facts.curve_histogram[1] ?? 0);
   const highCurveCards = facts.curve_histogram[4] ?? 0;
 
@@ -382,12 +390,12 @@ function buildIntelligenceProfile(args: {
     35 +
       lowCurveCards * 1.2 +
       fastMana * 7 +
-      facts.ramp_count * 1.4 -
+      rampCount * 1.4 -
       highCurveCards * 1.1 -
       Math.max(0, facts.avg_cmc - 3) * 8,
   );
-  const interactionScore = densityScore(facts.interaction_count + cheapInteraction, totalNonLand, 18);
-  const cardFlowScore = densityScore(facts.draw_count + tutors, totalNonLand, 18);
+  const interactionScore = densityScore(interactionCount + cheapInteraction, totalNonLand, 18);
+  const cardFlowScore = densityScore(drawCount + tutors, totalNonLand, 18);
   const consistencyScore = clampScore(
     cardFlowScore * 0.42 +
       densityScore(tutors, totalNonLand, 5) * 0.18 +
@@ -401,14 +409,14 @@ function buildIntelligenceProfile(args: {
       densityScore(facts.role_counts.protection ?? 0, totalNonLand, 5) * 0.2,
   );
   const closingScore = clampScore(
-    densityScore(facts.role_counts.finisher ?? 0, totalNonLand, 8) * 0.45 +
+    densityScore(finisherCount, totalNonLand, 8) * 0.45 +
       densityScore(comboPieces, totalNonLand, 5) * 0.25 +
       densityScore(facts.role_counts.payoff ?? 0, totalNonLand, 10) * 0.2 +
       tempoScore * 0.1,
   );
   const manaQualityScore = clampScore(
     45 +
-      facts.ramp_count * 3 +
+      rampCount * 3 +
       (facts.role_counts.fixing ?? 0) * 2 -
       facts.off_color_cards.length * 12 -
       facts.banned_cards.length * 20 -
@@ -474,9 +482,9 @@ function buildIntelligenceProfile(args: {
     commanderSynergyScore,
     estimatedPriceUsd,
     priceTier: priceTier(estimatedPriceUsd),
-    keyCards: uniqueNames([...synergy.core_cards, ...synergy.primary_engine_cards, ...synergy.primary_payoff_cards], 8),
-    engineCards: uniqueNames(synergy.primary_engine_cards, 5),
-    payoffCards: uniqueNames(synergy.primary_payoff_cards, 5),
+    keyCards: uniqueNames([...synergy.core_cards, ...synergy.primary_engine_cards, ...synergy.primary_payoff_cards, ...signalRampCards, ...signalDrawCards, ...signalInteractionCards, ...signalFinisherCards], 8),
+    engineCards: uniqueNames([...synergy.primary_engine_cards, ...signalRampCards, ...signalDrawCards], 5),
+    payoffCards: uniqueNames([...synergy.primary_payoff_cards, ...signalFinisherCards], 5),
     premiumCards: topPricedCards(entries, priceByKey),
     weakSignals,
     matchupRead: `${intent} ${powerBand(powerScore)} shell: tempo ${tempoScore}, consistency ${consistencyScore}, interaction ${interactionScore}, closing ${closingScore}.`,
