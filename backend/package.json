@@ -1,7 +1,7 @@
 {
   "name": "mtg-ai-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
   "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.56.1",
@@ -16,6 +16,6 @@
     "tesseract.js": "^5.0.4"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node -e \"console.error('Retired backend: backend/index.js was removed. Use backend/app.py or bulk-jobs-server/server.js.'); process.exit(1)\""
   }
 }
