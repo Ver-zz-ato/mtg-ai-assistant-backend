@@ -1,6 +1,6 @@
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { enrichDeck, isCommanderEligible } from "@/lib/deck/deck-enrichment";
-import { tagCards, isLandForDeck } from "@/lib/deck/card-role-tags";
+import { tagCards, isCreatureForDeck, isLandForDeck } from "@/lib/deck/card-role-tags";
 import { buildDeckFacts } from "@/lib/deck/deck-facts";
 import { buildSynergyDiagnostics } from "@/lib/deck/synergy-diagnostics";
 import { buildDeckPlanProfile } from "@/lib/deck/deck-plan-profile";
@@ -311,9 +311,79 @@ function isFastManaCard(card: { name: string; oracle_text?: string; mana_cost?: 
 }
 
 function isFreeOrCheapInteraction(card: { oracle_text?: string; mana_cost?: string; cmc?: number }): boolean {
+  const name = String((card as { name?: string }).name || "").toLowerCase();
   const text = String(card.oracle_text || "").toLowerCase();
   const cmc = Number(card.cmc ?? 99);
+  if (/\b(force of will|force of negation|fierce guardianship|mental misstep|daze|fatal push|lightning bolt|unholy heat|path to exile|swords to plowshares)\b/i.test(name)) {
+    return true;
+  }
   return cmc <= 2 && /\bcounter target|destroy target|exile target|return target|deals? \d+ damage to target/i.test(text);
+}
+
+function isCheapPressureCard(card: { name?: string; type_line?: string; oracle_text?: string; cmc?: number; is_creature?: boolean }): boolean {
+  const name = String(card.name || "").toLowerCase();
+  if (/\b(monastery swiftspear|soul-scar mage|dragon's rage channeler|delver of secrets|ragavan|goblin guide|yuriko|changeling outcast|ornithopter|memnite|sprite dragon|ledger shredder)\b/i.test(name)) {
+    return true;
+  }
+  const cmc = Number(card.cmc ?? 99);
+  const text = `${card.oracle_text || ""} ${card.type_line || ""}`.toLowerCase();
+  return cmc <= 2 && isCreatureForDeck(card as Parameters<typeof isCreatureForDeck>[0]) && !/\bdefender\b/i.test(text);
+}
+
+function isBurnPressureCard(card: { name?: string; oracle_text?: string; cmc?: number }): boolean {
+  const name = String(card.name || "").toLowerCase();
+  const text = String(card.oracle_text || "").toLowerCase();
+  if (/\b(lightning bolt|lava dart|lava spike|skewer the critics|rift bolt|boros charm|wizard's lightning|lightning strike|play with fire)\b/i.test(name)) {
+    return true;
+  }
+  return Number(card.cmc ?? 99) <= 2 && /\bdeals? \d+ damage to (?:any target|target player|each opponent|target opponent)/i.test(text);
+}
+
+function inferIntentFromNames(input: {
+  label: string;
+  commander: string | null;
+  entries: Array<{ name: string; qty: number }>;
+  fallback: string;
+  secondaryFallback: string | null;
+}): { intent: string; secondaryIntent: string | null } {
+  const names = input.entries.map((entry) => entry.name.toLowerCase());
+  const haystack = `${input.label} ${input.commander || ""} ${names.join(" ")}`.toLowerCase();
+  const has = (pattern: RegExp) => pattern.test(haystack);
+
+  if (has(/\burza's tower\b/) && has(/\burza's mine\b/) && has(/\burza's power plant\b/)) {
+    return { intent: "big mana", secondaryIntent: "tron" };
+  }
+  if (has(/\bmonastery swiftspear\b/) && has(/\b(lightning bolt|lava dart|manamorphose|expressive iteration|preordain)\b/)) {
+    return { intent: "prowess", secondaryIntent: "spellslinger" };
+  }
+  if (has(/\byuriko\b/)) return { intent: "ninjas", secondaryIntent: "tempo" };
+  if (has(/\bkorvold\b/)) return { intent: "treasure", secondaryIntent: "aristocrats" };
+  if (has(/\bchatterfang\b/)) return { intent: "tokens", secondaryIntent: "aristocrats" };
+  if (has(/\bniv-mizzet\b/)) return { intent: "spellslinger", secondaryIntent: "combo" };
+  if (has(/\batraxa\b/)) return { intent: "counters", secondaryIntent: "proliferate" };
+
+  return { intent: input.fallback, secondaryIntent: input.secondaryFallback };
+}
+
+function filterRelevantWeakSignals(
+  signals: string[],
+  intent: string,
+  roleCounts: Record<string, number>,
+): string[] {
+  const plan = intent.toLowerCase();
+  return signals.filter((signal) => {
+    const lower = signal.toLowerCase();
+    if (lower.includes("token")) {
+      return plan.includes("token") || (roleCounts.token_producer ?? 0) >= 4 || (roleCounts.token_payoff ?? 0) >= 2;
+    }
+    if (lower.includes("aristocrat") || lower.includes("sac")) {
+      return plan.includes("aristocrat") || plan.includes("sacrifice") || (roleCounts.sac_outlet ?? 0) >= 3 || (roleCounts.death_payoff ?? 0) >= 2;
+    }
+    if (lower.includes("graveyard") || lower.includes("reanimator")) {
+      return plan.includes("graveyard") || plan.includes("reanimator") || (roleCounts.recursion ?? 0) >= 3;
+    }
+    return true;
+  });
 }
 
 function priceTier(total: number | null): CompareDeckIntelligenceProfile["priceTier"] {
@@ -367,6 +437,9 @@ function buildIntelligenceProfile(args: {
   const signalDrawCards = nonlands.filter((card) => cardTextSignals(card).draw).map((card) => card.name);
   const signalInteractionCards = nonlands.filter((card) => cardTextSignals(card).interaction).map((card) => card.name);
   const signalFinisherCards = nonlands.filter((card) => cardTextSignals(card).finisher).map((card) => card.name);
+  const cheapPressureCards = nonlands.filter(isCheapPressureCard).map((card) => card.name);
+  const burnPressureCards = nonlands.filter(isBurnPressureCard).map((card) => card.name);
+  const pressureCount = uniqueNames([...cheapPressureCards, ...burnPressureCards], 30).length;
 
   const fastMana = nonlands.filter(isFastManaCard).length;
   const tutors = facts.role_counts.tutor ?? 0;
@@ -387,14 +460,15 @@ function buildIntelligenceProfile(args: {
   const estimatedPriceUsd = pricedCount >= Math.max(10, entries.length * 0.35) ? Number(totalPrice.toFixed(2)) : null;
 
   const tempoScore = clampScore(
-    35 +
-      lowCurveCards * 1.2 +
-      fastMana * 7 +
-      rampCount * 1.4 -
-      highCurveCards * 1.1 -
-      Math.max(0, facts.avg_cmc - 3) * 8,
+    30 +
+      pressureCount * 3.8 +
+      lowCurveCards * 0.55 +
+      fastMana * 5.5 +
+      Math.min(18, rampCount * (facts.format === "Commander" ? 1.1 : 0.45)) -
+      highCurveCards * 1.35 -
+      Math.max(0, facts.avg_cmc - 3) * 9,
   );
-  const interactionScore = densityScore(interactionCount + cheapInteraction, totalNonLand, 18);
+  const interactionScore = densityScore(Math.max(interactionCount, cheapInteraction), totalNonLand, facts.format === "Commander" ? 16 : 14);
   const cardFlowScore = densityScore(drawCount + tutors, totalNonLand, 18);
   const consistencyScore = clampScore(
     cardFlowScore * 0.42 +
@@ -409,10 +483,10 @@ function buildIntelligenceProfile(args: {
       densityScore(facts.role_counts.protection ?? 0, totalNonLand, 5) * 0.2,
   );
   const closingScore = clampScore(
-    densityScore(finisherCount, totalNonLand, 8) * 0.45 +
-      densityScore(comboPieces, totalNonLand, 5) * 0.25 +
-      densityScore(facts.role_counts.payoff ?? 0, totalNonLand, 10) * 0.2 +
-      tempoScore * 0.1,
+    densityScore(finisherCount + Math.ceil(pressureCount * 0.65), totalNonLand, facts.format === "Commander" ? 10 : 18) * 0.42 +
+      densityScore(comboPieces, totalNonLand, 5) * 0.22 +
+      densityScore(facts.role_counts.payoff ?? 0, totalNonLand, 10) * 0.18 +
+      tempoScore * 0.18,
   );
   const manaQualityScore = clampScore(
     45 +
@@ -448,9 +522,24 @@ function buildIntelligenceProfile(args: {
       Math.min(100, fastMana * 16 + tutors * 4 + comboPieces * 5) * 0.12,
   );
 
+  const rawIntent = plan.primaryPlan.name !== "unknown"
+    ? plan.primaryPlan.name
+    : facts.curve_profile !== "unknown"
+      ? facts.curve_profile
+      : "midrange";
+  const inferredIntent = inferIntentFromNames({
+    label: args.label,
+    commander,
+    entries,
+    fallback: rawIntent,
+    secondaryFallback: plan.secondaryPlan?.name ?? null,
+  });
+  const intent = inferredIntent.intent;
+  const secondaryIntent = inferredIntent.secondaryIntent;
+
   const weakSignals = uniqueNames(
     [
-      ...synergy.missing_support,
+      ...filterRelevantWeakSignals(synergy.missing_support, intent, facts.role_counts),
       ...synergy.tension_flags,
       facts.uncertainty_flags.includes("ambiguous_archetype") ? "Primary plan is ambiguous" : "",
       manaQualityScore < 45 ? "Mana base looks unstable" : "",
@@ -461,15 +550,9 @@ function buildIntelligenceProfile(args: {
     5,
   );
 
-  const intent = plan.primaryPlan.name !== "unknown"
-    ? plan.primaryPlan.name
-    : facts.curve_profile !== "unknown"
-      ? facts.curve_profile
-      : "midrange";
-
   return {
     intent,
-    secondaryIntent: plan.secondaryPlan?.name ?? null,
+    secondaryIntent,
     powerScore,
     powerBand: powerBand(powerScore),
     consistencyScore,
@@ -482,7 +565,7 @@ function buildIntelligenceProfile(args: {
     commanderSynergyScore,
     estimatedPriceUsd,
     priceTier: priceTier(estimatedPriceUsd),
-    keyCards: uniqueNames([...synergy.core_cards, ...synergy.primary_engine_cards, ...synergy.primary_payoff_cards, ...signalRampCards, ...signalDrawCards, ...signalInteractionCards, ...signalFinisherCards], 8),
+    keyCards: uniqueNames([...synergy.core_cards, ...synergy.primary_engine_cards, ...synergy.primary_payoff_cards, ...signalRampCards, ...signalDrawCards, ...signalInteractionCards, ...signalFinisherCards, ...cheapPressureCards, ...burnPressureCards], 8),
     engineCards: uniqueNames([...synergy.primary_engine_cards, ...signalRampCards, ...signalDrawCards], 5),
     payoffCards: uniqueNames([...synergy.primary_payoff_cards, ...signalFinisherCards], 5),
     premiumCards: topPricedCards(entries, priceByKey),

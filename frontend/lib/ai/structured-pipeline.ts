@@ -202,7 +202,13 @@ export async function runStructuredAiFlow<T>(args: {
       usedAi,
       fallbackUsed: false,
     };
-  } catch {
+  } catch (error) {
+    console.warn("[structured-ai-flow] falling back to deterministic result", {
+      routePath: args.routePath,
+      model: args.context.model,
+      tier: args.context.tier,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return {
       value: args.deterministic,
       model: args.context.model,

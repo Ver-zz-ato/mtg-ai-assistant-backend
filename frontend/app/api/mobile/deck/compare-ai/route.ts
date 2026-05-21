@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
+import { DEFAULT_FALLBACK_MODEL, DEFAULT_FREE_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
 import { createClient } from "@/lib/supabase/server";
 import { DECK_COMPARE_AI_MOBILE_FREE_DAILY } from "@/lib/feature-limits";
 import {
@@ -335,7 +335,6 @@ export async function POST(req: NextRequest) {
       formatLabel,
     });
 
-    const model = process.env.MODEL_DECK_COMPARE_MOBILE || process.env.MODEL_DECK_COMPARE || DEFAULT_PRO_DECK_MODEL;
     const executionContext = buildAiRouteExecutionContext({
       userId: user.id,
       isGuest: false,
@@ -345,6 +344,10 @@ export async function POST(req: NextRequest) {
       featureKey: FEATURE_KEY,
       rateLimitKey: RATE_LIMIT_KEY,
     });
+    const model =
+      process.env.MODEL_DECK_COMPARE_MOBILE ||
+      process.env.MODEL_DECK_COMPARE ||
+      (isPro ? DEFAULT_PRO_DECK_MODEL : DEFAULT_FREE_MODEL);
     const grounded = await buildDeckCompareGrounding(decks.trim(), formatLabel).catch(() => null);
     if (grounded && isSameListComparison) {
       grounded.matrix.fasterDeck = "Same list";
@@ -470,7 +473,8 @@ export async function POST(req: NextRequest) {
         deterministic: deterministicNormalized,
         judge: {
           passName: "judge",
-          maxTokens: 1800,
+          maxTokens: 1200,
+          timeoutMs: isPro ? 24000 : 12000,
           buildMessages: () => [
             {
               role: "system",
@@ -497,8 +501,10 @@ export async function POST(req: NextRequest) {
           },
         },
         writer: {
+          enabled: isPro,
           passName: "writer",
-          maxTokens: 1500,
+          maxTokens: 1000,
+          timeoutMs: 20000,
           buildMessages: (current) => [
             {
               role: "system",
@@ -524,8 +530,10 @@ export async function POST(req: NextRequest) {
           },
         },
         critic: {
+          enabled: isPro,
           passName: "critic",
-          maxTokens: 1200,
+          maxTokens: 900,
+          timeoutMs: 18000,
           buildMessages: (current) => [
             {
               role: "system",
