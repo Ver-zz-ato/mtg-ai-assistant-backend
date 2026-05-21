@@ -468,6 +468,7 @@ export async function POST(req: NextRequest) {
       const flowResult = await runStructuredAiFlow({
         context: {
           ...executionContext,
+          latencyBudgetMs: isPro ? 30000 : 26000,
           model,
           fallbackModel: DEFAULT_FALLBACK_MODEL,
         },
@@ -475,8 +476,8 @@ export async function POST(req: NextRequest) {
         deterministic: deterministicNormalized,
         judge: {
           passName: "judge",
-          maxTokens: 1200,
-          timeoutMs: isPro ? 24000 : 12000,
+          maxTokens: 2200,
+          timeoutMs: isPro ? 28000 : 24000,
           buildMessages: () => [
             {
               role: "system",
