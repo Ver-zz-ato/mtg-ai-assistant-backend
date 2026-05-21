@@ -19,6 +19,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createClientWithBearerToken } from '@/lib/server-supabase';
 import { buildGroundedPlaystyleProfile } from '@/lib/quiz/playstyle-grounding';
 import { buildAiRouteExecutionContext, buildTierCapabilityBlock, runStructuredAiFlow } from '@/lib/ai/structured-pipeline';
+import { enforceDailyDurableRateLimit } from '@/lib/api/route-guard';
+import { PLAYSTYLE_EXPLAIN_FREE, PLAYSTYLE_EXPLAIN_GUEST, PLAYSTYLE_EXPLAIN_PRO } from '@/lib/feature-limits';
 
 export const runtime = 'nodejs';
 
@@ -296,6 +298,22 @@ export async function POST(req: NextRequest) {
     }
     
     const auth = await resolveExplainTier(req);
+    const rateLimitSupabase = await createClient();
+    const rateLimit = await enforceDailyDurableRateLimit({
+      req,
+      supabase: rateLimitSupabase,
+      routePath: ROUTE_PATH,
+      user: auth.userId ? { id: auth.userId, is_anonymous: false } : null,
+      isPro: auth.isPro,
+      limits: {
+        guest: PLAYSTYLE_EXPLAIN_GUEST,
+        free: PLAYSTYLE_EXPLAIN_FREE,
+        pro: PLAYSTYLE_EXPLAIN_PRO,
+      },
+      error: 'Daily playstyle explanation limit reached. Try again tomorrow.',
+    });
+    if (!rateLimit.allowed) return rateLimit.response;
+
     const fmtTitle = formatKeyToDisplayTitle(normalizeManatapDeckFormatKey(body.format));
     const grounded = buildGroundedPlaystyleProfile({
       traits: body.traits,

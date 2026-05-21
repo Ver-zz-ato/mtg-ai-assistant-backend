@@ -14,6 +14,7 @@ import { VOICE_CHAT_SYSTEM_PROMPT } from "@/lib/ai/prompts/voice-chat";
 import { put as putAudio } from "@/lib/voice-audio-store";
 import { classifyIntent } from "@/lib/voice/intent-classifier";
 import { parseCommands } from "@/lib/voice/command-parser";
+import type { GameAction } from "@/lib/voice/types";
 import { parseLocalGameCommand } from "@/lib/voice/local-command-parser";
 import { generateClarification } from "@/lib/voice/clarifier";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
@@ -21,6 +22,9 @@ import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { actionType, assessConfirmationNeed, shouldSkipTtsForResponse } from "@/lib/voice/response-policy";
 import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 import { extractIP } from "@/lib/guest-tracking";
+import { enforceDailyDurableRateLimit } from "@/lib/api/route-guard";
+import { checkProStatus } from "@/lib/server-pro-check";
+import { VOICE_ASSISTANT_FREE, VOICE_ASSISTANT_PRO } from "@/lib/feature-limits";
 
 export const runtime = "nodejs";
 
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
   let transcript = "";
   let assistant_text = "";
   let audio_url: string | null = null;
-  let model_used = `${TRANSCRIPTION_MODEL}+${CHAT_MODEL}+${TTS_MODEL}`;
+  const model_used = `${TRANSCRIPTION_MODEL}+${CHAT_MODEL}+${TTS_MODEL}`;
 
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -70,13 +74,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Auth: Cookie OR Bearer (same precedence as /api/chat/stream)
-    const { user } = await getUserAndSupabase(req);
+    const { supabase, user } = await getUserAndSupabase(req);
     if (!user) {
       return jsonResponse(
         { transcript: "", assistant_text: "", audio_url: null, duration_ms: Date.now() - t0, model_used: "none", error: "Not signed in" },
         401
       );
     }
+
+    const isPro = await checkProStatus(user.id);
+    const rateLimit = await enforceDailyDurableRateLimit({
+      req,
+      supabase,
+      routePath: "/api/chat/voice",
+      user,
+      isPro,
+      limits: {
+        guest: 0,
+        free: VOICE_ASSISTANT_FREE,
+        pro: VOICE_ASSISTANT_PRO,
+      },
+      error: "Daily voice assistant limit reached. Try again tomorrow.",
+    });
+    if (!rateLimit.allowed) return rateLimit.response;
 
     // Parse multipart
     let formData: FormData;
@@ -178,8 +198,8 @@ export async function POST(req: NextRequest) {
     // --- STEP 2: Routing (game screen) or chat ---
     const isGameScreen = context?.screen === "game";
     let mode: "game_action" | "chat" | "clarify" = "chat";
-    let actions: unknown[] | null = null;
-    let pending_actions: unknown[] | null = null;
+    let actions: GameAction[] | null = null;
+    let pending_actions: GameAction[] | null = null;
     let clarification: string | null = null;
     let spoken_confirmation: string | null = null;
     let confirmation_required = false;
@@ -303,8 +323,8 @@ export async function POST(req: NextRequest) {
       const { captureServer } = await import("@/lib/server/analytics");
       const visitorId = req.cookies.get("visitor_id")?.value ?? null;
       const distinctId = user.id ?? visitorId ?? null;
-      const executableActions = Array.isArray(actions) ? (actions as any[]) : null;
-      const pending = Array.isArray(pending_actions) ? (pending_actions as any[]) : null;
+      const executableActions = Array.isArray(actions) ? actions : null;
+      const pending = Array.isArray(pending_actions) ? pending_actions : null;
       const clientIp = extractIP(req);
       await captureServer(
         "voice.interaction",
@@ -313,7 +333,7 @@ export async function POST(req: NextRequest) {
           visitor_id: visitorId,
           "voice.mode": mode,
           "voice.local_parser_hit": local_parser_hit,
-          "voice.action_type": actionType((executableActions ?? pending) as any),
+          "voice.action_type": actionType(executableActions ?? pending),
           "voice.clarify_reason": clarify_reason,
           "voice.confirmation_required": confirmation_required,
           "voice.confirmation_reason": confirmation_reason,

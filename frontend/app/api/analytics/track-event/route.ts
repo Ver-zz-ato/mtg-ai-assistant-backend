@@ -4,15 +4,24 @@ import { createClient } from '@/lib/supabase/server';
 import { ensureDistinctId, FALLBACK_ID_COOKIE, FALLBACK_ID_MAX_AGE } from '@/lib/analytics/fallback-id';
 import { getAdmin } from '@/app/api/_lib/supa';
 import { extractIP } from '@/lib/guest-tracking';
+import { checkRateLimit } from '@/lib/api/rate-limit';
 import {
   ATTRIBUTION_CURRENT_COOKIE,
   ATTRIBUTION_FIRST_COOKIE,
   WEB_SESSION_COOKIE,
   buildAnalyticsCommonProps,
   parseAttributionCookie,
+  type AnalyticsTier,
+  type DeckFormatAnalytics,
 } from '@/lib/analytics/common';
 
 export const runtime = 'nodejs';
+
+type TrackEventBody = {
+  event?: unknown;
+  properties?: unknown;
+  visitor_id?: unknown;
+};
 
 // Pro funnel events we store locally for admin analytics
 const PRO_FUNNEL_EVENTS = new Set([
@@ -70,8 +79,17 @@ async function storeProFunnelEvent(
  * (cookies or Authorization Bearer). Prevents spoofed attribution.
  */
 export async function POST(req: NextRequest) {
-  let body: any = {};
+  let body: TrackEventBody = {};
   try {
+    const burst = checkRateLimit(req, {
+      windowMs: 60 * 1000,
+      maxRequests: 120,
+      keyGenerator: (request) => `analytics:${extractIP(request)}`,
+    });
+    if (!burst.allowed) {
+      return NextResponse.json({ ok: false, error: 'rate_limited', retryAfter: burst.retryAfter }, { status: 429 });
+    }
+
     body = await req.json().catch(() => ({}));
     const { event, properties: rawProperties = {}, visitor_id: bodyVisitorId } = body;
 
@@ -93,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     let verifiedUserId: string | null = null;
     try {
-      let supabase = await createClient();
+      const supabase = await createClient();
       let { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
@@ -127,13 +145,13 @@ export async function POST(req: NextRequest) {
         platform: 'server',
         app_surface: 'api',
         logged_in: !!finalUserId,
-        user_tier: typeof properties.user_tier === 'string' ? (properties.user_tier as any) : 'unknown',
+        user_tier: isAnalyticsTier(properties.user_tier) ? properties.user_tier : 'unknown',
         route_path: routePath,
         session_id: sessionId,
         source_surface: typeof properties.source_surface === 'string' ? properties.source_surface : null,
         source_feature: typeof properties.source_feature === 'string' ? properties.source_feature : null,
         deck_id_present: Boolean(properties.deck_id_present ?? properties.deck_id),
-        deck_format: typeof properties.deck_format === 'string' ? (properties.deck_format as any) : null,
+        deck_format: isDeckFormatAnalytics(properties.deck_format) ? properties.deck_format : null,
       }),
       ...properties,
       user_id: finalUserId ?? null,
@@ -173,9 +191,17 @@ export async function POST(req: NextRequest) {
       });
     }
     return res;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`Failed to track event ${body?.event} server-side:`, error);
-    return NextResponse.json({ ok: false, error: error?.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
+}
+
+function isAnalyticsTier(value: unknown): value is AnalyticsTier {
+  return value === 'guest' || value === 'free' || value === 'pro' || value === 'unknown';
+}
+
+function isDeckFormatAnalytics(value: unknown): value is Exclude<DeckFormatAnalytics, null> {
+  return value === 'commander' || value === 'standard' || value === 'modern' || value === 'pioneer' || value === 'pauper' || value === 'unknown';
 }
 

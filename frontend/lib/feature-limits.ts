@@ -61,6 +61,20 @@ export const CARD_EXPLAIN_GUEST = 5;
 export const CARD_EXPLAIN_FREE = 10;
 export const CARD_EXPLAIN_PRO = 50;
 
+/** Deck roast AI: guest 3/day, free 5/day, Pro 25/day. */
+export const DECK_ROAST_GUEST = 3;
+export const DECK_ROAST_FREE = 5;
+export const DECK_ROAST_PRO = 25;
+
+/** Voice assistant: signed-in only; free 10/day, Pro 50/day. */
+export const VOICE_ASSISTANT_FREE = 10;
+export const VOICE_ASSISTANT_PRO = 50;
+
+/** Playstyle explanation: guest 5/day, free 20/day, Pro 100/day. */
+export const PLAYSTYLE_EXPLAIN_GUEST = 5;
+export const PLAYSTYLE_EXPLAIN_FREE = 20;
+export const PLAYSTYLE_EXPLAIN_PRO = 100;
+
 /** Custom card generator: guest 5/day, free 10/day, Pro unlimited. */
 export const CUSTOM_CARD_GENERATE_GUEST = 5;
 export const CUSTOM_CARD_GENERATE_FREE = 10;

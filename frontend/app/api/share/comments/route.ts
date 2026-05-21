@@ -4,6 +4,8 @@ import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 import { notifyOwnerNewComment } from "@/lib/notify-comment-owner";
 import { validatePublicText } from "@/lib/profanity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { checkRateLimit } from "@/lib/api/rate-limit";
+import { extractIP } from "@/lib/guest-tracking";
 
 export const runtime = "nodejs";
 
@@ -13,7 +15,7 @@ const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 type ResourceType = "collection" | "roast" | "health_report" | "analysis_report" | "custom_card";
 
 async function resolveOwnerAndVisibility(
-  admin: SupabaseClient<any>,
+  admin: SupabaseClient,
   type: ResourceType,
   resourceId: string
 ): Promise<{ ownerId: string | null; label: string; visible: boolean }> {
@@ -139,6 +141,14 @@ export async function POST(req: NextRequest) {
     if (!sameOriginOrBearerPresent(req)) {
       return NextResponse.json({ ok: false, error: "Bad origin" }, { status: 403 });
     }
+    const burst = checkRateLimit(req, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 20,
+      keyGenerator: (request) => `share-comments-post:${extractIP(request)}`,
+    });
+    if (!burst.allowed) {
+      return NextResponse.json({ ok: false, error: "rate_limited", retryAfter: burst.retryAfter }, { status: 429 });
+    }
     const { supabase, user, authError } = await getUserAndSupabase(req);
     if (authError || !user) {
       return NextResponse.json({ ok: false, error: "Must be logged in" }, { status: 401 });
@@ -220,6 +230,14 @@ export async function DELETE(req: NextRequest) {
   try {
     if (!sameOriginOrBearerPresent(req)) {
       return NextResponse.json({ ok: false, error: "Bad origin" }, { status: 403 });
+    }
+    const burst = checkRateLimit(req, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 30,
+      keyGenerator: (request) => `share-comments-delete:${extractIP(request)}`,
+    });
+    if (!burst.allowed) {
+      return NextResponse.json({ ok: false, error: "rate_limited", retryAfter: burst.retryAfter }, { status: 429 });
     }
     const { user, authError } = await getUserAndSupabase(req);
     if (authError || !user) {

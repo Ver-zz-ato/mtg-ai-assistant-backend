@@ -2,6 +2,7 @@
 import hmac
 import os
 import re
+import time
 from collections import Counter, defaultdict
 from typing import Dict, Tuple
 
@@ -65,6 +66,12 @@ except (TypeError, ValueError):
 
 MAXTOK = int(os.getenv("MAXTOK", "800"))
 DEBUG_ROUTE_TOKEN = (os.getenv("LEGACY_DEBUG_TOKEN") or "").strip()
+LEGACY_API_TOKEN = (os.getenv("LEGACY_API_TOKEN") or os.getenv("CRON_KEY") or "").strip()
+REQUIRE_LEGACY_API_AUTH = os.getenv("REQUIRE_LEGACY_API_AUTH", "1") == "1"
+MAX_PROMPT_CHARS = int(os.getenv("LEGACY_MAX_PROMPT_CHARS", "4000"))
+MAX_DECK_TEXT_CHARS = int(os.getenv("LEGACY_MAX_DECK_TEXT_CHARS", "30000"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("LEGACY_RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMIT_MAX_REQUESTS = int(os.getenv("LEGACY_RATE_LIMIT_MAX_REQUESTS", "30"))
 
 SCRYFALL = "https://api.scryfall.com"
 SPELLBOOK = "https://commanderspellbook.com/api"
@@ -85,6 +92,57 @@ def http_get(url, **kwargs):
         return R()
 
 PRICE_CACHE: Dict[Tuple[str, str], float] = {}
+RATE_LIMITS: Dict[str, Tuple[int, float]] = {}
+
+def client_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    return (forwarded.split(",")[0].strip() or request.headers.get("X-Real-IP") or request.remote_addr or "unknown")
+
+def check_window_rate_limit(scope: str):
+    now = time.time()
+    key = f"{scope}:{client_ip()}"
+    count, reset = RATE_LIMITS.get(key, (0, now + RATE_LIMIT_WINDOW_SECONDS))
+    if reset <= now:
+        count, reset = 0, now + RATE_LIMIT_WINDOW_SECONDS
+    count += 1
+    RATE_LIMITS[key] = (count, reset)
+    if count > RATE_LIMIT_MAX_REQUESTS:
+        return False, max(1, int(reset - now))
+    return True, None
+
+def require_legacy_api_auth():
+    if not REQUIRE_LEGACY_API_AUTH:
+        return None
+    provided = (request.headers.get("Authorization") or "").strip()
+    bearer = provided[7:].strip() if provided.lower().startswith("bearer ") else ""
+    header_token = (request.headers.get("X-Legacy-Api-Token") or "").strip()
+    supplied = bearer or header_token
+    if not LEGACY_API_TOKEN or not supplied or not hmac.compare_digest(supplied, LEGACY_API_TOKEN):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    return None
+
+def guarded_json_body(max_chars: int):
+    raw = request.get_data(cache=True, as_text=True) or ""
+    if len(raw) > max_chars:
+        return None, (jsonify({"ok": False, "error": "Request body too large"}), 413)
+    try:
+        return request.get_json(force=True) or {}, None
+    except Exception:
+        return None, (jsonify({"ok": False, "error": "Invalid JSON"}), 400)
+
+@app.before_request
+def legacy_rate_limit():
+    if request.method == "OPTIONS":
+        return None
+    if request.path in ("/", "/healthz"):
+        return None
+    ok, retry_after = check_window_rate_limit(request.path)
+    if not ok:
+        resp = jsonify({"ok": False, "error": "rate_limited", "retryAfter": retry_after})
+        resp.status_code = 429
+        resp.headers["Retry-After"] = str(retry_after)
+        return resp
+    return None
 
 def scryfall_price(card_name: str, currency: str = "USD") -> float:
     """
@@ -185,11 +243,18 @@ def debug():
 
 @app.route("/api", methods=["POST"])
 def api():
-    data = request.get_json(force=True) or {}
+    auth_error = require_legacy_api_auth()
+    if auth_error:
+        return auth_error
+    data, body_error = guarded_json_body(MAX_PROMPT_CHARS + 1000)
+    if body_error:
+        return body_error
     prompt = data.get("prompt", "")
     mode = data.get("mode", "default")
     if not prompt:
         return jsonify({"ok": False, "error": "Missing prompt"}), 400
+    if len(prompt) > MAX_PROMPT_CHARS:
+        return jsonify({"ok": False, "error": "Prompt too long"}), 400
 
     if not (USE_OPENAI and OPENAI_KEY and OPENAI_AVAILABLE):
         return jsonify({"ok": True, "reply": f"[{mode}] {prompt}"}), 200
@@ -228,7 +293,9 @@ def collections_cost():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    data = request.get_json(force=True) or {}
+    data, body_error = guarded_json_body(MAX_DECK_TEXT_CHARS + 10000)
+    if body_error:
+        return body_error
     deck_text = data.get("deck_text") or data.get("deckText") or ""
     currency = (data.get("currency") or "USD").upper()
     owned = data.get("owned") or {}
@@ -253,7 +320,9 @@ def collections_cost_alias():
 
 @app.route("/deckcheck", methods=["POST"])
 def deckcheck():
-    data = request.get_json(force=True) or {}
+    data, body_error = guarded_json_body(MAX_DECK_TEXT_CHARS + 10000)
+    if body_error:
+        return body_error
     commander_name = (data.get("commander") or "").strip()
     card_names = data.get("cards", [])
     if not commander_name:

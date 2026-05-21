@@ -5,6 +5,10 @@ import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { extractCommanderFromDecklistText } from "@/lib/chat/decklistDetector";
 import { buildDeckRoastSystemPrompt } from "@/lib/prompts/deck-roast";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
+import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
+import { enforceDailyDurableRateLimit } from "@/lib/api/route-guard";
+import { checkProStatus } from "@/lib/server-pro-check";
+import { DECK_ROAST_FREE, DECK_ROAST_GUEST, DECK_ROAST_PRO } from "@/lib/feature-limits";
 
 const VALID_FORMATS = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"] as const;
 
@@ -25,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "deckText required" }, { status: 400 });
     }
 
-    if (!VALID_FORMATS.includes(format as any)) {
+    if (!VALID_FORMATS.includes(format as (typeof VALID_FORMATS)[number])) {
       return NextResponse.json(
         { ok: false, error: `format must be one of: ${VALID_FORMATS.join(", ")}` },
         { status: 400 }
@@ -38,6 +42,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Decklist is empty" }, { status: 400 });
     }
 
+    const { supabase, user } = await getUserAndSupabase(req);
+    const isPro = user ? await checkProStatus(user.id) : false;
+    const rateLimit = await enforceDailyDurableRateLimit({
+      req,
+      supabase,
+      routePath: "/api/deck/roast",
+      user,
+      isPro,
+      limits: {
+        guest: DECK_ROAST_GUEST,
+        free: DECK_ROAST_FREE,
+        pro: DECK_ROAST_PRO,
+      },
+      error: "Daily deck roast limit reached. Try again tomorrow.",
+    });
+    if (!rateLimit.allowed) return rateLimit.response;
+
     // Validate/fix card names via parse-and-fix-names
     let cards = parsed;
     try {
@@ -49,9 +70,12 @@ export async function POST(req: NextRequest) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deckText }),
       });
-      const fixData: any = await fixRes.json().catch(() => ({}));
-      if (fixData?.ok && Array.isArray(fixData.cards) && fixData.cards.length > 0) {
-        cards = fixData.cards.map((c: { name: string; qty: number }) => ({ name: c.name, qty: c.qty }));
+      const fixData = (await fixRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        cards?: Array<{ name: string; qty: number }>;
+      };
+      if (fixData.ok && Array.isArray(fixData.cards) && fixData.cards.length > 0) {
+        cards = fixData.cards.map((c) => ({ name: c.name, qty: c.qty }));
       }
     } catch (e) {
       console.warn("[deck/roast] Name fixing failed, using original:", (e as Error)?.message);

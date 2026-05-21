@@ -2,10 +2,12 @@ import { containsProfanity, PROFANITY_REJECTION_MESSAGE } from "@/lib/profanity"
 import { broadcast, pushHistory, type Shout } from "../hub";
 import { createClient } from "@/lib/supabase/server";
 import { notifyDiscordShoutboxRealMessage } from "@/lib/shoutbox/discord-alert";
+import { extractIP } from "@/lib/guest-tracking";
 
 type Body = { text?: string; user?: string };
 
 const lastByUser = new Map<string, number>();
+const lastByIp = new Map<string, number>();
 let __lastId = 0;
 function nextIdNum(): number {
   const now = Date.now();
@@ -15,6 +17,7 @@ function nextIdNum(): number {
 
 export async function POST(req: Request) {
   const { text = "", user = "Anon" } = (await req.json().catch(() => ({}))) as Body;
+  const ip = extractIP(req);
 
   const cleanText = String(text).trim().slice(0, 280);
   const cleanUser = String(user).trim().slice(0, 24) || "Anon";
@@ -27,7 +30,12 @@ export async function POST(req: Request) {
   if (Date.now() - last < 5000) {
     return Response.json({ ok:false, error: "Please wait a moment before posting again." }, { status: 429 });
   }
+  const ipLast = lastByIp.get(ip) ?? 0;
+  if (Date.now() - ipLast < 5000) {
+    return Response.json({ ok:false, error: "Please wait a moment before posting again." }, { status: 429 });
+  }
   lastByUser.set(cleanUser, Date.now());
+  lastByIp.set(ip, Date.now());
 
   const ts = Date.now();
   

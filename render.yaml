@@ -9,4 +9,8 @@
         sync: false
       - key: LEGACY_DEBUG_TOKEN
         sync: false
+      - key: LEGACY_API_TOKEN
+        sync: false
+      - key: REQUIRE_LEGACY_API_AUTH
+        value: "1"
     pythonVersion: 3.10.13

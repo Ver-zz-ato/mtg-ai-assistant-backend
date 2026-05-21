@@ -3,6 +3,7 @@ import { captureServer, aliasServer } from '@/lib/server/analytics';
 import { createClient } from '@/lib/supabase/server';
 import { ensureDistinctId, FALLBACK_ID_COOKIE, FALLBACK_ID_MAX_AGE } from '@/lib/analytics/fallback-id';
 import { extractIP } from '@/lib/guest-tracking';
+import { checkRateLimit } from '@/lib/api/rate-limit';
 import {
   ATTRIBUTION_CURRENT_COOKIE,
   ATTRIBUTION_FIRST_COOKIE,
@@ -28,6 +29,15 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {};
   try {
+    const burst = checkRateLimit(req, {
+      windowMs: 60 * 1000,
+      maxRequests: 30,
+      keyGenerator: (request) => `auth-event:${extractIP(request)}`,
+    });
+    if (!burst.allowed) {
+      return NextResponse.json({ ok: false, error: 'rate_limited', retryAfter: burst.retryAfter }, { status: 429 });
+    }
+
     body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const {
       type,
@@ -47,7 +57,7 @@ export async function POST(req: NextRequest) {
     const sessionId = req.cookies.get(WEB_SESSION_COOKIE)?.value ?? null;
     let userId: string | null = null;
     try {
-      let supabase = await createClient();
+      const supabase = await createClient();
       let { data: { user } } = await supabase.auth.getUser();
 
       // Bearer fallback for mobile

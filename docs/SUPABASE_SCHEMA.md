@@ -19,6 +19,8 @@ These notes describe **table-level privileges** (`GRANT` / `REVOKE`) in PostgreS
 
 The **ManaTap mobile app** does not query these website-only tables directly.
 
+For launch security checks, use `docs/SECURITY_LAUNCH_HARDENING.md` as the access-control and RLS/grants audit companion.
+
 ---
 
 ### Badge system additions (phase 1, 2026-05-18)

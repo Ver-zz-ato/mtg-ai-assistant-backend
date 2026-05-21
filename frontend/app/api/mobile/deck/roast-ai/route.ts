@@ -11,6 +11,8 @@ import {
 } from "@/lib/mobile/roast-ai-response";
 import type { MobileRoastHeat } from "@/lib/mobile/roast-ai-types";
 import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
+import { enforceDailyDurableRateLimit } from "@/lib/api/route-guard";
+import { DECK_ROAST_FREE, DECK_ROAST_GUEST, DECK_ROAST_PRO } from "@/lib/feature-limits";
 import {
   buildDeckIntelligencePacket,
   formatDeckIntelligencePacketForPrompt,
@@ -107,6 +109,22 @@ export async function POST(req: NextRequest) {
     if (deck.cards.length === 0) {
       return NextResponse.json({ ok: false, error: "Decklist is empty" }, { status: 400 });
     }
+
+    const rateLimitSupabase = await createClient();
+    const rateLimit = await enforceDailyDurableRateLimit({
+      req,
+      supabase: rateLimitSupabase,
+      routePath: ROUTE_PATH,
+      user: userId ? { id: userId, is_anonymous: false } : null,
+      isPro,
+      limits: {
+        guest: DECK_ROAST_GUEST,
+        free: DECK_ROAST_FREE,
+        pro: DECK_ROAST_PRO,
+      },
+      error: "Daily deck roast limit reached. Try again tomorrow.",
+    });
+    if (!rateLimit.allowed) return rateLimit.response;
 
     let commander: string | null = commanderName;
     if (format === "Commander" && !commander) {
