@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { getServerSupabase } from "@/lib/server-supabase";
+import { requireAdminForApi } from "@/lib/server-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,18 +12,12 @@ export const dynamic = "force-dynamic";
  * Open in browser or call from devtools to see why graph/movers might be empty.
  */
 export async function GET() {
+  const adminCheck = await requireAdminForApi();
+  if (!adminCheck.ok) return adminCheck.response;
+
   const admin = getAdmin();
   const supabase = await getServerSupabase();
   const db = admin ?? supabase;
-
-  const norm = (s: string) =>
-    String(s || "")
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/['\u2019\u2018`]/g, "'")
-      .replace(/\s+/g, " ")
-      .trim();
 
   const out: Record<string, unknown> = {
     ok: true,
@@ -51,7 +46,9 @@ export async function GET() {
       .select("snapshot_date")
       .order("snapshot_date", { ascending: false })
       .limit(1);
-    const latestDate = (dateRange as any[])?.[0]?.snapshot_date ?? null;
+    const latestDate = Array.isArray(dateRange)
+      ? (dateRange[0] as { snapshot_date?: string } | undefined)?.snapshot_date ?? null
+      : null;
     (out.price_snapshots as Record<string, unknown>).latestSnapshotDate = latestDate;
 
     // 2) Sample: do we have "sol ring" and "chatterfang, squirrel general" for USD?
@@ -67,7 +64,7 @@ export async function GET() {
       (out.sampleLookups as Record<string, unknown>)[name] = {
         rowCount: Array.isArray(rows) ? rows.length : 0,
         error: error?.message ?? null,
-        sample: (rows as any[])?.slice(0, 2) ?? [],
+        sample: Array.isArray(rows) ? rows.slice(0, 2) : [],
       };
     }
 
@@ -84,7 +81,7 @@ export async function GET() {
       .from("price_cache")
       .select("card_name, usd_price")
       .in("card_name", testNames);
-    out.price_cache = { sampleRows: pcRows ?? [], rowCount: (pcRows as any[])?.length ?? 0 };
+    out.price_cache = { sampleRows: pcRows ?? [], rowCount: Array.isArray(pcRows) ? pcRows.length : 0 };
 
     // 5) Movers-style query: latest and prior dates, row count
     if (latestDate) {
@@ -103,8 +100,8 @@ export async function GET() {
         error: bothErr?.message ?? null,
       };
     }
-  } catch (e: any) {
-    out.error = e?.message ?? String(e);
+  } catch (e: unknown) {
+    out.error = e instanceof Error ? e.message : String(e);
   }
 
   return NextResponse.json(out, { headers: { "Cache-Control": "no-store" } });

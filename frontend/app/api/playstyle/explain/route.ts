@@ -2,6 +2,7 @@
 // AI-powered playstyle explanation with caching
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { PlaystyleTraits, AvoidItem } from '@/lib/quiz/quiz-data';
 import {
   costAuditRequestId,
@@ -29,6 +30,10 @@ const MINI_MODEL = DEFAULT_FALLBACK_MODEL;
 const ROUTE_PATH = '/api/playstyle/explain';
 const FEATURE_KEY = 'playstyle_explain';
 const RATE_LIMIT_KEY = ROUTE_PATH;
+const MAX_REQUEST_BYTES = 8_192;
+const MAX_PROFILE_LABEL_LENGTH = 120;
+const MAX_ARCHETYPES = 8;
+const MAX_AVOID_ITEMS = 8;
 
 // In-memory cache with 1-hour TTL
 const explainCache = new Map<string, { data: ExplainResult; expiry: number }>();
@@ -47,6 +52,72 @@ interface ExplainRequest {
 interface ExplainResult {
   paragraph: string;
   becauseBullets: string[];
+}
+
+const TraitValueSchema = z.number().finite().min(0).max(100);
+
+const ExplainRequestSchema = z.object({
+  traits: z.object({
+    control: TraitValueSchema,
+    aggression: TraitValueSchema,
+    comboAppetite: TraitValueSchema,
+    varianceTolerance: TraitValueSchema,
+    interactionPref: TraitValueSchema,
+    gameLengthPref: TraitValueSchema,
+    budgetElasticity: TraitValueSchema,
+  }).strict(),
+  topArchetypes: z.array(z.object({
+    label: z.string().trim().min(1).max(80),
+    matchPct: z.number().finite().min(0).max(100),
+  }).strict()).max(MAX_ARCHETYPES).default([]),
+  avoidList: z.array(z.object({
+    label: z.string().trim().min(1).max(80),
+    why: z.string().trim().min(1).max(240).default('Matched by your playstyle preferences.'),
+  }).strict()).max(MAX_AVOID_ITEMS).default([]),
+  level: z.enum(['short', 'full']),
+  profileLabel: z.string().trim().min(1).max(MAX_PROFILE_LABEL_LENGTH).optional(),
+  format: z.string().trim().min(1).max(40).optional(),
+}).strict();
+
+async function parseExplainRequest(req: NextRequest): Promise<
+  | { ok: true; body: ExplainRequest }
+  | { ok: false; response: NextResponse }
+> {
+  const contentLength = Number(req.headers.get('content-length') || 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: 'Request too large' }, { status: 413 }),
+    };
+  }
+
+  const raw = await req.text();
+  if (raw.length > MAX_REQUEST_BYTES) {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: 'Request too large' }, { status: 413 }),
+    };
+  }
+
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 }),
+    };
+  }
+
+  const parsed = ExplainRequestSchema.safeParse(json);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: 'Invalid playstyle request' }, { status: 400 }),
+    };
+  }
+
+  return { ok: true, body: parsed.data };
 }
 
 /**
@@ -233,10 +304,8 @@ export async function POST(req: NextRequest) {
   const t0 = Date.now();
   const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : '';
   try {
-    const body = await req.json() as ExplainRequest;
-    
-    // Validate request
-    if (!body.traits || !body.level) {
+    const parsedRequest = await parseExplainRequest(req);
+    if (!parsedRequest.ok) {
       if (isCostAuditStorageEnabled()) {
         costAuditServerLog({
           route: '/api/playstyle/explain',
@@ -245,34 +314,13 @@ export async function POST(req: NextRequest) {
           event: 'playstyle.explain',
           durationMs: Date.now() - t0,
           ok: false,
-          err: 'validation: missing traits or level',
-          level: body?.level,
+          err: `validation: ${parsedRequest.response.status}`,
         });
       }
-      return NextResponse.json(
-        { ok: false, error: 'Missing required fields: traits, level' },
-        { status: 400 }
-      );
+      return parsedRequest.response;
     }
-    
-    if (!['short', 'full'].includes(body.level)) {
-      if (isCostAuditStorageEnabled()) {
-        costAuditServerLog({
-          route: '/api/playstyle/explain',
-          method: 'POST',
-          reqId,
-          event: 'playstyle.explain',
-          durationMs: Date.now() - t0,
-          ok: false,
-          err: 'validation: bad level',
-          level: body.level,
-        });
-      }
-      return NextResponse.json(
-        { ok: false, error: 'level must be "short" or "full"' },
-        { status: 400 }
-      );
-    }
+
+    const body = parsedRequest.body;
     
     // Check cache
     const cacheKey = generateCacheKey(body);

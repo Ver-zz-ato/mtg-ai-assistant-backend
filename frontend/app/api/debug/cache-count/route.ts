@@ -1,11 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { requireAdminForApi } from '@/lib/server-admin';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
+    const adminCheck = await requireAdminForApi();
+    if (!adminCheck.ok) return adminCheck.response;
+
     // Test with both regular supabase and admin client
     const supabase = await createClient();
     const admin = getAdmin();
@@ -45,10 +49,11 @@ export async function GET(req: NextRequest) {
       sampleError: sampleError?.message || null,
       timestamp: new Date().toISOString()
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ 
       ok: false, 
-      error: e?.message || 'server_error' 
+      error: message || 'server_error'
     }, { status: 500 });
   }
 }
