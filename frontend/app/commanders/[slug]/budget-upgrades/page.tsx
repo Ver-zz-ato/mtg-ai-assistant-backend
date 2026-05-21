@@ -75,6 +75,9 @@ export default async function BudgetUpgradesPage({ params }: Props) {
 
   const { name } = profile;
   const content = renderBudgetUpgradesContent(profile);
+  const focusTags = (profile.tags ?? []).slice(0, 4);
+  const upgradePriority = (profile.flagship?.upgradePriority ?? []).slice(0, 4);
+  const traps = (profile.avoid ?? []).slice(0, 3);
 
   const cleanName = name.replace(/\s*\(.*?\)\s*$/, "").trim();
   const [imgMap, aggregates] = await Promise.all([
@@ -118,6 +121,50 @@ export default async function BudgetUpgradesPage({ params }: Props) {
             { href: `/decks/browse?search=${encodeURIComponent(name)}`, label: "Browse Decks", description: `Explore public ${name} decks` },
           ]}
         />
+        <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-5 mb-8">
+          <h2 className="text-xl font-semibold text-neutral-100 mb-3">Best places to spend first</h2>
+          <p className="text-neutral-300 leading-relaxed">
+            {profile.blurb ?? `${name} gets better when you spend on consistency before luxury cards.`} If you are upgrading in stages, fix the slots that show up every game before chasing high-end finishers.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2 mt-4">
+            {upgradePriority.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 mb-2">Priority Order</h3>
+                <ol className="space-y-2 text-sm text-neutral-300">
+                  {upgradePriority.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {(focusTags.length > 0 || traps.length > 0) && (
+              <div>
+                {focusTags.length > 0 && (
+                  <>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 mb-2">Protect These Themes</h3>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {focusTags.map((tag) => (
+                        <span key={tag} className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-sm text-amber-200">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {traps.length > 0 && (
+                  <>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 mb-2">Easy Ways to Waste Budget</h3>
+                    <ul className="space-y-2 text-sm text-neutral-300">
+                      {traps.map((trap) => (
+                        <li key={trap}>- {trap}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
         <div className="space-y-6 text-neutral-300 leading-relaxed">
           {content.map((block, i) => (
             <section key={i}>
@@ -128,6 +175,23 @@ export default async function BudgetUpgradesPage({ params }: Props) {
             </section>
           ))}
         </div>
+        <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-5 mt-8">
+          <h2 className="text-xl font-semibold text-neutral-100 mb-3">Related commander guides</h2>
+          <div className="grid gap-3 md:grid-cols-3 text-sm">
+            <Link href={`/commanders/${slug}`} className="rounded-lg border border-neutral-700 bg-neutral-800/70 p-4 hover:border-neutral-500">
+              <div className="text-neutral-100 font-medium mb-1">{name} hub</div>
+              <div className="text-neutral-400">Overview, decks, staples, and strategy context.</div>
+            </Link>
+            <Link href={`/commanders/${slug}/best-cards`} className="rounded-lg border border-neutral-700 bg-neutral-800/70 p-4 hover:border-neutral-500">
+              <div className="text-neutral-100 font-medium mb-1">Best cards</div>
+              <div className="text-neutral-400">See the role players and staples that hold the shell together.</div>
+            </Link>
+            <Link href={`/commanders/${slug}/mulligan-guide`} className="rounded-lg border border-neutral-700 bg-neutral-800/70 p-4 hover:border-neutral-500">
+              <div className="text-neutral-100 font-medium mb-1">Mulligan guide</div>
+              <div className="text-neutral-400">Turn upgrade work into better keeps and cleaner starts.</div>
+            </Link>
+          </div>
+        </section>
         <h2 className="text-xl font-semibold text-neutral-100 mt-10 mb-3">FAQ</h2>
         <dl className="space-y-3 text-neutral-300">
           {BUDGET_FAQ.map(({ q, a }) => (

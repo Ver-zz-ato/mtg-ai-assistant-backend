@@ -10,6 +10,7 @@ import { RelatedTools } from "@/components/RelatedTools";
 import { CommanderArtBanner } from "@/components/CommanderArtBanner";
 import { CommanderStatsRibbon } from "@/components/commander/CommanderStatsRibbon";
 import { CommanderToolActions } from "@/components/commander/CommanderToolActions";
+import { CoreStaples } from "@/components/commander/CoreStaples";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 
@@ -78,12 +79,15 @@ export default async function BestCardsPage({ params }: Props) {
 
   const { name } = profile;
   const content = renderBestCardsContent(profile);
+  const focusTags = (profile.tags ?? []).slice(0, 4);
+  const traps = (profile.avoid ?? []).slice(0, 3);
 
   const cleanName = name.replace(/\s*\(.*?\)\s*$/, "").trim();
   const [imgMap, aggregates] = await Promise.all([
     getImagesForNamesCached([cleanName]),
     getCommanderAggregates(slug),
   ]);
+  const topCards = aggregates?.topCards?.slice(0, 12) ?? [];
   function norm(s: string) {
     return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
   }
@@ -121,6 +125,41 @@ export default async function BestCardsPage({ params }: Props) {
             { href: `/decks/browse?search=${encodeURIComponent(name)}`, label: "Browse Decks", description: `Explore public ${name} decks`, isRecommended: true },
           ]}
         />
+        <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-5 mb-8">
+          <h2 className="text-xl font-semibold text-neutral-100 mb-3">What actually matters in a {name} list</h2>
+          <p className="text-neutral-300 leading-relaxed">
+            {profile.blurb ?? `${name} rewards a tight, role-based build.`} Start with cards that help the deck function every game, then add narrower payoffs once your ramp, draw, and interaction are already doing their jobs.
+          </p>
+          {(focusTags.length > 0 || traps.length > 0) && (
+            <div className="grid gap-4 md:grid-cols-2 mt-4">
+              {focusTags.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 mb-2">Build Around</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {focusTags.map((tag) => (
+                      <span key={tag} className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-sm text-amber-200">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {traps.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 mb-2">Usually Cut First</h3>
+                  <ul className="space-y-2 text-sm text-neutral-300">
+                    {traps.map((trap) => (
+                      <li key={trap}>- {trap}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+        {topCards.length > 0 && (
+          <CoreStaples cards={topCards} commanderName={name} deckCount={aggregates?.deckCount ?? 0} />
+        )}
         <div className="space-y-6 text-neutral-300 leading-relaxed">
           {content.map((block, i) => (
             <section key={i}>
@@ -131,6 +170,23 @@ export default async function BestCardsPage({ params }: Props) {
             </section>
           ))}
         </div>
+        <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-5 mt-8">
+          <h2 className="text-xl font-semibold text-neutral-100 mb-3">Keep moving</h2>
+          <div className="grid gap-3 md:grid-cols-3 text-sm">
+            <Link href={`/commanders/${slug}`} className="rounded-lg border border-neutral-700 bg-neutral-800/70 p-4 hover:border-neutral-500">
+              <div className="text-neutral-100 font-medium mb-1">{name} hub</div>
+              <div className="text-neutral-400">Overview, stats, decks, and related strategy links.</div>
+            </Link>
+            <Link href={`/commanders/${slug}/mulligan-guide`} className="rounded-lg border border-neutral-700 bg-neutral-800/70 p-4 hover:border-neutral-500">
+              <div className="text-neutral-100 font-medium mb-1">Mulligan guide</div>
+              <div className="text-neutral-400">Figure out what openers are worth keeping.</div>
+            </Link>
+            <Link href={`/commanders/${slug}/budget-upgrades`} className="rounded-lg border border-neutral-700 bg-neutral-800/70 p-4 hover:border-neutral-500">
+              <div className="text-neutral-100 font-medium mb-1">Budget upgrades</div>
+              <div className="text-neutral-400">Find cheaper improvements without breaking the shell.</div>
+            </Link>
+          </div>
+        </section>
         <h2 className="text-xl font-semibold text-neutral-100 mt-10 mb-3">FAQ</h2>
         <dl className="space-y-3 text-neutral-300">
           {BEST_CARDS_FAQ.map(({ q, a }) => (

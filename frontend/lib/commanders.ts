@@ -4,6 +4,7 @@
  */
 
 import commanderProfiles from "@/lib/data/commander_profiles.json";
+import { EXTRA_COMMANDER_PROFILES } from "@/lib/data/commander-extra-profiles";
 
 /** Soft cap for bundled catalog size (profiles JSON + extra list). Easy to raise without code churn elsewhere. */
 export const MAX_COMMANDERS = 100;
@@ -139,47 +140,21 @@ function buildCommanders(): CommanderProfile[] {
     ...(p.flagship && typeof p.flagship === "object" ? { flagship: p.flagship } : {}),
   }));
 
-  // Additional commanders to reach 50 (popular, stable order)
-  const extra: Array<{ name: string; colors?: string[]; tags?: string[]; blurb?: string }> = [
-    { name: "Muldrotha, the Gravetide", colors: ["U", "B", "G"], tags: ["graveyard", "recursion"], blurb: "Graveyard recursion and value engines." },
-    { name: "Meren of Clan Nel Toth", colors: ["B", "G"], tags: ["graveyard", "sacrifice"], blurb: "Sacrifice and reanimate value." },
-    { name: "Teysa Karlov", colors: ["W", "B"], tags: ["aristocrats", "tokens"], blurb: "Death trigger doubling and token aristocrats." },
-    { name: "Breya, Etherium Shaper", colors: ["W", "U", "B", "R"], tags: ["artifacts", "combo"], blurb: "Artifact combo and value." },
-    { name: "Rhys the Redeemed", colors: ["G", "W"], tags: ["tokens", "elves"], blurb: "Token doubling and elf tribal." },
-    { name: "Sythis, Harvest's Hand", colors: ["G", "W"], tags: ["enchantments", "draw"], blurb: "Enchantress draw and value." },
-    { name: "Osgir, the Reconstructor", colors: ["W", "R"], tags: ["artifacts", "reanimator"], blurb: "Artifact recursion and copying." },
-    { name: "Esix, Fractal Bloom", colors: ["U", "G"], tags: ["tokens", "clones"], blurb: "Token cloning and value." },
-    { name: "Wilhelt, the Rotcleaver", colors: ["U", "B"], tags: ["zombies", "tokens"], blurb: "Zombie tribal and decayed tokens." },
-    { name: "Korvold, Fae-Cursed King", colors: ["B", "R", "G"], tags: ["sacrifice", "counters"], blurb: "Sacrifice value and card draw." },
-    { name: "Chulane, Teller of Tales", colors: ["W", "U", "G"], tags: ["creatures", "ramp"], blurb: "Creature-based ramp and draw." },
-    { name: "Krenko, Tin Street Kingpin", colors: ["R"], tags: ["goblins", "tokens"], blurb: "Goblin token swarm." },
-    { name: "Etali, Primal Storm", colors: ["R"], tags: ["cascade", "big mana"], blurb: "Primal cascade and free spells." },
-    { name: "Xyris, the Writhing Storm", colors: ["U", "R", "G"], tags: ["wheels", "tokens"], blurb: "Wheel-based token generation." },
-    { name: "Tivit, Seller of Secrets", colors: ["W", "U", "B"], tags: ["artifacts", "voting"], blurb: "Council voting and artifact value." },
-    { name: "Prossh, Skyraider of Kher", colors: ["B", "R", "G"], tags: ["sacrifice", "tokens"], blurb: "Dragon tokens and sacrifice." },
-    { name: "Aesi, Tyrant of Gyre Strait", colors: ["U", "G"], tags: ["lands", "draw"], blurb: "Land ramp and extra land drops." },
-    { name: "Brago, King Eternal", colors: ["W", "U"], tags: ["blink", "value"], blurb: "Blink and ETB value." },
-    { name: "Teferi, Temporal Archmage", colors: ["U"], tags: ["planeswalkers", "control"], blurb: "Planeswalker control and stax." },
-    { name: "Derevi, Empyrial Tactician", colors: ["W", "U", "G"], tags: ["taps", "evasion"], blurb: "Tap/untap shenanigans." },
-    { name: "Gishath, Sun's Avatar", colors: ["R", "G", "W"], tags: ["dinosaurs", "ramp"], blurb: "Dinosaur tribal and attack triggers." },
-    { name: "Maelstrom Wanderer", colors: ["U", "R", "G"], tags: ["cascade", "big mana"], blurb: "Double cascade and haste." },
-    { name: "Sliver Overlord", colors: ["W", "U", "B", "R", "G"], tags: ["slivers", "tribal"], blurb: "Sliver tribal and tutoring." },
-    { name: "The First Sliver", colors: ["W", "U", "B", "R", "G"], tags: ["slivers", "cascade"], blurb: "Sliver cascade and tribal." },
-    { name: "Narset, Enlightened Master", colors: ["U", "R", "W"], tags: ["extra combats", "spells"], blurb: "Extra combats and free spells." },
-    { name: "Xenagos, God of Revels", colors: ["R", "G"], tags: ["aggro", "doublestrike"], blurb: "Hasty beaters and double power." },
-    { name: "Omnath, Locus of Creation", colors: ["W", "U", "R", "G"], tags: ["lands", "value"], blurb: "Landfall and four-color value." },
-    { name: "Omnath, Locus of Rage", colors: ["R", "G"], tags: ["lands", "elementals"], blurb: "Landfall elementals and damage." },
-    { name: "Aragorn, the Unifier", colors: ["W", "U", "B", "R", "G"], tags: ["legends", "humans"], blurb: "Legendary human tribal." },
-    { name: "Rocco, Cabaretti Caterer", colors: ["W", "R", "G"], tags: ["tutor", "toolbox"], blurb: "Creature tutor and toolbox." },
-  ];
-
-  const extraProfiles: CommanderProfile[] = extra.map((e) => ({
-    slug: toSlug(e.name),
-    name: e.name,
-    colors: e.colors,
-    tags: e.tags,
-    blurb: e.blurb,
-  }));
+  // Additional commanders not yet present in commander_profiles.json.
+  const extraProfiles: CommanderProfile[] = Object.entries(EXTRA_COMMANDER_PROFILES)
+    .filter(([name]) => !profiles[name])
+    .map(([name, p]) => ({
+      slug: toSlug(name),
+      name,
+      colors: COLOR_MAP[norm(name)] ?? undefined,
+      tags: p.preferTags ?? undefined,
+      blurb: p.plan ?? undefined,
+      coachNotes: typeof p.notes === "string" && p.notes.trim() ? p.notes.trim() : undefined,
+      avoid: Array.isArray(p.avoid) && p.avoid.length ? p.avoid : undefined,
+      ...(p.guideTier ? { guideTier: p.guideTier } : {}),
+      ...(p.featuredGuide === true ? { featuredGuide: true } : {}),
+      ...(p.flagship && typeof p.flagship === "object" ? { flagship: p.flagship } : {}),
+    }));
 
   return [...fromProfiles, ...extraProfiles].slice(0, MAX_COMMANDERS);
 }
