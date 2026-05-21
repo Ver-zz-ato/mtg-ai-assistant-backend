@@ -1,12 +1,14 @@
 // frontend/lib/server/analytics.ts
 // Server-side PostHog helper (safe no-op if keys are missing)
 import type { PostHog } from 'posthog-node';
+import { sanitizeAnalyticsProps } from '@/lib/analytics/sanitize';
 import {
   buildAnalyticsCommonProps,
   type AnalyticsSurface,
   type AnalyticsTier,
   type DeckFormatAnalytics,
 } from '@/lib/analytics/common';
+import { resolveAnalyticsSessionId } from '@/lib/server/analytics-session';
 
 // Runtime-agnostic UUID generation (works in both Node.js and Edge)
 function generateId(): string {
@@ -17,47 +19,8 @@ function generateId(): string {
 }
 
 let ph: PostHog | null = null;
-
-function stripSensitiveServerProps(input: Record<string, any>): Record<string, any> {
-  const sanitized = { ...input };
-  const hadThreadId = sanitized.thread_id != null || sanitized.threadId != null;
-  const hadUserMessage = sanitized.user_message != null || sanitized.userMessage != null;
-  const hadAssistantMessage = sanitized.assistant_message != null || sanitized.assistantMessage != null;
-  const hadPrompt = sanitized.prompt != null || sanitized.prompt_text != null;
-  const hadMessages = sanitized.messages != null;
-  const hadDecklist = sanitized.decklist != null || sanitized.decklist_text != null;
-  const hadCollection = sanitized.collection != null || sanitized.collection_cards != null || sanitized.card_collection != null;
-
-  delete sanitized.email;
-  delete sanitized.user_email;
-  delete sanitized.thread_id;
-  delete sanitized.threadId;
-  delete sanitized.user_message;
-  delete sanitized.userMessage;
-  delete sanitized.assistant_message;
-  delete sanitized.assistantMessage;
-  delete sanitized.message;
-  delete sanitized.messages;
-  delete sanitized.prompt;
-  delete sanitized.prompt_text;
-  delete sanitized.completion;
-  delete sanitized.response_text;
-  delete sanitized.decklist;
-  delete sanitized.decklist_text;
-  delete sanitized.collection;
-  delete sanitized.collection_cards;
-  delete sanitized.card_collection;
-
-  if (hadThreadId) sanitized.thread_id_present = true;
-  if (hadUserMessage) sanitized.user_message_present = true;
-  if (hadAssistantMessage) sanitized.assistant_message_present = true;
-  if (hadPrompt) sanitized.prompt_present = true;
-  if (hadMessages) sanitized.messages_present = true;
-  if (hadDecklist) sanitized.decklist_present = true;
-  if (hadCollection) sanitized.collection_present = true;
-
-  return sanitized;
-}
+const STARTED_EVENT_DEDUPE_TTL_MS = 5 * 60 * 1000;
+const aiStartedDedupe = new Map<string, number>();
 
 function getKey() {
   return process.env.POSTHOG_KEY || process.env.NEXT_PUBLIC_POSTHOG_KEY || '';
@@ -105,7 +68,11 @@ export async function captureServer(
     }
     let id = distinctId ?? properties.user_id ?? properties.visitor_id ?? properties.anonymous_fallback_id;
     if (!id || id === 'anon') id = `fallback_${generateId()}`;
-    const props = stripSensitiveServerProps({
+    const resolvedSessionId =
+      typeof properties.session_id === 'string' && properties.session_id.trim()
+        ? properties.session_id
+        : await resolveAnalyticsSessionId();
+    const props = sanitizeAnalyticsProps({
       ...buildAnalyticsCommonProps({
         platform: 'server',
         app_surface:
@@ -127,7 +94,7 @@ export async function captureServer(
               : typeof properties.source_path === 'string'
                 ? properties.source_path
                 : null,
-        session_id: typeof properties.session_id === 'string' ? properties.session_id : null,
+        session_id: resolvedSessionId,
         source_surface: typeof properties.source_surface === 'string' ? properties.source_surface : null,
         source_feature: typeof properties.source_feature === 'string' ? properties.source_feature : null,
         deck_id_present: Boolean(properties.deck_id_present ?? properties.deck_id),
@@ -148,9 +115,25 @@ export async function captureAiServerEvent(
   properties: Record<string, any>,
   distinctId?: string | null
 ) {
+  const analyticsRequestId =
+    typeof properties.analytics_request_id === 'string' && properties.analytics_request_id.trim()
+      ? properties.analytics_request_id.trim()
+      : null;
+  if (event === 'ai_call_started' && analyticsRequestId) {
+    const now = Date.now();
+    for (const [key, timestamp] of aiStartedDedupe.entries()) {
+      if (now - timestamp > STARTED_EVENT_DEDUPE_TTL_MS) {
+        aiStartedDedupe.delete(key);
+      }
+    }
+    if (aiStartedDedupe.has(analyticsRequestId)) return;
+    aiStartedDedupe.set(analyticsRequestId, now);
+  }
+
   return captureServer(
     event,
     {
+      analytics_request_id: analyticsRequestId,
       streamed: properties.streamed ?? null,
       cache_hit: properties.cache_hit ?? null,
       input_tokens: properties.input_tokens ?? null,

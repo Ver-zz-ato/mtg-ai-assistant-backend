@@ -2681,19 +2681,38 @@ Return the corrected answer with concise, user-facing tone.`;
       if (created) await captureServer("thread_created", { thread_id: tid, user_id: userId });
       await captureServer("chat_sent", {
         provider,
-        ms: Date.now() - t0,
+        feature: "chat",
+        latency_ms: Date.now() - t0,
         thread_id: tid,
         user_id: userId,
         persona: persona_id,
         prompt_version: promptVersionId || null,
         prompt_path: promptResult.promptPath,
         format_key: promptResult.formatKey ?? null,
-        user_message: text ? text.slice(0, 200) : null,
-        assistant_message: outText ? outText.slice(0, 200) : null,
+        user_message_present: Boolean(text),
+        assistant_message_present: Boolean(outText),
+        message_length: text ? text.length : 0,
+        response_length: outText ? outText.length : 0,
+        response_present: Boolean(outText),
         format: typeof prefs?.format === 'string' ? prefs.format : null,
-        commander_name: inferredContext?.commander || null,
+        commander_present: Boolean(inferredContext?.commander),
         ...(clientEntrySource ? { source: clientEntrySource } : {}),
       });
+      await captureServer("chat_response_received", {
+        app_surface: "api",
+        error: false,
+        feature: "chat",
+        latency_ms: Date.now() - t0,
+        logged_in: Boolean(userId),
+        model: out1?.actualModel ?? null,
+        provider,
+        response_present: Boolean(outText),
+        route: "/api/chat",
+        route_path: "/api/chat",
+        session_id: null,
+        thread_id: tid,
+        user_tier: chatTierRes.tier,
+      }, userId ?? anonId ?? null);
     } catch {}
 
     return ok({ text: outText, threadId: tid, provider, metadata: responseMetadata, toolResults: responseMetadata.toolResults });

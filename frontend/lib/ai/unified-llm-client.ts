@@ -64,6 +64,8 @@ export type LLMConfig = {
   source?: string | null;
   /** Chat completions only: request a JSON object (OpenAI `response_format`). */
   jsonResponse?: boolean;
+  /** Stable per-logical-request id for analytics dedupe. */
+  analyticsRequestId?: string | null;
 };
 
 export type LLMResponse = {
@@ -110,6 +112,13 @@ function modelSupportsStop(model: string | null | undefined): boolean {
   ].some((prefix) => normalized.includes(prefix));
 }
 
+function createAnalyticsRequestId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `ai_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /**
  * Unified LLM call function
  * 
@@ -130,6 +139,10 @@ export async function callLLM(
   const timeout = config.timeout || DEFAULT_TIMEOUTS[config.feature] || DEFAULT_TIMEOUTS.default;
   const userType = getUserType(config.userId || null, config.isPro || false);
   const userIdHash = await hashUserId(config.userId || null);
+  const analyticsRequestId =
+    typeof config.analyticsRequestId === 'string' && config.analyticsRequestId.trim()
+      ? config.analyticsRequestId.trim()
+      : createAnalyticsRequestId();
   const analyticsUserTier =
     config.user_tier ??
     (config.is_guest === true ? 'guest' : config.isPro ? 'pro' : config.userId ? 'free' : 'unknown');
@@ -137,6 +150,7 @@ export async function callLLM(
   try {
     await captureAiServerEvent('ai_call_started', {
       app_surface: 'api',
+      analytics_request_id: analyticsRequestId,
       cache_hit: config.cache_hit ?? false,
       deck_format: config.formatKey ?? null,
       feature: config.feature,
@@ -397,6 +411,7 @@ export async function callLLM(
     try {
       await captureAiServerEvent('ai_call_failed', {
         app_surface: 'api',
+        analytics_request_id: analyticsRequestId,
         cache_hit: config.cache_hit ?? false,
         deck_format: config.formatKey ?? null,
         error_code: String(attempt.status || 'unknown'),
@@ -445,6 +460,7 @@ export async function callLLM(
   try {
     await captureAiServerEvent('ai_call_completed', {
       app_surface: 'api',
+      analytics_request_id: analyticsRequestId,
       cache_hit: config.cache_hit ?? false,
       deck_format: config.formatKey ?? null,
       estimated_cost_usd: cost,

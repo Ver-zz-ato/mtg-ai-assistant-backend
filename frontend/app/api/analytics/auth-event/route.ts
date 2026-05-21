@@ -4,10 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { ensureDistinctId, FALLBACK_ID_COOKIE, FALLBACK_ID_MAX_AGE } from '@/lib/analytics/fallback-id';
 import { extractIP } from '@/lib/guest-tracking';
 import { checkRateLimit } from '@/lib/api/rate-limit';
+import { resolveAnalyticsSessionId } from '@/lib/server/analytics-session';
 import {
   ATTRIBUTION_CURRENT_COOKIE,
   ATTRIBUTION_FIRST_COOKIE,
-  WEB_SESSION_COOKIE,
   buildAnalyticsCommonProps,
   formatIsoWeek,
   parseAttributionCookie,
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const visitorId = (bodyVisitorId as string) ?? req.cookies.get('visitor_id')?.value ?? null;
     const firstTouch = parseAttributionCookie(req.cookies.get(ATTRIBUTION_FIRST_COOKIE)?.value ?? null);
     const currentTouch = parseAttributionCookie(req.cookies.get(ATTRIBUTION_CURRENT_COOKIE)?.value ?? null);
-    const sessionId = req.cookies.get(WEB_SESSION_COOKIE)?.value ?? null;
+    const sessionId = await resolveAnalyticsSessionId(req);
     let userId: string | null = null;
     try {
       const supabase = await createClient();

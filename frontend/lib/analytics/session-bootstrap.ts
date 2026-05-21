@@ -3,7 +3,12 @@
  * Stores landing_page once per session in sessionStorage
  */
 
-import { WEB_SESSION_COOKIE, readBrowserCookie } from '@/lib/analytics/common';
+import {
+  ATTRIBUTION_CURRENT_COOKIE,
+  WEB_SESSION_COOKIE,
+  parseAttributionCookie,
+  readBrowserCookie,
+} from '@/lib/analytics/common';
 
 const LANDING_PAGE_KEY = 'analytics:landing_page';
 const SESSION_START_KEY = 'analytics:session_start';
@@ -52,8 +57,8 @@ export function getReferrer(): string {
   const refParam = params.get('ref') || params.get('referrer');
   if (refParam) return refParam;
   
-  // Fall back to document.referrer
-  return document.referrer || '';
+  const currentTouch = parseAttributionCookie(readBrowserCookie(ATTRIBUTION_CURRENT_COOKIE));
+  return currentTouch?.referrer || document.referrer || '';
 }
 
 /**
@@ -69,12 +74,13 @@ export function getUTMParams(): {
   if (typeof window === 'undefined') return {};
   
   const params = new URLSearchParams(window.location.search);
+  const currentTouch = parseAttributionCookie(readBrowserCookie(ATTRIBUTION_CURRENT_COOKIE));
   return {
-    utm_source: params.get('utm_source') || undefined,
-    utm_medium: params.get('utm_medium') || undefined,
-    utm_campaign: params.get('utm_campaign') || undefined,
-    utm_content: params.get('utm_content') || undefined,
-    utm_term: params.get('utm_term') || undefined,
+    utm_source: params.get('utm_source') || currentTouch?.utm_source || undefined,
+    utm_medium: params.get('utm_medium') || currentTouch?.utm_medium || undefined,
+    utm_campaign: params.get('utm_campaign') || currentTouch?.utm_campaign || undefined,
+    utm_content: params.get('utm_content') || currentTouch?.utm_content || undefined,
+    utm_term: params.get('utm_term') || currentTouch?.utm_term || undefined,
   };
 }
 

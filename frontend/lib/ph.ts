@@ -4,6 +4,7 @@
 // Safe to import from any client component.
 
 import { getConsentStatus } from '@/lib/consent';
+import { sanitizeAnalyticsProps } from '@/lib/analytics/sanitize';
 import { getSessionContext } from '@/lib/analytics/session-bootstrap';
 import { pushCaptureEvent } from '@/lib/analytics/capture-buffer';
 import {
@@ -19,53 +20,13 @@ type Props = Record<string, any> | undefined;
 const FIRST_EVENT_PREFIX = 'analytics:first:';
 const FIRST_FEATURE_KEY = 'analytics:person:first_feature_used';
 const FIRST_DECK_FORMAT_KEY = 'analytics:person:first_deck_format';
+const SESSION_STARTED_PREFIX = 'analytics:session:started:';
+const SESSION_ENGAGED_PREFIX = 'analytics:session:engaged:';
+const SESSION_ENGAGED_DELAY_MS = 10_000;
+let sessionEngagedTimer: number | null = null;
 
 function stripSensitiveAnalyticsProps(input: Props): Record<string, any> {
-  if (!input) return {};
-  const sanitized = { ...input };
-  const hadThreadId = sanitized.thread_id != null || sanitized.threadId != null;
-  const hadUserMessage = sanitized.user_message != null || sanitized.userMessage != null;
-  const hadAssistantMessage = sanitized.assistant_message != null || sanitized.assistantMessage != null;
-  const hadMessages = sanitized.messages != null;
-  const hadDecklist = sanitized.decklist != null || sanitized.decklist_text != null;
-  const hadCollection = sanitized.collection != null || sanitized.collection_cards != null || sanitized.card_collection != null;
-  delete sanitized.email;
-  delete sanitized.user_email;
-  delete sanitized.chat_text;
-  delete sanitized.message;
-  delete sanitized.messages;
-  delete sanitized.prompt;
-  delete sanitized.prompt_text;
-  delete sanitized.completion;
-  delete sanitized.response_text;
-  delete sanitized.thread_id;
-  delete sanitized.threadId;
-  delete sanitized.user_message;
-  delete sanitized.userMessage;
-  delete sanitized.assistant_message;
-  delete sanitized.assistantMessage;
-  delete sanitized.decklist;
-  delete sanitized.decklist_text;
-  delete sanitized.collection;
-  delete sanitized.collection_cards;
-  delete sanitized.card_collection;
-  if (hadThreadId) sanitized.thread_id_present = true;
-  if (hadUserMessage) sanitized.user_message_present = true;
-  if (hadAssistantMessage) sanitized.assistant_message_present = true;
-  if (hadMessages) sanitized.messages_present = true;
-  if (hadDecklist) sanitized.decklist_present = true;
-  if (hadCollection) sanitized.collection_present = true;
-  if (sanitized.$set && typeof sanitized.$set === 'object') {
-    sanitized.$set = { ...sanitized.$set };
-    delete sanitized.$set.email;
-    delete sanitized.$set.user_email;
-  }
-  if (sanitized.$set_once && typeof sanitized.$set_once === 'object') {
-    sanitized.$set_once = { ...sanitized.$set_once };
-    delete sanitized.$set_once.email;
-    delete sanitized.$set_once.user_email;
-  }
-  return sanitized;
+  return sanitizeAnalyticsProps(input);
 }
 
 function firstFeatureForEvent(event: string, props: Record<string, any>): string | null {
@@ -143,6 +104,80 @@ function maybeTrackDerivedMilestones(event: string, props: Record<string, any>) 
 
 function hasWindow(): boolean {
   return typeof window !== 'undefined';
+}
+
+function sessionStorageHas(key: string): boolean {
+  if (!hasWindow()) return true;
+  try {
+    return window.sessionStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function setSessionStorageFlag(key: string): void {
+  if (!hasWindow()) return;
+  try {
+    window.sessionStorage.setItem(key, '1');
+  } catch {}
+}
+
+function isMeaningfulSessionEvent(event: string): boolean {
+  if (event === 'session_started' || event === 'session_engaged' || event === 'app_open') return false;
+  if (event.startsWith('web_vital_')) return false;
+  return true;
+}
+
+function captureSessionMilestone(event: 'session_started' | 'session_engaged', props: Record<string, any>): void {
+  const sessionId = typeof props.session_id === 'string' ? props.session_id : null;
+  if (!sessionId) return;
+  const storagePrefix = event === 'session_started' ? SESSION_STARTED_PREFIX : SESSION_ENGAGED_PREFIX;
+  const storageKey = `${storagePrefix}${sessionId}`;
+  if (sessionStorageHas(storageKey)) return;
+  setSessionStorageFlag(storageKey);
+  const ph = (window as any).posthog;
+  ph?.capture?.(event, props);
+}
+
+function markSessionMilestoneTracked(event: 'session_started' | 'session_engaged', props: Record<string, any>): void {
+  const sessionId = typeof props.session_id === 'string' ? props.session_id : null;
+  if (!sessionId) return;
+  const storagePrefix = event === 'session_started' ? SESSION_STARTED_PREFIX : SESSION_ENGAGED_PREFIX;
+  setSessionStorageFlag(`${storagePrefix}${sessionId}`);
+}
+
+function scheduleSessionEngagement(props: Record<string, any>): void {
+  if (!hasWindow()) return;
+  if (sessionEngagedTimer != null) return;
+  sessionEngagedTimer = window.setTimeout(() => {
+    sessionEngagedTimer = null;
+    captureSessionMilestone('session_engaged', props);
+  }, SESSION_ENGAGED_DELAY_MS);
+}
+
+export function trackSessionStarted(props?: Props, options?: { isAuthenticated?: boolean }): void {
+  const safeProps = stripSensitiveAnalyticsProps(props);
+  const sessionCtx = getSessionContext(options?.isAuthenticated ?? false);
+  const enrichedProps = {
+    ...buildAnalyticsCommonProps({
+      platform: 'web',
+      app_surface: 'website',
+      logged_in: options?.isAuthenticated ?? false,
+      user_tier: (safeProps?.user_tier as any) ?? 'unknown',
+      source_surface: (safeProps?.source_surface as any) ?? null,
+      source_feature: (safeProps?.source_feature as any) ?? null,
+      route_path: sessionCtx.current_path,
+      session_id: sessionCtx.session_id,
+      deck_id_present: Boolean((safeProps as any)?.deck_id_present ?? (safeProps as any)?.deck_id),
+      deck_format: (safeProps as any)?.deck_format ?? null,
+    }),
+    ...sessionCtx,
+    ...safeProps,
+  };
+  try {
+    captureSessionMilestone('session_started', enrichedProps);
+    scheduleSessionEngagement(enrichedProps);
+  } catch {}
 }
 
 export function hasConsent(): boolean {
@@ -237,6 +272,14 @@ export function capture(
     }
     
     ph.capture(event, enrichedProps);
+    if (event === 'session_started') {
+      markSessionMilestoneTracked('session_started', enrichedProps);
+      scheduleSessionEngagement(enrichedProps);
+    } else if (event === 'session_engaged') {
+      markSessionMilestoneTracked('session_engaged', enrichedProps);
+    } else if (isMeaningfulSessionEvent(event)) {
+      captureSessionMilestone('session_engaged', enrichedProps);
+    }
     persistIdentityTraits(event, enrichedProps);
     maybeTrackDerivedMilestones(event, enrichedProps);
     try {

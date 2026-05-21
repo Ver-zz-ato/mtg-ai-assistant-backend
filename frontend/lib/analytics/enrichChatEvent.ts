@@ -53,15 +53,15 @@ export function enrichChatEvent(
   }
 
   if (ctx.commander !== undefined) {
-    out.commander_name = ctx.commander ?? null;
-  } else if (base.commander_name === undefined) {
-    out.commander_name = null;
+    out.commander_present = Boolean(ctx.commander);
+  } else if (base.commander_present === undefined) {
+    out.commander_present = Boolean(base.commander_name);
   }
 
   if (ctx.messageId !== undefined) {
-    out.message_id = ctx.messageId ?? null;
-  } else if (base.message_id === undefined) {
-    out.message_id = null;
+    out.message_id_present = Boolean(ctx.messageId);
+  } else if (base.message_id_present === undefined) {
+    out.message_id_present = Boolean(base.message_id);
   }
 
   out.user_message_present = Boolean(ctx.userMessage ?? base.user_message ?? base.userMessage);

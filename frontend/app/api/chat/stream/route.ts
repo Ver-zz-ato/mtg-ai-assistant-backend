@@ -2232,12 +2232,16 @@ export async function POST(req: NextRequest) {
               await captureServer(
                 "chat_sent",
                 {
+                  feature: "chat",
                   route: "chat_stream",
-                  ms: Date.now() - t0,
+                  latency_ms: Date.now() - t0,
                   thread_id: tid,
                   user_id: userId,
-                  user_message: text ? text.slice(0, 200) : null,
-                  assistant_message: outputText ? outputText.slice(0, 200) : null,
+                  user_message_present: Boolean(text),
+                  assistant_message_present: Boolean(outputText),
+                  message_length: text ? text.length : 0,
+                  response_length: outputText ? outputText.length : 0,
+                  response_present: Boolean(outputText),
                   source: clientEntrySource,
                   has_deck_context: streamHasDeckContextForLayer0,
                 },
@@ -2245,6 +2249,29 @@ export async function POST(req: NextRequest) {
               );
             } catch (_) {}
           }
+
+          try {
+            const { captureServer } = await import("@/lib/server/analytics");
+            await captureServer(
+              "chat_response_received",
+              {
+                app_surface: "api",
+                error: false,
+                feature: "chat",
+                latency_ms: Date.now() - t0,
+                logged_in: Boolean(userId),
+                model: effectiveModel,
+                provider: "openai",
+                response_present: Boolean(outputText),
+                route: "/api/chat/stream",
+                route_path: "/api/chat/stream",
+                session_id: null,
+                thread_id: tid,
+                user_tier: modelTierRes.tier,
+              },
+              userId ?? anonId ?? null
+            );
+          } catch (_) {}
 
           // Cache-on-complete: write to two-tier cache when stream finishes successfully
           if (outputText && typeof outputText === "string" && outputText.length > 0) {

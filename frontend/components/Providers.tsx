@@ -7,6 +7,7 @@ import ToastProvider from '@/components/ToastProvider';
 import { getConsentStatus, onConsentChange } from '@/lib/consent';
 import { initWebVitals } from '@/lib/analytics/webVitals';
 import { AnalyticsEvents } from '@/lib/analytics/events';
+import { capture, trackSessionStarted } from '@/lib/ph';
 import {
   ATTRIBUTION_CURRENT_COOKIE,
   ATTRIBUTION_FIRST_COOKIE,
@@ -103,7 +104,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       
       try {
         if (!sessionStorage.getItem('analytics:app_open_sent')) {
-          (posthog as any)?.capture?.(AnalyticsEvents.APP_OPEN);
+          capture(AnalyticsEvents.APP_OPEN, { source_surface: 'app_boot' });
+          trackSessionStarted({ source_surface: 'app_boot' });
           sessionStorage.setItem('analytics:app_open_sent','1');
         }
         if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {

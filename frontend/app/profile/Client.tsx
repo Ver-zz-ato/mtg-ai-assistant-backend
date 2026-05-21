@@ -78,7 +78,7 @@ function EmailVerificationSection({ sb }: { sb: any }) {
 
       const { toast } = await import('@/lib/toast-client');
       toast('✅ Verification email sent! Check your inbox.', 'success');
-      capture('email_verification_resent_from_profile', { email: userEmail });
+      capture('email_verification_resent_from_profile', { email_present: Boolean(userEmail) });
     } catch (error: any) {
       const { toast } = await import('@/lib/toast-client');
       toast(`❌ ${error.message}`, 'error');

@@ -957,7 +957,7 @@ export default function Header() {
                               email: signupEmail,
                             });
                             alert('✅ Verification email resent! Check your inbox.');
-                            capture('email_verification_resent_on_signup', { email: signupEmail });
+                            capture('email_verification_resent_on_signup', { email_present: Boolean(signupEmail) });
                           } catch (err: any) {
                             alert(`❌ Failed to resend: ${err.message}`);
                           }

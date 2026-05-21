@@ -64,7 +64,7 @@ export default function EmailVerificationReminder() {
 
       const { toast } = await import('@/lib/toast-client');
       toast('✅ Verification email sent! Check your inbox.', 'success');
-      capture('email_verification_resent', { email });
+      capture('email_verification_resent', { email_present: Boolean(email) });
       
       // Auto-dismiss after successful resend
       setTimeout(() => setShow(false), 2000);
