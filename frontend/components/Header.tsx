@@ -80,20 +80,29 @@ export default function Header() {
       // Fetch Pro status
       (async () => {
         try {
-          // Check both database and metadata for consistency
+          const apiRes = await fetch('/api/user/pro-status', { cache: 'no-store' });
+          if (apiRes.ok) {
+            const apiData = await apiRes.json().catch(() => null);
+            if (apiData?.ok === true) {
+              setIsPro(apiData.isPro === true);
+              return;
+            }
+          }
+
           const { data: profile } = await supabase
             .from('profiles')
-            .select('is_pro')
+            .select('is_pro, pro_until')
             .eq('id', u.id)
             .single();
           
-          const isProFromProfile = profile?.is_pro === true;
-          const isProFromMetadata = u.user_metadata?.is_pro === true || u.user_metadata?.pro === true;
-          setIsPro(isProFromProfile || isProFromMetadata);
+          const proUntil = (profile as { pro_until?: string | null } | null)?.pro_until;
+          const until = proUntil ? new Date(proUntil) : null;
+          setIsPro(
+            profile?.is_pro === true &&
+              (!until || !Number.isFinite(until.getTime()) || until.getTime() > Date.now())
+          );
         } catch {
-          // Fallback to metadata if database query fails
-          const isProFromMetadata = u.user_metadata?.is_pro === true || u.user_metadata?.pro === true;
-          setIsPro(isProFromMetadata);
+          setIsPro(false);
         }
       })();
     } else {

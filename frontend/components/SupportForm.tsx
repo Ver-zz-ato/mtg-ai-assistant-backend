@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useProStatus } from '@/hooks/useProStatus';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 export default function SupportForm() {
-  const { isPro } = useProStatus();
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -29,7 +27,7 @@ export default function SupportForm() {
         // Check Pro status from profile table (authoritative source)
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('is_pro')
+          .select('is_pro, pro_until')
           .eq('id', user.id)
           .single();
         
@@ -39,14 +37,26 @@ export default function SupportForm() {
           console.log('✅ Support Form - Profile data:', profile);
         }
         
-        // Check multiple sources for Pro status
-        const isProFromProfile = profile?.is_pro === true;
-        const isProFromMetadata = user?.user_metadata?.is_pro === true || user?.user_metadata?.pro === true;
-        const isProUser = isProFromProfile || isProFromMetadata;
+        const proUntil = (profile as { pro_until?: string | null } | null)?.pro_until;
+        const until = proUntil ? new Date(proUntil) : null;
+        let isProUser =
+          profile?.is_pro === true &&
+          (!until || !Number.isFinite(until.getTime()) || until.getTime() > Date.now());
+        let fromRevenueCat = false;
+        try {
+          const apiRes = await fetch('/api/user/pro-status', { cache: 'no-store' });
+          if (apiRes.ok) {
+            const apiData = await apiRes.json().catch(() => null);
+            if (apiData?.ok === true) {
+              isProUser = apiData.isPro === true;
+              fromRevenueCat = apiData.fromRevenueCat === true;
+            }
+          }
+        } catch {}
         
         console.log('🎯 Support Form - Pro status:', {
-          fromProfile: isProFromProfile,
-          fromMetadata: isProFromMetadata,
+          fromProfile: profile?.is_pro === true,
+          fromRevenueCat,
           final: isProUser
         });
         

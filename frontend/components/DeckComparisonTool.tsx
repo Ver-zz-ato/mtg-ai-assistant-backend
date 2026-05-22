@@ -186,14 +186,23 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
             return;
           }
           
-          // Check profile table for authoritative Pro status
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('is_pro')
-            .eq('id', user.id)
-            .single();
-          
-          const isActuallyPro = profile?.is_pro || user?.user_metadata?.is_pro || user?.user_metadata?.pro;
+          const apiRes = await fetch('/api/user/pro-status', { cache: 'no-store' });
+          let isActuallyPro = false;
+          if (apiRes.ok) {
+            const apiData = await apiRes.json().catch(() => null);
+            isActuallyPro = apiData?.ok === true && apiData.isPro === true;
+          } else {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('is_pro, pro_until')
+              .eq('id', user.id)
+              .single();
+            const proUntil = (profile as { pro_until?: string | null } | null)?.pro_until;
+            const until = proUntil ? new Date(proUntil) : null;
+            isActuallyPro =
+              profile?.is_pro === true &&
+              (!until || !Number.isFinite(until.getTime()) || until.getTime() > Date.now());
+          }
           
           if (!isActuallyPro) {
             alert('⭐ Comparing 3 decks requires a Pro subscription. Upgrade to unlock this feature!');
@@ -676,4 +685,3 @@ export default function DeckComparisonTool({ decks }: { decks: Deck[] }) {
     </div>
   );
 }
-

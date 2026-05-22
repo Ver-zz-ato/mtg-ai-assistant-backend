@@ -78,8 +78,6 @@ export default function BudgetSwapsClient(){
         const sb = createBrowserSupabaseClient();
         const { data: userRes } = await sb.auth.getUser();
         const uid = userRes?.user?.id; if (!uid) return;
-        // detect pro from metadata as fallback if provider not mounted higher up
-        try{ const md:any = (userRes?.user as any)?.user_metadata || {}; if (md?.is_pro || md?.pro) setIsProLocal(true); } catch{}
         const { data } = await sb.from('decks').select('id,title').eq('user_id', uid).order('updated_at', { ascending:false }).limit(100);
         if (alive) setDecks((data as any[])?.map(d=>({ id:d.id, title:d.title })) || []);
       } catch{}

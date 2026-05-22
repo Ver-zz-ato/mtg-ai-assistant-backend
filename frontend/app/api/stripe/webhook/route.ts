@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe';
 import { getAdmin } from '@/app/api/_lib/supa';
 import { PRODUCT_TO_PLAN } from '@/lib/billing';
 import { captureServer } from '@/lib/server/analytics';
+import { getRevenueCatSubscriberState } from '@/lib/server-pro-check';
 import Stripe from 'stripe';
 
 /** Use service role for webhook DB ops - webhooks have no cookies, so anon client would be blocked by RLS. */
@@ -20,6 +21,65 @@ export const runtime = 'nodejs';
 // In production, consider using Redis or database for distributed systems
 const processedEvents = new Set<string>();
 const MAX_CACHE_SIZE = 1000;
+
+type ProfileEntitlementState = {
+  id: string;
+  is_pro?: boolean | null;
+  pro_plan?: string | null;
+  pro_until?: string | null;
+  stripe_subscription_id?: string | null;
+};
+
+function hasNonStripeProfilePro(profile: ProfileEntitlementState | null): boolean {
+  const proUntil = profile?.pro_until ? new Date(profile.pro_until) : null;
+  const hasActiveTimedPro =
+    profile?.is_pro === true &&
+    !!proUntil &&
+    (!Number.isFinite(proUntil.getTime()) || proUntil.getTime() > Date.now());
+
+  return (
+    profile?.is_pro === true &&
+    (profile.pro_plan === 'manual' ||
+      (!profile.pro_until && !profile.stripe_subscription_id && !profile.pro_plan) ||
+      hasActiveTimedPro)
+  );
+}
+
+async function getProfileEntitlementState(
+  supabase: ReturnType<typeof getWebhookSupabase>,
+  userId: string
+): Promise<ProfileEntitlementState | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, is_pro, pro_plan, pro_until, stripe_subscription_id')
+    .eq('id', userId)
+    .maybeSingle();
+  return (data as ProfileEntitlementState | null) ?? null;
+}
+
+async function shouldSkipStripeDowngrade(
+  supabase: ReturnType<typeof getWebhookSupabase>,
+  userId: string,
+  source: string
+): Promise<boolean> {
+  const profile = await getProfileEntitlementState(supabase, userId);
+  if (hasNonStripeProfilePro(profile)) {
+    console.info('Stripe downgrade skipped: non-Stripe Pro active', { userId, source });
+    return true;
+  }
+
+  const { fromRevenueCat, debug } = await getRevenueCatSubscriberState(userId);
+  if (fromRevenueCat) {
+    console.info('Stripe downgrade skipped: RevenueCat Pro active', {
+      userId,
+      source,
+      matchedEntitlementId: debug.matchedEntitlementId,
+    });
+    return true;
+  }
+
+  return false;
+}
 
 // This is critical for webhook signature verification - we need the raw body
 export async function POST(req: NextRequest) {
@@ -468,6 +528,10 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
       ? new Date(subscription.cancel_at * 1000).toISOString()
       : new Date().toISOString();
 
+    if (await shouldSkipStripeDowngrade(supabase, profile.id, 'subscription.updated')) {
+      return;
+    }
+
     const { error: updateError } = await supabase
       .from('profiles')
       .update({
@@ -540,6 +604,10 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
 
   if (!profile) {
     console.error('Failed to find user profile for customer:', subscription.customer, findError);
+    return;
+  }
+
+  if (await shouldSkipStripeDowngrade(supabase, profile.id, 'subscription.deleted')) {
     return;
   }
 

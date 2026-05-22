@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { badgeRarityLabel, getBadgeRarityClasses, type BadgeRarity } from '@/lib/badges/rarity-ui';
 
 type BadgeProgress = {
   id: string;
   name: string;
   description: string;
   icon: string;
+  rarity?: BadgeRarity;
   current: number;
   target: number;
   progress: number;
@@ -89,13 +91,18 @@ export default function BadgeProgressWidget() {
 
       <div className="space-y-4">
         {topThree.map((badge) => (
-          <div key={badge.id} className="space-y-2">
+          <div key={badge.id} className={`space-y-2 rounded-lg border p-3 ${getBadgeRarityClasses(badge.rarity).card}`}>
             {/* Badge Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">{badge.icon}</span>
+                <span className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg ${getBadgeRarityClasses(badge.rarity).iconWrap}`}>{badge.icon}</span>
                 <div>
-                  <h4 className="text-sm font-medium text-white">{badge.name}</h4>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-sm font-medium text-white">{badge.name}</h4>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] ${getBadgeRarityClasses(badge.rarity).chip}`}>
+                      {badgeRarityLabel(badge.rarity)}
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-400">{badge.description}</p>
                 </div>
               </div>
@@ -103,9 +110,9 @@ export default function BadgeProgressWidget() {
 
             {/* Progress Bar */}
             <div className="space-y-1">
-              <div className="w-full bg-neutral-800 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-neutral-950/80 rounded-full h-2 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
+                  className={`h-full bg-gradient-to-r transition-all duration-500 ${getBadgeRarityClasses(badge.rarity).progress}`}
                   style={{ width: `${badge.progress}%` }}
                 />
               </div>

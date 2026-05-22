@@ -27,6 +27,13 @@ const defaultProStatus: ProStatus = {
 
 const ProStatusContext = createContext<ProStatus>(defaultProStatus);
 
+function isActiveProfilePro(profile: { is_pro?: boolean | null; pro_until?: string | null } | null | undefined): boolean {
+  if (profile?.is_pro !== true) return false;
+  if (!profile.pro_until) return true;
+  const until = new Date(profile.pro_until);
+  return !Number.isFinite(until.getTime()) || until.getTime() > Date.now();
+}
+
 /** Single source of truth for Pro / model tier (one Supabase realtime channel per signed-in user). */
 export function useProStatus(): ProStatus {
   return useContext(ProStatusContext);
@@ -76,14 +83,11 @@ export default function ProProvider({ children }: { children: React.ReactNode })
       try {
         const { data: profile, error: profileError } = await sb
           .from('profiles')
-          .select('is_pro, stripe_customer_id')
+          .select('is_pro, pro_until, stripe_customer_id')
           .eq('id', user.id)
           .single();
 
-        const isProFromProfile = profile?.is_pro === true;
-        const isProFromMetadata =
-          user?.user_metadata?.is_pro === true || user?.user_metadata?.pro === true;
-        let isProUser = isProFromProfile || isProFromMetadata;
+        let isProUser = isActiveProfilePro(profile);
         let hasBilling = !!(profile as { stripe_customer_id?: string } | null)?.stripe_customer_id;
         let tier: ModelTier = isProUser ? 'pro' : 'free';
         let label = isProUser ? 'Pro' : 'Standard';
@@ -107,7 +111,7 @@ export default function ProProvider({ children }: { children: React.ReactNode })
               }
             }
           } catch {
-            // Fallback to metadata
+            // Keep profile-derived status.
           }
         } else {
           try {
@@ -115,13 +119,12 @@ export default function ProProvider({ children }: { children: React.ReactNode })
             if (apiRes.ok) {
               const apiData = await apiRes.json();
               if (apiData.ok && apiData.isPro !== undefined) {
-                isProUser = isProUser || apiData.isPro === true;
+                isProUser = apiData.isPro === true;
               }
               if (apiData.ok && apiData.hasBillingAccount !== undefined) {
                 hasBilling = apiData.hasBillingAccount;
               }
-              // Never downgrade Pro resolved from profile if API tier drifts.
-              if (apiData.ok && apiData.modelTier != null && !isProUser) {
+              if (apiData.ok && apiData.modelTier != null) {
                 tier = apiData.modelTier;
                 label = apiData.modelLabel ?? label;
                 message = apiData.upgradeMessage ?? message;
@@ -151,13 +154,12 @@ export default function ProProvider({ children }: { children: React.ReactNode })
           loading: false,
         });
       } catch {
-        const metadataIsPro = Boolean(user.user_metadata?.is_pro || user.user_metadata?.pro);
         setStatus({
-          isPro: metadataIsPro,
+          isPro: false,
           hasBillingAccount: false,
-          modelTier: metadataIsPro ? 'pro' : 'free',
-          modelLabel: metadataIsPro ? 'Pro' : 'Standard',
-          upgradeMessage: metadataIsPro ? null : 'Upgrade to Pro for the best model.',
+          modelTier: 'free',
+          modelLabel: 'Standard',
+          upgradeMessage: 'Upgrade to Pro for the best model.',
           loading: false,
         });
       }
@@ -178,22 +180,47 @@ export default function ProProvider({ children }: { children: React.ReactNode })
             filter: `id=eq.${user.id}`,
           },
           (payload) => {
-            const profileIsPro = Boolean((payload.new as { is_pro?: boolean })?.is_pro);
-            const metadataIsPro = Boolean(
-              user?.user_metadata?.is_pro || user?.user_metadata?.pro
+            const profileFallbackIsPro = isActiveProfilePro(
+              payload.new as { is_pro?: boolean | null; pro_until?: string | null },
             );
             const sid = (payload.new as { stripe_customer_id?: string })?.stripe_customer_id;
-            setStatus((prev) => ({
-              ...prev,
-              isPro: profileIsPro || metadataIsPro,
-              hasBillingAccount:
-                sid !== undefined ? !!sid : prev.hasBillingAccount,
-              modelTier: profileIsPro || metadataIsPro ? 'pro' : 'free',
-              modelLabel: profileIsPro || metadataIsPro ? 'Pro' : 'Standard',
-              upgradeMessage:
-                profileIsPro || metadataIsPro ? null : 'Upgrade to Pro for the best model.',
-              loading: false,
-            }));
+            const applyStatus = (
+              isProUser: boolean,
+              hasBilling: boolean | undefined,
+              tier: ModelTier = isProUser ? 'pro' : 'free',
+              label = isProUser ? 'Pro' : 'Standard',
+              message: string | null = isProUser ? null : 'Upgrade to Pro for the best model.'
+            ) => {
+              setStatus((prev) => ({
+                ...prev,
+                isPro: isProUser,
+                hasBillingAccount: hasBilling !== undefined ? hasBilling : prev.hasBillingAccount,
+                modelTier: isProUser ? 'pro' : tier === 'pro' ? 'free' : tier,
+                modelLabel: isProUser ? 'Pro' : label,
+                upgradeMessage: isProUser ? null : message,
+                loading: false,
+              }));
+            };
+
+            void (async () => {
+              try {
+                const apiRes = await fetch('/api/user/pro-status', { cache: 'no-store' });
+                if (apiRes.ok) {
+                  const apiData = await apiRes.json().catch(() => null);
+                  if (apiData?.ok === true) {
+                    applyStatus(
+                      apiData.isPro === true,
+                      apiData.hasBillingAccount,
+                      apiData.modelTier,
+                      apiData.modelLabel,
+                      apiData.upgradeMessage ?? null
+                    );
+                    return;
+                  }
+                }
+              } catch {}
+              applyStatus(profileFallbackIsPro, sid !== undefined ? !!sid : undefined);
+            })();
           }
         )
         .subscribe((subStatus) => {

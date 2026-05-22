@@ -18,14 +18,15 @@ import { showProToast } from "@/lib/pro-ux";
 import { WEBSITE_APP_PRICING_NOTE } from "@/lib/pricing-copy";
 import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
+import { badgeRarityLabel, getBadgeRarityClasses, type BadgeRarity } from "@/lib/badges/rarity-ui";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
 const FORMATS = ["Commander","Modern","Standard","Pioneer","Pauper"] as const;
 
 type Usage = { messages: number; input_tokens: number; output_tokens: number; cost_usd: number };
-type DisplayBadge = { key:string; label:string; emoji:string; desc:string };
-type BadgeProgressItem = { id:string; name:string; description:string; icon:string; current:number; target:number; progress:number; unlocked:boolean };
+type DisplayBadge = { key:string; label:string; emoji:string; desc:string; rarity?: BadgeRarity };
+type BadgeProgressItem = { id:string; name:string; description:string; icon:string; current:number; target:number; progress:number; unlocked:boolean; rarity?: BadgeRarity };
 
 function norm(name: string): string { return String(name||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
 function cleanName(s: string): string {
@@ -45,6 +46,7 @@ function mapCanonicalEarnedBadges(rows: BadgeProgressItem[]): DisplayBadge[] {
       label: row.name,
       emoji: row.icon || '🏆',
       desc: row.description,
+      rarity: row.rarity,
     }));
 }
 
@@ -194,18 +196,28 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         const u = authUser;
         setUserEmail(u?.email || "");
         
-        // Query profiles table for accurate pro status and data
-        // Use standardized Pro check (check both profiles.is_pro AND user_metadata.pro/is_pro)
+        // Query profiles table for profile data, then canonical API for Pro status.
         const profileQueryStart = performance.now();
         const { data: profileData } = await sb
           .from('profiles')
-          .select('is_pro')
+          .select('is_pro, pro_until')
           .eq('id', u.id)
           .single();
         
-        const isProFromProfile = profileData?.is_pro === true;
-        const isProFromMetadata = u?.user_metadata?.is_pro === true || u?.user_metadata?.pro === true;
-        const isProUser = isProFromProfile || isProFromMetadata; // OR logic for consistency
+        const proUntil = (profileData as { pro_until?: string | null } | null)?.pro_until;
+        const until = proUntil ? new Date(proUntil) : null;
+        let isProUser =
+          profileData?.is_pro === true &&
+          (!until || !Number.isFinite(until.getTime()) || until.getTime() > Date.now());
+        try {
+          const apiRes = await fetch('/api/user/pro-status', { cache: 'no-store' });
+          if (apiRes.ok) {
+            const apiData = await apiRes.json().catch(() => null);
+            if (apiData?.ok === true) {
+              isProUser = apiData.isPro === true;
+            }
+          }
+        } catch {}
         setPro(isProUser);
         
         const md: any = u?.user_metadata || {};
@@ -934,7 +946,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   />
                   <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
                     <div className="text-lg font-semibold flex items-center gap-2"><span>🏆</span> Achievement Progress</div>
-                    <ProfileAchievementProgress badges={canonicalBadgeProgress} />
+                    <ProfileAchievementProgressRarity badges={canonicalBadgeProgress} />
                   </section>
                 </aside>
               </div>
@@ -1403,8 +1415,8 @@ function ProfileAchievementProgress({ badges: initialBadges }: { badges: BadgePr
   return (
     <ul className="space-y-2">
         {badges.map(b => (
-          <li key={b.id} className="text-xs">
-            <div className="flex items-center justify-between">
+          <li key={b.id} className={`rounded-lg border p-3 text-xs ${getBadgeRarityClasses(b.rarity).card}`}>
+            <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2"><span className="text-base">{b.icon}</span><span>{b.name}</span>{b.unlocked && <span className="text-emerald-400 text-[10px]">✓</span>}</div>
               <div className="font-mono">{b.current}/{b.target}</div>
             </div>
@@ -1413,6 +1425,54 @@ function ProfileAchievementProgress({ badges: initialBadges }: { badges: BadgePr
             </div>
           </li>
         ))}
+    </ul>
+  );
+}
+
+function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: BadgeProgressItem[] | null }){
+  const [badges, setBadges] = React.useState<BadgeProgressItem[]>(initialBadges ?? []);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(()=>{
+    if (initialBadges && initialBadges.length > 0) {
+      setBadges(initialBadges);
+      setLoading(false);
+      return;
+    }
+    (async()=>{
+      try{
+        const r = await fetch('/api/profile/badge-progress', { cache:'no-store' });
+        const j = await r.json().catch(()=>({}));
+        if (r.ok && j?.ok) setBadges(Array.isArray(j.allBadges)? j.allBadges : (Array.isArray(j.badges)? j.badges : []));
+      } catch{}
+      finally { setLoading(false); }
+    })();
+  }, [initialBadges]);
+  if (loading) return <div className="text-xs opacity-70">Loading achievementsâ€¦</div>;
+  if (badges.length === 0) return null;
+  return (
+    <ul className="space-y-2">
+      {badges.map((b) => (
+        <li key={b.id} className={`rounded-lg border p-3 text-xs ${getBadgeRarityClasses(b.rarity).card}`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-base ${getBadgeRarityClasses(b.rarity).iconWrap}`}>{b.icon}</span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate">{b.name}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] ${getBadgeRarityClasses(b.rarity).chip}`}>
+                    {badgeRarityLabel(b.rarity)}
+                  </span>
+                  {b.unlocked && <span className="text-emerald-400 text-[10px]">✓</span>}
+                </div>
+              </div>
+            </div>
+            <div className="font-mono">{b.current}/{b.target}</div>
+          </div>
+          <div className="mt-2 h-2 w-full rounded bg-neutral-950/80 overflow-hidden">
+            <div className={`h-full bg-gradient-to-r ${getBadgeRarityClasses(b.rarity).progress}`} style={{ width: `${b.progress}%` }} />
+          </div>
+        </li>
+      ))}
     </ul>
   );
 }
@@ -1595,12 +1655,19 @@ async function save(){ try{ setSaving(true); const r = await fetch('/api/profile
       <div className="text-xs opacity-80">Pin up to 3 badges to display on your public profile.</div>
       <ul className="space-y-2">
         {badges.map(b => (
-          <li key={b.key} className="rounded-lg overflow-hidden border border-neutral-700 bg-gradient-to-r from-neutral-900 to-neutral-800">
+          <li key={b.key} className={`rounded-lg overflow-hidden border ${getBadgeRarityClasses(b.rarity).card}`}>
             <div className="p-3 space-y-3">
               <div className="flex items-center gap-3">
-                <div className="text-xl">{b.emoji}</div>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${getBadgeRarityClasses(b.rarity).iconWrap}`}>
+                  <div className="text-xl">{b.emoji}</div>
+                </div>
                 <div className="flex-1">
-                  <div className="font-semibold text-sm">{b.label}</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-semibold text-sm">{b.label}</div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] ${getBadgeRarityClasses(b.rarity).chip}`}>
+                      {badgeRarityLabel(b.rarity)}
+                    </span>
+                  </div>
                   <div className="text-xs opacity-80">{b.desc}</div>
                 </div>
               </div>

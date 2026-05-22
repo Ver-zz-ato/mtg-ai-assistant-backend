@@ -12,30 +12,24 @@ const REVENUECAT_PRO_ENTITLEMENT_IDS = ['pro', 'Manatap.ai Pro'] as const;
 /**
  * Standardized Pro status check for server-side code.
  * Pro = true if EITHER:
- * - Supabase: profiles.is_pro or user_metadata (Stripe/web subscribers), OR
+ * - Supabase: profiles.is_pro (manual grants / Stripe / webhook-synced subscribers), OR
  * - RevenueCat: active "pro" entitlement (mobile/App Store/Play Store subscribers).
+ *
+ * Do not trust user_metadata for authorization; Supabase user_metadata is client-editable.
  * Uses service role for profile lookup when request has no cookie (e.g. mobile Bearer).
  */
 export async function checkProStatus(userId: string): Promise<boolean> {
   try {
-    // 1) Supabase: profile + optional session metadata
+    // 1) Supabase profile: manual grants, Stripe, and webhook-synced RevenueCat grants.
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user && user.id === userId) {
-      const isProFromMetadata =
-        user.user_metadata?.is_pro === true ||
-        user.user_metadata?.pro === true;
-      if (isProFromMetadata) return true;
-    }
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_pro')
+      .select('is_pro, pro_until')
       .eq('id', userId)
       .single();
 
-    if (profile?.is_pro === true) return true;
+    if (isActiveProfilePro(profile)) return true;
 
     // When there is no cookie session (e.g. mobile Bearer), cookie client may not see profile due to RLS. Try service role.
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
@@ -44,10 +38,10 @@ export async function checkProStatus(userId: string): Promise<boolean> {
       const admin = createSupabaseClient(url, serviceKey, { auth: { persistSession: false } });
       const { data: adminProfile } = await admin
         .from('profiles')
-        .select('is_pro')
+        .select('is_pro, pro_until')
         .eq('id', userId)
         .single();
-      if (adminProfile?.is_pro === true) return true;
+      if (isActiveProfilePro(adminProfile)) return true;
     }
 
     // 2) RevenueCat: mobile subscribers (app_user_id = Supabase user id when app calls Purchases.logIn(userId))
@@ -66,6 +60,19 @@ type RevenueCatSubscriberJson = {
     entitlements?: Record<string, { expires_date?: string | null; product_identifier?: string } | undefined>;
   };
 };
+
+type ProfileProRow = {
+  is_pro?: boolean | null;
+  pro_until?: string | null;
+} | null;
+
+function isActiveProfilePro(profile: ProfileProRow): boolean {
+  if (profile?.is_pro !== true) return false;
+  const proUntil = profile.pro_until;
+  if (!proUntil) return true;
+  const until = new Date(proUntil);
+  return !Number.isFinite(until.getTime()) || until.getTime() > Date.now();
+}
 
 function parseProFromRevenueCatSubscriberJson(json: RevenueCatSubscriberJson | null | undefined): {
   fromRevenueCat: boolean;
@@ -107,7 +114,7 @@ export type RevenueCatSubscriberDebug = {
  * Fetch RevenueCat subscriber and resolve Pro from REST `subscriber.entitlements`.
  * Requires REVENUECAT_SECRET_API_KEY (secret key from RevenueCat dashboard — same project as mobile public SDK).
  */
-async function getRevenueCatSubscriberState(appUserId: string): Promise<{
+export async function getRevenueCatSubscriberState(appUserId: string): Promise<{
   fromRevenueCat: boolean;
   debug: RevenueCatSubscriberDebug;
 }> {
@@ -203,6 +210,7 @@ export async function getProStatusDetails(userId: string): Promise<{
     let profileError: string | undefined;
 
     if (user && user.id === userId) {
+      // Diagnostic only. user_metadata is client-editable and must not grant Pro.
       isProFromMetadata =
         user.user_metadata?.is_pro === true ||
         user.user_metadata?.pro === true;
@@ -210,22 +218,22 @@ export async function getProStatusDetails(userId: string): Promise<{
 
     const { data: profile, error: pe } = await supabase
       .from('profiles')
-      .select('is_pro')
+      .select('is_pro, pro_until')
       .eq('id', userId)
       .single();
-    isProFromProfile = profile?.is_pro === true;
+    isProFromProfile = isActiveProfilePro(profile);
     profileError = pe?.message;
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
     if (!isProFromProfile && url && serviceKey) {
       const admin = createSupabaseClient(url, serviceKey, { auth: { persistSession: false } });
-      const { data: adminProfile } = await admin.from('profiles').select('is_pro').eq('id', userId).single();
-      if (adminProfile?.is_pro === true) isProFromProfile = true;
+      const { data: adminProfile } = await admin.from('profiles').select('is_pro, pro_until').eq('id', userId).single();
+      if (isActiveProfilePro(adminProfile)) isProFromProfile = true;
     }
 
     const { fromRevenueCat } = await getRevenueCatSubscriberState(userId);
-    const isPro = isProFromProfile || isProFromMetadata || fromRevenueCat;
+    const isPro = isProFromProfile || fromRevenueCat;
 
     if (process.env.NODE_ENV !== 'production' && process.env.DEBUG_ENTITLEMENTS === '1') {
       console.debug('[entitlements] getProStatusDetails', {
@@ -343,9 +351,8 @@ export async function getEntitlementDebugForAdmin(userId: string): Promise<{
     error: revenueCatDebug.error,
   });
 
-  const finalIsPro = isProFromProfile || isProFromMetadata || fromRevenueCat;
+  const finalIsPro = isProFromProfile || fromRevenueCat;
   if (isProFromProfile) sources.push('profile');
-  if (isProFromMetadata) sources.push('metadata');
   if (fromRevenueCat) sources.push('revenuecat');
 
   if (profile?.is_pro === true && !finalIsPro) {
@@ -358,8 +365,8 @@ export async function getEntitlementDebugForAdmin(userId: string): Promise<{
   if (stripeSaysActive && !finalIsPro) {
     mismatchFlags.push('Stripe active but final isPro=false');
   }
-  if (finalIsPro && !stripeSaysActive && !fromRevenueCat && !isProFromProfile && isProFromMetadata) {
-    mismatchFlags.push('Pro from metadata only (possible stale)');
+  if (isProFromMetadata && !finalIsPro) {
+    mismatchFlags.push('metadata pro flag ignored (user_metadata is not an authorization source)');
   }
 
   return {

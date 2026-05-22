@@ -12,15 +12,15 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 |-------|-------------|
 | **Guest** | Not logged in. Identity via `guest_session_token` (cookie or `X-Guest-Session-Token` header) or IP fallback. Limited chat, no persistent threads, no My Decks / Profile / etc. |
 | **Logged-in (Free)** | Authenticated, `profiles.is_pro = false` (or not set). Full access to free features; Pro features gated or rate-limited. |
-| **Pro** | Authenticated, `profiles.is_pro = true` or `user_metadata.pro` / `user_metadata.is_pro = true`. Pro features and higher limits. |
+| **Pro** | Authenticated, with an active entitlement from `profiles.is_pro = true` (manual grants / Stripe / webhook-synced subscriptions) or RevenueCat. Pro features and higher limits. |
 
 ---
 
 ## 2. Pro Status Resolution
 
-- **Server:** `lib/server-pro-check.ts` → `checkProStatus(userId)`. Uses `profiles.is_pro`, `user_metadata.is_pro`/`pro`, or RevenueCat API. OR logic; any true → Pro.
-- **Client:** `hooks/useProStatus.ts` → `useProStatus()`. Fetches `profiles.is_pro` and `user_metadata`; fallback to `/api/user/pro-status` if profile query fails. Subscribes to `profiles` changes for real-time updates.
-- **API:** `GET /api/user/pro-status` uses `getProStatusDetails()` and returns `{ ok, isPro, fromProfile, fromMetadata, fromRevenueCat }`. Auth required. Same sources as backend gating.
+- **Server:** `lib/server-pro-check.ts` → `checkProStatus(userId)`. Uses active `profiles.is_pro` (manual / Stripe / webhook-synced grants) or RevenueCat API. OR logic; any active source → Pro.
+- **Client:** `hooks/useProStatus.ts` → `useProStatus()`. Uses `/api/user/pro-status` as canonical truth with a short profile fallback. Subscribes to `profiles` changes and rechecks the API for real-time updates.
+- **API:** `GET /api/user/pro-status` uses `getProStatusDetails()` and returns `{ ok, isPro, fromProfile, fromMetadata, fromRevenueCat }`. Auth required. `fromMetadata` is diagnostic only; `user_metadata` is not trusted for authorization.
 
 ---
 

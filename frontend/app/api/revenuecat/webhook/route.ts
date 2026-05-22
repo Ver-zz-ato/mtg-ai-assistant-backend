@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { getRevenueCatSubscriberState } from '@/lib/server-pro-check';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ const GRANT_EVENTS = new Set([
   'TRANSFER',
 ]);
 
-/** Events that revoke Pro access. */
+/** Events that can revoke Pro access. CANCELLATION needs a live RC status check; voluntary cancellations stay active until EXPIRATION. */
 const REVOKE_EVENTS = new Set(['CANCELLATION', 'EXPIRATION']);
 
 /** RevenueCat webhook payload shape. */
@@ -345,13 +346,50 @@ export async function POST(req: NextRequest) {
     if (!hasProEntitlement) {
       return NextResponse.json({ received: true, skipped: 'not_pro_entitlement' });
     }
-    // Before revoking: if user has active Stripe subscription, don't overwrite
+    if (eventType === 'CANCELLATION') {
+      const { fromRevenueCat, debug } = await getRevenueCatSubscriberState(userId);
+      if (fromRevenueCat || debug.error) {
+        const reason = fromRevenueCat ? 'revenuecat_still_active' : 'revenuecat_status_unknown';
+        if (traceLog) {
+          console.info('[RevenueCat webhook] Cancellation revoke skipped', {
+            userId: userId.slice(0, 8) + 'â€¦',
+            reason,
+            error: debug.error,
+          });
+        }
+        return NextResponse.json({ received: true, skipped: reason });
+      }
+    }
+
+    // Before revoking: if user has manual/indefinite Pro or active Stripe subscription, don't overwrite.
     const { data: profile } = await supabase
       .from('profiles')
-      .select('stripe_subscription_id')
+      .select('is_pro, pro_plan, pro_until, stripe_subscription_id')
       .eq('id', userId)
       .single();
-    const stripeSubId = (profile as { stripe_subscription_id?: string } | null)?.stripe_subscription_id;
+    const profileState = profile as {
+      is_pro?: boolean | null;
+      pro_plan?: string | null;
+      pro_until?: string | null;
+      stripe_subscription_id?: string | null;
+    } | null;
+    const stripeSubId = profileState?.stripe_subscription_id;
+    const hasManualOrIndefinitePro =
+      profileState?.is_pro === true &&
+      (profileState.pro_plan === 'manual' ||
+        (!profileState.pro_until && !profileState.stripe_subscription_id && !profileState.pro_plan));
+    if (hasManualOrIndefinitePro) {
+      if (traceLog) {
+        console.info('[RevenueCat webhook] Revoke skipped: manual/indefinite Pro active', {
+          userId: userId.slice(0, 8) + 'â€¦',
+          eventType,
+        });
+      }
+      return NextResponse.json({ received: true, skipped: 'manual_or_indefinite_pro' });
+    }
+    if (stripeSubId && !process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ received: true, skipped: 'stripe_status_unknown' });
+    }
     if (stripeSubId && process.env.STRIPE_SECRET_KEY) {
       try {
         const { stripe } = await import('@/lib/stripe');
@@ -374,7 +412,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ received: true, skipped: 'stripe_active' });
         }
       } catch {
-        // Stripe fetch failed; proceed with revoke
+        return NextResponse.json({ received: true, skipped: 'stripe_status_unknown' });
       }
     }
     await updateProStatus(supabase, userId, false, null, null, eventType);
