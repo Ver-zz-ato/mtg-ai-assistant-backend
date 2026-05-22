@@ -71,6 +71,8 @@ const Req = z.object({
   /** Explicit opt-in; omitted or false keeps the deck private. */
   is_public: z.boolean().optional(),
   data: z.any().optional(),
+  creation_source: z.enum(["manual", "import", "idea_to_deck", "build_around_card", "choose_commander", "ai_generated"]).optional(),
+  generation_intent: z.string().trim().max(64).optional(),
 });
 
 async function _POST(req: NextRequest) {
@@ -102,6 +104,13 @@ async function _POST(req: NextRequest) {
     const parsed = Req.safeParse(raw);
     if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
     const payload = parsed.data;
+    const meta =
+      payload.creation_source || payload.generation_intent
+        ? {
+            ...(payload.creation_source ? { creation_source: payload.creation_source } : {}),
+            ...(payload.generation_intent ? { generation_intent: payload.generation_intent } : {}),
+          }
+        : null;
     const zonedCards = parseDeckTextWithZones(payload.deck_text || "", {
       isCommanderFormat: !payload.format || /^commander$/i.test(String(payload.format).trim()),
     });
@@ -163,6 +172,7 @@ async function _POST(req: NextRequest) {
         deck_text: payload.deck_text,
         commander: commander,
         data: payload.data ?? null,
+        meta,
         is_public: makePublic,
       })
       .select("id")

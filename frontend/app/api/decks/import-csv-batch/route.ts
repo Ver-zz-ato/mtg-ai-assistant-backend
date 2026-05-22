@@ -181,6 +181,7 @@ export async function POST(req: Request) {
             currency: 'USD',
             deck_text: deckText.trim(),
             commander: normalizedCommander,
+            meta: { creation_source: 'import' },
             is_public: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),

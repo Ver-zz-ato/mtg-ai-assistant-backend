@@ -11,7 +11,7 @@ export default function CreateDeckFAB(){
     if (!trimmed) return;
     setBusy(true);
     try{
-      const r = await fetch('/api/decks/create', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: trimmed, is_public: false }) });
+      const r = await fetch('/api/decks/create', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ title: trimmed, creation_source: 'manual', is_public: false }) });
       const j = await r.json().catch(()=>({})); if(!r.ok || j?.ok===false) throw new Error(j?.error||'Create failed');
       window.location.href = `/my-decks/${encodeURIComponent(j.id || '')}`;
     } catch (e: unknown) {

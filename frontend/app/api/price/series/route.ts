@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { recordUserFeatureUsage } from "@/lib/badges/feature-usage";
 import {
   scryfallCacheLookupNameKeys,
 } from "@/lib/server/scryfallCacheRow";
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
     const supabase = await getServerSupabase();
     const admin = getAdmin();
     const db = admin ?? supabase;
+    const { data: { user } } = await supabase.auth.getUser();
     const url = new URL(req.url);
     const names = url.searchParams.getAll("names[]").filter(Boolean);
     const currency = (url.searchParams.get("currency") || "USD").toUpperCase();
@@ -31,7 +33,6 @@ export async function GET(req: NextRequest) {
     // Log API usage for ops visibility (backend hit; mobile direct Supabase uses ops_price_series_direct_hit)
     const logClient = admin ?? supabase;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const { logOpsEvent } = await import('@/lib/ops-events');
       await logOpsEvent(logClient, {
         event_type: 'ops_price_series_api_request',
@@ -102,6 +103,20 @@ export async function GET(req: NextRequest) {
     if (debug) {
       body._debug = { usedAdmin: !!admin, wanted, seriesCount: series.length, byNameSize: byName.size };
     }
+
+    if (user?.id && series.length > 0) {
+      void recordUserFeatureUsage({
+        userId: user.id,
+        featureKey: "price_tracker_lookup",
+        source: "api/price/series",
+        metadata: {
+          names_count: Math.min(names.length, 10),
+          series_count: series.length,
+          currency,
+        },
+      }).catch(() => undefined);
+    }
+
     return NextResponse.json(body, { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=300" } });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "server_error" }, { status: 500 });

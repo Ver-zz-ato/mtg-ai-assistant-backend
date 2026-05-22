@@ -48,6 +48,11 @@ function mapCanonicalEarnedBadges(rows: BadgeProgressItem[]): DisplayBadge[] {
     }));
 }
 
+function mergeDisplayBadges(primary: DisplayBadge[], fallback: DisplayBadge[]): DisplayBadge[] {
+  const seen = new Set(primary.map((badge) => badge.label));
+  return [...primary, ...fallback.filter((badge) => !seen.has(badge.label))];
+}
+
 // Email Verification Section Component
 function EmailVerificationSection({ sb }: { sb: any }) {
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
@@ -558,8 +563,11 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     () => (canonicalBadgeProgress ? mapCanonicalEarnedBadges(canonicalBadgeProgress) : []),
     [canonicalBadgeProgress],
   );
-  // Canonical earned badges now drive the signed-in badge rail and picker when available.
-  const profileBadges = canonicalEarnedBadges.length > 0 ? canonicalEarnedBadges : legacyBadges;
+  // Canonical earned badges lead, but we temporarily retain legacy-only earned badges
+  // until they are migrated or intentionally retired.
+  const profileBadges = canonicalEarnedBadges.length > 0
+    ? mergeDisplayBadges(canonicalEarnedBadges, legacyBadges)
+    : legacyBadges;
 
   const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'wishlist'|'watchlist'|'security'|'billing'>('profile');
 

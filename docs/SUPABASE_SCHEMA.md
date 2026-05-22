@@ -28,7 +28,7 @@ For launch security checks, use `docs/SECURITY_LAUNCH_HARDENING.md` as the acces
 Additive shared badge foundation introduced for mobile + website profile parity:
 
 - `badge_definitions`
-  - canonical registry for active badges, metric keys, thresholds, labels, icons, category, and sort order
+  - canonical registry for active badges, metric keys, thresholds, labels, icons, category, rarity, and sort order
 - `user_badges`
   - durable unlock ledger with one row per `user_id + badge_id`
 - `user_badge_progress`
@@ -45,6 +45,35 @@ The legacy compatibility surface remains:
 
 - `profiles_public.badges` is still populated for public profile compatibility
 - `profiles_public.pinned_badges` remains unchanged
+
+### Badge system additions (phase 2 instrumentation, 2026-05-22)
+
+Additive instrumentation for the second badge batch:
+
+- `user_feature_usage`
+  - lightweight durable usage ledger for non-analytics badge-safe feature counts
+  - current keys introduced for canonical badges:
+    - `idea_to_deck`
+    - `build_around_card`
+    - `commander_picker`
+    - `price_tracker_lookup`
+
+RLS expectations:
+
+- `user_feature_usage`: authenticated users can read their own rows
+- writes are intended to happen server-side with service-role clients
+
+Deck badge instrumentation now also relies on tagged `decks.meta` values when present:
+
+- `creation_source`
+  - `manual`
+  - `import`
+  - `idea_to_deck`
+  - `build_around_card`
+  - `choose_commander`
+  - `ai_generated`
+- `generation_intent`
+  - currently used for idea/build-around save metadata and future-safe attribution
 
 ---
 

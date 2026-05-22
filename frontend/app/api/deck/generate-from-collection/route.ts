@@ -24,6 +24,7 @@ import {
   buildGenerationUserPrompt,
 } from "@/lib/deck/generation-input";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
+import { recordUserFeatureUsage } from "@/lib/badges/feature-usage";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -455,6 +456,20 @@ export async function POST(req: NextRequest) {
       );
     } catch {
       // optional
+    }
+
+    if (user?.id && (input.generationIntent === "idea_to_deck" || input.generationIntent === "build_around_card")) {
+      const featureKey = input.generationIntent;
+      void recordUserFeatureUsage({
+        userId: user.id,
+        featureKey,
+        source: "api/deck/generate-from-collection",
+        metadata: {
+          format: format || "Commander",
+          commander: commanderName,
+          build_mode: input.buildMode,
+        },
+      }).catch(() => undefined);
     }
 
     // Return preview only; client will call decks/create when user confirms

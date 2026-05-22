@@ -6,6 +6,7 @@ import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { costUSD } from "@/lib/ai/pricing";
 import { recordAiUsage } from "@/lib/ai/log-usage";
+import { recordUserFeatureUsage } from "@/lib/badges/feature-usage";
 import {
   aggregateCards,
   extractChatCompletionContent,
@@ -90,6 +91,7 @@ const constructedBodySchema = z.object({
   ownedCards: z.array(z.string().max(200)).max(200).optional(),
   notes: z.string().max(4000).optional(),
   collectionId: z.string().uuid().optional(),
+  generationIntent: z.enum(["idea_to_deck", "build_around_card"]).optional(),
   seedFromIdea: z
     .object({
       title: z.string().max(200),
@@ -1164,6 +1166,19 @@ Mainboard quantities must sum to 60; sideboard to 15.`;
       });
     } catch (e) {
       console.warn("[generate-constructed] recordAiUsage failed:", e);
+    }
+
+    if (user?.id && (body.generationIntent === "idea_to_deck" || body.generationIntent === "build_around_card")) {
+      void recordUserFeatureUsage({
+        userId: user.id,
+        featureKey: body.generationIntent,
+        source: "api/deck/generate-constructed",
+        metadata: {
+          format: formatLabel,
+          archetype,
+          colors,
+        },
+      }).catch(() => undefined);
     }
 
     return NextResponse.json({

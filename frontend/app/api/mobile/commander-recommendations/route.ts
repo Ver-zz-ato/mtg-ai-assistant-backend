@@ -4,6 +4,7 @@ import { buildCommanderRecommendations, type CommanderRecommendationRequest } fr
 import { captureServer } from "@/lib/server/analytics";
 import { createClient } from "@/lib/server-supabase";
 import { checkProStatus } from "@/lib/server-pro-check";
+import { recordUserFeatureUsage } from "@/lib/badges/feature-usage";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -45,6 +46,19 @@ export async function POST(req: NextRequest) {
       powerLevel: body.powerLevel ?? null,
       user_tier: !user ? "guest" : isPro ? "pro" : "free",
     }).catch(() => undefined);
+
+    if (user?.id && results.length > 0) {
+      void recordUserFeatureUsage({
+        userId: user.id,
+        featureKey: "commander_picker",
+        source: "api/mobile/commander-recommendations",
+        metadata: {
+          format: body.format ?? "Commander",
+          result_count: results.length,
+          user_tier: isPro ? "pro" : "free",
+        },
+      }).catch(() => undefined);
+    }
 
     return NextResponse.json({ ok: true, recommendations: results });
   } catch (error) {

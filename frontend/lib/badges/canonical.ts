@@ -1,6 +1,7 @@
 import { getAdmin } from "@/app/api/_lib/supa";
 
-export type BadgeCategory = "onboarding" | "deckbuilding" | "tools" | "collection" | "prestige";
+export type BadgeCategory = "onboarding" | "deckbuilding" | "tools" | "collection" | "social" | "prestige";
+export type BadgeRarity = "common" | "uncommon" | "rare" | "mythic";
 
 export type CanonicalBadgeDefinition = {
   id: string;
@@ -8,6 +9,7 @@ export type CanonicalBadgeDefinition = {
   description: string;
   icon: string | null;
   category: BadgeCategory;
+  rarity: BadgeRarity;
   metricKey: string;
   targetValue: number;
   sortOrder: number;
@@ -21,25 +23,35 @@ export type CanonicalBadgeProgress = {
   description: string;
   icon: string;
   category: BadgeCategory;
+  rarity: BadgeRarity;
   current: number;
   target: number;
   progress: number;
   unlocked: boolean;
   unlockedAt: string | null;
   source: string;
+  sortOrder: number;
 };
 
 type BadgeMetricKey =
   | "analysis_count"
+  | "build_around_card_usage_count"
   | "budget_swap_count"
+  | "commander_picker_usage_count"
   | "chat_message_count"
   | "collection_card_count"
   | "custom_card_count"
   | "deck_count"
+  | "idea_to_deck_usage_count"
+  | "import_deck_count"
+  | "inbox_received_count"
+  | "manual_deck_count"
   | "mulligan_iteration_count"
+  | "price_tracker_lookup_count"
   | "probability_run_count"
   | "pro_upgrade_ever"
-  | "roast_count";
+  | "roast_count"
+  | "shareable_artifact_count";
 
 type BadgeMetricMap = Record<BadgeMetricKey, number>;
 
@@ -54,6 +66,7 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Create your first deck",
     icon: "🃏",
     category: "onboarding",
+    rarity: "common",
     metricKey: "deck_count",
     targetValue: 1,
     sortOrder: 10,
@@ -61,38 +74,67 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     isHidden: false,
   },
   {
+    id: "importer",
+    name: "Importer",
+    description: "Import your first decklist",
+    icon: "📥",
+    category: "onboarding",
+    rarity: "common",
+    metricKey: "import_deck_count",
+    targetValue: 1,
+    sortOrder: 20,
+    isActive: true,
+    isHidden: false,
+  },
+  {
     id: "deck_collector",
     name: "Deck Collector",
-    description: "Own 10 or more decks",
+    description: "Own 10 decks",
     icon: "📚",
     category: "deckbuilding",
+    rarity: "uncommon",
     metricKey: "deck_count",
     targetValue: 10,
-    sortOrder: 20,
+    sortOrder: 50,
+    isActive: true,
+    isHidden: false,
+  },
+  {
+    id: "brewer",
+    name: "Brewer",
+    description: "Create 5 manual decks from scratch",
+    icon: "🧪",
+    category: "deckbuilding",
+    rarity: "uncommon",
+    metricKey: "manual_deck_count",
+    targetValue: 5,
+    sortOrder: 40,
     isActive: true,
     isHidden: false,
   },
   {
     id: "deck_hoarder",
     name: "Deck Hoarder",
-    description: "Own 50 or more decks",
+    description: "Own 50 decks",
     icon: "🏰",
     category: "deckbuilding",
+    rarity: "rare",
     metricKey: "deck_count",
     targetValue: 50,
-    sortOrder: 30,
+    sortOrder: 210,
     isActive: true,
     isHidden: false,
   },
   {
     id: "deck_lord",
     name: "Deck Lord",
-    description: "Own 100 or more decks",
+    description: "Own 100 decks",
     icon: "👑",
     category: "prestige",
+    rarity: "mythic",
     metricKey: "deck_count",
     targetValue: 100,
-    sortOrder: 40,
+    sortOrder: 220,
     isActive: true,
     isHidden: false,
   },
@@ -102,9 +144,10 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Send 10 chat messages",
     icon: "💬",
     category: "onboarding",
+    rarity: "common",
     metricKey: "chat_message_count",
     targetValue: 10,
-    sortOrder: 50,
+    sortOrder: 30,
     isActive: true,
     isHidden: false,
   },
@@ -114,8 +157,22 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Run deck analysis 5 times",
     icon: "🧠",
     category: "tools",
+    rarity: "common",
     metricKey: "analysis_count",
     targetValue: 5,
+    sortOrder: 90,
+    isActive: true,
+    isHidden: false,
+  },
+  {
+    id: "idea_spark",
+    name: "Idea Spark",
+    description: "Use Turn my idea into a deck",
+    icon: "💡",
+    category: "deckbuilding",
+    rarity: "common",
+    metricKey: "idea_to_deck_usage_count",
+    targetValue: 1,
     sortOrder: 60,
     isActive: true,
     isHidden: false,
@@ -126,8 +183,22 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Use Probability Calculator 10 times",
     icon: "🧮",
     category: "tools",
+    rarity: "uncommon",
     metricKey: "probability_run_count",
     targetValue: 10,
+    sortOrder: 100,
+    isActive: true,
+    isHidden: false,
+  },
+  {
+    id: "commander_picker",
+    name: "Commander Picker",
+    description: "Use Help me choose a commander 3 times",
+    icon: "👑",
+    category: "tools",
+    rarity: "uncommon",
+    metricKey: "commander_picker_usage_count",
+    targetValue: 3,
     sortOrder: 70,
     isActive: true,
     isHidden: false,
@@ -138,8 +209,22 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Run 25,000 mulligan iterations",
     icon: "🎲",
     category: "tools",
+    rarity: "rare",
     metricKey: "mulligan_iteration_count",
     targetValue: 25000,
+    sortOrder: 110,
+    isActive: true,
+    isHidden: false,
+  },
+  {
+    id: "card_whisperer",
+    name: "Card Whisperer",
+    description: "Use Build around a card 5 times",
+    icon: "🎯",
+    category: "deckbuilding",
+    rarity: "rare",
+    metricKey: "build_around_card_usage_count",
+    targetValue: 5,
     sortOrder: 80,
     isActive: true,
     isHidden: false,
@@ -150,9 +235,23 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Run Budget Swaps 5 times",
     icon: "💰",
     category: "tools",
+    rarity: "uncommon",
     metricKey: "budget_swap_count",
     targetValue: 5,
-    sortOrder: 90,
+    sortOrder: 120,
+    isActive: true,
+    isHidden: false,
+  },
+  {
+    id: "traders_eye",
+    name: "Trader's Eye",
+    description: "Use Price Tracker 10 times",
+    icon: "📈",
+    category: "tools",
+    rarity: "uncommon",
+    metricKey: "price_tracker_lookup_count",
+    targetValue: 10,
+    sortOrder: 130,
     isActive: true,
     isHidden: false,
   },
@@ -162,9 +261,10 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Add 100 cards to your collection",
     icon: "📦",
     category: "collection",
+    rarity: "uncommon",
     metricKey: "collection_card_count",
     targetValue: 100,
-    sortOrder: 100,
+    sortOrder: 170,
     isActive: true,
     isHidden: false,
   },
@@ -174,9 +274,10 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Add 500 cards to your collection",
     icon: "🗂️",
     category: "collection",
+    rarity: "rare",
     metricKey: "collection_card_count",
     targetValue: 500,
-    sortOrder: 110,
+    sortOrder: 180,
     isActive: true,
     isHidden: false,
   },
@@ -186,9 +287,10 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Generate your first deck roast",
     icon: "🔥",
     category: "tools",
+    rarity: "common",
     metricKey: "roast_count",
     targetValue: 1,
-    sortOrder: 120,
+    sortOrder: 140,
     isActive: true,
     isHidden: false,
   },
@@ -198,21 +300,62 @@ const FALLBACK_DEFINITIONS: CanonicalBadgeDefinition[] = [
     description: "Create your first custom card",
     icon: "🎨",
     category: "tools",
+    rarity: "uncommon",
     metricKey: "custom_card_count",
     targetValue: 1,
-    sortOrder: 130,
+    sortOrder: 160,
+    isActive: true,
+    isHidden: false,
+  },
+  {
+    id: "salt_miner",
+    name: "Salt Miner",
+    description: "Generate 10 deck roasts",
+    icon: "🧂",
+    category: "tools",
+    rarity: "rare",
+    metricKey: "roast_count",
+    targetValue: 10,
+    sortOrder: 150,
+    isActive: true,
+    isHidden: false,
+  },
+  {
+    id: "social_mage",
+    name: "Social Mage",
+    description: "Create your first public or shareable profile item",
+    icon: "🔗",
+    category: "social",
+    rarity: "common",
+    metricKey: "shareable_artifact_count",
+    targetValue: 1,
+    sortOrder: 190,
+    isActive: true,
+    isHidden: false,
+  },
+  {
+    id: "inbox_received",
+    name: "Inbox Received",
+    description: "Receive your first comment",
+    icon: "📥",
+    category: "social",
+    rarity: "common",
+    metricKey: "inbox_received_count",
+    targetValue: 1,
+    sortOrder: 200,
     isActive: true,
     isHidden: false,
   },
   {
     id: "pro_tactician",
     name: "Pro Tactician",
-    description: "Unlock Pro once",
+    description: "Unlock Pro",
     icon: "⭐",
     category: "prestige",
+    rarity: "mythic",
     metricKey: "pro_upgrade_ever",
     targetValue: 1,
-    sortOrder: 140,
+    sortOrder: 230,
     isActive: true,
     isHidden: false,
   },
@@ -280,12 +423,14 @@ export async function syncUserBadgeState(userId: string): Promise<{
       description: def.description,
       icon: def.icon ?? "🏆",
       category: def.category,
+      rarity: def.rarity,
       current,
       target,
       progress: pct,
       unlocked,
       unlockedAt,
       source: SYNC_SOURCE,
+      sortOrder: def.sortOrder,
     });
   }
 
@@ -318,11 +463,24 @@ export function getClosestLockedBadges(rows: CanonicalBadgeProgress[], limit = 3
 }
 
 async function loadBadgeDefinitions(admin: NonNullable<ReturnType<typeof getAdmin>>): Promise<CanonicalBadgeDefinition[]> {
-  const { data, error } = await admin
+  const baseSelect = "id, name, description, icon, category, metric_key, target_value, sort_order, is_active, is_hidden";
+  const initialQuery = await admin
     .from("badge_definitions")
-    .select("id, name, description, icon, category, metric_key, target_value, sort_order, is_active, is_hidden")
+    .select(`${baseSelect}, rarity`)
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
+  let data: Array<Record<string, unknown>> | null = initialQuery.data as Array<Record<string, unknown>> | null;
+  let error = initialQuery.error;
+
+  if (error?.message?.includes("column") && error.message.includes("rarity")) {
+    const fallbackQuery = await admin
+      .from("badge_definitions")
+      .select(baseSelect)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    data = fallbackQuery.data as Array<Record<string, unknown>> | null;
+    error = fallbackQuery.error;
+  }
 
   if (error) {
     throw new Error(error.message);
@@ -338,6 +496,7 @@ async function loadBadgeDefinitions(admin: NonNullable<ReturnType<typeof getAdmi
     description: String(row.description),
     icon: row.icon ? String(row.icon) : null,
     category: String(row.category) as BadgeCategory,
+    rarity: String(row.rarity || "common") as BadgeRarity,
     metricKey: String(row.metric_key),
     targetValue: Number(row.target_value || 0),
     sortOrder: Number(row.sort_order || 0),
@@ -362,16 +521,26 @@ async function collectBadgeMetrics(
 ): Promise<BadgeMetricMap> {
   const [
     deckCount,
+    importDeckCount,
+    manualDeckCount,
     analysisCount,
     roastCount,
     budgetSwapCount,
     customCardCount,
+    inboxReceivedCount,
     profileRow,
     authUser,
     chatMessageCount,
     collectionCardCount,
+    shareableArtifactCount,
+    ideaToDeckUsageCount,
+    commanderPickerUsageCount,
+    buildAroundCardUsageCount,
+    priceTrackerLookupCount,
   ] = await Promise.all([
     countRows(admin.from("decks").select("id", { count: "exact", head: true }).eq("user_id", userId)),
+    countTaggedDecks(admin, userId, "import"),
+    countTaggedDecks(admin, userId, "manual"),
     countRows(
       admin
         .from("ai_usage")
@@ -390,12 +559,18 @@ async function collectBadgeMetrics(
     ),
     countRows(admin.from("budget_swap_analytics").select("id", { count: "exact", head: true }).eq("user_id", userId)),
     countRows(admin.from("custom_cards").select("id", { count: "exact", head: true }).eq("user_id", userId)),
+    countInboxInteractions(admin, userId),
     selectMaybeSingle<{ pro_since?: string | null }>(
       admin.from("profiles").select("pro_since").eq("id", userId).maybeSingle(),
     ),
     admin.auth.admin.getUserById(userId),
     countUserChatMessages(admin, userId),
     sumUserCollectionCards(admin, userId),
+    countUserShareableArtifacts(admin, userId),
+    countUserFeatureUsage(admin, userId, "idea_to_deck"),
+    countUserFeatureUsage(admin, userId, "commander_picker"),
+    countUserFeatureUsage(admin, userId, "build_around_card"),
+    countUserFeatureUsage(admin, userId, "price_tracker_lookup"),
   ]);
 
   const tools = ((authUser.data?.user?.user_metadata as { tools?: Record<string, unknown> } | undefined)?.tools ?? {}) as Record<string, unknown>;
@@ -405,16 +580,52 @@ async function collectBadgeMetrics(
 
   return {
     analysis_count: analysisCount,
+    build_around_card_usage_count: buildAroundCardUsageCount,
     budget_swap_count: budgetSwapCount,
+    commander_picker_usage_count: commanderPickerUsageCount,
     chat_message_count: chatMessageCount,
     collection_card_count: collectionCardCount,
     custom_card_count: customCardCount,
     deck_count: deckCount,
+    idea_to_deck_usage_count: ideaToDeckUsageCount,
+    import_deck_count: importDeckCount,
+    inbox_received_count: inboxReceivedCount,
+    manual_deck_count: manualDeckCount,
     mulligan_iteration_count: mulliganIterations,
+    price_tracker_lookup_count: priceTrackerLookupCount,
     probability_run_count: probabilityRuns,
     pro_upgrade_ever: proUpgradeEver,
     roast_count: roastCount,
+    shareable_artifact_count: shareableArtifactCount,
   };
+}
+
+async function countTaggedDecks(
+  admin: NonNullable<ReturnType<typeof getAdmin>>,
+  userId: string,
+  creationSource: "import" | "manual",
+): Promise<number> {
+  return countRows(
+    admin
+      .from("decks")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .contains("meta", { creation_source: creationSource }),
+  );
+}
+
+async function countUserFeatureUsage(
+  admin: NonNullable<ReturnType<typeof getAdmin>>,
+  userId: string,
+  featureKey: "build_around_card" | "commander_picker" | "idea_to_deck" | "price_tracker_lookup",
+): Promise<number> {
+  return countRows(
+    admin
+      .from("user_feature_usage")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("feature_key", featureKey),
+  );
 }
 
 async function countUserChatMessages(admin: NonNullable<ReturnType<typeof getAdmin>>, userId: string): Promise<number> {
@@ -457,6 +668,122 @@ async function sumUserCollectionCards(admin: NonNullable<ReturnType<typeof getAd
   return total;
 }
 
+async function countUserShareableArtifacts(
+  admin: NonNullable<ReturnType<typeof getAdmin>>,
+  userId: string,
+): Promise<number> {
+  const [publicProfileCount, publicDeckCount, roastPermalinkCount, publicCustomCardCount] = await Promise.all([
+    countRows(
+      admin
+        .from("profiles_public")
+        .select("id", { count: "exact", head: true })
+        .eq("id", userId)
+        .eq("is_public", true),
+    ),
+    countRows(admin.from("decks").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("is_public", true)),
+    countRows(admin.from("roast_permalinks").select("id", { count: "exact", head: true }).eq("user_id", userId)),
+    countRows(
+      admin
+        .from("custom_cards")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .not("public_slug", "is", null),
+    ),
+  ]);
+
+  return publicProfileCount + publicDeckCount + roastPermalinkCount + publicCustomCardCount;
+}
+
+async function countInboxInteractions(
+  admin: NonNullable<ReturnType<typeof getAdmin>>,
+  userId: string,
+): Promise<number> {
+  const [{ data: publicDecks, error: deckError }, { data: userCollections, error: collectionError }, { data: roastRows, error: roastError }, { data: healthRows, error: healthError }, { data: customCards, error: customCardError }] =
+    await Promise.all([
+      admin.from("decks").select("id").eq("user_id", userId).eq("is_public", true),
+      admin.from("collections").select("id").eq("user_id", userId),
+      admin.from("roast_permalinks").select("id").eq("user_id", userId),
+      admin.from("shared_health_reports").select("id").eq("user_id", userId),
+      admin.from("custom_cards").select("id, public_slug").eq("user_id", userId).not("public_slug", "is", null),
+    ]);
+
+  if (deckError) throw new Error(deckError.message);
+  if (collectionError) throw new Error(collectionError.message);
+  if (roastError) throw new Error(roastError.message);
+  if (healthError) throw new Error(healthError.message);
+  if (customCardError) throw new Error(customCardError.message);
+
+  const publicDeckIds = Array.isArray(publicDecks) ? publicDecks.map((row) => String(row.id)) : [];
+  const collectionIds = Array.isArray(userCollections) ? userCollections.map((row) => String(row.id)) : [];
+  const roastIds = Array.isArray(roastRows) ? roastRows.map((row) => String(row.id)) : [];
+  const healthIds = Array.isArray(healthRows) ? healthRows.map((row) => String(row.id)) : [];
+  const publicCustomCardIds = Array.isArray(customCards) ? customCards.map((row) => String(row.id)) : [];
+
+  let publicCollectionIds: string[] = [];
+  if (collectionIds.length > 0) {
+    const { data: metaRows, error: metaError } = await admin
+      .from("collection_meta")
+      .select("collection_id, public_slug")
+      .eq("is_public", true)
+      .in("collection_id", collectionIds);
+    if (metaError) throw new Error(metaError.message);
+    publicCollectionIds = (metaRows ?? [])
+      .filter((row) => typeof row.public_slug === "string" && row.public_slug.trim().length > 0)
+      .map((row) => String(row.collection_id));
+  }
+
+  const [deckCommentCount, collectionCommentCount, roastCommentCount, healthCommentCount, customCardCommentCount] =
+    await Promise.all([
+      countDeckCommentsForDeckIds(admin, publicDeckIds),
+      countSharedCommentsForResourceIds(admin, "collection", publicCollectionIds),
+      countSharedCommentsForResourceIds(admin, "roast", roastIds),
+      countSharedCommentsForResourceIds(admin, "health_report", healthIds),
+      countSharedCommentsForResourceIds(admin, "custom_card", publicCustomCardIds),
+    ]);
+
+  return deckCommentCount + collectionCommentCount + roastCommentCount + healthCommentCount + customCardCommentCount;
+}
+
+async function countDeckCommentsForDeckIds(
+  admin: NonNullable<ReturnType<typeof getAdmin>>,
+  deckIds: string[],
+): Promise<number> {
+  if (deckIds.length === 0) return 0;
+
+  let total = 0;
+  for (let i = 0; i < deckIds.length; i += CHAT_THREAD_CHUNK) {
+    const slice = deckIds.slice(i, i + CHAT_THREAD_CHUNK);
+    total += await countRows(
+      admin
+        .from("deck_comments")
+        .select("id", { count: "exact", head: true })
+        .in("deck_id", slice),
+    );
+  }
+  return total;
+}
+
+async function countSharedCommentsForResourceIds(
+  admin: NonNullable<ReturnType<typeof getAdmin>>,
+  resourceType: "collection" | "roast" | "health_report" | "custom_card",
+  resourceIds: string[],
+): Promise<number> {
+  if (resourceIds.length === 0) return 0;
+
+  let total = 0;
+  for (let i = 0; i < resourceIds.length; i += COLLECTION_ID_CHUNK) {
+    const slice = resourceIds.slice(i, i + COLLECTION_ID_CHUNK);
+    total += await countRows(
+      admin
+        .from("shared_item_comments")
+        .select("id", { count: "exact", head: true })
+        .eq("resource_type", resourceType)
+        .in("resource_id", slice),
+    );
+  }
+  return total;
+}
+
 async function countRows(query: PromiseLike<{ count: number | null; error: { message: string } | null }>): Promise<number> {
   const { count, error } = await query;
   if (error) throw new Error(error.message);
@@ -477,8 +804,9 @@ function asInt(value: unknown): number {
 
 function sortBadgeProgress(rows: CanonicalBadgeProgress[]): CanonicalBadgeProgress[] {
   return [...rows].sort((a, b) => {
-    if (a.unlocked !== b.unlocked) return a.unlocked ? 1 : -1;
-    if (b.progress !== a.progress) return b.progress - a.progress;
-    return a.target - b.target;
+    if (a.unlocked !== b.unlocked) return a.unlocked ? -1 : 1;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    if (!a.unlocked && b.progress !== a.progress) return b.progress - a.progress;
+    return a.name.localeCompare(b.name);
   });
 }

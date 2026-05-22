@@ -26,6 +26,7 @@ export default function NewDeckClient() {
           colors: [],
           currency: "USD",
           deck_text: "",
+          creation_source: "manual",
           is_public: false,
         }),
       });
