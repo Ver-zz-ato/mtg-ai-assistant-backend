@@ -32,6 +32,54 @@ function UpdatePasswordContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitError, setSubmitError] = useState('');
 
+  const validateRecoveryCode = useCallback(async (code: string): Promise<Session | null> => {
+    const supabase = createBrowserSupabaseClient();
+    console.info('[update-password] recovery code detected:', !!code);
+
+    const {
+      data: { session: initialSession },
+      error: initialSessionError,
+    } = await supabase.auth.getSession();
+
+    if (initialSessionError) {
+      console.warn('[update-password] getSession before exchange error:', initialSessionError.message);
+    }
+
+    if (initialSession) {
+      console.info('[update-password] session exists after PKCE init:', true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('code');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      return initialSession;
+    }
+
+    console.info('[update-password] exchange attempt started');
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) {
+      console.warn('[update-password] exchange failed:', exchangeError.message);
+      return null;
+    }
+
+    console.info('[update-password] exchange success');
+    const {
+      data: { session: exchangedSession },
+      error: exchangedSessionError,
+    } = await supabase.auth.getSession();
+
+    if (exchangedSessionError) {
+      console.warn('[update-password] getSession after exchange error:', exchangedSessionError.message);
+      return null;
+    }
+
+    console.info('[update-password] session exists after exchange:', !!exchangedSession);
+    if (exchangedSession) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('code');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+    return exchangedSession ?? null;
+  }, []);
+
   const validateAndConsumeRecovery = useCallback(async (): Promise<Session | null> => {
     if (typeof window === 'undefined') return null;
     const hash = window.location.hash;
@@ -66,6 +114,18 @@ function UpdatePasswordContent() {
         return;
       }
 
+      const code = searchParams.get('code');
+      if (code) {
+        const session = await validateRecoveryCode(code);
+        if (cancelled) return;
+        if (session) {
+          setState('form');
+        } else {
+          setState('invalid');
+        }
+        return;
+      }
+
       const hash = window.location.hash;
 
       if (!hash) {
@@ -97,7 +157,7 @@ function UpdatePasswordContent() {
 
     run();
     return () => { cancelled = true; };
-  }, [validateAndConsumeRecovery, searchParams]);
+  }, [validateAndConsumeRecovery, validateRecoveryCode, searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
