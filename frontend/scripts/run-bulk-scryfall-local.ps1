@@ -22,17 +22,22 @@ try {
     $Port = 3000
     $LocalUrl = "http://localhost:$Port"
     $Endpoint = "$LocalUrl/api/cron/bulk-scryfall"
-    $CronKey = $env:CRON_KEY
+    $CronKey = if ($env:CRON_SECRET) { $env:CRON_SECRET } elseif ($env:CRON_KEY) { $env:CRON_KEY } else { $null }
 
-    # Auto-load CRON_KEY from .env.local if not set
+    # Auto-load CRON_SECRET (preferred) or legacy CRON_KEY from .env.local if not set
     if (-not $CronKey) {
         $EnvLocalPath = Join-Path $FrontendDir ".env.local"
         if (Test-Path $EnvLocalPath) {
             $envContent = Get-Content $EnvLocalPath -ErrorAction SilentlyContinue
             foreach ($line in $envContent) {
+                if ($line -match "^CRON_SECRET=(.+)$") {
+                    $CronKey = $Matches[1].Trim()
+                    Write-Host "Loaded CRON_SECRET from .env.local" -ForegroundColor Green
+                    break
+                }
                 if ($line -match "^CRON_KEY=(.+)$") {
                     $CronKey = $Matches[1].Trim()
-                    Write-Host "Loaded CRON_KEY from .env.local" -ForegroundColor Green
+                    Write-Host "Loaded legacy CRON_KEY from .env.local" -ForegroundColor Green
                     break
                 }
             }
@@ -40,10 +45,10 @@ try {
     }
 
     if (-not $CronKey) {
-        Write-Host "WARNING: CRON_KEY not found in environment or .env.local" -ForegroundColor Yellow
-        Write-Host "TIP: Add CRON_KEY=your-key to your .env.local file" -ForegroundColor Gray
+        Write-Host "WARNING: CRON_SECRET/CRON_KEY not found in environment or .env.local" -ForegroundColor Yellow
+        Write-Host "TIP: Add CRON_SECRET=your-key to your .env.local file" -ForegroundColor Gray
         Write-Host ""
-        $prompt = Read-Host "Enter CRON_KEY (or press Enter to skip auth - requires admin session)"
+        $prompt = Read-Host "Enter CRON_SECRET (or press Enter to skip auth - requires admin session)"
         if ($prompt) {
             $CronKey = $prompt
         }
@@ -136,9 +141,9 @@ try {
         
         if ($CronKey) {
             $Headers["Authorization"] = "Bearer $CronKey"
-            Write-Host "Using CRON_KEY authentication" -ForegroundColor Gray
+            Write-Host "Using cron secret authentication" -ForegroundColor Gray
         } else {
-            Write-Host "WARNING: No CRON_KEY - will attempt admin session auth" -ForegroundColor Yellow
+            Write-Host "WARNING: No CRON_SECRET/CRON_KEY - will attempt admin session auth" -ForegroundColor Yellow
         }
         
         # Chunked loop (old behavior): call the cron endpoint repeatedly

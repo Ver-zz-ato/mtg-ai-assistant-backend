@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "server_error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("mobile_bootstrap_error", e);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }

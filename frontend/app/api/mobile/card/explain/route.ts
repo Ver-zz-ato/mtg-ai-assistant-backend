@@ -416,11 +416,10 @@ export async function POST(req: NextRequest) {
         resetAt: rateLimit.resetAt,
       });
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to explain card";
       console.error("[mobile/card/explain] AI error:", e);
       return jsonError(req, 500, {
         code: "AI_UNAVAILABLE",
-        error: message,
+        error: "Failed to explain card",
         tier,
         limit: rateLimit.limit,
         remaining: rateLimit.remaining,
@@ -429,11 +428,10 @@ export async function POST(req: NextRequest) {
       });
     }
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Server error";
     console.error("[mobile/card/explain] route error:", e);
     return jsonError(req, 500, {
       code: "SERVER_ERROR",
-      error: message,
+      error: "server_error",
     });
   }
 }

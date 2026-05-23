@@ -15,7 +15,7 @@ function safeEquals(left: string, right: string): boolean {
 }
 
 export function getCronSecret(): string {
-  return String(process.env.CRON_SECRET || "").trim();
+  return String(process.env.CRON_SECRET || process.env.CRON_KEY || "").trim();
 }
 
 export function getCronAuthorizationHeaderValue(): string {

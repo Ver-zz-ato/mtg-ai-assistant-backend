@@ -609,13 +609,11 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(normalized);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to generate analysis";
       console.error("[mobile/deck/compare-ai] AI error:", e);
       return NextResponse.json(applyGroundedCompareGuardrails(deterministicNormalized, grounded));
     }
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Server error";
     console.error("[mobile/deck/compare-ai] route error:", e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }

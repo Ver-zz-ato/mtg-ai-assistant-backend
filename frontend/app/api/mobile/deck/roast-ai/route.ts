@@ -226,13 +226,11 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to generate roast";
       console.error("[mobile/deck/roast-ai] AI error:", e);
-      return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "Failed to generate roast" }, { status: 500 });
     }
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Server error";
     console.error("[mobile/deck/roast-ai] route error:", e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }

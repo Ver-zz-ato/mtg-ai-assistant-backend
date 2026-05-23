@@ -1,15 +1,15 @@
 import { stripe } from './stripe';
 
 // Product ID mapping (from Stripe Dashboard)
-export const PRODUCT_TO_PLAN: Record<string, 'monthly'|'yearly'> = {
-  'prod_TDaREGWGBQSSBQ': 'monthly',  // ✅ Verified: Monthly Pro
-  'prod_TDaRNmnrBcfWIZ': 'yearly',   // ✅ Verified: Yearly Pro (fixed: was lZ, should be IZ)
+export const PRODUCT_TO_PLAN: Record<string, 'monthly' | 'yearly'> = {
+  'prod_TDaREGWGBQSSBQ': 'monthly', // Verified live in Stripe Dashboard
+  'prod_TDaRNmnrBcfWlZ': 'yearly', // Verified live in Stripe Dashboard
 };
 
 // Plan to Product ID mapping (reverse lookup)
-export const PLAN_TO_PRODUCT: Record<'monthly'|'yearly', string> = {
-  'monthly': 'prod_TDaREGWGBQSSBQ',  // ✅ Verified: Monthly Pro
-  'yearly': 'prod_TDaRNmnrBcfWIZ',   // ✅ Verified: Yearly Pro (fixed: was lZ, should be IZ)
+export const PLAN_TO_PRODUCT: Record<'monthly' | 'yearly', string> = {
+  monthly: 'prod_TDaREGWGBQSSBQ',
+  yearly: 'prod_TDaRNmnrBcfWlZ',
 };
 
 // Price cache to avoid repeated API calls
