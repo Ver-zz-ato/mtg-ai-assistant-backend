@@ -115,7 +115,7 @@ function severityRank(severity: Severity | string | null | undefined): number {
   return 0;
 }
 
-function shouldCreateLaunchAlert(metric: MetricCard): boolean {
+function shouldCreateLaunchAlert(metric: MetricCard): metric is MetricCard & { severity: "critical" | "warn" } {
   if (metric.key === "advisor_warnings") return false;
   return metric.severity === "critical" || metric.severity === "warn";
 }
