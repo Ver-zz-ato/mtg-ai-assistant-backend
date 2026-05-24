@@ -223,6 +223,9 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
 
   // Load curated art pack
   React.useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
     (async () => {
       try {
         setLoadingArt(true);
@@ -233,12 +236,17 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
         const r = await fetch('/api/cards/collection', { 
           method: 'POST', 
           headers: { 'content-type': 'application/json' }, 
-          body: JSON.stringify({ identifiers }) 
+          body: JSON.stringify({ identifiers }),
+          signal: controller.signal,
         });
+        if (cancelled) return;
         const j: any = await r.json().catch(() => ({}));
+        if (cancelled) return;
         const data: any[] = Array.isArray(j?.data) ? j.data : [];
         if (!r.ok || (j?.object === 'error' && !data.length)) {
-          setArtError(j?.details || j?.error || 'Failed to load artwork');
+          if (!cancelled) {
+            setArtError(j?.details || j?.error || 'Failed to load artwork');
+          }
           return;
         }
         const mapColor = (raw: any): string => { 
@@ -257,14 +265,31 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
             color: mapColor(c) 
           }; 
         }).filter((x: any) => x.url);
+        if (cancelled) return;
         setArtOptions(out);
         if (out.length === 0) setArtError('No artwork found');
       } catch (e: any) {
-        setArtError(e?.message || 'Failed to load artwork');
+        const msg = String(e?.message || '');
+        if (
+          cancelled ||
+          controller.signal.aborted ||
+          e?.name === 'AbortError' ||
+          /load failed/i.test(msg)
+        ) {
+          return;
+        }
+        setArtError(msg || 'Failed to load artwork');
       } finally {
-        setLoadingArt(false);
+        if (!cancelled) {
+          setLoadingArt(false);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, []);
 
   async function attach(){
