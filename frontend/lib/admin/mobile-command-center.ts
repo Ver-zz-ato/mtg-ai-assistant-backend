@@ -559,7 +559,7 @@ async function fetchSentryIssues(days: number) {
   const base = (process.env.SENTRY_BASE_URL || "https://sentry.io").replace(/\/$/, "");
   const url = new URL(`${base}/api/0/projects/${encodeURIComponent(org)}/${encodeURIComponent(project)}/issues/`);
   url.searchParams.set("query", "is:unresolved");
-  url.searchParams.set("statsPeriod", `${Math.min(days, 14)}d`);
+  url.searchParams.set("statsPeriod", days <= 1 ? "24h" : "14d");
   url.searchParams.set("limit", "20");
   url.searchParams.set("sort", "date");
   try {
