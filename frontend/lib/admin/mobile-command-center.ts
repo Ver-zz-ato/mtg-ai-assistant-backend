@@ -108,6 +108,7 @@ function pct(numerator: number, denominator: number): number {
 
 function envStatus() {
   const sentryConfigured = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
+  const discordWebhook = getDiscordAdminWebhook();
   return {
     serviceRoleConfigured: Boolean(getAdmin()),
     posthogConfigured: Boolean(getPosthogQueryCredentials()),
@@ -117,8 +118,18 @@ function envStatus() {
         process.env.REVENUECAT_SECRET_API_KEY ||
         process.env.REVENUECAT_SECRET_KEY,
     ),
-    discordWebhookConfigured: Boolean(process.env.DISCORD_ADMIN_ALERT_WEBHOOK || process.env.DISCORD_APP_SUBS_WEBHOOK),
+    discordWebhookConfigured: Boolean(discordWebhook),
   };
+}
+
+function getDiscordAdminWebhook(): string {
+  return (
+    process.env.DISCORD_ADMIN_ALERT_WEBHOOK ||
+    process.env.DISCORD_APPSUB_WEBHOOK ||
+    process.env.DISCORD_APP_SUBS_WEBHOOK ||
+    process.env.DISCORD_WEBHOOK_URL ||
+    ""
+  ).trim();
 }
 
 function missingDbPayload(days: number): CommandCenterPayload {
@@ -739,7 +750,7 @@ export async function getMobileCommandCenterOverview(days: number): Promise<Comm
     alerts.push({
       key: "discord_missing",
       title: "Discord launch alerts are not configured",
-      detail: "Set DISCORD_ADMIN_ALERT_WEBHOOK to enable urgent cockpit alerts.",
+      detail: "Set DISCORD_ADMIN_ALERT_WEBHOOK, or reuse DISCORD_APPSUB_WEBHOOK while launch alerts are low-volume.",
       severity: "warn",
       source: "config",
     });
@@ -815,7 +826,7 @@ async function writeAlerts(db: Db, alerts: LaunchAlert[], actorId: string | null
 }
 
 async function sendDiscordAlerts(alerts: LaunchAlert[]) {
-  const webhook = process.env.DISCORD_ADMIN_ALERT_WEBHOOK;
+  const webhook = getDiscordAdminWebhook();
   if (!webhook) return { attempted: false, sent: 0 };
   const urgent = alerts.filter((alert) => alert.severity === "critical" || alert.severity === "warn").slice(0, 8);
   if (!urgent.length) return { attempted: false, sent: 0 };

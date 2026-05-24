@@ -6,15 +6,19 @@
 
 export type HogqlResult = { columns: string[]; results: unknown[][] };
 
+export function normalizePosthogQueryHost(value: string | undefined): string {
+  const raw = (value || "https://eu.posthog.com").trim().replace(/\/$/, "");
+  if (raw === "https://eu.i.posthog.com") return "https://eu.posthog.com";
+  if (raw === "https://us.i.posthog.com") return "https://us.posthog.com";
+  if (raw === "https://app.posthog.com") return "https://us.posthog.com";
+  return raw;
+}
+
 export function getPosthogQueryCredentials(): { host: string; key: string; projectId: string } | null {
   const key = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
   const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
   if (!key || !projectId) return null;
-  const host = (
-    process.env.POSTHOG_HOST ||
-    process.env.NEXT_PUBLIC_POSTHOG_HOST ||
-    "https://eu.posthog.com"
-  ).replace(/\/$/, "");
+  const host = normalizePosthogQueryHost(process.env.POSTHOG_HOST || process.env.NEXT_PUBLIC_POSTHOG_HOST);
   return { host, key, projectId };
 }
 

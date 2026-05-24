@@ -58,6 +58,10 @@ Optional env:
 - `REVENUECAT_V2_SECRET_API_KEY`, `REVENUECAT_PROJECT_ID`
 - `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`
 
+PostHog note: the browser key (`NEXT_PUBLIC_POSTHOG_KEY`) only sends events. The cockpit uses the Query API/HogQL, so it needs a server-only personal API key with `query:read` scope and the PostHog project ID. Use `POSTHOG_HOST=https://eu.posthog.com` for the EU app/API host; do not use the ingest host (`eu.i.posthog.com`) for Query API reads.
+
+Discord note: `DISCORD_ADMIN_ALERT_WEBHOOK` is preferred for launch alerts. The cockpit also accepts `DISCORD_APPSUB_WEBHOOK`, `DISCORD_APP_SUBS_WEBHOOK`, or `DISCORD_WEBHOOK_URL` as fallback env names so existing server-only webhook config can be reused.
+
 Migration: `db/migrations/115_mobile_command_center_rollups.sql`
 
 Private tables:
