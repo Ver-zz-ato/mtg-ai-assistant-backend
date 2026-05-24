@@ -149,13 +149,18 @@ export async function applyDeckChangeProposal(input: {
     return { ok: false, error: "Your deck changed since this proposal was created. Ask me to prepare the change again.", code: "stale_deck" };
   }
 
-  for (const op of p.operations as DeckChangeOperation[]) {
-    if (op.type === "add") await addCard(input.supabase, p.deck_id, op.name, op.qty, op.zone);
-    if (op.type === "remove") await removeCard(input.supabase, p.deck_id, op.name, op.qty, op.zone);
-    if (op.type === "swap") {
-      await removeCard(input.supabase, p.deck_id, op.remove, op.qty, op.zone);
-      await addCard(input.supabase, p.deck_id, op.add, op.qty, op.zone);
+  try {
+    for (const op of p.operations as DeckChangeOperation[]) {
+      if (op.type === "add") await addCard(input.supabase, p.deck_id, op.name, op.qty, op.zone);
+      if (op.type === "remove") await removeCard(input.supabase, p.deck_id, op.name, op.qty, op.zone);
+      if (op.type === "swap") {
+        await removeCard(input.supabase, p.deck_id, op.remove, op.qty, op.zone);
+        await addCard(input.supabase, p.deck_id, op.add, op.qty, op.zone);
+      }
     }
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Failed to apply deck change.";
+    return { ok: false, error: message, code: "apply_failed" };
   }
 
   const afterRows = await fetchDeckRows(input.supabase, p.deck_id);
@@ -253,12 +258,25 @@ async function resolveCardName(name: string): Promise<string> {
   }
 }
 
+function deckZoneKey(zone: string | null | undefined): "mainboard" | "sideboard" {
+  const z = String(zone || "mainboard").trim().toLowerCase();
+  return z === "sideboard" ? "sideboard" : "mainboard";
+}
+
+function hasDeckCard(rows: DeckCardRow[], name: string, zone: "mainboard" | "sideboard"): boolean {
+  const normTarget = normalizeCardName(name);
+  return rows.some((r) => deckZoneKey(r.zone) === zone && normalizeCardName(r.name) === normTarget);
+}
+
 function validateOperations(operations: DeckChangeOperation[], beforeRows: DeckCardRow[]): { warnings: string[] } {
   const warnings: string[] = [];
-  const hasCard = (name: string, zone: string) => beforeRows.some((r) => normalizeCardName(r.name) === normalizeCardName(name) && (r.zone || "mainboard") === zone);
   for (const op of operations) {
-    if (op.type === "remove" && !hasCard(op.name, op.zone)) warnings.push(`${op.name} was not found in ${op.zone}.`);
-    if (op.type === "swap" && !hasCard(op.remove, op.zone)) warnings.push(`${op.remove} was not found in ${op.zone}.`);
+    if (op.type === "remove" && !hasDeckCard(beforeRows, op.name, op.zone)) {
+      warnings.push(`${op.name} was not found in ${op.zone}.`);
+    }
+    if (op.type === "swap" && !hasDeckCard(beforeRows, op.remove, op.zone)) {
+      warnings.push(`${op.remove} was not found in ${op.zone}.`);
+    }
   }
   return { warnings };
 }
@@ -275,7 +293,7 @@ function normalizeDeckRow(row: DeckCardRow): DeckCardRow {
   return {
     name: String(row.name || "").trim(),
     qty: Math.max(1, Number(row.qty || 1)),
-    zone: String(row.zone || "mainboard"),
+    zone: deckZoneKey(row.zone),
   };
 }
 
@@ -342,43 +360,73 @@ function decodeInlineProposal(proposalId: string): any | null {
   }
 }
 
-async function addCard(supabase: any, deckId: string, name: string, qty: number, zone: string): Promise<void> {
-  const { data: existing } = await supabase
+type DeckCardEntry = { id: string; name: string; qty: number; zone: string };
+
+async function listDeckCardEntries(supabase: any, deckId: string): Promise<DeckCardEntry[]> {
+  const { data, error } = await supabase
     .from("deck_cards")
-    .select("id,qty")
+    .select("id,name,qty,zone")
     .eq("deck_id", deckId)
-    .eq("name", name)
-    .eq("zone", zone)
-    .maybeSingle();
-  if (existing?.id) {
+    .limit(500);
+  if (error) throw error;
+  return ((data || []) as DeckCardRow[])
+    .filter((r) => r.id)
+    .map((r) => ({
+      id: String(r.id),
+      name: String(r.name || "").trim(),
+      qty: Math.max(1, Number(r.qty || 1)),
+      zone: deckZoneKey(r.zone),
+    }));
+}
+
+function findDeckCardEntries(entries: DeckCardEntry[], name: string, zone: "mainboard" | "sideboard"): DeckCardEntry[] {
+  const normTarget = normalizeCardName(name);
+  return entries.filter((e) => e.zone === zone && normalizeCardName(e.name) === normTarget);
+}
+
+async function addCard(supabase: any, deckId: string, name: string, qty: number, zone: string): Promise<void> {
+  const zoneKey = deckZoneKey(zone);
+  const entries = await listDeckCardEntries(supabase, deckId);
+  const matches = findDeckCardEntries(entries, name, zoneKey);
+  const canonicalName = matches[0]?.name ?? name;
+  if (matches.length > 0) {
+    const primary = matches[0];
     const { error } = await supabase
       .from("deck_cards")
-      .update({ qty: Number(existing.qty || 1) + qty })
-      .eq("id", existing.id);
+      .update({ qty: primary.qty + qty, name: canonicalName, zone: zoneKey })
+      .eq("id", primary.id);
     if (error) throw error;
-  } else {
-    const { error } = await supabase
-      .from("deck_cards")
-      .insert({ deck_id: deckId, name, qty, zone });
-    if (error) throw error;
+    return;
   }
+  const { error } = await supabase
+    .from("deck_cards")
+    .insert({ deck_id: deckId, name: canonicalName, qty, zone: zoneKey });
+  if (error) throw error;
 }
 
 async function removeCard(supabase: any, deckId: string, name: string, qty: number, zone: string): Promise<void> {
-  const { data: existing } = await supabase
-    .from("deck_cards")
-    .select("id,qty")
-    .eq("deck_id", deckId)
-    .eq("name", name)
-    .eq("zone", zone)
-    .maybeSingle();
-  if (!existing?.id) return;
-  const nextQty = Number(existing.qty || 1) - qty;
-  if (nextQty > 0) {
-    const { error } = await supabase.from("deck_cards").update({ qty: nextQty }).eq("id", existing.id);
-    if (error) throw error;
-  } else {
-    const { error } = await supabase.from("deck_cards").delete().eq("id", existing.id);
-    if (error) throw error;
+  const zoneKey = deckZoneKey(zone);
+  const entries = await listDeckCardEntries(supabase, deckId);
+  const matches = findDeckCardEntries(entries, name, zoneKey);
+  if (matches.length === 0) {
+    throw new Error(`${name} was not found in ${zoneKey}.`);
+  }
+  const available = matches.reduce((sum, row) => sum + row.qty, 0);
+  if (available < qty) {
+    throw new Error(`Only ${available} copy${available === 1 ? "" : "ies"} of ${name} in ${zoneKey}.`);
+  }
+  let remaining = qty;
+  for (const row of matches) {
+    if (remaining <= 0) break;
+    const removeFromRow = Math.min(remaining, row.qty);
+    remaining -= removeFromRow;
+    const nextQty = row.qty - removeFromRow;
+    if (nextQty > 0) {
+      const { error } = await supabase.from("deck_cards").update({ qty: nextQty }).eq("id", row.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from("deck_cards").delete().eq("id", row.id);
+      if (error) throw error;
+    }
   }
 }
