@@ -9,6 +9,11 @@ const GROUPS = [
       "Remote-control the mobile app from the website: turn features on/off and manage in-app update notes without shipping a new build.",
     links: [
       {
+        href: "/admin/mobile-command-center",
+        label: "Mobile Command Center",
+        eli5: "Phone-friendly launch cockpit for app health, AI spend, signups, revenue, errors, rate limits, feedback, and ops.",
+      },
+      {
         href: "/admin/feature-flags",
         label: "Feature Flags",
         eli5: "Turn app features on/off without a new release.",

@@ -28,8 +28,46 @@ All under `/admin/*`, protected by `AdminGuard` + server-side admin checks on mu
 | `/admin/tier-limits` | Edit `mobile.tiers.limits` (validated JSON) |
 | `/admin/mobile-bootstrap-preview` | Debug view; same payload as public bootstrap |
 | `/admin/app-scanner` | PostHog scanner funnel / quality (requires PostHog personal API key on server; see `docs/ADMIN_SCANNER_DASHBOARD.md`) |
+| `/admin/mobile-command-center` | Phone-friendly launch cockpit for app health, AI spend, signups, PostHog, revenue, Sentry, rate limits, feedback, and ops freshness |
 
 Dashboard entry: **Admin → Mobile & Client Control** (`/admin/JustForDavy`).
+
+## Mobile Command Center
+
+The launch cockpit is intentionally **website-only**. No admin UI or vendor SDK access is added to the Expo app, so mobile users do not download admin code and secrets stay server-side.
+
+Routes:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/admin/mobile-command-center/overview` | Combined launch health and urgent alerts |
+| GET | `/api/admin/mobile-command-center/ai` | App AI cost, errors, cache rate, expensive users/routes |
+| GET | `/api/admin/mobile-command-center/users` | Supabase signups, Pro/free mix, masked recent rows |
+| GET | `/api/admin/mobile-command-center/analytics` | PostHog app events and instrumentation gaps |
+| GET | `/api/admin/mobile-command-center/revenue` | RevenueCat/Stripe entitlement and webhook health |
+| GET | `/api/admin/mobile-command-center/errors` | Sentry unresolved issues plus local `error_logs` |
+| GET | `/api/admin/mobile-command-center/security` | Durable rate limits, `ops_rate_limit_hit`, advisor reminders, admin audit |
+| GET | `/api/admin/mobile-command-center/feedback` | App AI reports and generic feedback caveats |
+| GET | `/api/admin/mobile-command-center/ops` | Bootstrap/config freshness and job/control links |
+| POST | `/api/admin/mobile-command-center/refresh-rollups` | Admin/cron-protected rollup refresh and optional Discord alert send |
+
+Optional env:
+
+- `DISCORD_ADMIN_ALERT_WEBHOOK`
+- `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
+- `REVENUECAT_V2_SECRET_API_KEY`, `REVENUECAT_PROJECT_ID`
+- `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`
+
+Migration: `db/migrations/115_mobile_command_center_rollups.sql`
+
+Private tables:
+
+| Table | Purpose |
+|-------|---------|
+| `admin_app_metric_snapshots` | Cached metric rollups for fast phone checks and cron refreshes |
+| `admin_app_alerts` | Alert history, dedupe keys, status, payload, and Discord send metadata |
+
+Identity is masked in list views by default. Use the existing support, entitlement debug, Stripe sync, feedback triage, and ops pages for one-user investigations or mutating controls.
 
 ## Admin API (JSON)
 

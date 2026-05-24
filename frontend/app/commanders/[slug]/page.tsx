@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getCommanderBySlug, getFirst50CommanderSlugs } from "@/lib/commanders";
 import {
   renderCommanderIntro,
@@ -16,6 +16,7 @@ import { CoreStaples } from "@/components/commander/CoreStaples";
 import { CommunityBuildsTabs } from "@/components/commander/CommunityBuildsTabs";
 import { SimilarCommanders } from "@/components/commander/SimilarCommanders";
 import { DeepDiveLinks } from "@/components/commander/DeepDiveLinks";
+import { GuideInlineText } from "@/components/commander/GuideInlineText";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 import { getCommanderMetaBadge } from "@/lib/commander-meta-badge";
@@ -166,19 +167,19 @@ export default async function CommanderHubPage({ params }: Props) {
           {name} Commander Tools
         </h1>
         <p className="text-neutral-400 text-base mb-6 max-w-2xl">
-          {intro.split(/(?<=\.)\s+/).slice(0, 2).join(" ")}
+          <GuideInlineText text={intro.split(/(?<=\.)\s+/).slice(0, 2).join(" ")} />
         </p>
 
         {/* Content thickness: Commander overview, how deck wins, key synergies, common mistakes - SSR for indexability */}
         <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-6 space-y-4">
           <h2 className="text-lg font-semibold text-neutral-100">Commander overview</h2>
-          <p className="text-neutral-300 text-sm leading-relaxed">{intro}</p>
+          <p className="text-neutral-300 text-sm leading-relaxed"><GuideInlineText text={intro} /></p>
           {profile && (
             <>
               <h2 className="text-lg font-semibold text-neutral-100 pt-2">How this deck wins</h2>
-              <p className="text-neutral-300 text-sm leading-relaxed">{renderHowDeckWins(profile)}</p>
+              <p className="text-neutral-300 text-sm leading-relaxed"><GuideInlineText text={renderHowDeckWins(profile)} /></p>
               <h2 className="text-lg font-semibold text-neutral-100 pt-2">Common mistakes</h2>
-              <p className="text-neutral-300 text-sm leading-relaxed">{renderCommonMistakes(profile)}</p>
+              <p className="text-neutral-300 text-sm leading-relaxed"><GuideInlineText text={renderCommonMistakes(profile)} /></p>
             </>
           )}
         </section>
@@ -222,15 +223,15 @@ export default async function CommanderHubPage({ params }: Props) {
             Explore commanders by playstyle and archetype.
           </p>
           <div className="flex flex-wrap gap-2">
-            <a href="/commander-archetypes" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+            <Link href="/commander-archetypes" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
               Commander Archetypes
-            </a>
-            <a href="/strategies" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+            </Link>
+            <Link href="/strategies" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
               Deck Strategies
-            </a>
-            <a href="/meta/trending-commanders" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+            </Link>
+            <Link href="/meta/trending-commanders" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
               Trending Commanders
-            </a>
+            </Link>
           </div>
         </section>
 

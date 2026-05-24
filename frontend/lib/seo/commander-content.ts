@@ -4,6 +4,7 @@
  */
 
 import type { CommanderProfile } from "@/lib/commanders";
+import { COMMANDER_GUIDE_OVERRIDES } from "@/lib/seo/commander-guide-overrides";
 
 const GUILD_NAMES: Record<string, string> = {
   W: "white",
@@ -113,11 +114,18 @@ function getAvoidLine(profile: CommanderProfile): string {
   return `Common misses include ${humanList(avoid)}.`;
 }
 
+function getGuideOverride(profile: CommanderProfile) {
+  return COMMANDER_GUIDE_OVERRIDES[profile.slug];
+}
+
 /** Render unique intro for commander hub */
 export function renderCommanderIntro(
   profile: CommanderProfile,
   pageType: PageType = "hub"
 ): string {
+  const override = getGuideOverride(profile);
+  if (override) return override.intro;
+
   const { name, colors, tags, blurb } = profile;
   const colorLabel = colors?.length ? getColorLabel(colors) : "multicolor";
   const v = pickVariation(profile.slug, pageType);
@@ -200,6 +208,19 @@ export function renderBestCardsIntro(profile: CommanderProfile): string {
 /** Full mulligan guide content */
 export function renderMulliganGuideContent(profile: CommanderProfile): Array<{ heading?: string; body: string }> {
   const { name } = profile;
+  const override = getGuideOverride(profile);
+  if (override) {
+    return [
+      { body: renderMulliganIntro(profile) },
+      { heading: "What a keepable hand looks like", body: override.mulligan.keep },
+      { heading: "When to ship a hand", body: override.mulligan.ship },
+      { heading: "Your first three turns", body: override.mulligan.pattern },
+      {
+        body: `Ready to test real opener quality for ${name}? Run your own list through the ManaTap mulligan simulator, compare play versus draw, and check how often your opener actually lines up with the plan above.`,
+      },
+    ];
+  }
+
   const themes = getThemeLabels(profile, 3);
   const openingPlan = (profile.flagship?.openingPlan ?? []).slice(0, 3);
   const intro = renderMulliganIntro(profile);
@@ -232,6 +253,19 @@ export function renderMulliganGuideContent(profile: CommanderProfile): Array<{ h
 /** Full budget upgrades content */
 export function renderBudgetUpgradesContent(profile: CommanderProfile): Array<{ heading?: string; body: string }> {
   const { name } = profile;
+  const override = getGuideOverride(profile);
+  if (override) {
+    return [
+      { body: renderBudgetIntro(profile) },
+      { heading: "Buy consistency first", body: override.budget.first },
+      { heading: "High-value budget adds", body: override.budget.cheap },
+      { heading: "Premium upgrades worth saving for", body: override.budget.premium },
+      {
+        body: `Once you know which slots are underperforming, use Cost to Finish to see your real spend and Budget Swaps to lower it without tearing apart the shell that makes ${name} work.`,
+      },
+    ];
+  }
+
   const themes = getThemeLabels(profile, 3);
   const upgradePriority = (profile.flagship?.upgradePriority ?? []).slice(0, 4);
   const intro = renderBudgetIntro(profile);
@@ -264,6 +298,19 @@ export function renderBudgetUpgradesContent(profile: CommanderProfile): Array<{ 
 /** Full best cards content (role-based framework, no hallucinated card lists) */
 export function renderBestCardsContent(profile: CommanderProfile): Array<{ heading?: string; body: string }> {
   const { name } = profile;
+  const override = getGuideOverride(profile);
+  if (override) {
+    return [
+      { body: renderBestCardsIntro(profile) },
+      { heading: "Core engine cards", body: override.bestCards.engines },
+      { heading: "Interaction that actually earns slots", body: override.bestCards.interaction },
+      { heading: "How the deck really closes", body: override.bestCards.finishers },
+      {
+        body: `Use the tracked staples below as a reality check, then compare them against your own list in ManaTap's deck tools to see where your build is missing glue pieces, interaction, or actual closers.`,
+      },
+    ];
+  }
+
   const themes = getThemeLabels(profile, 3);
   const intro = renderBestCardsIntro(profile);
 
@@ -353,6 +400,9 @@ export function deriveCommanderSnapshot(profile: CommanderProfile): CommanderSna
 
 /** How this deck wins - template for content thickness */
 export function renderHowDeckWins(profile: CommanderProfile): string {
+  const override = getGuideOverride(profile);
+  if (override) return override.howWins;
+
   const { name } = profile;
   const snapshot = deriveCommanderSnapshot(profile);
   const v = pickVariation(profile.slug, "how-wins");
@@ -366,6 +416,9 @@ export function renderHowDeckWins(profile: CommanderProfile): string {
 
 /** Common mistakes - template for content thickness */
 export function renderCommonMistakes(profile: CommanderProfile): string {
+  const override = getGuideOverride(profile);
+  if (override) return override.mistakes;
+
   const { name } = profile;
   const v = pickVariation(profile.slug, "mistakes");
   const avoidLine = getAvoidLine(profile);

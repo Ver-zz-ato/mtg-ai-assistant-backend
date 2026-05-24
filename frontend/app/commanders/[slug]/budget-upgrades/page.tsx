@@ -12,6 +12,7 @@ import { CommanderStatsRibbon } from "@/components/commander/CommanderStatsRibbo
 import { CommanderToolActions } from "@/components/commander/CommanderToolActions";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
+import { GuideInlineText } from "@/components/commander/GuideInlineText";
 
 export async function generateStaticParams() {
   return getFirst50CommanderSlugs().map((slug) => ({ slug }));
@@ -21,7 +22,7 @@ type Props = { params: Promise<{ slug: string }> };
 
 const BASE = "https://www.manatap.ai";
 
-function faqJsonLd(slug: string, name: string) {
+function faqJsonLd() {
   return JSON.stringify({
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -92,7 +93,7 @@ export default async function BudgetUpgradesPage({ params }: Props) {
 
   return (
     <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd(slug, name) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd() }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd(slug, name) }} />
       <article className="text-neutral-200">
         <nav className="text-sm text-neutral-400 mb-4">
@@ -171,7 +172,7 @@ export default async function BudgetUpgradesPage({ params }: Props) {
               {block.heading && (
                 <h2 className="text-xl font-semibold text-neutral-100 mb-3">{block.heading}</h2>
               )}
-              <p>{block.body}</p>
+              <p><GuideInlineText text={block.body} /></p>
             </section>
           ))}
         </div>
