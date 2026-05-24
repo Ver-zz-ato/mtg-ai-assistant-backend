@@ -21,6 +21,7 @@ export const runtime = 'nodejs';
 // In production, consider using Redis or database for distributed systems
 const processedEvents = new Set<string>();
 const MAX_CACHE_SIZE = 1000;
+const DISCORD_CONTENT_MAX = 1900;
 
 type ProfileEntitlementState = {
   id: string;
@@ -29,6 +30,69 @@ type ProfileEntitlementState = {
   pro_until?: string | null;
   stripe_subscription_id?: string | null;
 };
+
+function shortId(value: string | number | null | undefined): string {
+  const s = String(value || '').trim();
+  if (!s) return 'n/a';
+  if (s.length <= 14) return s;
+  return `${s.slice(0, 8)}...${s.slice(-4)}`;
+}
+
+async function getStripeCustomerEmail(customerId: string | null | undefined): Promise<string | null> {
+  if (!customerId) return null;
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (customer && !customer.deleted && (customer as { email?: string | null }).email) {
+      return ((customer as { email?: string | null }).email || '').trim() || null;
+    }
+  } catch (e) {
+    console.error('Failed to fetch Stripe customer email (non-fatal):', e);
+  }
+  return null;
+}
+
+async function notifyDiscordProUpgrade(details: {
+  source: 'checkout.session.completed' | 'customer.subscription.updated';
+  userId: string;
+  email?: string | null;
+  plan?: string | null;
+  subscriptionId?: string | null;
+  customerId?: string | null;
+  livemode?: boolean;
+}): Promise<void> {
+  const url =
+    process.env.DISCORD_PRO_UPGRADE_WEBHOOK ||
+    process.env.DISCORD_STRIPE_PRO_UPGRADE_WEBHOOK;
+  if (!url?.trim()) return;
+
+  const lines = [
+    '💳 Stripe Pro upgrade completed',
+    `Source: ${details.source}`,
+    `Plan: ${details.plan || 'unknown'}`,
+    `User: ${details.email || shortId(details.userId)}`,
+    `Subscription: ${shortId(details.subscriptionId)}`,
+    `Customer: ${shortId(details.customerId)}`,
+    `Mode: ${details.livemode ? 'live' : 'test'}`,
+  ];
+
+  let content = lines.join('\n');
+  if (content.length > DISCORD_CONTENT_MAX) {
+    content = content.slice(0, DISCORD_CONTENT_MAX - 3) + '...';
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+      console.warn('[stripe webhook] pro-upgrade discord notify failed', res.status);
+    }
+  } catch {
+    console.warn('[stripe webhook] pro-upgrade discord notify failed');
+  }
+}
 
 function hasNonStripeProfilePro(profile: ProfileEntitlementState | null): boolean {
   const proUntil = profile?.pro_until ? new Date(profile.pro_until) : null;
@@ -211,6 +275,7 @@ export async function POST(req: NextRequest) {
 
 async function handleCheckoutCompleted(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session;
+  let customerEmail = (session.customer_details?.email || session.customer_email || '').trim() || null;
   
   console.info('Processing checkout session completed', {
     sessionId: session.id,
@@ -283,18 +348,13 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
 
   // 3) Fallback: Look up by Stripe customer email via auth.users (profiles has no email column)
   if (!profile) {
-    try {
-      const customer = await stripe.customers.retrieve(session.customer as string);
-      if (customer && !customer.deleted && (customer as any).email) {
-        const email = ((customer as any).email as string).trim();
-        const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
-        if (userId) {
-          profile = { id: userId };
-          console.info('Found user by Stripe customer email (auth.users)', { email, customerId: session.customer });
-        }
+    customerEmail = customerEmail || (await getStripeCustomerEmail(session.customer as string));
+    if (customerEmail) {
+      const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: customerEmail });
+      if (userId) {
+        profile = { id: userId };
+        console.info('Found user by Stripe customer email (auth.users)', { email: customerEmail, customerId: session.customer });
       }
-    } catch (e) {
-      console.error('Failed to fetch Stripe customer for email fallback:', e);
     }
   }
 
@@ -388,6 +448,16 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   } catch (e) {
     console.error('Failed to track pro_upgrade_completed (non-fatal):', e);
   }
+
+  await notifyDiscordProUpgrade({
+    source: 'checkout.session.completed',
+    userId: profile.id,
+    email: customerEmail,
+    plan,
+    subscriptionId: subscription.id,
+    customerId: String(session.customer),
+    livemode: subscription.livemode,
+  });
 }
 
 async function handleSubscriptionUpdated(event: Stripe.Event) {
@@ -520,6 +590,17 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
       } catch (e) {
         console.error('Failed to track pro_upgrade_completed (non-fatal):', e);
       }
+
+      const customerEmail = await getStripeCustomerEmail(subscription.customer as string);
+      await notifyDiscordProUpgrade({
+        source: 'customer.subscription.updated',
+        userId: profile.id,
+        email: customerEmail,
+        plan,
+        subscriptionId: subscription.id,
+        customerId: String(subscription.customer),
+        livemode: subscription.livemode,
+      });
     }
 
   } else if (subscription.status === 'canceled') {
