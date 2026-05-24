@@ -115,6 +115,11 @@ function severityRank(severity: Severity | string | null | undefined): number {
   return 0;
 }
 
+function shouldCreateLaunchAlert(metric: MetricCard): boolean {
+  if (metric.key === "advisor_warnings") return false;
+  return metric.severity === "critical" || metric.severity === "warn";
+}
+
 export function shouldSendDiscordAlert(
   alert: LaunchAlert,
   existing?: {
@@ -559,7 +564,21 @@ async function fetchSentryIssues(days: number) {
   url.searchParams.set("sort", "date");
   try {
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-    if (!res.ok) return { configured: true, rows: [] as JsonRecord[], error: `Sentry API ${res.status}` };
+    if (!res.ok) {
+      const body = (await res.text().catch(() => "")).slice(0, 500);
+      let detail = "";
+      try {
+        const json = JSON.parse(body) as JsonRecord;
+        detail = String(json.detail || json.error || json.message || "").slice(0, 160);
+      } catch {
+        detail = body.replace(/\s+/g, " ").slice(0, 160);
+      }
+      return {
+        configured: true,
+        rows: [] as JsonRecord[],
+        error: `Sentry API ${res.status}${detail ? `: ${detail}` : ""}`,
+      };
+    }
     const json = (await res.json()) as JsonRecord[];
     return {
       configured: true,
@@ -596,6 +615,7 @@ export async function getMobileCommandCenterErrors(days: number): Promise<Comman
         key: "sentry",
         label: "Sentry",
         value: sentry.configured ? (sentry.error ? "failing" : "connected") : "missing",
+        sub: sentry.error,
         severity: sentry.configured ? (sentry.error ? "warn" : "ok") : "warn",
       },
       { key: "sentry_unresolved", label: "Sentry unresolved", value: sentry.rows.length, severity: severityForThreshold(sentry.rows.length, 5, 15) },
@@ -771,7 +791,7 @@ export async function getMobileCommandCenterOverview(days: number): Promise<Comm
   const allMetrics = [ai, users, analytics, revenue, errors, security, feedback, ops].flatMap((payload) => payload.metrics || []);
   const alerts: LaunchAlert[] = [];
   for (const metric of allMetrics) {
-    if (metric.severity === "critical" || metric.severity === "warn") {
+    if (shouldCreateLaunchAlert(metric)) {
       alerts.push({
         key: metric.key,
         title: metric.label,
