@@ -186,7 +186,7 @@ function DataTable({ title, rows }: { title: string; rows: Array<Record<string, 
 
 function EnvStrip({ env }: { env?: Record<string, boolean> }) {
   const items = [
-    ["Supabase", env?.serviceRoleConfigured],
+    ["Supabase", env?.supabaseAdminConfigured],
     ["PostHog", env?.posthogConfigured],
     ["Sentry", env?.sentryConfigured],
     ["RevenueCat", env?.revenueCatConfigured],
@@ -389,7 +389,7 @@ export default function MobileCommandCenterPage() {
 
         <footer className="pb-8 text-xs text-neutral-500">
           {payload?.generatedAt ? `Updated ${new Date(payload.generatedAt).toLocaleString()}` : "Loading..."}.
-          Service-role and vendor data stays server-side; list views are masked by default.
+          Server-only database and vendor data stays server-side; list views are masked by default.
         </footer>
       </div>
     </main>

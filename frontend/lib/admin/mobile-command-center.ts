@@ -30,7 +30,7 @@ export type CommandCenterPayload = {
   generatedAt: string;
   days: number;
   env: {
-    serviceRoleConfigured: boolean;
+    supabaseAdminConfigured: boolean;
     posthogConfigured: boolean;
     sentryConfigured: boolean;
     revenueCatConfigured: boolean;
@@ -146,7 +146,7 @@ function envStatus() {
   const sentryConfigured = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
   const discordWebhook = getDiscordAdminWebhook();
   return {
-    serviceRoleConfigured: Boolean(getAdmin()),
+    supabaseAdminConfigured: Boolean(getAdmin()),
     posthogConfigured: Boolean(getPosthogQueryCredentials()),
     sentryConfigured,
     revenueCatConfigured: Boolean(
@@ -175,18 +175,18 @@ function missingDbPayload(days: number): CommandCenterPayload {
     env: envStatus(),
     metrics: [
       {
-        key: "service_role",
-        label: "Service role",
+        key: "supabase_admin",
+        label: "Supabase admin",
         value: "missing",
         severity: "critical",
-        sub: "Set SUPABASE_SERVICE_ROLE_KEY for admin rollups.",
+        sub: "Set the server-only Supabase admin key for admin rollups.",
       },
     ],
     alerts: [
       {
-        key: "missing_service_role",
-        title: "Supabase service role is not configured",
-        detail: "The cockpit can render, but live database metrics are unavailable without the server-only service role key.",
+        key: "missing_supabase_admin",
+        title: "Supabase admin client is not configured",
+        detail: "The cockpit can render, but live database metrics are unavailable without the server-only Supabase admin key.",
         severity: "critical",
         source: "config",
       },
