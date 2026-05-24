@@ -50,6 +50,8 @@ Routes:
 | GET | `/api/admin/mobile-command-center/feedback` | App AI reports and generic feedback caveats |
 | GET | `/api/admin/mobile-command-center/ops` | Bootstrap/config freshness and job/control links |
 | POST | `/api/admin/mobile-command-center/refresh-rollups` | Admin/cron-protected rollup refresh and optional Discord alert send |
+| POST | `/api/admin/mobile-command-center/test-discord` | Admin-only one-off Discord channel test |
+| GET | `/api/cron/mobile-command-center-rollups` | Cron-only hourly rollup refresh with deduped Discord alerts |
 
 Optional env:
 
@@ -61,6 +63,13 @@ Optional env:
 PostHog note: the browser key (`NEXT_PUBLIC_POSTHOG_KEY`) only sends events. The cockpit uses the Query API/HogQL, so it needs a server-only personal API key with `query:read` scope and the PostHog project ID. Use `POSTHOG_HOST=https://eu.posthog.com` for the EU app/API host; do not use the ingest host (`eu.i.posthog.com`) for Query API reads.
 
 Discord note: `DISCORD_ADMIN_ALERT_WEBHOOK` is preferred for launch alerts. The cockpit also accepts `DISCORD_APPSUB_WEBHOOK`, `DISCORD_APP_SUBS_WEBHOOK`, or `DISCORD_WEBHOOK_URL` as fallback env names so existing server-only webhook config can be reused.
+
+Discord send policy:
+
+- Normal page loads and `Refresh` do not send Discord messages.
+- `Rollups` refreshes cached snapshots and alert rows, but stays quiet.
+- `Test Discord` sends one explicit manual test message.
+- The hourly cron posts only current `warn` / `critical` launch alerts that are new, changed, escalated, unsent, or old enough for a reminder. Critical alerts can repeat after about 1 hour; warning alerts after about 6 hours.
 
 Migration: `db/migrations/115_mobile_command_center_rollups.sql`
 

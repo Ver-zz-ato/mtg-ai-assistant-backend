@@ -48,6 +48,8 @@ type JsonRecord = Record<string, unknown>;
 
 const AI_SELECT =
   "id,created_at,user_id,route,model,source,source_page,request_kind,layer0_mode,cache_hit,input_tokens,output_tokens,cost_usd,latency_ms,planner_cost_usd,error_code,is_guest,user_tier";
+const WARN_DISCORD_REMINDER_MS = 6 * 60 * 60 * 1000;
+const CRITICAL_DISCORD_REMINDER_MS = 60 * 60 * 1000;
 
 export function parseBoundedIntParam(
   value: string | null | undefined,
@@ -100,6 +102,40 @@ function sinceDays(days: number): string {
 function round(value: number, digits = 4): number {
   const factor = 10 ** digits;
   return Math.round((Number(value) || 0) * factor) / factor;
+}
+
+function alertDedupeKey(alert: LaunchAlert): string {
+  return `${alert.source}:${alert.key}`;
+}
+
+function severityRank(severity: Severity | string | null | undefined): number {
+  if (severity === "critical") return 3;
+  if (severity === "warn") return 2;
+  if (severity === "info") return 1;
+  return 0;
+}
+
+export function shouldSendDiscordAlert(
+  alert: LaunchAlert,
+  existing?: {
+    severity?: string | null;
+    detail?: string | null;
+    status?: string | null;
+    discord_sent_at?: string | null;
+  } | null,
+  nowMs = Date.now(),
+): boolean {
+  if (alert.severity !== "critical" && alert.severity !== "warn") return false;
+  if (existing?.status === "muted") return false;
+  if (!existing) return true;
+  if (severityRank(alert.severity) > severityRank(existing.severity)) return true;
+  if (String(existing.detail || "") !== alert.detail) return true;
+  if (!existing.discord_sent_at) return true;
+
+  const sentAt = new Date(existing.discord_sent_at).getTime();
+  if (!Number.isFinite(sentAt)) return true;
+  const reminderMs = alert.severity === "critical" ? CRITICAL_DISCORD_REMINDER_MS : WARN_DISCORD_REMINDER_MS;
+  return nowMs - sentAt >= reminderMs;
 }
 
 function pct(numerator: number, denominator: number): number {
@@ -811,7 +847,7 @@ async function writeAlerts(db: Db, alerts: LaunchAlert[], actorId: string | null
       alerts.map((alert) => ({
         severity: alert.severity,
         status: "open",
-        dedupe_key: alert.key,
+        dedupe_key: alertDedupeKey(alert),
         title: alert.title,
         detail: alert.detail,
         source: alert.source,
@@ -825,26 +861,92 @@ async function writeAlerts(db: Db, alerts: LaunchAlert[], actorId: string | null
   }
 }
 
-async function sendDiscordAlerts(alerts: LaunchAlert[]) {
+async function loadExistingAlerts(db: Db, alerts: LaunchAlert[]) {
+  const keys = alerts.map(alertDedupeKey);
+  if (!keys.length) return new Map<string, JsonRecord>();
+  try {
+    const { data, error } = await db
+      .from("admin_app_alerts")
+      .select("dedupe_key,severity,detail,status,discord_sent_at")
+      .in("dedupe_key", keys);
+    if (error) return new Map<string, JsonRecord>();
+    return new Map(((data || []) as JsonRecord[]).map((row) => [String(row.dedupe_key), row]));
+  } catch {
+    return new Map<string, JsonRecord>();
+  }
+}
+
+async function markDiscordAlertStatus(db: Db, alerts: LaunchAlert[], status: "sent" | "failed") {
+  const keys = alerts.map(alertDedupeKey);
+  if (!keys.length) return;
+  try {
+    await db
+      .from("admin_app_alerts")
+      .update({
+        discord_status: status,
+        discord_sent_at: status === "sent" ? nowIso() : null,
+      })
+      .in("dedupe_key", keys);
+  } catch {
+    // Alert status writes are best-effort.
+  }
+}
+
+async function sendDiscordAlerts(
+  alerts: LaunchAlert[],
+  options: { db?: Db; force?: boolean; reason?: string } = {},
+) {
   const webhook = getDiscordAdminWebhook();
   if (!webhook) return { attempted: false, sent: 0 };
-  const urgent = alerts.filter((alert) => alert.severity === "critical" || alert.severity === "warn").slice(0, 8);
-  if (!urgent.length) return { attempted: false, sent: 0 };
+  const urgent = alerts.filter((alert) => alert.severity === "critical" || alert.severity === "warn");
+  let sendable = urgent;
+  if (!options.force && options.db) {
+    const existing = await loadExistingAlerts(options.db, urgent);
+    sendable = urgent.filter((alert) => shouldSendDiscordAlert(alert, existing.get(alertDedupeKey(alert)) as any));
+  }
+  sendable = sendable.slice(0, 8);
+  const skipped = urgent.length - sendable.length;
+  if (!sendable.length) return { attempted: false, sent: 0, skipped };
   try {
     const res = await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         content: [
-          "**ManaTap mobile launch alerts**",
-          ...urgent.map((alert) => `- [${alert.severity}] ${alert.title}: ${alert.detail}`),
+          options.reason === "manual_test"
+            ? "**ManaTap launch alerts test**"
+            : "**ManaTap mobile launch alerts**",
+          ...sendable.map((alert) => `- [${alert.severity}] ${alert.title}: ${alert.detail}`),
         ].join("\n"),
       }),
     });
-    return { attempted: true, sent: res.ok ? urgent.length : 0, status: res.status };
+    if (options.db) await markDiscordAlertStatus(options.db, sendable, res.ok ? "sent" : "failed");
+    return { attempted: true, sent: res.ok ? sendable.length : 0, skipped, status: res.status };
   } catch {
-    return { attempted: true, sent: 0, status: "failed" };
+    if (options.db) await markDiscordAlertStatus(options.db, sendable, "failed");
+    return { attempted: true, sent: 0, skipped, status: "failed" };
   }
+}
+
+export async function sendMobileCommandCenterTestDiscord(actorId?: string | null) {
+  const db = getAdmin();
+  if (!db) return missingDbPayload(1);
+  const testAlert: LaunchAlert = {
+    key: "manual_discord_test",
+    title: "Manual Discord test",
+    detail: `Launch alert webhook verified${actorId ? ` by ${maskUserRef(actorId)}` : ""}.`,
+    severity: "warn",
+    source: "manual_test",
+  };
+  await writeAlerts(db, [testAlert], actorId || null);
+  const discord = await sendDiscordAlerts([testAlert], { db, force: true, reason: "manual_test" });
+  return {
+    generatedAt: nowIso(),
+    days: 1,
+    env: envStatus(),
+    alerts: [testAlert],
+    refresh: { ok: discord.sent > 0, discord },
+  };
 }
 
 export async function refreshMobileCommandCenterRollups(options: {
@@ -879,7 +981,9 @@ export async function refreshMobileCommandCenterRollups(options: {
     writeAlerts(db, overview.alerts || [], options.actorId || null),
   ]);
 
-  const discord = options.sendDiscord ? await sendDiscordAlerts(overview.alerts || []) : { attempted: false, sent: 0 };
+  const discord = options.sendDiscord
+    ? await sendDiscordAlerts(overview.alerts || [], { db, reason: "scheduled_rollup" })
+    : { attempted: false, sent: 0 };
   return {
     ...overview,
     refresh: {

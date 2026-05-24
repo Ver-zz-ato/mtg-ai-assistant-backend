@@ -214,6 +214,8 @@ export default function MobileCommandCenterPage() {
   const [payloads, setPayloads] = React.useState<Partial<Record<TabKey, Payload>>>({});
   const [loading, setLoading] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [testingDiscord, setTestingDiscord] = React.useState(false);
+  const [actionMessage, setActionMessage] = React.useState<string | null>(null);
 
   const payload = payloads[active];
 
@@ -230,6 +232,7 @@ export default function MobileCommandCenterPage() {
 
   async function refreshRollups(sendDiscord = false) {
     setRefreshing(true);
+    setActionMessage(null);
     try {
       const res = await fetch("/api/admin/mobile-command-center/refresh-rollups", {
         method: "POST",
@@ -238,9 +241,26 @@ export default function MobileCommandCenterPage() {
       });
       const json = (await res.json().catch(() => ({}))) as Payload;
       setPayloads((prev) => ({ ...prev, overview: json }));
+      setActionMessage(json.ok === false ? String(json.error || "Rollup refresh failed.") : "Rollups refreshed. Discord stayed quiet.");
       setActive("overview");
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function testDiscord() {
+    setTestingDiscord(true);
+    setActionMessage(null);
+    try {
+      const res = await fetch("/api/admin/mobile-command-center/test-discord", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const json = (await res.json().catch(() => ({}))) as Payload;
+      const sent = Number((json.refresh?.discord as { sent?: number } | undefined)?.sent || 0);
+      setActionMessage(res.ok && sent > 0 ? "Test Discord alert sent." : String(json.error || "Discord test did not send."));
+    } finally {
+      setTestingDiscord(false);
     }
   }
 
@@ -293,6 +313,14 @@ export default function MobileCommandCenterPage() {
               <Database className={`h-4 w-4 ${refreshing ? "animate-pulse" : ""}`} />
               Rollups
             </button>
+            <button
+              type="button"
+              onClick={testDiscord}
+              className="inline-flex items-center gap-2 rounded-lg border border-sky-700/60 bg-sky-950/30 px-3 py-2 text-sm text-sky-100 hover:bg-sky-900/30"
+            >
+              <MessageSquareWarning className={`h-4 w-4 ${testingDiscord ? "animate-pulse" : ""}`} />
+              Test Discord
+            </button>
           </div>
         </header>
 
@@ -322,6 +350,10 @@ export default function MobileCommandCenterPage() {
 
         {payload?.error ? (
           <div className="rounded-lg border border-red-800 bg-red-950/30 p-3 text-sm text-red-100">{payload.error}</div>
+        ) : null}
+
+        {actionMessage ? (
+          <div className="rounded-lg border border-sky-800 bg-sky-950/25 p-3 text-sm text-sky-100">{actionMessage}</div>
         ) : null}
 
         <MetricGrid metrics={payload?.metrics} />

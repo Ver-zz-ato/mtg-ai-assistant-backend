@@ -15,7 +15,7 @@
 | cleanup-shared-links | `/api/cron/cleanup-shared-links` | 06:15 daily |
 | ops-report/daily | `/api/cron/ops-report/daily` | 06:00 daily |
 | ops-report/weekly | `/api/cron/ops-report/weekly` | 07:00 Sundays |
-| mobile-command-center-rollups | `/api/admin/mobile-command-center/refresh-rollups` | optional: every 15-60 min during launch |
+| mobile-command-center-rollups | `/api/cron/mobile-command-center-rollups` | hourly during launch |
 | budget-swaps-update | `/api/cron/budget-swaps-update` | 03:00 Sundays |
 | mtg-legality-refresh | `/api/cron/mtg-legality-refresh` | 02:00 Sundays |
 | update-banned-lists | `/api/cron/update-banned-lists` | legacy / manual (optional) |
@@ -26,7 +26,7 @@
 - **Vercel schedule:** set **`CRON_SECRET`** in the Vercel project env. Vercel sends `Authorization: Bearer <CRON_SECRET>` on cron invocations ([docs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs)).
 - **Manual / scripts / admin cron runner:** use the same `Authorization: Bearer <CRON_SECRET>` header.
 - **Temporary compatibility only:** some routes still accept `?key=<CRON_SECRET>` to avoid breaking existing manual callers during migration. Remove this once all callers are updated.
-- **Mobile Command Center rollups:** `POST /api/admin/mobile-command-center/refresh-rollups` accepts admin session auth or `Authorization: Bearer <CRON_SECRET>` / `ADMIN_CRON_SECRET`. Set `sendDiscord=true` only for a deliberate alert test or launch monitoring window.
+- **Mobile Command Center rollups:** Vercel calls `GET /api/cron/mobile-command-center-rollups` hourly with `Authorization: Bearer <CRON_SECRET>`. This refreshes private rollups and sends deduped Discord launch alerts. Manual admin refresh stays quiet by default; the cockpit has a separate `Test Discord` button for one-off channel verification.
 
 ## Manual run
 

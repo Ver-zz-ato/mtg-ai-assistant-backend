@@ -147,6 +147,16 @@ export const ADMIN_ROUTE_CATALOG: AdminRouteMeta[] = [
     healthCheck: "skip-write",
   },
   {
+    path: "/api/admin/mobile-command-center/test-discord",
+    methods: ["POST"],
+    category: "Ops",
+    risk: "medium",
+    authRequired: true,
+    writes: true,
+    description: "Sends a one-off Mobile Command Center Discord test alert.",
+    healthCheck: "skip-write",
+  },
+  {
     path: "/api/admin/app-ai-feedback",
     methods: ["GET"],
     category: "App",
