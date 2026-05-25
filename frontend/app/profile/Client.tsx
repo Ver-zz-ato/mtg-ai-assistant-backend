@@ -19,6 +19,7 @@ import { WEBSITE_APP_PRICING_NOTE } from "@/lib/pricing-copy";
 import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 import { badgeRarityLabel, getBadgeRarityClasses, type BadgeRarity } from "@/lib/badges/rarity-ui";
+import QRShareModal from "@/components/share/QRShareModal";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
@@ -154,6 +155,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
   const [wishlist, setWishlist] = useState<string>("");
   const [tools, setTools] = useState<{ prob_runs?:number; prob_saves?:number; mull_iters_total?:number }>({});
   const [customCard, setCustomCard] = useState<any>(null);
+  const [profileShareQrUrl, setProfileShareQrUrl] = useState("");
 
   const [usage, setUsage] = useState<Usage | null>(null);
   const [deckCount, setDeckCount] = useState<number>(0);
@@ -683,9 +685,16 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 <div className="text-lg font-semibold">Share</div>
                 <div className="text-sm opacity-80">Click to generate a public link to show off your decks and badges.</div>
                 <div className="flex items-center gap-2">
-                  <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: true }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) { navigator.clipboard?.writeText?.(j.url); alert('Share link copied to clipboard'); } else { alert(j?.error || 'Share failed'); } } catch (e:any) { alert(e?.message || 'Share failed'); } }} className="px-3 py-2 rounded bg-white text-black text-sm">Share my profile</button>
+                  <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: true }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) { navigator.clipboard?.writeText?.(j.url); setProfileShareQrUrl(String(j.url || '')); alert('Share link copied to clipboard'); } else { alert(j?.error || 'Share failed'); } } catch (e:any) { alert(e?.message || 'Share failed'); } }} className="px-3 py-2 rounded bg-white text-black text-sm">Share my profile</button>
                   <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: false }) }); const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Unshare failed'); alert('Profile set to private'); } catch (e:any) { alert(e?.message || 'Unshare failed'); } }} className="px-3 py-2 rounded bg-neutral-800 text-neutral-200 text-sm">Disable sharing</button>
                 </div>
+                <QRShareModal
+                  open={Boolean(profileShareQrUrl)}
+                  url={profileShareQrUrl}
+                  title="Share profile"
+                  description="Scan to open your public profile."
+                  onClose={() => setProfileShareQrUrl("")}
+                />
               </section>
 
               {/* Pricing/Upgrade Section - show for non-pro users or as general info */}

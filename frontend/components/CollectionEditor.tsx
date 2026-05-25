@@ -15,6 +15,7 @@ import { SetIcon, RarityPill } from "@/components/shared/SetRarity";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import CardAutocomplete from "@/components/CardAutocomplete";
 import CollectionCardDetailModal from "@/components/CollectionCardDetailModal";
+import QRShareModal from "@/components/share/QRShareModal";
 import {
   getDeckUsageForCard,
   type DeckUsageByKey,
@@ -193,6 +194,7 @@ function WishlistCompareCard({ collectionId, currency }: { collectionId: string;
 function ExportShareCard({ collectionId }: { collectionId: string }){
   const [isPublic, setIsPublic] = React.useState(false);
   const [slug, setSlug] = React.useState('');
+  const [showQr, setShowQr] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [slugOk, setSlugOk] = React.useState<undefined|boolean>(undefined);
   const [checking, setChecking] = React.useState(false);
@@ -320,10 +322,18 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
           {url && (
             <div className="flex items-center gap-2">
               <button onClick={copyLink} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">Copy link</button>
+              <button onClick={()=>setShowQr(true)} className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-xs">Show QR</button>
             </div>
           )}
         </div>
       )}
+      <QRShareModal
+        open={showQr}
+        url={url}
+        title="Share collection"
+        description="Scan to open this public binder."
+        onClose={()=>setShowQr(false)}
+      />
       <div className="border-t border-neutral-800 pt-3 space-y-2">
         <div className="text-sm font-medium">Exports</div>
         <div className="grid grid-cols-2 gap-2 text-xs">

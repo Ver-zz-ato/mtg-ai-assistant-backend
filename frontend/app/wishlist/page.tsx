@@ -14,6 +14,7 @@ import { getImagesForNames } from "@/lib/scryfall-cache";
 import { EmptyWishlistState } from "@/components/EmptyStates";
 import WishlistSkeleton from "@/components/WishlistSkeleton";
 import { useProStatus } from "@/hooks/useProStatus";
+import QRShareModal from "@/components/share/QRShareModal";
 
 type CurrencyCode = 'USD' | 'EUR' | 'GBP';
 type WishlistOption = { id: string; name: string; is_public?: boolean };
@@ -104,6 +105,7 @@ export default function WishlistPage() {
 function WishlistEditor() {
   const [wishlists, setWishlists] = React.useState<WishlistOption[]>([]);
   const [wishlistId, setWishlistId] = React.useState<string>('');
+  const [shareQrUrl, setShareQrUrl] = React.useState("");
   // Use global currency prefs
   const { currency: globalCurrency, setCurrency: setGlobalCurrency } = usePrefs();
   const currency = (globalCurrency as CurrencyCode | undefined) || 'USD';
@@ -621,6 +623,7 @@ function WishlistEditor() {
                       // Copy share link if making public
                       if (!isPublic && json.url) {
                         await navigator.clipboard.writeText(json.url);
+                        setShareQrUrl(String(json.url));
                         const { toast } = await import('@/lib/toast-client');
                         toast('Wishlist is now public! Share link copied to clipboard.', 'success');
                       } else {
@@ -644,6 +647,18 @@ function WishlistEditor() {
                   <span>{wishlists.find(w => w.id === wishlistId)?.is_public ? "Private" : "Share"}</span>
                 </span>
               </button>
+              {wishlistId && wishlists.find(w => w.id === wishlistId)?.is_public ? (
+                <button
+                  onClick={() => {
+                    const origin = typeof location !== 'undefined' ? location.origin : 'https://www.manatap.ai';
+                    setShareQrUrl(`${origin}/wishlist/${wishlistId}`);
+                  }}
+                  className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-medium transition-all"
+                  title="Show wishlist QR code"
+                >
+                  Show QR
+                </button>
+              ) : null}
             </>
           )}
         </div>
@@ -1313,6 +1328,13 @@ function WishlistEditor() {
           </div>
         </div>
       )}
+      <QRShareModal
+        open={Boolean(shareQrUrl)}
+        url={shareQrUrl}
+        title="Share wishlist"
+        description="Scan to open this public wishlist."
+        onClose={() => setShareQrUrl("")}
+      />
     </div>
   );
 }

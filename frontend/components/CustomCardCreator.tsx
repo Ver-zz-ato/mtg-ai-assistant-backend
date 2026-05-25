@@ -4,6 +4,7 @@ import { containsProfanity } from "@/lib/profanity";
 import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
 import { capture } from "@/lib/ph";
 import { AnalyticsEvents } from "@/lib/analytics/events";
+import QRShareModal from "@/components/share/QRShareModal";
 
 // Preset name blocks
 const PREFIX = ["Dr.","Lord","Lady","Captain","Sir","Arch-","Grand","Shadow","Iron","Flame","Night","Star","Void","Storm","Bone","Blood","Rune","Sky","Stone","Wild"];
@@ -33,6 +34,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
   const [artError, setArtError] = React.useState<string | null>(null);
   const [userEditedSub, setUserEditedSub] = React.useState(false);
   const [shareUrl, setShareUrl] = React.useState<string | null>(null);
+  const [showShareQr, setShowShareQr] = React.useState(false);
 
   // Single value object powering the editor
   const [value, setValue] = React.useState({
@@ -432,10 +434,19 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
             <>
               {' '}
               • <a href={shareUrl} target="_blank" rel="noreferrer" className="underline">Open now</a>
+              {' '}
+              • <button type="button" onClick={()=>setShowShareQr(true)} className="underline">Show QR</button>
             </>
           )}
         </div>
       )}
+      <QRShareModal
+        open={Boolean(showShareQr && shareUrl)}
+        url={shareUrl || ""}
+        title="Share custom card"
+        description="Scan to open this custom card."
+        onClose={()=>setShowShareQr(false)}
+      />
     </div>
   );
 }

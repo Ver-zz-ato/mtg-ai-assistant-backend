@@ -1,17 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import { Copy, ExternalLink, QrCode, Send, Share2 } from 'lucide-react';
 import { capture } from '@/lib/ph';
 import { track } from '@/lib/analytics/track';
 import { useAuth } from '@/lib/auth-context';
 import { useProStatus } from '@/hooks/useProStatus';
+import QRShareModal from '@/components/share/QRShareModal';
 
 interface ShareButtonProps {
   url: string;
   title?: string;
   description?: string;
   className?: string;
-  type?: 'deck' | 'profile' | 'collection';
+  type?: 'deck' | 'profile' | 'collection' | 'wishlist' | 'roast' | 'health report' | 'analysis' | 'custom card' | 'card';
   isPublic?: boolean;
   onMakePublic?: () => void;
   compact?: boolean;
@@ -28,6 +30,7 @@ export default function ShareButton({
   compact = false
 }: ShareButtonProps) {
   const [showOptions, setShowOptions] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const [copiedRecently, setCopiedRecently] = useState(false);
   const { user } = useAuth();
   const { isPro } = useProStatus();
@@ -112,6 +115,18 @@ export default function ShareButton({
     setShowOptions(false);
   };
 
+  const handleShowQr = () => {
+    try {
+      capture('content_shared', {
+        content_type: type,
+        share_method: 'qr',
+        content_url: url
+      });
+    } catch {}
+    setShowQr(true);
+    setShowOptions(false);
+  };
+
   const handleExternalShare = (platform: string) => {
     const encodedUrl = encodeURIComponent(url);
     const encodedTitle = encodeURIComponent(title);
@@ -158,20 +173,23 @@ export default function ShareButton({
         >
           {copiedRecently ? (
             <>
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
+              <Copy className="h-3 w-3" aria-hidden="true" />
               Copied!
             </>
           ) : (
             <>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-              </svg>
+              <Share2 className="h-3 w-3" aria-hidden="true" />
               Share
             </>
           )}
         </button>
+        <QRShareModal
+          open={showQr}
+          url={url}
+          title={`Share ${type}`}
+          description={title}
+          onClose={() => setShowQr(false)}
+        />
       </div>
     );
   }
@@ -184,16 +202,12 @@ export default function ShareButton({
       >
         {copiedRecently ? (
           <>
-            <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
+            <Copy className="h-4 w-4 text-green-600" aria-hidden="true" />
             Copied!
           </>
         ) : (
           <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-            </svg>
+            <Share2 className="h-4 w-4" aria-hidden="true" />
             Share {type}
           </>
         )}
@@ -208,10 +222,16 @@ export default function ShareButton({
               onClick={handleCopy}
               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-              </svg>
+              <Copy className="h-4 w-4" aria-hidden="true" />
               Copy link
+            </button>
+
+            <button
+              onClick={handleShowQr}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+            >
+              <QrCode className="h-4 w-4" aria-hidden="true" />
+              Show QR
             </button>
 
             {'share' in navigator && (
@@ -219,9 +239,7 @@ export default function ShareButton({
                 onClick={handleNativeShare}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
+                <Send className="h-4 w-4" aria-hidden="true" />
                 Share via device
               </button>
             )}
@@ -248,7 +266,7 @@ export default function ShareButton({
               onClick={() => handleExternalShare('twitter')}
               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
             >
-              <div className="w-4 h-4 bg-blue-400 rounded"></div>
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
               Share on Twitter
             </button>
           </div>
@@ -261,6 +279,13 @@ export default function ShareButton({
           onClick={() => setShowOptions(false)}
         />
       )}
+      <QRShareModal
+        open={showQr}
+        url={url}
+        title={`Share ${type}`}
+        description={title}
+        onClose={() => setShowQr(false)}
+      />
     </div>
   );
 }
