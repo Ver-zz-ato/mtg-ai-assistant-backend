@@ -98,7 +98,7 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         href: "/compare-decks",
         title: "Deck Compare",
         subtitle: "Compare two or three decks side by side.",
-        badge: "Pro",
+        badge: "Free",
         icon: GitCompare,
         accent: "text-cyan-200 border-cyan-300/25 bg-cyan-300/10",
         priority: "recommended",

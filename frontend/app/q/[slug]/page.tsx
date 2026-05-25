@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getSeoPageBySlug } from "@/lib/seo-pages";
-import { getCommanderBySlug, getFirst50CommanderSlugs } from "@/lib/commanders";
-import { getTopCards } from "@/lib/top-cards";
+import { getCommanderBySlug, getCommanderCatalogSlugs } from "@/lib/commanders";
 import { CommanderMulliganLanding } from "@/components/seo-landing/CommanderMulliganLanding";
 import { CommanderBudgetLanding } from "@/components/seo-landing/CommanderBudgetLanding";
 import { CommanderCostLanding } from "@/components/seo-landing/CommanderCostLanding";
@@ -18,6 +17,8 @@ import { InternalLinkBlocks } from "@/components/seo-landing/InternalLinkBlocks"
 import { SeoLandingAnalytics } from "@/components/seo-landing/SeoLandingAnalytics";
 import { CommanderActionBar } from "@/components/commander/CommanderActionBar";
 import { getCostLandingData } from "@/lib/seo/cost-landing-data";
+import { getGlobalMetaCards, getGlobalMetaCommanders } from "@/lib/meta/global-meta-entities";
+import { getSeoCardMetaFacts, getSeoCommanderMetaFacts } from "@/lib/seo/meta-facts";
 
 const BASE = "https://www.manatap.ai";
 
@@ -68,49 +69,110 @@ export default async function QueryLandingPage({ params }: Props) {
 
   const commanderName = p.commander_slug ? (getCommanderBySlug(p.commander_slug)?.name ?? toTitle(p.commander_slug)) : null;
 
-  const commanderSlugs = getFirst50CommanderSlugs();
-  const topCards = await getTopCards();
-  const commanderNames = new Map(commanderSlugs.map((s) => [s, getCommanderBySlug(s)?.name ?? toTitle(s)]));
+  const commanderSlugs = getCommanderCatalogSlugs();
+  const [
+    globalCards,
+    globalCommanders,
+    cardFacts,
+    commanderFacts,
+    costData,
+  ] = await Promise.all([
+    getGlobalMetaCards(),
+    getGlobalMetaCommanders(),
+    p.card_name
+      ? getSeoCardMetaFacts(p.card_name, slug.replace(/-(price|decks)$/, ""))
+      : Promise.resolve({ card: null, relatedCards: [] }),
+    p.commander_slug
+      ? getSeoCommanderMetaFacts(p.commander_slug)
+      : Promise.resolve({ commander: null, relatedCommanders: [] }),
+    p.template === "commander_cost" && p.commander_slug
+      ? getCostLandingData(p.commander_slug)
+      : Promise.resolve({ costSnapshot: null, costDrivers: [], deckCount: 0 }),
+  ]);
 
-  const costData = p.template === "commander_cost" && p.commander_slug
-    ? await getCostLandingData(p.commander_slug)
-    : { costSnapshot: null, costDrivers: [], deckCount: 0 };
+  const fallbackCommanderLinks =
+    globalCommanders.length > 0
+      ? globalCommanders.slice(0, 6).map((row) => ({
+          slug: row.slug,
+          name: row.name,
+        }))
+      : commanderSlugs.slice(0, 6).map((slugValue) => ({
+          slug: slugValue,
+          name: getCommanderBySlug(slugValue)?.name ?? toTitle(slugValue),
+        }));
+  const fallbackCardLinks = globalCards.slice(0, 6).map((card) => ({
+    slug: card.slug,
+    name: card.name,
+  }));
+
+  const internalCommanders =
+    commanderFacts.relatedCommanders.length > 0
+      ? commanderFacts.relatedCommanders.map((row) => ({
+          slug: row.slug,
+          name: row.name,
+        }))
+      : fallbackCommanderLinks;
+  const internalCards =
+    cardFacts.relatedCards.length > 0
+      ? cardFacts.relatedCards.map((row) => ({
+          slug: row.slug,
+          name: row.name,
+        }))
+      : fallbackCardLinks;
+  const metaLinks =
+    p.card_name != null
+      ? [
+          { href: "/meta/most-played-cards", label: "Most Played Cards" },
+          { href: "/meta/trending-cards", label: "Trending Cards" },
+          { href: "/cards", label: "Card Search" },
+        ]
+      : p.commander_slug != null
+        ? [
+            { href: "/meta/most-played-commanders", label: "Most Played Commanders" },
+            { href: "/meta/trending-commanders", label: "Trending Commanders" },
+            { href: "/commanders", label: "Commander Browser" },
+          ]
+        : [
+            { href: "/meta", label: "Meta" },
+            { href: "/meta/trending-cards", label: "Trending Cards" },
+            { href: "/meta/trending-commanders", label: "Trending Commanders" },
+          ];
 
   function renderContent() {
     switch (p.template) {
       case "commander_mulligan":
         return commanderName && p.commander_slug ? (
-          <CommanderMulliganLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} />
+          <CommanderMulliganLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} metaFacts={commanderFacts.commander} />
         ) : (
           <GuideGenericLanding query={p.query} slug={slug} />
         );
       case "commander_budget":
         return commanderName && p.commander_slug ? (
-          <CommanderBudgetLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} />
+          <CommanderBudgetLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} metaFacts={commanderFacts.commander} />
         ) : (
           <GuideGenericLanding query={p.query} slug={slug} />
         );
       case "commander_cost":
         return commanderName && p.commander_slug ? (
-          <CommanderCostLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} costData={costData} />
+          <CommanderCostLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} costData={costData} metaFacts={commanderFacts.commander} />
         ) : (
           <GuideGenericLanding query={p.query} slug={slug} />
         );
       case "commander_best_cards":
         return commanderName && p.commander_slug ? (
-          <CommanderBestCardsLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} />
+          <CommanderBestCardsLanding commanderSlug={p.commander_slug} commanderName={commanderName} query={p.query} slug={slug} metaFacts={commanderFacts.commander} />
         ) : (
           <GuideGenericLanding query={p.query} slug={slug} />
         );
       case "card_price":
         return p.card_name ? (
-          <CardPriceLanding cardName={p.card_name} cardSlug={slug.replace(/-price$/, "")} query={p.query} slug={slug} />
+          <CardPriceLanding cardName={p.card_name} cardSlug={slug.replace(/-price$/, "")} query={p.query} slug={slug} metaFacts={cardFacts.card} />
         ) : (
           <GuideGenericLanding query={p.query} slug={slug} />
         );
       case "card_decks":
         return p.card_name ? (
-          <CardDecksLanding cardName={p.card_name} cardSlug={slug.replace(/-decks$/, "")} query={p.query} slug={slug} />
+          <CardDecksLanding cardName={p.card_name} cardSlug={slug.replace(/-decks$/, "")} query={p.query} slug={slug} metaFacts={cardFacts.card} />
         ) : (
           <GuideGenericLanding query={p.query} slug={slug} />
         );
@@ -149,7 +211,7 @@ export default async function QueryLandingPage({ params }: Props) {
           </p>
         )}
         {renderContent()}
-        <InternalLinkBlocks commanderSlugs={commanderSlugs} commanderNames={commanderNames} topCards={topCards} />
+        <InternalLinkBlocks commanders={internalCommanders} cards={internalCards} metaLinks={metaLinks} />
       </article>
     </main>
   );

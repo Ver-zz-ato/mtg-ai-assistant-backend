@@ -3,9 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getCommanderSlugsWithUpdatedAt } from "@/lib/commanders";
 import { ARCHETYPES } from "@/lib/data/archetypes";
 import { STRATEGIES } from "@/lib/data/strategies";
-import { getTopCards } from "@/lib/top-cards";
 import { getPublishedSeoPagesForSitemap } from "@/lib/seo-pages";
 import { DEFAULT_BLOG_POSTS } from "@/lib/blog-defaults";
+import { getGlobalMetaCards } from "@/lib/meta/global-meta-entities";
 
 const BASE = "https://www.manatap.ai";
 const CONTENT_PAGES = ["mulligan-guide", "budget-upgrades", "best-cards"] as const;
@@ -216,13 +216,13 @@ export default async function sitemap(props: {
     }
 
     case "cards": {
-      const topCards = await getTopCards().catch(() => []);
+      const topCards = await getGlobalMetaCards(250).catch(() => []);
       const now = new Date();
       const entries = [
         { url: `${BASE}/cards`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.7 },
         ...topCards.map((c) => ({
           url: `${BASE}/cards/${c.slug}`,
-          lastModified: c.updated_at ? new Date(c.updated_at) : now,
+          lastModified: now,
           changeFrequency: "weekly" as const,
           priority: 0.5,
         })),

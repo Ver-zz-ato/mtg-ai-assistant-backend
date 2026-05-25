@@ -1,16 +1,24 @@
 import Link from "next/link";
 import { CTAPanel } from "./CTAPanel";
 import { ExploreLinks } from "./ExploreLinks";
+import type { GlobalMetaCardEntity } from "@/lib/meta/global-meta-entities";
 
 type Props = {
   cardName: string;
   cardSlug: string;
   query: string;
   slug: string;
+  metaFacts?: GlobalMetaCardEntity | null;
 };
 
-export function CardPriceLanding({ cardName, cardSlug, query, slug }: Props) {
-  const intro = `${cardName} price fluctuates with demand, reprints, and format changes. Commander staples like ${cardName} can spike when they're featured in new decks or when supply runs low. To get accurate pricing, check ManaTap's card page and price tracker.
+export function CardPriceLanding({ cardName, cardSlug, query, slug, metaFacts }: Props) {
+  const rankLine = metaFacts?.mostPlayedRank
+    ? `${cardName} is currently one of the most-played Commander cards in ManaTap's global meta view, sitting around rank #${metaFacts.mostPlayedRank}.`
+    : `${cardName} price fluctuates with demand, reprints, and format changes.`;
+  const trendLine = metaFacts?.isTrending
+    ? `${cardName} is also showing up in the trending cards signal, which usually means more players are testing or revisiting it right now.`
+    : `Commander staples like ${cardName} can move when they pick up fresh demand or when supply tightens after a reprint window closes.`;
+  const intro = `${rankLine} ${trendLine} To get accurate pricing, check ManaTap's card page and price tracker.
 
 The Card page for ${cardName} shows current price estimates when available. You can browse real Commander decks that use the card to see how popular it is. The Cost to Finish tool lets you estimate the total cost of a decklist including ${cardName}.
 

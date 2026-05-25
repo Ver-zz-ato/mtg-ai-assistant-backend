@@ -3,6 +3,7 @@ import { CTAPanel } from "./CTAPanel";
 import { ExploreLinks } from "./ExploreLinks";
 import { CostLandingCalculator } from "./CostLandingCalculator";
 import type { CostLandingData } from "@/lib/seo/cost-landing-data";
+import type { GlobalMetaCommanderEntity } from "@/lib/meta/global-meta-entities";
 
 function cardNameToSlug(name: string): string {
   return name
@@ -21,12 +22,19 @@ type Props = {
   query: string;
   slug: string;
   costData: CostLandingData;
+  metaFacts?: GlobalMetaCommanderEntity | null;
 };
 
-export function CommanderCostLanding({ commanderSlug, commanderName, query, slug, costData }: Props) {
+export function CommanderCostLanding({ commanderSlug, commanderName, query, slug, costData, metaFacts }: Props) {
   const { costSnapshot, costDrivers } = costData;
 
-  const intro = `How much does a ${commanderName} deck cost? The answer depends on your build. Commander decks can range from under $50 to thousands of dollars. The cost is driven by the cards you choose—mana staples, tutors, and format-defining cards add up quickly.
+  const metaLine = metaFacts?.mostPlayedRank
+    ? `${commanderName} is currently around rank #${metaFacts.mostPlayedRank} in the most-played commander signal, so this is a commander with a meaningful amount of active deck data behind it.`
+    : `How much does a ${commanderName} deck cost? The answer depends on your build.`;
+  const trendLine = metaFacts?.isTrending
+    ? `${commanderName} is also trending, which can nudge card demand and tighten the spread between budget and tuned builds.`
+    : `Commander decks can range from under $50 to thousands of dollars. The cost is driven by the cards you choose—mana staples, tutors, and format-defining cards add up quickly.`;
+  const intro = `${metaLine} ${trendLine}
 
 To estimate your deck's cost, you need accurate card prices. ManaTap's Cost to Finish tool uses live price data to calculate the total cost of your decklist. Paste your list or load from your account. You can subtract cards you already own from a collection to see your true cost to finish. Multiple currencies are supported.
 

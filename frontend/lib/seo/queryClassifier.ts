@@ -62,12 +62,12 @@ function findCommanderInQuery(query: string): string | null {
   return best?.slug ?? null;
 }
 
-function findCardInQuery(query: string, topCardNames: string[]): { name: string; slug: string } | null {
+function findCardInQuery(query: string, cardNames: string[]): { name: string; slug: string } | null {
   const q = norm(query);
   function toSlug(n: string): string {
     return n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   }
-  for (const name of topCardNames) {
+  for (const name of cardNames) {
     const nameNorm = norm(name);
     const slug = toSlug(name);
     if (q.includes(nameNorm) || q.includes(slug)) return { name, slug };
@@ -111,16 +111,16 @@ const TOOL_TERMS = [
 
 export function classifyQuery(
   query: string,
-  options?: { topCardNames?: string[] }
+  options?: { cardNames?: string[] }
 ): ClassifierResult | null {
   const raw = String(query ?? "").trim();
   if (!raw || raw.length > 300) return null;
 
   const normalized = norm(raw);
-  const topCardNames = options?.topCardNames ?? [];
+  const cardNames = options?.cardNames ?? [];
 
   const commanderSlug = findCommanderInQuery(raw);
-  const cardMatch = findCardInQuery(raw, topCardNames);
+  const cardMatch = findCardInQuery(raw, cardNames);
   const archetypeSlug = findArchetypeInQuery(raw);
   const strategySlug = findStrategyInQuery(raw);
 

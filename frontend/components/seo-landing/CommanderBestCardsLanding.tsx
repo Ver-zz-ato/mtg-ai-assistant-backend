@@ -1,16 +1,24 @@
 import Link from "next/link";
 import { CTAPanel } from "./CTAPanel";
 import { ExploreLinks } from "./ExploreLinks";
+import type { GlobalMetaCommanderEntity } from "@/lib/meta/global-meta-entities";
 
 type Props = {
   commanderSlug: string;
   commanderName: string;
   query: string;
   slug: string;
+  metaFacts?: GlobalMetaCommanderEntity | null;
 };
 
-export function CommanderBestCardsLanding({ commanderSlug, commanderName, query, slug }: Props) {
-  const intro = `The best cards for ${commanderName} depend on your strategy and deck construction. Every Commander deck needs core categories: ramp, card draw, removal, and creatures that synergize with your commander. What makes a card "best" for ${commanderName} is how well it supports the commander's unique abilities.
+export function CommanderBestCardsLanding({ commanderSlug, commanderName, query, slug, metaFacts }: Props) {
+  const rankLine = metaFacts?.mostPlayedRank
+    ? `${commanderName} sits around rank #${metaFacts.mostPlayedRank} in the most-played commander signal, so the "best cards" question has a real deckbuilding sample behind it.`
+    : `The best cards for ${commanderName} depend on your strategy and deck construction.`;
+  const trendLine = metaFacts?.isTrending
+    ? `${commanderName} is also trending right now, which usually means players are refining stock lists and testing new staples around it.`
+    : `What makes a card "best" for ${commanderName} is how well it supports the commander's unique abilities.`;
+  const intro = `${rankLine} ${trendLine}
 
 ManaTap's Commander Hub shows top cards for ${commanderName} based on real Commander decks. You can see what other players are running and how often key cards appear. The Best Cards page for each commander highlights staples and synergies specific to that build.
 

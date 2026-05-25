@@ -1,16 +1,24 @@
 import Link from "next/link";
 import { CTAPanel } from "./CTAPanel";
 import { ExploreLinks } from "./ExploreLinks";
+import type { GlobalMetaCommanderEntity } from "@/lib/meta/global-meta-entities";
 
 type Props = {
   commanderSlug: string;
   commanderName: string;
   query: string;
   slug: string;
+  metaFacts?: GlobalMetaCommanderEntity | null;
 };
 
-export function CommanderBudgetLanding({ commanderSlug, commanderName, query, slug }: Props) {
-  const intro = `Building a budget ${commanderName} deck is a great way to get into Commander without breaking the bank. Budget decks can compete at casual tables by focusing on core synergies and avoiding expensive staples. The key is finding the right balance between power and cost.
+export function CommanderBudgetLanding({ commanderSlug, commanderName, query, slug, metaFacts }: Props) {
+  const rankLine = metaFacts?.mostPlayedRank
+    ? `${commanderName} is established enough in the current commander meta to show up near rank #${metaFacts.mostPlayedRank}, which gives budget builders a real sample of lists to learn from.`
+    : `Building a budget ${commanderName} deck is a great way to get into Commander without breaking the bank.`;
+  const trendLine = metaFacts?.isTrending
+    ? `${commanderName} is also trending, so cheaper substitutes and clean upgrade priorities matter even more while more players are picking it up.`
+    : `Budget decks can compete at casual tables by focusing on core synergies and avoiding expensive staples.`;
+  const intro = `${rankLine} ${trendLine}
 
 Start with the commander's core strategy. ${commanderName} has specific strengths—identify the essential cards and look for cheaper alternatives. Mana rocks like Sol Ring and Arcane Signet are affordable; skip Mana Crypt and Mana Vault if you're on a budget. Card draw, removal, and ramp can all be found at low price points if you know where to look.
 

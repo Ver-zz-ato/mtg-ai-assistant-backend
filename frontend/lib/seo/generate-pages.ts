@@ -5,10 +5,10 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { classifyQuery } from "@/lib/seo/queryClassifier";
-import { getTopCards } from "@/lib/top-cards";
-import { getFirst50CommanderSlugs } from "@/lib/commanders";
+import { getCommanderCatalogSlugs } from "@/lib/commanders";
 import { ARCHETYPES } from "@/lib/data/archetypes";
 import { STRATEGIES } from "@/lib/data/strategies";
+import { getGlobalMetaCards } from "@/lib/meta/global-meta-entities";
 
 const MAX_QUERIES = 500;
 const DEFAULT_LIMIT = 500;
@@ -76,10 +76,10 @@ function computeQualityScore(
 export async function generateSeoPages(admin: SupabaseClient, limit = DEFAULT_LIMIT): Promise<{ generated: number; slugs: string[] }> {
   const capLimit = Math.min(limit, MAX_QUERIES);
 
-  const topCards = await getTopCards();
-  const topCardNames = topCards.map((c) => c.card_name);
-  const topCardSlugs = topCards.map((c) => c.slug);
-  const commanderSlugs = getFirst50CommanderSlugs();
+  const globalCards = await getGlobalMetaCards();
+  const cardNames = globalCards.map((c) => c.name);
+  const cardSlugs = globalCards.map((c) => c.slug);
+  const commanderSlugs = getCommanderCatalogSlugs();
   const archetypeSlugs = ARCHETYPES.map((a) => a.slug);
   const strategySlugs = STRATEGIES.map((s) => s.slug);
 
@@ -112,10 +112,10 @@ export async function generateSeoPages(admin: SupabaseClient, limit = DEFAULT_LI
   }> = [];
 
   for (const row of queries as Array<{ query: string; clicks: number; impressions: number }>) {
-    const result = classifyQuery(row.query, { topCardNames });
+    const result = classifyQuery(row.query, { cardNames });
     if (!result || result.confidence === "low") continue;
 
-    if (canonicalExists(result.type, result.entities, commanderSlugs, archetypeSlugs, strategySlugs, topCardSlugs)) continue;
+    if (canonicalExists(result.type, result.entities, commanderSlugs, archetypeSlugs, strategySlugs, cardSlugs)) continue;
 
     const qualityScore = computeQualityScore(result, row.query);
     if (qualityScore < 1) continue;
@@ -142,7 +142,14 @@ export async function generateSeoPages(admin: SupabaseClient, limit = DEFAULT_LI
                 ? `${result.entities.strategySlug} Commander Strategy`
                 : row.query;
 
-    const description = `Discover ${row.query} on ManaTap. Browse decks, mulligan tools, cost to finish, and budget swaps.`;
+    const description =
+      result.type === "card_price" && result.entities.cardName
+        ? `Check ${result.entities.cardName} price context on ManaTap, including global Commander meta signals, card details, and related deck-building tools.`
+        : result.type === "card_decks" && result.entities.cardName
+          ? `See how ${result.entities.cardName} fits into Commander decks on ManaTap with global meta context, card details, and related tools.`
+          : result.type.startsWith("commander_") && result.entities.commanderSlug
+            ? `Explore ${result.entities.commanderSlug.replace(/-/g, " ")} on ManaTap with commander tools, deck context, and current Commander meta signals.`
+            : `Explore ${row.query} on ManaTap with global Commander meta context, deck tools, and card discovery.`;
 
     candidates.push({
       slug,

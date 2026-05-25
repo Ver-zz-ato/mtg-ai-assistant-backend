@@ -1,17 +1,14 @@
 import Link from "next/link";
 
 type InternalLinkBlocksProps = {
-  commanderSlugs: string[];
-  commanderNames: Map<string, string>;
-  topCards: Array<{ slug: string; card_name: string }>;
+  commanders: Array<{ slug: string; name: string }>;
+  cards: Array<{ slug: string; name: string }>;
+  metaLinks: Array<{ href: string; label: string }>;
 };
 
-export function InternalLinkBlocks({ commanderSlugs, commanderNames, topCards }: InternalLinkBlocksProps) {
-  const commanders = commanderSlugs.slice(0, 6).map((slug) => ({ slug, name: commanderNames.get(slug) ?? slug.replace(/-/g, " ") }));
-  const cards = topCards.slice(0, 6);
-
+export function InternalLinkBlocks({ commanders, cards, metaLinks }: InternalLinkBlocksProps) {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 mb-8">
+    <div className="grid gap-6 sm:grid-cols-3 mb-8">
       <div className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-6">
         <h2 className="text-lg font-semibold text-white mb-3">Popular Commanders</h2>
         <ul className="flex flex-wrap gap-2">
@@ -25,12 +22,24 @@ export function InternalLinkBlocks({ commanderSlugs, commanderNames, topCards }:
         </ul>
       </div>
       <div className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-6">
-        <h2 className="text-lg font-semibold text-white mb-3">Top Cards</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Global Cards</h2>
         <ul className="flex flex-wrap gap-2">
-          {cards.map(({ slug, card_name }) => (
+          {cards.map(({ slug, name }) => (
             <li key={slug}>
               <Link href={`/cards/${slug}`} className="text-cyan-400 hover:underline text-sm">
-                {card_name}
+                {name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-6">
+        <h2 className="text-lg font-semibold text-white mb-3">Meta Links</h2>
+        <ul className="flex flex-wrap gap-2">
+          {metaLinks.map(({ href, label }) => (
+            <li key={href}>
+              <Link href={href} className="text-cyan-400 hover:underline text-sm">
+                {label}
               </Link>
             </li>
           ))}

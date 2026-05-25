@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AuthenticMTGCard from "@/components/AuthenticMTGCard";
-import { getCardBySlug, getTopCards } from "@/lib/top-cards";
+import { getCardBySlug } from "@/lib/top-cards";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { createClient } from "@/lib/supabase/server";
 import { getDisplayCardName } from "@/lib/cards/displayName";
 import { getCommanderBySlug } from "@/lib/commanders";
 import { buildCardDescription } from "@/lib/seo/metadata";
+import { getGlobalMetaCardBySlug, getGlobalMetaCards } from "@/lib/meta/global-meta-entities";
 
 function norm(name: string): string {
   return String(name || "")
@@ -20,7 +21,7 @@ function norm(name: string): string {
 }
 
 export async function generateStaticParams() {
-  const cards = await getTopCards();
+  const cards = await getGlobalMetaCards();
   return cards.map((c) => ({ slug: c.slug }));
 }
 
@@ -32,17 +33,18 @@ const BASE = "https://www.manatap.ai";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const card = await getCardBySlug(slug);
+  const card = (await getGlobalMetaCardBySlug(slug)) ?? (await getCardBySlug(slug));
   if (card) {
     let typeLine: string | undefined;
     try {
-      const detailsMap = await getDetailsForNamesCached([card.card_name]);
-      const details = detailsMap.get(norm(card.card_name)) ?? detailsMap.get(card.card_name);
+      const cardName = "card_name" in card ? card.card_name : card.name;
+      const detailsMap = await getDetailsForNamesCached([cardName]);
+      const details = detailsMap.get(norm(cardName)) ?? detailsMap.get(cardName);
       typeLine = details?.type_line;
     } catch {}
     return {
-      title: `${card.card_name} | ManaTap`,
-      description: buildCardDescription(card.card_name, typeLine),
+      title: `${"card_name" in card ? card.card_name : card.name} | ManaTap`,
+      description: buildCardDescription("card_name" in card ? card.card_name : card.name, typeLine),
       alternates: { canonical: `${BASE}/cards/${slug}` },
     };
   }
@@ -66,10 +68,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CardPage({ params }: Props) {
   const { slug } = await params;
 
-  // First try top_cards (MTG card discovery)
-  const card = await getCardBySlug(slug);
-  if (card) {
-    return <TopCardContent card={card} slug={slug} />;
+  const [globalCard, topCard] = await Promise.all([
+    getGlobalMetaCardBySlug(slug),
+    getCardBySlug(slug),
+  ]);
+  if (globalCard || topCard) {
+    return <GlobalCardContent card={globalCard ?? topCard!} topCard={topCard} slug={slug} />;
   }
 
   // Fall back to custom_cards (user-created cards)
@@ -111,12 +115,23 @@ export default async function CardPage({ params }: Props) {
   notFound();
 }
 
-async function TopCardContent({ card, slug }: { card: { card_name: string; deck_count: number; commander_slugs: string[] }; slug: string }) {
+async function GlobalCardContent({
+  card,
+  topCard,
+  slug,
+}: {
+  card:
+    | { name: string; slug: string; mostPlayedRank?: number; mostPlayedCount?: number; trendingRank?: number; isTrending: boolean }
+    | { card_name: string; deck_count: number; commander_slugs: string[] };
+  topCard: { card_name: string; deck_count: number; commander_slugs: string[] } | null;
+  slug: string;
+}) {
+  const cardName = "card_name" in card ? card.card_name : card.name;
   const [detailsMap, priceRow] = await Promise.all([
-    getDetailsForNamesCached([card.card_name]),
+    getDetailsForNamesCached([cardName]),
     (async () => {
       const supabase = await createClient();
-      const key = norm(card.card_name);
+      const key = norm(cardName);
       const { data: byCardName } = await supabase
         .from("price_cache")
         .select("usd_price")
@@ -132,9 +147,9 @@ async function TopCardContent({ card, slug }: { card: { card_name: string; deck_
     })(),
   ]);
 
-  const details = detailsMap.get(norm(card.card_name)) ?? detailsMap.get(card.card_name);
+  const details = detailsMap.get(norm(cardName)) ?? detailsMap.get(cardName);
   const price = priceRow && (Number((priceRow as { usd_price?: number }).usd_price) || Number((priceRow as { usd?: number }).usd) || 0);
-  const oracleName = card.card_name;
+  const oracleName = cardName;
   const printedName =
     details && typeof details === "object" && "printed_name" in details
       ? (details as { printed_name?: string | null }).printed_name
@@ -190,16 +205,24 @@ async function TopCardContent({ card, slug }: { card: { card_name: string; deck_
               <span className="text-neutral-500">Price:</span> ~${price.toFixed(2)} USD
             </p>
           )}
-          <p className="text-neutral-400 text-sm">
-            Used in {card.deck_count} public Commander decks.
-          </p>
+          {"mostPlayedRank" in card && card.mostPlayedRank ? (
+            <p className="text-neutral-300">
+              <span className="text-neutral-500">Global meta:</span> Most-played card rank #{card.mostPlayedRank}
+              {card.isTrending ? " • also trending now" : ""}
+            </p>
+          ) : null}
+          {topCard ? (
+            <p className="text-neutral-400 text-sm">
+              ManaTap public decks: used in {topCard.deck_count} tracked Commander decks.
+            </p>
+          ) : null}
         </div>
 
-        {card.commander_slugs.length > 0 && (
+        {topCard && topCard.commander_slugs.length > 0 && (
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-neutral-100 mb-4">Commanders using this card</h2>
             <ul className="flex flex-wrap gap-2">
-              {card.commander_slugs.slice(0, 12).map((s) => {
+              {topCard.commander_slugs.slice(0, 12).map((s) => {
                 const cmd = getCommanderBySlug(s);
                 return (
                   <li key={s}>
