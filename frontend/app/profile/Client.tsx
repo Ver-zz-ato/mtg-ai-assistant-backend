@@ -1419,7 +1419,7 @@ function ProfileAchievementProgress({ badges: initialBadges }: { badges: BadgePr
       finally { setLoading(false); }
     })();
   }, [initialBadges]);
-  if (loading) return <div className="text-xs opacity-70">Loading achievements…</div>;
+  if (loading) return <div className="text-xs opacity-70">Loading achievements...</div>;
   if (badges.length === 0) return null;
   return (
     <ul className="space-y-2">
@@ -1456,7 +1456,7 @@ function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: B
       finally { setLoading(false); }
     })();
   }, [initialBadges]);
-  if (loading) return <div className="text-xs opacity-70">Loading achievementsâ€¦</div>;
+  if (loading) return <div className="text-xs opacity-70">Loading achievements...</div>;
   if (badges.length === 0) return null;
   return (
     <ul className="space-y-2">

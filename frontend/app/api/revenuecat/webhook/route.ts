@@ -244,7 +244,7 @@ async function updateProStatus(
 
   const traceLog = process.env.NODE_ENV !== 'production' || process.env.DEBUG_ENTITLEMENTS === '1';
   if (traceLog) {
-    console.info('[RevenueCat webhook] Grant/revoke applied', { userId: userId.slice(0, 8) + '…', isPro, proUntil: proUntil?.slice(0, 10), source });
+    console.info('[RevenueCat webhook] Grant/revoke applied', { userId: userId.slice(0, 8) + '...', isPro, proUntil: proUntil?.slice(0, 10), source });
   }
 }
 
@@ -352,7 +352,7 @@ export async function POST(req: NextRequest) {
         const reason = fromRevenueCat ? 'revenuecat_still_active' : 'revenuecat_status_unknown';
         if (traceLog) {
           console.info('[RevenueCat webhook] Cancellation revoke skipped', {
-            userId: userId.slice(0, 8) + 'â€¦',
+            userId: userId.slice(0, 8) + '...',
             reason,
             error: debug.error,
           });
@@ -381,7 +381,7 @@ export async function POST(req: NextRequest) {
     if (hasManualOrIndefinitePro) {
       if (traceLog) {
         console.info('[RevenueCat webhook] Revoke skipped: manual/indefinite Pro active', {
-          userId: userId.slice(0, 8) + 'â€¦',
+          userId: userId.slice(0, 8) + '...',
           eventType,
         });
       }
@@ -396,7 +396,7 @@ export async function POST(req: NextRequest) {
         const sub = await stripe.subscriptions.retrieve(stripeSubId);
         if (sub.status === 'active' || sub.status === 'trialing') {
           if (traceLog) {
-            console.info('[RevenueCat webhook] Revoke skipped: Stripe active', { userId: userId.slice(0, 8) + '…', eventType });
+            console.info('[RevenueCat webhook] Revoke skipped: Stripe active', { userId: userId.slice(0, 8) + '...', eventType });
           }
           try {
             const { logOpsEvent } = await import('@/lib/ops-events');

@@ -1,38 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ManaTap Frontend
 
-## Getting Started
+Next.js website frontend for ManaTap AI.
 
-First, run the development server:
+## What lives here
+
+- Public website pages and SEO routes
+- Website API routes used by both web and app surfaces
+- Shared MTG helpers, meta pipelines, pricing, and AI route logic
+- Admin pages and operational tools
+
+## Main folders
+
+- `app/` - App Router pages and API routes
+- `components/` - UI components
+- `lib/` - server/client helpers, MTG logic, analytics, SEO, and integrations
+- `tests/` - unit, integration, and Playwright coverage
+- `docs/` - product and implementation notes
+
+## Local development
+
+Run from `C:\Users\davy_\Projects\mtg_ai_assistant\frontend`:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Default local URL:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Regression Tests
-
-We rely on scripted regressions to keep the MTG suggestion pipeline honest. Run them from the `frontend` directory:
+## Useful checks
 
 ```bash
-# Verify strict color identity rules
-npm run color-tests
-
-# Execute chat guardrail suites (all suites)
-npm run chat-tests
-
-# Or focus on one suite, e.g. format inference
-npm run chat-tests -- --suite format
+npx tsc --noEmit
+npm run build
+npm run lint
 ```
 
-Both scripts emit JSON summaries; the `filteredCandidates` field in the `/api/deck/analyze` response can help explain why a suggestion was dropped.
+## Tests
+
+```bash
+# Targeted MTG/AI regression suites
+npm run color-tests
+npm run chat-tests
+
+# Example focused chat suite
+npm run chat-tests -- --suite format
+
+# Playwright
+npm run test:canary
+npm run test:e2e
+```
+
+## Important docs
+
+- `docs/HOW_TO_ADD_BLOGS_AND_CHANGELOGS.md`
+- `docs/CRONS.md`
+- `docs/MOBILE_ADMIN_CONTROL.md`
+- `docs/archive-policy.md`
+
+## Archive rule
+
+Live source stays in `app/`, `components/`, and `lib/`.
+
+Snapshot files such as `*.backup_*` should be moved to:
+
+`C:\Users\davy_\Projects\mtg_ai_assistant\archive\frontend-snapshots\`

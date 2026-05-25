@@ -25,7 +25,7 @@ import CardDetailLink from "@/components/cards/CardDetailLink";
 type Msg = { id: any; role: "user"|"assistant"; content: string; metadata?: Record<string, unknown> | null };
 
 export default function DeckAssistant({ deckId, format: initialFormat }: { deckId: string; format?: string }) {
-  const pathname = usePathname() ?? "/my-decks/[id]";
+  const pathname = usePathname() || "/my-decks/[id]";
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [msgs, setMsgs] = React.useState<Msg[]>([]);
   const [text, setText] = React.useState("");
@@ -454,7 +454,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       const context = { deckId }; // Pass deckId via context, not as text
       
       await postMessageStream(
-        { text: messageText, threadId: tid || null, context, prefs, sourcePage: `${pathname} Â· DeckAssistant.tsx` },
+        { text: messageText, threadId: tid || null, context, prefs, sourcePage: `${pathname} - DeckAssistant.tsx` },
         (token: string) => {
           accumulatedContent += token;
           setStreamingContent(accumulatedContent);
@@ -539,7 +539,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
     setHoverCard(null);
   }
   
-  // Render message content: inline card names â†’ hover full art (same as main Chat.tsx; no bottom card strip)
+  // Render message content: inline card names -> hover full art (same as main Chat.tsx; no bottom card strip)
   function renderMessageContent(content: string, isAssistant: boolean) {
     if (!isAssistant) {
       return renderMarkdown(content);
@@ -767,7 +767,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       } catch(e:any){ alert(e?.message || 'Add failed'); }
     }
 
-    if (loading) return <div className="text-[10px] opacity-70">Filtering suggestionsâ€¦</div>;
+    if (loading) return <div className="text-[10px] opacity-70">Filtering suggestions...</div>;
     if (items.length === 0) return null;
     return (
       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
@@ -793,7 +793,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
             <div className="mb-1"><code className="px-1 py-[1px] rounded bg-neutral-800 border border-neutral-700">{d.nl.scryfall_query}</code></div>
             <ul className="list-disc ml-5">
               {(Array.isArray(d.nl.results)?d.nl.results:[]).slice(0,5).map((c:any,i:number)=> (
-                <li key={i}>{c.name}{c.mana_cost?` (${c.mana_cost})`:''} â€” {c.type_line}</li>
+                <li key={i}>{c.name}{c.mana_cost?` (${c.mana_cost})`:''} - {c.type_line}</li>
               ))}
             </ul>
           </div>
@@ -810,13 +810,13 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
             {Array.isArray(d.combos_detect.present) && d.combos_detect.present.length>0 && (
               <div className="mb-1">
                 <div className="opacity-80 text-[12px]">Present:</div>
-                <ul className="list-disc ml-5">{d.combos_detect.present.slice(0,5).map((c:any,i:number)=>(<li key={'p'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.pieces)&&c.pieces.length>0?(<span className="opacity-80"> â€” {c.pieces.join(' + ')}</span>):null}</li>))}</ul>
+                <ul className="list-disc ml-5">{d.combos_detect.present.slice(0,5).map((c:any,i:number)=>(<li key={'p'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.pieces)&&c.pieces.length>0?(<span className="opacity-80"> - {c.pieces.join(' + ')}</span>):null}</li>))}</ul>
               </div>
             )}
             {Array.isArray(d.combos_detect.missing) && d.combos_detect.missing.length>0 && (
               <div>
                 <div className="opacity-80 text-[12px]">One piece missing:</div>
-                <ul className="list-disc ml-5">{d.combos_detect.missing.slice(0,5).map((c:any,i:number)=>(<li key={'m'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.have)&&c.have.length>0?(<span className="opacity-80"> â€” have {c.have.join(' + ')}, need <CardDetailLink cardName={String(c.suggest || "")} className="underline text-left">{c.suggest}</CardDetailLink></span>):null}</li>))}</ul>
+                <ul className="list-disc ml-5">{d.combos_detect.missing.slice(0,5).map((c:any,i:number)=>(<li key={'m'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.have)&&c.have.length>0?(<span className="opacity-80"> - have {c.have.join(' + ')}, need <CardDetailLink cardName={String(c.suggest || "")} className="underline text-left">{c.suggest}</CardDetailLink></span>):null}</li>))}</ul>
               </div>
             )}
           </div>
@@ -870,7 +870,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           {msgs.length === 0 ? (
             <div className="flex items-center justify-center py-12 opacity-70 text-sm text-neutral-400">
               <div className="text-center">
-                <p className="mb-2">ðŸ’¬ Ask me anything about your deck!</p>
+                <p className="mb-2">Ask me anything about your deck!</p>
                 <p className="text-xs opacity-70">I can see your full decklist, commander, and card synergies.</p>
               </div>
             </div>
@@ -917,7 +917,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                           e.stopPropagation();
                           const ok = await copyTextToClipboard(String(m.content || ""));
                           if (ok) toast("Copied to clipboard", "success");
-                          else toastError("Could not copy â€” try selecting the text manually.");
+                          else toastError("Could not copy - try selecting the text manually.");
                         }}
                         className="p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"
                         title="Copy message"
@@ -968,7 +968,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                 <div className="inline-block max-w-[95%] rounded px-3 py-2 bg-neutral-800 whitespace-pre-wrap relative overflow-visible">
                   <div className="text-[10px] uppercase tracking-wide opacity-60 mb-1">
                     <span>assistant</span>
-                    <span className="ml-2 animate-pulse">â€¢â€¢â€¢</span>
+                    <span className="ml-2 animate-pulse">...</span>
                   </div>
                   <div className="leading-relaxed">{renderMessageContent(streamingContent, true)}</div>
                 </div>
@@ -1019,7 +1019,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                   send();
                 }
               }}
-              placeholder="Ask me anything about your deckâ€¦"
+              placeholder="Ask me anything about your deck..."
               rows={1}
               className="w-full bg-neutral-900 text-white border border-neutral-700 rounded-lg px-4 py-3 pr-12 resize-none min-h-[200px] max-h-[400px] overflow-y-auto text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               style={{

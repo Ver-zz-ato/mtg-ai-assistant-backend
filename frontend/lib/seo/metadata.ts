@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 export const SITE_URL = "https://www.manatap.ai";
+export const SITE_LAST_UPDATED_ISO = "2026-05-26T00:00:00Z";
 
 export const HOME_DESCRIPTION =
   "Build better Magic: The Gathering decks with ManaTap AI. Analyze Commander decks, test mulligans, compare lists, track prices, and find upgrades.";

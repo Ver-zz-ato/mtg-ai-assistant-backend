@@ -2,8 +2,7 @@ import React from "react";
 import { createClient } from "@/lib/supabase/server";
 import DeckComparisonTool from "@/components/DeckComparisonTool";
 import GuestLandingPage from "@/components/GuestLandingPage";
-import { canonicalMeta } from "@/lib/canonical";
-import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
+import { canonicalMeta, TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 import type { Metadata } from "next";
 
 export function generateMetadata(): Metadata {
@@ -20,23 +19,23 @@ export default async function ComparePage() {
   if (!u?.user) {
     const features = [
       {
-        icon: '🔍',
+        icon: '[=]',
         title: 'Side-by-Side Comparison',
         description: 'Compare up to 3 decks simultaneously with detailed card-by-card analysis.',
       },
       {
-        icon: '📊',
+        icon: '[*]',
         title: 'Visual Diff Highlights',
         description: 'Instantly see unique cards, shared cards, and key differences between your decks.',
         highlight: true,
       },
       {
-        icon: '📈',
+        icon: '[#]',
         title: 'Stats Comparison',
         description: 'Compare mana curves, color distribution, card types, and total deck values.',
       },
       {
-        icon: '📄',
+        icon: '[PDF]',
         title: 'Export to PDF',
         description: 'Generate professional PDF reports of your deck comparisons to share or print.',
       },

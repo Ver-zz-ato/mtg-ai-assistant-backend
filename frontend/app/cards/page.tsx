@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardSearchCommandCenter from "@/components/cards/CardSearchCommandCenter";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
-import { getMetaSignal } from "@/lib/meta-signals";
+import { SCRYFALL_META } from "@/lib/meta/scryfallGlobalMeta";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
+import { getAdmin } from "@/lib/supa";
 import { createClient } from "@/lib/supabase/server";
 
 // Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE when served from Vercel suspense cache / ISR
@@ -12,27 +13,30 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Top Commander Cards | ManaTap",
   description:
-    "Top 200 cards by appearance in public Commander decks. Card pages with oracle text, price, and commanders.",
+    "Top global Commander cards by Scryfall meta signals. Card pages with oracle text, price, and commanders.",
   alternates: { canonical: "https://www.manatap.ai/cards" },
 };
 
 export const revalidate = 86400;
 
-type MetaCardRow = {
-  name?: string;
-  count?: number;
-  priceLabel?: string;
-};
-
 type CardListRow = {
   name: string;
-  count: number;
+  edhrecRank: number | null;
   rank: number;
   price: string | null;
   imageSmall?: string;
   imageLarge?: string;
   setCode?: string;
   rarity?: string;
+};
+
+type GlobalMetaCardRow = {
+  card_name?: string | null;
+  rank?: number | null;
+  payload_json?: {
+    edhrec_rank?: number | null;
+    usd?: number | string | null;
+  } | null;
 };
 
 function norm(name: string): string {
@@ -61,18 +65,51 @@ function formatUsd(value: unknown): string | null {
 }
 
 async function getGlobalMetaCards(): Promise<CardListRow[]> {
-  const raw = (await getMetaSignal("most-played-cards").catch(() => null)) as
-    | MetaCardRow[]
-    | null;
-  const baseRows = (Array.isArray(raw) ? raw : [])
-    .map((row, index) => ({
-      name: String(row.name || "").trim(),
-      count: typeof row.count === "number" ? row.count : 0,
-      rank: index + 1,
-      priceLabel: typeof row.priceLabel === "string" ? row.priceLabel : null,
-    }))
-    .filter((row) => row.name.length > 0)
-    .slice(0, 200);
+  let metaDb;
+  try {
+    metaDb = getAdmin();
+  } catch {
+    metaDb = await createClient();
+  }
+
+  const { data: latestSnapshot } = await metaDb
+    .from("meta_card_daily")
+    .select("snapshot_date")
+    .eq("source", SCRYFALL_META.source)
+    .eq("time_window", SCRYFALL_META.twPopular)
+    .order("snapshot_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const snapshotDate = (latestSnapshot as { snapshot_date?: string } | null)?.snapshot_date;
+  if (!snapshotDate) return [];
+
+  const { data: raw } = await metaDb
+    .from("meta_card_daily")
+    .select("card_name, rank, payload_json")
+    .eq("snapshot_date", snapshotDate)
+    .eq("source", SCRYFALL_META.source)
+    .eq("time_window", SCRYFALL_META.twPopular)
+    .order("rank", { ascending: true })
+    .limit(200);
+
+  const baseRows = ((raw ?? []) as GlobalMetaCardRow[])
+    .map((row, index) => {
+      const payload = row.payload_json && typeof row.payload_json === "object" ? row.payload_json : {};
+      const edhrecRank =
+        typeof payload.edhrec_rank === "number"
+          ? payload.edhrec_rank
+          : typeof row.rank === "number"
+            ? row.rank
+            : null;
+      return {
+        name: String(row.card_name || "").trim(),
+        edhrecRank,
+        rank: typeof row.rank === "number" ? row.rank : index + 1,
+        priceLabel: formatUsd(payload.usd),
+      };
+    })
+    .filter((row) => row.name.length > 0);
 
   const names = baseRows.map((row) => row.name);
   if (names.length === 0) return [];
@@ -99,11 +136,11 @@ async function getGlobalMetaCards(): Promise<CardListRow[]> {
     const imageUris = details?.image_uris || {};
     return {
       name: row.name,
-      count: row.count,
+      edhrecRank: row.edhrecRank,
       rank: row.rank,
-      price: priceMap.get(normalizePriceCacheName(row.name)) ?? row.priceLabel,
+      price: row.priceLabel ?? priceMap.get(normalizePriceCacheName(row.name)) ?? null,
       imageSmall: imageUris.small,
-      imageLarge: imageUris.normal || imageUris.small,
+      imageLarge: imageUris.large || imageUris.normal || imageUris.small,
       setCode: details?.set,
       rarity: details?.rarity,
     };
@@ -150,7 +187,7 @@ export default async function CardsIndexPage() {
                   rarity={c.rarity}
                 />
                 <span className="text-sm text-neutral-400">
-                  {c.count.toLocaleString()} decks
+                  {c.edhrecRank ? `EDHREC #${c.edhrecRank.toLocaleString()}` : "Global meta"}
                 </span>
                 <span className="text-sm font-semibold text-emerald-200">
                   {c.price ?? "Price n/a"}

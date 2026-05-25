@@ -22,6 +22,7 @@ import { TrendingCommandersStrip } from "../components/TrendingCommandersStrip";
 import PopularCommanderGuides from "../components/PopularCommanderGuides";
 import { getHomeVariant } from "../lib/analytics/home-experiment";
 import { costAuditHomepageRender } from "@/lib/observability/cost-audit-server";
+import { SITE_LAST_UPDATED_ISO } from "@/lib/seo/metadata";
 
 // PERFORMANCE: Lazy load heavy sidebar components to improve initial load
 const RightSidebar = nextDynamic(() => import("../components/RightSidebar"), {
@@ -60,7 +61,7 @@ function jsonLd() {
       "name": "ManaTap.ai",
       "url": "https://www.manatap.ai"
     },
-    "dateModified": "2025-10-22T00:00:00Z",
+    "dateModified": SITE_LAST_UPDATED_ISO,
     "featureList": [
       "AI Chat Assistant",
       "Deck Builder", 
