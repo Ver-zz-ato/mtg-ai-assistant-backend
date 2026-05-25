@@ -2,6 +2,8 @@
 
 This document describes what analytics we collect, when we collect it, and how it relates to cookie consent.
 
+If you need a wider map of routes, admin surfaces, webhooks, or cron pipelines around analytics, start with `docs/ROUTES_WORKFLOWS_PIPELINES_INDEX.md`.
+
 ---
 
 ## 1. Consent Model

@@ -101,6 +101,7 @@ Companion docs:
 - `docs/POSTHOG_LAUNCH_DASHBOARDS_ELI5.md` — plain-English meaning of each live dashboard and what counts as normal before launch
 - `docs/POSTHOG_FEEDBACK_DASHBOARDS_SPEC.md` — feedback-specific event and dashboard checklist
 - `docs/LAUNCH_DAY_RUNBOOK.md` — launch-day order of checks and what to investigate first
+- `docs/ROUTES_WORKFLOWS_PIPELINES_INDEX.md` — wider route, workflow, webhook, and cron map for future debugging
 
 Migration: `db/migrations/115_mobile_command_center_rollups.sql`
 

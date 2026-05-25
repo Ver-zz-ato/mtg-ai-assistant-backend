@@ -13,7 +13,7 @@
 | top-cards | `/api/cron/top-cards` | 05:30 daily |
 | cleanup-rate-limits | `/api/cron/cleanup-rate-limits` | 06:00 Sundays |
 | cleanup-shared-links | `/api/cron/cleanup-shared-links` | 06:15 daily |
-| ops-report/daily | `/api/cron/ops-report/daily` | 06:00 daily |
+| ops-report/daily | `/api/cron/ops-report/daily` | 22:30 daily |
 | ops-report/weekly | `/api/cron/ops-report/weekly` | 07:00 Sundays |
 | mobile-command-center-rollups | `/api/cron/mobile-command-center-rollups` | hourly during launch |
 | budget-swaps-update | `/api/cron/budget-swaps-update` | 03:00 Sundays |
@@ -27,6 +27,7 @@
 - **Manual / scripts / admin cron runner:** use the same `Authorization: Bearer <CRON_SECRET>` header.
 - **Temporary compatibility only:** some routes still accept `?key=<CRON_SECRET>` to avoid breaking existing manual callers during migration. Remove this once all callers are updated.
 - **Mobile Command Center rollups:** Vercel calls `GET /api/cron/mobile-command-center-rollups` hourly with `Authorization: Bearer <CRON_SECRET>`. This refreshes private rollups and sends deduped Discord launch alerts. Manual admin refresh stays quiet by default; the cockpit has a separate `Test Discord` button for one-off channel verification.
+- **Daily ops digest:** `GET /api/cron/ops-report/daily` now acts as the end-of-day Discord digest. It posts a last-24-hours summary covering app analytics, website activity, AI calls/cost, revenue, errors, rate limits, and top launch alerts. `22:30 UTC` matches `23:30` in London during BST; it will arrive an hour earlier in winter unless the cron is adjusted seasonally.
 - For human launch flow, pair this cron with `docs/LAUNCH_DAY_RUNBOOK.md` so Discord alerts are only one input, not the whole decision process.
 
 ## Manual run

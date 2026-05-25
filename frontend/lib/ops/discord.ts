@@ -22,20 +22,66 @@ export type DiscordOpsPayload = {
   seoWinnersCount?: number;
   seoWinnersSlugs?: string[];
   errorSummary?: string | null;
+  dailyDigest?: Record<string, unknown>;
 };
+
+function valueAtPath(root: Record<string, unknown> | undefined, path: string[]): unknown {
+  let current: unknown = root;
+  for (const part of path) {
+    if (!current || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
 
 export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promise<void> {
   const url = process.env.DISCORD_WEBHOOK_URL;
   if (!url) return;
 
   const emoji = payload.status === "ok" ? "✅" : payload.status === "warn" ? "⚠️" : "❌";
-  const lines: string[] = [
-    `${emoji} **Ops Report** (${payload.reportType})`,
-    "",
-    `• AI cost mismatch: ${(payload.aiMismatchRate ?? 0).toFixed(1)}%`,
-    `• 429 rate: ${payload.rate429 ?? "—"}`,
-    `• Route null: ${(payload.routeNullPct ?? 0).toFixed(1)}%`,
-  ];
+  const lines: string[] = [`${emoji} **Ops Report** (${payload.reportType})`];
+
+  if (payload.reportType === "daily_ops" && payload.dailyDigest) {
+    const digest = payload.dailyDigest;
+    const topAlerts = (valueAtPath(digest, ["top_alerts"]) as Array<Record<string, unknown>> | undefined) || [];
+    lines.push(
+      "",
+      `**Last 24h**`,
+      `${String(valueAtPath(digest, ["window", "london_range"]) || "")}`,
+      "",
+      `**App**`,
+      `• Signups: ${valueAtPath(digest, ["app", "users", "signups_24h"]) ?? 0}`,
+      `• AI calls: ${valueAtPath(digest, ["app", "ai", "calls_24h"]) ?? 0} ($${valueAtPath(digest, ["app", "ai", "cost_usd_24h"]) ?? 0})`,
+      `• App events: ${valueAtPath(digest, ["app", "analytics", "events_seen"]) ?? 0}`,
+      `• Scanner sessions: ${valueAtPath(digest, ["app", "analytics", "scanner_sessions_completed"]) ?? 0}`,
+      `• Tool events: ${valueAtPath(digest, ["app", "analytics", "tool_events_seen"]) ?? 0}`,
+      "",
+      `**Website**`,
+      `• Pageviews: ${valueAtPath(digest, ["website", "analytics", "pageviews_24h"]) ?? 0}`,
+      `• First visits: ${valueAtPath(digest, ["website", "analytics", "first_visits_24h"]) ?? 0}`,
+      `• Website AI calls: ${valueAtPath(digest, ["website", "ai", "calls_24h"]) ?? 0} ($${valueAtPath(digest, ["website", "ai", "cost_usd_24h"]) ?? 0})`,
+      `• Website feedback rows: ${valueAtPath(digest, ["website", "feedback", "generic_feedback_rows_24h"]) ?? 0}`,
+      "",
+      `**Revenue & Reliability**`,
+      `• Stripe subs: ${valueAtPath(digest, ["shared", "revenue", "stripe_subs"]) ?? 0}`,
+      `• Sentry unresolved: ${valueAtPath(digest, ["shared", "reliability", "sentry_unresolved"]) ?? 0}`,
+      `• Rate-limit hits: ${valueAtPath(digest, ["shared", "reliability", "rate_limit_hits_24h"]) ?? 0}`,
+      `• Error logs: ${valueAtPath(digest, ["shared", "reliability", "local_error_logs_24h"]) ?? 0}`,
+    );
+    if (topAlerts.length > 0) {
+      lines.push("", `**Watch list**`);
+      for (const alert of topAlerts.slice(0, 4)) {
+        lines.push(`• [${String(alert.severity || "info")}] ${String(alert.title || "Alert")}: ${String(alert.detail || "")}`);
+      }
+    }
+  } else {
+    lines.push(
+      "",
+      `• AI cost mismatch: ${(payload.aiMismatchRate ?? 0).toFixed(1)}%`,
+      `• 429 rate: ${payload.rate429 ?? "—"}`,
+      `• Route null: ${(payload.routeNullPct ?? 0).toFixed(1)}%`,
+    );
+  }
 
   if (payload.staleJobs && payload.staleJobs.length > 0) {
     lines.push(`• Stale jobs: ${payload.staleJobs.slice(0, STALE_JOBS_CAP).join(", ")}`);

@@ -2,6 +2,12 @@
 
 Brief pointers for API ↔ DB contracts. For full product docs, see repo `docs/` and feature-specific files.
 
+Quick navigation:
+
+- Route/workflow/pipeline map: `docs/ROUTES_WORKFLOWS_PIPELINES_INDEX.md`
+- Mobile admin/control plane: `docs/MOBILE_ADMIN_CONTROL.md`
+- Analytics/consent model: `docs/ANALYTICS_OVERVIEW.md`
+
 ## Name keys vs display labels
 
 **Lookup key is not the same as display label.** Three concepts:
