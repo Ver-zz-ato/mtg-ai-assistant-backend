@@ -58,39 +58,39 @@ const TABS: Array<{ key: TabKey; label: string; icon: React.ComponentType<{ clas
 const TAB_HELP: Record<TabKey, { title: string; body: string }> = {
   overview: {
     title: "Start here",
-    body: "Quick launch readout. Check this first when you want to know if the app looks calm, noisy, or broken.",
+    body: "Quick launch readout. Start here when you want the simple answer: are things calm, noisy, or broken?",
   },
   ai: {
     title: "AI cost and reliability",
-    body: "How much app AI was used, what it cost, where it was spent, and whether failures or cache misses are creeping up.",
+    body: "How much app AI was used, what it cost, where it was spent, and whether we reused saved answers instead of paying to generate them again.",
   },
   users: {
     title: "Signups and Pro mix",
-    body: "New users, Pro/free shape, and masked recent rows so you can spot spikes without exposing identities by default.",
+    body: "New users, Pro/free split, and masked recent rows so you can spot spikes without exposing people by default.",
   },
   analytics: {
     title: "Event health",
-    body: "Checks whether scanner, tool, upgrade, and feedback events are showing up. Quiet before launch is often fine.",
+    body: "Checks whether scanner, tool, upgrade, and feedback tracking is showing up. Quiet before launch is often fine.",
   },
   revenue: {
     title: "Money and access",
-    body: "RevenueCat and Stripe health, plus whether Pro entitlements and purchase webhooks are behaving.",
+    body: "RevenueCat and Stripe health, plus whether Pro access and purchase webhooks are behaving.",
   },
   errors: {
     title: "Crashes and backend errors",
-    body: "Sentry for mobile issues plus local error rows from your backend, kept short and masked.",
+    body: "Mobile crashes from Sentry plus backend error rows, kept short and masked.",
   },
   security: {
     title: "Abuse and guardrails",
-    body: "Rate-limit pressure, admin audit activity, and security reminders that are worth watching during launch.",
+    body: "Rate-limit pressure, admin changes, and security reminders worth watching during launch.",
   },
   feedback: {
     title: "What users are telling you",
-    body: "App AI reports, generic feedback, unresolved items, and missing source markers that make triage harder.",
+    body: "App AI reports, general feedback, unresolved items, and places where source tracking is missing.",
   },
   ops: {
-    title: "Control plane freshness",
-    body: "Feature flags, remote config, app notes, and the job/control surfaces that support launch-day fixes.",
+    title: "Background jobs and settings",
+    body: "Did the important background jobs run, are settings fresh, and does the Scryfall cache look recently updated?",
   },
 };
 
@@ -120,8 +120,36 @@ function queryString(days: number) {
   return qs.toString();
 }
 
-function asDisplay(value: unknown): string {
+function isDateLikeKey(key?: string) {
+  if (!key) return false;
+  return /(?:^|_)(created_at|updated_at|starts_at|ended_at|finished_at|generated_at|timestamp|date|time)$/.test(key);
+}
+
+function parseDateValue(value: unknown) {
+  if (typeof value !== "string") return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function formatDateTime(value: unknown): string | null {
+  const parsed = parseDateValue(value);
+  if (!parsed) return null;
+  return parsed.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function asDisplay(value: unknown, key?: string): string {
   if (value == null) return "-";
+  if (isDateLikeKey(key)) {
+    const formatted = formatDateTime(value);
+    if (formatted) return formatted;
+  }
   if (typeof value === "number") return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 4 });
   if (typeof value === "boolean") return value ? "yes" : "no";
   if (typeof value === "object") return JSON.stringify(value);
@@ -210,7 +238,9 @@ function DataTable({ title, rows }: { title: string; rows: Array<Record<string, 
                 <tr key={index} className="border-t border-neutral-900/90 hover:bg-neutral-900/55">
                   {columns.map((column) => (
                     <td key={column} className="max-w-[260px] px-3 py-2 align-top text-neutral-300">
-                      <span className="line-clamp-3 break-words">{asDisplay(row[column])}</span>
+                      <span className="line-clamp-3 break-words" title={typeof row[column] === "string" ? String(row[column]) : undefined}>
+                        {asDisplay(row[column], column)}
+                      </span>
                     </td>
                   ))}
                 </tr>
@@ -253,7 +283,7 @@ function DataAge({ generatedAt }: { generatedAt?: string }) {
   const ageMs = Date.now() - updated.getTime();
   const ageMinutes = Math.max(0, Math.round(ageMs / 60000));
   const label = ageMinutes < 1 ? "just now" : ageMinutes < 60 ? `${ageMinutes}m ago` : `${Math.round(ageMinutes / 60)}h ago`;
-  return <span className="text-xs text-neutral-500">Last refresh {label}</span>;
+  return <span className="text-xs text-neutral-500">Last refresh {label} ({formatDateTime(generatedAt) || generatedAt})</span>;
 }
 
 function ActionBanner({ message }: { message: string }) {
@@ -455,7 +485,7 @@ export default function MobileCommandCenterPage() {
         </section>
 
         <footer className="pb-8 text-xs text-neutral-500">
-          {payload?.generatedAt ? `Updated ${new Date(payload.generatedAt).toLocaleString()}` : "Loading..."}.
+          {payload?.generatedAt ? `Updated ${formatDateTime(payload.generatedAt) || payload.generatedAt}` : "Loading..."}. 
           Server-only database and vendor data stays server-side; list views are masked by default.
         </footer>
       </div>

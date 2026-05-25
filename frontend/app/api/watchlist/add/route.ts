@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import { checkProStatus } from '@/lib/server-pro-check';
+import { findCardNameMatches } from '@/lib/server/cardNameResolution';
 
 export const runtime = 'nodejs';
 
 type WatchlistRow = { id: string };
-type ScryfallNamedResponse = { name?: string };
 type AddWatchlistRequest = {
   name?: string;
   target_price?: number | string | null;
@@ -68,21 +68,13 @@ export async function POST(req: NextRequest) {
       watchlist = newWl;
     }
 
-    // Normalize card name using Scryfall
+    // Normalize card name using cache-first resolver
     let normalizedName = cardName;
     try {
-      // Raw external fetch is intentional here because this hits Scryfall directly.
-      // eslint-disable-next-line no-restricted-globals
-      const scryfallRes = await fetch(
-        `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`
-      );
-      
-      if (scryfallRes.ok) {
-        const scryfallData = (await scryfallRes.json()) as ScryfallNamedResponse;
-        normalizedName = scryfallData?.name || cardName;
-      }
+      const matches = await findCardNameMatches(supabase as any, cardName, 1);
+      if (matches[0]?.name) normalizedName = matches[0].name;
     } catch (e) {
-      console.warn('Scryfall lookup failed, using original name:', e);
+      console.warn('Card name resolution failed, using original name:', e);
     }
 
     // Check if already exists

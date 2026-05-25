@@ -1,5 +1,12 @@
 import { getAdmin } from "@/app/api/_lib/supa";
 import {
+  adminJobAttemptKey,
+  adminJobDetailKey,
+  adminJobLastSuccessKey,
+  computeAdminJobHealth,
+  parseAdminJobDetail,
+} from "@/lib/admin/adminJobDetail";
+import {
   AI_USAGE_SOURCE_MANATAP_APP,
   getAppAiUsagePostgrestOrClause,
   isAppAiUsageRow,
@@ -50,6 +57,13 @@ const AI_SELECT =
   "id,created_at,user_id,route,model,source,source_page,request_kind,layer0_mode,cache_hit,input_tokens,output_tokens,cost_usd,latency_ms,planner_cost_usd,error_code,is_guest,user_tier";
 const WARN_DISCORD_REMINDER_MS = 6 * 60 * 60 * 1000;
 const CRITICAL_DISCORD_REMINDER_MS = 60 * 60 * 1000;
+const IMPORTANT_JOB_IDS = [
+  "bulk_scryfall",
+  "bulk_price_import",
+  "price_snapshot_bulk",
+  "deck-costs",
+  "daily_ops_report",
+] as const;
 
 export function parseBoundedIntParam(
   value: string | null | undefined,
@@ -236,6 +250,50 @@ async function safeRows(
   }
 }
 
+async function safeAppConfigRows(db: Db, keys: string[]) {
+  try {
+    const { data, error } = await db.from("app_config").select("key,value,updated_at").in("key", keys);
+    if (error) return { rows: [] as JsonRecord[], error: error.message };
+    return { rows: (data || []) as unknown as JsonRecord[] };
+  } catch (e) {
+    return { rows: [] as JsonRecord[], error: e instanceof Error ? e.message : "app_config_failed" };
+  }
+}
+
+async function safeOpsReportRows(db: Db, limit = 12) {
+  try {
+    const { data, error } = await db
+      .from("ops_reports")
+      .select("id,report_type,status,summary,details,duration_ms,created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) return { rows: [] as JsonRecord[], error: error.message };
+    return { rows: (data || []) as unknown as JsonRecord[] };
+  } catch (e) {
+    return { rows: [] as JsonRecord[], error: e instanceof Error ? e.message : "ops_reports_failed" };
+  }
+}
+
+function ageShort(iso: string | null | undefined): string {
+  if (!iso) return "never";
+  const ms = new Date(String(iso)).getTime();
+  if (!Number.isFinite(ms)) return "unknown";
+  const diffH = Math.max(0, (Date.now() - ms) / 36e5);
+  if (diffH < 1) return `${Math.max(1, Math.round(diffH * 60))}m ago`;
+  if (diffH < 48) return `${Math.round(diffH)}h ago`;
+  return `${Math.round(diffH / 24)}d ago`;
+}
+
+function freshnessWord(iso: string | null | undefined, warnHours: number): { value: string; severity: Severity } {
+  if (!iso) return { value: "unknown", severity: "warn" };
+  const ms = new Date(String(iso)).getTime();
+  if (!Number.isFinite(ms)) return { value: "unknown", severity: "warn" };
+  const ageH = (Date.now() - ms) / 36e5;
+  if (ageH <= warnHours / 2) return { value: `updated ${ageShort(iso)}`, severity: "ok" };
+  if (ageH <= warnHours) return { value: `updated ${ageShort(iso)}`, severity: "info" };
+  return { value: `stale (${ageShort(iso)})`, severity: "warn" };
+}
+
 async function getAiRows(db: Db, days: number, limit = 5000) {
   const since = sinceDays(days);
   try {
@@ -339,6 +397,47 @@ function summarizeAi(rows: JsonRecord[]) {
   };
 }
 
+function getCacheMetricCard(summary: ReturnType<typeof summarizeAi>): MetricCard {
+  const { requests, cache_hits: cacheHits, cache_known: cacheKnown, cache_hit_rate: cacheHitRate } = summary.totals;
+  const missing = Math.max(0, requests - cacheKnown);
+
+  if (requests === 0) {
+    return {
+      key: "cache",
+      label: "AI cache reuse",
+      value: "no data yet",
+      sub: "No app AI requests in this window.",
+      severity: "info",
+    };
+  }
+
+  if (cacheKnown === 0) {
+    return {
+      key: "cache",
+      label: "AI cache reuse",
+      value: "not enough data yet",
+      sub: "Recent app AI rows did not include cache info.",
+      severity: "info",
+    };
+  }
+
+  const sampleNote = missing > 0 ? `${cacheKnown} of ${requests} rows reported cache info` : `${cacheHits} hits from ${cacheKnown} measured rows`;
+  const severity: Severity =
+    cacheKnown < 5
+      ? "info"
+      : (cacheHitRate ?? 0) < 0.2
+        ? "warn"
+        : "ok";
+
+  return {
+    key: "cache",
+    label: "AI cache reuse",
+    value: `${round((cacheHitRate ?? 0) * 100, 1)}%`,
+    sub: sampleNote,
+    severity,
+  };
+}
+
 export async function getMobileCommandCenterAi(days: number): Promise<CommandCenterPayload> {
   const db = getAdmin();
   if (!db) return missingDbPayload(days);
@@ -349,8 +448,10 @@ export async function getMobileCommandCenterAi(days: number): Promise<CommandCen
     column: "created_at",
   });
   const summary = summarizeAi(ai.rows);
+  const cacheMetric = getCacheMetricCard(summary);
   const notes = [
     "AI rows use source = manatap_app, source_page app_* markers, or known mobile AI route fallbacks.",
+    "AI cache reuse only counts rows that explicitly recorded cache_hit. 'Not enough data yet' means the logger still missed cache info on recent rows.",
     ai.error ? `AI usage query warning: ${ai.error}` : "",
   ].filter(Boolean);
 
@@ -362,12 +463,7 @@ export async function getMobileCommandCenterAi(days: number): Promise<CommandCen
       { key: "requests", label: "App AI requests", value: summary.totals.requests, severity: summary.totals.requests ? "ok" : "warn" },
       { key: "cost", label: "AI cost", value: `$${summary.totals.cost_usd.toFixed(2)}`, severity: severityForThreshold(summary.totals.cost_usd, 25, 75) },
       { key: "errors", label: "AI errors", value: summary.totals.errors, sub: `${round(summary.totals.error_rate * 100, 2)}%`, severity: severityForThreshold(summary.totals.error_rate, 0.03, 0.1) },
-      {
-        key: "cache",
-        label: "Cache hit rate",
-        value: summary.totals.cache_hit_rate == null ? "unknown" : `${round(summary.totals.cache_hit_rate * 100, 1)}%`,
-        severity: summary.totals.cache_hit_rate == null ? "info" : summary.totals.cache_hit_rate < 0.2 ? "warn" : "ok",
-      },
+      cacheMetric,
       {
         key: "all_ai_rows",
         label: "All AI rows in window",
@@ -874,40 +970,146 @@ export async function getMobileCommandCenterFeedback(days: number): Promise<Comm
   };
 }
 
+function summarizeImportantJobs(configRows: JsonRecord[], opsRows: JsonRecord[]) {
+  const configMap = new Map<string, JsonRecord>();
+  for (const row of configRows) configMap.set(String(row.key), row);
+  const latestDailyOps = opsRows.find((row) => String(row.report_type || "") === "daily_ops");
+
+  const rows = IMPORTANT_JOB_IDS.map((jobId) => {
+    if (jobId === "daily_ops_report") {
+      const latest = latestDailyOps;
+      const status = String(latest?.status || "");
+      const finishedAt = latest?.created_at ? String(latest.created_at) : null;
+      const health: Severity =
+        status === "ok" ? "ok" : status === "warn" ? "warn" : latest ? "critical" : "info";
+      return {
+        job: "Daily summary report",
+        status: status === "ok" ? "working" : status === "warn" ? "working, with warnings" : latest ? "failed" : "not seen yet",
+        last_seen: ageShort(finishedAt),
+        detail: latest ? String(latest.summary || "").slice(0, 140) : "No daily summary report row yet.",
+        severity: health,
+      };
+    }
+
+    const detailRow = configMap.get(adminJobDetailKey(jobId));
+    const attemptRow = configMap.get(adminJobAttemptKey(jobId));
+    const lastKey = adminJobLastSuccessKey(jobId);
+    const lastSuccess = lastKey ? String(configMap.get(lastKey)?.value || "") || null : null;
+    const detail = parseAdminJobDetail(typeof detailRow?.value === "string" ? detailRow.value : null);
+    const health = computeAdminJobHealth(jobId, detail, lastSuccess);
+    const finishedAt = lastSuccess || detail?.finishedAt || (typeof attemptRow?.value === "string" ? attemptRow.value : null);
+    const labelMap: Record<string, string> = {
+      bulk_scryfall: "Scryfall import",
+      bulk_price_import: "Price import",
+      price_snapshot_bulk: "Price snapshot build",
+      "deck-costs": "Deck cost refresh",
+    };
+    const statusMap: Record<string, string> = {
+      healthy: "working",
+      degraded: "working, with warnings",
+      partial: "partly worked",
+      stale: "late",
+      failed: "failed",
+    };
+
+    return {
+      job: labelMap[jobId] || jobId,
+      status: statusMap[health] || health,
+      last_seen: ageShort(finishedAt),
+      detail: detail?.compactLine || "No recent detail saved.",
+      severity: (health === "healthy" ? "ok" : health === "degraded" ? "warn" : health === "partial" ? "warn" : health === "stale" ? "warn" : "critical") as Severity,
+    };
+  });
+
+  const healthy = rows.filter((row) => row.severity === "ok").length;
+  const warning = rows.filter((row) => row.severity === "warn").length;
+  const failing = rows.filter((row) => row.severity === "critical").length;
+
+  return {
+    rows,
+    healthy,
+    warning,
+    failing,
+  };
+}
+
 export async function getMobileCommandCenterOps(days: number): Promise<CommandCenterPayload> {
   const db = getAdmin();
   if (!db) return missingDbPayload(days);
-  const [flags, config, changelog, scryfall, priceJobs] = await Promise.all([
+  const appConfigKeys = [
+    ...IMPORTANT_JOB_IDS.flatMap((jobId) => {
+      const keys = [adminJobDetailKey(jobId), adminJobAttemptKey(jobId)];
+      const lastKey = adminJobLastSuccessKey(jobId);
+      if (lastKey) keys.push(lastKey);
+      return keys;
+    }),
+    "job:last:mtg-legality-refresh",
+    "job:last:scryfall_cache_incomplete_repair",
+    "job:last:scryfall_cache_phase3_backfill",
+  ];
+  const [flags, config, changelog, scryfall, opsAudit, appConfig, opsReports] = await Promise.all([
     safeRows(db, "feature_flags", "key,enabled,platform,updated_at", { limit: 50, order: "updated_at" }),
     safeRows(db, "remote_config", "key,platform,updated_at", { limit: 50, order: "updated_at" }),
     safeRows(db, "app_changelog", "title,is_active,platform,starts_at,updated_at", { limit: 10, order: "updated_at" }),
     safeRows(db, "scryfall_cache", "name,updated_at", { limit: 1, order: "updated_at" }),
     safeRows(db, "admin_audit", "created_at,action,target", { since: sinceDays(days), limit: 30 }),
+    safeAppConfigRows(db, appConfigKeys),
+    safeOpsReportRows(db, 20),
   ]);
-  const configAge = config.rows[0]?.updated_at ? Date.now() - new Date(String(config.rows[0].updated_at)).getTime() : null;
+  const configFreshness = freshnessWord(typeof config.rows[0]?.updated_at === "string" ? String(config.rows[0].updated_at) : null, 7 * 24);
+  const scryfallFreshness = freshnessWord(typeof scryfall.rows[0]?.updated_at === "string" ? String(scryfall.rows[0].updated_at) : null, 24);
+  const importantJobs = summarizeImportantJobs(appConfig.rows, opsReports.rows);
+  const failingJobs = importantJobs.failing;
+  const warningJobs = importantJobs.warning;
+  const latestJobSeen = importantJobs.rows
+    .map((row) => row.last_seen)
+    .find((value) => value && value !== "never" && value !== "unknown") || "not yet";
+
   return {
     generatedAt: nowIso(),
     days,
     env: envStatus(),
     metrics: [
+      {
+        key: "important_jobs",
+        label: "Important jobs",
+        value: failingJobs ? "needs attention" : warningJobs ? "mostly okay" : "all okay",
+        sub: `${importantJobs.healthy}/${importantJobs.rows.length} healthy, latest run ${latestJobSeen}`,
+        severity: failingJobs ? "critical" : warningJobs ? "warn" : "ok",
+        href: "/admin/ops",
+      },
+      {
+        key: "scryfall",
+        label: "Scryfall cache update",
+        value: scryfallFreshness.value,
+        sub: scryfall.error ? `Lookup warning: ${scryfall.error}` : "When card data was last refreshed in the cache.",
+        severity: scryfall.error ? "info" : scryfallFreshness.severity,
+        href: "/admin/data",
+      },
+      {
+        key: "config_freshness",
+        label: "App settings update",
+        value: configFreshness.value,
+        sub: "When mobile settings were last changed.",
+        severity: configFreshness.severity,
+        href: "/admin/feature-flags",
+      },
       { key: "flags", label: "Feature flags", value: flags.rows.length, severity: flags.error ? "info" : "ok", href: "/admin/feature-flags" },
       { key: "config", label: "Remote config rows", value: config.rows.length, severity: config.error ? "info" : "ok", href: "/admin/feature-flags" },
       { key: "changelog", label: "Active app notes", value: changelog.rows.filter((row) => row.is_active).length, severity: changelog.error ? "info" : "ok", href: "/admin/app-whats-new" },
-      {
-        key: "config_freshness",
-        label: "Config freshness",
-        value: configAge == null ? "unknown" : `${Math.round(configAge / 36e5)}h`,
-        severity: configAge == null ? "warn" : configAge > 7 * 24 * 36e5 ? "warn" : "ok",
-      },
-      { key: "scryfall", label: "Scryfall cache", value: scryfall.rows[0]?.updated_at ? "fresh-ish" : "unknown", severity: scryfall.error ? "info" : "ok" },
     ],
     tables: {
+      "Important jobs": importantJobs.rows,
       "Feature flags": flags.rows,
       "Remote config": config.rows,
       "App changelog": changelog.rows,
-      "Recent ops jobs": priceJobs.rows,
+      "Recent admin actions": opsAudit.rows,
     },
-    notes: ["Inline destructive controls are deferred; use existing run/control pages from the cockpit links."],
+    notes: [
+      "This tab answers three simple questions: did the important background jobs run, are app settings fresh, and does the Scryfall cache look recently updated?",
+      "Use /admin/ops when a job says late, failed, or partly worked.",
+      "Use /admin/data for deeper cache checks when Scryfall freshness looks stale.",
+    ],
   };
 }
 
@@ -969,6 +1171,7 @@ export async function getMobileCommandCenterOverview(days: number): Promise<Comm
       ...(users.metrics || []).slice(1, 3),
       ...(revenue.metrics || []).slice(0, 3),
       ...(errors.metrics || []).slice(0, 3),
+      ...(ops.metrics || []).slice(0, 3),
       ...(security.metrics || []).slice(0, 3),
     ],
     alerts: alerts.slice(0, 20),
@@ -978,11 +1181,11 @@ export async function getMobileCommandCenterOverview(days: number): Promise<Comm
       "Sentry unresolved issues": errors.tables?.["Sentry unresolved issues"] || [],
       "Rate-limit pressure": security.tables?.["Top durable rate limits"] || [],
       "Feedback": feedback.tables?.["Recent app AI reports"] || [],
-      "Ops": ops.tables?.["Recent ops jobs"] || [],
+      "Ops": ops.tables?.["Important jobs"] || [],
     },
     notes: [
-      "Overview combines live reads with rollup-ready shapes. Apply the migration and use refresh-rollups for cached snapshots.",
-      "No full emails, raw prompts, Sentry stack traces, or service-role data are returned.",
+      "This page is meant to be a quick plain-English check, not a deep technical audit.",
+      "No full emails, raw prompts, Sentry stack traces, or server-only secrets are shown here.",
     ],
   };
 }

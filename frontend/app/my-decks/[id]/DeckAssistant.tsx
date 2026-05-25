@@ -90,10 +90,15 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       try {
         const cmdName = String((data as any)?.commander || '').trim();
         if (cmdName) {
-          const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cmdName)}`, { cache: 'no-store' });
+          const r = await fetch('/api/cards/batch-metadata', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ names: [cmdName] }),
+          });
           if (r.ok) {
-            const j: any = await r.json().catch(()=>({}));
-            const ci = Array.isArray(j?.color_identity) ? j.color_identity : [];
+            const j: any = await r.json().catch(() => ({}));
+            const row = Array.isArray(j?.data) ? j.data[0] : null;
+            const ci = Array.isArray(row?.color_identity) ? row.color_identity : [];
             setDeckCI(ci);
           }
         }
@@ -727,20 +732,25 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
         if (!deckCI || deckCI.length===0) { setItems(parsed); return; }
         setLoading(true);
         try {
-          const kept: Array<{name:string; qty:number}> = [];
-          const want = new Set(deckCI);
           const pick = parsed.slice(0, 12);
-          await Promise.all(pick.map(async (it) => {
-            try {
-              const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(it.name)}`, { cache: 'no-store' });
-              if (!r.ok) { kept.push(it); return; } // keep unknowns
-              const c: any = await r.json().catch(()=>({}));
-              const ci: string[] = Array.isArray(c?.color_identity) ? c.color_identity : [];
-              const subset = ci.every(x => want.has(x));
-              if (subset) kept.push(it);
-            } catch { kept.push(it); }
-          }));
-          if (!cancelled) setItems(kept);
+          const r = await fetch('/api/cards/batch-color-check', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              names: pick.map((it) => it.name),
+              allowedColors: deckCI,
+            }),
+          });
+          const kept = [...pick];
+          if (r.ok) {
+            const j: any = await r.json().catch(() => ({}));
+            const violations = new Set<string>(Array.isArray(j?.violations) ? j.violations.map((name: string) => name.trim()) : []);
+            const filtered = pick.filter((it) => !violations.has(it.name.trim()));
+            if (!cancelled) setItems(filtered);
+          } else if (!cancelled) {
+            setItems(kept);
+          }
+          return;
         } finally { if (!cancelled) setLoading(false); }
       }
       run();

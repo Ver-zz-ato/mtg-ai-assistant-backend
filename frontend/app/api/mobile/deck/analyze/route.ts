@@ -1006,6 +1006,24 @@ export async function POST(req: NextRequest) {
       if (cached?.text) {
         try {
           const cachedBody = JSON.parse(cached.text) as Record<string, unknown>;
+          const { recordAiUsage } = await import("@/lib/ai/log-usage");
+          void recordAiUsage({
+            user_id: auth?.user?.id ?? null,
+            model: "cache",
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0,
+            route: "deck_analyze_mobile_explain",
+            request_kind: "CACHE_HIT",
+            layer0_mode: "CACHE_HIT",
+            source_page: requestSourcePage ?? "app_deck_analyze",
+            source: requestUsageSource ?? "manatap_app",
+            user_tier: auth?.user ? (isPro ? "pro" : "free") : "guest",
+            is_guest: auth?.user ? false : true,
+            cache_hit: true,
+            cache_kind: "mobile_deck_analyze",
+            error_code: null,
+          }).catch(() => {});
           return NextResponse.json(
             {
               ...cachedBody,

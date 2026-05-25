@@ -41,14 +41,14 @@ Routes:
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/admin/mobile-command-center/overview` | Combined launch health and urgent alerts |
-| GET | `/api/admin/mobile-command-center/ai` | App AI cost, errors, cache rate, expensive users/routes |
+| GET | `/api/admin/mobile-command-center/ai` | App AI cost, errors, cache reuse, expensive users/routes |
 | GET | `/api/admin/mobile-command-center/users` | Supabase signups, Pro/free mix, masked recent rows |
 | GET | `/api/admin/mobile-command-center/analytics` | PostHog scanner/tool/monetization/feedback health, plus instrumentation gaps |
 | GET | `/api/admin/mobile-command-center/revenue` | RevenueCat/Stripe entitlement and webhook health |
 | GET | `/api/admin/mobile-command-center/errors` | Sentry unresolved issues plus local `error_logs` |
 | GET | `/api/admin/mobile-command-center/security` | Durable rate limits, `ops_rate_limit_hit`, advisor reminders, admin audit |
 | GET | `/api/admin/mobile-command-center/feedback` | App AI reports and generic feedback caveats |
-| GET | `/api/admin/mobile-command-center/ops` | Bootstrap/config freshness and job/control links |
+| GET | `/api/admin/mobile-command-center/ops` | Background job health, cache freshness, settings freshness, and control links |
 | POST | `/api/admin/mobile-command-center/refresh-rollups` | Admin/cron-protected rollup refresh and optional Discord alert send |
 | POST | `/api/admin/mobile-command-center/test-discord` | Admin-only one-off Discord channel test |
 | GET | `/api/cron/mobile-command-center-rollups` | Cron-only hourly rollup refresh with deduped Discord alerts |
@@ -75,6 +75,7 @@ Analytics note:
 
 - The cockpit now reads the real mobile app event families already in use, not only scanner-specific names.
 - Quiet scanner or feedback rows before launch are treated as informational when the broader app analytics stream is healthy.
+- The AI cache card is intentionally plain-English: it is measuring how often app AI reused a saved answer, but only on rows that actually reported cache info.
 - The Analytics tab is intended to answer four quick questions:
   - Is the scanner funnel emitting events?
   - Are tool funnels emitting start/success/failure signals?
@@ -113,6 +114,14 @@ Private tables:
 | `admin_app_alerts` | Alert history, dedupe keys, status, payload, and Discord send metadata |
 
 Identity is masked in list views by default. Use the existing support, entitlement debug, Stripe sync, feedback triage, and ops pages for one-user investigations or mutating controls.
+
+Ops tab note:
+
+- The Ops tab is meant to answer simple questions quickly:
+  - Did the important background jobs run?
+  - When did they last work?
+  - Are mobile settings fresh?
+  - Does the Scryfall cache look recently updated?
 
 ## Admin API (JSON)
 
