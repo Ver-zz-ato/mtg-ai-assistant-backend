@@ -55,6 +55,45 @@ const TABS: Array<{ key: TabKey; label: string; icon: React.ComponentType<{ clas
   { key: "ops", label: "Ops & Data", icon: Database },
 ];
 
+const TAB_HELP: Record<TabKey, { title: string; body: string }> = {
+  overview: {
+    title: "Start here",
+    body: "Quick launch readout. Check this first when you want to know if the app looks calm, noisy, or broken.",
+  },
+  ai: {
+    title: "AI cost and reliability",
+    body: "How much app AI was used, what it cost, where it was spent, and whether failures or cache misses are creeping up.",
+  },
+  users: {
+    title: "Signups and Pro mix",
+    body: "New users, Pro/free shape, and masked recent rows so you can spot spikes without exposing identities by default.",
+  },
+  analytics: {
+    title: "Event health",
+    body: "Checks whether scanner, tool, upgrade, and feedback events are showing up. Quiet before launch is often fine.",
+  },
+  revenue: {
+    title: "Money and access",
+    body: "RevenueCat and Stripe health, plus whether Pro entitlements and purchase webhooks are behaving.",
+  },
+  errors: {
+    title: "Crashes and backend errors",
+    body: "Sentry for mobile issues plus local error rows from your backend, kept short and masked.",
+  },
+  security: {
+    title: "Abuse and guardrails",
+    body: "Rate-limit pressure, admin audit activity, and security reminders that are worth watching during launch.",
+  },
+  feedback: {
+    title: "What users are telling you",
+    body: "App AI reports, generic feedback, unresolved items, and missing source markers that make triage harder.",
+  },
+  ops: {
+    title: "Control plane freshness",
+    body: "Feature flags, remote config, app notes, and the job/control surfaces that support launch-day fixes.",
+  },
+};
+
 const ADMIN_LINKS = [
   { href: "/admin/ai-usage-app", label: "App AI usage" },
   { href: "/admin/app-ai-feedback", label: "App AI feedback" },
@@ -217,6 +256,16 @@ function DataAge({ generatedAt }: { generatedAt?: string }) {
   return <span className="text-xs text-neutral-500">Last refresh {label}</span>;
 }
 
+function ActionBanner({ message }: { message: string }) {
+  const tone =
+    /failed|error|did not send|missing/i.test(message)
+      ? "border-red-800 bg-red-950/25 text-red-100"
+      : /test|refreshed|sent|quiet/i.test(message)
+        ? "border-sky-800 bg-sky-950/25 text-sky-100"
+        : "border-neutral-800 bg-neutral-950/70 text-neutral-200";
+  return <div className={`rounded-lg border p-3 text-sm ${tone}`}>{message}</div>;
+}
+
 export default function MobileCommandCenterPage() {
   const [active, setActive] = React.useState<TabKey>("overview");
   const [days, setDays] = React.useState(7);
@@ -356,15 +405,18 @@ export default function MobileCommandCenterPage() {
         </nav>
 
         <EnvStrip env={payload?.env} />
-        <DataAge generatedAt={payload?.generatedAt} />
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <DataAge generatedAt={payload?.generatedAt} />
+          <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-xs text-neutral-300">
+            <span className="font-semibold text-neutral-100">{TAB_HELP[active].title}:</span> {TAB_HELP[active].body}
+          </div>
+        </div>
 
         {payload?.error ? (
           <div className="rounded-lg border border-red-800 bg-red-950/30 p-3 text-sm text-red-100">{payload.error}</div>
         ) : null}
 
-        {actionMessage ? (
-          <div className="rounded-lg border border-sky-800 bg-sky-950/25 p-3 text-sm text-sky-100">{actionMessage}</div>
-        ) : null}
+        {actionMessage ? <ActionBanner message={actionMessage} /> : null}
 
         <MetricGrid metrics={payload?.metrics} />
 
@@ -372,9 +424,14 @@ export default function MobileCommandCenterPage() {
 
         {payload?.notes?.length ? (
           <section className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-sm text-neutral-300">
-            {payload.notes.map((note) => (
-              <div key={note}>{note}</div>
-            ))}
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Notes</div>
+            <div className="space-y-2">
+              {payload.notes.map((note) => (
+                <div key={note} className="rounded-md border border-neutral-900 bg-neutral-950/70 px-3 py-2">
+                  {note}
+                </div>
+              ))}
+            </div>
           </section>
         ) : null}
 

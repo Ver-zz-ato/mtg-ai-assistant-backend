@@ -27,6 +27,7 @@
 - **Manual / scripts / admin cron runner:** use the same `Authorization: Bearer <CRON_SECRET>` header.
 - **Temporary compatibility only:** some routes still accept `?key=<CRON_SECRET>` to avoid breaking existing manual callers during migration. Remove this once all callers are updated.
 - **Mobile Command Center rollups:** Vercel calls `GET /api/cron/mobile-command-center-rollups` hourly with `Authorization: Bearer <CRON_SECRET>`. This refreshes private rollups and sends deduped Discord launch alerts. Manual admin refresh stays quiet by default; the cockpit has a separate `Test Discord` button for one-off channel verification.
+- For human launch flow, pair this cron with `docs/LAUNCH_DAY_RUNBOOK.md` so Discord alerts are only one input, not the whole decision process.
 
 ## Manual run
 

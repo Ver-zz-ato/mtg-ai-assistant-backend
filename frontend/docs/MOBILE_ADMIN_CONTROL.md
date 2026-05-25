@@ -96,6 +96,12 @@ Suggested PostHog launch dashboards:
    - Trends: `feedback_sent`, `analysis_feedback_submitted`, `chat_issue_report_submitted`, `feedback_submission_failed`
    - Break down by `source`, `source_surface`, `source_feature`, `context`
 
+Companion docs:
+
+- `docs/POSTHOG_LAUNCH_DASHBOARDS_ELI5.md` — plain-English meaning of each live dashboard and what counts as normal before launch
+- `docs/POSTHOG_FEEDBACK_DASHBOARDS_SPEC.md` — feedback-specific event and dashboard checklist
+- `docs/LAUNCH_DAY_RUNBOOK.md` — launch-day order of checks and what to investigate first
+
 Migration: `db/migrations/115_mobile_command_center_rollups.sql`
 
 Private tables:

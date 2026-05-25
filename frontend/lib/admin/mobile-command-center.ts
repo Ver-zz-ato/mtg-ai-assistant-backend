@@ -798,11 +798,12 @@ export async function getMobileCommandCenterFeedback(days: number): Promise<Comm
   const db = getAdmin();
   if (!db) return missingDbPayload(days);
   const since = sinceDays(days);
-  const [feedback, aiReports, appReports, negativeFeedback] = await Promise.all([
+  const [feedback, aiReports, appReports, negativeFeedback, posthog] = await Promise.all([
     safeCount(db, "feedback", { since }),
     safeCount(db, "ai_response_reports", { since }),
     safeRows(db, "ai_response_reports", "created_at,status,issue_types,user_id,context_jsonb,description", { since, limit: 50 }),
     safeRows(db, "feedback", "created_at,rating,user_id,source,message", { since, limit: 50 }),
+    getPosthogAnalytics(days),
   ]);
   const appRows = appReports.rows.filter((row) => {
     const context = (row.context_jsonb || {}) as JsonRecord;
@@ -818,6 +819,8 @@ export async function getMobileCommandCenterFeedback(days: number): Promise<Comm
   const appGenericRows = genericRows.filter((row) => String(row.source).startsWith("app_") || row.source === "deck_analysis");
   const genericMissingSource = genericRows.filter((row) => row.source === "unknown").length;
   const unresolvedAppReports = appRows.filter((row) => String(row.status || "open") !== "resolved").length;
+  const feedbackFailureRows = posthog.rows.filter((row) => String(row.event || "") === "feedback_submission_failed");
+  const feedbackFailureCount = feedbackFailureRows.reduce((sum, row) => sum + (Number(row.count) || 0), 0);
   const groupedSources = new Map<string, number>();
   for (const row of appRows) {
     const context = (row.context_jsonb || {}) as JsonRecord;
@@ -835,6 +838,13 @@ export async function getMobileCommandCenterFeedback(days: number): Promise<Comm
       { key: "app_ai_reports", label: "App AI reports", value: appRows.length, sub: `${unresolvedAppReports} unresolved`, severity: appRows.length ? "ok" : "info" },
       { key: "negative", label: "Negative feedback rows", value: negativeFeedback.rows.filter((row) => Number(row.rating) < 0).length, severity: "info" },
       { key: "feedback_source_gaps", label: "Missing source attribution", value: genericMissingSource, severity: genericMissingSource ? "warn" : "ok" },
+      {
+        key: "feedback_submit_failures",
+        label: "Submission failures",
+        value: feedbackFailureCount,
+        sub: posthog.error ? "PostHog unavailable for failure-side check" : feedbackFailureCount ? "Investigate broken feedback/report flows." : "None seen in this window",
+        severity: posthog.error ? "info" : feedbackFailureCount ? "warn" : "ok",
+      },
     ],
     tables: {
       "Recent app AI reports": appRows.map((row) => ({
@@ -847,12 +857,18 @@ export async function getMobileCommandCenterFeedback(days: number): Promise<Comm
       })),
       "Recent app generic feedback": appGenericRows,
       "Recent generic feedback": genericRows,
+      "Feedback submission failures": feedbackFailureRows.length
+        ? feedbackFailureRows.map((row) => ({ event: row.event, count: row.count }))
+        : [{ event: "feedback_submission_failed", count: 0, note: posthog.error ? "PostHog check unavailable." : "No failures seen in this window." }],
       "App report sources": Array.from(groupedSources.entries())
         .map(([source, count]) => ({ source, count }))
         .sort((a, b) => b.count - a.count),
     },
     notes: [
       "Generic feedback is now surfaced as app-specific where source markers exist.",
+      feedbackFailureCount
+        ? "Failure-side feedback tracking is firing, so some users are hitting submit problems or blocked report flows."
+        : "No feedback submission failures were seen in this window.",
       genericMissingSource ? "Some feedback rows still lack source attribution and may include website traffic." : "Source attribution looks healthy in this window.",
     ],
   };
@@ -938,7 +954,17 @@ export async function getMobileCommandCenterOverview(days: number): Promise<Comm
     days,
     env: envStatus(),
     metrics: [
-      { key: "launch_health", label: "Launch health", value: alerts.some((a) => a.severity === "critical") ? "critical" : alerts.length ? "watch" : "ok", severity: alerts.some((a) => a.severity === "critical") ? "critical" : alerts.length ? "warn" : "ok" },
+      {
+        key: "launch_health",
+        label: "Launch health",
+        value: alerts.some((a) => a.severity === "critical") ? "critical" : alerts.length ? "watch" : "ok",
+        sub: alerts.some((a) => a.severity === "critical")
+          ? `${alerts.filter((a) => a.severity === "critical").length} critical item(s)`
+          : alerts.length
+            ? `${alerts.length} thing(s) worth watching`
+            : "Nothing urgent right now",
+        severity: alerts.some((a) => a.severity === "critical") ? "critical" : alerts.length ? "warn" : "ok",
+      },
       ...(ai.metrics || []).slice(0, 4),
       ...(users.metrics || []).slice(1, 3),
       ...(revenue.metrics || []).slice(0, 3),
