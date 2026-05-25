@@ -444,7 +444,19 @@ export async function getMobileCommandCenterUsers(days: number): Promise<Command
 
 async function getPosthogAnalytics(days: number) {
   if (!getPosthogQueryCredentials()) {
-    return { configured: false, rows: [] as JsonRecord[], error: "PostHog query env is not configured." };
+    return {
+      configured: false,
+      rows: [] as JsonRecord[],
+      eventCount: 0,
+      scannerEventCount: 0,
+      scannerSessionCompletions: 0,
+      toolEventCount: 0,
+      toolOutcomeCount: 0,
+      monetizationEventCount: 0,
+      feedbackEventCount: 0,
+      missingFamilies: [] as string[],
+      error: "PostHog query env is not configured.",
+    };
   }
   const safeDays = parseDaysParam(String(days), 7);
   const query = `
@@ -452,24 +464,66 @@ async function getPosthogAnalytics(days: number) {
     FROM events
     WHERE timestamp > now() - INTERVAL ${safeDays} DAY
       AND (
-        event LIKE 'app_%'
-        OR event LIKE 'scanner_%'
-        OR event LIKE 'mobile_%'
+        event LIKE 'tool_%'
+        OR event LIKE 'scan_%'
+        OR event LIKE 'pro_%'
+        OR event LIKE 'paywall_%'
+        OR event LIKE 'feedback_%'
+        OR event LIKE 'chat_%'
+        OR event LIKE 'voice_%'
+        OR event LIKE 'hero_%'
+        OR event LIKE 'home_%'
+        OR event LIKE 'analysis_%'
         OR properties.$lib = 'posthog-react-native'
-        OR properties.platform IN ('ios', 'android')
+        OR properties.platform = 'app'
+        OR properties.source = 'manatap_app'
       )
     GROUP BY event
     ORDER BY count DESC
-    LIMIT 30
+    LIMIT 120
   `;
   try {
     const result = await posthogHogql(query);
+    const rows = result.results.map((row) => ({ event: row[0], count: Number(row[1] || 0) })) as JsonRecord[];
+    const countFor = (matcher: (event: string) => boolean) =>
+      rows.reduce((sum, row) => {
+        const event = String(row.event || "");
+        return matcher(event) ? sum + (Number(row.count) || 0) : sum;
+      }, 0);
+    const eventNames = new Set(rows.map((row) => String(row.event || "")));
+    const missingFamilies = [
+      !Array.from(eventNames).some((event) => event.startsWith("tool_")) ? "tool events" : null,
+      !Array.from(eventNames).some((event) => event.startsWith("pro_") || event.startsWith("paywall_")) ? "monetization funnel" : null,
+      !Array.from(eventNames).some((event) => event.startsWith("feedback_") || event === "chat_feedback" || event === "chat_issue_report_submitted" || event === "analysis_feedback_submitted")
+        ? "feedback/reporting"
+        : null,
+    ].filter(Boolean) as string[];
     return {
       configured: true,
-      rows: result.results.map((row) => ({ event: row[0], count: row[1] })) as JsonRecord[],
+      rows,
+      eventCount: rows.reduce((sum, row) => sum + (Number(row.count) || 0), 0),
+      scannerEventCount: countFor((event) => event.startsWith("scan_")),
+      scannerSessionCompletions: countFor((event) => event === "scan_card_session_completed"),
+      toolEventCount: countFor((event) => event.startsWith("tool_")),
+      toolOutcomeCount: countFor((event) => event === "tool_action_completed" || event === "tool_action_failed"),
+      monetizationEventCount: countFor((event) => event.startsWith("pro_") || event.startsWith("paywall_") || event.startsWith("purchase_") || event.startsWith("restore_")),
+      feedbackEventCount: countFor((event) => event.startsWith("feedback_") || event === "chat_feedback" || event === "chat_issue_report_submitted" || event === "analysis_feedback_submitted"),
+      missingFamilies,
     };
   } catch (e) {
-    return { configured: true, rows: [] as JsonRecord[], error: e instanceof Error ? e.message : "posthog_query_failed" };
+    return {
+      configured: true,
+      rows: [] as JsonRecord[],
+      eventCount: 0,
+      scannerEventCount: 0,
+      scannerSessionCompletions: 0,
+      toolEventCount: 0,
+      toolOutcomeCount: 0,
+      monetizationEventCount: 0,
+      feedbackEventCount: 0,
+      missingFamilies: [] as string[],
+      error: e instanceof Error ? e.message : "posthog_query_failed",
+    };
   }
 }
 
@@ -481,8 +535,24 @@ export async function getMobileCommandCenterAnalytics(days: number): Promise<Com
     safeCount(db, "budget_swap_analytics", { since: sinceDays(days) }),
     safeCount(db, "mulligan_advice_runs", { since: sinceDays(days) }),
   ]);
-
-  const scannerEvents = posthog.rows.filter((row) => String(row.event || "").includes("scanner"));
+  const scannerRows = posthog.rows.filter((row) => String(row.event || "").startsWith("scan_"));
+  const toolRows = posthog.rows.filter((row) => String(row.event || "").startsWith("tool_"));
+  const monetizationRows = posthog.rows.filter((row) => {
+    const event = String(row.event || "");
+    return event.startsWith("pro_") || event.startsWith("paywall_") || event.startsWith("purchase_") || event.startsWith("restore_");
+  });
+  const feedbackRows = posthog.rows.filter((row) => {
+    const event = String(row.event || "");
+    return event.startsWith("feedback_") || event === "chat_feedback" || event === "chat_issue_report_submitted" || event === "analysis_feedback_submitted";
+  });
+  const scannerStatus =
+    posthog.error
+      ? "query_failed"
+      : posthog.scannerEventCount > 0
+        ? "recent activity seen"
+        : posthog.eventCount > 0
+          ? "quiet but healthy"
+          : "waiting for first app traffic";
   return {
     generatedAt: nowIso(),
     days,
@@ -494,20 +564,52 @@ export async function getMobileCommandCenterAnalytics(days: number): Promise<Com
         value: posthog.configured ? (posthog.error ? "failing" : "connected") : "missing",
         severity: posthog.configured ? (posthog.error ? "warn" : "ok") : "warn",
       },
-      { key: "app_events", label: "App events", value: posthog.rows.reduce((sum, row) => sum + Number(row.count || 0), 0), severity: posthog.rows.length ? "ok" : "info" },
-      { key: "scanner_events", label: "Scanner event types", value: scannerEvents.length, severity: scannerEvents.length ? "ok" : "warn" },
+      { key: "app_events", label: "App events seen", value: posthog.eventCount, severity: posthog.rows.length ? "ok" : "info" },
+      { key: "scanner_events_seen", label: "Scanner events seen", value: posthog.scannerEventCount, sub: scannerStatus, severity: posthog.error ? "warn" : posthog.scannerEventCount ? "ok" : "info" },
+      { key: "scanner_sessions_completed", label: "Scanner sessions completed", value: posthog.scannerSessionCompletions, severity: posthog.scannerSessionCompletions ? "ok" : "info" },
+      { key: "tool_events_seen", label: "Tool events seen", value: posthog.toolEventCount, sub: `${posthog.toolOutcomeCount} outcomes`, severity: posthog.toolEventCount ? "ok" : "info" },
+      { key: "feedback_events", label: "Feedback events", value: posthog.feedbackEventCount, severity: posthog.feedbackEventCount ? "ok" : "info" },
+      { key: "missing_families", label: "Critical families missing", value: posthog.missingFamilies.length, sub: posthog.missingFamilies.join(", ") || "none", severity: posthog.error ? "warn" : posthog.missingFamilies.length ? "info" : "ok" },
       { key: "budget_swaps", label: "Budget swap rows", value: budgetSwap.count, severity: budgetSwap.error ? "info" : "ok" },
       { key: "mulligan_runs", label: "Mulligan runs", value: mulligan.count, severity: mulligan.error ? "info" : "ok" },
     ],
     tables: {
-      "PostHog app events": posthog.rows,
-      "Missing coverage checklist": [
-        { event_area: "AI tools", expected: "tool_start/tool_success/tool_failure", status: "instrument next" },
-        { event_area: "Scanner funnel", expected: "camera_opened/scan_success/auto_add", status: scannerEvents.length ? "partial" : "missing" },
+      "Scanner funnel health": [
+        { metric: "Recent scanner events", value: posthog.scannerEventCount, status: scannerStatus },
+        { metric: "Scanner sessions completed", value: posthog.scannerSessionCompletions, status: posthog.scannerSessionCompletions ? "captured" : "none yet" },
+        { metric: "AI fallback events", value: scannerRows.filter((row) => String(row.event || "").startsWith("scan_ai_")).reduce((sum, row) => sum + Number(row.count || 0), 0), status: "diagnostic" },
+      ],
+      "Tool funnel health": [
+        { metric: "tool_opened", count: toolRows.filter((row) => row.event === "tool_opened").reduce((sum, row) => sum + Number(row.count || 0), 0) },
+        { metric: "tool_action_started", count: toolRows.filter((row) => row.event === "tool_action_started").reduce((sum, row) => sum + Number(row.count || 0), 0) },
+        { metric: "tool_action_completed", count: toolRows.filter((row) => row.event === "tool_action_completed").reduce((sum, row) => sum + Number(row.count || 0), 0) },
+        { metric: "tool_action_failed", count: toolRows.filter((row) => row.event === "tool_action_failed").reduce((sum, row) => sum + Number(row.count || 0), 0) },
+      ],
+      "Monetization funnel health": monetizationRows.length
+        ? monetizationRows
+        : [{ event: "No recent monetization events", count: 0, note: "Expected before active launch traffic." }],
+      "Feedback + reporting health": feedbackRows.length
+        ? feedbackRows
+        : [{ event: "No recent feedback events", count: 0, note: "Healthy if nobody has used those flows yet." }],
+      "Critical expected event families": [
+        { family: "scanner events", status: posthog.scannerEventCount ? "seen" : "quiet", launch_meaning: posthog.eventCount ? "No recent scanner usage yet." : "No recent app analytics yet." },
+        { family: "tool events", status: posthog.toolEventCount ? "seen" : "missing", launch_meaning: posthog.toolEventCount ? "Core tool funnel data present." : "Check app tool instrumentation." },
+        { family: "monetization funnel", status: posthog.monetizationEventCount ? "seen" : "quiet", launch_meaning: "Fine if nobody has hit upgrade flow yet." },
+        { family: "feedback/reporting", status: posthog.feedbackEventCount ? "seen" : "quiet", launch_meaning: "Fine until users start sending feedback." },
         { event_area: "Rate limit hits", expected: "ops_rate_limit_hit", status: "server-side admin_audit" },
       ],
+      "PostHog app events": posthog.rows,
+      "Missing coverage checklist": [
+        { event_area: "Scanner session outcome", expected: "scan_card_session_completed", status: posthog.rows.some((row) => row.event === "scan_card_session_completed") ? "seen" : "waiting for first scanner run" },
+        { event_area: "Tool funnel", expected: "tool_opened/tool_action_started/completed/failed", status: posthog.toolEventCount ? "seen" : "missing" },
+        { event_area: "Feedback failures", expected: "feedback_submission_failed", status: posthog.rows.some((row) => row.event === "feedback_submission_failed") ? "seen" : "instrumented, waiting for first failure" },
+      ],
     },
-    notes: [posthog.error ? `PostHog warning: ${posthog.error}` : ""].filter(Boolean),
+    notes: [
+      posthog.error ? `PostHog warning: ${posthog.error}` : "",
+      `Last successful PostHog query shape check: ${nowIso()}.`,
+      "Quiet prelaunch scanner or feedback metrics are treated as informational, not launch alerts.",
+    ].filter(Boolean),
   };
 }
 
@@ -706,15 +808,33 @@ export async function getMobileCommandCenterFeedback(days: number): Promise<Comm
     const context = (row.context_jsonb || {}) as JsonRecord;
     return String(context.chat_surface || "").startsWith("app_") || String(context.source || "").startsWith("app_");
   });
+  const genericRows = negativeFeedback.rows.map((row) => ({
+    created_at: row.created_at,
+    rating: row.rating,
+    user: maskUserRef(row.user_id),
+    source: row.source || "unknown",
+    message: String(row.message || "").slice(0, 180),
+  }));
+  const appGenericRows = genericRows.filter((row) => String(row.source).startsWith("app_") || row.source === "deck_analysis");
+  const genericMissingSource = genericRows.filter((row) => row.source === "unknown").length;
+  const unresolvedAppReports = appRows.filter((row) => String(row.status || "open") !== "resolved").length;
+  const groupedSources = new Map<string, number>();
+  for (const row of appRows) {
+    const context = (row.context_jsonb || {}) as JsonRecord;
+    const source = String(context.chat_surface || context.source || "unknown");
+    groupedSources.set(source, (groupedSources.get(source) || 0) + 1);
+  }
   return {
     generatedAt: nowIso(),
     days,
     env: envStatus(),
     metrics: [
       { key: "feedback", label: "Generic feedback", value: feedback.count, severity: feedback.error ? "info" : "ok" },
+      { key: "app_feedback", label: "App generic feedback", value: appGenericRows.length, severity: appGenericRows.length ? "ok" : "info" },
       { key: "ai_reports", label: "AI reports", value: aiReports.count, severity: aiReports.error ? "info" : "ok" },
-      { key: "app_ai_reports", label: "App AI reports", value: appRows.length, severity: appRows.length ? "ok" : "warn" },
+      { key: "app_ai_reports", label: "App AI reports", value: appRows.length, sub: `${unresolvedAppReports} unresolved`, severity: appRows.length ? "ok" : "info" },
       { key: "negative", label: "Negative feedback rows", value: negativeFeedback.rows.filter((row) => Number(row.rating) < 0).length, severity: "info" },
+      { key: "feedback_source_gaps", label: "Missing source attribution", value: genericMissingSource, severity: genericMissingSource ? "warn" : "ok" },
     ],
     tables: {
       "Recent app AI reports": appRows.map((row) => ({
@@ -725,15 +845,16 @@ export async function getMobileCommandCenterFeedback(days: number): Promise<Comm
         surface: ((row.context_jsonb || {}) as JsonRecord).chat_surface || ((row.context_jsonb || {}) as JsonRecord).source,
         description: String(row.description || "").slice(0, 180),
       })),
-      "Recent generic feedback": negativeFeedback.rows.map((row) => ({
-        created_at: row.created_at,
-        rating: row.rating,
-        user: maskUserRef(row.user_id),
-        source: row.source || "unknown",
-        message: String(row.message || "").slice(0, 180),
-      })),
+      "Recent app generic feedback": appGenericRows,
+      "Recent generic feedback": genericRows,
+      "App report sources": Array.from(groupedSources.entries())
+        .map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count),
     },
-    notes: ["Generic feedback still needs source/client fields before it can reliably split app vs website."],
+    notes: [
+      "Generic feedback is now surfaced as app-specific where source markers exist.",
+      genericMissingSource ? "Some feedback rows still lack source attribution and may include website traffic." : "Source attribution looks healthy in this window.",
+    ],
   };
 }
 

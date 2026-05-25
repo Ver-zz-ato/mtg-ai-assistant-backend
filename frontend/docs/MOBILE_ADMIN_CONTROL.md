@@ -43,7 +43,7 @@ Routes:
 | GET | `/api/admin/mobile-command-center/overview` | Combined launch health and urgent alerts |
 | GET | `/api/admin/mobile-command-center/ai` | App AI cost, errors, cache rate, expensive users/routes |
 | GET | `/api/admin/mobile-command-center/users` | Supabase signups, Pro/free mix, masked recent rows |
-| GET | `/api/admin/mobile-command-center/analytics` | PostHog app events and instrumentation gaps |
+| GET | `/api/admin/mobile-command-center/analytics` | PostHog scanner/tool/monetization/feedback health, plus instrumentation gaps |
 | GET | `/api/admin/mobile-command-center/revenue` | RevenueCat/Stripe entitlement and webhook health |
 | GET | `/api/admin/mobile-command-center/errors` | Sentry unresolved issues plus local `error_logs` |
 | GET | `/api/admin/mobile-command-center/security` | Durable rate limits, `ops_rate_limit_hit`, advisor reminders, admin audit |
@@ -70,6 +70,31 @@ Discord send policy:
 - `Rollups` refreshes cached snapshots and alert rows, but stays quiet.
 - `Test Discord` sends one explicit manual test message.
 - The hourly cron posts only current `warn` / `critical` launch alerts that are new, changed, escalated, unsent, or old enough for a reminder. Critical alerts can repeat after about 1 hour; warning alerts after about 6 hours.
+
+Analytics note:
+
+- The cockpit now reads the real mobile app event families already in use, not only scanner-specific names.
+- Quiet scanner or feedback rows before launch are treated as informational when the broader app analytics stream is healthy.
+- The Analytics tab is intended to answer four quick questions:
+  - Is the scanner funnel emitting events?
+  - Are tool funnels emitting start/success/failure signals?
+  - Is the upgrade/paywall funnel visible?
+  - Are feedback and issue-report flows visible, including submission failures?
+
+Suggested PostHog launch dashboards:
+
+1. App Tool Funnel Health
+   - Trends/funnels: `tool_opened`, `tool_action_started`, `tool_action_completed`, `tool_action_failed`
+   - Break down by `tool`, `source_screen`, `user_tier`, `is_guest`
+2. Scanner Funnel
+   - Trends: `scan_card_capture_completed`, `scan_card_match_completed`, `scan_card_add_completed`, `scan_card_session_completed`
+   - Break down by `result_state`, `match_source`, `source_screen`, `is_guest`
+3. Monetization Funnel
+   - Trends/funnels: `pro_gate_viewed`, `pro_upgrade_started`, `pro_upgrade_completed`
+   - Break down by `source_path`, `context`, `platform`, `source_feature`
+4. Feedback + Friction
+   - Trends: `feedback_sent`, `analysis_feedback_submitted`, `chat_issue_report_submitted`, `feedback_submission_failed`
+   - Break down by `source`, `source_surface`, `source_feature`, `context`
 
 Migration: `db/migrations/115_mobile_command_center_rollups.sql`
 

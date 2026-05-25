@@ -208,6 +208,15 @@ function EnvStrip({ env }: { env?: Record<string, boolean> }) {
   );
 }
 
+function DataAge({ generatedAt }: { generatedAt?: string }) {
+  if (!generatedAt) return <span className="text-xs text-neutral-500">Loading...</span>;
+  const updated = new Date(generatedAt);
+  const ageMs = Date.now() - updated.getTime();
+  const ageMinutes = Math.max(0, Math.round(ageMs / 60000));
+  const label = ageMinutes < 1 ? "just now" : ageMinutes < 60 ? `${ageMinutes}m ago` : `${Math.round(ageMinutes / 60)}h ago`;
+  return <span className="text-xs text-neutral-500">Last refresh {label}</span>;
+}
+
 export default function MobileCommandCenterPage() {
   const [active, setActive] = React.useState<TabKey>("overview");
   const [days, setDays] = React.useState(7);
@@ -347,6 +356,7 @@ export default function MobileCommandCenterPage() {
         </nav>
 
         <EnvStrip env={payload?.env} />
+        <DataAge generatedAt={payload?.generatedAt} />
 
         {payload?.error ? (
           <div className="rounded-lg border border-red-800 bg-red-950/30 p-3 text-sm text-red-100">{payload.error}</div>
