@@ -8,6 +8,7 @@ import {
   Bug,
   CreditCard,
   Database,
+  Download,
   Gauge,
   LineChart,
   MessageSquareWarning,
@@ -82,7 +83,7 @@ const TAB_HELP: Record<TabKey, { title: string; body: string }> = {
   },
   security: {
     title: "Abuse and guardrails",
-    body: "Rate-limit pressure, admin changes, and security reminders worth watching during launch.",
+    body: "Rate-limit pressure, admin changes, and security reminders worth watching during launch. Right now this can include website and app routes together.",
   },
   feedback: {
     title: "What users are telling you",
@@ -303,6 +304,7 @@ export default function MobileCommandCenterPage() {
   const [loading, setLoading] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [testingDiscord, setTestingDiscord] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
   const [actionMessage, setActionMessage] = React.useState<string | null>(null);
 
   const payload = payloads[active];
@@ -349,6 +351,39 @@ export default function MobileCommandCenterPage() {
       setActionMessage(res.ok && sent > 0 ? "Test Discord alert sent." : String(json.error || "Discord test did not send."));
     } finally {
       setTestingDiscord(false);
+    }
+  }
+
+  async function exportJson() {
+    setExporting(true);
+    setActionMessage(null);
+    try {
+      const entries = await Promise.all(
+        TABS.map(async (tab) => {
+          const res = await fetch(`/api/admin/mobile-command-center/${tab.key}?${queryString(days)}`, { cache: "no-store" });
+          const json = (await res.json().catch(() => ({}))) as Payload;
+          return [tab.key, json] as const;
+        }),
+      );
+      const exportPayload = {
+        exportedAt: new Date().toISOString(),
+        days,
+        tabs: Object.fromEntries(entries),
+      };
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `mobile-command-center-${days}d.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setActionMessage("JSON export downloaded.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "JSON export failed.");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -408,6 +443,14 @@ export default function MobileCommandCenterPage() {
             >
               <MessageSquareWarning className={`h-4 w-4 ${testingDiscord ? "animate-pulse" : ""}`} />
               Test Discord
+            </button>
+            <button
+              type="button"
+              onClick={exportJson}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-700/60 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-900/30"
+            >
+              <Download className={`h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />
+              Export JSON
             </button>
           </div>
         </header>

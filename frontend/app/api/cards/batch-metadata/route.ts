@@ -65,7 +65,7 @@ export const POST = withLogging(async (req: NextRequest) => {
     const { data: rows, error } = await supabase
       .from("scryfall_cache")
       .select(
-        "name, type_line, oracle_text, color_identity, rarity, set, small, normal, art_crop, legalities, keywords, colors, power, toughness, loyalty, is_land, is_creature, is_instant, is_sorcery, is_enchantment, is_artifact, is_planeswalker"
+        "name, type_line, oracle_text, mana_cost, cmc, color_identity, rarity, set, collector_number, small, normal, art_crop, legalities, keywords, colors, power, toughness, loyalty, is_land, is_creature, is_instant, is_sorcery, is_enchantment, is_artifact, is_planeswalker"
       )
       .in("name", keys);
     
@@ -83,9 +83,12 @@ export const POST = withLogging(async (req: NextRequest) => {
     for (const row of rowsArray) {
       const base: Record<string, unknown> = {
         set: String(row.set || "").toUpperCase(),
+        collector_number: row.collector_number ? String(row.collector_number) : null,
         rarity: row.rarity ? String(row.rarity).toLowerCase() : null,
         type_line: String(row.type_line || ""),
         oracle_text: String(row.oracle_text || ""),
+        mana_cost: row.mana_cost ? String(row.mana_cost) : null,
+        cmc: typeof row.cmc === "number" ? row.cmc : null,
         color_identity: Array.isArray(row.color_identity) ? row.color_identity : [],
         image_uris: {
           small: row.small || undefined,
@@ -157,4 +160,3 @@ export const POST = withLogging(async (req: NextRequest) => {
     );
   }
 });
-

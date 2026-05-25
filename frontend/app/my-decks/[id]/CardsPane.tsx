@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { capture } from '@/lib/ph';
 import EditorAddBar from "@/components/EditorAddBar";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 import FixSingleCardModal from "./FixSingleCardModal";
 import {
   isMaybeFlexBucketEnabledForFormat,
@@ -1161,15 +1162,26 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                   }
                 }
                 
-                return src ? (
-                  <img src={src} alt={c.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
-                    onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: normalSrc || src, x, y, shown: true, below }); }}
-                    onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}
-                    onMouseLeave={()=>setPv(p=>({...p, shown:false}))}
-                  />
-                ) : null; 
+                return (
+                  <>
+                    {src ? (
+                      <img src={src} alt={c.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
+                        onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: normalSrc || src, x, y, shown: true, below }); }}
+                        onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}
+                        onMouseLeave={()=>setPv(p=>({...p, shown:false}))}
+                      />
+                    ) : null}
+                    <CardDetailLink
+                      cardName={c.name}
+                      imageSmall={src}
+                      imageNormal={normalSrc || src}
+                      className="hover:underline truncate max-w-[40vw] text-left"
+                    >
+                      {c.name}
+                    </CardDetailLink>
+                  </>
+                ); 
               })()}
-              <a className="hover:underline truncate max-w-[40vw]" href={`https://scryfall.com/search?q=!\"${encodeURIComponent(c.name)}\"`} target="_blank" rel="noreferrer">{c.name}</a>
               {isOffColor && (
                 <span 
                   className="ml-1.5 text-red-400 text-sm flex-shrink-0" 

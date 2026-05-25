@@ -20,6 +20,7 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 import ChatCorrectionModal from "@/components/ChatCorrectionModal";
 import DeckActionControls from "@/components/chat/DeckActionControls";
 import InlineCardLink from "@/components/chat/InlineCardLink";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string; metadata?: Record<string, unknown> | null };
 
@@ -815,7 +816,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
             {Array.isArray(d.combos_detect.missing) && d.combos_detect.missing.length>0 && (
               <div>
                 <div className="opacity-80 text-[12px]">One piece missing:</div>
-                <ul className="list-disc ml-5">{d.combos_detect.missing.slice(0,5).map((c:any,i:number)=>(<li key={'m'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.have)&&c.have.length>0?(<span className="opacity-80"> â€” have {c.have.join(' + ')}, need <a className="underline" href={`https://scryfall.com/search?q=${encodeURIComponent('!"'+(c.suggest||'')+'"')}`} target="_blank" rel="noreferrer">{c.suggest}</a></span>):null}</li>))}</ul>
+                <ul className="list-disc ml-5">{d.combos_detect.missing.slice(0,5).map((c:any,i:number)=>(<li key={'m'+i}><span className="font-medium">{c.name}</span>{Array.isArray(c.have)&&c.have.length>0?(<span className="opacity-80"> â€” have {c.have.join(' + ')}, need <CardDetailLink cardName={String(c.suggest || "")} className="underline text-left">{c.suggest}</CardDetailLink></span>):null}</li>))}</ul>
               </div>
             )}
           </div>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 
 type Item = { id: string; name: string; qty: number; created_at?: string };
 
@@ -357,13 +358,27 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
                     const normalize = (s: string) => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
                     const key = normalize(it.name); 
                     const src = (imgMap as any)?.[key]?.small; 
-                    return src ? (
-                    <img src={src} alt={it.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
-onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: (imgMap as any)?.[key]?.normal || src, x, y, shown: true, below }); }}
-                      onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}
-                      onMouseLeave={()=>setPv(p=>({...p, shown:false}))}
-                    />) : null; })()}
-                  <a className="hover:underline" href={`https://scryfall.com/search?q=!\"${encodeURIComponent(it.name)}\"`} target="_blank" rel="noreferrer">{it.name}</a>
+                    const normalSrc = (imgMap as any)?.[key]?.normal || src;
+                    return (
+                      <>
+                        {src ? (
+                          <img src={src} alt={it.name} loading="lazy" decoding="async" className="w-[24px] h-[34px] object-cover rounded"
+                            onMouseEnter={(e)=>{ const { x, y, below } = calcPos(e as any); setPv({ src: normalSrc, x, y, shown: true, below }); }}
+                            onMouseMove={(e)=>{ const { x, y, below } = calcPos(e as any); setPv(p=>p.shown?{...p, x, y, below}:p); }}
+                            onMouseLeave={()=>setPv(p=>({...p, shown:false}))}
+                          />
+                        ) : null}
+                        <CardDetailLink
+                          cardName={it.name}
+                          imageSmall={src}
+                          imageNormal={normalSrc}
+                          className="hover:underline text-left"
+                        >
+                          {it.name}
+                        </CardDetailLink>
+                      </>
+                    );
+                  })()}
                 </span>
                 <div className="flex items-center gap-2">
                   {(() => { try { const norm = it.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); const unit = priceMap[norm]; if (unit>0) { const sym = currency==='EUR'?'€':(currency==='GBP'?'£':'$'); const total = (unit*it.qty).toFixed(2); const each = unit.toFixed(2); return (<span className="text-xs opacity-80 w-32 text-right tabular-nums">{sym}{total}{it.qty > 1 && <span className="opacity-60"> • {sym}{each} each</span>}</span>); } else { return (<span className="text-xs opacity-60 w-32 text-right">— <button className="underline ml-1" onClick={async()=>{ try { const r = await fetch('/api/cards/fuzzy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names:[it.name] }) }); const j = await r.json(); const sugg = j?.results?.[it.name]?.suggestion; if (!sugg) { alert('No suggestion found'); return; } if (!confirm(`Rename to "${sugg}"?`)) return; const res = await fetch('/api/collections/cards', { method:'PATCH', headers:{'content-type':'application/json'}, body: JSON.stringify({ id: it.id, new_name: sugg }) }); const jj = await res.json(); if (!res.ok || jj?.ok===false) throw new Error(jj?.error || 'Rename failed'); await load(); } catch(e:any){ alert(e?.message || 'Failed'); } }}>fix?</button></span>); } } catch {} return (<span className="text-xs opacity-40 w-20 text-right">—</span>); })()}

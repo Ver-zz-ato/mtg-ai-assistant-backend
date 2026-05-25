@@ -843,9 +843,9 @@ export async function getMobileCommandCenterSecurity(days: number, hours = 24): 
       limit: 100,
       order: "request_count",
     }),
-    safeCount(db, "admin_audit", {
+    safeRows(db, "admin_audit", "created_at,actor_id,action,target,payload", {
       since: new Date(Date.now() - hours * 60 * 60 * 1000).toISOString(),
-      eq: { action: "ops_rate_limit_hit" },
+      limit: 100,
     }),
     safeRows(db, "admin_audit", "created_at,actor_id,action,target,payload", { since: sinceDays(days), limit: 50 }),
   ]);
@@ -857,6 +857,22 @@ export async function getMobileCommandCenterSecurity(days: number, hours = 24): 
       request_count: row.request_count,
       updated_at: row.updated_at,
     }));
+  const recentLimitHits = hitEvents.rows
+    .filter((row) => row.action === "ops_rate_limit_hit")
+    .map((row) => {
+      const payload = (row.payload || {}) as JsonRecord;
+      return {
+        created_at: row.created_at,
+        route: row.target || payload.route || "unknown",
+        key_prefix: payload.key_prefix || "unknown",
+        reason: payload.reason || "unknown",
+        env: payload.env || "unknown",
+        source: payload.source || null,
+      };
+    })
+    .filter((row) => row.env !== "development");
+  const distinctLimitKeys = new Set(recentLimitHits.map((row) => String(row.key_prefix || "unknown")));
+  const distinctLimitRoutes = new Set(recentLimitHits.map((row) => String(row.route || "unknown")));
   const knownAdvisorWarnings = [
     { level: "warn", area: "RLS policies", detail: "Several public tables have RLS enabled but no policy or overly permissive policies.", href: "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy" },
     { level: "warn", area: "Function search_path", detail: "Some functions have mutable search_path warnings.", href: "https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable" },
@@ -869,12 +885,21 @@ export async function getMobileCommandCenterSecurity(days: number, hours = 24): 
     env: envStatus(),
     metrics: [
       { key: "rate_limit_rows", label: "Rate-limit rows", value: topLimits.length, severity: rateRows.error ? "info" : "ok" },
-      { key: "rate_limit_hits", label: "Limit-hit events", value: hitEvents.count, severity: severityForThreshold(hitEvents.count, 5, 25) },
+      {
+        key: "rate_limit_hits",
+        label: "People/guests hitting limits",
+        value: distinctLimitKeys.size,
+        sub: recentLimitHits.length
+          ? `${recentLimitHits.length} hit row(s) across ${distinctLimitRoutes.size} route(s) in the last ${hours}h`
+          : `No production limit hits in the last ${hours}h`,
+        severity: distinctLimitKeys.size >= 5 ? "warn" : recentLimitHits.length ? "info" : "ok",
+      },
       { key: "admin_audit", label: "Admin audit rows", value: auditRows.rows.length, severity: auditRows.error ? "info" : "ok" },
       { key: "advisor_warnings", label: "Advisor warnings", value: knownAdvisorWarnings.length, severity: "warn" },
     ],
     tables: {
       "Top durable rate limits": topLimits,
+      "Recent limit hits": recentLimitHits,
       "Recent admin audit": auditRows.rows.map((row) => ({
         created_at: row.created_at,
         actor: maskUserRef(row.actor_id),
@@ -885,6 +910,9 @@ export async function getMobileCommandCenterSecurity(days: number, hours = 24): 
     },
     notes: [
       rateRows.error ? `Rate-limit query warning: ${rateRows.error}` : "",
+      recentLimitHits.length
+        ? "Limit hits currently include website and app routes together. Use the route names to judge whether this is really mobile-launch pressure."
+        : "No production rate-limit hits were seen in the last 24 hours.",
       "Advisor rows are surfaced as launch-health reminders; broad schema cleanup is intentionally deferred.",
     ].filter(Boolean),
   };
@@ -986,6 +1014,7 @@ function summarizeImportantJobs(configRows: JsonRecord[], opsRows: JsonRecord[])
         job: "Daily summary report",
         status: status === "ok" ? "working" : status === "warn" ? "working, with warnings" : latest ? "failed" : "not seen yet",
         last_seen: ageShort(finishedAt),
+        last_at: finishedAt,
         detail: latest ? String(latest.summary || "").slice(0, 140) : "No daily summary report row yet.",
         severity: health,
       };
@@ -1016,6 +1045,7 @@ function summarizeImportantJobs(configRows: JsonRecord[], opsRows: JsonRecord[])
       job: labelMap[jobId] || jobId,
       status: statusMap[health] || health,
       last_seen: ageShort(finishedAt),
+      last_at: finishedAt,
       detail: detail?.compactLine || "No recent detail saved.",
       severity: (health === "healthy" ? "ok" : health === "degraded" ? "warn" : health === "partial" ? "warn" : health === "stale" ? "warn" : "critical") as Severity,
     };
@@ -1030,6 +1060,13 @@ function summarizeImportantJobs(configRows: JsonRecord[], opsRows: JsonRecord[])
     healthy,
     warning,
     failing,
+    latestAt: rows
+      .map((row) => {
+        const raw = row.last_at ? new Date(String(row.last_at)).getTime() : NaN;
+        return Number.isFinite(raw) ? raw : null;
+      })
+      .filter((value): value is number => value != null)
+      .sort((a, b) => b - a)[0] ?? null,
   };
 }
 
@@ -1061,9 +1098,7 @@ export async function getMobileCommandCenterOps(days: number): Promise<CommandCe
   const importantJobs = summarizeImportantJobs(appConfig.rows, opsReports.rows);
   const failingJobs = importantJobs.failing;
   const warningJobs = importantJobs.warning;
-  const latestJobSeen = importantJobs.rows
-    .map((row) => row.last_seen)
-    .find((value) => value && value !== "never" && value !== "unknown") || "not yet";
+  const latestJobSeen = importantJobs.latestAt ? ageShort(new Date(importantJobs.latestAt).toISOString()) : "not yet";
 
   return {
     generatedAt: nowIso(),

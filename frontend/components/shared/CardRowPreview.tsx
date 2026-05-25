@@ -2,6 +2,7 @@
 import React from "react";
 import { useHoverPreview } from "@/components/shared/HoverPreview";
 import { SetIcon, RarityPill } from "@/components/shared/SetRarity";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 
 export default function CardRowPreviewLeft({
   name,
@@ -22,7 +23,15 @@ export default function CardRowPreviewLeft({
       {imageSmall ? (
         <img src={imageSmall} alt={name} className="w-[24px] h-[34px] object-cover rounded flex-shrink-0" {...(bind(imageLarge||imageSmall) as any)} />
       ) : null}
-      <a className="hover:underline truncate min-w-0 flex-1" href={`https://scryfall.com/search?q=!%22${encodeURIComponent(name)}%22`} target="_blank" rel="noreferrer" title={name}>{name}</a>
+      <CardDetailLink
+        cardName={name}
+        imageSmall={imageSmall}
+        imageNormal={imageLarge || imageSmall}
+        className="hover:underline truncate min-w-0 flex-1 text-left"
+        title={name}
+      >
+        {name}
+      </CardDetailLink>
       {(setCode || rarity) && (
         <span className="inline-flex items-center gap-1 flex-shrink-0">
           {setCode ? <SetIcon code={setCode} /> : null}

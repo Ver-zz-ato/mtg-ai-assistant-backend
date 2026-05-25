@@ -234,16 +234,23 @@ function Chat(props: ChatProps = {}) {
   
   // Listen for quiz-build-deck event
   useEffect(() => {
-    const handleQuizBuildDeck = (e: CustomEvent) => {
+    const handleSubmitPrompt = (e: CustomEvent) => {
       if (e.detail?.message) {
-        // Store the message to auto-submit
         pendingQuizSubmitRef.current = e.detail.message;
         setText(e.detail.message);
       }
     };
-    window.addEventListener('quiz-build-deck', handleQuizBuildDeck as EventListener);
+    const pendingPrompt = window.localStorage.getItem("manatap_pending_chat_prompt");
+    if (pendingPrompt) {
+      window.localStorage.removeItem("manatap_pending_chat_prompt");
+      pendingQuizSubmitRef.current = pendingPrompt;
+      setText(pendingPrompt);
+    }
+    window.addEventListener('quiz-build-deck', handleSubmitPrompt as EventListener);
+    window.addEventListener('manatap-chat-submit', handleSubmitPrompt as EventListener);
     return () => {
-      window.removeEventListener('quiz-build-deck', handleQuizBuildDeck as EventListener);
+      window.removeEventListener('quiz-build-deck', handleSubmitPrompt as EventListener);
+      window.removeEventListener('manatap-chat-submit', handleSubmitPrompt as EventListener);
     };
   }, []);
   
