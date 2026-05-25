@@ -246,6 +246,7 @@ export default function WebsiteCardDetailModal({
 
   React.useEffect(() => {
     if (!open) return;
+    window.dispatchEvent(new Event("manatap-hide-hover-preview"));
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };

@@ -5,14 +5,39 @@ import React from "react";
 // Usage: const { preview, bind } = useHoverPreview(); attach {...bind(src)} to <img>, render {preview}
 export function useHoverPreview(){
   const [pv, setPv] = React.useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ src: '', x:0, y:0, shown:false, below:false });
+  const hidePreview = React.useCallback(() => {
+    setPv((p) => (p.shown ? { ...p, shown: false } : p));
+  }, []);
   const calcPos = (e: MouseEvent | any) => {
     try{ const vw=window.innerWidth, vh=window.innerHeight, margin=12, boxW=320, boxH=460, half=boxW/2; const rawX=(e as any).clientX as number, rawY=(e as any).clientY as number; const below = rawY - boxH - margin < 0; const x=Math.min(vw-margin-half, Math.max(margin+half, rawX)); const y = below ? Math.min(vh - margin, rawY + margin) : Math.max(margin + 1, rawY - margin); return { x, y, below }; } catch { return { x: (e as any).clientX||0, y: (e as any).clientY||0, below:false }; }
   };
+
+  React.useEffect(() => {
+    if (!pv.shown) return;
+
+    const handleHide = () => hidePreview();
+
+    window.addEventListener("mousedown", handleHide, true);
+    window.addEventListener("touchstart", handleHide, true);
+    window.addEventListener("scroll", handleHide, true);
+    window.addEventListener("blur", handleHide);
+    window.addEventListener("manatap-hide-hover-preview", handleHide as EventListener);
+
+    return () => {
+      window.removeEventListener("mousedown", handleHide, true);
+      window.removeEventListener("touchstart", handleHide, true);
+      window.removeEventListener("scroll", handleHide, true);
+      window.removeEventListener("blur", handleHide);
+      window.removeEventListener("manatap-hide-hover-preview", handleHide as EventListener);
+    };
+  }, [hidePreview, pv.shown]);
+
   function bind(src: string){
     return {
       onMouseEnter: (e: any)=>{ const { x, y, below } = calcPos(e); setPv({ src, x, y, shown:true, below }); },
       onMouseMove: (e: any)=>{ const { x, y, below } = calcPos(e); setPv(p=>p.shown?{...p, x, y, below}:p); },
-      onMouseLeave: ()=> setPv(p=> ({ ...p, shown:false })),
+      onMouseLeave: hidePreview,
+      onClick: hidePreview,
     } as React.HTMLAttributes<HTMLElement>;
   }
   const preview = pv.shown && (
