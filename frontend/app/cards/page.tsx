@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import CardSearchCommandCenter from "@/components/cards/CardSearchCommandCenter";
-import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
+import CardsInfiniteList from "@/components/cards/CardsInfiniteList";
 import { SCRYFALL_META } from "@/lib/meta/scryfallGlobalMeta";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { getAdmin } from "@/lib/supa";
@@ -170,31 +170,7 @@ export default async function CardsIndexPage() {
           <p className="mt-2 text-sm text-neutral-400">
             Global meta staples with Scryfall art and current cached market prices.
           </p>
-          <ol className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-neutral-950/70">
-            {cards.map((c) => (
-              <li
-                key={c.name}
-                className="grid gap-3 border-b border-white/10 px-3 py-3 last:border-b-0 sm:grid-cols-[56px_minmax(0,1fr)_130px_110px] sm:items-center"
-              >
-                <span className="text-sm font-semibold tabular-nums text-neutral-500">
-                  #{c.rank}
-                </span>
-                <CardRowPreviewLeft
-                  name={c.name}
-                  imageSmall={c.imageSmall}
-                  imageLarge={c.imageLarge}
-                  setCode={c.setCode}
-                  rarity={c.rarity}
-                />
-                <span className="text-sm text-neutral-400">
-                  {c.edhrecRank ? `EDHREC #${c.edhrecRank.toLocaleString()}` : "Global meta"}
-                </span>
-                <span className="text-sm font-semibold text-emerald-200">
-                  {c.price ?? "Price n/a"}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <CardsInfiniteList cards={cards} />
           {cards.length === 0 && (
             <p className="text-neutral-400">No global meta cards yet. Check back after the daily meta refresh.</p>
           )}
