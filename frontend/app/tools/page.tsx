@@ -34,28 +34,33 @@ type ToolDef = {
   badge: ToolBadge;
   icon: LucideIcon;
   accent: string;
+  priority?: "recommended" | "popular";
 };
 
-const SECTIONS: Array<{ title: string; kicker: string; tools: ToolDef[] }> = [
+const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent: string; tools: ToolDef[] }> = [
   {
     title: "Start Here",
     kicker: "Build, analyze, and learn what your deck is trying to do.",
+    icon: Wand2,
+    accent: "from-amber-300/70 to-violet-300/60",
     tools: [
       {
         href: "/mtg-ai-deck-builder",
         title: "Build a Deck",
-        subtitle: "Commander and 60-card deck starts with AI help.",
+        subtitle: "Start a Commander or 60-card list with guided AI help.",
         badge: "Limited",
         icon: Wand2,
         accent: "text-amber-200 border-amber-300/25 bg-amber-300/10",
+        priority: "recommended",
       },
       {
         href: "/analyze",
         title: "Analyze a Deck",
-        subtitle: "Paste a list and get curve, roles, legality, and upgrade notes.",
+        subtitle: "Paste a list and get curve, role, legality, and upgrade notes.",
         badge: "Limited",
         icon: Bot,
         accent: "text-violet-200 border-violet-300/25 bg-violet-300/10",
+        priority: "popular",
       },
       {
         href: "/tools/mulligan",
@@ -68,7 +73,7 @@ const SECTIONS: Array<{ title: string; kicker: string; tools: ToolDef[] }> = [
       {
         href: "/tools/probability",
         title: "Probability Calculator",
-        subtitle: "Calculate draw odds for combo pieces, lands, and interaction.",
+        subtitle: "Check draw odds for lands, combos, and key cards.",
         badge: "Free",
         icon: BarChart3,
         accent: "text-sky-200 border-sky-300/25 bg-sky-300/10",
@@ -78,6 +83,8 @@ const SECTIONS: Array<{ title: string; kicker: string; tools: ToolDef[] }> = [
   {
     title: "Improve Your Deck",
     kicker: "Find cheaper swaps, compare lists, and finish missing slots.",
+    icon: Sparkles,
+    accent: "from-emerald-300/70 to-cyan-300/55",
     tools: [
       {
         href: "/budget-swaps",
@@ -90,15 +97,16 @@ const SECTIONS: Array<{ title: string; kicker: string; tools: ToolDef[] }> = [
       {
         href: "/compare-decks",
         title: "Deck Compare",
-        subtitle: "Compare two decks side by side for overlap and gaps.",
+        subtitle: "Compare two or three decks side by side.",
         badge: "Pro",
         icon: GitCompare,
         accent: "text-cyan-200 border-cyan-300/25 bg-cyan-300/10",
+        priority: "recommended",
       },
       {
         href: "/collections/cost-to-finish",
         title: "Cost to Finish",
-        subtitle: "Subtract owned cards and estimate what a deck still costs.",
+        subtitle: "See what you still need and estimate the remaining cost.",
         badge: "Limited",
         icon: ListChecks,
         accent: "text-lime-200 border-lime-300/25 bg-lime-300/10",
@@ -108,19 +116,22 @@ const SECTIONS: Array<{ title: string; kicker: string; tools: ToolDef[] }> = [
   {
     title: "Search & Track",
     kicker: "Use cards, collections, wishlists, and prices as one workflow.",
+    icon: Search,
+    accent: "from-amber-300/70 to-sky-300/55",
     tools: [
       {
         href: "/cards",
         title: "Card Search",
-        subtitle: "Search cards, open details, explain cards, and jump into prices.",
+        subtitle: "Search cards, prices, legality, and details fast.",
         badge: "Free",
         icon: Search,
         accent: "text-amber-200 border-amber-300/25 bg-amber-300/10",
+        priority: "popular",
       },
       {
         href: "/price-tracker",
         title: "Price Tracker",
-        subtitle: "Track card movement, watch trends, and compare values.",
+        subtitle: "Track card movement, trends, and value changes.",
         badge: "Limited",
         icon: LineChart,
         accent: "text-sky-200 border-sky-300/25 bg-sky-300/10",
@@ -146,6 +157,8 @@ const SECTIONS: Array<{ title: string; kicker: string; tools: ToolDef[] }> = [
   {
     title: "Extras",
     kicker: "Sharing, discovery, and fun table-talk helpers.",
+    icon: ShieldCheck,
+    accent: "from-teal-300/70 to-red-300/45",
     tools: [
       {
         href: "/tools/scan-qr",
@@ -192,26 +205,41 @@ function Badge({ value }: { value: ToolBadge }) {
         : value === "Limited"
           ? "border-violet-300/25 bg-violet-300/10 text-violet-100"
           : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
-  return <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${classes}`}>{value}</span>;
+  return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${classes}`}>{value}</span>;
 }
 
 function ToolCard({ tool }: { tool: ToolDef }) {
   const Icon = tool.icon;
+  const isPriority = Boolean(tool.priority);
   return (
     <Link
       href={tool.href}
-      className="group block rounded-lg border border-white/10 bg-neutral-950/75 p-4 transition hover:-translate-y-0.5 hover:border-amber-300/35 hover:bg-neutral-900"
+      className={`group relative block h-full overflow-hidden rounded-xl border bg-[linear-gradient(145deg,rgba(18,18,18,0.92),rgba(7,7,8,0.82))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_45px_rgba(0,0,0,0.24)] outline-none transition duration-200 hover:-translate-y-1 hover:bg-[linear-gradient(145deg,rgba(24,24,24,0.96),rgba(9,9,10,0.88))] focus-visible:ring-2 focus-visible:ring-amber-300/70 motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+        isPriority
+          ? "border-amber-300/30 hover:border-amber-200/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_52px_rgba(245,158,11,0.12)]"
+          : "border-white/10 hover:border-white/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_45px_rgba(0,0,0,0.36)]"
+      }`}
     >
-      <div className="flex items-start gap-3">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${tool.accent}`}>
+      <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
+      <span className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-amber-300/0 blur-2xl transition group-hover:bg-amber-300/10" />
+      <div className="flex h-full items-start gap-3">
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] ${tool.accent}`}>
           <Icon size={20} aria-hidden="true" />
         </span>
-        <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex items-start justify-between gap-2">
-            <span className="text-base font-semibold text-white group-hover:text-amber-100">{tool.title}</span>
+            <span className="text-[15px] font-bold leading-5 text-white group-hover:text-amber-100">{tool.title}</span>
             <Badge value={tool.badge} />
           </span>
-          <span className="mt-1 block text-sm leading-6 text-neutral-400">{tool.subtitle}</span>
+          {tool.priority ? (
+            <span className="mt-1 w-fit rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+              {tool.priority === "recommended" ? "Recommended" : "Popular"}
+            </span>
+          ) : null}
+          <span className="mt-2 block text-sm leading-6 text-neutral-400">{tool.subtitle}</span>
+          <span className="mt-auto pt-3 text-xs font-semibold text-amber-200/0 transition group-hover:text-amber-200">
+            Open →
+          </span>
         </span>
       </div>
     </Link>
@@ -220,55 +248,88 @@ function ToolCard({ tool }: { tool: ToolDef }) {
 
 export default function ToolsIndexPage() {
   return (
-    <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <nav className="mb-4 text-sm text-neutral-400">
-        <Link href="/" className="hover:text-white">Home</Link>
+    <main className="relative w-full max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(251,191,36,0.08),transparent_28%),radial-gradient(circle_at_66%_38%,rgba(34,211,238,0.08),transparent_30%),linear-gradient(90deg,rgba(0,0,0,0.62),rgba(0,0,0,0.28),rgba(0,0,0,0.62))]" />
+      <nav className="relative mb-4 text-sm text-neutral-400">
+        <Link href="/" className="hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 rounded">Home</Link>
         <span className="mx-2">/</span>
         <span className="text-neutral-200">Tools</span>
       </nav>
 
-      <section className="rounded-xl border border-amber-300/20 bg-neutral-950/80 p-5 shadow-xl shadow-black/20">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-amber-300">ManaTap toolbox</p>
-        <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_320px] lg:items-end">
-          <div>
-            <h1 className="text-3xl font-bold text-white md:text-4xl">MTG tools that actually connect</h1>
+      <section className="relative overflow-hidden rounded-2xl border border-amber-300/22 bg-[linear-gradient(145deg,rgba(10,10,10,0.94),rgba(17,17,18,0.82)_52%,rgba(13,20,19,0.86))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_70px_rgba(0,0,0,0.38)] sm:p-6">
+        <div className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-amber-300/12 blur-3xl" />
+        <div className="pointer-events-none absolute right-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-amber-200/35 to-transparent" />
+        <div className="pointer-events-none absolute -right-20 bottom-0 h-48 w-48 rounded-full bg-teal-300/10 blur-3xl" />
+        <div className="relative grid gap-5 lg:grid-cols-[1fr_300px] lg:items-center">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-amber-300">ManaTap toolbox</p>
+            <h1 className="mt-3 text-3xl font-black leading-tight text-white md:text-4xl">MTG tools that actually connect</h1>
             <p className="mt-3 max-w-3xl text-base leading-7 text-neutral-300">
               Build, analyze, compare, search, price, and share from one place. Free tools stay easy to reach; Pro and sign-in features are labelled before you click.
             </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["Free tools available", "Deck intelligence", "Pro tools labelled"].map((label) => (
+                <span key={label} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-neutral-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
-          <ProFeatureCard
-            feature="tools_hub_upgrade"
-            location="tools_hub"
-            title="Pro goes deeper"
-            description="Higher AI limits, deeper comparisons, deck value tracking, and stronger upgrade explanations."
-            compact
-          />
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <ProFeatureCard
+              feature="tools_hub_upgrade"
+              location="tools_hub"
+              title="Pro goes deeper"
+              description="Higher limits, deeper comparisons, deck value tracking, and stronger upgrade explanations."
+              compact
+            />
+          </div>
         </div>
       </section>
 
-      <div className="mt-8 space-y-8">
-        {SECTIONS.map((section) => (
-          <section key={section.title}>
-            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-white">{section.title}</h2>
-                <p className="text-sm text-neutral-400">{section.kicker}</p>
+      <div className="relative mt-7 space-y-7">
+        {SECTIONS.map((section) => {
+          const SectionIcon = section.icon;
+          return (
+            <section key={section.title}>
+              <div className="mb-3 flex items-center gap-3">
+                <span className={`h-10 w-1 rounded-full bg-gradient-to-b ${section.accent}`} />
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-black/30 text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                  <SectionIcon size={18} aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-xl font-black leading-6 text-white">{section.title}</h2>
+                  <p className="mt-0.5 text-sm text-neutral-400">{section.kicker}</p>
+                </div>
               </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {section.tools.map((tool) => (
-                <ToolCard key={tool.href} tool={tool} />
-              ))}
-            </div>
-          </section>
-        ))}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {section.tools.map((tool) => (
+                  <ToolCard key={tool.href} tool={tool} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
 
-      <section className="mt-10 rounded-lg border border-white/10 bg-neutral-950/70 p-4 text-sm text-neutral-400">
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          <Link href="/commander-archetypes" className="text-amber-200 hover:underline">Commander archetypes</Link>
-          <Link href="/decks/browse" className="text-amber-200 hover:underline">Browse public decks</Link>
-          <Link href="/pricing" className="text-amber-200 hover:underline">ManaTap Pro</Link>
+      <section className="relative mt-8 rounded-xl border border-white/10 bg-black/35 p-3 text-sm text-neutral-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-xs font-bold uppercase tracking-[0.22em] text-neutral-500">More from ManaTap</span>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { href: "/commander-archetypes", label: "Commander archetypes" },
+              { href: "/decks/browse", label: "Browse public decks" },
+              { href: "/pricing", label: "ManaTap Pro" },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="rounded-full border border-amber-300/15 bg-amber-300/5 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:border-amber-200/45 hover:bg-amber-300/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
     </main>
