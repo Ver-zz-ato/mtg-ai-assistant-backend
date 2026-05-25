@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { BarChart3, Bot, ExternalLink, GitBranch, PiggyBank, Sparkles, X } from "lucide-react";
+import { BarChart3, Bot, ExternalLink, GitBranch, Lock, PiggyBank, Sparkles, X } from "lucide-react";
 
 type CardMetadata = {
   name: string;
@@ -25,6 +25,35 @@ type WebsiteCardDetailModalProps = {
   imageSmall?: string;
   imageNormal?: string;
   onClose: () => void;
+};
+
+type ExplainMode = "eli5" | "tactics";
+type ExplainTier = "guest" | "free" | "pro";
+type ExplainResult =
+  | {
+      ok: true;
+      mode: ExplainMode;
+      tier: ExplainTier;
+      text: string;
+      remaining: number;
+      limit: number;
+      resetAt?: string | null;
+    }
+  | {
+      ok: false;
+      code?: string;
+      error: string;
+      tier?: ExplainTier;
+      limit?: number;
+      remaining?: number;
+      resetAt?: string | null;
+      requiresAuth?: boolean;
+      proRequired?: boolean;
+    };
+
+type TacticBlock = {
+  title: string;
+  body: string;
 };
 
 const metadataCache = new Map<string, CardMetadata | null>();
@@ -94,6 +123,37 @@ function formatUsd(price: number | null): string | null {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(price);
 }
 
+function stripMarkdown(value: string): string {
+  return value.replace(/\*\*/g, "").trim();
+}
+
+function parseTacticBlocks(text: string): TacticBlock[] {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [];
+  const chunks = normalized
+    .split(/\n\s*\n+/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+  const source = chunks.length > 1 ? chunks : normalized.split(/\n(?=\s*[-*]\s+\*\*)/);
+  return source
+    .map((chunk) => {
+      const clean = chunk.replace(/^\s*[-*]\s+/, "").trim();
+      const match = clean.match(/^\*\*(.+?)\*\*:?\s*([\s\S]*)$/);
+      if (match) return { title: stripMarkdown(match[1]), body: stripMarkdown(match[2]) };
+      return { title: "Tactic note", body: stripMarkdown(clean) };
+    })
+    .filter((block) => block.title || block.body);
+}
+
+function friendlyExplainError(result: Extract<ExplainResult, { ok: false }>): string {
+  if (result.code === "MISSING_ORACLE_TEXT") return "No rules text is available to explain for this card.";
+  if (result.code === "RATE_LIMIT_DAILY") return "Daily card explanation limit reached. Try again tomorrow.";
+  if (result.code === "BUDGET_LIMIT") return "ManaTap AI is busy right now. Try again later.";
+  if (result.code === "AI_UNAVAILABLE") return "Card explanations are temporarily unavailable. Try again in a moment.";
+  if (result.code === "VALIDATION_ERROR") return "This card could not be explained from the details available.";
+  return result.error || "Could not explain this card. Try again in a moment.";
+}
+
 function openChatPrompt(prompt: string) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem("manatap_pending_chat_prompt", prompt);
@@ -102,6 +162,37 @@ function openChatPrompt(prompt: string) {
     return;
   }
   window.location.href = "/";
+}
+
+async function explainCardAi(params: {
+  mode: ExplainMode;
+  card: {
+    name: string;
+    displayName?: string | null;
+    oracleText: string;
+    typeLine?: string | null;
+    manaCost?: string | null;
+    setCode?: string | null;
+    collectorNumber?: string | null;
+  };
+  priorExplanation?: string | null;
+}): Promise<ExplainResult> {
+  const response = await fetch("/api/mobile/card/explain", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      mode: params.mode,
+      card: params.card,
+      priorExplanation: params.priorExplanation ?? null,
+      sourcePage: "website_card_detail_modal",
+    }),
+    cache: "no-store",
+  });
+  const json = (await response.json().catch(() => ({}))) as ExplainResult;
+  if (!response.ok && (!json || json.ok !== false)) {
+    return { ok: false, error: `Request failed (${response.status}).` };
+  }
+  return json;
 }
 
 function ActionButton({
@@ -143,6 +234,12 @@ export default function WebsiteCardDetailModal({
   const [price, setPrice] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [explainLoading, setExplainLoading] = React.useState(false);
+  const [tacticsLoading, setTacticsLoading] = React.useState(false);
+  const [explanationText, setExplanationText] = React.useState<string | null>(null);
+  const [tacticsText, setTacticsText] = React.useState<string | null>(null);
+  const [explainError, setExplainError] = React.useState<string | null>(null);
+  const [explainTier, setExplainTier] = React.useState<ExplainTier | null>(null);
 
   const cleanName = cardName.trim();
   const cacheKey = normalizeCardKey(cleanName);
@@ -159,6 +256,10 @@ export default function WebsiteCardDetailModal({
   React.useEffect(() => {
     if (!open || !cleanName) return;
     let cancelled = false;
+    setExplanationText(null);
+    setTacticsText(null);
+    setExplainError(null);
+    setExplainTier(null);
 
     async function load() {
       setError(null);
@@ -211,6 +312,59 @@ export default function WebsiteCardDetailModal({
     .join(" · ");
   const scryfallUrl = scryfallCardSearchUrl(displayName);
   const priceText = formatUsd(price);
+  const hasOracleText = Boolean(metadata?.oracle_text?.trim());
+  const explainCard = {
+    name: displayName,
+    displayName,
+    oracleText: metadata?.oracle_text?.trim() || "",
+    typeLine: metadata?.type_line ?? null,
+    manaCost: metadata?.mana_cost ?? null,
+    setCode: metadata?.set ?? null,
+    collectorNumber: metadata?.collector_number ?? null,
+  };
+  const isProTier = explainTier === "pro";
+  const tacticBlocks = tacticsText ? parseTacticBlocks(tacticsText) : [];
+
+  async function handleExplainCard() {
+    if (!hasOracleText || explainLoading) return;
+    setExplainLoading(true);
+    setExplainError(null);
+    setTacticsText(null);
+    try {
+      const result = await explainCardAi({ mode: "eli5", card: explainCard });
+      if (result.ok) {
+        setExplanationText(result.text);
+        setExplainTier(result.tier);
+      } else {
+        setExplainError(friendlyExplainError(result));
+        setExplainTier(result.tier ?? null);
+      }
+    } finally {
+      setExplainLoading(false);
+    }
+  }
+
+  async function handleTactics() {
+    if (!hasOracleText || !explanationText || tacticsLoading || !isProTier) return;
+    setTacticsLoading(true);
+    setExplainError(null);
+    try {
+      const result = await explainCardAi({
+        mode: "tactics",
+        card: explainCard,
+        priorExplanation: explanationText,
+      });
+      if (result.ok) {
+        setTacticsText(result.text);
+        setExplainTier(result.tier);
+      } else {
+        setExplainError(friendlyExplainError(result));
+        setExplainTier(result.tier ?? explainTier);
+      }
+    } finally {
+      setTacticsLoading(false);
+    }
+  }
 
   return (
     <div
@@ -273,16 +427,84 @@ export default function WebsiteCardDetailModal({
             </div>
           ) : null}
 
+          <div className="mt-4 rounded-lg border border-blue-300/25 bg-blue-950/20 p-3">
+            <button
+              type="button"
+              onClick={() => void handleExplainCard()}
+              disabled={!hasOracleText || explainLoading}
+              className="flex w-full items-center gap-3 rounded-lg border border-blue-300/20 bg-neutral-950/70 p-3 text-left transition hover:border-blue-200/50 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-55 focus:outline-none focus:ring-2 focus:ring-blue-300/60"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-blue-300/20 bg-blue-400/10 text-blue-100">
+                <Bot size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-neutral-100">
+                  {explainLoading ? "Explaining..." : "Explain this card"}
+                </span>
+                <span className="mt-0.5 block text-xs leading-4 text-neutral-400">
+                  Ask ManaTap what it does and where it fits.
+                </span>
+              </span>
+              {explainLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-transparent" /> : null}
+            </button>
+
+            {!hasOracleText && !loading ? (
+              <p className="mt-2 text-xs text-neutral-500">No rules text is available to explain for this card.</p>
+            ) : null}
+
+            {explanationText ? (
+              <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-blue-200">Simple explanation</div>
+                <p className="mt-2 text-sm leading-6 text-neutral-200">{explanationText}</p>
+              </div>
+            ) : null}
+
+            {explanationText && !tacticsText ? (
+              isProTier ? (
+                <button
+                  type="button"
+                  onClick={() => void handleTactics()}
+                  disabled={tacticsLoading}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-violet-300/25 bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-200/50 hover:bg-violet-500/15 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {tacticsLoading ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-violet-100 border-t-transparent" /> : <Sparkles size={15} />}
+                  {tacticsLoading ? "Explaining..." : "Show deeper tactics"}
+                  <span className="rounded-full border border-violet-200/30 px-1.5 py-0.5 text-[10px] uppercase text-violet-100">Pro</span>
+                </button>
+              ) : (
+                <a
+                  href="/pricing"
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-violet-300/25 bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-200/50 hover:bg-violet-500/15"
+                >
+                  <Lock size={14} />
+                  Show deeper tactics
+                  <span className="rounded-full border border-violet-200/30 px-1.5 py-0.5 text-[10px] uppercase text-violet-100">Pro</span>
+                </a>
+              )
+            ) : null}
+
+            {tacticsText ? (
+              <div className="mt-3 rounded-lg border border-violet-300/20 bg-violet-950/20 p-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-violet-200">Deeper tactics</div>
+                <div className="mt-2 space-y-2">
+                  {(tacticBlocks.length ? tacticBlocks : [{ title: "Tactic note", body: tacticsText }]).map((block, index) => (
+                    <div key={`${block.title}-${index}`} className="rounded-md border border-white/10 bg-black/20 p-2">
+                      <div className="text-sm font-semibold text-neutral-100">{block.title}</div>
+                      {block.body ? <p className="mt-1 text-sm leading-5 text-neutral-300">{block.body}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {explainError ? (
+              <div className="mt-3 rounded-lg border border-red-400/20 bg-red-950/30 px-3 py-2 text-sm text-red-100">
+                {explainError}
+              </div>
+            ) : null}
+          </div>
+
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <ActionButton
-              icon={<Bot size={18} />}
-              title="Explain this card"
-              subtitle="Ask ManaTap what it does and where it fits."
-              onClick={() => {
-                onClose();
-                openChatPrompt(`Explain ${displayName} simply. Cover what it does, what decks want it, and any rules traps.`);
-              }}
-            />
             <ActionButton
               icon={<BarChart3 size={18} />}
               title="Open in Price Tracker"
