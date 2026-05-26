@@ -116,10 +116,10 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     <main className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-neutral-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-12 gap-6">
-          <section className="col-span-12 lg:col-span-9">
+          <section className="col-span-12 xl:col-span-9">
             {/* Header */}
             <header className="mb-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <div>
                   <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{title}</h1>
                   <p className="text-neutral-400 text-sm">
@@ -150,7 +150,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           </section>
 
           {/* Right sidebar - Value summary */}
-          <aside className="col-span-12 lg:col-span-3 space-y-4">
+          <aside className="col-span-12 xl:col-span-3 space-y-4">
             <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-5 shadow-lg">
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-1 w-1 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50"></div>

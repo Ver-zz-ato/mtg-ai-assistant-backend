@@ -286,7 +286,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
     <main className="w-full max-w-none px-4 sm:px-6 lg:px-8 2xl:px-10 py-8">
       <div className="max-w-[1600px] mx-auto">
         <div className="grid grid-cols-12 gap-6">
-        <section className="col-span-12 md:col-span-9">
+        <section className="col-span-12 xl:col-span-8 2xl:col-span-9">
           <header className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
               <div className="text-xs opacity-70">Deck name:</div>
@@ -343,7 +343,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           />
         </section>
 
-        <aside className="col-span-12 md:col-span-3 space-y-4">
+        <aside className="col-span-12 xl:col-span-4 2xl:col-span-3 space-y-4">
           {/* Deck Value - FIRST (default showing) */}
           <PanelWrapper title="Deck Value" colorFrom="emerald-400" colorTo="teal-500">
             <DeckPriceMini deckId={id} />

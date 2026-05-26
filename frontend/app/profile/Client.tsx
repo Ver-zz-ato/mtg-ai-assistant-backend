@@ -668,7 +668,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       {/* Body grid with left menu */}
       <div className="grid grid-cols-12 gap-6">
         {/* Left menu */}
-        <aside className="col-span-12 md:col-span-3">
+        <aside className="col-span-12 xl:col-span-3">
           <nav className="rounded-xl border border-neutral-800 p-3 space-y-2 sticky top-4">
             {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['savings','Budget Savings'],['wishlist','Wishlist'],['watchlist','Price Watchlist'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
               <button key={k} onClick={()=>setTab(k as any)} className={`w-full text-left px-3 py-2 rounded border ${tab===k?'border-emerald-500 bg-emerald-600/10':'border-neutral-800 hover:bg-neutral-900'}`}>{label}</button>
@@ -677,14 +677,14 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         </aside>
 
         {/* Right content */}
-        <section className="col-span-12 md:col-span-9 space-y-6">
+        <section className="col-span-12 xl:col-span-9 space-y-6">
           {tab==='profile' && (
             <>
               {/* Share profile at top */}
               <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
                 <div className="text-lg font-semibold">Share</div>
                 <div className="text-sm opacity-80">Click to generate a public link to show off your decks and badges.</div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: true }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) { navigator.clipboard?.writeText?.(j.url); setProfileShareQrUrl(String(j.url || '')); alert('Share link copied to clipboard'); } else { alert(j?.error || 'Share failed'); } } catch (e:any) { alert(e?.message || 'Share failed'); } }} className="px-3 py-2 rounded bg-white text-black text-sm">Share my profile</button>
                   <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: false }) }); const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Unshare failed'); alert('Profile set to private'); } catch (e:any) { alert(e?.message || 'Unshare failed'); } }} className="px-3 py-2 rounded bg-neutral-800 text-neutral-200 text-sm">Disable sharing</button>
                 </div>
@@ -737,9 +737,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                         <div className="flex items-center gap-2"><span className="text-blue-400">🎯</span> Personalized recommendations</div>
                       </div>
                       
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="text-sm font-medium">£1.99/month or £14.99/year</div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                           <a 
                             href="/pricing" 
                             className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium text-sm hover:from-blue-700 hover:to-purple-700 transition-colors"
@@ -764,7 +764,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
               {/* Identity + Badges/Activity side-by-side */}
               <div className="grid grid-cols-12 gap-6">
-                <section className="col-span-12 md:col-span-8 rounded-xl border border-neutral-800 p-4 space-y-3">
+                <section className="col-span-12 xl:col-span-8 rounded-xl border border-neutral-800 p-4 space-y-3">
                 <div className="text-lg font-semibold">Identity</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <label className="text-sm">
@@ -934,7 +934,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
                 </section>
                 {/* Right column */}
-                <aside className="col-span-12 md:col-span-4 space-y-4">
+                <aside className="col-span-12 xl:col-span-4 space-y-4">
                   <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
                     <div className="text-lg font-semibold">Activity</div>
                     <div className="grid grid-cols-3 gap-3 text-sm">
@@ -972,7 +972,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
 {tab==='stats' && (
             <div className="grid grid-cols-12 gap-6">
-              <section className="col-span-12 md:col-span-7 rounded-xl border border-neutral-800 p-4 space-y-3">
+              <section className="col-span-12 xl:col-span-7 rounded-xl border border-neutral-800 p-4 space-y-3">
                 <div className="text-lg font-semibold">Recent decks</div>
                 <ul className="space-y-2 text-sm">
                   {recentDecks.map(d => {
@@ -1018,7 +1018,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   {recentDecks.length === 0 && (<li className="text-xs opacity-70">No recent decks.</li>)}
                 </ul>
               </section>
-              <div className="col-span-12 md:col-span-5">
+              <div className="col-span-12 xl:col-span-5">
                 <StatsCharts sb={sb} userEmail={userEmail} />
               </div>
             </div>

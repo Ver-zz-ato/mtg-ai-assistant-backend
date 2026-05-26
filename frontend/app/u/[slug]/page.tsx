@@ -514,7 +514,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       </div>
 
       <div className="grid grid-cols-12 gap-6">
-        <section className="col-span-12 md:col-span-8 space-y-4">
+        <section className="col-span-12 xl:col-span-8 space-y-4">
           {prof.favorite_commander ? (() => {
             const fav = String(prof.favorite_commander);
             const favImg = imgMap.get(norm(fav));
@@ -659,7 +659,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           )}
 
         </section>
-        <aside className="col-span-12 md:col-span-4 space-y-4">
+        <aside className="col-span-12 xl:col-span-4 space-y-4">
           {displayBadges.length > 0 && (
             <section className="rounded-xl border-2 border-neutral-800 bg-gradient-to-br from-neutral-900/50 to-neutral-950/50 p-4 hover:border-amber-500/30 transition-colors shadow-xl">
               <div className="flex items-center gap-2 mb-3">
