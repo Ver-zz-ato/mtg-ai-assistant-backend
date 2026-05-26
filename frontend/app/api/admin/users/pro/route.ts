@@ -44,20 +44,44 @@ export async function POST(req: NextRequest){
     const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: next });
     if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 });
 
-    // CRITICAL: Also update profiles.is_pro (single source of truth)
-    const { error: profileError } = await supabase
+    // Use the service-role client for the actual entitlement write so RLS cannot silently no-op.
+    const { data: existingProfile, error: existingProfileError } = await admin
       .from('profiles')
-      .update({ 
+      .select('id, is_pro, pro_since')
+      .eq('id', userId)
+      .maybeSingle();
+    if (existingProfileError) {
+      console.error('Failed to load existing profile before Pro update:', existingProfileError);
+      return NextResponse.json({ ok:false, error: `profile_lookup_failed: ${existingProfileError.message}` }, { status:500 });
+    }
+    if (!existingProfile?.id) {
+      return NextResponse.json({ ok:false, error:"profile_not_found" }, { status:404 });
+    }
+
+    const nextProSince =
+      pro
+        ? (existingProfile.is_pro && existingProfile.pro_since ? existingProfile.pro_since : new Date().toISOString())
+        : null;
+
+    const { data: updatedProfile, error: profileError } = await admin
+      .from('profiles')
+      .update({
         is_pro: pro,
-        pro_plan: pro ? 'manual' : null, // Mark as manually set
-        pro_since: pro ? new Date().toISOString() : null,
-        pro_until: null, // No expiry for manual Pro
+        pro_plan: pro ? 'manual' : null,
+        pro_since: nextProSince,
+        pro_until: null,
       })
-      .eq('id', userId);
+      .eq('id', userId)
+      .select('id, is_pro, pro_plan, pro_since, pro_until')
+      .single();
 
     if (profileError) {
       console.error('Failed to update profiles.is_pro:', profileError);
       return NextResponse.json({ ok:false, error: `Metadata updated but profile update failed: ${profileError.message}` }, { status:500 });
+    }
+    if (!updatedProfile || updatedProfile.is_pro !== pro) {
+      console.error('Profile Pro update verification failed:', { userId, expected: pro, updatedProfile });
+      return NextResponse.json({ ok:false, error:"profile_update_verification_failed" }, { status:500 });
     }
 
     // Audit log for Pro status changes
@@ -74,7 +98,7 @@ export async function POST(req: NextRequest){
     }
 
     console.info('Admin manually set Pro status', { userId, pro, admin: user.email });
-    return NextResponse.json({ ok:true, userId, pro });
+    return NextResponse.json({ ok:true, userId, pro, profile: updatedProfile });
   }catch(e:any){
     return NextResponse.json({ ok:false, error:e?.message||"server_error" }, { status:500 });
   }

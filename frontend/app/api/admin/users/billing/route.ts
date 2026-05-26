@@ -14,6 +14,14 @@ function isAdmin(user: any): boolean {
 
 export async function POST(req: NextRequest){
   try{
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) return NextResponse.json({ ok:false, error:"forbidden" }, { status:403 });
@@ -33,6 +41,17 @@ export async function POST(req: NextRequest){
 
     const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: next });
     if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 });
+
+    try {
+      await admin.from('admin_audit').insert({
+        actor_id: user.id,
+        action: 'user_billing_status_changed',
+        target: userId,
+        payload: { billing_active: active, changed_by: user.email || user.id }
+      });
+    } catch (auditError) {
+      console.warn('Billing audit log failed:', auditError);
+    }
 
     return NextResponse.json({ ok:true, userId, billing_active: active });
   }catch(e:any){

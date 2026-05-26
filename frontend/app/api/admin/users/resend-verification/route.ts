@@ -14,6 +14,14 @@ function isAdmin(user: any): boolean {
 
 export async function POST(req: NextRequest) {
   try {
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) {
@@ -44,6 +52,7 @@ export async function POST(req: NextRequest) {
 
     // Resend verification email using admin API
     // Generate a magic link that will work for account access/verification
+    let actionLink = "";
     try {
       // Generate magic link - this works for both verified and unverified users
       // For unverified users, clicking the link will verify their email
@@ -58,11 +67,11 @@ export async function POST(req: NextRequest) {
           error: `Failed to generate verification link: ${linkError?.message || 'No link generated'}` 
         }, { status: 500 });
       }
+      actionLink = linkData.properties.action_link;
       
       // Note: generateLink creates the link but Supabase does NOT automatically send emails
       // The link is generated and can be used manually, or you'd need to integrate with an email service
-      // For now, this endpoint generates the link and logs the action
-      // In production, you'd send the link via your email service (SendGrid, Resend, etc.)
+      // For now, this endpoint returns the link so support can share it manually.
     } catch (e: any) {
       return NextResponse.json({ 
         ok: false, 
@@ -74,9 +83,9 @@ export async function POST(req: NextRequest) {
     try {
       await admin.from('admin_audit').insert({
         actor_id: user.id,
-        action: 'resend_verification',
+        action: 'verification_link_generated',
         target: targetUserId,
-        details: `Resent verification email to ${targetEmail}`
+        payload: { email: targetEmail, changed_by: user.email || user.id }
       });
     } catch (auditError) {
       console.warn('Audit log failed:', auditError);
@@ -84,7 +93,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
       ok: true, 
-      message: `Verification email resent to ${targetEmail}`,
+      message: `Verification link generated for ${targetEmail}`,
+      action_link: actionLink,
       userId: targetUserId
     });
   } catch (e: any) {

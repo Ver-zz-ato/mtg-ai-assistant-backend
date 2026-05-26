@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,14 @@ function isAdmin(user: any): boolean {
 
 export async function POST(req: NextRequest) {
   try {
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) {
@@ -49,11 +58,10 @@ export async function POST(req: NextRequest) {
     // Delete all user data (order matters due to foreign keys)
     
     // 1. Delete deck cards first (FK constraint)
-    const { data: decks } = await admin
-      .from('decks')
-      .select('id')
-      .eq('user_id', targetUserId);
-    const deckIds = decks?.map(d => d.id) || [];
+    const decks = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("decks").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const deckIds = decks.map((d) => d.id);
     
     if (deckIds.length > 0) {
       await admin.from('deck_cards').delete().in('deck_id', deckIds);
@@ -63,11 +71,10 @@ export async function POST(req: NextRequest) {
     await admin.from('decks').delete().eq('user_id', targetUserId);
 
     // 3. Delete collection cards first
-    const { data: collections } = await admin
-      .from('collections')
-      .select('id')
-      .eq('user_id', targetUserId);
-    const collectionIds = collections?.map(c => c.id) || [];
+    const collections = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("collections").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const collectionIds = collections.map((c) => c.id);
     
     if (collectionIds.length > 0) {
       await admin.from('collection_cards').delete().in('collection_id', collectionIds);
@@ -77,11 +84,10 @@ export async function POST(req: NextRequest) {
     await admin.from('collections').delete().eq('user_id', targetUserId);
 
     // 5. Delete chat messages first
-    const { data: threads } = await admin
-      .from('chat_threads')
-      .select('id')
-      .eq('user_id', targetUserId);
-    const threadIds = threads?.map(t => t.id) || [];
+    const threads = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("chat_threads").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const threadIds = threads.map((t) => t.id);
     
     if (threadIds.length > 0) {
       await admin.from('chat_messages').delete().in('thread_id', threadIds);
@@ -91,11 +97,10 @@ export async function POST(req: NextRequest) {
     await admin.from('chat_threads').delete().eq('user_id', targetUserId);
 
     // 7. Delete wishlist items first
-    const { data: wishlists } = await admin
-      .from('wishlists')
-      .select('id')
-      .eq('user_id', targetUserId);
-    const wishlistIds = wishlists?.map(w => w.id) || [];
+    const wishlists = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("wishlists").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const wishlistIds = wishlists.map((w) => w.id);
     
     if (wishlistIds.length > 0) {
       await admin.from('wishlist_items').delete().in('wishlist_id', wishlistIds);
@@ -104,27 +109,27 @@ export async function POST(req: NextRequest) {
     // 8. Delete wishlists
     await admin.from('wishlists').delete().eq('user_id', targetUserId);
 
-    // 9. Delete watchlist
-    await admin.from('watchlist').delete().eq('user_id', targetUserId);
-
-    // 10. Delete price snapshots
-    try {
-      await admin.from('price_snapshots').delete().eq('user_id', targetUserId);
-    } catch (e) {
-      // Table might not exist, continue
+    // 9. Delete watchlist items and watchlists
+    const watchlists = await fetchAllSupabaseRows<{ id: string }>(() =>
+      admin.from("watchlists").select("id").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    const watchlistIds = watchlists.map((w) => w.id);
+    if (watchlistIds.length > 0) {
+      await admin.from('watchlist_items').delete().in('watchlist_id', watchlistIds);
     }
+    await admin.from('watchlists').delete().eq('user_id', targetUserId);
 
-    // 11. Delete profile
+    // 10. Delete profile
     await admin.from('profiles').delete().eq('id', targetUserId);
 
-    // 12. Delete public profile if exists
+    // 11. Delete public profile if exists
     try {
       await admin.from('profiles_public').delete().eq('id', targetUserId);
     } catch (e) {
       // Table might not exist, continue
     }
 
-    // 13. Delete auth user (this should cascade to some tables)
+    // 12. Delete auth user (this should cascade to some tables)
     try {
       await admin.auth.admin.deleteUser(targetUserId);
     } catch (e: any) {
@@ -138,7 +143,7 @@ export async function POST(req: NextRequest) {
         actor_id: user.id,
         action: 'gdpr_delete',
         target: targetUserId,
-        details: `GDPR account deletion completed for ${targetEmail}`
+        payload: { email: targetEmail, changed_by: user.email || user.id }
       });
     } catch (auditError) {
       console.warn('Audit log failed:', auditError);

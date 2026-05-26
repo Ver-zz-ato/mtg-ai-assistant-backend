@@ -15,6 +15,14 @@ function isAdmin(user: any): boolean {
 
 export async function POST(req: NextRequest) {
   try {
+    const { validateOrigin } = await import('@/lib/api/csrf');
+    if (!validateOrigin(req)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid origin. This request must come from the same site.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isAdmin(user)) {
@@ -55,8 +63,8 @@ export async function POST(req: NextRequest) {
       chat_threads: [],
       chat_messages: [],
       wishlists: [],
-      watchlist: [],
-      price_snapshots: [],
+      watchlists: [],
+      watchlist_items: [],
     };
 
     // Get profile
@@ -131,24 +139,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get watchlist
-    const { data: watchlist } = await admin
-      .from('watchlist')
-      .select('*')
-      .eq('user_id', targetUserId);
-    exportData.watchlist = watchlist || [];
+    // Get watchlists
+    const watchlists = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+      admin.from("watchlists").select("*").eq("user_id", targetUserId).order("id", { ascending: true }),
+    );
+    exportData.watchlists = watchlists;
 
-    // Get price snapshots (if table exists)
-    try {
-      const { data: snapshots } = await admin
-        .from('price_snapshots')
-        .select('*')
-        .eq('user_id', targetUserId)
-        .limit(1000); // Limit to recent snapshots
-      exportData.price_snapshots = snapshots || [];
-    } catch (e) {
-      // Table might not exist, skip
-      exportData.price_snapshots = [];
+    if (exportData.watchlists.length > 0) {
+      const watchlistIds = exportData.watchlists.map((w: any) => w.id);
+      exportData.watchlist_items = await fetchAllSupabaseRows<Record<string, unknown>>(() =>
+        admin
+          .from("watchlist_items")
+          .select("*")
+          .in("watchlist_id", watchlistIds)
+          .order("id", { ascending: true }),
+      );
     }
 
     // Log to audit
@@ -157,7 +162,7 @@ export async function POST(req: NextRequest) {
         actor_id: user.id,
         action: 'gdpr_export',
         target: targetUserId,
-        details: `GDPR data export generated`
+        payload: { changed_by: user.email || user.id }
       });
     } catch (auditError) {
       console.warn('Audit log failed:', auditError);
