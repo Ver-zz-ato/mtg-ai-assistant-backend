@@ -6,6 +6,7 @@ import {
   parseDaysParam,
   parseHoursParam,
   severityForThreshold,
+  shouldCreateLaunchAlert,
   shouldSendDiscordAlert,
 } from "@/lib/admin/mobile-command-center";
 
@@ -26,6 +27,14 @@ assert.strictEqual(maskEmail("davy@example.com"), "d***@example.com");
 assert.strictEqual(severityForThreshold(0.02, 0.03, 0.1), "ok");
 assert.strictEqual(severityForThreshold(0.03, 0.03, 0.1), "warn");
 assert.strictEqual(severityForThreshold(0.1, 0.03, 0.1), "critical");
+assert.strictEqual(
+  shouldCreateLaunchAlert({ key: "requests", label: "App AI requests", value: 0, severity: "info" }),
+  false,
+);
+assert.strictEqual(
+  shouldCreateLaunchAlert({ key: "sentry", label: "Sentry", value: "failing", severity: "warn" }),
+  true,
+);
 
 const alert = {
   key: "sentry",

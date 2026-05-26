@@ -129,7 +129,7 @@ function severityRank(severity: Severity | string | null | undefined): number {
   return 0;
 }
 
-function shouldCreateLaunchAlert(metric: MetricCard): metric is MetricCard & { severity: "critical" | "warn" } {
+export function shouldCreateLaunchAlert(metric: MetricCard): metric is MetricCard & { severity: "critical" | "warn" } {
   if (metric.key === "advisor_warnings") return false;
   return metric.severity === "critical" || metric.severity === "warn";
 }
@@ -460,7 +460,13 @@ export async function getMobileCommandCenterAi(days: number): Promise<CommandCen
     days,
     env: envStatus(),
     metrics: [
-      { key: "requests", label: "App AI requests", value: summary.totals.requests, severity: summary.totals.requests ? "ok" : "warn" },
+      {
+        key: "requests",
+        label: "App AI requests",
+        value: summary.totals.requests,
+        sub: summary.totals.requests ? undefined : "No app AI requests seen in this window yet.",
+        severity: summary.totals.requests ? "ok" : "info",
+      },
       { key: "cost", label: "AI cost", value: `$${summary.totals.cost_usd.toFixed(2)}`, severity: severityForThreshold(summary.totals.cost_usd, 25, 75) },
       { key: "errors", label: "AI errors", value: summary.totals.errors, sub: `${round(summary.totals.error_rate * 100, 2)}%`, severity: severityForThreshold(summary.totals.error_rate, 0.03, 0.1) },
       cacheMetric,

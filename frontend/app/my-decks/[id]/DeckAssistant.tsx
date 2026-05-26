@@ -35,7 +35,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
   const [fmt, setFmt] = React.useState<string>(initialFormat?.toLowerCase() || "commander");
   const [plan, setPlan] = React.useState<string>("optimized");
   const [teaching, setTeaching] = React.useState<boolean>(false);
-  const userLevel: 'intermediate' = 'intermediate';
+  const [userLevel, setUserLevel] = React.useState<'beginner'|'intermediate'|'pro'>('intermediate');
   
   // Sync format with prop changes
   React.useEffect(() => {
@@ -983,6 +983,24 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
       </div>
       <div className="shrink-0 border-t border-neutral-800 pt-4">
         <div className="flex flex-col gap-2">
+          <div className="mb-1 flex flex-col gap-2">
+            <span className="text-xs text-neutral-500">Level:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {(['beginner','intermediate','pro'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setUserLevel(m)}
+                  className={`min-h-[36px] rounded-md border px-3 py-1.5 text-xs font-medium capitalize transition-all ${
+                    userLevel === m
+                      ? 'border-purple-500 bg-purple-600 text-white'
+                      : 'border-neutral-700 bg-neutral-800/60 text-neutral-300 hover:bg-neutral-700/70 hover:text-white'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="relative flex-1">
             <textarea
               value={text}
