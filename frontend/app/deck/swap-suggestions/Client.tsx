@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { track } from "@/lib/analytics/track";
 import { motion, AnimatePresence } from "framer-motion";
 import { getManaGlow } from "@/lib/mana-colors";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
 async function fetchCardMeta(names: string[]): Promise<Record<string, { small?: string; large?: string; set?: string; rarity?: string }>>{
   const out: Record<string, { small?: string; large?: string; set?: string; rarity?: string }> = {};
@@ -32,10 +33,11 @@ async function fetchCardMeta(names: string[]): Promise<Record<string, { small?: 
 export default function BudgetSwapsClient(){
   const { isPro } = useProStatus();
   const { user } = useAuth();
+  const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || "USD";
 
   const [deckId, setDeckId] = React.useState("");
   const [deckText, setDeckText] = React.useState("");
-  const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>("GBP");
   const [threshold, setThreshold] = React.useState<number>(5);
   const [mode, setMode] = React.useState<'strict'|'ai'>("strict");
   const [busy, setBusy] = React.useState(false);
@@ -562,7 +564,7 @@ export default function BudgetSwapsClient(){
             <div className="grid grid-cols-2 gap-2">
               <label className="text-xs">
                 <div className="opacity-70 mb-1">Currency</div>
-                <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
+                <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
                   {(['USD','EUR','GBP'] as const).map(c=> <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>

@@ -279,9 +279,9 @@ function BrowseDecksContent() {
   };
 
   return (
-    <main className="mx-auto max-w-[1600px] p-4 sm:p-6">
+    <main className="mx-auto max-w-[1600px] px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2">
       {/* Tab switcher + header */}
-      <div className="flex flex-col gap-4 mb-4">
+      <div className="mb-4 flex flex-col gap-3">
         <div className="flex gap-2 border-b border-neutral-800 pb-2">
           <button
             onClick={() => { setTab('community'); setPage(1); setDecks([]); }}
@@ -306,10 +306,10 @@ function BrowseDecksContent() {
         </div>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex-shrink-0">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            <h2 className="text-2xl font-bold text-white sm:text-3xl">
               {tab === 'precons' ? 'Preconstructed Decks' : 'Browse Public Decks'}
-            </h1>
-            <p className="text-sm text-gray-400 mt-0.5">
+            </h2>
+            <p className="mt-0.5 text-sm text-gray-400">
               {tab === 'precons'
                 ? 'Official WotC Commander precons. Clone to your account to edit and upgrade.'
                 : 'Explore community decks'}

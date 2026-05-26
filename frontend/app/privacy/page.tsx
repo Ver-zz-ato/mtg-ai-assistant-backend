@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 function formatToday(): string {
   try {
@@ -136,6 +137,10 @@ export default function PrivacyPage() {
           <p className="text-sm">
             If you're in the UK/EU, you can request a copy of your personal data or ask us to delete it.
           </p>
+          <Link href="/delete-account" className="inline-block mt-2 text-sm text-blue-400 hover:text-blue-300 underline">
+            Account deletion instructions
+          </Link>
+          <br />
           <a href="mailto:support@manatap.ai" className="inline-block mt-2 text-sm text-blue-400 hover:text-blue-300 underline">
             Contact us: support@manatap.ai
           </a>

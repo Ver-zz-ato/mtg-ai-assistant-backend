@@ -22,6 +22,7 @@ import {
   type DeckUsageItem,
 } from "@/lib/collection/deckCardUsage";
 import { useAuth } from "@/lib/auth-context";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
 function BarList({ data, total, colors, onClick }: { data: Array<{ label:string; value:number }>; total?: number; colors?: string[]; onClick?: (label:string)=>void }){
   const sum = (total ?? data.reduce((s,d)=>s+d.value,0)) || 1;
@@ -369,6 +370,8 @@ function FixNamesButton({ collectionId, onOpenModal }: { collectionId: string; o
 }
 
 export default function CollectionEditor({ collectionId, mode = "drawer" }: CollectionEditorProps){
+  const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || 'USD';
   const [items, setItems] = React.useState<Item[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string|null>(null);
@@ -388,7 +391,6 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const [lastLoadedAt, setLastLoadedAt] = React.useState<string>('');
   const [lastSnapshotAt, setLastSnapshotAt] = React.useState<string>('');
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
-  const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>('USD');
   const [showAddValidation, setShowAddValidation] = React.useState(false);
   const [addValidationItems, setAddValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice?: string; qty: number }>>([]);
   const [pendingAddQty, setPendingAddQty] = React.useState<number>(1);
@@ -468,8 +470,6 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
     return m;
   }, [items, deckUsageTrustworthy, deckUsageState.usageByKey]);
 
-  React.useEffect(()=>{ try{ const saved = localStorage.getItem('price_currency') as any; if(saved && (saved==='USD'||saved==='EUR'||saved==='GBP')) setCurrency(saved); }catch{} }, []);
-  React.useEffect(()=>{ try{ localStorage.setItem('price_currency', currency); } catch{} }, [currency]);
   // Meta cache for set/color per name
   const metaRef = React.useRef<Map<string,{ set?: string; colors?: string[]; rarity?: string; type_line?: string }>>(new Map());
   const imagesRef = React.useRef<Record<string,{ small?: string; normal?: string }>>({});
@@ -1072,7 +1072,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               <span className="text-[11px] text-amber-500/90" title={deckUsageState.loadHint}>Deck usage unavailable</span>
             ) : null}
             <div className="ml-auto flex items-center gap-2">
-              <label className="text-sm font-medium">💰 Currency<select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+              <label className="text-sm font-medium">💰 Currency<select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
               <button onClick={saveAll} disabled={!changed||busySave} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">{busySave?'Saving…':'💾 Save'}</button>
               <button onClick={()=>{ setPending(new Map()); reload(); }} disabled={busySave} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
             </div>
@@ -1286,7 +1286,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             <div className="text-base font-semibold">Unique: <b className="font-mono text-cyan-400">{unique}</b></div>
             <div className="text-base font-semibold flex flex-wrap items-center gap-2 min-w-0">
               <span className="min-w-0">Value: <b className="font-mono text-cyan-400">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD): '—'}</b></span>
-              <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="shrink-0 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
+              <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="shrink-0 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
             </div>
             <button onClick={refreshValue} className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-semibold transition-all shadow-lg hover:shadow-xl">Refresh now</button>
           </div>

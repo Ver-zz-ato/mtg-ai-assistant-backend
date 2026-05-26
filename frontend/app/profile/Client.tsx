@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import { capture } from "@/lib/ph";
 import { canonicalize } from "@/lib/cards/canonicalizeClient";
 import { containsProfanity } from "@/lib/profanity";
-import { usePrefs } from "@/components/PrefsContext";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 import CardAutocomplete from "@/components/CardAutocomplete";
 import { useHoverPreview } from "@/components/shared/HoverPreview";
 import ExportWishlistCSV from "@/components/ExportWishlistCSV";
@@ -2432,6 +2432,8 @@ function FixNamesModalWishlist({ wishlistId, open, onClose, pro }: { wishlistId:
 }
 
 function MiniWatchlistPanel({ pro }: { pro: boolean }) {
+  const { currency: prefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || 'USD';
   const [items, setItems] = React.useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = React.useState(true);
   const [addName, setAddName] = React.useState('');
@@ -2465,7 +2467,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
       try {
         const pricePromises = items.map(async (item) => {
           try {
-            const res = await fetch(`/api/price?name=${encodeURIComponent(item.name)}&currency=USD`, { cache: 'no-store' });
+            const res = await fetch(`/api/price?name=${encodeURIComponent(item.name)}&currency=${encodeURIComponent(currency)}`, { cache: 'no-store' });
             const data = await res.json();
             if (data.ok) {
               return { name: item.name, price: data.price || 0, delta_24h: data.delta_24h || 0 };
@@ -2483,7 +2485,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
         setPriceMap(new Map());
       }
     })();
-  }, [items]);
+  }, [currency, items]);
 
   const addCard = async (validatedName?: string) => {
     if (!pro) {
@@ -2644,7 +2646,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
                     <span className="block truncate font-medium">{item.name}</span>
                     {hasPrice && (
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs font-mono text-emerald-400">${price.toFixed(2)}</span>
+                        <span className="text-xs font-mono text-emerald-400">{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(price)}</span>
                         {delta24h !== 0 && (
                           <span className={`text-[10px] font-mono ${delta24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                             {delta24h >= 0 ? '▲' : '▼'} {delta24h >= 0 ? '+' : ''}{delta24h.toFixed(1)}%

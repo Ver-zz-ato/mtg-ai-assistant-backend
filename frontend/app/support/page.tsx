@@ -170,6 +170,31 @@ export default function SupportPage() {
           </div>
         </div>
 
+        <div className="bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-700">
+          <h2 className="text-2xl font-bold text-white mb-3">
+            Account deletion
+          </h2>
+          <p className="text-gray-300 mb-4">
+            Need to delete your ManaTap account? Use the self-service delete flow while signed in,
+            or follow our public deletion instructions page if you are coming from the mobile app or
+            need the outside-the-app route required by app stores.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/delete-account"
+              className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
+            >
+              Delete account
+            </Link>
+            <Link
+              href="/profile"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-5 py-2.5 text-sm font-semibold text-gray-200 hover:border-gray-500 hover:text-white transition-colors"
+            >
+              Open signed-in profile
+            </Link>
+          </div>
+        </div>
+
         {/* Support Form */}
         <SupportFormClient />
 
@@ -181,6 +206,9 @@ export default function SupportPage() {
             </Link>
             <Link href="/privacy" className="text-gray-400 hover:text-blue-400">
               Privacy Policy
+            </Link>
+            <Link href="/delete-account" className="text-gray-400 hover:text-blue-400">
+              Delete Account
             </Link>
             <Link href="/refund" className="text-gray-400 hover:text-blue-400">
               Refund Policy

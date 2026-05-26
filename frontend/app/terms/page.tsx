@@ -172,6 +172,9 @@ export default function TermsPage() {
             <Link href="/privacy" className="text-gray-400 hover:text-blue-400">
               Privacy Policy
             </Link>
+            <Link href="/delete-account" className="text-gray-400 hover:text-blue-400">
+              Delete Account
+            </Link>
             <Link href="/refund" className="text-gray-400 hover:text-blue-400">
               Refund Policy
             </Link>

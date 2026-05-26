@@ -1,8 +1,40 @@
 'use client';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+
+export type CurrencyPref = 'USD' | 'EUR' | 'GBP';
+
+export const CURRENCY_STORAGE_KEY = 'manatap_currency';
+const LEGACY_CURRENCY_STORAGE_KEY = 'price_currency';
+
+export function normalizeCurrency(input: unknown): CurrencyPref | null {
+  const currency = String(input || '').trim().toUpperCase();
+  if (currency === 'USD' || currency === 'EUR' || currency === 'GBP') return currency;
+  return null;
+}
+
+function readBrowserCurrency(): CurrencyPref | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return (
+      normalizeCurrency(window.localStorage.getItem(CURRENCY_STORAGE_KEY)) ||
+      normalizeCurrency(window.localStorage.getItem(LEGACY_CURRENCY_STORAGE_KEY))
+    );
+  } catch {
+    return null;
+  }
+}
+
+function persistBrowserCurrency(currency: CurrencyPref) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CURRENCY_STORAGE_KEY, currency);
+    window.localStorage.setItem(LEGACY_CURRENCY_STORAGE_KEY, currency);
+    window.dispatchEvent(new CustomEvent('manatap:currency-changed', { detail: { currency } }));
+  } catch {}
+}
 
 /** Map browser locale to default currency. GBP for UK, EUR for Eurozone/Europe, USD for Americas and fallback. */
-function getDefaultCurrencyFromLocale(): 'USD' | 'EUR' | 'GBP' {
+function getDefaultCurrencyFromLocale(): CurrencyPref {
   if (typeof navigator === 'undefined') return 'USD';
   const locale = (navigator.language || navigator.languages?.[0] || '').toLowerCase();
   const region = locale.split(/[-_]/)[1] || ''; // e.g. "gb" from "en-gb"
@@ -42,12 +74,30 @@ const Prefs = createContext<PrefsContextValue | undefined>(undefined);
 export function PrefsProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState<PrefsState>({});
 
-  // Set default currency from locale once on mount (only when user hasn't set one)
+  // Set currency from persisted guest/user browser preference, then locale fallback.
   useEffect(() => {
     setPrefs((p) => {
-      if (p.currency != null && String(p.currency).trim() !== '') return p;
-      return { ...p, currency: getDefaultCurrencyFromLocale() };
+      const current = normalizeCurrency(p.currency);
+      if (current) return p;
+      return { ...p, currency: readBrowserCurrency() || getDefaultCurrencyFromLocale() };
     });
+  }, []);
+
+  useEffect(() => {
+    function syncCurrency(event: Event) {
+      const next =
+        event instanceof StorageEvent
+          ? normalizeCurrency(event.newValue)
+          : normalizeCurrency((event as CustomEvent<{ currency?: string }>).detail?.currency);
+      if (!next) return;
+      setPrefs((p) => (normalizeCurrency(p.currency) === next ? p : { ...p, currency: next }));
+    }
+    window.addEventListener('storage', syncCurrency);
+    window.addEventListener('manatap:currency-changed', syncCurrency);
+    return () => {
+      window.removeEventListener('storage', syncCurrency);
+      window.removeEventListener('manatap:currency-changed', syncCurrency);
+    };
   }, []);
 
   // Derived helpers used by ModeOptions and pages
@@ -66,7 +116,11 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
     return { ...p, colors: arr };
   });
   const clearColors = () => setPrefs(p => ({ ...p, colors: [] }));
-  const setCurrency = (c: string) => setPrefs(p => ({ ...p, currency: (c || 'USD').toUpperCase() }));
+  const setCurrency = useCallback((c: string) => {
+    const next = normalizeCurrency(c) || 'USD';
+    persistBrowserCurrency(next);
+    setPrefs(p => ({ ...p, currency: next }));
+  }, []);
   const setTeaching = (t: boolean) => setPrefs(p => ({ ...p, teaching: !!t }));
 
   const value = useMemo(
@@ -78,7 +132,7 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
       currency, setCurrency,
       teaching, setTeaching,
     }),
-    [prefs, format, plan, colors, currency, teaching]
+    [prefs, format, plan, colors, currency, teaching, setCurrency]
   );
 
   return <Prefs.Provider value={value}>{children}</Prefs.Provider>;

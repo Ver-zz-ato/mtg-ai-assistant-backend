@@ -6,6 +6,7 @@ import Providers from "@/components/Providers";
 import ProProvider from "@/components/ProContext";
 import { AuthProvider } from "@/lib/auth-context"; // NEW: Push-based auth state management
 import HashAuthCallbackHandler from "@/components/HashAuthCallbackHandler";
+import FirstCurrencyPreferenceModal from "@/components/FirstCurrencyPreferenceModal";
 import AnalyticsProvider from "@/components/AnalyticsProvider";
 import AnalyticsIdentity from "@/components/AnalyticsIdentity";
 import WorkflowAbandonOnRouteChange from "@/components/WorkflowAbandonOnRouteChange";
@@ -111,6 +112,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* ProProvider must mount inside AuthProvider — it calls useAuth(); otherwise context defaults to loading:true forever */}
               <ProProvider>
                 <HashAuthCallbackHandler />
+                <FirstCurrencyPreferenceModal />
                 <ActiveUsersProvider>
                   <KeyboardShortcutsProvider>
                     <SecureConnectionsGuard />

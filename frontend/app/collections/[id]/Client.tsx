@@ -6,11 +6,14 @@ import { useParams } from "next/navigation";
 import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
 import CardDetailLink from "@/components/cards/CardDetailLink";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
 type Item = { id: string; name: string; qty: number; created_at?: string };
 
 export default function CollectionClient({ collectionId: idProp }: { collectionId?: string }) {
   const params = useParams();
+  const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || 'USD';
   const collectionId = useMemo(() => {
     const pid = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params?.id[0] : undefined;
     return idProp || pid;
@@ -198,10 +201,6 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ src: "", x: 0, y: 0, shown: false, below: false });
 
   // Currency toggle + snapshot prices
-  // Avoid hydration mismatch: read localStorage after mount
-  const [currency, setCurrency] = useState<string>('USD');
-  useEffect(() => { try { const saved = localStorage.getItem('price_currency'); if (saved && saved !== 'USD') setCurrency(saved); } catch {} }, []);
-  useEffect(()=>{ try { localStorage.setItem('price_currency', currency); } catch {} }, [currency]);
   const [priceMap, setPriceMap] = useState<Record<string, number>>({});
   const [priceLoading, setPriceLoading] = useState<boolean>(false);
   useEffect(() => {
@@ -330,7 +329,7 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
         </div>
         <div className="flex items-center gap-2">
           <label className="opacity-70">Currency</label>
-          <select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+          <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
             <option value="GBP">GBP</option>

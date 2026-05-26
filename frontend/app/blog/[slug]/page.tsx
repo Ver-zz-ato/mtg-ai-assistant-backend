@@ -166,6 +166,313 @@ Deck-page card suggestions now:
 Try these features on [ManaTap AI](https://manatap.ai) — and if you like them, consider [going Pro](https://manatap.ai/pricing) for higher limits and premium models.
 `
   },
+  'how-manatap-ai-works-updated': {
+    title: 'How ManaTap AI Works (Updated)',
+    date: '2026-05-26',
+    author: 'ManaTap Team',
+    category: 'Strategy',
+    readTime: '8 min read',
+    gradient: 'from-blue-600 via-cyan-600 to-indigo-600',
+    icon: '🔬',
+    imageUrl: 'https://cards.scryfall.io/art_crop/front/c/8/c8817585-0d32-4d56-9142-0d29512e86a9.jpg?1598304029',
+    content: `
+# How ManaTap's AI Deck Builder Actually Works
+Why ManaTap focuses on deck structure, synergy, and legality — not just "good cards"
+
+AI deckbuilding tools get talked about a lot in Magic: The Gathering. Some people imagine an all-knowing system that instantly builds the perfect list. Others assume AI just spits out random staples with no real understanding of how MTG works.
+
+Reality sits somewhere in the middle.
+
+ManaTap was built around a simpler and more useful idea: a good deckbuilder should understand **why** a deck works, not just which cards are popular.
+
+That means ManaTap does not treat your deck like a pile of isolated cards. It treats it like a connected system with rules, trade-offs, roles, sequencing pressure, and an actual game plan.
+
+This updated guide explains how that process works today.
+
+---
+
+## <span id="simple"></span>Simple version
+
+ManaTap does not start by asking an AI model to freestyle.
+
+It starts by grounding your deck in real MTG constraints:
+
+- format and legality
+- commander colour identity when relevant
+- deck size and copy-count rules
+- mainboard vs sideboard structure
+- card-role balance
+- synergy and archetype signals
+
+Only after that does the AI layer step in to explain issues, weigh trade-offs, and suggest improvements in plain English.
+
+That order matters.
+
+It is the difference between:
+
+- "Here are some strong cards."
+- and "Here are the cards most likely to improve **this** deck without breaking its plan."
+
+---
+
+## The big problem with most AI deck builders
+
+Magic decks are more complicated than they look.
+
+A Commander deck is not just:
+
+- 100 legal cards
+- a mana curve
+- a list of staples
+
+A real deck also has:
+
+- synergy chains
+- role balance
+- interaction density
+- ramp requirements
+- payoff structures
+- budget limits
+- format-specific rules
+- personal playstyle decisions
+
+Two decks can share many of the same cards and still play completely differently.
+
+That is where generic AI tools usually struggle. A normal language model can recognize card names and common strategies, but it often:
+
+- recommends individually strong cards that do not fit the deck
+- misunderstands the actual archetype
+- ignores mana realities
+- forgets legality constraints
+- drifts into conflicting strategies
+- talks confidently about interactions that are not fully supported
+
+ManaTap was designed specifically to reduce those failure modes.
+
+---
+
+## Step 1 — parse the deck as a rules-bound object
+
+Before ManaTap suggests anything, it first tries to understand the deck as a legal MTG list rather than a blob of text.
+
+That includes checks such as:
+
+- deck size validation
+- Commander colour identity
+- copy limits
+- sideboard handling for supported 60-card formats
+- banned or restricted legality where supported
+- malformed or ambiguous imports
+
+This part is intentionally deterministic.
+
+No creativity. No guessing. No pretending an illegal list is fine.
+
+If a Commander deck includes off-colour cards, ManaTap should flag that directly. If a supported constructed list has the wrong structure, ManaTap should treat that as a real problem, not something to hand-wave away.
+
+That first grounding step is important because everything after it becomes more reliable.
+
+---
+
+## Step 2 — build structural deck facts, not just card-type counts
+
+Once the list is parsed, ManaTap moves into structural analysis.
+
+It does not just count creatures, lands, and instants. It looks at functional roles such as:
+
+- ramp vs acceleration
+- draw vs selection
+- interaction vs protection
+- setup pieces vs payoffs
+- enablers vs finishers
+- early-game vs late-game pressure
+
+This lets ManaTap identify deck-health issues like:
+
+- too little ramp
+- overloaded top end
+- weak interaction density
+- insufficient card draw
+- inconsistent win conditions
+- too many reactive cards
+- too few enablers for the intended plan
+
+Think of this as a deck health layer rather than autopilot optimization.
+
+The goal is not to force every deck into the same template. The goal is to surface the pressure points that keep a list from functioning smoothly.
+
+---
+
+## Step 3 — infer the plan as a working hypothesis
+
+After the structural layer, ManaTap tries to infer what the deck is actually trying to do.
+
+That can involve:
+
+- commander signals
+- repeated mechanics
+- role overlap
+- archetype patterns
+- synergy clusters
+- known support relationships
+
+For example, a spellslinger shell wants different support from a sacrifice shell. A landfall deck wants different infrastructure from a blink deck. A 60-card aggressive list needs different discipline from a slower Commander value engine.
+
+The important part is that ManaTap treats archetype detection as a **working hypothesis**, not absolute truth.
+
+That means it can reason more honestly:
+
+- "This looks split between two plans."
+- "You have token payoffs but limited token production."
+- "Your curve suggests a slower game than your interaction package supports."
+
+That is much closer to how experienced players actually think about deckbuilding.
+
+---
+
+## Step 4 — shortlist candidates before AI starts selling ideas
+
+This is one of the biggest differences between ManaTap and a generic chatbot.
+
+ManaTap increasingly uses a shortlist-first approach. Instead of asking the model to invent recommendations from the whole game, the system first narrows the field using real filters like:
+
+- format
+- legality
+- deck theme
+- budget
+- power level
+- requested role, such as draw, removal, finisher, or support piece
+
+Then weaker or off-plan options get filtered out earlier, and the AI works from a more realistic pool.
+
+That helps recommendation quality across features like:
+
+- deck-specific recommendations
+- health suggestions
+- budget swaps
+- finish-the-deck suggestions
+- commander and card recommendations
+
+The effect is simple: the AI is doing more reasoning and less guessing.
+
+---
+
+## Step 5 — evaluate synergy, not just raw power
+
+ManaTap does not treat "popular" and "correct" as the same thing.
+
+Strong cards are not always the right cards.
+
+A staple that weakens your deck's cohesion can be worse than a lower-powered card that strengthens consistency, role coverage, or synergy density.
+
+ManaTap tries to favour suggestions that:
+
+- support the actual plan
+- complete partial packages
+- preserve curve balance
+- respect legality
+- respect budget when asked
+- avoid pulling the deck into a conflicting archetype
+
+The goal is not:
+
+- "Play the strongest cards."
+
+The goal is:
+
+- "Play cards that make this deck function better."
+
+That sounds subtle, but it is the difference between generic advice and useful advice.
+
+---
+
+## Step 6 — let the AI explain the trade-offs
+
+Only after the structural and validation layers are in place does the language-model layer become heavily involved.
+
+At that point, the AI is not meant to be the rules engine. It is meant to be the explainer.
+
+Its job is to:
+
+- explain why something is weak
+- communicate trade-offs clearly
+- suggest improvements in human terms
+- adapt advice to budget or power goals
+- summarize patterns the player can act on
+
+This is very close to ManaTap's broader architecture: prompts guide tone and judgment, while validators and cleanup enforce correctness, legality, formatting, and consistency.
+
+In simple terms:
+
+- the AI helps with reasoning and communication
+- the system code helps keep that reasoning grounded
+
+That is a much safer model than asking a chatbot to do everything on its own.
+
+---
+
+## Why this is different from generic AI chat
+
+A normal AI chatbot can absolutely talk about Magic.
+
+ManaTap is designed to analyze decks inside actual MTG constraints.
+
+That means grounding advice inside:
+
+- format rules
+- Commander colour identity
+- deck structure
+- archetype support
+- synergy systems
+- mana realities
+- mainboard and sideboard context
+- card relationships
+
+The AI layer matters, but it sits on top of game-aware analysis instead of replacing it.
+
+That distinction is where a lot of the quality comes from.
+
+---
+
+## Why ManaTap is not trying to "solve the meta"
+
+Magic changes constantly.
+
+New sets release. Local metas differ. Budget matters. Table expectations vary. Formats move. Player taste matters.
+
+There is no single perfect deck for every room.
+
+ManaTap is not trying to replace player creativity or pretend there is one objectively correct answer. It is trying to:
+
+- reduce common deckbuilding mistakes
+- surface structural issues faster
+- make iteration easier
+- help players understand why changes matter
+- support experimentation with more confidence
+
+The player still makes the final decisions.
+
+Always.
+
+---
+
+## Where ManaTap is going next
+
+The roadmap is not "replace deckbuilding with AI."
+
+It is to keep making the assistant more grounded and more useful, with improvements like:
+
+- deeper archetype recognition
+- stronger multi-card synergy mapping
+- better budget-aware replacements
+- cleaner explanations for edge cases
+- stronger format-specific heuristics
+- better sideboard understanding
+- smarter power-level and intent handling
+
+The long-term goal is to help players build smarter, faster, and with more confidence while keeping the human side of Magic intact.
+`
+  },
   'devlog-23-days-soft-launch': {
     title: '🚀 Devlog: 23 Days Into Soft Launch',
     date: '2025-11-26',

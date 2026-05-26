@@ -25,29 +25,42 @@ export default function BrowseDecksLayout({
   return (
     <>
       <section
-        className="mb-6 max-w-4xl mx-auto px-4 text-neutral-200"
+        className="mx-auto max-w-[920px] px-4 pb-2 pt-10 text-center text-neutral-200 md:pt-14"
         aria-label="About browsing public decks"
       >
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-4">
+        <h1 className="mb-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
           Browse Decks &amp; Precons
         </h1>
-        <p className="text-neutral-300 mb-4">
-          Explore community-built decks or browse official WotC preconstructed decks.
-          Filter by format (Commander, Modern, Standard, and more), color identity, and sort.
-          Use the <strong>Community Decks</strong> tab for user-shared builds, or <strong>Precons</strong> for
-          official Commander precons you can clone to your account.
+        <p className="mx-auto max-w-3xl text-sm leading-7 text-neutral-300 md:text-base">
+          Explore community-built Magic decks and official Commander precons. Filter by format,
+          colours, commander, and recent activity, then clone any deck to make it your own.
         </p>
-        <p className="text-neutral-300 mb-4">
-          Found a deck you like? Use our tools to analyze and optimize it. Run
-          the <Link href="/tools/mulligan" className="text-cyan-400 hover:underline">Mulligan Simulator</Link> to
-          see keep rates for your opener, check the <Link href="/collections/cost-to-finish" className="text-cyan-400 hover:underline">Cost to Finish</Link> to
-          estimate how much it costs to build, or try <Link href="/deck/swap-suggestions" className="text-cyan-400 hover:underline">Budget Swaps</Link> to
-          find cheaper alternatives for expensive cards.
-        </p>
-        <p className="text-neutral-300">
-          Clone any public deck to your account to edit and build on it. Sign in
-          to save your favorites and share your own builds with the community.
-        </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+          {['Community decks', 'Official precons', 'Clone & edit'].map((chip) => (
+            <span
+              key={chip}
+              className="rounded-full border border-neutral-700 bg-neutral-900/70 px-3 py-1.5 text-xs font-medium text-neutral-300"
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+        <div className="mx-auto mt-5 max-w-3xl rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-3">
+          <p className="text-sm leading-6 text-neutral-400">
+            Found a list you like? Test opening hands, estimate missing cards, or find cheaper swaps before you build.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+            <Link href="/tools/mulligan" className="text-cyan-400 transition-colors hover:text-cyan-300 hover:underline">
+              Mulligan Simulator
+            </Link>
+            <Link href="/collections/cost-to-finish" className="text-emerald-400 transition-colors hover:text-emerald-300 hover:underline">
+              Cost to Finish
+            </Link>
+            <Link href="/deck/swap-suggestions" className="text-amber-300 transition-colors hover:text-amber-200 hover:underline">
+              Budget Swaps
+            </Link>
+          </div>
+        </div>
       </section>
       {children}
     </>

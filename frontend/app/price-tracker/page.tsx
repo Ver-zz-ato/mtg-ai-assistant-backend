@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { usePageAnalytics } from "@/hooks/usePageAnalytics";
 import TopMovers from './TopMovers';
+import { normalizeCurrency, usePrefs, type CurrencyPref } from "@/components/PrefsContext";
 
 function norm(s:string){ return String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim(); }
 const COLORS = ["#38bdf8","#f87171","#34d399","#fbbf24","#a78bfa","#f472b6","#22d3ee","#f59e0b","#93c5fd","#ef4444"];
@@ -20,6 +21,8 @@ const GRID_STROKE = "#334155";
 export default function PriceTrackerPage(){
   const { user, loading: authLoading } = useAuth();
   const { isPro } = useProStatus();
+  const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || "USD";
   const watchlistRef = React.useRef<WatchlistPanelRef>(null);
   
   // Track comprehensive page analytics
@@ -31,7 +34,6 @@ export default function PriceTrackerPage(){
     trackExitIntent: true
   });
   const [names, setNames] = React.useState<string>("Sol Ring");
-  const [currency, setCurrency] = React.useState<"USD"|"EUR"|"GBP">("USD");
   const [range, setRange] = React.useState<"30"|"60">("60");
   const [loading, setLoading] = React.useState(false);
   const [series, setSeries] = React.useState<Array<{ name:string; points: { date:string; unit:number }[] }>>([]);
@@ -240,7 +242,7 @@ export default function PriceTrackerPage(){
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         {/* LEFT: Watchlist (Pro) */}
         <aside className="md:col-span-3 space-y-3">
-          <WatchlistPanel ref={watchlistRef} names={names} setNames={setNames} />
+          <WatchlistPanel ref={watchlistRef} names={names} setNames={setNames} currency={currency} />
         </aside>
 
         {/* CENTER: Controls + Chart + Summary + Movers */}
@@ -253,7 +255,7 @@ export default function PriceTrackerPage(){
           </label>
           <label className="text-sm">
             <div className="opacity-70 mb-1">Currency</div>
-            <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+            <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
               <option>USD</option>
               <option>EUR</option>
               <option>GBP</option>
@@ -939,12 +941,14 @@ function WatchlistCard({
   item, 
   onRemove, 
   onAddToChart, 
-  imgMap 
+  imgMap,
+  currency,
 }: { 
   item: { id: string; name: string }; 
   onRemove: () => void; 
   onAddToChart: () => void;
   imgMap: Record<string, { small?: string; normal?: string; art_crop?: string; price?: number; delta_24h?: number; delta_7d?: number; delta_30d?: number }>;
+  currency: CurrencyPref;
 }) {
   const [hoverPos, setHoverPos] = React.useState<{ x: number; y: number } | null>(null);
   
@@ -959,6 +963,10 @@ function WatchlistCard({
   const delta24h = img.delta_24h || 0;
   const delta7d = img.delta_7d || 0;
   const delta30d = img.delta_30d || 0;
+  const formattedPrice = React.useMemo(
+    () => new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(price),
+    [currency, price]
+  );
   
   // Use 7d delta if available, otherwise 24h, otherwise 30d
   const primaryDelta = delta7d !== 0 ? delta7d : (delta24h !== 0 ? delta24h : delta30d);
@@ -1011,7 +1019,7 @@ function WatchlistCard({
                 onMouseEnter={() => setShowHoverDeltas(true)}
                 onMouseLeave={() => setShowHoverDeltas(false)}
               >
-                <span className="text-sm font-mono text-emerald-400">${price.toFixed(2)}</span>
+                <span className="text-sm font-mono text-emerald-400">{formattedPrice}</span>
                 {primaryDelta !== 0 && (
                   <span className={`text-xs font-mono ${primaryDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {primaryDelta >= 0 ? '▲' : '▼'} {primaryDelta >= 0 ? '+' : ''}{primaryDelta.toFixed(1)}%
@@ -1065,8 +1073,8 @@ function WatchlistCard({
   );
 }
 
-const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setNames: (s:string)=>void }>(
-  function WatchlistPanel({ names, setNames }, ref) {
+const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setNames: (s:string)=>void; currency: CurrencyPref }>(
+  function WatchlistPanel({ names, setNames, currency }, ref) {
   const { user } = useAuth();
   const { isPro } = useProStatus();
   const [items, setItems] = React.useState<Array<{ id: string; name: string }>>([]);
@@ -1123,7 +1131,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         // Fetch prices and deltas - use GET /api/price for each card to get deltas
         const pricePromises = names.map(async (name) => {
           try {
-            const res = await fetch(`/api/price?name=${encodeURIComponent(name)}&currency=USD`, { cache: 'no-store' });
+            const res = await fetch(`/api/price?name=${encodeURIComponent(name)}&currency=${encodeURIComponent(currency)}`, { cache: 'no-store' });
             const data = await res.json();
             if (data.ok) {
               return { name, price: data.price || 0, delta_24h: data.delta_24h || 0, delta_7d: data.delta_7d || 0, delta_30d: data.delta_30d || 0 };
@@ -1158,7 +1166,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
         setImgMap({});
       }
     })();
-  }, [items]);
+  }, [currency, items]);
 
   // Expose loadWatchlist via ref
   React.useImperativeHandle(ref, () => ({
@@ -1338,6 +1346,7 @@ const WatchlistPanel = React.forwardRef<WatchlistPanelRef, { names: string; setN
                 imgMap={imgMap}
                 onRemove={() => remove(item.id, item.name)}
                 onAddToChart={() => setNames(item.name)}
+                currency={currency}
               />
             ))}
           </ul>

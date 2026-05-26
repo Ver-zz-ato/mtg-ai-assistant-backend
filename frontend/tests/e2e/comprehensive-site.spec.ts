@@ -370,7 +370,7 @@ test.describe('Extended Routes', () => {
     'mana-curve-mastery', 'budget-edh-hidden-gems', 'how-to-build-your-first-commander-deck',
     'the-7-most-common-deckbuilding-mistakes', 'edh-land-count-what-the-community-actually-runs',
     'top-budget-staples-every-mtg-player-should-know-2025', 'why-ai-can-help-with-mtg-deck-building',
-    'how-manatap-ai-works', 'how-ai-evaluates-mtg-deck-synergy',
+    'how-manatap-ai-works', 'how-manatap-ai-works-updated', 'how-ai-evaluates-mtg-deck-synergy',
   ];
   for (const slug of BLOG_POSTS) {
     test(`Blog post /blog/${slug} loads`, async ({ page }) => {

@@ -24,10 +24,13 @@ import {
   getSideboardCardCount,
   normalizeDeckFormat,
 } from "@/lib/deck/formatRules";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
 type CardRow = { id: string; deck_id: string; name: string; qty: number; zone?: string | null; created_at: string };
 
 export default function CardsPane({ deckId, format, allowedColors = [] }: { deckId?: string; format?: string; allowedColors?: string[] }) {
+  const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || 'USD';
   const [cards, setCards] = useState<CardRow[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -553,6 +556,51 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     }
   }
 
+  async function bulkMoveSelected(newZone: "mainboard" | "sideboard") {
+    if (!deckId || selected.size === 0) return;
+    const selectedRows = cards.filter((c) => selected.has(c.id));
+    if (selectedRows.length === 0) return;
+
+    const previousCards = cards;
+    const selectedIds = new Set(selectedRows.map((c) => c.id));
+    setCards((prev) => prev.map((c) => (selectedIds.has(c.id) ? { ...c, zone: newZone } : c)));
+    setSelected(new Set());
+    setBusyId("bulk-zone");
+
+    try {
+      const results = await Promise.all(
+        selectedRows.map((card) =>
+          fetch(`/api/decks/cards?deckid=${encodeURIComponent(deckId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: card.id, new_zone: newZone }),
+          })
+        )
+      );
+      const failed = results.find((res) => !res.ok);
+      if (failed) {
+        const json = await failed.json().catch(() => ({}));
+        throw new Error((json as { error?: string })?.error || "Could not move selected cards");
+      }
+      await load();
+      try {
+        window.dispatchEvent(new Event("deck:changed"));
+        window.dispatchEvent(
+          new CustomEvent("toast", {
+            detail: `Moved ${selectedRows.length} card${selectedRows.length === 1 ? "" : "s"} to ${
+              newZone === "sideboard" ? "sideboard" : "main deck"
+            }`,
+          })
+        );
+      } catch {}
+    } catch (e) {
+      setCards(previousCards);
+      alert(e instanceof Error ? e.message : "Move failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   function toggleSelect(id: string) {
     setSelected(prev => {
       const next = new Set(prev);
@@ -700,10 +748,6 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
   const [pv, setPv] = useState<{ src: string; x: number; y: number; shown: boolean; below: boolean }>({ src: "", x: 0, y: 0, shown: false, below: false });
 
   // Currency toggle + snapshot prices per normalized name
-  // Important: avoid reading localStorage during initial render to prevent hydration mismatches.
-  const [currency, setCurrency] = useState<string>('USD');
-  useEffect(() => { try { const saved = localStorage.getItem('price_currency'); if (saved && saved !== 'USD') setCurrency(saved); } catch {} }, []);
-  useEffect(()=>{ try { localStorage.setItem('price_currency', currency); } catch {} }, [currency]);
   const [priceMap, setPriceMap] = useState<Record<string, number>>({});
   const [priceLoading, setPriceLoading] = useState<boolean>(false);
   useEffect(() => {
@@ -1009,23 +1053,38 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
                 })()}
               </button>
               {selected.size > 0 && (
-                <button
-                  onClick={bulkDelete}
-                  className="px-2 py-1 rounded bg-neutral-800 hover:bg-red-600/80 text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5"
-                  title={`Delete ${selected.size} card${selected.size > 1 ? 's' : ''}`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  <span className="text-xs">{selected.size}</span>
-                </button>
+                <>
+                  {isConstructed60 && (
+                    <button
+                      type="button"
+                      onClick={() => void bulkMoveSelected(msTab === "main" ? "sideboard" : "mainboard")}
+                      disabled={busyId === "bulk-zone"}
+                      className="px-2 py-1 rounded border border-sky-800/70 bg-sky-950/30 text-sky-300 hover:bg-sky-900/40 hover:text-sky-100 disabled:opacity-50 transition-colors"
+                      title={`Move ${selected.size} selected card${selected.size > 1 ? "s" : ""} to ${
+                        msTab === "main" ? "sideboard" : "main deck"
+                      }`}
+                    >
+                      {msTab === "main" ? "Move to sideboard" : "Move to main deck"}
+                    </button>
+                  )}
+                  <button
+                    onClick={bulkDelete}
+                    className="px-2 py-1 rounded bg-neutral-800 hover:bg-red-600/80 text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5"
+                    title={`Delete ${selected.size} card${selected.size > 1 ? 's' : ''}`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span className="text-xs">{selected.size}</span>
+                  </button>
+                </>
               )}
             </>
           )}
         </div>
         <div className="flex items-center gap-2">
           <label className="opacity-70">Currency</label>
-          <select value={currency} onChange={e=>setCurrency(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+          <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
             <option value="GBP">GBP</option>

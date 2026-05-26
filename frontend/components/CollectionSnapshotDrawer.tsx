@@ -3,11 +3,13 @@
 import React from "react";
 import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 import { capture } from "@/lib/ph";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
 export default function CollectionSnapshotDrawer({ collectionId }: { collectionId: string }){
+  const { currency: prefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || 'USD';
   const [cards, setCards] = React.useState<Array<{ name:string; qty:number }>>([]);
   const [value, setValue] = React.useState<number|null>(null);
-  const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>(():any=>{ try{ return (localStorage.getItem('price_currency') as any)||'USD'; }catch{return 'USD'; } });
   const [colors, setColors] = React.useState<Record<string, number>>({ W:0, U:0, B:0, R:0, G:0 });
 
   React.useEffect(()=>{ try{ capture('mounted: CollectionSnapshotDrawer', { id: collectionId }); } catch{} }, [collectionId]);

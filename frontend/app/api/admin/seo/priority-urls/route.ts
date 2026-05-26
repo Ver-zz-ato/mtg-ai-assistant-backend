@@ -12,6 +12,7 @@ import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/veri
 const BASE = "https://www.manatap.ai";
 
 const BLOG_SLUGS_LATEST = [
+  "how-manatap-ai-works-updated",
   "how-manatap-ai-works",
   "devlog-23-days-soft-launch",
   "welcome-to-manatap-ai-soft-launch",

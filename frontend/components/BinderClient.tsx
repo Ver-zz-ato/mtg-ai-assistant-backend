@@ -4,9 +4,12 @@ import React from "react";
 import CollectionPriceHistory from "@/components/CollectionPriceHistory";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import { DualRange } from "@/components/shared/DualRange";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
 // Read-only binder client matching owner view styling and layout
 export default function BinderClient({ collectionId }: { collectionId: string }){
+  const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || 'USD';
   const [items, setItems] = React.useState<Array<{ id?: string; name: string; qty: number }>>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string|undefined>(undefined);
@@ -20,9 +23,6 @@ export default function BinderClient({ collectionId }: { collectionId: string })
   const imagesRef = React.useRef<Record<string, { small?: string; normal?: string }>>({});
 
   // Prices - use cache first
-  const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>('USD');
-  React.useEffect(()=>{ try{ const saved = localStorage.getItem('price_currency') as any; if(saved && (saved==='USD'||saved==='EUR'||saved==='GBP')) setCurrency(saved); }catch{} }, []);
-  React.useEffect(()=>{ try{ localStorage.setItem('price_currency', currency); }catch{} }, [currency]);
   const [priceMap, setPriceMap] = React.useState<Record<string, number>>({});
   const [valueUSD, setValueUSD] = React.useState<number | null>(null);
 
@@ -303,7 +303,7 @@ export default function BinderClient({ collectionId }: { collectionId: string })
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-sm font-medium">🔍 Search<input value={filterText} onChange={e=>setFilterText(e.target.value)} className="ml-2 w-64 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"/></label>
             <div className="ml-auto flex items-center gap-2">
-              <label className="text-sm font-medium">💰 Currency<select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+              <label className="text-sm font-medium">💰 Currency<select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
             </div>
           </div>
           {/* Filters Row - Collapsible */}
@@ -470,7 +470,7 @@ export default function BinderClient({ collectionId }: { collectionId: string })
             <div className="text-base font-semibold">Cards: <b className="font-mono text-cyan-400">{totalCards}</b></div>
             <div className="text-base font-semibold">Unique: <b className="font-mono text-cyan-400">{unique}</b></div>
             <div className="text-base font-semibold flex items-center gap-2">Value: <b className="font-mono text-cyan-400">{estTotal!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(estTotal): '—'}</b>
-              <select value={currency} onChange={e=>setCurrency(e.target.value as any)} className="ml-auto bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
+              <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="ml-auto bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
             </div>
           </div>
         </div>

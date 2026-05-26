@@ -16,6 +16,7 @@ type DeckRow = {
   id: string;
   title: string | null;
   commander: string | null;
+  format: string | null;
   meta?: Record<string, unknown> | null;
   created_at: string | null;
   updated_at: string | null;
@@ -116,7 +117,7 @@ function MyDecksPageContent() {
         if (pinnedIds.length > 0) {
           const { data: pinnedData } = await supabase
             .from("decks")
-            .select("id, title, commander, meta, created_at, updated_at, is_public")
+            .select("id, title, commander, format, meta, created_at, updated_at, is_public")
             .eq("user_id", user.id)
             .in("id", pinnedIds);
           pinnedDecks = (pinnedData || []).map((d: any) => ({
@@ -128,7 +129,7 @@ function MyDecksPageContent() {
         const excludeIds = pinned.filter(Boolean);
         let nonPinnedQuery = supabase
           .from("decks")
-          .select("id, title, commander, meta, created_at, updated_at, is_public")
+          .select("id, title, commander, format, meta, created_at, updated_at, is_public")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .range(0, INITIAL_PAGE_SIZE - 1);
@@ -157,7 +158,7 @@ function MyDecksPageContent() {
         const excludeIds = pinned.filter(Boolean);
         let query = supabase
           .from("decks")
-          .select("id, title, commander, meta, created_at, updated_at, is_public")
+          .select("id, title, commander, format, meta, created_at, updated_at, is_public")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .range((pageNum - 1) * INITIAL_PAGE_SIZE, pageNum * INITIAL_PAGE_SIZE - 1);

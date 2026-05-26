@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSwipeable } from 'react-swipeable';
@@ -11,11 +11,13 @@ import { capture } from '@/lib/ph';
 import { EmptyDecksState } from './EmptyStates';
 import { TagSelector } from './DeckTags';
 import { getTagByLabel } from '@/lib/predefined-tags';
+import { normalizeCurrency, usePrefs, type CurrencyPref } from '@/components/PrefsContext';
 
 interface DeckRow {
   id: string;
   title: string | null;
   commander: string | null;
+  format?: string | null;
   meta?: Record<string, unknown> | null;
   created_at: string | null;
   updated_at: string | null;
@@ -26,6 +28,30 @@ interface DeckRow {
 interface MyDecksListProps {
   rows: DeckRow[];
   pinnedIds: string[];
+}
+
+type DeckSortMode = 'recent' | 'value';
+
+function normalizeFormatFilter(format: string | null | undefined): string {
+  const f = String(format || '').trim().toLowerCase();
+  if (!f) return 'unknown';
+  if (f === 'edh' || f === 'cedh') return 'commander';
+  return f;
+}
+
+function formatLabel(format: string | null | undefined): string {
+  const f = normalizeFormatFilter(format);
+  if (f === 'unknown') return 'Unknown';
+  return f.charAt(0).toUpperCase() + f.slice(1);
+}
+
+function formatMoney(amount: number | undefined, currency: CurrencyPref): string | null {
+  if (!amount || amount <= 0) return null;
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 /** Must be a separate component: hooks (e.g. useSwipeable) cannot run inside rows.map(). */
@@ -39,6 +65,7 @@ function MyDeckGridCard({
   setTagModalOpen,
   deleteDeck,
   duplicateDeck,
+  currency,
 }: {
   r: DeckRow;
   pinnedIds: string[];
@@ -49,12 +76,14 @@ function MyDeckGridCard({
   setTagModalOpen: (id: string | null) => void;
   deleteDeck: (deckId: string, deckName: string) => void;
   duplicateDeck: (deckId: string, deckName: string) => void;
+  currency: CurrencyPref;
 }) {
   const router = useRouter();
   const title = r.title ?? "Untitled Deck";
   const stats = deckStats.get(r.id);
   const isPinned = pinnedIds.includes(r.id);
   const isThisSwiped = swipedDeckId === r.id;
+  const valueLabel = formatMoney(stats?.estimatedValue, currency);
   const coverCardName =
     typeof r.meta?.deck_cover_card_name === 'string' && r.meta.deck_cover_card_name.trim()
       ? r.meta.deck_cover_card_name.trim()
@@ -190,9 +219,17 @@ function MyDeckGridCard({
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs">
+                <span className="px-4 py-1.5 rounded-full bg-amber-600/15 border border-amber-600/25 text-amber-200 font-medium">
+                  {formatLabel(r.format)}
+                </span>
                 <span className="px-4 py-1.5 rounded-full bg-blue-600/20 border border-blue-600/30 text-blue-300 font-medium">
                   <span className="opacity-70">Cards:</span> <b className="font-mono ml-1">{stats?.cardCount || '—'}</b>
                 </span>
+                {valueLabel && (
+                  <span className="px-4 py-1.5 rounded-full bg-emerald-600/15 border border-emerald-600/25 text-emerald-300 font-medium">
+                    <span className="opacity-70">Value:</span> <b className="font-mono ml-1">{valueLabel}</b>
+                  </span>
+                )}
                 <span className={`px-4 py-1.5 rounded-full ${r.is_public ? 'bg-emerald-600/20 border border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border border-neutral-700/30 text-neutral-400'}`}>
                   {r.is_public ? '🌐 Public' : '🔒 Private'}
                 </span>
@@ -279,11 +316,47 @@ interface DeckStats {
 }
 
 export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
+  const { currency: prefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || 'USD';
   const [deckStats, setDeckStats] = useState<Map<string, DeckStats>>(new Map());
   const [deckTags, setDeckTags] = useState<Map<string, string[]>>(new Map());
   const [tagModalOpen, setTagModalOpen] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [swipedDeckId, setSwipedDeckId] = useState<string | null>(null);
+  const [formatFilter, setFormatFilter] = useState('all');
+  const [sortMode, setSortMode] = useState<DeckSortMode>('recent');
+
+  const formatOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      const f = normalizeFormatFilter(row.format);
+      if (f !== 'unknown') seen.add(f);
+    }
+    const preferred = ['commander', 'modern', 'pioneer', 'standard', 'pauper'];
+    return [
+      ...preferred.filter((f) => seen.has(f)),
+      ...Array.from(seen).filter((f) => !preferred.includes(f)).sort(),
+    ];
+  }, [rows]);
+
+  const visibleRows = useMemo(() => {
+    const filtered =
+      formatFilter === 'all'
+        ? rows
+        : rows.filter((row) => normalizeFormatFilter(row.format) === formatFilter);
+
+    if (sortMode === 'recent') return filtered;
+
+    return [...filtered].sort((a, b) => {
+      const ap = pinnedIds.includes(a.id) ? 0 : 1;
+      const bp = pinnedIds.includes(b.id) ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      const av = deckStats.get(a.id)?.estimatedValue || 0;
+      const bv = deckStats.get(b.id)?.estimatedValue || 0;
+      if (av !== bv) return bv - av;
+      return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+    });
+  }, [deckStats, formatFilter, pinnedIds, rows, sortMode]);
 
   useEffect(() => {
     // PERFORMANCE FIX: Delay data fetching to make page interactive first
@@ -310,7 +383,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
         const bulkRes = await fetch('/api/decks/bulk-stats', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deckIds }),
+          body: JSON.stringify({ deckIds, currency }),
           cache: 'no-store',
           signal: abortController.signal
         });
@@ -337,6 +410,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
         const results = deckIds.map(deckId => ({
           deckId,
           cardCount: stats[deckId]?.cardCount || 0,
+          estimatedValue: Number(stats[deckId]?.estimatedValue || 0),
           tags: stats[deckId]?.tags || []
         }));
         
@@ -346,7 +420,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
           const newTags = new Map<string, string[]>();
           
           results.forEach(result => {
-            newStats.set(result.deckId, { cardCount: result.cardCount });
+            newStats.set(result.deckId, { cardCount: result.cardCount, estimatedValue: result.estimatedValue });
             newTags.set(result.deckId, result.tags);
           });
           
@@ -375,7 +449,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
       clearTimeout(delayTimer);
       abortController.abort();
     };
-  }, [rows]);
+  }, [currency, rows]);
 
   const handleTagsUpdate = async (deckId: string, newTags: string[]) => {
     // Capture current tags BEFORE optimistic update
@@ -533,9 +607,51 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
           <span>Loading deck details...</span>
         </div>
       )}
+
+      <div className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-neutral-950/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-xs font-medium text-neutral-400" htmlFor="my-decks-format-filter">
+            Format
+          </label>
+          <select
+            id="my-decks-format-filter"
+            value={formatFilter}
+            onChange={(event) => setFormatFilter(event.target.value)}
+            className="rounded-lg border border-neutral-700 bg-black/40 px-3 py-2 text-sm text-neutral-100 outline-none hover:border-neutral-600"
+          >
+            <option value="all">All formats</option>
+            {formatOptions.map((format) => (
+              <option key={format} value={format}>
+                {formatLabel(format)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex rounded-lg border border-neutral-700 bg-black/30 p-0.5">
+          {(['recent', 'value'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setSortMode(mode)}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                sortMode === mode
+                  ? 'border border-amber-500/50 bg-amber-900/30 text-amber-100'
+                  : 'border border-transparent text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              {mode === 'recent' ? 'Recent' : 'Value'}
+            </button>
+          ))}
+        </div>
+      </div>
       
+      {visibleRows.length === 0 ? (
+        <div className="rounded-xl border border-neutral-800 bg-neutral-950/50 px-4 py-8 text-center text-sm text-neutral-400">
+          No decks match that filter.
+        </div>
+      ) : (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {rows.map((r) => (
+        {visibleRows.map((r) => (
           <MyDeckGridCard
             key={r.id}
             r={r}
@@ -547,9 +663,11 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
             setTagModalOpen={setTagModalOpen}
             deleteDeck={deleteDeck}
             duplicateDeck={duplicateDeck}
+            currency={currency}
           />
         ))}
       </div>
+      )}
 
       {/* Tag Selector Modal */}
       {tagModalOpen && (

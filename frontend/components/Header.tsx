@@ -291,6 +291,20 @@ export default function Header() {
           >
             Deck Builder
           </Link>
+          <Link
+            href="/tools"
+            className="text-sm hover:underline text-teal-400 font-medium px-2 py-1 rounded transition-all hover:bg-teal-400/10 hover:shadow-sm"
+            onClick={() => capture('nav_link_clicked', { destination: '/tools', source: 'header' })}
+          >
+            Tools
+          </Link>
+          <Link
+            href="/cards"
+            className="text-sm hover:underline text-orange-300 font-medium px-2 py-1 rounded transition-all hover:bg-orange-300/10 hover:shadow-sm"
+            onClick={() => capture('nav_link_clicked', { destination: '/cards', source: 'header' })}
+          >
+            Cards
+          </Link>
           <Link 
             href="/blog" 
             className="text-sm hover:underline text-red-400 font-medium px-2 py-1 rounded transition-all hover:bg-red-400/10 hover:shadow-sm"
@@ -484,6 +498,26 @@ export default function Header() {
               }}
             >
               Deck Builder
+            </Link>
+            <Link
+              href="/tools"
+              className="block min-h-[44px] py-2 px-1 text-sm text-teal-400 font-medium flex items-center touch-manipulation"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/tools', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Tools
+            </Link>
+            <Link
+              href="/cards"
+              className="block min-h-[44px] py-2 px-1 text-sm text-orange-300 font-medium flex items-center touch-manipulation"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/cards', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Cards
             </Link>
             <Link
               href="/blog"

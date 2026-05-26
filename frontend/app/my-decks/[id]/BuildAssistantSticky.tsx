@@ -13,6 +13,7 @@ import {
   type DeckFormatCanonical,
 } from "@/lib/deck/formatRules";
 import { encodeBase64Url, decodeBase64Url } from "@/lib/utils/base64url";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
 function decodeIntentParam(i?: string | null): any {
   if (!i) return null;
@@ -63,6 +64,8 @@ async function toast(msg: string, type: 'success'|'info'|'error' = 'info') {
 export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, healthMetrics, format, cardCount = 0 }: { deckId: string; encodedIntent?: string | null; isPro: boolean; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null; format?: string; cardCount?: number }){
   const router = useRouter();
   const { modelTier, modelLabel, upgradeMessage, isPro: ctxIsPro } = useProStatus();
+  const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
+  const globalCurrency = normalizeCurrency(prefCurrency) || 'USD';
   /** Server deck page already resolved Pro via `checkProStatus`; context may lag (default guest) or disagree after entitlement changes. */
   const entitledPro = isPro || ctxIsPro;
   const mergedIntent = React.useMemo(
@@ -153,7 +156,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
         const ci = Number(j?.illegalByCI||0);
         const legalMsg = (banned>0||ci>0) ? `Issues: ${banned} banned, ${ci} CI conflicts` : 'No legality issues';
         // prices snapshot
-        const currency = String(intent?.budgetCurrency || intent?.currency || 'USD').toUpperCase();
+        const currency = normalizeCurrency(intent?.budgetCurrency || intent?.currency) || globalCurrency;
         const r2 = await fetch('/api/price/snapshot', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names, currency }) });
         const j2 = await r2.json().catch(()=>({ ok:false }));
         const prices: Record<string, number> = (r2.ok && j2?.ok) ? (j2.prices||{}) : {};
@@ -575,7 +578,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 <div className="flex items-center gap-2">
                   <label className="opacity-70 w-20">Budget</label>
                   <input type="number" min={0} step={1} value={Number(intent?.budget||0)} onChange={e=>setIntent((p:any)=>({ ...p, budget: Number(e.target.value||0) }))} className="w-24 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
-                  <select value={String(intent?.budgetCurrency||intent?.currency||'USD')} onChange={e=>setIntent((p:any)=>({ ...p, budgetCurrency: e.target.value, currency: e.target.value }))} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
+                  <select value={String(intent?.budgetCurrency||intent?.currency||globalCurrency)} onChange={e=>{ setPrefCurrency?.(e.target.value); setIntent((p:any)=>({ ...p, budgetCurrency: e.target.value, currency: e.target.value })); }} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1">
                     <option>USD</option>
                     <option>EUR</option>
                     <option>GBP</option>
@@ -633,7 +636,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               <button 
                 disabled={busy==='swaps'}
                 className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors" 
-                onClick={()=>{ if (!proGuard()) return; setSwapThreshold({ budget: Number(intent?.budget || 5), currency: String(intent?.budgetCurrency || intent?.currency || 'USD').toUpperCase() }); }}
+                onClick={()=>{ if (!proGuard()) return; setSwapThreshold({ budget: Number(intent?.budget || 5), currency: normalizeCurrency(intent?.budgetCurrency || intent?.currency) || globalCurrency }); }}
               >
                 <div className="font-semibold text-xs flex items-center gap-1">
                   💰 Budget Swaps
@@ -741,7 +744,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 <label className="block text-xs font-medium text-neutral-300 mb-1.5">Currency</label>
                 <select 
                   value={swapThreshold.currency} 
-                  onChange={(e)=>setSwapThreshold({...swapThreshold, currency: e.target.value})}
+                  onChange={(e)=>{ setPrefCurrency?.(e.target.value); setSwapThreshold({...swapThreshold, currency: e.target.value}); }}
                   className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 >
                   <option value="USD">USD ($)</option>

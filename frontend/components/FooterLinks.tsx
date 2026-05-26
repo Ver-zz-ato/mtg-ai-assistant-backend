@@ -29,6 +29,7 @@ export default function FooterLinks() {
       {cfg.paypal && (<a className="hover:text-gray-200" href="https://paypal.me/DavyDraws7" target="_blank" rel="noreferrer">PayPal</a>)}
       <a className="hover:text-gray-200" href="/terms">Terms</a>
       <a className="hover:text-gray-200" href="/privacy">Privacy</a>
+      <a className="hover:text-gray-200" href="/delete-account">Delete Account</a>
       <a className="hover:text-gray-200" href="/refund">Refund Policy</a>
 
       <div className="w-full">

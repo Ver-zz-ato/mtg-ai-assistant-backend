@@ -2,6 +2,7 @@
 
 import React from "react";
 import { BarChart3, Bot, ExternalLink, GitBranch, Lock, PiggyBank, Sparkles, X } from "lucide-react";
+import { normalizeCurrency, usePrefs, type CurrencyPref } from "@/components/PrefsContext";
 
 type CardMetadata = {
   name: string;
@@ -118,9 +119,9 @@ function legalityLabel(status: string): string {
   return "Unknown";
 }
 
-function formatUsd(price: number | null): string | null {
+function formatPrice(price: number | null, currency: CurrencyPref): string | null {
   if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) return null;
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(price);
+  return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(price);
 }
 
 function stripMarkdown(value: string): string {
@@ -230,6 +231,8 @@ export default function WebsiteCardDetailModal({
   imageNormal,
   onClose,
 }: WebsiteCardDetailModalProps) {
+  const { currency: prefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || "USD";
   const [metadata, setMetadata] = React.useState<CardMetadata | null>(null);
   const [price, setPrice] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -282,13 +285,14 @@ export default function WebsiteCardDetailModal({
           if (!cancelled) setMetadata(nextMetadata);
         }
 
-        if (priceCache.has(cacheKey)) {
-          setPrice(priceCache.get(cacheKey) ?? null);
+        const priceCacheKey = `${cacheKey}:${currency}`;
+        if (priceCache.has(priceCacheKey)) {
+          setPrice(priceCache.get(priceCacheKey) ?? null);
         } else {
-          const response = await fetch(`/api/price?name=${encodeURIComponent(cleanName)}&currency=USD`, { cache: "no-store" });
+          const response = await fetch(`/api/price?name=${encodeURIComponent(cleanName)}&currency=${encodeURIComponent(currency)}`, { cache: "no-store" });
           const json = await response.json().catch(() => ({}));
           const nextPrice = typeof json?.price === "number" ? json.price : null;
-          priceCache.set(cacheKey, nextPrice);
+          priceCache.set(priceCacheKey, nextPrice);
           if (!cancelled) setPrice(nextPrice);
         }
       } catch {
@@ -302,7 +306,7 @@ export default function WebsiteCardDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [open, cleanName, cacheKey]);
+  }, [open, cleanName, cacheKey, currency]);
 
   if (!open || !cleanName) return null;
 
@@ -312,7 +316,7 @@ export default function WebsiteCardDetailModal({
     .filter(Boolean)
     .join(" · ");
   const scryfallUrl = scryfallCardSearchUrl(displayName);
-  const priceText = formatUsd(price);
+  const priceText = formatPrice(price, currency);
   const hasOracleText = Boolean(metadata?.oracle_text?.trim());
   const explainCard = {
     name: displayName,

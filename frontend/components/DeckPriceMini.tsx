@@ -5,9 +5,11 @@ import {
   costAuditRequestId,
   isCostAuditClientEnabled,
 } from "@/lib/observability/cost-audit";
+import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
 export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { deckId: string; initialCurrency?: 'USD'|'EUR'|'GBP' }){
-  const [currency, setCurrency] = React.useState<'USD'|'EUR'|'GBP'>(initialCurrency);
+  const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
+  const currency = normalizeCurrency(prefCurrency) || initialCurrency;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string|null>(null);
   const [total, setTotal] = React.useState<number|null>(null);
@@ -199,7 +201,7 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
   return (
     <div className="text-sm">
       <div className="flex items-center justify-end mb-3">
-        <select value={currency} onChange={e=> setCurrency(e.currentTarget.value as any)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs">
+        <select value={currency} onChange={e=> setPrefCurrency?.(e.currentTarget.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs">
           <option>USD</option>
           <option>EUR</option>
           <option>GBP</option>

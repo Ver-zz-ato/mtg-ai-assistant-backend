@@ -149,15 +149,15 @@ export default function PricingPage() {
     {
       icon: '🤖',
       title: 'AI Deck Assistant',
-      description: 'Get personalized card recommendations, strategy advice, and deck optimization tips',
-      free: '50 messages/day',
-      pro: 'Unlimited + Pro models',
+      description: 'Format-aware deck help that checks legality, structure, synergy, and upgrade paths for supported formats',
+      free: 'Guest access + signed-in free tier',
+      pro: 'Higher limits + stronger models',
       category: 'ai'
     },
     {
       icon: '🎴',
       title: 'AI Deck Generator',
-      description: 'Generate full Commander decks from scratch with preview before creating — Commander, archetype, or playstyle quiz',
+      description: 'Generate full decks with preview-first flows — Commander tools today, with broader format support expanding',
       free: 'Preview + create',
       pro: 'Same + rate limits',
       category: 'ai'
@@ -173,7 +173,7 @@ export default function PricingPage() {
     {
       icon: '🃏',
       title: 'Smart Card Suggestions',
-      description: 'Deck-page recommendations respect color identity and format — hover card art for full image',
+      description: 'Suggestions respect Commander colour identity and legality for supported formats',
       free: true,
       pro: true,
       category: 'ai'
@@ -230,7 +230,7 @@ export default function PricingPage() {
     {
       icon: '✨',
       title: 'Finish This Deck',
-      description: 'AI suggests cards to fill gaps when your Commander deck is short of 100 cards',
+      description: 'AI suggests cards to fill gaps when a deck is short of its target size',
       free: true,
       pro: true,
       category: 'deck'
@@ -321,10 +321,10 @@ export default function PricingPage() {
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-2">
             Take your Magic: The Gathering experience to the next level with ManaTap AI Pro. 
-            Get unlimited AI analysis, advanced insights, and premium features.
+            Get higher AI limits, deeper deck insight, and premium tools for building and refining decks faster.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-6">
-            Powered by OpenAI GPT-5 — Free tier uses GPT-5 Mini; Pro uses full GPT-5 for the best reasoning.
+            Free and Pro tiers use different model ladders and limits. Pro gets the strongest website experience for deeper reasoning and heavier deck workflows.
           </p>
           
           {/* ROI Calculator */}
@@ -374,7 +374,7 @@ export default function PricingPage() {
             >
               Annual
               <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
-                Save 20%
+                Save 37%
               </span>
             </button>
           </div>
@@ -402,19 +402,19 @@ export default function PricingPage() {
             <div className="space-y-4 mb-8">
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Basic deck analysis (50/day)</span>
+                <span className="text-sm">Guests can try core AI deck tools</span>
               </div>
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Collection tracking</span>
+                <span className="text-sm">Signed-in free users get higher daily limits</span>
               </div>
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Current card prices</span>
+                <span className="text-sm">Collection tracking and current card prices</span>
               </div>
               <div className="flex items-center">
                 <span className="text-green-500 mr-3">✓</span>
-                <span className="text-sm">Community support</span>
+                <span className="text-sm">Commander-first tools with broader format support expanding</span>
               </div>
             </div>
 
@@ -475,14 +475,14 @@ export default function PricingPage() {
                 <span className="text-green-400 mr-3">✓</span>
                 <ProValueTooltip
                   trigger={
-                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Unlimited AI analysis</span>
+                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Higher AI limits and stronger models</span>
                   }
-                  featureName="Unlimited AI Analysis"
+                  featureName="Higher AI Limits and Stronger Models"
                   benefits={[
-                    'Higher limits on deck analysis',
-                    'Advanced AI-powered suggestions',
-                    'Real-time optimization recommendations',
-                    'Access to latest AI models and improvements'
+                    'Higher limits on deck analysis and AI tools',
+                    'Stronger reasoning on heavier deck workflows',
+                    'Better fit for repeated refinement and testing',
+                    'Best website tier for advanced AI features'
                   ]}
                   placement="right"
                 />
@@ -491,14 +491,14 @@ export default function PricingPage() {
                 <span className="text-green-400 mr-3">✓</span>
                 <ProValueTooltip
                   trigger={
-                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Advanced deck statistics</span>
+                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Deeper deck analysis and health tools</span>
                   }
-                  featureName="Advanced Deck Statistics"
+                  featureName="Deeper Deck Analysis and Health Tools"
                   benefits={[
-                    'Detailed probability calculations',
-                    'Mana curve optimization analysis',
-                    'Win condition tracking',
-                    'Performance metrics and trends'
+                    'Better visibility into curve, synergy, and pressure points',
+                    'Health scans and saved-deck improvement tools',
+                    'More room for iterative tuning',
+                    'Richer AI-assisted diagnostics'
                   ]}
                   placement="right"
                 />
@@ -507,13 +507,13 @@ export default function PricingPage() {
                 <span className="text-green-400 mr-3">✓</span>
                 <ProValueTooltip
                   trigger={
-                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Price tracking</span>
+                    <span className="text-sm cursor-help border-b border-dotted border-white border-opacity-50">Price history and collection insights</span>
                   }
-                  featureName="Price Tracking"
+                  featureName="Price History and Collection Insights"
                   benefits={[
                     'Historical price data for all cards',
-                    'Market trend analysis and predictions',
-                    'Portfolio value tracking over time'
+                    'Deck and collection value trends over time',
+                    'Better visibility on upgrade cost decisions'
                   ]}
                   placement="right"
                 />
@@ -825,7 +825,7 @@ export default function PricingPage() {
                 What payment methods do you accept?
               </h3>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                We accept all major credit cards and PayPal for your convenience.
+                Website subscriptions use secure Stripe checkout. Major card support depends on Stripe availability in your region.
               </p>
             </div>
             
@@ -843,7 +843,7 @@ export default function PricingPage() {
                 Do you offer discounts?
               </h3>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                We occasionally offer special promotions. Follow us or check back for seasonal discounts!
+                Annual billing is the main built-in discount. If promotion codes are available, they can be applied during checkout.
               </p>
             </div>
           </div>
