@@ -1,7 +1,10 @@
 const MAGIC_A = "MTSA";
 const MAGIC_B = "MTSB";
+const MASK32 = 0xffffffff;
 
-export function encodeAIndex(names: string[], hashes: bigint[]): Buffer {
+import type { Dhash64 } from "./dhash";
+
+export function encodeAIndex(names: string[], hashes: Dhash64[]): Buffer {
   const encoder = new TextEncoder();
   const nameBytes = names.map((n) => encoder.encode(n + "\0"));
   const namesBlobLen = nameBytes.reduce((s, b) => s + b.length, 0);
@@ -15,9 +18,9 @@ export function encodeAIndex(names: string[], hashes: bigint[]): Buffer {
   buf.writeUInt32LE(count, 8);
   let namesOffset = 0;
   for (let i = 0; i < count; i += 1) {
-    const h = hashes[i] ?? 0n;
-    buf.writeUInt32LE(Number(h & 0xffffffffn), headerSize + i * 8);
-    buf.writeUInt32LE(Number((h >> 32n) & 0xffffffffn), headerSize + i * 8 + 4);
+    const h = hashes[i] ?? { lo: 0, hi: 0 };
+    buf.writeUInt32LE(h.lo & MASK32, headerSize + i * 8);
+    buf.writeUInt32LE(h.hi & MASK32, headerSize + i * 8 + 4);
     buf.writeUInt32LE(namesOffset, headerSize + hashesSize + i * 4);
     nameBytes[i].forEach((byte, j) => {
       buf[headerSize + hashesSize + offsetsSize + namesOffset + j] = byte;

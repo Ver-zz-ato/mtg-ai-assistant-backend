@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { computeDhash64, type RgbaImage } from "./dhash";
+import { computeDhash64, type Dhash64, type RgbaImage } from "./dhash";
 import { computeGridEmbeddingInt8, GRID_EMBED_DIM } from "./grid-embed";
 import { encodeAIndex, encodeBIndex } from "./encode";
 
@@ -42,7 +42,7 @@ export async function buildVisualIndexArtifacts(
   onProgress?: (p: BuildVisualIndexProgress) => void,
 ): Promise<{ indexA: Buffer; indexB: Buffer; cardCount: number; skipped: number }> {
   const names: string[] = [];
-  const hashes: bigint[] = [];
+  const hashes: Dhash64[] = [];
   const vectors: Int8Array[] = [];
   let skipped = 0;
   const total = rows.length;

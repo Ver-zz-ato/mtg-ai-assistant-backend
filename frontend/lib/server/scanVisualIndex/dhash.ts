@@ -37,7 +37,12 @@ export function resizeRgba(source: RgbaImage, targetWidth: number, targetHeight:
   return { width: targetWidth, height: targetHeight, data: out };
 }
 
-export function computeDhash64(image: RgbaImage): bigint {
+/** 64-bit hash as two uint32 (avoids ES2020 bigint literals in Next build). */
+export type Dhash64 = { lo: number; hi: number };
+
+const MASK32 = 0xffffffff;
+
+export function computeDhash64(image: RgbaImage): Dhash64 {
   const small = resizeRgba(image, DHASH_WIDTH, DHASH_HEIGHT);
   const gray: number[] = [];
   for (let y = 0; y < DHASH_HEIGHT; y += 1) {
@@ -46,15 +51,23 @@ export function computeDhash64(image: RgbaImage): bigint {
       gray.push(toGrayscale(small.data[i], small.data[i + 1], small.data[i + 2]));
     }
   }
-  let hash = 0n;
+  let lo = 0;
+  let hi = 0;
   let bit = 0;
   for (let y = 0; y < DHASH_HEIGHT; y += 1) {
     for (let x = 0; x < DHASH_WIDTH - 1; x += 1) {
       const left = gray[y * DHASH_WIDTH + x];
       const right = gray[y * DHASH_WIDTH + x + 1];
-      if (left > right) hash |= 1n << BigInt(bit);
+      if (left > right) {
+        if (bit < 32) {
+          lo |= 1 << bit;
+        } else {
+          hi |= 1 << (bit - 32);
+        }
+      }
       bit += 1;
     }
   }
-  return hash;
+  return { lo: lo >>> 0, hi: hi >>> 0 };
 }
+
