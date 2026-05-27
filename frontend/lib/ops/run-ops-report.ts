@@ -39,6 +39,17 @@ const SEO_WINNERS_LIMIT = 50;
 const STALE_HOURS = 48;
 const DAILY_WINDOW_HOURS = 24;
 
+/** HogQL predicate: signup_completed events attributed to the mobile app. */
+const POSTHOG_APP_SIGNUP_FILTER = `
+  (
+    properties.platform = 'app'
+    OR properties.app_surface = 'mobile_app'
+    OR properties.first_platform = 'app'
+    OR properties.$lib = 'posthog-react-native'
+    OR properties.source = 'manatap_app'
+  )
+`;
+
 function costUSDFromRow(r: { model?: string | null; input_tokens?: number | null; output_tokens?: number | null }): number {
   return costUSD(String(r.model ?? ""), Number(r.input_tokens) || 0, Number(r.output_tokens) || 0);
 }
@@ -81,6 +92,44 @@ function formatLondonTimestamp(value: Date): string {
   }).format(value);
 }
 
+async function getPosthogSignupCounts(hours: number) {
+  if (!getPosthogQueryCredentials()) {
+    return {
+      configured: false,
+      appSignups: 0,
+      websiteSignups: 0,
+      error: "PostHog query env is not configured.",
+    };
+  }
+
+  const safeHours = Math.max(1, Math.min(hours, 168));
+  const query = `
+    SELECT
+      countIf(${POSTHOG_APP_SIGNUP_FILTER}) AS app_signups,
+      countIf(NOT (${POSTHOG_APP_SIGNUP_FILTER})) AS website_signups
+    FROM events
+    WHERE timestamp >= now() - INTERVAL ${safeHours} HOUR
+      AND event = 'signup_completed'
+  `;
+
+  try {
+    const result = await posthogHogql(query);
+    const row = result.results[0] || [];
+    return {
+      configured: true,
+      appSignups: Number(row[0] || 0),
+      websiteSignups: Number(row[1] || 0),
+    };
+  } catch (e) {
+    return {
+      configured: true,
+      appSignups: 0,
+      websiteSignups: 0,
+      error: e instanceof Error ? e.message : "posthog_query_failed",
+    };
+  }
+}
+
 async function getWebsitePosthogDigest(hours: number) {
   if (!getPosthogQueryCredentials()) {
     return {
@@ -104,7 +153,6 @@ async function getWebsitePosthogDigest(hours: number) {
         '$pageview',
         'user_first_visit',
         'auth_login_success',
-        'signup_completed',
         'pro_upgrade_started',
         'pro_upgrade_completed',
         'feedback_sent'
@@ -124,7 +172,7 @@ async function getWebsitePosthogDigest(hours: number) {
       pageviews: counts.get("$pageview") || 0,
       firstVisits: counts.get("user_first_visit") || 0,
       logins: counts.get("auth_login_success") || 0,
-      signups: counts.get("signup_completed") || 0,
+      signups: 0,
       proStarts: counts.get("pro_upgrade_started") || 0,
       proCompletes: counts.get("pro_upgrade_completed") || 0,
       feedbackSent: counts.get("feedback_sent") || 0,
@@ -149,7 +197,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
   const windowEnd = now.toISOString();
   const windowStart = new Date(now.getTime() - DAILY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
-  const [overview, ai, users, analytics, revenue, errors, security, feedback, ops, websitePosthog, aiUsageWindow, websiteFeedbackCount] =
+  const [overview, ai, users, analytics, revenue, errors, security, feedback, ops, websitePosthog, signupCounts, aiUsageWindow, websiteFeedbackCount] =
     await Promise.all([
       getMobileCommandCenterOverview(1),
       getMobileCommandCenterAi(1),
@@ -161,6 +209,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       getMobileCommandCenterFeedback(1),
       getMobileCommandCenterOps(1),
       getWebsitePosthogDigest(24),
+      getPosthogSignupCounts(24),
       admin
         .from("ai_usage")
         .select("source,source_page,route,cost_usd,error_code,cache_hit")
@@ -231,7 +280,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         missing_families: asString(getMetric(analytics, "missing_families")?.sub || "none"),
       },
       users: {
-        signups_24h: asNumber(getMetric(users, "new_profiles")?.value),
+        signups_24h: signupCounts.appSignups,
         total_pro_profiles: asNumber(getMetric(users, "pro_profiles")?.value),
       },
       ai: {
@@ -257,7 +306,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         pageviews_24h: websitePosthog.pageviews,
         first_visits_24h: websitePosthog.firstVisits,
         logins_24h: websitePosthog.logins,
-        signups_24h: websitePosthog.signups,
+        signups_24h: signupCounts.websiteSignups,
         pro_upgrade_starts_24h: websitePosthog.proStarts,
         pro_upgrade_completions_24h: websitePosthog.proCompletes,
         feedback_sent_24h: websitePosthog.feedbackSent,
@@ -274,6 +323,11 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       },
     },
     shared: {
+      users: {
+        new_profiles_24h: asNumber(getMetric(users, "new_profiles")?.value),
+        posthog_signup_split_configured: signupCounts.configured,
+        posthog_signup_split_error: signupCounts.error ?? null,
+      },
       revenue: {
         stripe_subs: asNumber(getMetric(revenue, "stripe")?.value),
         stripe_webhooks_24h: asNumber(getMetric(revenue, "stripe_webhooks")?.value),

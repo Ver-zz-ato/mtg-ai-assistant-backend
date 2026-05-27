@@ -7,6 +7,7 @@
 - **`lib/admin/mobile-command-center.ts`:** Removed `daily_ops_report` from pipeline monitoring (fixes self-referential 4/5 healthy loop). Split jobs into Tier-1 hourly (`bulk_price_import`, `price_snapshot_bulk`, `deck-costs`), daily digest Discover jobs, and weekly jobs (`bulk_scryfall`, `mtg-legality-refresh`, `budget-swaps-update`). Hourly Discord now filters through `shouldSendHourlyDiscordAlert` (Tier-1 + critical Sentry/errors only).
 - **`lib/ops/run-ops-report.ts`:** Daily digest uses `shouldCountForDailyDigestStatus`, includes pipeline/Discover freshness, and weekly digest reports weekly job staleness.
 - **`lib/ops/discord.ts`:** Daily Discord message adds pipeline + Discover job lines; weekly message lists weekly pipeline jobs.
+- **`lib/ops/run-ops-report.ts` + `discord.ts`:** Daily digest splits signups — mobile app signups from PostHog (`platform=app` / React Native), website signups from PostHog web attribution, plus shared **New profiles (all platforms)** from Supabase.
 - **`lib/admin/adminJobDetail.ts`:** Added `jobLastSuccessConfigKey`, legality/meta stale windows.
 - **Docs:** `MOBILE_ADMIN_CONTROL.md`, `CRONS.md`.
 
