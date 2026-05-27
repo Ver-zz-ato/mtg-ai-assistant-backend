@@ -69,7 +69,10 @@ Discord send policy:
 - Normal page loads and `Refresh` do not send Discord messages.
 - `Rollups` refreshes cached snapshots and alert rows, but stays quiet.
 - `Test Discord` sends one explicit manual test message.
-- The hourly cron posts only current `warn` / `critical` launch alerts that are new, changed, escalated, unsent, or old enough for a reminder. Critical alerts can repeat after about 1 hour; warning alerts after about 6 hours.
+- **Hourly cron** posts only Tier-1 pipeline alerts (`bulk_price_import`, `price_snapshot_bulk`, `deck-costs`) plus **critical** Sentry/error spikes. Warning-level Sentry, full pipeline summaries, analytics, and revenue stay out of hourly pings.
+- **Daily digest (22:30 UTC)** via `/api/cron/ops-report/daily` covers analytics, revenue, Discover job freshness (`meta-signals`, `commander-aggregates`, `top-cards`), and the broader pipeline watch list.
+- **Weekly digest (Sundays 07:00 UTC)** via `/api/cron/ops-report/weekly` covers Scryfall bulk import, legality refresh, and budget swaps freshness.
+- Hourly reminders: critical alerts can repeat after about 1 hour; warning alerts after about 6 hours.
 
 Analytics note:
 

@@ -15,7 +15,10 @@ import {
   getMobileCommandCenterRevenue,
   getMobileCommandCenterSecurity,
   getMobileCommandCenterUsers,
+  shouldCountForDailyDigestStatus,
+  WEEKLY_PIPELINE_JOB_IDS,
 } from "@/lib/admin/mobile-command-center";
+import { jobLastSuccessConfigKey } from "@/lib/admin/adminJobDetail";
 import { posthogHogql, getPosthogQueryCredentials } from "@/lib/server/posthog-hogql";
 import { postOpsReportToDiscord } from "@/lib/ops/discord";
 
@@ -200,8 +203,12 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
   }
 
   const overviewAlerts = (overview.alerts || []).filter((alert) => alert.severity === "critical" || alert.severity === "warn");
-  const criticalAlerts = overviewAlerts.filter((alert) => alert.severity === "critical");
-  const warnAlerts = overviewAlerts.filter((alert) => alert.severity === "warn");
+  const dailyDigestAlerts = overviewAlerts.filter(shouldCountForDailyDigestStatus);
+  const criticalAlerts = dailyDigestAlerts.filter((alert) => alert.severity === "critical");
+  const warnAlerts = dailyDigestAlerts.filter((alert) => alert.severity === "warn");
+  const tier1Rows = (ops.tables?.["Daily price jobs (hourly alerts)"] || []) as Array<Record<string, unknown>>;
+  const pipelineRows = (ops.tables?.["Pipeline jobs"] || []) as Array<Record<string, unknown>>;
+  const discoverRows = (ops.tables?.["Discover jobs (daily digest)"] || []) as Array<Record<string, unknown>>;
 
   return {
     window: {
@@ -281,10 +288,27 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       },
       ops: {
         config_freshness_hours: asNumber(getMetric(ops, "config_freshness")?.value),
-        stale_jobs: asString((ops.tables?.["Recent ops jobs"] || []).length ? "" : ""),
+        tier1_jobs: tier1Rows.map((row) => ({
+          job: row.job,
+          status: row.status,
+          last_seen: row.last_seen,
+          severity: row.severity,
+        })),
+        pipeline_jobs: pipelineRows.map((row) => ({
+          job: row.job,
+          status: row.status,
+          last_seen: row.last_seen,
+          severity: row.severity,
+        })),
+        discover_jobs: discoverRows.map((row) => ({
+          job: row.job,
+          status: row.status,
+          last_seen: row.last_seen,
+          severity: row.severity,
+        })),
       },
     },
-    top_alerts: overviewAlerts.slice(0, 6).map((alert) => ({
+    top_alerts: dailyDigestAlerts.slice(0, 6).map((alert) => ({
       severity: alert.severity,
       title: alert.title,
       detail: alert.detail,
@@ -299,6 +323,41 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       asString(getMetric(overview, "launch_health")?.sub || ""),
     ].filter(Boolean),
   };
+}
+async function buildWeeklyDigestDetails(admin: NonNullable<ReturnType<typeof getAdmin>>) {
+  const jobKeys = WEEKLY_PIPELINE_JOB_IDS.map((jobId) => jobLastSuccessConfigKey(jobId));
+  const { data: configRows } = await admin.from("app_config").select("key, value").in("key", jobKeys);
+  const configMap = new Map((configRows || []).map((row: { key: string; value: string }) => [row.key, row.value]));
+  const nowMs = Date.now();
+  const rows = WEEKLY_PIPELINE_JOB_IDS.map((jobId) => {
+    const raw = configMap.get(jobLastSuccessConfigKey(jobId));
+    const labelMap: Record<string, string> = {
+      bulk_scryfall: "Scryfall import",
+      "mtg-legality-refresh": "Legality refresh",
+      "budget-swaps-update": "Budget swaps refresh",
+    };
+    if (!raw) {
+      return { job: labelMap[jobId] || jobId, job_id: jobId, status: "not seen yet", last_seen: "never", age_hours: null };
+    }
+    try {
+      const parsed = JSON.parse(String(raw));
+      const iso = typeof parsed === "string" ? parsed : String(parsed);
+      const ageHours = Math.round((nowMs - new Date(iso).getTime()) / (1000 * 60 * 60));
+      const staleAfter = jobId === "bulk_scryfall" ? 24 * 7 : 24 * 7;
+      const status = ageHours > staleAfter ? "late" : "working";
+      return {
+        job: labelMap[jobId] || jobId,
+        job_id: jobId,
+        status,
+        last_seen: `${ageHours}h ago`,
+        age_hours: ageHours,
+      };
+    } catch {
+      return { job: labelMap[jobId] || jobId, job_id: jobId, status: "unknown", last_seen: String(raw), age_hours: null };
+    }
+  });
+  const lateJobs = rows.filter((row) => row.status === "late").map((row) => row.job);
+  return { weekly_jobs: rows, late_jobs: lateJobs };
 }
 
 export type ReportType = "daily_ops" | "weekly_ops";
@@ -494,15 +553,38 @@ export async function runOpsReport(reportType: ReportType): Promise<{
       details.daily_digest = dailyDigest;
       if ((dailyDigest.counts?.critical_alerts || 0) > 0) {
         status = "fail";
-        warnings.push(`${dailyDigest.counts.critical_alerts} critical launch alert(s)`);
+        warnings.push(`${dailyDigest.counts.critical_alerts} critical daily digest alert(s)`);
       } else if ((dailyDigest.counts?.warning_alerts || 0) > 0 && status !== "fail") {
         status = "warn";
-        warnings.push(`${dailyDigest.counts.warning_alerts} launch warning(s)`);
+        warnings.push(`${dailyDigest.counts.warning_alerts} daily digest warning(s)`);
+      }
+      const lateDiscover = ((dailyDigest.shared as Record<string, unknown> | undefined)?.ops as Record<string, unknown> | undefined)?.discover_jobs as Array<{ severity?: string; job?: string }> | undefined;
+      const lateDiscoverCount = (lateDiscover || []).filter((row) => row.severity === "warn" || row.severity === "critical").length;
+      if (lateDiscoverCount > 0 && status !== "fail") {
+        status = markWarn(status);
+        warnings.push(`${lateDiscoverCount} Discover job(s) late or degraded`);
       }
     } catch (e) {
       details.daily_digest = { error: e instanceof Error ? e.message : "daily_digest_failed" };
       status = markWarn(status);
       warnings.push("Daily digest section failed");
+    }
+  }
+
+  let weeklyDigest: Record<string, unknown> | undefined;
+  if (reportType === "weekly_ops") {
+    try {
+      weeklyDigest = await buildWeeklyDigestDetails(admin);
+      details.weekly_digest = weeklyDigest;
+      const lateJobs = (weeklyDigest.late_jobs as string[] | undefined) || [];
+      if (lateJobs.length > 0) {
+        status = markWarn(status);
+        warnings.push(`Late weekly jobs: ${lateJobs.slice(0, 3).join(", ")}`);
+      }
+    } catch (e) {
+      details.weekly_digest = { error: e instanceof Error ? e.message : "weekly_digest_failed" };
+      status = markWarn(status);
+      warnings.push("Weekly digest section failed");
     }
   }
 
@@ -515,6 +597,7 @@ export async function runOpsReport(reportType: ReportType): Promise<{
   const seoHealth = details.seo_health as { indexed_page_count?: number } | undefined;
   const seoWinners = details.seo_winners as { count?: number; top_slugs?: string[] } | undefined;
   const dailyDigest = details.daily_digest as Record<string, unknown> | undefined;
+  const weeklyDigestPayload = details.weekly_digest as Record<string, unknown> | undefined;
 
   const reportVersion = reportType === "daily_ops" ? "2" : "1";
   const gitSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.RENDER_GIT_COMMIT || null;
@@ -561,6 +644,7 @@ export async function runOpsReport(reportType: ReportType): Promise<{
     seoWinnersSlugs: seoWinners?.top_slugs,
     errorSummary: status === "fail" ? summary : null,
     dailyDigest,
+    weeklyDigest: weeklyDigestPayload,
   });
 
   return {

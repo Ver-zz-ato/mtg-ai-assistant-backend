@@ -6,8 +6,10 @@ import {
   parseDaysParam,
   parseHoursParam,
   severityForThreshold,
+  shouldCountForDailyDigestStatus,
   shouldCreateLaunchAlert,
   shouldSendDiscordAlert,
+  shouldSendHourlyDiscordAlert,
 } from "@/lib/admin/mobile-command-center";
 
 assert.strictEqual(parseDaysParam(null, 7), 7);
@@ -34,6 +36,30 @@ assert.strictEqual(
 assert.strictEqual(
   shouldCreateLaunchAlert({ key: "sentry", label: "Sentry", value: "failing", severity: "warn" }),
   true,
+);
+assert.strictEqual(
+  shouldSendHourlyDiscordAlert({ key: "sentry", title: "Sentry", detail: "failing", severity: "warn", source: "overview" }),
+  false,
+);
+assert.strictEqual(
+  shouldSendHourlyDiscordAlert({ key: "sentry_unresolved", title: "Sentry unresolved", detail: "20 issues", severity: "critical", source: "overview" }),
+  true,
+);
+assert.strictEqual(
+  shouldSendHourlyDiscordAlert({ key: "tier1_pipeline_jobs", title: "Daily price jobs", detail: "mostly okay", severity: "warn", source: "overview" }),
+  true,
+);
+assert.strictEqual(
+  shouldSendHourlyDiscordAlert({ key: "important_jobs", title: "Pipeline jobs", detail: "mostly okay", severity: "warn", source: "overview" }),
+  false,
+);
+assert.strictEqual(
+  shouldCountForDailyDigestStatus({ key: "important_jobs", title: "Pipeline jobs", detail: "mostly okay", severity: "warn", source: "overview" }),
+  true,
+);
+assert.strictEqual(
+  shouldCountForDailyDigestStatus({ key: "tier1_pipeline_jobs", title: "Daily price jobs", detail: "mostly okay", severity: "warn", source: "overview" }),
+  false,
 );
 
 const alert = {

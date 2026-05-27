@@ -23,6 +23,7 @@ export type DiscordOpsPayload = {
   seoWinnersSlugs?: string[];
   errorSummary?: string | null;
   dailyDigest?: Record<string, unknown>;
+  weeklyDigest?: Record<string, unknown>;
 };
 
 function valueAtPath(root: Record<string, unknown> | undefined, path: string[]): unknown {
@@ -44,6 +45,10 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
   if (payload.reportType === "daily_ops" && payload.dailyDigest) {
     const digest = payload.dailyDigest;
     const topAlerts = (valueAtPath(digest, ["top_alerts"]) as Array<Record<string, unknown>> | undefined) || [];
+    const discoverJobs =
+      (valueAtPath(digest, ["shared", "ops", "discover_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
+    const pipelineJobs =
+      (valueAtPath(digest, ["shared", "ops", "pipeline_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
     lines.push(
       "",
       `**Last 24h**`,
@@ -68,11 +73,29 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
       `• Rate-limit hits: ${valueAtPath(digest, ["shared", "reliability", "rate_limit_hits_24h"]) ?? 0}`,
       `• Error logs: ${valueAtPath(digest, ["shared", "reliability", "local_error_logs_24h"]) ?? 0}`,
     );
+    if (pipelineJobs.length > 0) {
+      lines.push("", `**Pipeline jobs**`);
+      for (const job of pipelineJobs.slice(0, 4)) {
+        lines.push(`• ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
+      }
+    }
+    if (discoverJobs.length > 0) {
+      lines.push("", `**Discover jobs**`);
+      for (const job of discoverJobs.slice(0, 3)) {
+        lines.push(`• ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
+      }
+    }
     if (topAlerts.length > 0) {
       lines.push("", `**Watch list**`);
       for (const alert of topAlerts.slice(0, 4)) {
         lines.push(`• [${String(alert.severity || "info")}] ${String(alert.title || "Alert")}: ${String(alert.detail || "")}`);
       }
+    }
+  } else if (payload.reportType === "weekly_ops" && payload.weeklyDigest) {
+    const weeklyJobs = (valueAtPath(payload.weeklyDigest, ["weekly_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
+    lines.push("", `**Weekly pipeline jobs**`);
+    for (const job of weeklyJobs) {
+      lines.push(`• ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
     }
   } else {
     lines.push(

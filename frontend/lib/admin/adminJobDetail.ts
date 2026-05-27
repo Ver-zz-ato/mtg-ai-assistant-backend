@@ -73,11 +73,18 @@ export function adminJobLastSuccessKey(jobId: string): string | null {
     bulk_scryfall: "job:last:bulk_scryfall",
     bulk_price_import: "job:last:bulk_price_import",
     price_snapshot_bulk: "job:last:price_snapshot_bulk",
+    "meta-signals": "job:last:meta-signals",
     "budget-swaps-update": "job:last:budget-swaps-update",
+    "mtg-legality-refresh": "job:last:mtg-legality-refresh",
     "card-tag-refresh": "job:last:card-tag-refresh",
     "card-tag-backfill": "job:last:card-tag-backfill",
   };
   return m[jobId] ?? null;
+}
+
+/** Resolve app_config last-success key for any cron job id. */
+export function jobLastSuccessConfigKey(jobId: string): string {
+  return adminJobLastSuccessKey(jobId) ?? `job:last:${jobId}`;
 }
 
 /** Expected stale window (hours) for healthy / stale heuristic */
@@ -91,6 +98,7 @@ export function adminJobStaleHours(jobId: string): number {
     bulk_price_import: 36,
     price_snapshot_bulk: 36,
     "budget-swaps-update": 24 * 7,
+    "mtg-legality-refresh": 24 * 7,
     "card-tag-refresh": 36,
     "card-tag-backfill": 24 * 7,
     daily_ops_report: 36,

@@ -2,8 +2,8 @@ import { getAdmin } from "@/app/api/_lib/supa";
 import {
   adminJobAttemptKey,
   adminJobDetailKey,
-  adminJobLastSuccessKey,
   computeAdminJobHealth,
+  jobLastSuccessConfigKey,
   parseAdminJobDetail,
 } from "@/lib/admin/adminJobDetail";
 import {
@@ -57,13 +57,30 @@ const AI_SELECT =
   "id,created_at,user_id,route,model,source,source_page,request_kind,layer0_mode,cache_hit,input_tokens,output_tokens,cost_usd,latency_ms,planner_cost_usd,error_code,is_guest,user_tier";
 const WARN_DISCORD_REMINDER_MS = 6 * 60 * 60 * 1000;
 const CRITICAL_DISCORD_REMINDER_MS = 60 * 60 * 1000;
-const IMPORTANT_JOB_IDS = [
+/** All pipeline jobs shown in the cockpit Ops tab. */
+export const PIPELINE_JOB_IDS = [
   "bulk_scryfall",
   "bulk_price_import",
   "price_snapshot_bulk",
   "deck-costs",
-  "daily_ops_report",
 ] as const;
+
+/** Daily price/cache jobs that trigger hourly Discord when late or failed. */
+export const TIER1_PIPELINE_JOB_IDS = [
+  "bulk_price_import",
+  "price_snapshot_bulk",
+  "deck-costs",
+] as const;
+
+/** Weekly jobs surfaced in the Sunday ops digest. */
+export const WEEKLY_PIPELINE_JOB_IDS = [
+  "bulk_scryfall",
+  "mtg-legality-refresh",
+  "budget-swaps-update",
+] as const;
+
+/** Discover / intelligence jobs included in the daily digest. */
+export const DAILY_DIGEST_JOB_IDS = ["meta-signals", "commander-aggregates", "top-cards"] as const;
 
 export function parseBoundedIntParam(
   value: string | null | undefined,
@@ -132,6 +149,27 @@ function severityRank(severity: Severity | string | null | undefined): number {
 export function shouldCreateLaunchAlert(metric: MetricCard): metric is MetricCard & { severity: "critical" | "warn" } {
   if (metric.key === "advisor_warnings") return false;
   return metric.severity === "critical" || metric.severity === "warn";
+}
+
+/** Hourly Discord: Tier-1 pipeline jobs + critical Sentry/error spikes only. */
+export function shouldSendHourlyDiscordAlert(alert: LaunchAlert): boolean {
+  if (alert.severity !== "critical" && alert.severity !== "warn") return false;
+  if (alert.key === "tier1_pipeline_jobs") return true;
+  if (alert.key === "sentry_unresolved" || alert.key === "local_errors") {
+    return alert.severity === "critical";
+  }
+  if (alert.key === "supabase_admin" || alert.key === "missing_supabase_admin") {
+    return alert.severity === "critical";
+  }
+  return false;
+}
+
+/** Daily digest status/watch list: broader than hourly, excludes hourly-only noise. */
+export function shouldCountForDailyDigestStatus(alert: LaunchAlert): boolean {
+  if (alert.severity !== "critical" && alert.severity !== "warn") return false;
+  if (alert.key === "discord_missing") return false;
+  if (shouldSendHourlyDiscordAlert(alert)) return false;
+  return true;
 }
 
 export function shouldSendDiscordAlert(
@@ -257,20 +295,6 @@ async function safeAppConfigRows(db: Db, keys: string[]) {
     return { rows: (data || []) as unknown as JsonRecord[] };
   } catch (e) {
     return { rows: [] as JsonRecord[], error: e instanceof Error ? e.message : "app_config_failed" };
-  }
-}
-
-async function safeOpsReportRows(db: Db, limit = 12) {
-  try {
-    const { data, error } = await db
-      .from("ops_reports")
-      .select("id,report_type,status,summary,details,duration_ms,created_at")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (error) return { rows: [] as JsonRecord[], error: error.message };
-    return { rows: (data || []) as unknown as JsonRecord[] };
-  } catch (e) {
-    return { rows: [] as JsonRecord[], error: e instanceof Error ? e.message : "ops_reports_failed" };
   }
 }
 
@@ -1004,51 +1028,41 @@ export async function getMobileCommandCenterFeedback(days: number): Promise<Comm
   };
 }
 
-function summarizeImportantJobs(configRows: JsonRecord[], opsRows: JsonRecord[]) {
+function summarizePipelineJobs(configRows: JsonRecord[], jobIds: readonly string[]) {
   const configMap = new Map<string, JsonRecord>();
   for (const row of configRows) configMap.set(String(row.key), row);
-  const latestDailyOps = opsRows.find((row) => String(row.report_type || "") === "daily_ops");
 
-  const rows = IMPORTANT_JOB_IDS.map((jobId) => {
-    if (jobId === "daily_ops_report") {
-      const latest = latestDailyOps;
-      const status = String(latest?.status || "");
-      const finishedAt = latest?.created_at ? String(latest.created_at) : null;
-      const health: Severity =
-        status === "ok" ? "ok" : status === "warn" ? "warn" : latest ? "critical" : "info";
-      return {
-        job: "Daily summary report",
-        status: status === "ok" ? "working" : status === "warn" ? "working, with warnings" : latest ? "failed" : "not seen yet",
-        last_seen: ageShort(finishedAt),
-        last_at: finishedAt,
-        detail: latest ? String(latest.summary || "").slice(0, 140) : "No daily summary report row yet.",
-        severity: health,
-      };
-    }
+  const labelMap: Record<string, string> = {
+    bulk_scryfall: "Scryfall import",
+    bulk_price_import: "Price import",
+    price_snapshot_bulk: "Price snapshot build",
+    "deck-costs": "Deck cost refresh",
+    "meta-signals": "Meta signals",
+    "commander-aggregates": "Commander aggregates",
+    "top-cards": "Top cards",
+    "budget-swaps-update": "Budget swaps refresh",
+    "mtg-legality-refresh": "Legality refresh",
+  };
+  const statusMap: Record<string, string> = {
+    healthy: "working",
+    degraded: "working, with warnings",
+    partial: "partly worked",
+    stale: "late",
+    failed: "failed",
+  };
 
+  const rows = jobIds.map((jobId) => {
     const detailRow = configMap.get(adminJobDetailKey(jobId));
     const attemptRow = configMap.get(adminJobAttemptKey(jobId));
-    const lastKey = adminJobLastSuccessKey(jobId);
-    const lastSuccess = lastKey ? String(configMap.get(lastKey)?.value || "") || null : null;
+    const lastKey = jobLastSuccessConfigKey(jobId);
+    const lastSuccess = String(configMap.get(lastKey)?.value || "") || null;
     const detail = parseAdminJobDetail(typeof detailRow?.value === "string" ? detailRow.value : null);
     const health = computeAdminJobHealth(jobId, detail, lastSuccess);
     const finishedAt = lastSuccess || detail?.finishedAt || (typeof attemptRow?.value === "string" ? attemptRow.value : null);
-    const labelMap: Record<string, string> = {
-      bulk_scryfall: "Scryfall import",
-      bulk_price_import: "Price import",
-      price_snapshot_bulk: "Price snapshot build",
-      "deck-costs": "Deck cost refresh",
-    };
-    const statusMap: Record<string, string> = {
-      healthy: "working",
-      degraded: "working, with warnings",
-      partial: "partly worked",
-      stale: "late",
-      failed: "failed",
-    };
 
     return {
       job: labelMap[jobId] || jobId,
+      job_id: jobId,
       status: statusMap[health] || health,
       last_seen: ageShort(finishedAt),
       last_at: finishedAt,
@@ -1076,34 +1090,50 @@ function summarizeImportantJobs(configRows: JsonRecord[], opsRows: JsonRecord[])
   };
 }
 
+function summarizeImportantJobs(configRows: JsonRecord[]) {
+  return summarizePipelineJobs(configRows, PIPELINE_JOB_IDS);
+}
+
+export function summarizeMonitoredJobs(configRows: JsonRecord[], jobIds: readonly string[]) {
+  return summarizePipelineJobs(configRows, jobIds);
+}
+
 export async function getMobileCommandCenterOps(days: number): Promise<CommandCenterPayload> {
   const db = getAdmin();
   if (!db) return missingDbPayload(days);
+  const monitoredJobIds = [
+    ...PIPELINE_JOB_IDS,
+    ...DAILY_DIGEST_JOB_IDS,
+    ...WEEKLY_PIPELINE_JOB_IDS,
+  ];
   const appConfigKeys = [
-    ...IMPORTANT_JOB_IDS.flatMap((jobId) => {
-      const keys = [adminJobDetailKey(jobId), adminJobAttemptKey(jobId)];
-      const lastKey = adminJobLastSuccessKey(jobId);
-      if (lastKey) keys.push(lastKey);
-      return keys;
-    }),
-    "job:last:mtg-legality-refresh",
+    ...new Set(
+      monitoredJobIds.flatMap((jobId) => {
+        const keys = [adminJobDetailKey(jobId), adminJobAttemptKey(jobId), jobLastSuccessConfigKey(jobId)];
+        return keys;
+      }),
+    ),
     "job:last:scryfall_cache_incomplete_repair",
     "job:last:scryfall_cache_phase3_backfill",
   ];
-  const [flags, config, changelog, scryfall, opsAudit, appConfig, opsReports] = await Promise.all([
+  const [flags, config, changelog, scryfall, opsAudit, appConfig] = await Promise.all([
     safeRows(db, "feature_flags", "key,enabled,platform,updated_at", { limit: 50, order: "updated_at" }),
     safeRows(db, "remote_config", "key,platform,updated_at", { limit: 50, order: "updated_at" }),
     safeRows(db, "app_changelog", "title,is_active,platform,starts_at,updated_at", { limit: 10, order: "updated_at" }),
     safeRows(db, "scryfall_cache", "name,updated_at", { limit: 1, order: "updated_at" }),
     safeRows(db, "admin_audit", "created_at,action,target", { since: sinceDays(days), limit: 30 }),
     safeAppConfigRows(db, appConfigKeys),
-    safeOpsReportRows(db, 20),
   ]);
   const configFreshness = freshnessWord(typeof config.rows[0]?.updated_at === "string" ? String(config.rows[0].updated_at) : null, 7 * 24);
   const scryfallFreshness = freshnessWord(typeof scryfall.rows[0]?.updated_at === "string" ? String(scryfall.rows[0].updated_at) : null, 24);
-  const importantJobs = summarizeImportantJobs(appConfig.rows, opsReports.rows);
+  const importantJobs = summarizeImportantJobs(appConfig.rows);
+  const tier1Jobs = summarizePipelineJobs(appConfig.rows, TIER1_PIPELINE_JOB_IDS);
+  const dailyDigestJobs = summarizePipelineJobs(appConfig.rows, DAILY_DIGEST_JOB_IDS);
+  const weeklyJobs = summarizePipelineJobs(appConfig.rows, WEEKLY_PIPELINE_JOB_IDS);
   const failingJobs = importantJobs.failing;
   const warningJobs = importantJobs.warning;
+  const tier1Failing = tier1Jobs.failing;
+  const tier1Warning = tier1Jobs.warning;
   const latestJobSeen = importantJobs.latestAt ? ageShort(new Date(importantJobs.latestAt).toISOString()) : "not yet";
 
   return {
@@ -1112,8 +1142,16 @@ export async function getMobileCommandCenterOps(days: number): Promise<CommandCe
     env: envStatus(),
     metrics: [
       {
+        key: "tier1_pipeline_jobs",
+        label: "Daily price jobs",
+        value: tier1Failing ? "needs attention" : tier1Warning ? "mostly okay" : "all okay",
+        sub: `${tier1Jobs.healthy}/${tier1Jobs.rows.length} healthy, latest run ${tier1Jobs.latestAt ? ageShort(new Date(tier1Jobs.latestAt).toISOString()) : "not yet"}`,
+        severity: tier1Failing ? "critical" : tier1Warning ? "warn" : "ok",
+        href: "/admin/ops",
+      },
+      {
         key: "important_jobs",
-        label: "Important jobs",
+        label: "Pipeline jobs",
         value: failingJobs ? "needs attention" : warningJobs ? "mostly okay" : "all okay",
         sub: `${importantJobs.healthy}/${importantJobs.rows.length} healthy, latest run ${latestJobSeen}`,
         severity: failingJobs ? "critical" : warningJobs ? "warn" : "ok",
@@ -1140,14 +1178,19 @@ export async function getMobileCommandCenterOps(days: number): Promise<CommandCe
       { key: "changelog", label: "Active app notes", value: changelog.rows.filter((row) => row.is_active).length, severity: changelog.error ? "info" : "ok", href: "/admin/app-whats-new" },
     ],
     tables: {
-      "Important jobs": importantJobs.rows,
+      "Daily price jobs (hourly alerts)": tier1Jobs.rows,
+      "Pipeline jobs": importantJobs.rows,
+      "Discover jobs (daily digest)": dailyDigestJobs.rows,
+      "Weekly jobs (Sunday digest)": weeklyJobs.rows,
       "Feature flags": flags.rows,
       "Remote config": config.rows,
       "App changelog": changelog.rows,
       "Recent admin actions": opsAudit.rows,
     },
     notes: [
-      "This tab answers three simple questions: did the important background jobs run, are app settings fresh, and does the Scryfall cache look recently updated?",
+      "Hourly Discord alerts only cover daily price jobs (import, snapshot, deck costs) and critical Sentry/error spikes.",
+      "The 22:30 UTC daily digest covers analytics, revenue, Discover jobs, and the full pipeline table.",
+      "Weekly jobs (Scryfall bulk, legality, budget swaps) are summarized in the Sunday ops digest.",
       "Use /admin/ops when a job says late, failed, or partly worked.",
       "Use /admin/data for deeper cache checks when Scryfall freshness looks stale.",
     ],
@@ -1222,7 +1265,7 @@ export async function getMobileCommandCenterOverview(days: number): Promise<Comm
       "Sentry unresolved issues": errors.tables?.["Sentry unresolved issues"] || [],
       "Rate-limit pressure": security.tables?.["Top durable rate limits"] || [],
       "Feedback": feedback.tables?.["Recent app AI reports"] || [],
-      "Ops": ops.tables?.["Important jobs"] || [],
+      "Ops": ops.tables?.["Pipeline jobs"] || [],
     },
     notes: [
       "This page is meant to be a quick plain-English check, not a deep technical audit.",
@@ -1305,12 +1348,12 @@ async function markDiscordAlertStatus(db: Db, alerts: LaunchAlert[], status: "se
 
 async function sendDiscordAlerts(
   alerts: LaunchAlert[],
-  options: { db?: Db; force?: boolean; reason?: string } = {},
+  options: { db?: Db; force?: boolean; reason?: string; hourlyOnly?: boolean } = {},
 ) {
   const webhook = getDiscordAdminWebhook();
   if (!webhook) return { attempted: false, sent: 0 };
   const urgent = alerts.filter((alert) => alert.severity === "critical" || alert.severity === "warn");
-  let sendable = urgent;
+  let sendable = options.hourlyOnly ? urgent.filter(shouldSendHourlyDiscordAlert) : urgent;
   if (!options.force && options.db) {
     const existing = await loadExistingAlerts(options.db, urgent);
     sendable = urgent.filter((alert) => shouldSendDiscordAlert(alert, existing.get(alertDedupeKey(alert)) as any));
@@ -1393,7 +1436,7 @@ export async function refreshMobileCommandCenterRollups(options: {
   ]);
 
   const discord = options.sendDiscord
-    ? await sendDiscordAlerts(overview.alerts || [], { db, reason: "scheduled_rollup" })
+    ? await sendDiscordAlerts(overview.alerts || [], { db, reason: "scheduled_rollup", hourlyOnly: true })
     : { attempted: false, sent: 0 };
   return {
     ...overview,
