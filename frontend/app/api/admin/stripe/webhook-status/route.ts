@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { stripe } from '@/lib/stripe';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { getDiscordProUpgradeWebhook } from '@/lib/stripe/discord-pro-upgrade';
 
 export const runtime = 'nodejs';
 
@@ -31,12 +32,17 @@ export async function GET(req: NextRequest) {
     };
 
     // 1. Check webhook configuration
+    const discordWebhook = getDiscordProUpgradeWebhook();
     diagnostics.webhook_config = {
       secret_configured: !!process.env.STRIPE_WEBHOOK_SECRET,
       secret_length: process.env.STRIPE_WEBHOOK_SECRET?.length || 0,
       endpoint_url: process.env.NODE_ENV === 'production' 
         ? 'https://www.manatap.ai/api/stripe/webhook'
         : 'http://localhost:3000/api/stripe/webhook',
+      discord_pro_upgrade_configured: Boolean(discordWebhook),
+      discord_pro_upgrade_primary_env: Boolean(process.env.DISCORD_PRO_UPGRADE_WEBHOOK?.trim()),
+      discord_pro_upgrade_url_length: discordWebhook?.length ?? 0,
+      discord_pro_upgrade_test_route: '/api/admin/stripe/test-discord-pro',
     };
 
     // 2. Check Stripe API connection

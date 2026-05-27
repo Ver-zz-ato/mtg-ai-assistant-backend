@@ -47,6 +47,8 @@ export default function AdminMonetizePage() {
   const [lastRefresh, setLastRefresh] = React.useState<Date | null>(null);
   const [webhookStatus, setWebhookStatus] = React.useState<any>(null);
   const [webhookLoading, setWebhookLoading] = React.useState(false);
+  const [discordTestLoading, setDiscordTestLoading] = React.useState(false);
+  const [discordTestResult, setDiscordTestResult] = React.useState<any>(null);
   const [subscribers, setSubscribers] = React.useState<any[]>([]);
   const [subscribersLoading, setSubscribersLoading] = React.useState(false);
   const [subscriberStats, setSubscriberStats] = React.useState<any>(null);
@@ -135,6 +137,26 @@ export default function AdminMonetizePage() {
       console.error('Failed to load webhook status:', e);
     } finally {
       setWebhookLoading(false);
+    }
+  }
+
+  async function testDiscordProWebhook() {
+    setDiscordTestLoading(true);
+    setDiscordTestResult(null);
+    try {
+      const r = await fetch('/api/admin/stripe/test-discord-pro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const j = await r.json();
+      setDiscordTestResult(j);
+      if (!r.ok || !j?.ok) {
+        alert(j?.hint || j?.result?.bodySnippet || j?.error || 'Discord test failed');
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Discord test failed');
+    } finally {
+      setDiscordTestLoading(false);
     }
   }
 
@@ -337,7 +359,7 @@ export default function AdminMonetizePage() {
         ) : webhookStatus ? (
           <>
             {/* Configuration Status */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
                 <div className="text-xs text-neutral-400 mb-1">Webhook Secret</div>
                 <div className={`text-sm font-mono ${webhookStatus.webhook_config?.secret_configured ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -356,6 +378,34 @@ export default function AdminMonetizePage() {
                   <div className="text-xs text-neutral-500 mt-1">
                     {webhookStatus.stripe_connection.livemode ? '🔴 Live Mode' : '🧪 Test Mode'}
                   </div>
+                )}
+              </div>
+              <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
+                <div className="text-xs text-neutral-400 mb-1">Discord Pro upgrade ping</div>
+                <div
+                  className={`text-sm ${
+                    webhookStatus.webhook_config?.discord_pro_upgrade_configured
+                      ? 'text-emerald-400'
+                      : 'text-red-400'
+                  }`}
+                >
+                  {webhookStatus.webhook_config?.discord_pro_upgrade_configured
+                    ? '✅ Webhook URL visible to server'
+                    : '❌ Not visible (redeploy after setting env)'}
+                </div>
+                <button
+                  type="button"
+                  onClick={testDiscordProWebhook}
+                  disabled={discordTestLoading}
+                  className="mt-2 px-2 py-1 rounded bg-blue-700 hover:bg-blue-600 disabled:opacity-60 text-xs"
+                >
+                  {discordTestLoading ? 'Sending…' : 'Send test ping'}
+                </button>
+                {discordTestResult?.ok && (
+                  <div className="text-xs text-emerald-500 mt-1">Test sent — check Discord channel.</div>
+                )}
+                {discordTestResult && !discordTestResult.ok && (
+                  <div className="text-xs text-red-400 mt-1">{discordTestResult.hint}</div>
                 )}
               </div>
             </div>

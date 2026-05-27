@@ -4,6 +4,7 @@ import { getAdmin } from '@/app/api/_lib/supa';
 import { PRODUCT_TO_PLAN } from '@/lib/billing';
 import { captureServer } from '@/lib/server/analytics';
 import { getRevenueCatSubscriberState } from '@/lib/server-pro-check';
+import { notifyDiscordStripeProUpgrade } from '@/lib/stripe/discord-pro-upgrade';
 import Stripe from 'stripe';
 
 /** Use service role for webhook DB ops - webhooks have no cookies, so anon client would be blocked by RLS. */
@@ -21,8 +22,6 @@ export const runtime = 'nodejs';
 // In production, consider using Redis or database for distributed systems
 const processedEvents = new Set<string>();
 const MAX_CACHE_SIZE = 1000;
-const DISCORD_CONTENT_MAX = 1900;
-
 type ProfileEntitlementState = {
   id: string;
   is_pro?: boolean | null;
@@ -60,38 +59,25 @@ async function notifyDiscordProUpgrade(details: {
   customerId?: string | null;
   livemode?: boolean;
 }): Promise<void> {
-  const url =
-    process.env.DISCORD_PRO_UPGRADE_WEBHOOK ||
-    process.env.DISCORD_STRIPE_PRO_UPGRADE_WEBHOOK;
-  if (!url?.trim()) return;
-
-  const lines = [
-    '💳 Stripe Pro upgrade completed',
-    `Source: ${details.source}`,
-    `Plan: ${details.plan || 'unknown'}`,
-    `User: ${details.email || shortId(details.userId)}`,
-    `Subscription: ${shortId(details.subscriptionId)}`,
-    `Customer: ${shortId(details.customerId)}`,
-    `Mode: ${details.livemode ? 'live' : 'test'}`,
-  ];
-
-  let content = lines.join('\n');
-  if (content.length > DISCORD_CONTENT_MAX) {
-    content = content.slice(0, DISCORD_CONTENT_MAX - 3) + '...';
+  const result = await notifyDiscordStripeProUpgrade(details);
+  if (result.ok) {
+    console.info('[stripe webhook] pro-upgrade discord sent', { status: result.status });
+    return;
   }
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
+  if (result.reason === 'not_configured') {
+    console.warn(
+      '[stripe webhook] pro-upgrade discord skipped: set DISCORD_PRO_UPGRADE_WEBHOOK (or DISCORD_ADMIN_ALERT_WEBHOOK / DISCORD_WEBHOOK_URL fallback)'
+    );
+    return;
+  }
+  if (result.reason === 'http_error') {
+    console.warn('[stripe webhook] pro-upgrade discord notify failed', {
+      status: result.status,
+      body: result.bodySnippet,
     });
-    if (!res.ok) {
-      console.warn('[stripe webhook] pro-upgrade discord notify failed', res.status);
-    }
-  } catch {
-    console.warn('[stripe webhook] pro-upgrade discord notify failed');
+    return;
   }
+  console.warn('[stripe webhook] pro-upgrade discord notify failed', { message: result.message });
 }
 
 function hasNonStripeProfilePro(profile: ProfileEntitlementState | null): boolean {

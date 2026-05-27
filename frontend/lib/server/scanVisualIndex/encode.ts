@@ -19,8 +19,8 @@ export function encodeAIndex(names: string[], hashes: Dhash64[]): Buffer {
   let namesOffset = 0;
   for (let i = 0; i < count; i += 1) {
     const h = hashes[i] ?? { lo: 0, hi: 0 };
-    buf.writeUInt32LE(h.lo & MASK32, headerSize + i * 8);
-    buf.writeUInt32LE(h.hi & MASK32, headerSize + i * 8 + 4);
+    buf.writeUInt32LE(h.lo >>> 0, headerSize + i * 8);
+    buf.writeUInt32LE(h.hi >>> 0, headerSize + i * 8 + 4);
     buf.writeUInt32LE(namesOffset, headerSize + hashesSize + i * 4);
     nameBytes[i].forEach((byte, j) => {
       buf[headerSize + hashesSize + offsetsSize + namesOffset + j] = byte;

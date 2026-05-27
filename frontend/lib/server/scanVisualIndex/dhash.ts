@@ -60,9 +60,9 @@ export function computeDhash64(image: RgbaImage): Dhash64 {
       const right = gray[y * DHASH_WIDTH + x + 1];
       if (left > right) {
         if (bit < 32) {
-          lo |= 1 << bit;
+          lo = (lo | (1 << bit)) >>> 0;
         } else {
-          hi |= 1 << (bit - 32);
+          hi = (hi | (1 << (bit - 32))) >>> 0;
         }
       }
       bit += 1;
