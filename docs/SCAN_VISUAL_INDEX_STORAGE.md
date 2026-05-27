@@ -29,11 +29,16 @@ using (bucket_id = 'scan-index');
 
 Query `?limit=500` for a partial test build.
 
-Env: `SCAN_VISUAL_INDEX_VERSION` (default `1`).
+Env:
+
+- `SCAN_VISUAL_INDEX_VERSION` (default `1`) — bump when binaries change so mobile cache keys refresh.
+- `SCAN_VISUAL_INDEX_IMAGE_SOURCE` — `normal` (default, full Scryfall card image) or `art_crop` (illustration only).
+
+`manifest.json` includes `imageSource` so the app matches query prep to the built index.
 
 Outputs:
 
-- `manifest.json`
+- `manifest.json` (`imageSource`, `cardCount`, `a`/`b` URLs)
 - `v{N}/scan-index-a.bin` (dHash, magic `MTSA`)
 - `v{N}/scan-index-b.bin` (768-dim grid embed, magic `MTSB`)
 

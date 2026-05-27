@@ -73,5 +73,5 @@ Run in order: price-snapshot → deck-costs → commander-aggregates → meta-si
 
 ## Scan visual index (mobile dev bench)
 
-- **scan-visual-index** — Builds dHash (A) and 768-dim grid (B) indexes from `scryfall_cache.art_crop`, uploads to Storage bucket `scan-index` + `manifest.json`. See `docs/SCAN_VISUAL_INDEX_STORAGE.md`. Test: `POST /api/cron/scan-visual-index?limit=500` with cron auth.
+- **scan-visual-index** — Builds dHash (A) and 768-dim grid (B) indexes from `scryfall_cache` (`normal` by default, or `art_crop` via `SCAN_VISUAL_INDEX_IMAGE_SOURCE`), uploads to Storage bucket `scan-index` + `manifest.json` (`imageSource` field). See `docs/SCAN_VISUAL_INDEX_STORAGE.md`. Test: `POST /api/cron/scan-visual-index?limit=500` with cron auth.
 - Mobile: `EXPO_PUBLIC_SCAN_INDEX_MANIFEST_URL` → public manifest URL.

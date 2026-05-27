@@ -3,8 +3,9 @@ import { getAdmin } from "@/app/api/_lib/supa";
 import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 import {
   buildVisualIndexArtifacts,
-  fetchScryfallCacheArtRows,
+  fetchScryfallCacheVisualRows,
 } from "@/lib/server/scanVisualIndex/build";
+import { getScanVisualIndexImageSource } from "@/lib/server/scanVisualIndex/image-source";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -25,7 +26,8 @@ export async function POST(req: NextRequest) {
   const limitRows = Number(req.nextUrl.searchParams.get("limit") ?? "0");
 
   try {
-    let rows = await fetchScryfallCacheArtRows(admin);
+    const imageSource = getScanVisualIndexImageSource();
+    let rows = await fetchScryfallCacheVisualRows(admin);
     if (limitRows > 0) rows = rows.slice(0, limitRows);
 
     const built = await buildVisualIndexArtifacts(rows);
@@ -56,6 +58,7 @@ export async function POST(req: NextRequest) {
       builtAt: new Date().toISOString(),
       cardCount: built.cardCount,
       skipped: built.skipped,
+      imageSource,
       bReady: true,
       a: { version, url: pubA.publicUrl, size: built.indexA.length },
       b: { version, url: pubB.publicUrl, size: built.indexB.length },

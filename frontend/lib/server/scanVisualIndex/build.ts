@@ -2,11 +2,21 @@ import sharp from "sharp";
 import { computeDhash64, type Dhash64, type RgbaImage } from "./dhash";
 import { computeGridEmbeddingInt8, GRID_EMBED_DIM } from "./grid-embed";
 import { encodeAIndex, encodeBIndex } from "./encode";
+import {
+  getScanVisualIndexImageSource,
+  scryfallCacheImageColumn,
+  type ScanVisualIndexImageSource,
+} from "./image-source";
 
-export type ScryfallCacheArtRow = {
+export type { ScanVisualIndexImageSource };
+
+export type ScryfallCacheVisualRow = {
   name: string;
-  art_crop: string | null;
+  image_url: string | null;
 };
+
+/** @deprecated Use ScryfallCacheVisualRow */
+export type ScryfallCacheArtRow = ScryfallCacheVisualRow;
 
 const FETCH_BATCH = 24;
 const PAGE_SIZE = 500;
@@ -35,28 +45,42 @@ export type BuildVisualIndexProgress = {
   processed: number;
   total: number;
   skipped: number;
+  batchIndex: number;
+  batchMs: number;
+  indexed: number;
+};
+
+export type BuildVisualIndexLog = {
+  info: (msg: string, extra?: Record<string, unknown>) => void;
+  warn: (msg: string, extra?: Record<string, unknown>) => void;
 };
 
 export async function buildVisualIndexArtifacts(
-  rows: ScryfallCacheArtRow[],
+  rows: ScryfallCacheVisualRow[],
   onProgress?: (p: BuildVisualIndexProgress) => void,
+  log?: BuildVisualIndexLog,
 ): Promise<{ indexA: Buffer; indexB: Buffer; cardCount: number; skipped: number }> {
   const names: string[] = [];
   const hashes: Dhash64[] = [];
   const vectors: Int8Array[] = [];
   let skipped = 0;
   const total = rows.length;
+  const started = Date.now();
+  log?.info("build_start", { total, fetchBatch: FETCH_BATCH });
 
   for (let i = 0; i < rows.length; i += FETCH_BATCH) {
+    const batchStarted = Date.now();
+    const batchIndex = Math.floor(i / FETCH_BATCH) + 1;
     const batch = rows.slice(i, i + FETCH_BATCH);
     const results = await Promise.all(
       batch.map(async (row) => {
-        const url = row.art_crop?.trim();
+        const url = row.image_url?.trim();
         const name = row.name?.trim();
-        if (!url || !name) return null;
+        if (!url || !name) return { ok: false as const, reason: "missing_url_or_name", name: name ?? "" };
         const rgba = await fetchImageRgba(url);
-        if (!rgba) return null;
+        if (!rgba) return { ok: false as const, reason: "fetch_or_decode_failed", name };
         return {
+          ok: true as const,
           name,
           hash: computeDhash64(rgba),
           vector: computeGridEmbeddingInt8(rgba),
@@ -64,44 +88,108 @@ export async function buildVisualIndexArtifacts(
       }),
     );
     for (const item of results) {
-      if (!item) {
+      if (!item.ok) {
         skipped += 1;
+        if (skipped <= 20 || skipped % 500 === 0) {
+          log?.warn("row_skipped", { reason: item.reason, name: item.name });
+        }
         continue;
       }
       names.push(item.name);
       hashes.push(item.hash);
       vectors.push(item.vector);
     }
-    onProgress?.({ processed: Math.min(i + FETCH_BATCH, total), total, skipped });
+    const batchMs = Date.now() - batchStarted;
+    const processed = Math.min(i + FETCH_BATCH, total);
+    onProgress?.({
+      processed,
+      total,
+      skipped,
+      batchIndex,
+      batchMs,
+      indexed: names.length,
+    });
+    if (batchIndex === 1 || batchIndex % 25 === 0 || processed === total) {
+      const elapsed = Date.now() - started;
+      const rate = processed > 0 ? (processed / elapsed) * 1000 : 0;
+      const etaSec = rate > 0 ? Math.round((total - processed) / rate) : 0;
+      log?.info("batch_progress", {
+        batchIndex,
+        processed,
+        total,
+        indexed: names.length,
+        skipped,
+        batchMs,
+        elapsedSec: Math.round(elapsed / 1000),
+        etaSec,
+      });
+    }
   }
 
+  log?.info("encode_start", { indexed: names.length });
+  const encodeStart = Date.now();
+  const indexA = encodeAIndex(names, hashes);
+  const indexB = encodeBIndex(names, vectors, GRID_EMBED_DIM);
+  log?.info("encode_done", {
+    indexABytes: indexA.length,
+    indexBBytes: indexB.length,
+    encodeMs: Date.now() - encodeStart,
+    totalMs: Date.now() - started,
+  });
+
   return {
-    indexA: encodeAIndex(names, hashes),
-    indexB: encodeBIndex(names, vectors, GRID_EMBED_DIM),
+    indexA,
+    indexB,
     cardCount: names.length,
     skipped,
   };
 }
 
-export async function fetchScryfallCacheArtRows(
+export async function fetchScryfallCacheVisualRows(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-): Promise<ScryfallCacheArtRow[]> {
-  const rows: ScryfallCacheArtRow[] = [];
+  log?: BuildVisualIndexLog,
+  imageSource: ScanVisualIndexImageSource = getScanVisualIndexImageSource(),
+): Promise<ScryfallCacheVisualRow[]> {
+  const column = scryfallCacheImageColumn(imageSource);
+  const rows: ScryfallCacheVisualRow[] = [];
   let from = 0;
+  let pageNum = 0;
+  log?.info("fetch_config", { imageSource, column });
   while (true) {
     const { data, error } = await supabase
       .from("scryfall_cache")
-      .select("name, art_crop")
-      .not("art_crop", "is", null)
+      .select(`name, ${column}`)
+      .not(column, "is", null)
       .order("name", { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
-    if (error) break;
-    const page = (data ?? []) as ScryfallCacheArtRow[];
+    if (error) {
+      log?.warn("fetch_page_error", { from, message: String(error?.message ?? error) });
+      break;
+    }
+    const page = (data ?? []) as Array<{ name: string } & Record<string, string | null>>;
     if (!page.length) break;
-    rows.push(...page.filter((r) => r.art_crop && r.name));
+    const kept: ScryfallCacheVisualRow[] = [];
+    for (const r of page) {
+      const url = r[column]?.trim();
+      if (url && r.name) kept.push({ name: r.name, image_url: url });
+    }
+    rows.push(...kept);
+    pageNum += 1;
+    if (pageNum === 1 || pageNum % 10 === 0) {
+      log?.info("fetch_page", { pageNum, from, pageRows: page.length, totalRows: rows.length });
+    }
     if (page.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
   }
+  log?.info("fetch_complete", { totalRows: rows.length, pages: pageNum, imageSource, column });
   return rows;
+}
+
+/** @deprecated Use fetchScryfallCacheVisualRows */
+export async function fetchScryfallCacheArtRows(
+  supabase: Parameters<typeof fetchScryfallCacheVisualRows>[0],
+  log?: BuildVisualIndexLog,
+): Promise<ScryfallCacheVisualRow[]> {
+  return fetchScryfallCacheVisualRows(supabase, log, "art_crop");
 }
