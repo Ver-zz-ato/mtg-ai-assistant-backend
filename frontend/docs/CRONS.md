@@ -19,6 +19,7 @@
 | budget-swaps-update | `/api/cron/budget-swaps-update` | 03:00 Sundays |
 | mtg-legality-refresh | `/api/cron/mtg-legality-refresh` | 02:00 Sundays |
 | update-banned-lists | `/api/cron/update-banned-lists` | legacy / manual (optional) |
+| scan-visual-index | `/api/cron/scan-visual-index` | manual / weekly (mobile bench) |
 
 ### Securing Cron Routes
 
@@ -69,3 +70,8 @@ Run in order: price-snapshot → deck-costs → commander-aggregates → meta-si
 ## Banned card lists (weekly)
 
 - **update-banned-lists** — Fetches Scryfall oracle_cards bulk (streaming), builds Commander/Modern/Pioneer/Standard/Pauper/Brawl banned lists, upserts into `app_config.banned_cards`. Deck analyze and validation read from `app_config` with bundled JSON fallback. Schedule: e.g. Sundays 02:00 UTC.
+
+## Scan visual index (mobile dev bench)
+
+- **scan-visual-index** — Builds dHash (A) and 768-dim grid (B) indexes from `scryfall_cache.art_crop`, uploads to Storage bucket `scan-index` + `manifest.json`. See `docs/SCAN_VISUAL_INDEX_STORAGE.md`. Test: `POST /api/cron/scan-visual-index?limit=500` with cron auth.
+- Mobile: `EXPO_PUBLIC_SCAN_INDEX_MANIFEST_URL` → public manifest URL.
