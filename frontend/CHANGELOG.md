@@ -1,5 +1,14 @@
 # Frontend changelog
 
+## 2026-05-28
+
+### Commander generate-from-collection — collection sampling + ownership
+
+- **`lib/deck/collection-commander-generation.ts`:** `collectionOwnershipMode` parsing (legacy `buildMode` ownership tokens still accepted), prompt directives, `collection_only` off-collection filter, owned-basic-only padding to 100, `COLLECTION_NEEDS_LANDS` error, `collectionFit` summary.
+- **`app/api/deck/generate-from-collection/route.ts`:** Uses `preparePromptCardSample` for large collections; structured ownership post-processing; returns `collectionFit` in preview JSON.
+- **`lib/deck/generation-input.ts`:** `collectionOwnershipMode` on normalized input; collection size note in user prompt.
+- **Tests:** `tests/unit/collection-commander-generation.test.ts` (wired in `test:unit`).
+
 ## 2026-05-27
 
 ### Mobile Command Center — tiered Discord alert policy

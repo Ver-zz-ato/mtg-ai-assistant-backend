@@ -15,7 +15,6 @@ import {
   parseAiDeckOutputLines,
   getCommanderColorIdentity,
   totalDeckQty,
-  trimDeckToMaxQty,
   extractChatCompletionContent,
 } from "@/lib/deck/generation-helpers";
 import {
@@ -25,55 +24,23 @@ import {
 } from "@/lib/deck/generation-input";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 import { recordUserFeatureUsage } from "@/lib/badges/feature-usage";
+import {
+  aggregateCollectionQtyRows,
+  preparePromptCardSample,
+} from "@/lib/deck/collectionConstructedIdeasPrep";
+import {
+  computeCollectionFitSummary,
+  filterDeckToCollectionOwnership,
+  normalizeCommanderDeckQtyForCollection,
+} from "@/lib/deck/collection-commander-generation";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 /** Deck lists are long; gpt-5* may use part of the budget before visible text — keep headroom. */
 const DECK_GEN_MAX_COMPLETION_TOKENS = 16_384;
 const MAX_LENGTH_CONTINUATIONS = 4;
-const BASIC_BY_COLOR: Record<string, string> = {
-  W: "Plains",
-  U: "Island",
-  B: "Swamp",
-  R: "Mountain",
-  G: "Forest",
-};
 
 export const runtime = "nodejs";
-
-function addBasicsToReachQty(
-  cards: Array<{ name: string; qty: number }>,
-  targetQty: number,
-  colors: string[]
-): Array<{ name: string; qty: number }> {
-  const total = totalDeckQty(cards);
-  const missing = targetQty - total;
-  if (missing <= 0) return cards;
-  const basics = colors.map((c) => BASIC_BY_COLOR[c.toUpperCase()]).filter(Boolean);
-  const pool = basics.length > 0 ? basics : ["Wastes"];
-  const additions = new Map<string, number>();
-  for (let i = 0; i < missing; i++) {
-    const name = pool[i % pool.length];
-    additions.set(name, (additions.get(name) ?? 0) + 1);
-  }
-  const out = [...cards];
-  for (const [name, qty] of additions) {
-    const existing = out.find((c) => norm(c.name) === norm(name));
-    if (existing) existing.qty += qty;
-    else out.push({ name, qty });
-  }
-  return out;
-}
-
-function normalizeCommanderDeckQty(
-  cards: Array<{ name: string; qty: number }>,
-  colors: string[]
-): Array<{ name: string; qty: number }> {
-  const total = totalDeckQty(cards);
-  if (total > 100) return trimDeckToMaxQty(cards, 100);
-  if (total < 100) return addBasicsToReachQty(cards, 100, colors);
-  return cards;
-}
 
 function planLabelForResponse(powerLevel: string, budget: string, buildMode: string | null): string {
   const power = powerLevel?.trim() || "Casual";
@@ -176,8 +143,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch collection cards if collectionId provided
-    let collectionItems: Array<{ name: string; qty: number }> = [];
+  // Fetch collection cards if collectionId provided
+    let collectionTotalCards = 0;
+    let collectionSampleSize = 0;
+    let ownerNormKeys = new Set<string>();
+    const ownershipMode = input.collectionOwnershipMode;
+    const fmtLabel = String(format || "Commander").trim();
+
+    let collectionList = "No collection provided; generate a deck from the full card pool.";
     if (collectionId) {
       const { data: col } = await supabase
         .from("collections")
@@ -194,16 +167,35 @@ export async function POST(req: NextRequest) {
           .eq("collection_id", collectionId)
           .order("id", { ascending: true }),
       );
-      collectionItems = cards.map((c) => ({ name: c.name, qty: Number(c.qty) || 1 }));
+      const aggregated = aggregateCollectionQtyRows(cards);
+      if (aggregated.length === 0) {
+        return NextResponse.json({ ok: false, error: "This collection has no cards." }, { status: 400 });
+      }
+      collectionTotalCards = aggregated.reduce((sum, r) => sum + r.qty, 0);
+      const prep = await preparePromptCardSample(aggregated, fmtLabel);
+      if (!prep.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "NOT_ENOUGH_LEGAL_COLLECTION_CARDS",
+            error: `Not enough format-legal cards in this collection for ${fmtLabel}.`,
+          },
+          { status: 400 }
+        );
+      }
+      ownerNormKeys = prep.ownerNormKeys;
+      collectionSampleSize = prep.collectionSampleSize;
+      collectionList = prep.promptLines;
     }
 
-    const collectionList =
-      collectionItems.length > 0
-        ? collectionItems.map((c) => `- ${c.name} x${c.qty}`).join("\n")
-        : "No collection provided; generate a deck from the full card pool.";
-
     const systemPrompt = buildGenerationSystemPrompt();
-    const userPrompt = buildGenerationUserPrompt(input, collectionList);
+    const userPrompt = buildGenerationUserPrompt(
+      input,
+      collectionList,
+      collectionId
+        ? { totalCards: collectionTotalCards, sampleSize: collectionSampleSize }
+        : null
+    );
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -381,8 +373,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Normalize to exactly 100 physical cards (row count can be <100 when basics are grouped).
-    cards = isCommanderRequest ? normalizeCommanderDeckQty(filtered, allowedColors) : filtered;
+    const ownershipFiltered = filterDeckToCollectionOwnership(
+      filtered,
+      ownerNormKeys,
+      ownershipMode,
+      commanderName
+    );
+    if (ownershipFiltered.removed.length > 0) {
+      console.warn("[generate-from-collection] Removed off-collection cards (collection_only)", {
+        removedRows: ownershipFiltered.removed.length,
+        ownershipMode,
+      });
+    }
+    filtered = ownershipFiltered.cards;
+
+    if (isCommanderRequest) {
+      const qtyNorm = normalizeCommanderDeckQtyForCollection(filtered, allowedColors, {
+        ownershipMode,
+        ownerNormKeys,
+      });
+      if (!qtyNorm.ok) {
+        return NextResponse.json(
+          { ok: false, code: qtyNorm.code, error: qtyNorm.error },
+          { status: 400 }
+        );
+      }
+      cards = qtyNorm.cards;
+    } else {
+      cards = filtered;
+    }
 
     if (isCommanderRequest && totalDeckQty(cards) < 90) {
       console.error("[generate-from-collection] Commander deck under 90 cards after processing", {
@@ -402,11 +421,24 @@ export async function POST(req: NextRequest) {
 
     try {
       const { filterDecklistQtyRowsForFormat } = await import("@/lib/deck/recommendation-legality");
-      const fmtLabel = String(format || "Commander").trim();
       const { lines: legalLines } = await filterDecklistQtyRowsForFormat(cards, fmtLabel, {
         logPrefix: "/api/deck/generate-from-collection",
       });
-      cards = isCommanderRequest ? normalizeCommanderDeckQty(legalLines, allowedColors) : legalLines;
+      if (isCommanderRequest) {
+        const qtyNorm = normalizeCommanderDeckQtyForCollection(legalLines, allowedColors, {
+          ownershipMode,
+          ownerNormKeys,
+        });
+        if (!qtyNorm.ok) {
+          return NextResponse.json(
+            { ok: false, code: qtyNorm.code, error: qtyNorm.error },
+            { status: 400 }
+          );
+        }
+        cards = qtyNorm.cards;
+      } else {
+        cards = legalLines;
+      }
     } catch (legErr) {
       console.warn("[generate-from-collection] Legality filter failed:", legErr);
     }
@@ -472,6 +504,16 @@ export async function POST(req: NextRequest) {
       }).catch(() => undefined);
     }
 
+    const collectionFit =
+      collectionId && ownerNormKeys.size > 0
+        ? computeCollectionFitSummary(cards, ownerNormKeys, {
+            ownershipMode,
+            collectionTotalCards,
+            promptSampleSize: collectionSampleSize,
+            commanderName,
+          })
+        : undefined;
+
     // Return preview only; client will call decks/create when user confirms
     return NextResponse.json({
       ok: true,
@@ -485,6 +527,7 @@ export async function POST(req: NextRequest) {
       format: format || "Commander",
       plan: planLabelForResponse(powerLevel, input.budget, input.buildMode),
       ...(previewFacts ? { previewFacts } : {}),
+      ...(collectionFit ? { collectionFit } : {}),
     });
   } catch (e: unknown) {
     console.error("[generate-from-collection]", e);

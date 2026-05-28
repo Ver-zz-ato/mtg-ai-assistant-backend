@@ -9,6 +9,12 @@ import {
   buildTransformIntentPromptBlock,
 } from "@/lib/deck/transform-intent";
 import { getFormatRules, isCommanderFormatString } from "@/lib/deck/formatRules";
+import {
+  collectionOwnershipPromptDirective,
+  resolveCollectionOwnershipMode,
+  resolveDeckShapeBuildMode,
+  type CollectionOwnershipMode,
+} from "@/lib/deck/collection-commander-generation";
 
 export type NormalizedGenerationInput = {
   collectionId: string | null;
@@ -20,7 +26,10 @@ export type NormalizedGenerationInput = {
   /** Structured intent; unknown strings are still passed through in the prompt (fail-open). */
   generationIntent: string | null;
   seedCard: string | null;
+  /** Deck shape: full_deck | core_shell | staples_flex (not collection ownership). */
   buildMode: string | null;
+  /** Owned-card constraint for collection builds. */
+  collectionOwnershipMode: CollectionOwnershipMode | null;
   refinement: string | null;
   /** Optional deck text when transforming/repairing or using import as context. */
   sourceDeckText: string | null;
@@ -90,7 +99,8 @@ export function normalizeGenerationBody(body: unknown): NormalizedGenerationInpu
 
   const generationIntent = strOrNull(b.generationIntent, 64);
   const seedCard = strOrNull(b.seedCard, 300);
-  const buildMode = strOrNull(b.buildMode, 64);
+  const buildMode = resolveDeckShapeBuildMode(b);
+  const collectionOwnershipMode = resolveCollectionOwnershipMode(b);
   const refinement = strOrNull(b.refinement, 64);
   const sourceDeckText = longTextOrNull(b.sourceDeckText, 120_000);
   const ideaText = longTextOrNull(b.ideaText, 16_000);
@@ -107,6 +117,7 @@ export function normalizeGenerationBody(body: unknown): NormalizedGenerationInpu
     generationIntent,
     seedCard,
     buildMode: buildMode || null,
+    collectionOwnershipMode,
     refinement,
     sourceDeckText,
     ideaText,
@@ -259,6 +270,8 @@ function structuredIntentSection(input: NormalizedGenerationInput): string {
   if (modeExtra) lines.push(modeExtra);
   const refExtra = refinementAddendum(input);
   if (refExtra) lines.push(refExtra);
+  const ownershipExtra = collectionOwnershipPromptDirective(input.collectionOwnershipMode);
+  if (ownershipExtra) lines.push(ownershipExtra);
   lines.push(selectedOptionsDirective(input));
 
   if (lines.length === 0) return "";
@@ -356,7 +369,16 @@ CRITICAL RULES:
 9. Do NOT include any commentary, markdown, or extra text. Only the decklist lines.`;
 }
 
-export function buildGenerationUserPrompt(input: NormalizedGenerationInput, collectionList: string): string {
+export type CollectionPromptMeta = {
+  totalCards: number;
+  sampleSize: number;
+};
+
+export function buildGenerationUserPrompt(
+  input: NormalizedGenerationInput,
+  collectionList: string,
+  collectionMeta?: CollectionPromptMeta | null
+): string {
   const commanderLine = input.commander
     ? `Commander: ${input.commander}. Build a 100-card Commander deck with this commander in the 99 or as the commander (include it once).`
     : "No commander specified. Pick a well-known commander that fits the seed card / idea / collection, and output that commander as the VERY FIRST line in the decklist as \"1 Commander Name\". Then build the full 100-card Commander deck around it.";
@@ -364,11 +386,16 @@ export function buildGenerationUserPrompt(input: NormalizedGenerationInput, coll
   const structured = structuredIntentSection(input);
   const compliance = buildDirectiveComplianceReminder(input);
 
+  const collectionHeader =
+    collectionMeta && collectionMeta.totalCards > 0
+      ? `User's collection has ${collectionMeta.totalCards} cards total; showing the top ${collectionMeta.sampleSize} format-legal entries by quantity (prioritize these when building):`
+      : "User's collection (prioritize these cards):";
+
   return `Build a Commander deck with these constraints:
 
 ${commanderLine}
 
-User's collection (prioritize these cards):
+${collectionHeader}
 ${collectionList}
 
 Playstyle: ${input.playstyle || "general"}
