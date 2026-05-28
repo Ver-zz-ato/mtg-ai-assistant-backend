@@ -2,6 +2,20 @@
 
 ## 2026-05-28
 
+### Website — collection build + playstyle quiz flow
+
+- **`BuildDeckFromCollectionModal`:** Sends `quiz_build`, `collectionOwnershipMode`, and full quiz playstyle string; tab order Guided → **Find My Playstyle** → Quick; ownership mode selector; guided link to quiz; session handoff from quiz results.
+- **`lib/build/collectionPlaystylePayload.ts`:** Shared API body builder + session handoff for `/collections/[id]?buildDeck=1&buildTab=quiz`.
+- **`BuildDeckFromCollectionPanel`:** “Start with playstyle quiz” CTA; opens modal from URL params.
+- **`PlaystyleQuizResults`:** Optional `collectionId` + “Build from my collection” when generating from a collection context.
+
+### Commander collection builds — land cap, land-heavy rebalance, quiz playstyle prompts
+
+- **`collection-commander-generation.ts`:** Cap owned basics to collection qty; target **37** lands / max **40**; `enforceCommanderCollectionManaBase` + `rebalanceLandHeavyMostlyCollectionDeck` when mostly_collection is **≥75% owned** but **>45%** lands; `deckUniqueNameJaccardPercent` helper.
+- **`generate-from-collection/route.ts`:** Runs mana-base enforcement and land-heavy rebalance after legality (fixes `quiz_build` basic stuffing).
+- **`generation-input.ts`:** Stronger `quiz_build` + **PLAYSTYLE DIVERGENCE** directives (15+ nonland swaps, archetype-specific bans).
+- **Tests:** `collection-commander-generation.test.ts`, `playstyle-prompt-divergence.test.ts`; matrix smoke asserts land ≤40 and opposed playstyle Jaccard <50%.
+
 ### Commander generate-from-collection — guide + precon hints
 
 - **`lib/deck/commander-generation-context.ts`:** Appends curated commander profile (plan, tags, coach notes, flagship traps) plus official **precon** land/ramp/draw/removal targets from `precon_decks` to the generation user prompt.

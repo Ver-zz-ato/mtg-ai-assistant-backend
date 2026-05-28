@@ -17,6 +17,12 @@ import { useCapture } from '@/lib/analytics/useCapture';
 import { AnalyticsEvents } from '@/lib/analytics/events';
 import { trackSignupStarted } from '@/lib/analytics-enhanced';
 import { canBuildDeck, getRemainingBuilds, incrementDailyBuildCount } from '@/lib/playstyle/storage';
+import {
+  buildGenerateFromCollectionBody,
+  quizBudgetToApiBudget,
+  quizTraitsToApiPower,
+  saveCollectionBuildQuizHandoff,
+} from '@/lib/build/collectionPlaystylePayload';
 import DeckGenerationResultsModal, { type DeckPreviewResult } from './DeckGenerationResultsModal';
 
 interface PlaystyleQuizResultsProps {
@@ -29,6 +35,9 @@ interface PlaystyleQuizResultsProps {
   onRestart: () => void;
   /** Optional API `format` for `/api/playstyle/explain` (default Commander when omitted). */
   explainFormat?: string;
+  /** When set, offer “build from this collection” with quiz prefs applied. */
+  collectionId?: string;
+  quizAnswers?: Record<string, string>;
 }
 
 interface AIExplanation {
@@ -45,6 +54,8 @@ export default function PlaystyleQuizResults({
   onClose,
   onRestart,
   explainFormat,
+  collectionId,
+  quizAnswers: quizAnswersProp,
 }: PlaystyleQuizResultsProps) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -247,6 +258,17 @@ export default function PlaystyleQuizResults({
   const userCanBuild = canBuildDeck(depth.dailyDeckBuildLimit);
   const remainingBuilds = getRemainingBuilds(depth.dailyDeckBuildLimit);
 
+  const handleBuildFromCollection = () => {
+    if (!collectionId) return;
+    saveCollectionBuildQuizHandoff({
+      profileLabel: profile.label,
+      answers: quizAnswersProp ?? {},
+      selectedCommander: commandersWithMatch[0]?.name,
+    });
+    onClose();
+    router.push(`/collections/${collectionId}?buildDeck=1&buildTab=quiz`);
+  };
+
   const handleBuildDeck = async () => {
     // Check daily limit for free users
     if (!userCanBuild) {
@@ -276,16 +298,28 @@ export default function PlaystyleQuizResults({
     setGenerating(true);
     setGenerateError(null);
     try {
+      const body = collectionId
+        ? buildGenerateFromCollectionBody({
+            collectionId,
+            commander: commanderName,
+            profileLabel: profile.label,
+            quizAnswers: quizAnswersProp,
+            fromQuiz: Boolean(quizAnswersProp && Object.keys(quizAnswersProp).length > 0),
+            powerLevel: quizTraitsToApiPower(traits),
+            budget: quizBudgetToApiBudget(quizAnswersProp?.budget),
+          })
+        : {
+            commander: commanderName,
+            playstyle: profile.label,
+            powerLevel: 'Casual',
+            budget: 'Moderate',
+            format: 'Commander',
+          };
+
       const res = await fetch('/api/deck/generate-from-collection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          commander: commanderName,
-          playstyle: profile.label,
-          powerLevel: 'Casual',
-          budget: 'Moderate',
-          format: 'Commander',
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok || !json?.ok) {
@@ -801,6 +835,15 @@ export default function PlaystyleQuizResults({
             <p className="text-sm text-red-500 mb-4">{generateError}</p>
           )}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            {collectionId ? (
+              <button
+                type="button"
+                onClick={handleBuildFromCollection}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-lg transition-all"
+              >
+                Build from my collection →
+              </button>
+            ) : null}
             {depth.allowDeckBuild === 'sample' ? (
               <button
                 onClick={handleShowSamples}

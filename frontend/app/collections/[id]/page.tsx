@@ -1,6 +1,7 @@
 // app/collections/[id]/page.tsx
 import CollectionEditor from "@/components/CollectionEditor";
 import Link from "next/link";
+import { Suspense } from "react";
 import CollectionHeaderControls from "@/components/CollectionHeaderControls";
 import CollectionTitleBar from "@/components/CollectionTitleBar";
 import BuildDeckFromCollectionPanel from "@/components/BuildDeckFromCollectionPanel";
@@ -26,7 +27,15 @@ export default async function Page({ params }: { params: Promise<Params> }) {
         </div>
         <aside className="lg:w-[360px] shrink-0">
           <div className="lg:sticky lg:top-6">
-            <BuildDeckFromCollectionPanel collectionId={id} />
+            <Suspense
+              fallback={
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6 text-sm text-neutral-400">
+                  Loading build options…
+                </div>
+              }
+            >
+              <BuildDeckFromCollectionPanel collectionId={id} />
+            </Suspense>
           </div>
         </aside>
       </div>

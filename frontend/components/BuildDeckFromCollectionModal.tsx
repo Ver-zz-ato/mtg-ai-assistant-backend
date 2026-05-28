@@ -16,8 +16,17 @@ import {
   getCommanderSuggestionsWithMatch,
   type CommanderSuggestion,
 } from "@/lib/quiz/commander-suggestions";
+import {
+  buildGenerateFromCollectionBody,
+  clearCollectionBuildQuizHandoff,
+  loadCollectionBuildQuizHandoff,
+  quizBudgetToApiBudget,
+  quizTraitsToApiPower,
+  type CollectionOwnershipMode,
+} from "@/lib/build/collectionPlaystylePayload";
 
-type Tab = "guided" | "quick" | "quiz";
+export type BuildDeckFromCollectionTab = "guided" | "quick" | "quiz";
+type Tab = BuildDeckFromCollectionTab;
 
 const POWER_LEVELS = ["Casual", "Mid", "Focused", "Optimized", "Competitive"];
 const BUDGETS = ["Budget", "Moderate", "High"];
@@ -33,17 +42,22 @@ const PLAYSTYLES = [
 interface BuildDeckFromCollectionModalProps {
   collectionId: string;
   onClose: () => void;
+  /** Open on a specific tab (e.g. from ?buildTab=quiz). */
+  initialTab?: Tab;
 }
 
 export default function BuildDeckFromCollectionModal({
   collectionId,
   onClose,
+  initialTab = "guided",
 }: BuildDeckFromCollectionModalProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { isPro } = useProStatus();
   const [collectionItemNames, setCollectionItemNames] = useState<string[]>([]);
-  const [tab, setTab] = useState<Tab>("guided");
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [ownershipMode, setOwnershipMode] =
+    useState<CollectionOwnershipMode>("mostly_collection");
 
   useEffect(() => {
     (async () => {
@@ -77,26 +91,70 @@ export default function BuildDeckFromCollectionModal({
   const [quizProfile, setQuizProfile] = useState<string>("");
   const [selectedCommander, setSelectedCommander] = useState<string>("");
 
+  useEffect(() => {
+    const handoff = loadCollectionBuildQuizHandoff();
+    if (!handoff) return;
+    setTab("quiz");
+    setQuizAnswers(handoff.answers);
+    setQuizProfile(handoff.profileLabel);
+    setQuizDone(true);
+    const profile = calculateProfile(handoff.answers);
+    const traits = computeTraits(handoff.answers);
+    const commanders = getCommanderSuggestionsWithMatch(profile, traits);
+    setQuizCommanders(commanders);
+    setPowerLevel(quizTraitsToApiPower(traits));
+    setBudget(quizBudgetToApiBudget(handoff.answers.budget));
+    if (handoff.selectedCommander) {
+      setSelectedCommander(handoff.selectedCommander);
+      setCommander(handoff.selectedCommander);
+    }
+    clearCollectionBuildQuizHandoff();
+  }, []);
+
   const runGenerate = async (opts: {
     commander?: string;
     playstyle?: string;
     powerLevel?: string;
     budget?: string;
+    fromQuiz?: boolean;
+    profileLabel?: string;
+    quizAnswers?: Record<string, string>;
+    playstyleVibe?: string;
   }) => {
     setLoading(true);
     setError(null);
     try {
+      const body =
+        opts.fromQuiz && opts.profileLabel
+          ? buildGenerateFromCollectionBody({
+              collectionId,
+              commander: opts.commander,
+              profileLabel: opts.profileLabel,
+              quizAnswers: opts.quizAnswers,
+              powerLevel: opts.powerLevel,
+              budget: opts.budget,
+              fromQuiz: true,
+              collectionOwnershipMode: ownershipMode,
+              playstyleVibe: opts.playstyleVibe,
+            })
+          : {
+              ...buildGenerateFromCollectionBody({
+                collectionId,
+                commander: opts.commander,
+                profileLabel: opts.playstyleVibe || opts.playstyle || "Value Engine",
+                powerLevel: opts.powerLevel,
+                budget: opts.budget,
+                fromQuiz: false,
+                collectionOwnershipMode: ownershipMode,
+                playstyleVibe: opts.playstyleVibe || opts.playstyle,
+              }),
+              playstyle: opts.playstyle || undefined,
+            };
+
       const res = await fetch("/api/deck/generate-from-collection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          collectionId,
-          commander: opts.commander || undefined,
-          playstyle: opts.playstyle || undefined,
-          powerLevel: opts.powerLevel || "Casual",
-          budget: opts.budget || "Moderate",
-          format: "Commander",
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok || !json?.ok) {
@@ -134,7 +192,14 @@ export default function BuildDeckFromCollectionModal({
       setError("Select a commander");
       return;
     }
-    runGenerate({ commander: commander.trim(), playstyle, powerLevel, budget });
+    runGenerate({
+      commander: commander.trim(),
+      playstyle,
+      powerLevel,
+      budget,
+      playstyleVibe: playstyle,
+      profileLabel: playstyle,
+    });
   };
 
   const handleQuickGenerate = () => {
@@ -152,6 +217,8 @@ export default function BuildDeckFromCollectionModal({
       const commanders = getCommanderSuggestionsWithMatch(profile, traits);
       setQuizCommanders(commanders);
       setQuizProfile(profile.label);
+      setPowerLevel(quizTraitsToApiPower(traits));
+      setBudget(quizBudgetToApiBudget(newAnswers.budget));
       setQuizDone(true);
     } else {
       setQuizIndex(quizIndex + 1);
@@ -166,9 +233,12 @@ export default function BuildDeckFromCollectionModal({
     }
     runGenerate({
       commander: cmd,
-      playstyle: quizProfile,
-      powerLevel: "Casual",
-      budget: "Moderate",
+      fromQuiz: true,
+      profileLabel: quizProfile,
+      quizAnswers,
+      powerLevel,
+      budget,
+      playstyleVibe: quizProfile,
     });
   };
 
@@ -267,7 +337,7 @@ export default function BuildDeckFromCollectionModal({
 
           {/* Tabs */}
           <div className="flex gap-2 mb-6">
-            {(["guided", "quick", "quiz"] as Tab[]).map((t) => (
+            {(["guided", "quiz", "quick"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => {
@@ -303,8 +373,35 @@ export default function BuildDeckFromCollectionModal({
             </div>
           )}
 
+          <div className="mb-4 rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
+            <label className="block text-sm text-neutral-400 mb-1">Cards from collection</label>
+            <select
+              value={ownershipMode}
+              onChange={(e) => setOwnershipMode(e.target.value as CollectionOwnershipMode)}
+              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm"
+            >
+              <option value="mostly_collection">Mostly owned (~75%+ from collection)</option>
+              <option value="collection_only">Only owned cards</option>
+              <option value="best_with_missing">Best deck (highlight missing)</option>
+            </select>
+          </div>
+
           {tab === "guided" && (
             <div className="space-y-4">
+              <p className="text-sm text-neutral-400">
+                Not sure about your vibe?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("quiz");
+                    setError(null);
+                  }}
+                  className="text-purple-300 hover:text-purple-200 underline underline-offset-2"
+                >
+                  Take the playstyle quiz
+                </button>{" "}
+                first — we&apos;ll prefill commander suggestions and preferences.
+              </p>
               <div>
                 <label className="block text-sm text-neutral-400 mb-1">
                   Commander (from collection or search)
@@ -426,6 +523,9 @@ export default function BuildDeckFromCollectionModal({
             <div className="space-y-4">
               <p className="text-neutral-300">
                 Your profile: <strong className="text-white">{quizProfile}</strong>
+              </p>
+              <p className="text-xs text-neutral-500">
+                Power {powerLevel} · Budget {budget} — applied to this build.
               </p>
               <p className="text-sm text-neutral-400">
                 Pick a commander (prioritizing those in your collection):

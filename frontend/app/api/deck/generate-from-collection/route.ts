@@ -30,9 +30,15 @@ import {
 } from "@/lib/deck/collectionConstructedIdeasPrep";
 import {
   computeCollectionFitSummary,
+  countBasicLandSlots,
+  enforceCommanderCollectionManaBase,
   filterDeckToCollectionOwnership,
   normalizeCommanderDeckQtyForCollection,
+  ownedSlotStats,
+  rebalanceLandHeavyMostlyCollectionDeck,
   rebalanceMostlyCollectionDeck,
+  MOSTLY_COLLECTION_TARGET_OWNED_PERCENT,
+  COMMANDER_MAX_LAND_SHARE,
 } from "@/lib/deck/collection-commander-generation";
 import { buildCommanderReferencePromptBlock } from "@/lib/deck/commander-generation-context";
 
@@ -152,6 +158,7 @@ export async function POST(req: NextRequest) {
     let ownerNormToDisplay = new Map<string, string>();
     let qtyByNormKey = new Map<string, number>();
     let rebalanceSwaps = 0;
+    let landHeavySwaps = 0;
     const ownershipMode =
       input.collectionOwnershipMode ?? (collectionId ? "mostly_collection" : null);
     const fmtLabel = String(format || "Commander").trim();
@@ -411,6 +418,7 @@ export async function POST(req: NextRequest) {
       const qtyNorm = normalizeCommanderDeckQtyForCollection(filtered, allowedColors, {
         ownershipMode,
         ownerNormKeys,
+        qtyByNormKey,
       });
       if (!qtyNorm.ok) {
         return NextResponse.json(
@@ -448,6 +456,7 @@ export async function POST(req: NextRequest) {
         const qtyNorm = normalizeCommanderDeckQtyForCollection(legalLines, allowedColors, {
           ownershipMode,
           ownerNormKeys,
+          qtyByNormKey,
         });
         if (!qtyNorm.ok) {
           return NextResponse.json(
@@ -463,29 +472,88 @@ export async function POST(req: NextRequest) {
       console.warn("[generate-from-collection] Legality filter failed:", legErr);
     }
 
-    if (
-      isCommanderRequest &&
-      ownershipMode === "mostly_collection" &&
-      ownerNormKeys.size > 0 &&
-      ownerNormToDisplay.size > 0
-    ) {
-      const rebalanced = rebalanceMostlyCollectionDeck(cards, {
+    if (isCommanderRequest && ownerNormKeys.size > 0 && ownerNormToDisplay.size > 0) {
+      const manaEnforced = enforceCommanderCollectionManaBase(cards, {
+        ownershipMode,
         ownerNormKeys,
         ownerNormToDisplay,
         qtyByNormKey,
+        colors: allowedColors,
         commanderName,
       });
-      rebalanceSwaps = rebalanced.swaps;
-      if (rebalanced.swaps > 0) {
-        const qtyNorm = normalizeCommanderDeckQtyForCollection(rebalanced.cards, allowedColors, {
+      if (manaEnforced.trimmedBasics > 0) {
+        console.warn("[generate-from-collection] Commander mana base capped", {
+          trimmedBasics: manaEnforced.trimmedBasics,
+          landSlots: manaEnforced.landSlots,
+        });
+      }
+      cards = manaEnforced.cards;
+
+      if (ownershipMode === "mostly_collection") {
+        const { deckSlots, ownedSlots } = ownedSlotStats(cards, ownerNormKeys, commanderName);
+        const landSlots = countBasicLandSlots(cards);
+        const ownedPercent = deckSlots > 0 ? Math.round((ownedSlots / deckSlots) * 100) : 0;
+        const landShare = deckSlots > 0 ? landSlots / deckSlots : 0;
+
+        if (
+          ownedPercent >= MOSTLY_COLLECTION_TARGET_OWNED_PERCENT &&
+          landShare > COMMANDER_MAX_LAND_SHARE
+        ) {
+          const landFix = rebalanceLandHeavyMostlyCollectionDeck(cards, {
+            ownerNormKeys,
+            ownerNormToDisplay,
+            qtyByNormKey,
+            commanderName,
+          });
+          landHeavySwaps = landFix.swaps;
+          if (landFix.swaps > 0) {
+            cards = landFix.cards;
+            console.warn("[generate-from-collection] Land-heavy rebalance applied", {
+              swaps: landFix.swaps,
+              landSlots: countBasicLandSlots(cards),
+              ownedPercent,
+            });
+          }
+        }
+
+        const rebalanced = rebalanceMostlyCollectionDeck(cards, {
+          ownerNormKeys,
+          ownerNormToDisplay,
+          qtyByNormKey,
+          commanderName,
+        });
+        rebalanceSwaps = rebalanced.swaps;
+        if (rebalanced.swaps > 0) {
+          cards = rebalanced.cards;
+          console.warn("[generate-from-collection] mostly_collection rebalance applied", {
+            swaps: rebalanced.swaps,
+            totalQty: totalDeckQty(cards),
+          });
+        }
+
+        const afterRebalance = enforceCommanderCollectionManaBase(cards, {
           ownershipMode,
           ownerNormKeys,
+          ownerNormToDisplay,
+          qtyByNormKey,
+          colors: allowedColors,
+          commanderName,
         });
-        cards = qtyNorm.ok ? qtyNorm.cards : rebalanced.cards;
-        console.warn("[generate-from-collection] mostly_collection rebalance applied", {
-          swaps: rebalanced.swaps,
-          totalQty: totalDeckQty(cards),
+        cards = afterRebalance.cards;
+
+        const qtyNorm = normalizeCommanderDeckQtyForCollection(cards, allowedColors, {
+          ownershipMode,
+          ownerNormKeys,
+          qtyByNormKey,
         });
+        cards = qtyNorm.ok ? qtyNorm.cards : cards;
+      } else if (ownershipMode === "collection_only") {
+        const qtyNorm = normalizeCommanderDeckQtyForCollection(cards, allowedColors, {
+          ownershipMode,
+          ownerNormKeys,
+          qtyByNormKey,
+        });
+        cards = qtyNorm.ok ? qtyNorm.cards : cards;
       }
     }
 

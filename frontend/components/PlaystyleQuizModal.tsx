@@ -93,6 +93,7 @@ export default function PlaystyleQuizModal({ onClose, explainFormat }: Playstyle
         onClose={onClose}
         onRestart={handleRestart}
         explainFormat={explainFormat}
+        quizAnswers={answers}
       />
     );
   }

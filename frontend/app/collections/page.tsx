@@ -422,7 +422,7 @@ function CollectionsPageClientBody() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold">2.</span>
-                    Choose guided (pick commander + playstyle) or &quot;Build It For Me&quot; (AI chooses for you)
+                    Choose guided, take the playstyle quiz, or use &quot;Build It For Me&quot;
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold">3.</span>

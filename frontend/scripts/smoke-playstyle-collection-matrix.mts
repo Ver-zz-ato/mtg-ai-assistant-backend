@@ -316,9 +316,45 @@ async function main() {
   );
   console.log("\nWrote", outPath);
   console.log("\n--- Playstyle differentiation (unique card Jaccard %) ---");
+  let regressionFailed = false;
   for (const c of comparisons) {
     console.log(`${c.collection}: ${c.a} vs ${c.b} => ${c.jaccardUniquePct}% overlap`);
+    const opposed =
+      (c.a === "chaos_aggro_quiz" && c.b === "control_spells_quiz") ||
+      (c.a === "control_spells_quiz" && c.b === "chaos_aggro_quiz");
+    if (opposed && (c.jaccardUniquePct as number) >= 50) {
+      regressionFailed = true;
+      console.error("REGRESSION: opposed playstyles should be <50% overlap");
+    }
   }
+  for (const r of runs) {
+    if (!r.ok) continue;
+    const pf = r.previewFacts as { land_count?: number } | undefined;
+    const lands = pf?.land_count ?? countBasicLandSlotsFromRun(r);
+    if (lands > 40) {
+      regressionFailed = true;
+      console.error(`REGRESSION: ${r.collectionKey}/${r.playstyleId} land_count=${lands} (max 40)`);
+    }
+  }
+  if (regressionFailed) process.exitCode = 1;
+}
+
+function countBasicLandSlotsFromRun(run: Record<string, unknown>): number {
+  const keys = (run.nameKeySet as string[] | undefined) ?? [];
+  const basics = new Set([
+    "plains",
+    "island",
+    "swamp",
+    "mountain",
+    "forest",
+    "wastes",
+    "snow-covered plains",
+    "snow-covered island",
+    "snow-covered swamp",
+    "snow-covered mountain",
+    "snow-covered forest",
+  ]);
+  return keys.filter((k) => basics.has(k) || k.startsWith("snow-covered ")).length;
 }
 
 main().catch((e) => {

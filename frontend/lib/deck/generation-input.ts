@@ -48,7 +48,8 @@ const GENERATION_INTENT_HINTS: Record<string, string> = {
   new_build: "Start a fresh 100-card deck from constraints (not a direct edit of an imported list unless source deck text is provided).",
   build_around_card: "Center the deck on the seed card and cards that synergize with it.",
   idea_to_deck: "Use the idea text to pick commander and theme when commander is not fixed.",
-  quiz_build: "Use the playstyle quiz profile as binding deck identity: keep the recommended commander, selected power level, selected budget tier, and selected build shape aligned.",
+  quiz_build:
+    "Use the playstyle quiz profile as binding deck identity: keep the recommended commander, selected power level, selected budget tier, and selected build shape aligned. The deck must read as that playstyle at the table—not a generic goodstuff pile with 5 flex swaps.",
   transform_template: "Treat template context as a starting shell; adapt it to the collection and constraints.",
   repair_import: "Fix legality, color identity, and coherence issues when source deck text is provided.",
 };
@@ -239,6 +240,42 @@ function refinementAddendum(input: NormalizedGenerationInput): string {
   return refinementPromptDirectivesJoined(input.refinement);
 }
 
+function playstyleDivergenceDirective(input: NormalizedGenerationInput): string {
+  const ps = (input.playstyle || "").toLowerCase();
+  const fromQuiz =
+    input.generationIntent === "quiz_build" ||
+    ps.includes("quiz profile") ||
+    ps.includes("quiz answers");
+  if (!fromQuiz) return "";
+
+  const lines = [
+    "PLAYSTYLE DIVERGENCE (mandatory):",
+    "At least 15 nonland card names in the 99 must differ from a generic value/goodstuff package for this commander (change creatures, artifacts, enchantments, and non-basic spells—not only 5 flex slots).",
+    "Mana base: about 36–38 lands total (count quantities). Never fill the deck by dumping every owned basic land into the list.",
+  ];
+
+  if (ps.includes("chaos") || ps.includes("aggro") || ps.includes("gremlin")) {
+    lines.push(
+      "Chaos/aggro profile: favor low-CMC pressure, combat, and splashy proactive plays. Do NOT default to slow graveyard value engines, mill, or draw-go control unless those exact card names appear in the owned collection list."
+    );
+  }
+  if (ps.includes("control") || ps.includes("calculated")) {
+    lines.push(
+      "Control profile: favor interaction, wipes, and card advantage. Avoid pure glass-cannon aggro piles unless those cards are in the owned list."
+    );
+  }
+  if (ps.includes("graveyard") || ps.includes("value engine")) {
+    lines.push(
+      "Graveyard/value profile: recursion and grind are primary. Avoid unrelated aggro go-wide packages unless listed in the collection."
+    );
+  }
+  if (ps.includes("combo")) {
+    lines.push("Combo profile: include coherent combo pieces and tutors only when budget/power allow; do not substitute unrelated midrange creatures.");
+  }
+
+  return lines.join("\n");
+}
+
 function structuredIntentSection(input: NormalizedGenerationInput): string {
   const lines: string[] = [];
   if (input.generationIntent) {
@@ -272,6 +309,8 @@ function structuredIntentSection(input: NormalizedGenerationInput): string {
   if (refExtra) lines.push(refExtra);
   const ownershipExtra = collectionOwnershipPromptDirective(input.collectionOwnershipMode);
   if (ownershipExtra) lines.push(ownershipExtra);
+  const playstyleExtra = playstyleDivergenceDirective(input);
+  if (playstyleExtra) lines.push(playstyleExtra);
   lines.push(selectedOptionsDirective(input));
 
   if (lines.length === 0) return "";
@@ -364,7 +403,7 @@ CRITICAL RULES:
 4. Singleton except for basic lands (Plains, Island, Swamp, Mountain, Forest).
 5. All cards must be legal in Commander (no silver-bordered, no banned cards).
 6. When a collection list is provided, obey COLLECTION OWNERSHIP directives exactly (owned-only vs mostly-owned vs best-deck). Do not treat collection rules as optional flavor text.
-7. Include ramp, card draw, removal, and win conditions.
+7. Include ramp, card draw, removal, and win conditions. Commander mana bases are typically about 36–38 lands unless the collection cannot support it.
 8. Obey the selected power level and budget tier exactly. Do not silently upgrade Mid to Optimized, or Budget to Moderate/High.
 9. Do NOT include any commentary, markdown, or extra text. Only the decklist lines.`;
 }
