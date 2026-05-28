@@ -44,7 +44,7 @@ const faqItems: FAQItem[] = [
           </div>
         </div>
         <Link
-          href="https://www.manatap.ai/blog/how-manatap-ai-works#simple"
+          href="https://www.manatap.ai/blog/how-manatap-ai-works-updated"
           className="inline-flex items-center gap-1.5 rounded-sm text-sm font-semibold text-sky-300 transition-colors hover:text-sky-200 hover:underline focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:ring-offset-2 focus:ring-offset-[#101a2b]"
         >
           Read how ManaTap&apos;s AI works
