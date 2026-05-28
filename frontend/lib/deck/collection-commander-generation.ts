@@ -53,24 +53,52 @@ export function resolveDeckShapeBuildMode(body: Record<string, unknown>): string
   return raw;
 }
 
+/** Mostly-owned mode: target share of deck slots from the user's list (by quantity). */
+export const MOSTLY_COLLECTION_TARGET_OWNED_PERCENT = 75;
+export const MOSTLY_COLLECTION_MAX_OFF_COLLECTION_SLOTS = 25;
+
+const BASIC_LAND_NAMES = new Set([
+  "plains",
+  "island",
+  "swamp",
+  "mountain",
+  "forest",
+  "wastes",
+  "snow-covered plains",
+  "snow-covered island",
+  "snow-covered swamp",
+  "snow-covered mountain",
+  "snow-covered forest",
+]);
+
+export function isBasicLandName(name: string): boolean {
+  const n = cardOwnerNormKey(name);
+  return BASIC_LAND_NAMES.has(n) || n.startsWith("snow-covered ");
+}
+
 export function collectionOwnershipPromptDirective(mode: CollectionOwnershipMode | null): string {
   if (!mode) return "";
   if (mode === "collection_only") {
     return [
       "COLLECTION OWNERSHIP (mandatory): collection_only",
       "Use ONLY cards from the user's owned collection list in this prompt. Do not include cards they do not own.",
+      "Every line must be an exact card name from the owned list (including grouped basics). Do not add staples, fetches, or utility lands that are not listed.",
       "If the collection cannot support a full 100-card deck, still output the best possible list using only owned cards (basics only if listed).",
     ].join("\n");
   }
   if (mode === "mostly_collection") {
     return [
       "COLLECTION OWNERSHIP (mandatory): mostly_collection",
-      "Build primarily from the owned collection list. You may add a small number of off-collection staples only when essential for a coherent Commander deck.",
+      `At least ${MOSTLY_COLLECTION_TARGET_OWNED_PERCENT} of the 100 card slots (count quantities) MUST be exact names from the owned collection list above.`,
+      `Off-collection cards: at most ${MOSTLY_COLLECTION_MAX_OFF_COLLECTION_SLOTS} slots total, only when the owned list cannot fill a critical role (e.g. one extra removal).`,
+      "Do not paste full staple packages (e.g. Mystic Remora, Eternal Witness, fetchlands, shocklands, triomes) unless that exact card appears in the owned list.",
+      "Prioritize higher-quantity owned cards when choosing flex slots. Use owned basics for the mana base before inventing off-collection lands.",
     ].join("\n");
   }
   return [
     "COLLECTION OWNERSHIP (mandatory): best_with_missing",
     "Optimize deck quality for the chosen power level. Prefer owned cards when roles are similar; off-collection upgrades are allowed.",
+    "Aim for roughly 50%+ owned slots when the owned list has reasonable depth, but do not weaken the deck unnecessarily.",
   ].join("\n");
 }
 
@@ -163,10 +191,17 @@ export function normalizeCommanderDeckQtyForCollection(
     return { ok: true, cards: working };
   }
 
-  if (options.ownershipMode === "collection_only" && options.ownerNormKeys.size > 0) {
+  const preferOwnedBasics =
+    options.ownerNormKeys.size > 0 &&
+    (options.ownershipMode === "collection_only" || options.ownershipMode === "mostly_collection");
+
+  if (preferOwnedBasics && totalDeckQty(working) < 100) {
     const pool = ownedBasicsPool(colors, options.ownerNormKeys);
-    const padded = addBasicsFromPool(working, 100, pool);
-    if (!padded || totalDeckQty(padded) < 100) {
+    const paddedOwned = addBasicsFromPool(working, 100, pool);
+    if (paddedOwned && totalDeckQty(paddedOwned) === 100) {
+      return { ok: true, cards: paddedOwned };
+    }
+    if (options.ownershipMode === "collection_only") {
       return {
         ok: false,
         code: "COLLECTION_NEEDS_LANDS",
@@ -174,10 +209,12 @@ export function normalizeCommanderDeckQtyForCollection(
           "Your collection does not have enough basic lands (or total cards) to complete a 100-card Commander deck in “Only owned cards” mode. Add more lands to your collection, or try “Mostly from collection”.",
       };
     }
-    return { ok: true, cards: padded };
+    working = paddedOwned ?? working;
   }
 
-  working = addBasicsToReachQty(working, 100, colors);
+  if (totalDeckQty(working) < 100) {
+    working = addBasicsToReachQty(working, 100, colors);
+  }
   return { ok: true, cards: working };
 }
 
@@ -190,7 +227,115 @@ export type CollectionFitSummary = {
   missingSlots: number;
   ownedPercent: number;
   missingCardNames: string[];
+  /** True when `missingCardNames` is capped; use `missingUniqueCount` for full count. */
+  missingNamesTruncated?: boolean;
+  missingUniqueCount?: number;
+  /** Set when mostly_collection finished below target owned %. */
+  ownershipNote?: string;
+  rebalanceSwaps?: number;
 };
+
+function ownedSlotStats(
+  cards: Array<{ name: string; qty: number }>,
+  ownerNormKeys: Set<string>,
+  commanderName?: string | null
+): { deckSlots: number; ownedSlots: number } {
+  const cmdKey = commanderName?.trim() ? cardOwnerNormKey(commanderName) : null;
+  let deckSlots = 0;
+  let ownedSlots = 0;
+  for (const c of cards) {
+    const q = Math.max(0, Number(c.qty) || 0);
+    if (q <= 0) continue;
+    deckSlots += q;
+    const nk = cardOwnerNormKey(c.name);
+    if (ownerNormKeys.has(nk) || (cmdKey !== null && nk === cmdKey)) ownedSlots += q;
+  }
+  return { deckSlots, ownedSlots };
+}
+
+/**
+ * Swap off-collection slots for owned cards (mostly_collection) until owned % meets target or swaps exhaust.
+ */
+export function rebalanceMostlyCollectionDeck(
+  cards: Array<{ name: string; qty: number }>,
+  options: {
+    ownerNormKeys: Set<string>;
+    ownerNormToDisplay: Map<string, string>;
+    qtyByNormKey: Map<string, number>;
+    commanderName?: string | null;
+    targetOwnedPercent?: number;
+    maxSwaps?: number;
+  }
+): { cards: Array<{ name: string; qty: number }>; swaps: number } {
+  const target = options.targetOwnedPercent ?? MOSTLY_COLLECTION_TARGET_OWNED_PERCENT;
+  const maxSwaps = options.maxSwaps ?? 40;
+  const cmdKey = options.commanderName?.trim() ? cardOwnerNormKey(options.commanderName) : null;
+
+  const working = cards.map((c) => ({ name: c.name, qty: Math.max(1, Number(c.qty) || 1) }));
+  let swaps = 0;
+
+  const deckNormKeys = () => {
+    const s = new Set<string>();
+    for (const c of working) s.add(cardOwnerNormKey(c.name));
+    return s;
+  };
+
+  const findRow = (nk: string) => working.findIndex((c) => cardOwnerNormKey(c.name) === nk);
+
+  for (let round = 0; round < maxSwaps; round++) {
+    const { deckSlots, ownedSlots } = ownedSlotStats(working, options.ownerNormKeys, options.commanderName);
+    if (deckSlots === 0) break;
+    const ownedPercent = Math.round((ownedSlots / deckSlots) * 100);
+    if (ownedPercent >= target) break;
+
+    const inDeck = deckNormKeys();
+
+    const offCollectionRows = working
+      .map((c, idx) => ({ c, idx, nk: cardOwnerNormKey(c.name) }))
+      .filter(({ nk }) => !options.ownerNormKeys.has(nk) && nk !== cmdKey)
+      .sort((a, b) => {
+        const aBasic = isBasicLandName(a.c.name) ? 0 : 1;
+        const bBasic = isBasicLandName(b.c.name) ? 0 : 1;
+        if (aBasic !== bBasic) return aBasic - bBasic;
+        return b.c.qty - a.c.qty;
+      });
+
+    if (offCollectionRows.length === 0) break;
+
+    const candidates: Array<{ nk: string; display: string; qty: number; isLand: boolean }> = [];
+    for (const nk of options.ownerNormKeys) {
+      if (nk === cmdKey) continue;
+      const display = options.ownerNormToDisplay.get(nk);
+      if (!display) continue;
+      const qty = options.qtyByNormKey.get(nk) ?? 1;
+      candidates.push({ nk, display, qty, isLand: isBasicLandName(display) });
+    }
+    candidates.sort((a, b) => {
+      const aIn = inDeck.has(a.nk) ? 1 : 0;
+      const bIn = inDeck.has(b.nk) ? 1 : 0;
+      if (aIn !== bIn) return aIn - bIn;
+      if (a.isLand !== b.isLand) return a.isLand ? 1 : -1;
+      return b.qty - a.qty;
+    });
+
+    const victim = offCollectionRows[0];
+    const pick = candidates.find((c) => !inDeck.has(c.nk)) ?? candidates.find((c) => inDeck.has(c.nk));
+    if (!pick) break;
+
+    victim.c.qty -= 1;
+    if (victim.c.qty <= 0) working.splice(victim.idx, 1);
+
+    const addIdx = findRow(pick.nk);
+    if (addIdx >= 0) {
+      working[addIdx].qty += 1;
+    } else {
+      working.push({ name: pick.display, qty: 1 });
+    }
+    swaps += 1;
+  }
+
+  return { cards: working, swaps };
+}
 
 export function computeCollectionFitSummary(
   cards: Array<{ name: string; qty: number }>,
@@ -201,6 +346,7 @@ export function computeCollectionFitSummary(
     promptSampleSize: number;
     commanderName?: string | null;
     maxMissingNames?: number;
+    rebalanceSwaps?: number;
   }
 ): CollectionFitSummary {
   const cmdKey = options.commanderName?.trim() ? cardOwnerNormKey(options.commanderName) : null;
@@ -223,9 +369,19 @@ export function computeCollectionFitSummary(
     }
   }
 
-  const cap = options.maxMissingNames ?? 16;
+  const cap = options.maxMissingNames ?? 40;
   const missingSlots = Math.max(0, deckSlots - ownedSlots);
   const ownedPercent = deckSlots > 0 ? Math.round((ownedSlots / deckSlots) * 100) : 0;
+  const missingUniqueCount = missingNames.length;
+
+  let ownershipNote: string | undefined;
+  if (
+    options.ownershipMode === "mostly_collection" &&
+    ownedPercent < MOSTLY_COLLECTION_TARGET_OWNED_PERCENT &&
+    ownerNormKeys.size > 0
+  ) {
+    ownershipNote = `This list is ${ownedPercent}% from your collection (target ${MOSTLY_COLLECTION_TARGET_OWNED_PERCENT}%+). Consider “Only owned” or add more on-theme cards to your collection.`;
+  }
 
   return {
     ownershipMode: options.ownershipMode,
@@ -236,5 +392,9 @@ export function computeCollectionFitSummary(
     missingSlots,
     ownedPercent,
     missingCardNames: missingNames.slice(0, cap),
+    missingNamesTruncated: missingUniqueCount > cap,
+    missingUniqueCount,
+    ownershipNote,
+    rebalanceSwaps: options.rebalanceSwaps,
   };
 }

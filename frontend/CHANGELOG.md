@@ -2,6 +2,12 @@
 
 ## 2026-05-28
 
+### Commander generate-from-collection — mostly-owned tuning
+
+- **`mostly_collection`:** Stronger prompt (≥75% owned slots, ≤25 off-collection); mana base prefers **owned basics** before generic padding; **`rebalanceMostlyCollectionDeck`** swaps off-collection slots for owned cards when the model under-delivers.
+- **`collectionFit`:** `missingUniqueCount`, `missingNamesTruncated`, `ownershipNote`, `rebalanceSwaps`; missing name cap raised to 40.
+- **Tests:** Rebalance coverage in `collection-commander-generation.test.ts`.
+
 ### Commander generate-from-collection — collection sampling + ownership
 
 - **`lib/deck/collection-commander-generation.ts`:** `collectionOwnershipMode` parsing (legacy `buildMode` ownership tokens still accepted), prompt directives, `collection_only` off-collection filter, owned-basic-only padding to 100, `COLLECTION_NEEDS_LANDS` error, `collectionFit` summary.

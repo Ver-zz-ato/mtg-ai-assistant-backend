@@ -32,6 +32,7 @@ import {
   computeCollectionFitSummary,
   filterDeckToCollectionOwnership,
   normalizeCommanderDeckQtyForCollection,
+  rebalanceMostlyCollectionDeck,
 } from "@/lib/deck/collection-commander-generation";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -147,7 +148,11 @@ export async function POST(req: NextRequest) {
     let collectionTotalCards = 0;
     let collectionSampleSize = 0;
     let ownerNormKeys = new Set<string>();
-    const ownershipMode = input.collectionOwnershipMode;
+    let ownerNormToDisplay = new Map<string, string>();
+    let qtyByNormKey = new Map<string, number>();
+    let rebalanceSwaps = 0;
+    const ownershipMode =
+      input.collectionOwnershipMode ?? (collectionId ? "mostly_collection" : null);
     const fmtLabel = String(format || "Commander").trim();
 
     let collectionList = "No collection provided; generate a deck from the full card pool.";
@@ -184,6 +189,8 @@ export async function POST(req: NextRequest) {
         );
       }
       ownerNormKeys = prep.ownerNormKeys;
+      ownerNormToDisplay = prep.ownerNormToDisplay;
+      qtyByNormKey = prep.qtyByNormKey;
       collectionSampleSize = prep.collectionSampleSize;
       collectionList = prep.promptLines;
     }
@@ -443,6 +450,32 @@ export async function POST(req: NextRequest) {
       console.warn("[generate-from-collection] Legality filter failed:", legErr);
     }
 
+    if (
+      isCommanderRequest &&
+      ownershipMode === "mostly_collection" &&
+      ownerNormKeys.size > 0 &&
+      ownerNormToDisplay.size > 0
+    ) {
+      const rebalanced = rebalanceMostlyCollectionDeck(cards, {
+        ownerNormKeys,
+        ownerNormToDisplay,
+        qtyByNormKey,
+        commanderName,
+      });
+      rebalanceSwaps = rebalanced.swaps;
+      if (rebalanced.swaps > 0) {
+        const qtyNorm = normalizeCommanderDeckQtyForCollection(rebalanced.cards, allowedColors, {
+          ownershipMode,
+          ownerNormKeys,
+        });
+        cards = qtyNorm.ok ? qtyNorm.cards : rebalanced.cards;
+        console.warn("[generate-from-collection] mostly_collection rebalance applied", {
+          swaps: rebalanced.swaps,
+          totalQty: totalDeckQty(cards),
+        });
+      }
+    }
+
     if (isCommanderRequest && totalDeckQty(cards) < 90) {
       return NextResponse.json(
         {
@@ -511,6 +544,7 @@ export async function POST(req: NextRequest) {
             collectionTotalCards,
             promptSampleSize: collectionSampleSize,
             commanderName,
+            rebalanceSwaps,
           })
         : undefined;
 

@@ -363,7 +363,7 @@ CRITICAL RULES:
 3. Every card MUST be within the commander's color identity. NO cards with colors outside the commander's identity (e.g. if commander is WUBG, ZERO red cards - no Lightning Bolt, no Boros Signet, no Izzet Signet, no Rakdos Signet, no Blasphemous Act).
 4. Singleton except for basic lands (Plains, Island, Swamp, Mountain, Forest).
 5. All cards must be legal in Commander (no silver-bordered, no banned cards).
-6. Prefer cards from the user's collection when provided; only add cards outside the collection if needed for a coherent deck.
+6. When a collection list is provided, obey COLLECTION OWNERSHIP directives exactly (owned-only vs mostly-owned vs best-deck). Do not treat collection rules as optional flavor text.
 7. Include ramp, card draw, removal, and win conditions.
 8. Obey the selected power level and budget tier exactly. Do not silently upgrade Mid to Optimized, or Budget to Moderate/High.
 9. Do NOT include any commentary, markdown, or extra text. Only the decklist lines.`;
