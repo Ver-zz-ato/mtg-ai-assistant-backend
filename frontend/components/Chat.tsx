@@ -200,6 +200,7 @@ function Chat(props: ChatProps = {}) {
   const streamingMessageIdRef = useRef<string | null>(null);
   const addingTypingMessageRef = useRef<boolean>(false);
   const skipNextRefreshRef = useRef<boolean>(false); // Skip refresh when we just created a new thread
+  const prevThreadIdRef = useRef<string | null | undefined>(undefined);
   const lastOptimisticUserMsgRef = useRef<{ content: string; threadId: string } | null>(null);
   const cardImagesRef = useRef<Map<string, ImageInfo>>(new Map());
   const cardExtractDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -477,16 +478,34 @@ function Chat(props: ChatProps = {}) {
 
   useEffect(() => {
     try {
+      const prev = prevThreadIdRef.current;
+      prevThreadIdRef.current = threadId;
+      const isInitialMount = prev === undefined;
+      const threadChanged = !isInitialMount && prev !== threadId;
+
+      if (threadChanged) {
+        setLinkedDeckId(null);
+        if (!skipNextRefreshRef.current && !isStreaming && !busy) {
+          setMessages([]);
+        }
+        if (streamAbort) {
+          try { streamAbort.abort(); } catch {}
+          setStreamAbort(null);
+          setIsStreaming(false);
+          setStreamingContent("");
+        }
+      }
+
       if (threadId) {
         if (typeof window !== 'undefined') window.localStorage.setItem('chat:last_thread', String(threadId));
       }
-      
+
       // Skip refresh if we just created a new thread (messages are already in UI)
       if (skipNextRefreshRef.current) {
         skipNextRefreshRef.current = false;
         return;
       }
-      
+
       refreshMessages(threadId);
     } catch {}
   }, [threadId]);
@@ -565,18 +584,23 @@ function Chat(props: ChatProps = {}) {
     runFetch();
   }, [messages, streamingContent, isStreaming]);
 
-  // Deck linking
+  // Deck linking — probe thread row; cleared immediately on thread switch above
   useEffect(() => {
     let cancelled = false;
     async function probe() {
-      if (!threadId) { setLinkedDeckId(null); return; }
+      if (!threadId) {
+        if (!cancelled) setLinkedDeckId(null);
+        return;
+      }
       try {
         const r = await fetch('/api/chat/threads/get', { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
         const arr = Array.isArray(j?.threads) ? j.threads : Array.isArray(j?.data) ? j.data : [];
-        const one = arr.find((t:any)=>t.id===threadId);
+        const one = arr.find((t: any) => t.id === threadId);
         if (!cancelled) setLinkedDeckId(one?.deck_id || null);
-      } catch { if (!cancelled) setLinkedDeckId(null); }
+      } catch {
+        if (!cancelled) setLinkedDeckId(null);
+      }
     }
     probe();
     return () => { cancelled = true; };
@@ -769,17 +793,19 @@ function Chat(props: ChatProps = {}) {
 
     const prefs: any = { format: fmt, budget, colors: Object.entries(colors).filter(([k,v])=>v).map(([k])=>k), teaching, userLevel: deckMode };
     
-    // Build enhanced context with deck-aware problem analysis
+    // Build enhanced context with deck-aware problem analysis (guest / no thread only; signed-in threads use server deck)
     let deckContext = '';
-    if (linkedDeckId) {
+    const deckIdForClientContext =
+      isLoggedIn && threadId ? null : linkedDeckId || null;
+    if (deckIdForClientContext) {
       try {
         // Fetch deck info to get commander and deck_aim
-        const deckRes = await fetch(`/api/decks/get?id=${encodeURIComponent(linkedDeckId)}`, { cache: 'no-store' });
+        const deckRes = await fetch(`/api/decks/get?id=${encodeURIComponent(deckIdForClientContext)}`, { cache: 'no-store' });
         const deckData = await deckRes.json().catch(() => ({ ok: false }));
         const commander = deckData?.deck?.commander || null;
         const deckAim = deckData?.deck?.deck_aim || null;
         
-        const deckProblems = await analyzeDeckProblems(linkedDeckId);
+        const deckProblems = await analyzeDeckProblems(deckIdForClientContext);
         // Always generate context if we have commander or deck_aim, even without problems
         if (deckProblems.length > 0 || commander || deckAim) {
           deckContext = generateDeckContext(deckProblems, 'Current Deck', undefined, commander, deckAim);
@@ -797,10 +823,12 @@ function Chat(props: ChatProps = {}) {
       }
     } catch {}
     
-    const context: any = { 
-      deckId: linkedDeckId || null, 
-      budget, 
-      colors: prefs.colors, 
+    // For logged-in users with a thread, deck + history come from the server (thread row + chat_messages).
+    let currentThreadId = threadId;
+    const context: any = {
+      deckId: isLoggedIn && currentThreadId ? null : linkedDeckId || null,
+      budget,
+      colors: prefs.colors,
       teaching,
       deckContext: deckContext,
       memoryContext: memoryContext,
@@ -808,7 +836,6 @@ function Chat(props: ChatProps = {}) {
     };
     
     // For logged-in users: Create thread before streaming if one doesn't exist
-    let currentThreadId = threadId;
     if (isLoggedIn && !currentThreadId) {
       try {
         const title = val.slice(0, 60).replace(/\s+/g, " ").trim();
@@ -931,7 +958,14 @@ function Chat(props: ChatProps = {}) {
         context,
         prefs,
         guestMessageCount: !isLoggedIn ? guestMessageCount : undefined,
-        messages: messages.map((m: any) => ({ role: m.role, content: String(m.content || "") })).filter((m: any) => m.role === "user" || m.role === "assistant").slice(-12),
+        ...(isLoggedIn && currentThreadId
+          ? {}
+          : {
+              messages: messages
+                .map((m: any) => ({ role: m.role, content: String(m.content || "") }))
+                .filter((m: any) => m.role === "user" || m.role === "assistant")
+                .slice(-12),
+            }),
         sourcePage: debugMode ? `${pathname} · Admin Chat Test` : `${pathname} · Chat.tsx`,
       };
       if (debugMode && onDebugLog) {

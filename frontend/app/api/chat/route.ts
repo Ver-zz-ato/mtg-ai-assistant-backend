@@ -944,7 +944,16 @@ export async function POST(req: NextRequest) {
       try {
         const { data: th } = await supabase.from("chat_threads").select("deck_id").eq("id", tid).maybeSingle();
         const deckIdLinked = th?.deck_id as string | null;
-        deckIdToUse = context?.deckId || deckIdLinked;
+        const { resolveThreadDeckId } = await import("@/lib/chat/resolve-thread-deck-id");
+        const resolvedDeck = resolveThreadDeckId(deckIdLinked, context?.deckId ?? null);
+        deckIdToUse = resolvedDeck.deckId;
+        if (resolvedDeck.rejectedContextDeckId) {
+          console.warn("[chat] Ignored context.deckId; using thread deck_id", {
+            threadId: tid,
+            threadDeckId: deckIdLinked,
+            contextDeckId: context?.deckId,
+          });
+        }
         
         if (deckIdToUse) {
           // Try to get deck info and cards from deck_cards table (full database, up to 400 cards)

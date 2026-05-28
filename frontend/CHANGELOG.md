@@ -2,6 +2,21 @@
 
 ## 2026-05-28
 
+### Website — chat thread isolation (cross-thread deck / history leak)
+
+- **`resolve-thread-deck-id.ts`:** Thread `deck_id` wins over client `context.deckId` when they conflict (fixes AI using the previous thread’s deck after a fast thread switch).
+- **`app/api/chat/stream/route.ts`**, **`app/api/chat/route.ts`:** Use shared resolver; log when client deck id is rejected.
+- **`components/Chat.tsx`:** On thread switch, clear messages and linked deck immediately, abort in-flight stream; logged-in users with a thread no longer send `context.deckId` or client `messages[]` (server loads from `chat_messages` per `thread_id`).
+- **Tests:** `tests/unit/resolve-thread-deck-id.test.ts`.
+
+### Scanner AI API (mobile)
+
+- **Phase A reliability:** `response_format: json_object`; snap AI pick to fuzzy list; fuzzy-list fallback when validation fails; `code` on hard failure (`parse_failed` / `validation_failed`).
+- **`POST /api/cards/scan-disambiguate`:** Text-only OpenAI disambiguation among OCR/fuzzy candidates (Phase A stealth).
+- **`POST /api/cards/recognize-image`:** `assistMode` (fallback|improve), `imageRole` (title|full); shared validation via `lib/scanner/scan-ai-core.ts`.
+- **Models:** `lib/scanner/scan-ai-models.ts` → `getModelForTier` (no `MODEL_SCAN_*` env); upgrade via `default-models.ts` / `MODEL_GUEST` / `MODEL_FREE` / `MODEL_PRO_*`.
+- **Docs:** `docs/SCANNER_AI_API.md`. **Limits:** `SCAN_DISAMBIGUATE_*` in `feature-limits.ts`.
+
 ### Website — manual deck builder from collection
 
 - **`BuildDeckFromCollectionChooser`:** Two-step entry — **Build it myself** vs **Build it with AI** (sparkle on AI only); primary collection CTA no longer shows sparkle.

@@ -296,16 +296,26 @@ export async function POST(req: NextRequest) {
     let threadCommander: string | null = null;
     let threadDecklistText: string | null = null;
     let threadDecklistHash: string | null = null;
+    let threadDeckIdFromRow: string | null = null;
     if (tid && !isGuest) {
       const { data: th } = await supabase.from("chat_threads")
         .select("deck_id, commander, decklist_text, commander_status, deck_source, decklist_hash, deck_context_updated_at, deck_parse_meta")
         .eq("id", tid).maybeSingle();
-      deckIdLinked = (th?.deck_id as string) ?? null;
+      threadDeckIdFromRow = (th?.deck_id as string) ?? null;
       threadCommander = (th?.commander as string) ?? null;
       threadDecklistText = (th?.decklist_text as string) ?? null;
       threadDecklistHash = (th?.decklist_hash as string) ?? null;
     }
-    if (contextDeckId) deckIdLinked = contextDeckId;
+    const { resolveThreadDeckId } = await import("@/lib/chat/resolve-thread-deck-id");
+    const resolvedDeck = resolveThreadDeckId(threadDeckIdFromRow, contextDeckId);
+    deckIdLinked = resolvedDeck.deckId;
+    if (resolvedDeck.rejectedContextDeckId) {
+      console.warn("[stream] Ignored context.deckId; using thread deck_id", {
+        threadId: tid,
+        threadDeckId: threadDeckIdFromRow,
+        contextDeckId,
+      });
+    }
 
     let deckData: { d: any; entries: Array<{ count: number; name: string }>; deckText: string } | null = null;
     /** Populated from linked `deck_cards` rows (zone-aware); null if not linked or no rows. */

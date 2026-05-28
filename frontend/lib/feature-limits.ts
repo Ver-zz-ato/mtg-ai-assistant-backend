@@ -84,6 +84,11 @@ export const SCAN_AI_GUEST = 3;
 export const SCAN_AI_FREE = 10;
 export const SCAN_AI_PRO = 100;
 
+/** Scanner text disambiguation (Phase A stealth): higher caps — text-only, cheaper. */
+export const SCAN_DISAMBIGUATE_GUEST = 8;
+export const SCAN_DISAMBIGUATE_FREE = 40;
+export const SCAN_DISAMBIGUATE_PRO = 200;
+
 /** Probability Tool: free 5/day, Pro 50/day. */
 export const PROBABILITY_FREE = 5;
 export const PROBABILITY_PRO = 50;
