@@ -20,6 +20,11 @@ const PLAYSTYLES = [
   "Tactical Mind",
 ];
 
+const MODULE_CARD =
+  "bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col h-full";
+const MODULE_CTA =
+  "mt-auto flex w-full items-center justify-center py-3 px-4 text-center text-white font-semibold rounded-xl";
+
 const ARCHETYPES = [
   { name: "Tokens", colors: ["W", "G"], desc: "Overwhelm with creature tokens" },
   { name: "Aristocrats", colors: ["W", "B"], desc: "Sacrifice for value" },
@@ -219,19 +224,19 @@ export default function CommanderBuilderModules() {
         Choose your path: find your playstyle, browse commanders, start from an archetype, or let AI generate a deck.
       </p>
 
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid md:grid-cols-2 gap-8 items-stretch">
         {/* Module A: Find My Playstyle */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+        <div className={MODULE_CARD}>
           <div className="text-3xl mb-4">A</div>
           <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
             Find My Playstyle
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4 flex-1">
             Take a short quiz to discover your MTG playstyle and get personalized commander suggestions.
           </p>
           <button
             onClick={() => setShowQuiz(true)}
-            className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl"
+            className={`${MODULE_CTA} bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500`}
           >
             Start Quiz
           </button>
@@ -239,35 +244,35 @@ export default function CommanderBuilderModules() {
         </div>
 
         {/* Module B: Commander Finder */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+        <div className={MODULE_CARD}>
           <div className="text-3xl mb-4">B</div>
           <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
             Commander Finder
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4 flex-1">
             Browse cards that can be your commander — by colors and archetype. {!user && "Sign in to use My Decks."}
           </p>
           <Link
             href={user ? "/my-decks" : "/login"}
-            className="block w-full py-3 px-4 text-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl"
+            className={`${MODULE_CTA} bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500`}
           >
             {user ? "Go to My Decks →" : "Sign in to Browse →"}
           </Link>
         </div>
 
         {/* Module C: Archetype Builder - auth required */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+        <div className={MODULE_CARD}>
           <div className="text-3xl mb-4">C</div>
           <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
             Archetype Builder
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4 flex-1">
             Start from an archetype to get a scaffold deck you can customize.
           </p>
           {!user ? (
             <Link
               href="/login"
-              className="block w-full py-3 px-4 text-center bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white font-semibold rounded-xl"
+              className={`${MODULE_CTA} bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500`}
             >
               Sign in to Create Scaffold
             </Link>
@@ -293,7 +298,7 @@ export default function CommanderBuilderModules() {
               <button
                 onClick={handleModuleCScaffold}
                 disabled={moduleCLoading}
-                className="w-full py-3 px-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 disabled:opacity-50 text-white font-semibold rounded-xl"
+                className={`${MODULE_CTA} bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 disabled:opacity-50`}
               >
                 {moduleCLoading ? "Building…" : "Create Scaffold Deck"}
               </button>
@@ -302,23 +307,23 @@ export default function CommanderBuilderModules() {
         </div>
 
         {/* Module D: AI Deck Generator - auth required, rate limited */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+        <div className={MODULE_CARD}>
           <div className="text-3xl mb-4">D</div>
           <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
             AI Deck Generator
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4 flex-1">
             Enter a commander and preferences; AI generates a full deck from the card pool. {!user && "Sign in to use."}
           </p>
           {!user ? (
             <Link
               href="/login"
-              className="block w-full py-3 px-4 text-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl"
+              className={`${MODULE_CTA} bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500`}
             >
               Sign in to Generate Deck
             </Link>
           ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 mt-auto w-full">
             <div>
               <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Commander</label>
               <CardAutocomplete
@@ -378,7 +383,7 @@ export default function CommanderBuilderModules() {
             <button
               onClick={handleModuleDGenerate}
               disabled={moduleDLoading || !commander.trim()}
-              className="w-full py-3 px-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 text-white font-semibold rounded-xl"
+              className={`${MODULE_CTA} bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50`}
             >
               {moduleDLoading ? "Generating…" : "Generate Deck"}
             </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import FormatPickerModal, {
@@ -8,9 +8,18 @@ import FormatPickerModal, {
   type PickedDeckFormat,
 } from "@/components/FormatPickerModal";
 import ManualCollectionCommanderPicker from "./ManualCollectionCommanderPicker";
-import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
+import OutsideCollectionToggle from "./OutsideCollectionToggle";
+import OutsideCardSearchAdd from "./OutsideCardSearchAdd";
+import ManualCollectionColorFilter from "./ManualCollectionColorFilter";
+import ManualCollectionBrowseRow from "./ManualCollectionBrowseRow";
+import type { CollectionCardMeta } from "@/lib/build/useCollectionBuildMetadata";
+import { resolveMetaFromMap } from "@/lib/scryfall-cache-lookup";
 import { getCollectionCardBucket, type CollectionCardBucket } from "@/lib/build/collectionCardBucket";
 import { CollectionManualDeckDraft } from "@/lib/build/collectionManualDeckDraft";
+import {
+  cardMatchesColorFilter,
+  type CollectionColorPip,
+} from "@/lib/build/collectionColorFilter";
 import {
   COLLECTION_BUCKET_LABELS,
   sortCollectionCards,
@@ -21,7 +30,33 @@ import { getDeckHardCapMessage, getExpectedCount } from "@/lib/deck/formatCompli
 import { getFormatRules, isBasicLandName, isCommanderFormatString } from "@/lib/deck/formatRules";
 
 const TABS: CollectionCardBucket[] = ["lands", "creatures", "spells", "other"];
-const PAGE = 5;
+const PAGE = 24;
+
+const TAB_CLASS: Record<CollectionCardBucket, { on: string; off: string }> = {
+  lands: {
+    on: "bg-emerald-900/40 border-emerald-500/50 text-emerald-200",
+    off: "bg-neutral-900 border-neutral-800 text-neutral-400 hover:bg-neutral-800",
+  },
+  creatures: {
+    on: "bg-orange-900/35 border-orange-500/50 text-orange-200",
+    off: "bg-neutral-900 border-neutral-800 text-neutral-400 hover:bg-neutral-800",
+  },
+  spells: {
+    on: "bg-blue-900/35 border-blue-500/50 text-blue-200",
+    off: "bg-neutral-900 border-neutral-800 text-neutral-400 hover:bg-neutral-800",
+  },
+  other: {
+    on: "bg-purple-900/35 border-purple-500/50 text-purple-200",
+    off: "bg-neutral-900 border-neutral-800 text-neutral-400 hover:bg-neutral-800",
+  },
+};
+
+function sortCommanderPips(ids: string[] | null | undefined): CollectionColorPip[] {
+  const order = ["W", "U", "B", "R", "G"] as const;
+  if (!ids?.length) return [];
+  const set = new Set(ids.map((c) => String(c).toUpperCase()));
+  return order.filter((c) => set.has(c));
+}
 
 type Step = "format" | "commander" | "browse";
 
@@ -56,9 +91,61 @@ export default function ManualDeckFromCollectionClient({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [outsideCollection, setOutsideCollection] = useState(false);
+  const [commanderMeta, setCommanderMeta] = useState<CollectionCardMeta | undefined>();
+  const [colorFilter, setColorFilter] = useState<CollectionColorPip[]>([]);
+  const [colorLockToast, setColorLockToast] = useState(false);
 
-  const { items, metaByName, loading, error: loadError, commanderCandidates, normName } =
-    useCollectionBuildMetadata(collectionId);
+  const {
+    items,
+    metaByName,
+    loading,
+    error: loadError,
+    commanderCandidates,
+    normName,
+    metaCoverage,
+    resolveMeta,
+    fetchMetaForName,
+  } = useCollectionBuildMetadata(collectionId);
+
+  const getMeta = useCallback(
+    (name: string) => resolveMeta(name) ?? resolveMetaFromMap(metaByName, name),
+    [resolveMeta, metaByName],
+  );
+
+  const commanderColorPips = useMemo(() => {
+    if (!isCommanderFormatString(format)) return [] as CollectionColorPip[];
+    const m = commanderMeta ?? (commander.trim() ? getMeta(commander) : undefined);
+    return sortCommanderPips(m?.color_identity ?? null);
+  }, [format, commander, commanderMeta, getMeta]);
+
+  const activeColorFilter = isCommanderFormatString(format) ? commanderColorPips : colorFilter;
+
+  useEffect(() => {
+    if (!colorLockToast) return;
+    const dismiss = () => setColorLockToast(false);
+    const timer = setTimeout(dismiss, 3200);
+    document.addEventListener("click", dismiss, true);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", dismiss, true);
+    };
+  }, [colorLockToast]);
+
+  const indexedItems = useMemo(
+    () =>
+      items.map((item) => {
+        const m = getMeta(item.name);
+        return {
+          id: item.id,
+          name: item.name,
+          collectionQty: item.qty,
+          meta: m,
+          bucket: getCollectionCardBucket(m),
+        };
+      }),
+    [items, getMeta],
+  );
 
   const totalInDeck = draft.totalCards();
   const hardCapMsg = getDeckHardCapMessage(totalInDeck);
@@ -70,37 +157,28 @@ export default function ManualDeckFromCollectionClient({
 
   const tabRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let rows = items
-      .map((item) => {
-        const m = metaByName.get(normName(item.name));
-        return {
-          id: item.id,
-          name: item.name,
-          collectionQty: item.qty,
-          priceUsd: m?.priceUsd,
-          color_identity: m?.color_identity,
-          meta: m,
-        };
-      })
-      .filter((row) => getCollectionCardBucket(row.meta) === tab);
+    let rows = indexedItems.filter((row) => row.bucket === tab);
     if (q) rows = rows.filter((r) => r.name.toLowerCase().includes(q));
+    if (activeColorFilter.length > 0) {
+      rows = rows.filter((r) => cardMatchesColorFilter(r.meta?.color_identity, activeColorFilter));
+    }
     const sorted = sortCollectionCards(
       rows.map((r) => ({
         name: r.name,
         qty: r.collectionQty,
-        priceUsd: r.priceUsd,
-        color_identity: r.color_identity,
+        priceUsd: r.meta?.priceUsd,
+        color_identity: r.meta?.color_identity,
       })),
       sortMode,
     );
     const order = new Map(sorted.map((r, i) => [r.name, i]));
     return [...rows].sort((a, b) => (order.get(a.name) ?? 0) - (order.get(b.name) ?? 0));
-  }, [items, metaByName, normName, tab, search, sortMode]);
+  }, [indexedItems, tab, search, sortMode, activeColorFilter]);
 
   const visibleRows = tabRows.slice(0, visible);
 
   const cycleSort = () => {
-    setSortMode((m) => (m === "price" ? "name" : m === "name" ? "color" : "price"));
+    setSortMode((m) => (m === "price" ? "name" : "price"));
     setVisible(PAGE);
   };
 
@@ -114,10 +192,8 @@ export default function ManualDeckFromCollectionClient({
     setError(null);
     try {
       const cmd = isCommanderFormatString(format) ? commander.trim() : "";
-      const colors =
-        cmd && metaByName.get(normName(cmd))?.color_identity
-          ? metaByName.get(normName(cmd))!.color_identity!
-          : [];
+      const cmdMeta = commanderMeta ?? getMeta(cmd);
+      const colors = cmd && cmdMeta?.color_identity ? cmdMeta.color_identity : [];
       const res = await fetch("/api/decks/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,7 +214,7 @@ export default function ManualDeckFromCollectionClient({
       setError(e instanceof Error ? e.message : "Save failed");
       setSaving(false);
     }
-  }, [hardCapMsg, title, format, commander, metaByName, normName, draft, router]);
+  }, [hardCapMsg, title, format, commander, commanderMeta, getMeta, draft, router]);
 
   if (step === "format") {
     return (
@@ -179,9 +255,9 @@ export default function ManualDeckFromCollectionClient({
         <span className="text-xs text-neutral-500">{format}</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-white mb-1">Build deck manually</h1>
+      <h1 className="text-2xl font-bold text-white mb-1 text-center">Build deck manually</h1>
       {isCommanderFormatString(format) && commander ? (
-        <p className="text-sm text-purple-300 mb-4">
+        <p className="text-sm text-purple-300 mb-4 text-center">
           Commander: <strong>{commander}</strong>
           <button
             type="button"
@@ -199,7 +275,20 @@ export default function ManualDeckFromCollectionClient({
           metaByName={metaByName}
           normName={normName}
           selectedCommander={commander}
-          onSelect={setCommander}
+          loading={loading}
+          metaCoverage={metaCoverage}
+          onSelect={(name, meta) => {
+            setCommander(name);
+            setCommanderMeta(meta);
+            if (meta) {
+              const next = new Map(metaByName);
+              for (const k of [normName(name)]) {
+                next.set(k, { ...next.get(k), ...meta });
+              }
+            } else {
+              void fetchMetaForName(name).then((m) => setCommanderMeta(m));
+            }
+          }}
           onContinue={() => setStep("browse")}
           onBack={() => setStep("format")}
         />
@@ -211,7 +300,35 @@ export default function ManualDeckFromCollectionClient({
             <p className="text-red-400 text-sm">{loadError}</p>
           ) : (
             <>
-              <div className="flex flex-wrap gap-2 mb-3">
+              <OutsideCollectionToggle
+                checked={outsideCollection}
+                onChange={setOutsideCollection}
+              />
+
+              {outsideCollection ? (
+                <OutsideCardSearchAdd
+                  onPick={(name, meta) => {
+                    const collectionRow = items.find(
+                      (i) => normName(i.name) === normName(name),
+                    );
+                    const qty = collectionRow?.qty ?? 0;
+                    const outside = !collectionRow;
+                    if (draft.addOne(name, format, qty, { outsideCollection: outside })) {
+                      refresh();
+                      if (meta && outside) {
+                        const next = new Map(metaByName);
+                        for (const k of [normName(name)]) {
+                          next.set(k, { ...next.get(k), ...meta });
+                        }
+                      }
+                    }
+                  }}
+                />
+              ) : null}
+
+              {!outsideCollection ? (
+              <>
+              <div className="flex flex-wrap gap-2 mb-3 justify-center">
                 {TABS.map((t) => (
                   <button
                     key={t}
@@ -220,10 +337,8 @@ export default function ManualDeckFromCollectionClient({
                       setTab(t);
                       setVisible(PAGE);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                      tab === t
-                        ? "bg-purple-600 text-white"
-                        : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                    className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${
+                      tab === t ? TAB_CLASS[t].on : TAB_CLASS[t].off
                     }`}
                   >
                     {COLLECTION_BUCKET_LABELS[t]}
@@ -231,14 +346,21 @@ export default function ManualDeckFromCollectionClient({
                 ))}
               </div>
 
-              <div className="flex gap-2 mb-3">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <button
                   type="button"
                   onClick={cycleSort}
-                  className="px-3 py-2 rounded-lg border border-neutral-700 text-sm text-neutral-200 hover:bg-neutral-800"
+                  className="px-3 py-2 rounded-full border border-neutral-700 text-sm font-semibold text-neutral-200 hover:bg-neutral-800 bg-neutral-900"
                 >
-                  Sort: {sortMode === "price" ? "Price" : sortMode === "name" ? "A–Z" : "Colour"}
+                  Sort: {sortMode === "price" ? "Price" : "A–Z"}
                 </button>
+                <ManualCollectionColorFilter
+                  selected={colorFilter}
+                  locked={isCommanderFormatString(format)}
+                  lockedColors={commanderColorPips}
+                  onChange={setColorFilter}
+                  onLockedPress={() => setColorLockToast(true)}
+                />
               </div>
 
               <input
@@ -267,52 +389,35 @@ export default function ManualDeckFromCollectionClient({
                 ) : (
                   visibleRows.map((row) => {
                     const inDeck = draft.getQty(row.name);
-                    const max = draft.maxAddAllowed(row.name, format, row.collectionQty);
+                    const max = draft.maxAddAllowed(row.name, format, row.collectionQty, {
+                      outsideCollection: false,
+                    });
                     const rules = getFormatRules(format);
                     let capTotal = Math.min(row.collectionQty, rules.maxCopies);
                     if (rules.maxCopies === 1 && isBasicLandName(row.name)) {
                       capTotal = row.collectionQty;
                     }
-                    const m = row.meta;
                     return (
-                      <li
+                      <ManualCollectionBrowseRow
                         key={row.id}
-                        className="flex items-center gap-2 p-2 rounded-xl border border-neutral-800 bg-neutral-900/50"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <CardRowPreviewLeft
-                            name={row.name}
-                            imageSmall={m?.imageSmall}
-                            imageLarge={m?.imageNormal}
-                            setCode={m?.set}
-                            rarity={m?.rarity}
-                          />
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          {m?.priceUsd != null ? (
-                            <span className="text-xs text-neutral-400">
-                              ${m.priceUsd.toFixed(2)}
-                            </span>
-                          ) : null}
-                          <span className="text-xs text-neutral-500">
-                            {inDeck}/{capTotal}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={max <= 0}
-                            onClick={() => {
-                              if (draft.addOne(row.name, format, row.collectionQty)) refresh();
-                            }}
-                            className="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-semibold"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      </li>
+                        name={row.name}
+                        meta={row.meta}
+                        priceUsd={row.meta?.priceUsd}
+                        inDeck={inDeck}
+                        collectionQty={row.collectionQty}
+                        capTotal={capTotal}
+                        canAdd={max > 0}
+                        onAdd={() => {
+                          if (draft.addOne(row.name, format, row.collectionQty, { outsideCollection: false }))
+                            refresh();
+                        }}
+                      />
                     );
                   })
                 )}
               </ul>
+              </>
+              ) : null}
 
               <input
                 type="text"
@@ -322,8 +427,18 @@ export default function ManualDeckFromCollectionClient({
                 className="w-full mb-3 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm"
               />
 
-              <p className="text-xs text-neutral-500 mb-3">{countHint}</p>
-              {error ? <p className="text-sm text-red-400 mb-2">{error}</p> : null}
+              <p className="text-xs text-neutral-500 mb-3 text-center">{countHint}</p>
+              {error ? <p className="text-sm text-red-400 mb-2 text-center">{error}</p> : null}
+
+              {colorLockToast ? (
+                <div
+                  role="alert"
+                  className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[calc(100%-2rem)] px-4 py-3 rounded-xl border border-neutral-700 bg-neutral-950/95 text-sm text-neutral-100 text-center shadow-lg cursor-pointer"
+                  onClick={() => setColorLockToast(false)}
+                >
+                  Colours locked to commander colours
+                </div>
+              ) : null}
 
               <div className="flex gap-3 sticky bottom-0 py-3 bg-neutral-950 border-t border-neutral-800">
                 <button

@@ -4,12 +4,13 @@ import { withLogging } from "@/lib/api/withLogging";
 import { createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { CachePresets } from "@/lib/api/cache";
+import {
+  normalizeScryfallCacheName,
+  scryfallCacheLookupNameKeys,
+} from "@/lib/scryfall-cache-lookup";
 
 const DAY = 24 * 60 * 60 * 1000;
-
-function norm(name: string): string {
-  return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-}
+const IN_CHUNK = 80;
 
 function coerceStringArray(v: unknown): string[] | undefined {
   if (!Array.isArray(v)) return undefined;
@@ -56,29 +57,32 @@ export const POST = withLogging(async (req: NextRequest) => {
 
     const supabase = await createClient();
     const uniq = Array.from(new Set(names.map((n: string) => n.trim()).filter(Boolean)));
-    const keys = uniq.map(norm);
-    
-    logger.debug('[batch-metadata] Querying for', keys.length, 'unique cards');
-    logger.debug('[batch-metadata] First 3 keys:', keys.slice(0, 3));
+    const allLookupKeys = new Set<string>();
+    for (const name of uniq) {
+      for (const key of scryfallCacheLookupNameKeys(name)) {
+        allLookupKeys.add(key);
+      }
+    }
+    const lookupList = [...allLookupKeys];
 
-    // Fetch metadata from our scryfall_cache table
-    const { data: rows, error } = await supabase
-      .from("scryfall_cache")
-      .select(
-        "name, type_line, oracle_text, mana_cost, cmc, color_identity, rarity, set, collector_number, small, normal, art_crop, legalities, keywords, colors, power, toughness, loyalty, is_land, is_creature, is_instant, is_sorcery, is_enchantment, is_artifact, is_planeswalker"
-      )
-      .in("name", keys);
-    
-    logger.debug('[batch-metadata] Query returned', rows?.length || 0, 'rows');
-    if (error) logger.error('[batch-metadata] Query error:', error);
-    if (rows && rows.length > 0) {
-      logger.debug('[batch-metadata] First 3 rows:', rows.slice(0, 3));
-      logger.debug('[batch-metadata] First row raw data:', JSON.stringify(rows[0], null, 2));
-      logger.debug('[batch-metadata] Checking rarity field:', rows[0]?.rarity, 'type:', typeof rows[0]?.rarity);
+    logger.debug("[batch-metadata] Querying for", lookupList.length, "lookup keys from", uniq.length, "names");
+
+    const rowsArray: any[] = [];
+    for (let i = 0; i < lookupList.length; i += IN_CHUNK) {
+      const chunk = lookupList.slice(i, i + IN_CHUNK);
+      const { data: rows, error } = await supabase
+        .from("scryfall_cache")
+        .select(
+          "name, type_line, oracle_text, mana_cost, cmc, color_identity, rarity, set, collector_number, small, normal, art_crop, legalities, keywords, colors, power, toughness, loyalty, is_land, is_creature, is_instant, is_sorcery, is_enchantment, is_artifact, is_planeswalker",
+        )
+        .in("name", chunk);
+      if (error) logger.error("[batch-metadata] Query error:", error);
+      if (rows?.length) rowsArray.push(...rows);
     }
 
-    const rowsArray = (rows || []) as any[];
-    const dataMap = new Map();
+    logger.debug("[batch-metadata] Query returned", rowsArray.length, "rows");
+
+    const dataMap = new Map<string, Record<string, unknown>>();
     
     for (const row of rowsArray) {
       const base: Record<string, unknown> = {
@@ -122,7 +126,7 @@ export const POST = withLogging(async (req: NextRequest) => {
       if (ie !== undefined) base.is_enchantment = ie;
       if (ia !== undefined) base.is_artifact = ia;
       if (ip !== undefined) base.is_planeswalker = ip;
-      dataMap.set(row.name, base);
+      dataMap.set(normalizeScryfallCacheName(String(row.name || "")), base);
     }
 
     // Format response for client
@@ -130,8 +134,12 @@ export const POST = withLogging(async (req: NextRequest) => {
     const not_found: any[] = [];
     
     for (const name of names) {
-      const normalizedKey = norm(name.trim());
-      const metadata = dataMap.get(normalizedKey);
+      const trimmed = name.trim();
+      let metadata: Record<string, unknown> | undefined;
+      for (const key of scryfallCacheLookupNameKeys(trimmed)) {
+        metadata = dataMap.get(key);
+        if (metadata) break;
+      }
       
       if (metadata) {
         data.push({

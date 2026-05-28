@@ -38,19 +38,27 @@ export class CollectionManualDeckDraft {
     name: string,
     format: string,
     collectionQty: number,
+    opts?: { outsideCollection?: boolean },
   ): number {
     const rules = getFormatRules(format);
     const current = this.getQty(name);
-    const capFromCollection = Math.max(0, Math.floor(collectionQty));
+    const capFromCollection = opts?.outsideCollection
+      ? 99
+      : Math.max(0, Math.floor(collectionQty));
     let capFromFormat = rules.maxCopies;
     if (rules.maxCopies === 1 && isBasicLandName(name)) {
-      capFromFormat = capFromCollection;
+      capFromFormat = opts?.outsideCollection ? 99 : capFromCollection;
     }
     return Math.max(0, Math.min(capFromCollection, capFromFormat) - current);
   }
 
-  addOne(name: string, format: string, collectionQty: number): boolean {
-    if (this.maxAddAllowed(name, format, collectionQty) <= 0) return false;
+  addOne(
+    name: string,
+    format: string,
+    collectionQty: number,
+    opts?: { outsideCollection?: boolean },
+  ): boolean {
+    if (this.maxAddAllowed(name, format, collectionQty, opts) <= 0) return false;
     const key = normCardName(name);
     const existing = this.byNorm.get(key);
     if (existing) {
