@@ -1,4 +1,4 @@
-import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
+import { isCommanderEligible } from "@/lib/deck/commanderEligibility";
 import type { CollectionCardMeta } from "./useCollectionBuildMetadata";
 
 /** Commander eligibility from cache metadata (with type_line fallback). */
