@@ -59,10 +59,14 @@ export async function resolveScanAiRouteAuth(
         ? `guest:${await hashString(`anonymous-user:${user.id}`)}`
         : `ip:${await hashString(ip)}`;
 
-  const rateLimit = await checkDurableRateLimit(supabase, keyHash, routePath, dailyLimit, 1, {
-    identity: userTier,
-    verifiedUserId: userTier === "pro" && realUserId ? realUserId : null,
-  });
+  // Pro: no per-route daily cap (global AI budget check still applies below).
+  const rateLimit =
+    userTier === "pro" && realUserId
+      ? { allowed: true as const, remaining: -1, limit: -1, count: 0 }
+      : await checkDurableRateLimit(supabase, keyHash, routePath, dailyLimit, 1, {
+          identity: userTier,
+          verifiedUserId: null,
+        });
 
   if (!rateLimit.allowed) {
     return NextResponse.json(
@@ -111,6 +115,9 @@ export async function resolveScanAiRouteAuth(
 }
 
 export function scanAiRateLimitMeta(auth: ScanAiRouteAuth) {
+  if (auth.userTier === "pro" && auth.rateLimit.limit < 0) {
+    return { tier: auth.userTier, limit: null, remaining: null, resetAt: null };
+  }
   return {
     tier: auth.userTier,
     limit: auth.rateLimit.limit,

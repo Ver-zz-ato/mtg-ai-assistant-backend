@@ -8,6 +8,7 @@ import { POST } from "@/app/api/cards/scan-disambiguate/route";
 import { buildScanDisambiguatePrompt } from "@/lib/scanner/scan-disambiguate-prompt";
 import {
   parseScanAiJsonResponse,
+  preferFuzzyCandidateForValidatedName,
   snapParsedPrimaryToFuzzyCandidates,
 } from "@/lib/scanner/scan-ai-core";
 
@@ -50,6 +51,18 @@ async function main() {
     );
     assert.ok(parsed);
     assert.equal(parsed!.primary, "Lightning Bolt");
+  }
+
+  {
+    const preferred = preferFuzzyCandidateForValidatedName(
+      "rakka mar",
+      "Rakka Mar",
+      [
+        { name: "Rakka Mar, Steamkin Renegade", score: 0.58 },
+        { name: "Ragavan, Nimble Pilferer", score: 0.52 },
+      ]
+    );
+    assert.equal(preferred, "Rakka Mar, Steamkin Renegade");
   }
 
   {

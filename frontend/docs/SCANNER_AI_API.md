@@ -23,7 +23,7 @@ Three-phase scanner AI for the live Vision scanner and photo scan flows.
 
 **Response:** `{ ok, recognition, tier, limit, remaining, resetAt }` — same `recognition` shape as vision route (`source: "ai_text"`).
 
-**Limits:** `SCAN_DISAMBIGUATE_*` in `lib/feature-limits.ts` (guest 8 / free 40 / pro 200 per day).
+**Limits:** guest **8** / free **40** per day (`SCAN_DISAMBIGUATE_*`). **Pro:** no daily cap on scanner routes (global AI budget still applies).
 
 **Model:** Same tier routing as chat — `getModelForTier` via `lib/scanner/scan-ai-models.ts` (guest → `MODEL_GUEST` / `DEFAULT_GUEST_MODEL`, free → `MODEL_FREE`, pro → `MODEL_PRO_CHAT`). No `MODEL_SCAN_DISAMBIGUATE` env.
 
@@ -45,7 +45,7 @@ Three-phase scanner AI for the live Vision scanner and photo scan flows.
 | `imageRole` | `title` \| `full` (logged on recognition) |
 | `sourcePage` / `usageSource` | Attribution |
 
-**Limits:** `SCAN_AI_GUEST` / `SCAN_AI_FREE` / `SCAN_AI_PRO`.
+**Limits:** guest **3** / free **10** per day. **Pro:** no daily cap (global AI budget still applies).
 
 **Models:** Tier routing — Assist (`fallback`) uses chat-tier models; Pro improve uses deck-tier Pro model (`MODEL_PRO_DECK` / `DEFAULT_PRO_DECK_MODEL`). See `getScannerVisionModel` in `lib/scanner/scan-ai-models.ts`.
 

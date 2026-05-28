@@ -18,6 +18,8 @@
 
 ### Scanner AI API (mobile)
 
+- **Pro scanner AI:** No daily durable cap on `scan-disambiguate` / `recognize-image` (guest/free limits unchanged; global budget gate remains).
+- **Fuzzy preference:** When validation returns a short prefix of a client fuzzy candidate, use the full fuzzy name (e.g. Rakka Mar → Rakka Mar, Steamkin Renegade).
 - **Phase A reliability:** `response_format: json_object`; snap AI pick to fuzzy list; fuzzy-list fallback when validation fails; `code` on hard failure (`parse_failed` / `validation_failed`).
 - **`POST /api/cards/scan-disambiguate`:** Text-only OpenAI disambiguation among OCR/fuzzy candidates (Phase A stealth).
 - **`POST /api/cards/recognize-image`:** `assistMode` (fallback|improve), `imageRole` (title|full); shared validation via `lib/scanner/scan-ai-core.ts`.

@@ -79,14 +79,16 @@ export const PLAYSTYLE_EXPLAIN_PRO = 100;
 export const CUSTOM_CARD_GENERATE_GUEST = 5;
 export const CUSTOM_CARD_GENERATE_FREE = 10;
 
-/** Mobile card scanner AI assist: guest 3/day, free 10/day, Pro 100/day. */
+/** Mobile card scanner AI assist: guest 3/day, free 10/day; Pro uncapped (see scan-ai-route-auth). */
 export const SCAN_AI_GUEST = 3;
 export const SCAN_AI_FREE = 10;
+/** Legacy constant — Pro skips durable daily limiter on scanner routes. */
 export const SCAN_AI_PRO = 100;
 
-/** Scanner text disambiguation (Phase A stealth): higher caps — text-only, cheaper. */
+/** Scanner text disambiguation (Phase A stealth): guest 8 / free 40 per day; Pro uncapped. */
 export const SCAN_DISAMBIGUATE_GUEST = 8;
 export const SCAN_DISAMBIGUATE_FREE = 40;
+/** Legacy constant — Pro skips durable daily limiter on scanner routes. */
 export const SCAN_DISAMBIGUATE_PRO = 200;
 
 /** Probability Tool: free 5/day, Pro 50/day. */

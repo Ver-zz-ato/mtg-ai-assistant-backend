@@ -181,6 +181,33 @@ export type BuiltScanRecognition = {
   source_screen?: string | null;
 };
 
+/**
+ * Prefer the client's full fuzzy candidate when validation/AI returned a shorter prefix
+ * (e.g. validated "rakka mar" while fuzzy list has "Rakka Mar, Steamkin Renegade").
+ */
+export function preferFuzzyCandidateForValidatedName(
+  validatedName: string,
+  guessedName: string,
+  fuzzyMatches: Array<{ name: string; score?: number }> | undefined
+): string {
+  if (!fuzzyMatches?.length) return validatedName;
+  const vk = normScannerName(validatedName);
+  const gk = normScannerName(guessedName);
+  const ordered = [...fuzzyMatches].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const minPrefix = 4;
+
+  for (const row of ordered) {
+    const name = String(row.name ?? "").trim();
+    if (!name) continue;
+    const fk = normScannerName(name);
+    if (fk === vk || fk === gk) return name;
+    if (vk.length >= minPrefix && fk.startsWith(vk)) return name;
+    if (gk.length >= minPrefix && fk.startsWith(gk)) return name;
+    if (fk.length >= minPrefix && vk.startsWith(fk)) return name;
+  }
+  return validatedName;
+}
+
 /** When the model returns a near-miss, snap to a client fuzzy candidate before validation. */
 export function snapParsedPrimaryToFuzzyCandidates(
   parsed: ParsedScanAiJson,
@@ -282,8 +309,20 @@ export async function buildValidatedScanRecognition(params: {
     }
   }
 
-  const bestValidated = primaryRes.validated || allValidated[0];
+  let bestValidated = primaryRes.validated || allValidated[0];
   if (!bestValidated) return null;
+
+  const preferredFromFuzzy = preferFuzzyCandidateForValidatedName(
+    bestValidated,
+    parsed.primary,
+    scanContext?.fuzzyMatches
+  );
+  if (normScannerName(preferredFromFuzzy) !== normScannerName(bestValidated)) {
+    const prefRes = await fuzzyValidateCardName(preferredFromFuzzy, supabase, origin);
+    if (prefRes.validated) {
+      bestValidated = prefRes.validated;
+    }
+  }
 
   const extraFromAlts = altResults
     .flatMap((r) => (r.validated ? [r.validated] : []))
