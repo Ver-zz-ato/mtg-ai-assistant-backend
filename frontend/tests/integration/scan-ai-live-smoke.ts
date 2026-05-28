@@ -261,7 +261,7 @@ async function testRecognizeImage() {
   const form = new FormData();
   form.append(
     "image",
-    new Blob([imageBytes], { type: "image/jpeg" }),
+    new Blob([new Uint8Array(imageBytes)], { type: "image/jpeg" }),
     "scan-smoke-bolt.jpg"
   );
   form.append("assistMode", "fallback");

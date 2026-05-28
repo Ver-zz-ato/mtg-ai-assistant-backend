@@ -9,7 +9,7 @@ const img = readFileSync(join(process.cwd(), "tests", "fixtures", "scan-smoke-bo
 
 async function vision(assistMode: string, scanContext?: string) {
   const form = new FormData();
-  form.append("image", new Blob([img], { type: "image/jpeg" }), "bolt.jpg");
+  form.append("image", new Blob([new Uint8Array(img)], { type: "image/jpeg" }), "bolt.jpg");
   form.append("assistMode", assistMode);
   form.append("imageRole", assistMode === "improve" ? "full" : "title");
   form.append("usageSource", "manatap_app");
