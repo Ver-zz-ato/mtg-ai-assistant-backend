@@ -192,6 +192,98 @@ async function getWebsitePosthogDigest(hours: number) {
   }
 }
 
+function rowCostUsd(row: { cost_usd?: number | null; planner_cost_usd?: number | null }): number {
+  return (Number(row.cost_usd) || 0) + (Number(row.planner_cost_usd) || 0);
+}
+
+function isAiTestUsageRow(row: { source?: string | null; eval_run_id?: string | null | number }): boolean {
+  const source = row.source != null ? String(row.source).trim().toLowerCase() : "";
+  if (source === "ai_test" || source === "ai_test_judge") return true;
+  return row.eval_run_id != null && String(row.eval_run_id).trim() !== "";
+}
+
+function isBillableAiUsageRow(row: {
+  model?: string | null;
+  cost_usd?: number | null;
+  planner_cost_usd?: number | null;
+}): boolean {
+  const model = row.model != null ? String(row.model).trim().toLowerCase() : "";
+  if (!model || model === "none") return false;
+  return rowCostUsd(row) > 0;
+}
+
+function summarizeAiUsageWindow(rows: Array<{
+  source?: string | null;
+  source_page?: string | null;
+  route?: string | null;
+  model?: string | null;
+  cost_usd?: number | null;
+  planner_cost_usd?: number | null;
+  error_code?: string | null;
+  cache_hit?: boolean | null;
+  eval_run_id?: string | null | number;
+}>) {
+  let loggedRows = 0;
+  let billableCalls = 0;
+  let costUsd = 0;
+  let errors = 0;
+  let cacheHits = 0;
+
+  for (const row of rows) {
+    if (isAiTestUsageRow(row)) continue;
+    loggedRows += 1;
+    const hasError = Boolean(row.error_code);
+    const isCacheHit = row.cache_hit === true;
+    const cost = rowCostUsd(row);
+    if (hasError) errors += 1;
+    if (isCacheHit) cacheHits += 1;
+    if (!isBillableAiUsageRow(row)) continue;
+    billableCalls += 1;
+    costUsd += cost;
+  }
+
+  return {
+    logged_rows: loggedRows,
+    billable_calls: billableCalls,
+    cost_usd: round(costUsd, 4),
+    error_rate_pct: percent(errors, loggedRows),
+    cache_hit_pct: percent(cacheHits, loggedRows),
+  };
+}
+
+function splitAiUsageWindow(rows: Array<{
+  source?: string | null;
+  source_page?: string | null;
+  route?: string | null;
+  model?: string | null;
+  cost_usd?: number | null;
+  planner_cost_usd?: number | null;
+  error_code?: string | null;
+  cache_hit?: boolean | null;
+  eval_run_id?: string | null | number;
+}>) {
+  const appRows: typeof rows = [];
+  const websiteRows: typeof rows = [];
+  for (const row of rows) {
+    if (isAiTestUsageRow(row)) continue;
+    if (
+      isAppAiUsageRow({
+        source: row.source,
+        source_page: row.source_page,
+        route: row.route,
+      })
+    ) {
+      appRows.push(row);
+    } else {
+      websiteRows.push(row);
+    }
+  }
+  return {
+    app: summarizeAiUsageWindow(appRows),
+    website: summarizeAiUsageWindow(websiteRows),
+  };
+}
+
 async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getAdmin>>) {
   const now = new Date();
   const windowEnd = now.toISOString();
@@ -212,7 +304,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       getPosthogSignupCounts(24),
       admin
         .from("ai_usage")
-        .select("source,source_page,route,cost_usd,error_code,cache_hit")
+        .select("source,source_page,route,model,cost_usd,planner_cost_usd,error_code,cache_hit,eval_run_id")
         .gte("created_at", windowStart)
         .order("created_at", { ascending: false })
         .limit(AI_WINDOW_LIMIT),
@@ -220,36 +312,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
     ]);
 
   const aiWindowRows = aiUsageWindow.data || [];
-  let appAiCalls = 0;
-  let websiteAiCalls = 0;
-  let appAiErrors = 0;
-  let websiteAiErrors = 0;
-  let appAiCost = 0;
-  let websiteAiCost = 0;
-  let appAiCacheHits = 0;
-  let websiteAiCacheHits = 0;
-
-  for (const row of aiWindowRows) {
-    const isApp = isAppAiUsageRow({
-      source: row.source,
-      source_page: row.source_page,
-      route: row.route,
-    });
-    const hasError = Boolean(row.error_code);
-    const isCacheHit = row.cache_hit === true;
-    const cost = Number(row.cost_usd) || 0;
-    if (isApp) {
-      appAiCalls += 1;
-      appAiCost += cost;
-      if (hasError) appAiErrors += 1;
-      if (isCacheHit) appAiCacheHits += 1;
-    } else {
-      websiteAiCalls += 1;
-      websiteAiCost += cost;
-      if (hasError) websiteAiErrors += 1;
-      if (isCacheHit) websiteAiCacheHits += 1;
-    }
-  }
+  const aiSplit = splitAiUsageWindow(aiWindowRows);
 
   const overviewAlerts = (overview.alerts || []).filter((alert) => alert.severity === "critical" || alert.severity === "warn");
   const dailyDigestAlerts = overviewAlerts.filter(shouldCountForDailyDigestStatus);
@@ -284,10 +347,11 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         total_pro_profiles: asNumber(getMetric(users, "pro_profiles")?.value),
       },
       ai: {
-        calls_24h: appAiCalls,
-        cost_usd_24h: round(appAiCost, 4),
-        error_rate_pct: percent(appAiErrors, appAiCalls),
-        cache_hit_pct: percent(appAiCacheHits, appAiCalls),
+        logged_rows_24h: aiSplit.app.logged_rows,
+        calls_24h: aiSplit.app.billable_calls,
+        cost_usd_24h: aiSplit.app.cost_usd,
+        error_rate_pct: aiSplit.app.error_rate_pct,
+        cache_hit_pct: aiSplit.app.cache_hit_pct,
         requests_metric: asNumber(getMetric(ai, "requests")?.value),
       },
       revenue: {
@@ -313,10 +377,12 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         posthog_status: websitePosthog.configured ? (websitePosthog.error ? "failing" : "connected") : "missing",
       },
       ai: {
-        calls_24h: websiteAiCalls,
-        cost_usd_24h: round(websiteAiCost, 4),
-        error_rate_pct: percent(websiteAiErrors, websiteAiCalls),
-        cache_hit_pct: percent(websiteAiCacheHits, websiteAiCalls),
+        logged_rows_24h: aiSplit.website.logged_rows,
+        calls_24h: aiSplit.website.billable_calls,
+        cost_usd_24h: aiSplit.website.cost_usd,
+        error_rate_pct: aiSplit.website.error_rate_pct,
+        cache_hit_pct: aiSplit.website.cache_hit_pct,
+        cost_basis: "internal_pricing_table",
       },
       feedback: {
         generic_feedback_rows_24h: websiteFeedbackCount.count || 0,
@@ -372,6 +438,8 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       warning_alerts: warnAlerts.length,
     },
     notes: [
+      "AI cost uses ai_usage billable rows (model != none, cost > 0), excludes ai_test/eval runs, and includes planner_cost_usd.",
+      "OpenAI billing may be lower when chat/stream logs actual usage tokens; legacy rows used char/4 estimates.",
       websitePosthog.error ? `Website PostHog warning: ${websitePosthog.error}` : null,
       asString(getMetric(analytics, "scanner_events_seen")?.sub || ""),
       asString(getMetric(overview, "launch_health")?.sub || ""),

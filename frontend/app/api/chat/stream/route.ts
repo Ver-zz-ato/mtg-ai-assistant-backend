@@ -1784,6 +1784,7 @@ export async function POST(req: NextRequest) {
       model: effectiveModel,
       messages,
       stream: true,
+      stream_options: { include_usage: true },
       max_completion_tokens: tokenLimit,
       ...(useStop && { stop: CHAT_STOP_SEQUENCES }),
     } as Record<string, unknown>);
@@ -1825,6 +1826,7 @@ export async function POST(req: NextRequest) {
           messages,
           max_completion_tokens: tokenLimit,
           stream: true,
+          stream_options: { include_usage: true },
           ...(fallbackUseStop && { stop: CHAT_STOP_SEQUENCES }),
         } as Record<string, unknown>);
         const fallbackResponse = await fetch(OPENAI_URL, {
@@ -1997,6 +1999,7 @@ export async function POST(req: NextRequest) {
           let buffer = "";
           let fullContent = "";
           let streamDone = false;
+          let streamUsage: { prompt_tokens?: number; completion_tokens?: number; input_tokens?: number; output_tokens?: number } | null = null;
 
           while (!streamDone) {
             const elapsed = Date.now() - streamStartTime;
@@ -2025,6 +2028,9 @@ export async function POST(req: NextRequest) {
                     break;
                   }
                   const data = JSON.parse(jsonStr);
+                  if (data.usage) {
+                    streamUsage = data.usage;
+                  }
                   const delta = data.choices?.[0]?.delta?.content;
                   if (delta) {
                     fullContent += delta;
@@ -2197,9 +2203,12 @@ export async function POST(req: NextRequest) {
 
           try {
             const { recordAiUsage } = await import("@/lib/ai/log-usage");
+            const usageIn = Number(streamUsage?.prompt_tokens ?? streamUsage?.input_tokens);
+            const usageOut = Number(streamUsage?.completion_tokens ?? streamUsage?.output_tokens);
+            const hasActualUsage = Number.isFinite(usageIn) && usageIn >= 0 && Number.isFinite(usageOut) && usageOut >= 0;
             const inputLen = (sys?.length || 0) + (text?.length || 0);
-            const it = Math.ceil(inputLen / 4);
-            const ot = Math.ceil((outputText?.length || 0) / 4);
+            const it = hasActualUsage ? usageIn : Math.ceil(inputLen / 4);
+            const ot = hasActualUsage ? usageOut : Math.ceil((outputText?.length || 0) / 4);
             const { costUSD } = await import("@/lib/ai/pricing");
             const cost = costUSD(effectiveModel, it, ot);
             await recordAiUsage({

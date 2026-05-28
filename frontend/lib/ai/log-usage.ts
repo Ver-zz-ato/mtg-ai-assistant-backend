@@ -14,6 +14,20 @@ import { costUSD, PRICING_VERSION } from '@/lib/ai/pricing';
 const PREVIEW_MAX = 1000;
 const DEV = process.env.NODE_ENV !== 'production';
 
+/** Migration 058 — omit on insert when DB has not applied scanner metadata columns yet. */
+const SCANNER_METADATA_KEYS = [
+  'scanner_session_id',
+  'scanner_attempt_id',
+  'source_screen',
+  'assist_mode',
+] as const;
+
+function omitRecordKeys(obj: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+  const out = { ...obj };
+  for (const key of keys) delete out[key];
+  return out;
+}
+
 /**
  * ai_usage has RLS with policy (auth.uid() = user_id). A cookie/anon client
  * therefore silently blocks inserts for:
@@ -228,6 +242,11 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
     if (!inserted) {
       const { error: e2 } = await supabase.from('ai_usage').insert(withoutPreviews);
       if (!e2) inserted = true;
+    }
+    if (!inserted) {
+      const withoutScannerMetadata = omitRecordKeys(withoutPreviews as Record<string, unknown>, SCANNER_METADATA_KEYS);
+      const { error: e2a } = await supabase.from('ai_usage').insert(withoutScannerMetadata);
+      if (!e2a) inserted = true;
     }
     if (!inserted) {
       const omitNew = [

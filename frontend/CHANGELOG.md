@@ -2,6 +2,13 @@
 
 ## 2026-05-28
 
+### Ops — daily Discord digest AI cost/call accuracy
+
+- **`lib/ops/run-ops-report.ts`:** Daily digest now counts **billable LLM calls only** (excludes `model=none` / zero-cost rows and `ai_test` / eval rows), sums `cost_usd + planner_cost_usd`, and labels cost as internal estimate.
+- **`lib/ops/discord.ts`:** Discord lines renamed to **Billable LLM calls** with `$X.XX est.` formatting.
+- **`lib/ai/log-usage.ts`:** Insert fallback omits migration-058 scanner columns when DB has not applied `058_ai_usage_scanner_metadata.sql` (restores `source`, `source_page`, `request_kind`, `pricing_version` on rows).
+- **`app/api/chat/stream/route.ts`:** Requests `stream_options.include_usage` and logs **actual OpenAI usage tokens** when present (falls back to char/4 only when usage chunk missing).
+
 ### Website — chat thread isolation (cross-thread deck / history leak)
 
 - **`resolve-thread-deck-id.ts`:** Thread `deck_id` wins over client `context.deckId` when they conflict (fixes AI using the previous thread’s deck after a fast thread switch).
