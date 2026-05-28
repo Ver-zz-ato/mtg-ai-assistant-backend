@@ -422,7 +422,7 @@ function CollectionsPageClientBody() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold">2.</span>
-                    Choose guided, take the playstyle quiz, or use &quot;Build It For Me&quot;
+                    Build manually from your cards, or use AI (guided, playstyle quiz, or auto-build)
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold">3.</span>

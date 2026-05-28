@@ -2,6 +2,13 @@
 
 ## 2026-05-28
 
+### Website — manual deck builder from collection
+
+- **`BuildDeckFromCollectionChooser`:** Two-step entry — **Build it myself** vs **Build it with AI** (sparkle on AI only); primary collection CTA no longer shows sparkle.
+- **`/collections/[id]/build/manual`:** Format picker → Commander commander-picker (owned eligible only, art rows) → tabbed browser (Lands / Creatures / Spells / Other), sort, live search, lazy list, Add with in-deck counts; save via `POST /api/decks/create` (any count under 200-card cap).
+- **`lib/build/`:** `collectionCardBucket`, `collectionManualDeckDraft`, `sortCollectionCards`, `useCollectionBuildMetadata`.
+- **Files:** `components/manual-build/*`, `components/BuildDeckFromCollectionPanel.tsx`, `components/BuildDeckFromCollectionChooser.tsx`.
+
 ### Website — collection build + playstyle quiz flow
 
 - **`BuildDeckFromCollectionModal`:** Sends `quiz_build`, `collectionOwnershipMode`, and full quiz playstyle string; tab order Guided → **Find My Playstyle** → Quick; ownership mode selector; guided link to quiz; session handoff from quiz results.
