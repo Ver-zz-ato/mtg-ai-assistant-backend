@@ -1,0 +1,395 @@
+{
+  "status": 200,
+  "ok": true,
+  "preview": true,
+  "decklist": [
+    {
+      "name": "Muldrotha, the Gravetide",
+      "qty": 1
+    },
+    {
+      "name": "Acidic Slime",
+      "qty": 1
+    },
+    {
+      "name": "Altar of Dementia",
+      "qty": 1
+    },
+    {
+      "name": "Animate Dead",
+      "qty": 1
+    },
+    {
+      "name": "Arcane Signet",
+      "qty": 1
+    },
+    {
+      "name": "Ashnod's Altar",
+      "qty": 1
+    },
+    {
+      "name": "Assassin's Trophy",
+      "qty": 1
+    },
+    {
+      "name": "Beast Within",
+      "qty": 1
+    },
+    {
+      "name": "Blood Artist",
+      "qty": 1
+    },
+    {
+      "name": "Commander's Sphere",
+      "qty": 1
+    },
+    {
+      "name": "Cultivate",
+      "qty": 1
+    },
+    {
+      "name": "Dance of the Dead",
+      "qty": 1
+    },
+    {
+      "name": "Farseek",
+      "qty": 1
+    },
+    {
+      "name": "Generous Ent",
+      "qty": 1
+    },
+    {
+      "name": "Glowspore Shaman",
+      "qty": 1
+    },
+    {
+      "name": "Golgari Grave-Troll",
+      "qty": 1
+    },
+    {
+      "name": "Gravecrawler",
+      "qty": 1
+    },
+    {
+      "name": "Kodama's Reach",
+      "qty": 1
+    },
+    {
+      "name": "Life from the Loam",
+      "qty": 1
+    },
+    {
+      "name": "Lightning Greaves",
+      "qty": 1
+    },
+    {
+      "name": "Millikin",
+      "qty": 1
+    },
+    {
+      "name": "Mind Stone",
+      "qty": 1
+    },
+    {
+      "name": "Putrefy",
+      "qty": 1
+    },
+    {
+      "name": "Rampant Growth",
+      "qty": 1
+    },
+    {
+      "name": "Reclamation Sage",
+      "qty": 1
+    },
+    {
+      "name": "Sacrifice",
+      "qty": 1
+    },
+    {
+      "name": "Sakura-Tribe Elder",
+      "qty": 1
+    },
+    {
+      "name": "Satyr Wayfinder",
+      "qty": 1
+    },
+    {
+      "name": "Sol Ring",
+      "qty": 1
+    },
+    {
+      "name": "Stitcher's Supplier",
+      "qty": 1
+    },
+    {
+      "name": "Swiftfoot Boots",
+      "qty": 1
+    },
+    {
+      "name": "Sylvan Library",
+      "qty": 1
+    },
+    {
+      "name": "Terastodon",
+      "qty": 1
+    },
+    {
+      "name": "Victimize",
+      "qty": 1
+    },
+    {
+      "name": "Viscera Seer",
+      "qty": 1
+    },
+    {
+      "name": "Wonder",
+      "qty": 1
+    },
+    {
+      "name": "Wood Elves",
+      "qty": 1
+    },
+    {
+      "name": "Zulaport Cutthroat",
+      "qty": 1
+    },
+    {
+      "name": "Boseiju, Who Endures",
+      "qty": 1
+    },
+    {
+      "name": "Breeding Pool",
+      "qty": 1
+    },
+    {
+      "name": "Command Tower",
+      "qty": 1
+    },
+    {
+      "name": "Deathcap Glade",
+      "qty": 1
+    },
+    {
+      "name": "Dreamroot Cascade",
+      "qty": 1
+    },
+    {
+      "name": "Drowned Catacomb",
+      "qty": 1
+    },
+    {
+      "name": "Exotic Orchard",
+      "qty": 1
+    },
+    {
+      "name": "Hinterland Harbor",
+      "qty": 1
+    },
+    {
+      "name": "Overgrown Tomb",
+      "qty": 1
+    },
+    {
+      "name": "Phyrexian Tower",
+      "qty": 1
+    },
+    {
+      "name": "Takenuma, Abandoned Mire",
+      "qty": 1
+    },
+    {
+      "name": "Watery Grave",
+      "qty": 1
+    },
+    {
+      "name": "Woodland Cemetery",
+      "qty": 1
+    },
+    {
+      "name": "Ravenous Chupacabra",
+      "qty": 1
+    },
+    {
+      "name": "Plaguecrafter",
+      "qty": 1
+    },
+    {
+      "name": "Shriekmaw",
+      "qty": 1
+    },
+    {
+      "name": "Baleful Strix",
+      "qty": 1
+    },
+    {
+      "name": "Skull Prophet",
+      "qty": 1
+    },
+    {
+      "name": "Perpetual Timepiece",
+      "qty": 1
+    },
+    {
+      "name": "Seal of Primordium",
+      "qty": 1
+    },
+    {
+      "name": "Seal of Removal",
+      "qty": 1
+    },
+    {
+      "name": "Deadbridge Chant",
+      "qty": 1
+    },
+    {
+      "name": "Binding the Old Gods",
+      "qty": 1
+    },
+    {
+      "name": "Journey to Eternity",
+      "qty": 1
+    },
+    {
+      "name": "Seal of Doom",
+      "qty": 1
+    },
+    {
+      "name": "Font of Fertility",
+      "qty": 1
+    },
+    {
+      "name": "Vessel of Nascency",
+      "qty": 1
+    },
+    {
+      "name": "Hedron Crab",
+      "qty": 1
+    },
+    {
+      "name": "Crawling Sensation",
+      "qty": 1
+    },
+    {
+      "name": "Splinterfright",
+      "qty": 1
+    },
+    {
+      "name": "Syr Konrad, the Grim",
+      "qty": 1
+    },
+    {
+      "name": "Dread Return",
+      "qty": 1
+    },
+    {
+      "name": "Mulch",
+      "qty": 1
+    },
+    {
+      "name": "Grisly Salvage",
+      "qty": 1
+    },
+    {
+      "name": "Fact or Fiction",
+      "qty": 1
+    },
+    {
+      "name": "Compulsive Research",
+      "qty": 1
+    },
+    {
+      "name": "Tamiyo, Collector of Tales",
+      "qty": 1
+    },
+    {
+      "name": "Liliana, Death's Majesty",
+      "qty": 1
+    },
+    {
+      "name": "Forest",
+      "qty": 10
+    },
+    {
+      "name": "Swamp",
+      "qty": 8
+    },
+    {
+      "name": "Island",
+      "qty": 1
+    },
+    {
+      "name": "Stinkweed Imp",
+      "qty": 5
+    }
+  ],
+  "commander": "Muldrotha, the Gravetide",
+  "colors": [
+    "U",
+    "B",
+    "G"
+  ],
+  "overallAim": "A Mid Graveyard value: recur permanents with Muldrotha, sacrifice loops, mid grind. Commander deck led by Muldrotha, the Gravetide.",
+  "title": "Muldrotha, the Gravetide (AI)",
+  "deckText": "1 Muldrotha, the Gravetide\n1 Acidic Slime\n1 Altar of Dementia\n1 Animate Dead\n1 Arcane Signet\n1 Ashnod's Altar\n1 Assassin's Trophy\n1 Beast Within\n1 Blood Artist\n1 Commander's Sphere\n1 Cultivate\n1 Dance of the Dead\n1 Farseek\n1 Generous Ent\n1 Glowspore Shaman\n1 Golgari Grave-Troll\n1 Gravecrawler\n1 Kodama's Reach\n1 Life from the Loam\n1 Lightning Greaves\n1 Millikin\n1 Mind Stone\n1 Putrefy\n1 Rampant Growth\n1 Reclamation Sage\n1 Sacrifice\n1 Sakura-Tribe Elder\n1 Satyr Wayfinder\n1 Sol Ring\n1 Stitcher's Supplier\n1 Swiftfoot Boots\n1 Sylvan Library\n1 Terastodon\n1 Victimize\n1 Viscera Seer\n1 Wonder\n1 Wood Elves\n1 Zulaport Cutthroat\n1 Boseiju, Who Endures\n1 Breeding Pool\n1 Command Tower\n1 Deathcap Glade\n1 Dreamroot Cascade\n1 Drowned Catacomb\n1 Exotic Orchard\n1 Hinterland Harbor\n1 Overgrown Tomb\n1 Phyrexian Tower\n1 Takenuma, Abandoned Mire\n1 Watery Grave\n1 Woodland Cemetery\n1 Ravenous Chupacabra\n1 Plaguecrafter\n1 Shriekmaw\n1 Baleful Strix\n1 Skull Prophet\n1 Perpetual Timepiece\n1 Seal of Primordium\n1 Seal of Removal\n1 Deadbridge Chant\n1 Binding the Old Gods\n1 Journey to Eternity\n1 Seal of Doom\n1 Font of Fertility\n1 Vessel of Nascency\n1 Hedron Crab\n1 Crawling Sensation\n1 Splinterfright\n1 Syr Konrad, the Grim\n1 Dread Return\n1 Mulch\n1 Grisly Salvage\n1 Fact or Fiction\n1 Compulsive Research\n1 Tamiyo, Collector of Tales\n1 Liliana, Death's Majesty\n10 Forest\n8 Swamp\n1 Island\n5 Stinkweed Imp",
+  "format": "Commander",
+  "plan": "Mid Moderate Full deck",
+  "previewFacts": {
+    "land_count": 33,
+    "ramp_count": 10,
+    "draw_count": 11,
+    "interaction_count": 11,
+    "avg_cmc": 2.82,
+    "curve_histogram": [
+      9,
+      24,
+      19,
+      6,
+      9
+    ],
+    "curve_profile": "midrange",
+    "warning_flags": [
+      "hybrid_plan_detected"
+    ]
+  },
+  "collectionFit": {
+    "ownershipMode": "mostly_collection",
+    "collectionTotalCards": 97,
+    "promptSampleSize": 55,
+    "deckSlots": 100,
+    "ownedSlots": 75,
+    "missingSlots": 25,
+    "ownedPercent": 75,
+    "missingCardNames": [
+      "Ravenous Chupacabra",
+      "Plaguecrafter",
+      "Shriekmaw",
+      "Baleful Strix",
+      "Skull Prophet",
+      "Perpetual Timepiece",
+      "Seal of Primordium",
+      "Seal of Removal",
+      "Deadbridge Chant",
+      "Binding the Old Gods",
+      "Journey to Eternity",
+      "Seal of Doom",
+      "Font of Fertility",
+      "Vessel of Nascency",
+      "Hedron Crab",
+      "Crawling Sensation",
+      "Splinterfright",
+      "Syr Konrad, the Grim",
+      "Dread Return",
+      "Mulch",
+      "Grisly Salvage",
+      "Fact or Fiction",
+      "Compulsive Research",
+      "Tamiyo, Collector of Tales",
+      "Liliana, Death's Majesty"
+    ],
+    "missingNamesTruncated": false,
+    "missingUniqueCount": 25,
+    "rebalanceSwaps": 5
+  }
+}

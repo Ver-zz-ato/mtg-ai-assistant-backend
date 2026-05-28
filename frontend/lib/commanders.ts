@@ -173,6 +173,13 @@ export function getCommanderSlugByName(name: string): string | null {
   return found?.slug ?? null;
 }
 
+/** Curated commander profile by display name (case/punctuation insensitive). */
+export function getCommanderProfileByName(name: string): CommanderProfile | null {
+  const clean = String(name || "").replace(/\s*\(.*?\)\s*$/, "").trim();
+  if (!clean) return null;
+  return COMMANDERS.find((c) => norm(c.name) === norm(clean)) ?? null;
+}
+
 export function getCommanderCatalogSlugs(): string[] {
   return COMMANDERS.map((c) => c.slug);
 }

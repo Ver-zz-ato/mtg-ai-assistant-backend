@@ -34,6 +34,7 @@ import {
   normalizeCommanderDeckQtyForCollection,
   rebalanceMostlyCollectionDeck,
 } from "@/lib/deck/collection-commander-generation";
+import { buildCommanderReferencePromptBlock } from "@/lib/deck/commander-generation-context";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -196,13 +197,25 @@ export async function POST(req: NextRequest) {
     }
 
     const systemPrompt = buildGenerationSystemPrompt();
-    const userPrompt = buildGenerationUserPrompt(
+    let userPrompt = buildGenerationUserPrompt(
       input,
       collectionList,
       collectionId
         ? { totalCards: collectionTotalCards, sampleSize: collectionSampleSize }
         : null
     );
+
+    if (isCommanderRequest) {
+      const refCommander = (commander || seedCard || "").trim();
+      if (refCommander) {
+        try {
+          const refBlock = await buildCommanderReferencePromptBlock(refCommander);
+          if (refBlock) userPrompt = `${userPrompt}\n\n${refBlock}`;
+        } catch (e) {
+          console.warn("[generate-from-collection] commander reference block failed", e);
+        }
+      }
+    }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {

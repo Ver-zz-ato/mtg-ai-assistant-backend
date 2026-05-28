@@ -2,6 +2,13 @@
 
 ## 2026-05-28
 
+### Commander generate-from-collection — guide + precon hints
+
+- **`lib/deck/commander-generation-context.ts`:** Appends curated commander profile (plan, tags, coach notes, flagship traps) plus official **precon** land/ramp/draw/removal targets from `precon_decks` to the generation user prompt.
+- **`lib/commanders.ts`:** `getCommanderProfileByName` for name lookup.
+- **`app/api/deck/generate-from-collection/route.ts`:** Injects reference block for Commander requests.
+- **Tests:** `tests/unit/commander-generation-context.test.ts`.
+
 ### Commander generate-from-collection — mostly-owned tuning
 
 - **`mostly_collection`:** Stronger prompt (≥75% owned slots, ≤25 off-collection); mana base prefers **owned basics** before generic padding; **`rebalanceMostlyCollectionDeck`** swaps off-collection slots for owned cards when the model under-delivers.
