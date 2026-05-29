@@ -155,6 +155,54 @@ function stripChatProtocolMetadata(text: string): string {
   return String(text || "").replace(/\s*__MANATAP_CHAT_METADATA__(.|\n|\r)*?__MANATAP_CHAT_METADATA_END__\s*/g, "");
 }
 
+const CHAT_STREAM_MARKERS = [
+  "__MANATAP_CHAT_METADATA__",
+  "[DONE]",
+] as const;
+
+function protocolTailLength(text: string): number {
+  let keep = 0;
+  for (const marker of CHAT_STREAM_MARKERS) {
+    const max = Math.min(marker.length - 1, text.length);
+    for (let len = 1; len <= max; len++) {
+      if (marker.startsWith(text.slice(text.length - len))) keep = Math.max(keep, len);
+    }
+  }
+  return keep;
+}
+
+export function consumeChatStreamProtocolBuffer(
+  input: string,
+  flush = false
+): { text: string; buffer: string } {
+  let buffer = String(input || "");
+  let text = "";
+
+  while (buffer.length > 0) {
+    const start = buffer.indexOf("__MANATAP_CHAT_METADATA__");
+    if (start < 0) {
+      if (flush) {
+        text += buffer;
+        return { text, buffer: "" };
+      }
+      const keep = protocolTailLength(buffer);
+      if (keep >= buffer.length) return { text, buffer };
+      text += buffer.slice(0, buffer.length - keep);
+      return { text, buffer: buffer.slice(buffer.length - keep) };
+    }
+
+    text += buffer.slice(0, start);
+    const endMarker = "__MANATAP_CHAT_METADATA_END__";
+    const end = buffer.indexOf(endMarker, start + "__MANATAP_CHAT_METADATA__".length);
+    if (end < 0) {
+      return { text, buffer: buffer.slice(start) };
+    }
+    buffer = buffer.slice(end + endMarker.length);
+  }
+
+  return { text, buffer: "" };
+}
+
 /** Ensures postMessageStream resolves only after the pacer finishes (or aborts). */
 function createStreamCompletionGate(
   onToken: (token: string) => void,
@@ -392,20 +440,26 @@ export async function postMessageStream(
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let fullResponse = '';
+    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        const final = consumeChatStreamProtocolBuffer(buffer, true);
+        const visible = final.text;
+        if (visible) pacer.addChunk(visible);
+        buffer = final.buffer;
+        break;
+      }
 
-      const chunk = decoder.decode(value, { stream: true });
+      buffer += decoder.decode(value, { stream: true });
       
       // Check for completion signal
-      if (chunk.includes("[DONE]")) {
-        const beforeDone = chunk.split("[DONE]")[0];
-        const visible = stripChatProtocolMetadata(beforeDone);
+      if (buffer.includes("[DONE]")) {
+        const beforeDone = buffer.split("[DONE]")[0];
+        const parsed = consumeChatStreamProtocolBuffer(beforeDone, true);
+        const visible = parsed.text;
         if (visible) {
-          fullResponse += visible;
           pacer.addChunk(visible);
         }
         // Signal completion to pacer
@@ -413,10 +467,11 @@ export async function postMessageStream(
         break;
       }
       
+      const parsed = consumeChatStreamProtocolBuffer(buffer, false);
+      buffer = parsed.buffer;
       // Filter out heartbeat spaces and add to pacer
-      const filtered = stripChatProtocolMetadata(chunk).replace(/^\s+$/, "");
+      const filtered = parsed.text.replace(/^\s+$/, "");
       if (filtered) {
-        fullResponse += filtered;
         pacer.addChunk(filtered);
       }
     }
