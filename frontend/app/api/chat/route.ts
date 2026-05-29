@@ -662,7 +662,13 @@ export async function POST(req: NextRequest) {
       return err(maint.message, "maintenance", 503);
     }
 
-    const evalRunId = typeof raw?.eval_run_id === "string" && raw.eval_run_id.trim() ? raw.eval_run_id.trim() : undefined;
+    const rawEvalRunId = raw?.eval_run_id;
+    const evalRunId =
+      typeof rawEvalRunId === "string" && rawEvalRunId.trim()
+        ? rawEvalRunId.trim()
+        : typeof rawEvalRunId === "number" && Number.isFinite(rawEvalRunId)
+          ? String(rawEvalRunId)
+          : undefined;
 
     // Durable rate limiting (database-backed, persists across restarts)
     // This complements in-memory rate limiting for reliability

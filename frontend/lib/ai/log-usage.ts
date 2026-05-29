@@ -28,6 +28,17 @@ function omitRecordKeys(obj: Record<string, unknown>, keys: readonly string[]): 
   return out;
 }
 
+function normalizeEvalRunId(value: string | number | null | undefined): number | null {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value > 0 ? value : null;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    const n = Number(value.trim());
+    return Number.isSafeInteger(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
 /**
  * ai_usage has RLS with policy (auth.uid() = user_id). A cookie/anon client
  * therefore silently blocks inserts for:
@@ -101,7 +112,7 @@ export type RecordAiUsagePayload = {
   /** Where the call originated (e.g. deck_page_analyze, homepage, build_assistant) */
   source_page?: string | null;
   /** Links to eval_runs for cost reporting (AI test runs) */
-  eval_run_id?: string | null;
+  eval_run_id?: string | number | null;
   /** ai_test, ai_test_judge, production, etc. */
   source?: string | null;
   /** Mobile scanner correlation fields for joining PostHog scan events to AI cost rows. */
@@ -166,7 +177,7 @@ export async function recordAiUsage(payload: RecordAiUsagePayload): Promise<void
       prompt_tier: payload.prompt_tier ?? null,
       system_prompt_token_estimate: payload.system_prompt_token_estimate ?? null,
       source_page: payload.source_page ?? null,
-      eval_run_id: payload.eval_run_id ?? null,
+      eval_run_id: normalizeEvalRunId(payload.eval_run_id),
       source: payload.source ?? null,
       scanner_session_id: payload.scanner_session_id ?? null,
       scanner_attempt_id: payload.scanner_attempt_id ?? null,
