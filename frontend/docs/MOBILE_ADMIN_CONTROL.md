@@ -29,6 +29,7 @@ All under `/admin/*`, protected by `AdminGuard` + server-side admin checks on mu
 | `/admin/mobile-bootstrap-preview` | Debug view; same payload as public bootstrap |
 | `/admin/app-scanner` | PostHog scanner funnel / quality (requires PostHog personal API key on server; see `docs/ADMIN_SCANNER_DASHBOARD.md`) |
 | `/admin/mobile-command-center` | Phone-friendly launch cockpit for app health, AI spend, signups, PostHog, revenue, Sentry, rate limits, feedback, and ops freshness |
+| `/admin/voice-analytics` | Structured app voice command telemetry, clarify/follow-up QA, and export |
 
 Dashboard entry: **Admin → Mobile & Client Control** (`/admin/JustForDavy`).
 

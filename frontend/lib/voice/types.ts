@@ -4,6 +4,8 @@
 
 export type VoiceMode = "game_action" | "chat" | "clarify";
 
+export type VoiceTargetMatchQuality = "exact" | "alias" | "fuzzy" | "unresolved";
+
 export type GameAction =
   | { action: "set_life"; target: string; value: number }
   | { action: "adjust_life"; target: string; amount: number }
@@ -28,6 +30,8 @@ export interface CommandParserResult {
   pending_actions?: GameAction[];
   local_parser_hit?: boolean;
   clarify_reason?: string;
+  followup_used?: boolean;
+  match_quality?: VoiceTargetMatchQuality;
 }
 
 export interface ClarifierResult {
@@ -36,10 +40,27 @@ export interface ClarifierResult {
 }
 
 export interface VoiceContext {
+  deckId?: string;
   screen?: "game" | "other";
   players?: Array< { id: string; name: string; aliases?: string[] } >;
   /** Player id to treat as "me" / self when targeting */
   selfPlayerId?: string;
+  voiceMode?: string;
+  voicePrefs?: {
+    commandFeedback?: { playSpokenReply?: boolean };
+    questionFeedback?: { playSpokenReply?: boolean };
+  };
+  pendingClarification?: {
+    actions: GameAction[];
+    reason?: string | null;
+    createdAt?: number | null;
+  } | null;
+  followUpMemory?: {
+    lastActions?: GameAction[] | null;
+    lastTargetId?: string | null;
+    lastSourceId?: string | null;
+    createdAt?: number | null;
+  } | null;
   /** Disable TTS for this request. Useful for command-only board updates. */
   noTts?: boolean;
   /** Disable TTS for game_action responses only. */

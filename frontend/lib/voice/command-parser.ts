@@ -23,6 +23,8 @@ export interface CommandParserOutput {
   pending_actions?: GameAction[];
   local_parser_hit?: boolean;
   clarify_reason?: string;
+  followup_used?: boolean;
+  match_quality?: "exact" | "alias" | "fuzzy" | "unresolved";
 }
 
 export interface ParserContext {

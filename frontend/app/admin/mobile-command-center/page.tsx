@@ -98,6 +98,7 @@ const TAB_HELP: Record<TabKey, { title: string; body: string }> = {
 const ADMIN_LINKS = [
   { href: "/admin/ai-usage-app", label: "App AI usage" },
   { href: "/admin/app-ai-feedback", label: "App AI feedback" },
+  { href: "/admin/voice-analytics", label: "Voice analytics" },
   { href: "/admin/feedback-dashboard", label: "Feedback triage" },
   { href: "/admin/app-scanner", label: "Scanner analytics" },
   { href: "/admin/feature-flags", label: "Feature flags" },

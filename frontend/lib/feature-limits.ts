@@ -66,9 +66,11 @@ export const DECK_ROAST_GUEST = 3;
 export const DECK_ROAST_FREE = 5;
 export const DECK_ROAST_PRO = 25;
 
-/** Voice assistant: signed-in only; free 10/day, Pro 50/day. */
-export const VOICE_ASSISTANT_FREE = 10;
-export const VOICE_ASSISTANT_PRO = 50;
+/** Voice assistant: guest 10/day, free 30/day, Pro uncapped in route logic. */
+export const VOICE_ASSISTANT_GUEST = 10;
+export const VOICE_ASSISTANT_FREE = 30;
+/** Legacy ceiling constant; route skips durable daily limiting for Pro. */
+export const VOICE_ASSISTANT_PRO = 999999;
 
 /** Playstyle explanation: guest 5/day, free 20/day, Pro 100/day. */
 export const PLAYSTYLE_EXPLAIN_GUEST = 5;
