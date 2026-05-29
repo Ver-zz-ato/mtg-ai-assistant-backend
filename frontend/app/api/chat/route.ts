@@ -1545,9 +1545,11 @@ export async function POST(req: NextRequest) {
 
     // Chat memory context: Pro durable memories + user-consented current request memory.
     let localMemoryContext = "";
+    let currentRequestMemoryRecallAnswer: string | null = null;
     try {
-      const { sanitizeClientMemoryContext } = await import("@/lib/chat/chat-context-builder");
+      const { sanitizeClientMemoryContext, buildCurrentRequestMemoryRecallAnswer } = await import("@/lib/chat/chat-context-builder");
       localMemoryContext = sanitizeClientMemoryContext(context?.memoryContext);
+      currentRequestMemoryRecallAnswer = buildCurrentRequestMemoryRecallAnswer(text, context?.memoryContext);
     } catch (error) {
       console.warn("[chat] Current request memory sanitization failed:", error);
     }
@@ -1586,6 +1588,35 @@ export async function POST(req: NextRequest) {
       currentRequestMemoryContextForModel = localMemoryContext;
       sys += `\n\nCURRENT REQUEST MEMORY CONTEXT (provided by the user/client in this same request; safe to use directly when answering questions about remembered MTG preferences. If this conflicts with older saved preferences or durable memories, this current request context wins. Server deck data and explicit user instructions still override it): ${localMemoryContext}`;
       hasPromptMemoryContext = true;
+    }
+
+    if (currentRequestMemoryRecallAnswer) {
+      if (!suppressInsert && !isGuest && tid) {
+        await supabase.from("chat_messages").insert({ thread_id: tid, role: "assistant", content: currentRequestMemoryRecallAnswer });
+      }
+      try {
+        const { recordAiUsage } = await import("@/lib/ai/log-usage");
+        await recordAiUsage({
+          user_id: userId ?? null,
+          anon_id: anonId ?? null,
+          thread_id: tid ?? null,
+          model: "none",
+          input_tokens: 0,
+          output_tokens: 0,
+          cost_usd: 0,
+          route: "chat",
+          source_page: sourcePage,
+          request_kind: "NO_LLM",
+          context_source: "memory_context",
+          layer0_mode: "NO_LLM",
+          layer0_reason: "current_request_memory_recall",
+          is_guest: isGuest,
+          user_tier: isPro ? "pro" : userId ? "free" : "guest",
+          eval_run_id: evalRunId ?? null,
+          source: chatAiUsageSource,
+        });
+      } catch {}
+      return ok({ text: currentRequestMemoryRecallAnswer, threadId: tid, provider: "memory" });
     }
     
     // Add format-specific knowledge

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  buildCurrentRequestMemoryRecallAnswer,
   extractExplicitMemoryCandidate,
   formatDurableMemoriesForPrompt,
   sanitizeClientMemoryContext,
@@ -31,6 +32,19 @@ function main() {
   assert.equal(local.includes("document.cookie"), false);
   assert.equal(local.includes("Authorization:"), false);
   assert.equal(local.includes("Bitterblossom"), true);
+
+  assert.equal(
+    buildCurrentRequestMemoryRecallAnswer(
+      "Based on the provided memory context, what MTG card is marked as my favorite?",
+      "Favorite MTG card: Bitterblossom"
+    ),
+    "Bitterblossom"
+  );
+  assert.equal(
+    buildCurrentRequestMemoryRecallAnswer("What is my commander from memory?", "Commander: Alela, Cunning Conqueror"),
+    "Alela, Cunning Conqueror"
+  );
+  assert.equal(buildCurrentRequestMemoryRecallAnswer("Evaluate this card", "Favorite MTG card: Bitterblossom"), null);
 
   const summary = parseSummary(`Here you go:\n{
     "format": "Commander",

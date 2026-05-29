@@ -186,6 +186,27 @@ export function sanitizeClientMemoryContext(raw: unknown): string {
   return cleaned;
 }
 
+export function buildCurrentRequestMemoryRecallAnswer(userText: unknown, memoryContext: unknown): string | null {
+  if (typeof userText !== "string") return null;
+  const memory = sanitizeClientMemoryContext(memoryContext);
+  if (!memory) return null;
+  const q = userText.toLowerCase();
+  const asksMemoryRecall = /\b(memory|remember|remembered|provided memory|memory context|marked as my|what.*favorite)\b/i.test(userText);
+  if (!asksMemoryRecall) return null;
+
+  const favoriteCard = memory.match(/\bfavou?rite\s+(?:mtg\s+|magic\s+)?card\s*[:=-]\s*([^\n.;|]+)/i);
+  if (favoriteCard?.[1] && /\bfavou?rite\b/i.test(userText) && /\bcard\b/i.test(userText)) {
+    return favoriteCard[1].trim();
+  }
+
+  const commander = memory.match(/\b(?:my\s+)?commander\s*[:=-]\s*([^\n.;|]+)/i);
+  if (commander?.[1] && /\bcommander\b/i.test(q)) {
+    return commander[1].trim();
+  }
+
+  return null;
+}
+
 export function extractExplicitMemoryCandidate(text: unknown): ExplicitMemoryCandidate | null {
   if (typeof text !== "string" || !/\bremember\b/i.test(text)) return null;
   const raw = text.replace(/\s+/g, " ").trim();
