@@ -1543,13 +1543,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Chat memory context: Pro durable memories + user-consented local browser memory.
+    // Chat memory context: Pro durable memories + user-consented current request memory.
+    let localMemoryContext = "";
+    try {
+      const { sanitizeClientMemoryContext } = await import("@/lib/chat/chat-context-builder");
+      localMemoryContext = sanitizeClientMemoryContext(context?.memoryContext);
+    } catch (error) {
+      console.warn("[chat] Current request memory sanitization failed:", error);
+    }
     try {
       const {
         saveExplicitMemoryFromUserText,
         loadDurableChatMemories,
         formatDurableMemoriesForPrompt,
-        sanitizeClientMemoryContext,
       } = await import("@/lib/chat/chat-context-builder");
       const memoryFormat = deckFormat || chatFmtResolved.supportEntry?.label || chatFmtResolved.canonical || null;
       await saveExplicitMemoryFromUserText({
@@ -1573,15 +1579,13 @@ export async function POST(req: NextRequest) {
         sys += durableMemoryPrompt;
         hasPromptMemoryContext = true;
       }
-
-      const localMemoryContext = sanitizeClientMemoryContext(context?.memoryContext);
-      if (localMemoryContext) {
-        currentRequestMemoryContextForModel = localMemoryContext;
-        sys += `\n\nCURRENT REQUEST MEMORY CONTEXT (provided by the user/client in this same request; safe to use directly when answering questions about remembered MTG preferences. If this conflicts with older saved preferences or durable memories, this current request context wins. Server deck data and explicit user instructions still override it): ${localMemoryContext}`;
-        hasPromptMemoryContext = true;
-      }
     } catch (error) {
-      console.warn("[chat] Chat memory context failed:", error);
+      console.warn("[chat] Durable chat memory context failed:", error);
+    }
+    if (localMemoryContext) {
+      currentRequestMemoryContextForModel = localMemoryContext;
+      sys += `\n\nCURRENT REQUEST MEMORY CONTEXT (provided by the user/client in this same request; safe to use directly when answering questions about remembered MTG preferences. If this conflicts with older saved preferences or durable memories, this current request context wins. Server deck data and explicit user instructions still override it): ${localMemoryContext}`;
+      hasPromptMemoryContext = true;
     }
     
     // Add format-specific knowledge
