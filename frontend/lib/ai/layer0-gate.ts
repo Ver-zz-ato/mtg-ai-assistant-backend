@@ -7,6 +7,7 @@
 import { getFaqAnswer } from "./static-faq";
 import { isLongAnswerRequest } from "./chat-generation-config";
 import { DEFAULT_FALLBACK_MODEL } from "./default-models";
+import { isDecklist } from "@/lib/chat/decklistDetector";
 
 export type Layer0Decision =
   | {
@@ -24,6 +25,39 @@ export type Layer0Decision =
       mode: "FULL_LLM";
       reason: string;
     };
+
+export type ChatTurnIntent =
+  | "deck_analysis"
+  | "deck_edit_followup"
+  | "decklist_paste"
+  | "rules_question"
+  | "legality_question"
+  | "price_question"
+  | "general_mtg"
+  | "faq"
+  | "off_topic"
+  | "empty";
+
+/**
+ * Lightweight intent classification for routing and logging.
+ * Prefer this before firing keyword shortcuts or MINI_ONLY on complex turns.
+ */
+export function classifyChatTurnIntent(
+  text: string,
+  opts: { hasDeckContext?: boolean; hasChatHistory?: boolean } = {},
+): ChatTurnIntent {
+  const q = String(text || "").trim();
+  if (!q) return "empty";
+  if (isDecklist(q)) return "decklist_paste";
+  if (isDeckEditFollowup(q) && opts.hasChatHistory) return "deck_edit_followup";
+  if (isDeckAnalysisRequest(q)) return "deck_analysis";
+  if (isSimpleRulesOrTerm(q)) return "rules_question";
+  if (/\b(legal|legality|banned|restricted|not legal)\b/i.test(q)) return "legality_question";
+  if (/\b(price|worth|cost|market)\b/i.test(q)) return "price_question";
+  if (isManaTapFaq(q)) return "faq";
+  if (isClearlyNonMTG(q) && !opts.hasChatHistory) return "off_topic";
+  return "general_mtg";
+}
 
 export type Layer0DecideArgs = {
   text: string;
@@ -224,9 +258,14 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
     }
   }
 
-  // 6. Deck context + analysis/long-answer → FULL_LLM
-  if (hasDeckContext && (isDeckAnalysisRequest(text) || isLongAnswerRequest(text))) {
-    return { mode: "FULL_LLM", reason: "deck_context_complex_or_long" };
+  // 6. Deck analysis / pasted list / explicit analyse → FULL_LLM (never MINI or canned shortcuts)
+  const intent = classifyChatTurnIntent(text, { hasDeckContext, hasChatHistory });
+  if (
+    intent === "deck_analysis" ||
+    intent === "decklist_paste" ||
+    (hasDeckContext && (isDeckAnalysisRequest(text) || isLongAnswerRequest(text)))
+  ) {
+    return { mode: "FULL_LLM", reason: intent === "decklist_paste" ? "decklist_paste" : "deck_context_complex_or_long" };
   }
 
   // 7. Simple one-liner, no deck (e.g. "best commander for zombies?") → MINI_ONLY (keep short so long queries get FULL_LLM)

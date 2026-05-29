@@ -27,6 +27,17 @@ export type ActionChip = {
   icon?: string;
 };
 
+/** Name-only land heuristic for pasted lists (duals/triomes/basics, etc.). */
+export function looksLikeLandCardName(lowerName: string): boolean {
+  const n = String(lowerName || "").trim().toLowerCase();
+  if (!n) return false;
+  return (
+    /\bland\b/.test(n) ||
+    /^(plains|island|swamp|mountain|forest|wastes)$/.test(n) ||
+    /\b(shock|fetch|triome|pathway|dual|tomb|tower|bog|pool|grave|tomb|haven|coast|wastes|orchard|strand|delta|mire|fountain|prairie|catacombs|foothills|flats|verge|gateway|vent|foundry|spire|citadel|palace|arena|lair|reef|marsh|grove|garden|sanctuary|quagmire|badlands|bayou|plateau|taiga|tundra|underground sea|volcanic island)\b/.test(n)
+  );
+}
+
 /**
  * Analyze decklist from text (for pasted decklists in chat)
  * Similar to analyzeDeckProblems but works with raw text instead of deckId
@@ -56,11 +67,8 @@ export function analyzeDecklistFromText(decklistText: string): DeckProblemSpot[]
     cards.push({ name, qty });
     totalCards += qty;
     
-    // Simple land detection (basic lands and land keywords)
     const lowerName = name.toLowerCase();
-    if (lowerName.includes('land') || 
-        ['island', 'mountain', 'forest', 'plains', 'swamp'].includes(lowerName) ||
-        lowerName.includes('shock') || lowerName.includes('fetch') || lowerName.includes('dual')) {
+    if (looksLikeLandCardName(lowerName)) {
       landCount += qty;
     }
   }

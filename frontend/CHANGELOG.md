@@ -2,6 +2,22 @@
 
 ## 2026-05-29
 
+### Main chat — deck analysis intent, commander, send button
+
+- **Removed** hardcoded Maralen/Muldrotha canned replies that fired when those card names appeared inside pasted lists (`/api/chat` fallback path).
+- **`buildSafeGeneralChatAnswer`:** Skips all keyword shortcuts for pasted decklists and `analyse this` requests.
+- **`buildDirectDeckContextAnswer`:** No longer returns a one-line “quick health check” for explicit deck-analysis asks (full LLM analysis instead).
+- **`decklistDetector`:** Recognizes `the commander is …` (not only `my commander is`).
+- **`enhancements`:** Better land counting for duals/triomes in pasted lists (fixes bogus “13 lands” in prompts).
+- **`layer0-gate`:** Added `classifyChatTurnIntent`; pasted lists and analysis asks route to **FULL_LLM**.
+- **`Chat.tsx`:** `streamInFlight` keeps Send disabled until the stream fully finishes; clears stuck `activeStreamingRef` in `finally`.
+- **Files:** `app/api/chat/route.ts`, `lib/chat/orchestrator.ts`, `lib/chat/decklistDetector.ts`, `lib/chat/enhancements.ts`, `lib/ai/layer0-gate.ts`, `components/Chat.tsx`, `tests/unit/chat-orchestrator.test.ts`.
+
+### Main chat — bogus "I couldn't resolve …" legality replies
+
+- **`lib/chat/orchestrator.ts`:** Strategy/deck-discussion messages no longer trigger the legality short-circuit (`format` + `have` heuristic removed). Card-name extraction no longer treats English phrases after `is` / `play` as card names. Direct legality answers only return when cards resolve in cache and the user asked an explicit legality question.
+- **Files:** `lib/chat/orchestrator.ts`, `tests/unit/chat-orchestrator.test.ts`.
+
 ### Main chat — Send button stuck after stream / stop
 
 - **`lib/threads.ts`:** `postMessageStream` / debug variant now resolve only after the client pacer finishes (or aborts), so `send()` does not clear `busy` while `activeStreamingRef` still blocks the next message.

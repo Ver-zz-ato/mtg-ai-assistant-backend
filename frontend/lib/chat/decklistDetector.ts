@@ -107,11 +107,16 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
     }
   }
   
-  // Priority 2: User message says "my commander is X"
+  // Priority 2: User message declares commander ("my/the commander is X", "X is the commander")
   if (userMessage) {
-    const commanderMatch = userMessage.match(/my commander (?:is|:)\s*([^.?!,\n]+)/i);
+    const commanderMatch = userMessage.match(/(?:my|the)\s+commander\s+(?:is|:)\s*([^.?!\n]+)/i);
     if (commanderMatch) {
-      return commanderMatch[1].trim();
+      return commanderMatch[1].replace(/[.,;:]+$/g, "").trim();
+    }
+    const decl = userMessage.match(/^(.+?)\s+is\s+(?:my\s+)?(?:the\s+)?commander\s*\.?$/im);
+    if (decl) {
+      const name = decl[1].trim();
+      if (name.length >= 2 && name.length <= 80) return name;
     }
     // Also match "commander: X" or "using X as commander"
     const altMatch = userMessage.match(/(?:using|with)\s+(.+?)\s+as\s+(?:my\s+)?commander/i);
@@ -197,10 +202,13 @@ export function inferCommander(
     }
   }
 
-  // Priority 2: User message declares commander ("my commander is X", "X is the commander", "using X as commander")
+  // Priority 2: User message declares commander
   if (userMessage) {
-    const m = userMessage.match(/my commander (?:is|:)\s*([^.?!,\n]+)/i);
-    if (m) return { commanderName: m[1].trim(), confidence: 0.9, reason: "user_message", candidates: [{ name: m[1].trim(), confidence: 0.9 }] };
+    const m = userMessage.match(/(?:my|the)\s+commander\s+(?:is|:)\s*([^.?!\n]+)/i);
+    if (m) {
+      const name = m[1].replace(/[.,;:]+$/g, "").trim();
+      return { commanderName: name, confidence: 0.9, reason: "user_message", candidates: [{ name, confidence: 0.9 }] };
+    }
     const decl = userMessage.match(/^(.+?)\s+is\s+(?:my\s+)?(?:the\s+)?commander\s*\.?$/im);
     if (decl) {
       const name = decl[1].trim();

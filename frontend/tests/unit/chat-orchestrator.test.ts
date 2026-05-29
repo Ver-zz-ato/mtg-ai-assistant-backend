@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import {
+  buildDirectChatToolAnswer,
   buildDirectFormatQuestionAnswer,
   encodeChatMetadata,
+  extractMentionedCardNames,
+  looksLikeExplicitLegalityQuestion,
   looksLikePastedDecklist,
   persistAssistantMessage,
   runChatToolPlanner,
@@ -9,6 +12,7 @@ import {
 } from "../../lib/chat/orchestrator";
 import { parseDeckChangeIntent } from "../../lib/chat/deck-actions";
 import { extractCommanderFromDecklistText, isDecklist } from "../../lib/chat/decklistDetector";
+import { looksLikeLandCardName } from "../../lib/chat/enhancements";
 import { parseDeckText } from "../../lib/deck/parseDeckText";
 import { isDeckAnalysisRequest } from "../../lib/ai/layer0-gate";
 
@@ -183,6 +187,69 @@ async function main() {
   assert.equal(isDecklist(standardList), true);
   assert.equal(isDeckAnalysisRequest(standardList), true);
   assert.equal(looksLikePastedDecklist(standardList), true);
+
+  const strategyReply = `You're wrong about Otowara. Mystic Sanctuary is also way more useful than Otowara actually. Also that a lot of my ramp spells require me to sacrifice lands. Mystic Sanctuary lets me return a land from my graveyard or hand. I run Bonny Pall and Farseek which can find Mystic Sanctuary.`;
+  assert.equal(looksLikeExplicitLegalityQuestion(strategyReply), false);
+  const strategyNames = extractMentionedCardNames(strategyReply);
+  assert.ok(strategyNames.some((n) => /mystic sanctuary/i.test(n) || /bonny pall/i.test(n) || /farseek/i.test(n)));
+  assert.equal(
+    strategyNames.some((n) => /also way more useful/i.test(n) || /that a lot of my ramp/i.test(n) || /a land from my graveyard/i.test(n)),
+    false,
+    "strategy prose must not be parsed as card names"
+  );
+  assert.equal(
+    buildDirectChatToolAnswer(strategyReply, [
+      {
+        kind: "legality_check",
+        ok: true,
+        title: "Legality check",
+        summary: "test",
+        data: {
+          cards: [
+            { name: "also way more useful than Otowara actually", missing: true },
+            { name: "that a lot of my ramp spells require me to sacrifice lands", missing: true },
+          ],
+          format: "Commander",
+        },
+      },
+    ]),
+    null,
+    "garbage legality lookups must fall through to the LLM"
+  );
+  const alelaList = `analyse this:
+1 Maralen, Fae Ascendant
+1 Alela, Cunning Conqueror
+1 Command Tower
+5 Forest
+4 Island
+3 Swamp
+1 Breeding Pool
+1 Watery Grave
+
+the commander is Alela, Cunning Conqueror`;
+  assert.equal(
+    extractCommanderFromDecklistText(alelaList, alelaList),
+    "Alela, Cunning Conqueror",
+    "explicit 'the commander is' must override first-card heuristic"
+  );
+  assert.equal(looksLikeLandCardName("breeding pool"), true);
+  assert.equal(looksLikeLandCardName("counterspell"), false);
+
+  assert.match(
+    buildDirectChatToolAnswer("Is Sol Ring legal in Commander?", [
+      {
+        kind: "legality_check",
+        ok: true,
+        title: "Legality check",
+        summary: "test",
+        data: {
+          cards: [{ name: "Sol Ring", legalities: { commander: "legal" } }],
+          format: "Commander",
+        },
+      },
+    ]) ?? "",
+    /Sol Ring.*Commander.*legal/i
+  );
 
   console.log("chat-orchestrator.test.ts passed");
 }

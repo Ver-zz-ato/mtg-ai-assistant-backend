@@ -1,5 +1,6 @@
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { isDecklist } from "@/lib/chat/decklistDetector";
+import { isDeckAnalysisRequest } from "@/lib/ai/layer0-gate";
 
 export type ChatToolKind =
   | "card_lookup"
@@ -164,7 +165,7 @@ export function buildDirectChatToolAnswer(text: string, results: ChatToolResult[
   if (simpleRules) return simpleRules;
 
   const legality = results.find((r) => r.kind === "legality_check" && r.ok && r.data) as ChatToolResult | undefined;
-  if (legality) {
+  if (legality && looksLikeExplicitLegalityQuestion(text)) {
     const answer = buildLegalityAnswer(text, legality.data);
     if (answer) return answer;
   }
@@ -344,9 +345,10 @@ export function buildDirectDeckContextAnswer(input: {
   format?: string | null;
 }): string | null {
   if (looksLikePastedDecklist(input.text)) return null;
+  if (isDeckAnalysisRequest(input.text)) return null;
 
   const q = String(input.text || "").toLowerCase();
-  const wantsHealth = /\b(health check|quick take|one sentence|how is this deck|rate this deck|deck look|analy[sz]e this|review this|check this)\b/.test(q);
+  const wantsHealth = /\b(health check|quick take|one sentence|how is this deck|rate this deck|deck look|review this|check this)\b/.test(q);
   const wantsMissing = /\b(what.*(?:deck|list).*missing|missing|biggest issue|weakness|weaknesses)\b/.test(q);
   const wantsRoast = /\broast\b/.test(q);
   if (!wantsHealth && !wantsMissing && !wantsRoast) return null;
@@ -394,9 +396,7 @@ export async function runChatToolPlanner(input: {
   const extractedNames = currentMessageIsDecklist ? [] : extractMentionedCardNames(text);
   const wantsCardLookup = extractedNames.length > 0 || /\b(what does|explain|tell me about|oracle text|card details)\b/i.test(text);
   const wantsPrice = !currentMessageIsDecklist && /\b(price|worth|cost|market|trend|spike|crash|going up|going down)\b/i.test(text);
-  const wantsLegality = !currentMessageIsDecklist && (/\b(legal|legality|banned|allowed|commander legal|modern legal|standard legal|pioneer legal|pauper legal)\b/i.test(text)
-    || /\bcan\s+(?:this\s+)?(?:(?:commander|modern|pioneer|standard|pauper|legacy|vintage|brawl|historic)\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\b/i.test(text)
-    || /\b(?:standard|modern|pioneer|pauper|legacy|vintage|brawl|historic)\b.{0,80}\b(?:have|include|run|play|use)\b/i.test(text));
+  const wantsLegality = !currentMessageIsDecklist && looksLikeExplicitLegalityQuestion(text);
   const wantsCostToFinish = hasDeck && /\b(cost to finish|finish cost|how much.*(finish|complete)|missing.*cost|need to buy|collection|owned)\b/i.test(text);
   const wantsBudgetSwaps = hasDeck && /\b(budget swap|cheaper|cheap alternative|replace expensive|under\s?(?:usd|gbp|eur|[$])?\s?\d+|save money|budget)\b/i.test(text);
   const wantsFinish = hasDeck && /\b(finish this deck|complete this deck|what should i add|fill the deck|missing cards|what.*(?:deck|list).*missing|upgrade this deck|improve this deck)\b/i.test(text);
@@ -491,9 +491,40 @@ export async function runChatToolPlanner(input: {
   return results;
 }
 
-function extractMentionedCardNames(text: string): string[] {
+/** True when the user is asking about format legality, not casual deck discussion. */
+export function looksLikeExplicitLegalityQuestion(text: string): boolean {
+  const q = String(text || "");
+  if (!q.trim()) return false;
+  if (/\b(legal|legality|banned|restricted|not legal|illegal|allowed)\b/i.test(q)) return true;
+  if (/\bis\s+.{0,60}\b(?:legal|banned|allowed|restricted)\b/i.test(q)) return true;
+  if (/\bwhy\s+.{0,50}\b(?:banned|restricted)\b/i.test(q)) return true;
+  if (
+    /\bcan\s+(?:i|we|you|this|my|the)\b/i.test(q)
+    && /\b(?:play|run|include|use)\b/i.test(q)
+    && /\b(?:commander|modern|pioneer|standard|pauper|legacy|vintage|brawl|historic)\b/i.test(q)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function looksLikePlausibleCardName(name: string): boolean {
+  const cleaned = String(name || "").replace(/\s+/g, " ").trim();
+  if (cleaned.length < 2 || cleaned.length > 45) return false;
+  const words = cleaned.split(/\s+/);
+  if (words.length > 5) return false;
+  if (!/[A-Z]/.test(cleaned)) return false;
+  if (/^(?:also|that|a|an|the|it|this|those|these|my|your|way|more|less|because|wrong|about)\b/i.test(cleaned)) {
+    return false;
+  }
+  const fragmentWords = /\b(also|actually|useful|than|because|require|spells|graveyard|sacrifice|ramp|lands|return|lets|wrong|about|more|less|hand)\b/i;
+  if (words.length >= 3 && fragmentWords.test(cleaned)) return false;
+  return true;
+}
+
+export function extractMentionedCardNames(text: string): string[] {
   const names: string[] = [];
-  const add = (value: string | undefined | null) => {
+  const add = (value: string | undefined | null, opts?: { trusted?: boolean }) => {
     const cleaned = String(value || "")
       .replace(/\s+/g, " ")
       .replace(/[?.!,;:]+$/g, "")
@@ -502,16 +533,17 @@ function extractMentionedCardNames(text: string): string[] {
       .replace(/^(?:the\s+)?card\s+/i, "")
       .trim();
     if (/^(?:it|this|that)(?:\s+legal)?$/i.test(cleaned)) return;
-    if (cleaned.length >= 3 && cleaned.length <= 80 && !names.some((n) => n.toLowerCase() === cleaned.toLowerCase())) {
+    if (!opts?.trusted && !looksLikePlausibleCardName(cleaned)) return;
+    if (cleaned.length >= 2 && cleaned.length <= 80 && !names.some((n) => n.toLowerCase() === cleaned.toLowerCase())) {
       names.push(cleaned);
     }
   };
 
-  for (const match of text.matchAll(/\[\[([^\]]+)\]\]/g)) add(match[1]);
-  for (const match of text.matchAll(/"([^"]+)"/g)) add(match[1]);
-  for (const match of text.matchAll(/\b(?:price of|worth of|is|explain|about|lookup|find|card)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:legal|worth|cost|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
+  for (const match of text.matchAll(/\[\[([^\]]+)\]\]/g)) add(match[1], { trusted: true });
+  for (const match of text.matchAll(/"([^"]+)"/g)) add(match[1], { trusted: true });
+  for (const match of text.matchAll(/\b(?:price of|worth of|explain|about|lookup|find|card)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:legal|worth|cost|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
   for (const match of text.matchAll(/\bcan\s+(?:this\s+)?(?:(?:commander|modern|pioneer|standard|pauper|legacy|vintage)\s+)?(?:deck|list|it)?\s*(?:play|run|include|use)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
-  for (const match of text.matchAll(/\b(?:add|include|run|play)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/g)) add(match[1]);
+  for (const match of text.matchAll(/\b(?:add|include|run|play)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:to|in|for|please|pls)|[?.!,]|$)/gi)) add(match[1]);
   for (const match of text.matchAll(/\b(?:have|including|with)\s+([A-Z][A-Za-z0-9,'/ -]{2,80}?)(?:\s+(?:in|for|please|pls)|[?.!,]|$)/g)) add(match[1]);
   return names.slice(0, 12);
 }
@@ -572,21 +604,21 @@ function buildLegalityAnswer(text: string, data: unknown): string | null {
   const formats = mentionedLegalityFormats(text, d?.format);
   if (formats.length === 0) return null;
 
+  const resolved = cards.filter((card: any) => card && !card.missing);
+  if (resolved.length === 0) return null;
+
   const lines: string[] = [];
-  for (const card of cards) {
-    if (card?.missing) {
-      if (/\b(this card|that card|it)\b/i.test(text) && /\bbanned\b/i.test(text)) {
-        lines.push("Which card do you mean? Send the card name and format, e.g. \"why is [[Nadu, Winged Wisdom]] banned in Commander?\", and I will explain the ban reason plus legal alternatives.");
-        continue;
-      }
-      lines.push(`I couldn't resolve ${card.name}.`);
-      continue;
-    }
+  for (const card of resolved) {
     const legalities = card?.legalities || {};
     const statuses = formats.map(({ key, label }) => `${label}: ${displayLegalityStatus(legalities[key])}`);
     lines.push(`[[${card.name}]] - ${statuses.join("; ")}.`);
   }
-  return lines.length ? lines.join("\n") : null;
+  if (lines.length === 0) return null;
+  const unresolved = cards.filter((card: any) => card?.missing).length;
+  if (unresolved > 0) {
+    lines.push(`I could not match ${unresolved} other name(s) from your message to the card database — use [[Double Brackets]] for exact card names.`);
+  }
+  return lines.join("\n");
 }
 
 function mentionedLegalityFormats(text: string, fallback?: string | null): Array<{ key: string; label: string }> {

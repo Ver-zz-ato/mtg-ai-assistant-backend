@@ -167,6 +167,7 @@ function Chat(props: ChatProps = {}) {
   const [displayName, setDisplayName] = useState<string>("");
   const [isListening, setIsListening] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [streamInFlight, setStreamInFlight] = useState(false);
   const [streamingContent, setStreamingContent] = useState<string>("");
   const [streamAbort, setStreamAbort] = useState<AbortController | null>(null);
   const [fallbackBanner, setFallbackBanner] = useState<string>("");
@@ -615,6 +616,7 @@ function Chat(props: ChatProps = {}) {
     setStreamingContent("");
     setIsStreaming(false);
     setBusy(false);
+    setStreamInFlight(false);
     activeStreamingRef.current = null;
     isExecutingRef.current = false;
     streamingMessageIdRef.current = null;
@@ -726,7 +728,7 @@ function Chat(props: ChatProps = {}) {
 
   // Main send function
   async function send() {
-    if (!text.trim() || busy) return;
+    if (!text.trim() || busy || streamInFlight) return;
     
     // Prevent double execution in React Strict Mode (immediate effect)
     if (isExecutingRef.current) {
@@ -796,6 +798,7 @@ function Chat(props: ChatProps = {}) {
 
     setText("");
     setBusy(true);
+    setStreamInFlight(true);
     userStoppedStreamRef.current = false;
     
     // Track analytics
@@ -1282,7 +1285,11 @@ function Chat(props: ChatProps = {}) {
       isExecutingRef.current = false;
       streamingMessageIdRef.current = null;
       addingTypingMessageRef.current = false;
-      currentlyAddingTypingMessage = false; // Reset module-level flag
+      currentlyAddingTypingMessage = false;
+      setStreamInFlight(false);
+      if (activeStreamingRef.current) {
+        activeStreamingRef.current = null;
+      }
     }
   }
 
@@ -2094,8 +2101,8 @@ function Chat(props: ChatProps = {}) {
                 Stop
               </button>
             ) : (
-              <button onClick={send} disabled={busy || !text.trim()} className="px-5 py-2.5 h-fit rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" data-testid="chat-send">
-                {busy ? "…" : "Send"}
+              <button onClick={send} disabled={busy || streamInFlight || !text.trim()} className="px-5 py-2.5 h-fit rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" data-testid="chat-send">
+                {busy || streamInFlight ? "…" : "Send"}
               </button>
             )}
           </div>
@@ -2112,11 +2119,11 @@ function Chat(props: ChatProps = {}) {
             ) : (
               <button 
                 onClick={send} 
-                disabled={busy || !text.trim()} 
+                disabled={busy || streamInFlight || !text.trim()} 
                 className="w-full py-4 rounded-lg bg-blue-600 text-white text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 active:bg-blue-400 transition-colors touch-manipulation" 
                 data-testid="chat-send"
               >
-                {busy ? "Thinking..." : "Send"}
+                {busy || streamInFlight ? "Thinking..." : "Send"}
               </button>
             )}
           </div>

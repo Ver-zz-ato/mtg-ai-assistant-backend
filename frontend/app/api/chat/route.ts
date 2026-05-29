@@ -25,6 +25,7 @@ import {
   buildDirectChatToolAnswer,
   buildDirectDeckContextAnswer,
   buildDirectFormatQuestionAnswer,
+  looksLikePastedDecklist,
   buildToolResultsPrompt,
   isMissingMetadataColumnError,
   persistAssistantMessage,
@@ -42,6 +43,7 @@ import {
 import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registry";
 import { GENERAL_COMMANDER_FORMAT_INSTRUCTION } from "@/lib/ai/commander-format-instruction";
 import { containsProfanity, PROFANITY_REJECTION_MESSAGE } from "@/lib/profanity";
+import { isDeckAnalysisRequest } from "@/lib/ai/layer0-gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -240,6 +242,10 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
   const q = raw.toLowerCase();
   if (!raw) return null;
 
+  if (looksLikePastedDecklist(raw) || isDeckAnalysisRequest(raw)) {
+    return null;
+  }
+
   // Commander/deckbuilding checks that are useful even before a deck is pasted.
   if (/\bclose the game\b|\bjust value\b/.test(q)) {
     return "For Commander, check whether the deck has at least 3-5 real win condition cards, not just value engines. A good closer either finishes through combat, drains the table, combos with pieces you already run, or turns a stocked board into lethal damage. Paste the list and I can separate value cards from actual finishers.";
@@ -428,13 +434,6 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
   }
   if (/\brhystic study\b.*\bcheaper\b|\bcheaper\b.*\brhystic study\b/.test(q)) {
     return "Cheaper cards similar to [[Rhystic Study]] include [[Mystic Remora]], [[Verity Circle]], [[Bident of Thassa]], [[Reconnaissance Mission]], and [[Fact or Fiction]]. None fully replace Rhystic Study, but they cover the same budget-friendly card-advantage job in many blue decks.";
-  }
-
-  if (/\bmaralen, fae ascendant\b|\bmaralen\b.*\balela\b/.test(q)) {
-    return "This Maralen, Fae Ascendant list reads like a Sultai Faerie/Elf flash-tempo engine with a very ambitious mana base. [[Maralen, Fae Ascendant]], [[Alela, Cunning Conqueror]], [[Bitterblossom]], [[Tegwyll, Duke of Splendor]], and [[Spellstutter Sprite]] support the Faerie plan, while [[Heritage Druid]], [[Priest of Titania]], [[Marwyn, the Nurturer]], [[Wirewood Symbiote]], and [[Wirewood Lodge]] support the Elf-mana engine. The biggest structural issue is only 13 lands, so add lands before adding more cute synergy.";
-  }
-  if (/\bmuldrotha, the gravetide\b/.test(q)) {
-    return "This Muldrotha Commander deck has a strong graveyard-recursion core, but what it is missing is a cleaner win line and a little more protection against graveyard hate. Main weakness: lots of value cards, fewer pressure points that actually end the game. It wants repeatable setup like [[Life from the Loam]], stronger graveyard protection, and a tighter finisher package around [[Kokusho, the Evening Star]], [[Avenger of Zendikar]], or sacrifice loops. I’d also watch the mana curve: Muldrotha wants cheap permanents you can replay every turn, not just expensive haymakers. The best upgrades are cards that are useful once, then become even better when replayed from the graveyard.";
   }
 
   return null;
