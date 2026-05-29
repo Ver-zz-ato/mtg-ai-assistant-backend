@@ -95,6 +95,12 @@ setup('authenticate', async ({ page }) => {
   await expect(page.getByRole('button', { name: /sign out/i })).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(1_000);
 
+  const currencyDialog = page.locator('[aria-labelledby="currency-preference-title"]');
+  if (await currencyDialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await currencyDialog.getByRole('button', { name: /save preference/i }).click();
+    await expect(currencyDialog).toBeHidden({ timeout: 5_000 });
+  }
+
   await page.context().storageState({ path: authFile });
   console.log('âœ… Authentication setup complete. Session saved to', authFile);
 });

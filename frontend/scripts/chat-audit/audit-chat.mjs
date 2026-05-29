@@ -30,6 +30,7 @@ function parseArgs(argv) {
     baseUrl: process.env.CHAT_AUDIT_BASE_URL || "http://localhost:3000",
     output: process.env.CHAT_AUDIT_OUTPUT || DEFAULT_OUTPUT,
     delayMs: Number(process.env.CHAT_AUDIT_DELAY_MS || 500),
+    requestTimeoutMs: Number(process.env.CHAT_AUDIT_REQUEST_TIMEOUT_MS || 180000),
     includeLiveOnly: false,
   };
   for (let i = 2; i < argv.length; i++) {
@@ -37,6 +38,7 @@ function parseArgs(argv) {
     if (arg === "--base-url") opts.baseUrl = argv[++i] || opts.baseUrl;
     else if (arg === "--output") opts.output = argv[++i] || opts.output;
     else if (arg === "--delay") opts.delayMs = Number(argv[++i] || opts.delayMs);
+    else if (arg === "--request-timeout") opts.requestTimeoutMs = Number(argv[++i] || opts.requestTimeoutMs);
     else if (arg === "--live") opts.baseUrl = "https://www.manatap.ai";
   }
   opts.baseUrl = opts.baseUrl.replace(/\/$/, "");
@@ -119,6 +121,21 @@ const AlelaDeck = `analyse this Commander deck and give specific fixes:
 1 Wirewood Symbiote
 1 Zagoth Triome
 1 Umbral Mantle
+1 Clearwater Pathway
+1 Darkbore Pathway
+1 Barkchannel Pathway
+1 Dreamroot Cascade
+1 Shipwreck Marsh
+1 Deathcap Glade
+1 Hinterland Harbor
+1 Drowned Catacomb
+1 Woodland Cemetery
+1 Yavimaya Coast
+1 Llanowar Wastes
+1 Underground River
+7 Forest
+6 Island
+6 Swamp
 
 the commander is Alela, Cunning Conqueror`;
 
@@ -157,6 +174,21 @@ function stripProtocol(raw) {
     .replace(/\s*__MANATAP_CHAT_METADATA__(.|\n|\r)*?__MANATAP_CHAT_METADATA_END__/g, "")
     .replace(/\s*\[DONE\]\s*$/g, "")
     .trim();
+}
+
+async function fetchWithTimeout(url, init = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), opts.requestTimeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`request timed out after ${opts.requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function signIn(label, email, password) {
@@ -202,7 +234,7 @@ function authHeaders(tier, account) {
 
 async function callStream({ tier, account, body }) {
   const started = Date.now();
-  const res = await fetch(`${opts.baseUrl}/api/chat/stream`, {
+  const res = await fetchWithTimeout(`${opts.baseUrl}/api/chat/stream`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -221,7 +253,7 @@ async function callStream({ tier, account, body }) {
 
 async function callJson({ tier, account, body }) {
   const started = Date.now();
-  const res = await fetch(`${opts.baseUrl}/api/chat`, {
+  const res = await fetchWithTimeout(`${opts.baseUrl}/api/chat`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -277,7 +309,7 @@ function buildCases(accounts, decks) {
       tier,
       route: "stream",
       body: baseBody(AlelaDeck, { context: { format: "commander" } }),
-      expect: { mustMatch: [/Alela/i], mustNotMatch: [/Maralen[^.\n]{0,80}(commander|led|helm)/i, /\b13 lands\b/i], minChars: 300 },
+      expect: { mustMatch: [/Alela/i], mustNotMatch: [/Maralen[^.\n]{0,80}(commander|led|helm)/i, /\b13 lands\b/i, /custom card list/i], minChars: 300 },
     });
     cases.push({
       id: `${tier}:stream:pauper-paste`,
@@ -291,7 +323,7 @@ function buildCases(accounts, decks) {
       tier,
       route: "json",
       body: baseBody(AlelaDeck, { context: { format: "commander" } }),
-      expect: { mustMatch: [/Alela/i], mustNotMatch: [/Maralen[^.\n]{0,80}(commander|led|helm)/i, /\b13 lands\b/i], minChars: 200 },
+      expect: { mustMatch: [/Alela/i], mustNotMatch: [/Maralen[^.\n]{0,80}(commander|led|helm)/i, /\b13 lands\b/i, /custom card list/i], minChars: 200 },
     });
   }
   for (const tier of ["free", "pro"]) {
@@ -336,6 +368,20 @@ async function main() {
       response = c.route === "json"
         ? await callJson({ tier: c.tier, account: accounts[c.tier], body: c.body })
         : await callStream({ tier: c.tier, account: accounts[c.tier], body: c.body });
+      if (response.status === 429) {
+        console.log("RATE_LIMITED");
+        results.push({
+          id: c.id,
+          tier: c.tier,
+          route: c.route,
+          status: "rate_limited",
+          httpStatus: response.status,
+          latencyMs: response.latencyMs,
+          responsePreview: response.text.slice(0, 1200),
+        });
+        if (opts.delayMs) await delay(opts.delayMs);
+        continue;
+      }
       const check = evaluate(response.text, c.expect);
       const status = response.ok && check.passed ? "pass" : "fail";
       console.log(status.toUpperCase());

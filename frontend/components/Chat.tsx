@@ -484,13 +484,14 @@ function Chat(props: ChatProps = {}) {
       prevThreadIdRef.current = threadId;
       const isInitialMount = prev === undefined;
       const threadChanged = !isInitialMount && prev !== threadId;
+      const skipThreadSwitchCleanup = skipNextRefreshRef.current;
 
       if (threadChanged) {
-        setLinkedDeckId(null);
-        if (!skipNextRefreshRef.current && !isStreaming && !busy) {
+        if (!skipThreadSwitchCleanup) setLinkedDeckId(null);
+        if (!skipThreadSwitchCleanup && !isStreaming && !busy) {
           setMessages([]);
         }
-        if (streamAbort) {
+        if (!skipThreadSwitchCleanup && streamAbort) {
           try { streamAbort.abort(); } catch {}
           setStreamAbort(null);
           setIsStreaming(false);

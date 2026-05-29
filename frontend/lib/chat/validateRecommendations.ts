@@ -451,7 +451,7 @@ export async function validateRecommendations(
     console.warn("[validateRecommendations] Legality overlay failed:", legErr);
   }
 
-  // 4) Commander / Brawl: ADD off-color or unknown identity (do not assume colorless when cache has no color_identity)
+  // 4) Commander / Brawl: ADD off-color or unknown identity (empty color_identity is colorless and legal)
   if (usesCommanderColorIdentity && allowedColors.length > 0) {
     for (let i = 0; i < blocks.length; i++) {
       if (blocksToRemove.has(i)) continue;
@@ -459,7 +459,7 @@ export async function validateRecommendations(
       const key = cacheNorm(b.addCard);
       const entry = cardMap.get(key) ?? Array.from(cardMap.entries()).find(([k]) => cacheNorm(k) === key)?.[1];
       if (entry) {
-        if (entry.color_identity?.length) {
+        if (Array.isArray(entry.color_identity)) {
           const ok = isWithinColorIdentity(
             { color_identity: entry.color_identity } as any,
             allowedColors
@@ -545,4 +545,3 @@ export async function validateRecommendations(
     needsRegeneration,
   };
 }
-

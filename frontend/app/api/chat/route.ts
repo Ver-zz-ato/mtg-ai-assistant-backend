@@ -228,6 +228,11 @@ function stripMisappliedChatBoilerplate(outText: string, ctx: GuardContext = {})
       .replace(/\s*Since this is a custom\/homebrew card(?: concept)?,?\s*/gi, " ")
       .replace(/\s*I[’']ll evaluate it hypothetically\.\s*/gi, " ");
   }
+  if (!ctx.isCustom) {
+    text = text
+      .replace(/\s*ManaTap AI would treat (?:the\s+)?custom card list hypothetically and\s*/gi, " ")
+      .replace(/\s*(?:the\s+)?custom card list hypothetically and\s*/gi, " ");
+  }
   if (!ctx.askedExternal) {
     text = text
       .replace(/\bbut here[’']s the closest workflow[.:…]*\s*/gi, "")
@@ -1426,6 +1431,7 @@ export async function POST(req: NextRequest) {
           sys += `- Key card names from the pasted list include: ${keyPastedCardNames.join(", ")}. Mention the most relevant 3-5 of these by name when analyzing the list.\n`;
         }
         sys += `- User pasted a decklist in this same message. Do not say the format is unclear if the user named a format. Anchor your analysis in the actual cards named in the decklist.\n`;
+        sys += `- Treat this as a real MTG decklist unless the user explicitly says "custom" or "homebrew". Do not call it a custom card list or say you are evaluating it hypothetically.\n`;
       }
       sys += `\nDo NOT suggest cards listed in DeckContextSummary.card_names.\n`;
       const { isDecklist } = await import("@/lib/chat/decklistDetector");

@@ -31,6 +31,29 @@ async function main() {
   assert.match(cmdLegal.repairedText, /Lightning Bolt/i, "legal Commander ADD preserved");
   assert.equal(cmdLegal.issues.some((i) => i.kind === "illegal_format"), false);
 
+  // Commander: colorless cards have an empty color_identity array and should not be treated as off-color.
+  const stoneKey = key("Fellwar Stone");
+  const cmdColorless = await validateRecommendations({
+    deckCards: [{ name: "Mountain", count: 1 }],
+    formatKey: "commander",
+    colorIdentity: ["B", "R", "U"],
+    commanderName: "Test Commander",
+    rawText: "ADD [[Fellwar Stone]]\nCUT [[Mountain]]",
+    formatForLegality: "Commander",
+    testCardDetailsMap: new Map([
+      [
+        stoneKey,
+        {
+          legalities: { commander: "legal" },
+          color_identity: [],
+        },
+      ],
+    ]),
+    testLegalityBanNormSet: emptyBan,
+  });
+  assert.match(cmdColorless.repairedText, /Fellwar Stone/i, "colorless Commander ADD preserved");
+  assert.equal(cmdColorless.issues.some((i) => i.kind === "off_color"), false);
+
   // Commander: banned
   const lotusKey = key("Black Lotus");
   const cmdBanned = await validateRecommendations({
