@@ -48,7 +48,7 @@ export default function InlineSignUpForm() {
         const msg = error.message || '';
         const alreadyRegistered = /already registered|already been registered|user already exists/i.test(msg);
         if (alreadyRegistered) {
-          setEmailError('This email is already in use. Sign in with your password or use Google, GitHub, or Discord.');
+          setEmailError('This email is already in use. Sign in with your password or use Google, Apple, GitHub, or Discord.');
         } else {
           setPasswordError(msg);
         }
@@ -58,7 +58,7 @@ export default function InlineSignUpForm() {
       // it does not create a new identity, so identities is empty — treat as "already in use".
       const identities = (data?.user as { identities?: unknown[] } | undefined)?.identities;
       if (!identities || identities.length === 0) {
-        setEmailError('This email is already in use. Sign in with your password or use Google, GitHub, or Discord.');
+        setEmailError('This email is already in use. Sign in with your password or use Google, Apple, GitHub, or Discord.');
         return;
       }
       
@@ -213,4 +213,3 @@ export default function InlineSignUpForm() {
     </div>
   );
 }
-

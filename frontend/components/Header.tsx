@@ -151,7 +151,7 @@ export default function Header() {
     }
   }
 
-  async function signInWithOAuth(provider: 'google' | 'github' | 'discord') {
+  async function signInWithOAuth(provider: 'google' | 'github' | 'discord' | 'apple') {
     if (provider === 'google') {
       signInWithGoogle();
       return;
@@ -723,6 +723,16 @@ export default function Header() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => signInWithOAuth('apple')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-neutral-300 bg-white hover:bg-neutral-100 text-black font-medium transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path d="M16.365 1.43c0 1.14-.41 1.99-1.05 2.75-.68.8-1.8 1.42-2.9 1.33-.14-1.06.39-2.2 1.03-2.94.7-.8 1.9-1.37 2.92-1.14zM20.58 17.02c-.53 1.22-.78 1.77-1.47 2.9-.96 1.58-2.31 3.55-3.98 3.56-1.49.01-1.88-.97-3.9-.96-2.02.01-2.45.98-3.94.97-1.67-.02-2.95-1.8-3.92-3.38C.66 16.08.38 11.39 2.06 8.8c1.19-1.84 3.07-2.91 4.83-2.91 1.79 0 2.92.98 4.4.98 1.43 0 2.3-.98 4.38-.98 1.57 0 3.23.86 4.42 2.35-3.88 2.13-3.25 7.68.49 8.78z" />
+                    </svg>
+                    Sign in with Apple
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => signInWithOAuth('github')}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700 text-white font-medium transition-colors"
                   >
@@ -808,7 +818,7 @@ export default function Header() {
                     const identities = (data?.user as { identities?: unknown[] } | undefined)?.identities;
                     if (!identities || identities.length === 0) {
                       setEmailFormMode('login');
-                      setSignupEmailError('This email is already in use. Sign in with your password or use Google, GitHub, or Discord above.');
+                      setSignupEmailError('This email is already in use. Sign in with your password or use Google, Apple, GitHub, or Discord above.');
                       return;
                     }
                     
