@@ -1447,7 +1447,7 @@ export async function POST(req: NextRequest) {
 
       const localMemoryContext = sanitizeClientMemoryContext(raw?.context?.memoryContext);
       if (localMemoryContext) {
-        sys += `\n\nLOCAL BROWSER MEMORY (user-consented and advisory; current message, thread memory, and server deck data override it; not durable server memory): ${localMemoryContext}`;
+        sys += `\n\nUSER-PROVIDED MEMORY CONTEXT (sent by the client with consent; use as advisory context, but current message, thread memory, and server deck data override it; not durable server memory): ${localMemoryContext}`;
         if (adminPv) adminPv.notes.push("Local browser memory context appended.");
       }
     } catch (error) {
