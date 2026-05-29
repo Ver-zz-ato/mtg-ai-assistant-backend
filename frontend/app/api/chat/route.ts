@@ -1575,7 +1575,7 @@ export async function POST(req: NextRequest) {
 
       const localMemoryContext = sanitizeClientMemoryContext(context?.memoryContext);
       if (localMemoryContext) {
-        sys += `\n\nUSER-PROVIDED MEMORY CONTEXT (sent by the client with consent; use as advisory context, but current message, thread memory, and server deck data override it; not durable server memory): ${localMemoryContext}`;
+        sys += `\n\nCURRENT REQUEST MEMORY CONTEXT (provided by the user/client in this same request; safe to use directly when answering questions about remembered MTG preferences. Advisory only: current user message, thread memory, and server deck data override it): ${localMemoryContext}`;
         hasPromptMemoryContext = true;
       }
     } catch (error) {
