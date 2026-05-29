@@ -290,6 +290,71 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    try {
+      const { buildCurrentRequestMemoryRecallAnswer } = await import("@/lib/chat/chat-context-builder");
+      const currentRequestMemoryRecallAnswer = buildCurrentRequestMemoryRecallAnswer(text, raw?.context?.memoryContext);
+      if (currentRequestMemoryRecallAnswer) {
+        let assistantMessageId: string | null = null;
+        if (tid && !isGuest && userId) {
+          try {
+            const { data } = await supabase
+              .from("chat_messages")
+              .insert({ thread_id: tid, role: "assistant", content: currentRequestMemoryRecallAnswer })
+              .select("id")
+              .single();
+            assistantMessageId = (data?.id as string) ?? null;
+          } catch (error) {
+            console.warn("[stream] Failed to save memory recall assistant message:", error);
+          }
+        }
+        try {
+          const { recordAiUsage } = await import("@/lib/ai/log-usage");
+          await recordAiUsage({
+            user_id: userId ?? null,
+            anon_id: anonId ?? null,
+            thread_id: tid || null,
+            model: "none",
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0,
+            route: "chat_stream",
+            source_page: sourcePage,
+            source: streamAiUsageSource,
+            request_kind: "NO_LLM",
+            context_source: "memory_context",
+            layer0_mode: "NO_LLM",
+            layer0_reason: "current_request_memory_recall",
+            is_guest: isGuest,
+            user_tier: modelTierRes.tier,
+          });
+        } catch {}
+        const metadata: ChatTurnMetadata = {
+          threadId: tid,
+          persisted: !!assistantMessageId,
+          toolResults: [],
+          pendingDeckAction: null,
+          assistantMessageId,
+        };
+        const encoder = new TextEncoder();
+        return new Response(new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(currentRequestMemoryRecallAnswer));
+            controller.enqueue(encoder.encode(`\n${encodeChatMetadata(metadata)}\n`));
+            controller.enqueue(encoder.encode("[DONE]"));
+            controller.close();
+          },
+        }), {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+          },
+        });
+      }
+    } catch (error) {
+      console.warn("[stream] Current request memory recall failed:", error);
+    }
+
     const prefs = raw?.prefs || raw?.preferences || null;
     const contextDeckId = typeof raw?.context === "object" && raw.context !== null && "deckId" in raw.context ? (raw.context as any).deckId : null;
     let deckIdLinked: string | null = null;
