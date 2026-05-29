@@ -191,6 +191,7 @@ function Chat(props: ChatProps = {}) {
   
   const recognitionRef = useRef<any>(null);
   const streamStartTimeRef = useRef<number>(0);
+  const userStoppedStreamRef = useRef<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const userAtBottomRef = useRef<boolean>(true);
@@ -613,6 +614,11 @@ function Chat(props: ChatProps = {}) {
     setText("");
     setStreamingContent("");
     setIsStreaming(false);
+    setBusy(false);
+    activeStreamingRef.current = null;
+    isExecutingRef.current = false;
+    streamingMessageIdRef.current = null;
+    currentlyAddingTypingMessage = false;
     if (streamAbort) {
       streamAbort.abort();
       setStreamAbort(null);
@@ -621,6 +627,26 @@ function Chat(props: ChatProps = {}) {
       if (typeof window !== 'undefined') window.localStorage.removeItem('chat:last_thread'); 
     } catch {}
     setHistKey(k => k + 1);
+  }
+
+  function stopStreaming() {
+    if (!streamAbort) return;
+    userStoppedStreamRef.current = true;
+    streamAbort.abort();
+    capture('chat_stream_stop', enrichChatEvent(
+      {
+        stopped_by: 'user',
+        duration_ms: Date.now() - streamStartTimeRef.current,
+        tokens_if_known: Math.ceil(streamingContent.length / 4),
+        assistant_message_id: streamingMessageIdRef.current || null
+      },
+      {
+        threadId: threadId || null,
+        userMessage: null,
+        assistantMessage: streamingContent.slice(0, 200) || null,
+        format: fmt || null,
+      }
+    ));
   }
 
   function clearThread() {
@@ -770,6 +796,7 @@ function Chat(props: ChatProps = {}) {
 
     setText("");
     setBusy(true);
+    userStoppedStreamRef.current = false;
     
     // Track analytics
     const streamStartTime = Date.now();
@@ -981,7 +1008,7 @@ function Chat(props: ChatProps = {}) {
               const i = m.findIndex((msg: any) => msg.id === streamingMsgId);
               if (i === -1) return m;
               const next = [...m];
-              next[i] = { ...next[i], content: accumulatedContent || "—" };
+              next[i] = { ...next[i], content: accumulatedContent || (userStoppedStreamRef.current ? "(Generation stopped)" : "—") };
               return next;
             });
             setStreamingContent("");
@@ -1041,7 +1068,7 @@ function Chat(props: ChatProps = {}) {
               const newMessages = [...m];
               newMessages[existingIndex] = {
                 ...newMessages[existingIndex],
-                content: accumulatedContent
+                content: accumulatedContent || (userStoppedStreamRef.current ? "(Generation stopped)" : "")
               };
               return newMessages;
             } else {
@@ -2061,28 +2088,7 @@ function Chat(props: ChatProps = {}) {
             </button>
             {isStreaming ? (
               <button 
-                onClick={() => {
-                  if (streamAbort) {
-                    streamAbort.abort();
-                    setStreamAbort(null);
-                    setIsStreaming(false);
-                    capture('chat_stream_stop', enrichChatEvent(
-                      {
-                        stopped_by: 'user',
-                        duration_ms: Date.now() - streamStartTimeRef.current,
-                        tokens_if_known: Math.ceil(streamingContent.length / 4),
-                        assistant_message_id: streamingMessageIdRef.current || null
-                      },
-                      {
-                        threadId: threadId || null,
-                        userMessage: null, // Not available in this closure
-                        assistantMessage: streamingContent.slice(0, 200) || null,
-                        format: fmt || null,
-                        // persona and prompt_version not available client-side
-                      }
-                    ));
-                  }
-                }} 
+                onClick={stopStreaming}
                 className="px-4 py-2 h-fit rounded bg-red-600 text-white hover:bg-red-700"
               >
                 Stop
@@ -2098,28 +2104,7 @@ function Chat(props: ChatProps = {}) {
           <div className="sm:hidden">
             {isStreaming ? (
               <button 
-                onClick={() => {
-                  if (streamAbort) {
-                    streamAbort.abort();
-                    setStreamAbort(null);
-                    setIsStreaming(false);
-                    capture('chat_stream_stop', enrichChatEvent(
-                      {
-                        stopped_by: 'user',
-                        duration_ms: Date.now() - streamStartTimeRef.current,
-                        tokens_if_known: Math.ceil(streamingContent.length / 4),
-                        assistant_message_id: streamingMessageIdRef.current || null
-                      },
-                      {
-                        threadId: threadId || null,
-                        userMessage: null, // Not available in this closure
-                        assistantMessage: streamingContent.slice(0, 200) || null,
-                        format: fmt || null,
-                        // persona and prompt_version not available client-side
-                      }
-                    ));
-                  }
-                }} 
+                onClick={stopStreaming}
                 className="w-full py-4 rounded-lg bg-red-600 text-white text-lg font-medium hover:bg-red-700 active:bg-red-800 transition-all touch-manipulation"
               >
                 Stop Generation

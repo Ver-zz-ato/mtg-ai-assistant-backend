@@ -70,6 +70,29 @@ export class StreamingPacer {
   }
 
   /**
+   * Stop pacing and return any queued text that was not yet emitted.
+   * Used when the user aborts a stream so partial content is not lost.
+   */
+  abortAndFlush(): string {
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
+    this.isRunning = false;
+    this.isComplete = true;
+
+    let flushed = '';
+    while (this.queue.length > 0) {
+      const token = this.queue.shift();
+      if (token) {
+        this.currentOutput += token;
+        flushed += token;
+      }
+    }
+    return flushed;
+  }
+
+  /**
    * Reset the pacer for a new stream
    */
   reset(): void {

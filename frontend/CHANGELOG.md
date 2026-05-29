@@ -2,6 +2,13 @@
 
 ## 2026-05-29
 
+### Main chat — Send button stuck after stream / stop
+
+- **`lib/threads.ts`:** `postMessageStream` / debug variant now resolve only after the client pacer finishes (or aborts), so `send()` does not clear `busy` while `activeStreamingRef` still blocks the next message.
+- **`lib/streaming-pacer.ts`:** Added `abortAndFlush()` so partial streamed text is preserved when the user stops generation.
+- **`components/Chat.tsx`:** Stop no longer hides the stream overlay before abort cleanup; `newChat()` resets streaming guards; user stop shows "(Generation stopped)" when no text was emitted.
+- **Files:** `lib/threads.ts`, `lib/streaming-pacer.ts`, `components/Chat.tsx`.
+
 ### Cards SEO — static generation / Sentry
 
 - **`/cards/[slug]`:** Use `createClientForStatic()` for metadata, price cache, and public custom-card reads so `generateStaticParams` no longer hits `cookies()` during build (fixes Sentry `JAVASCRIPT-NEXTJS-2Z` / `JAVASCRIPT-NEXTJS-Q`).

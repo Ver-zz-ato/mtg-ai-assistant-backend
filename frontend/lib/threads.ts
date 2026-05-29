@@ -155,6 +155,48 @@ function stripChatProtocolMetadata(text: string): string {
   return String(text || "").replace(/\s*__MANATAP_CHAT_METADATA__(.|\n|\r)*?__MANATAP_CHAT_METADATA_END__\s*/g, "");
 }
 
+/** Ensures postMessageStream resolves only after the pacer finishes (or aborts). */
+function createStreamCompletionGate(
+  onToken: (token: string) => void,
+  onDone: () => void,
+  onError: (error: Error) => void
+) {
+  let settled = false;
+  let resolveComplete!: () => void;
+  let rejectComplete!: (reason: Error) => void;
+  const waitForComplete = new Promise<void>((resolve, reject) => {
+    resolveComplete = resolve;
+    rejectComplete = reject;
+  });
+
+  const settleDone = () => {
+    if (settled) return;
+    settled = true;
+    onDone();
+    resolveComplete();
+  };
+
+  const settleError = (error: Error) => {
+    if (settled) return;
+    settled = true;
+    onError(error);
+    rejectComplete(error);
+  };
+
+  return {
+    pacerCallbacks: {
+      onUpdate: (incrementalText: string, isComplete: boolean) => {
+        if (incrementalText) onToken(incrementalText);
+        if (isComplete) settleDone();
+      },
+      onError: settleError,
+    },
+    waitForComplete: () => waitForComplete,
+    settleDone,
+    settleError,
+  };
+}
+
 /** Same as postMessageStream but adds x-debug-chat header and parses __MANATAP_DEBUG__ block; calls onDebug when present. */
 export async function postMessageStreamWithDebug(
   payload: Parameters<typeof postMessageStream>[0],
@@ -167,13 +209,10 @@ export async function postMessageStreamWithDebug(
   extraHeaders?: Record<string, string>
 ): Promise<void> {
   const { StreamingPacer } = await import("./streaming-pacer");
+  const gate = createStreamCompletionGate(onToken, onDone, onError);
   const pacer = new StreamingPacer({
     tokensPerSecond: 25,
-    onUpdate: (incrementalText, isComplete) => {
-      if (incrementalText) onToken(incrementalText);
-      if (isComplete) onDone();
-    },
-    onError,
+    ...gate.pacerCallbacks,
   });
 
   const streamHeaders: Record<string, string> = {
@@ -257,7 +296,7 @@ export async function postMessageStreamWithDebug(
           }
         }
         pacer.complete();
-        return;
+        break;
       }
 
       if (debugParsed && buffer.length > 0) {
@@ -268,13 +307,16 @@ export async function postMessageStreamWithDebug(
     if (debugParsed && buffer.length > 0) pacer.addChunk(stripChatProtocolMetadata(buffer));
     pacer.complete();
   } catch (error: unknown) {
-    pacer.stop();
+    const flushed = pacer.abortAndFlush();
+    if (flushed) onToken(flushed);
     if (error && (error as { name?: string }).name === "AbortError") {
-      onDone();
+      gate.settleDone();
     } else {
-      onError(error instanceof Error ? error : new Error(String(error)));
+      gate.settleError(error instanceof Error ? error : new Error(String(error)));
     }
   }
+
+  await gate.waitForComplete();
 }
 
 // New streaming function with ChatGPT-like speed using client-side pacer
@@ -287,20 +329,11 @@ export async function postMessageStream(
 ): Promise<void> {
   // Import the StreamingPacer dynamically to avoid server-side issues
   const { StreamingPacer } = await import('./streaming-pacer');
-  
+
+  const gate = createStreamCompletionGate(onToken, onDone, onError);
   const pacer = new StreamingPacer({
     tokensPerSecond: 25, // ChatGPT-like speed
-    onUpdate: (incrementalText: string, isComplete: boolean) => {
-      if (incrementalText) {
-        onToken(incrementalText);
-      }
-      if (isComplete) {
-        onDone();
-      }
-    },
-    onError: (error: Error) => {
-      onError(error);
-    }
+    ...gate.pacerCallbacks,
   });
   
   const doFetch = (): Promise<Response> =>
@@ -377,7 +410,7 @@ export async function postMessageStream(
         }
         // Signal completion to pacer
         pacer.complete();
-        return;
+        break;
       }
       
       // Filter out heartbeat spaces and add to pacer
@@ -391,11 +424,14 @@ export async function postMessageStream(
     // If we reach here without [DONE], complete anyway
     pacer.complete();
   } catch (error: any) {
-    pacer.stop();
+    const flushed = pacer.abortAndFlush();
+    if (flushed) onToken(flushed);
     if (error.name === 'AbortError') {
-      onDone(); // Treat abort as completion
+      gate.settleDone();
     } else {
-      onError(error);
+      gate.settleError(error instanceof Error ? error : new Error(String(error)));
     }
   }
+
+  await gate.waitForComplete();
 }
