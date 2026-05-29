@@ -107,6 +107,12 @@ export default withSentryConfig(nextConfig, {
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
 
+  // Do not let a Sentry release/source-map permission issue block production deploys.
+  // Runtime error capture still works via the SDK DSN configured in sentry.*.config.ts.
+  errorHandler: (err) => {
+    console.warn("[sentry] release/source-map upload failed; continuing build:", err.message);
+  },
+
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
 
