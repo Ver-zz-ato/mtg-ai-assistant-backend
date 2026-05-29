@@ -14,6 +14,14 @@ const MAX_REFRESH_PER_REQUEST = 200; // cap to reduce burst refreshes (raised fo
 import { isStale } from "./scryfallTtl";
 import { upsertScryfallCacheRows } from "./serviceRoleSupabase";
 
+/** Server-only scryfall_cache upserts (service role). For RSC/API routes — not client components. */
+export async function writeScryfallCacheRows(
+  rows: Record<string, unknown>[],
+  opts?: { onConflict?: string }
+): Promise<void> {
+  return upsertScryfallCacheRows(rows, opts);
+}
+
 export async function getImagesForNamesCached(names: string[]) {
   const supabase = await createClient();
   const uniq = Array.from(

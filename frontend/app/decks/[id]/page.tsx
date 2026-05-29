@@ -173,7 +173,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     const out: Record<string, any> = {};
     if (!uniqueNames.length) return out;
     
-    const { upsertScryfallCacheRows } = await import("@/lib/server/serviceRoleSupabase");
+    const { writeScryfallCacheRows } = await import("@/lib/server/scryfallCache");
 
     // First, check local cache
     try {
@@ -234,7 +234,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
         const up = rows
           .map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, { source: "decks/[id]/page" }))
           .filter((r): r is Record<string, unknown> => r != null);
-        if (up.length) await upsertScryfallCacheRows(up);
+        if (up.length) await writeScryfallCacheRows(up);
       } catch (e) {
         console.error('Cache write failed:', e);
       }
