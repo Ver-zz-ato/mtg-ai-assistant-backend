@@ -1274,6 +1274,7 @@ export async function POST(req: NextRequest) {
     const { NO_FILLER_INSTRUCTION } = await import("@/lib/ai/chat-generation-config");
     let promptResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
     let sys: string;
+    let hasPromptMemoryContext = false;
     let promptVersionId: string | null;
 
     if (evalRunId && !hasDeckContextForTier) {
@@ -1522,7 +1523,10 @@ export async function POST(req: NextRequest) {
         isGuest,
         anonId
       );
-      if (summaryResult.formatted) sys += summaryResult.formatted;
+      if (summaryResult.formatted) {
+        sys += summaryResult.formatted;
+        hasPromptMemoryContext = true;
+      }
     }
 
     // Pro cross-thread memory: inject saved preferences
@@ -1531,7 +1535,10 @@ export async function POST(req: NextRequest) {
       const savedPrefs = await getProUserPreferences(supabase, userId, isPro);
       if (savedPrefs) {
         const proPrefsFormatted = formatProPreferencesForPrompt(savedPrefs);
-        if (proPrefsFormatted) sys += proPrefsFormatted;
+        if (proPrefsFormatted) {
+          sys += proPrefsFormatted;
+          hasPromptMemoryContext = true;
+        }
       }
     }
 
@@ -1561,11 +1568,15 @@ export async function POST(req: NextRequest) {
         format: memoryFormat,
         limit: 10,
       }));
-      if (durableMemoryPrompt) sys += durableMemoryPrompt;
+      if (durableMemoryPrompt) {
+        sys += durableMemoryPrompt;
+        hasPromptMemoryContext = true;
+      }
 
       const localMemoryContext = sanitizeClientMemoryContext(context?.memoryContext);
       if (localMemoryContext) {
         sys += `\n\nUSER-PROVIDED MEMORY CONTEXT (sent by the client with consent; use as advisory context, but current message, thread memory, and server deck data override it; not durable server memory): ${localMemoryContext}`;
+        hasPromptMemoryContext = true;
       }
     } catch (error) {
       console.warn("[chat] Chat memory context failed:", error);
@@ -2277,7 +2288,9 @@ Return the corrected answer with concise, user-facing tone.`;
       reviewPromptLength: reviewPrompt.length
     });
     
-    const review = await callOpenAI(outText, reviewPrompt, false, userId, isPro, isGuest, anonId);
+    const review = hasPromptMemoryContext
+      ? null
+      : await callOpenAI(outText, reviewPrompt, false, userId, isPro, isGuest, anonId);
     
     console.log("🔍 [chat] Review response:", {
       reviewType: typeof review,
