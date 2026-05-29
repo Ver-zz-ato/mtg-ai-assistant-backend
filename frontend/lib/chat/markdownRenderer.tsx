@@ -156,6 +156,27 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
   // Find all matches
   const matches: Array<{ start: number; end: number; element: React.ReactNode }> = [];
 
+  // Bold spans can contain explicit [[Card]] markers in recommendation titles:
+  // **ADD [[Skullclamp]] / CUT [[Maralen]]**. Render the bold shell and still
+  // recurse into the content so card links are active instead of leaking raw [[...]].
+  if (renderCard) {
+    const boldWithCardPatterns = [/\*\*([^*]*\[\[[^\]]+\]\][^*]*)\*\*/g, /__([^_]*\[\[[^\]]+\]\][^_]*)__/g];
+    for (const pattern of boldWithCardPatterns) {
+      pattern.lastIndex = 0;
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const start = match.index;
+        const end = pattern.lastIndex;
+        const content = match[1];
+        matches.push({
+          start,
+          end,
+          element: <strong key={keyCounter++}>{parseInlineMarkdown(content, options)}</strong>,
+        });
+      }
+    }
+  }
+
   // Process [[Card Name]] first when renderCard is provided (double-bracket card markers)
   if (renderCard) {
     const cardRegex = /\[\[([^\]]+)\]\]/g;
@@ -165,7 +186,8 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
       const end = cardRegex.lastIndex;
       const cardName = cardMatch[1].trim();
       const node = renderCard(cardName);
-      if (node != null) {
+      const overlaps = matches.some(m => start < m.end && end > m.start);
+      if (node != null && !overlaps) {
         matches.push({ start, end, element: <React.Fragment key={keyCounter++}>{node}</React.Fragment> });
       }
     }

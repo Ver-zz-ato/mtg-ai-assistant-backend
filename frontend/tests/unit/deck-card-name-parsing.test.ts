@@ -21,11 +21,17 @@ assert.equal(sanitizedNameForDeckPersistence(michelangeloCard), michelangeloCard
 assert.equal(cleanCardName(quotedCard), quotedCard);
 assert.equal(sanitizedNameForDeckPersistence(quotedCard), quotedCard);
 assert.equal(looksLikeCardName(quotedCard), true);
+assert.equal(cleanCardName("Alela, Cunning Conqueror - THIS IS THE COMMANDER"), "Alela, Cunning Conqueror");
+assert.equal(cleanCardName("Alela, Cunning Conqueror (Commander)"), "Alela, Cunning Conqueror");
+assert.equal(cleanCardName("Alela, Cunning Conqueror <-- commander"), "Alela, Cunning Conqueror");
 
 assert.deepEqual(parseDeckText(`1 ${tmntCard}`), [{ name: tmntCard, qty: 1 }]);
 assert.deepEqual(parseDeckText(`2x ${tmntCard}`), [{ name: tmntCard, qty: 2 }]);
 assert.deepEqual(parseDeckText(`1 ${michelangeloCard}`), [{ name: michelangeloCard, qty: 1 }]);
 assert.deepEqual(parseDeckText(`1 ${quotedCard}`), [{ name: quotedCard, qty: 1 }]);
+assert.deepEqual(parseDeckText("1 Alela, Cunning Conqueror - THIS IS THE COMMANDER"), [
+  { name: "Alela, Cunning Conqueror", qty: 1 },
+]);
 assert.deepEqual(parseDeckOrCollectionCSV(`1 ${tmntCard}`), [{ name: tmntCard, qty: 1 }]);
 
 const manatapAmpersandExport = [

@@ -1,4 +1,6 @@
 /** Result of commander inference with confidence. */
+import { cleanCardName } from "@/lib/deck/cleanCardName";
+
 export type CommanderInference = {
   commanderName: string;
   confidence: number;
@@ -13,6 +15,12 @@ function isObviousNonCommanderFirstCard(name: string): boolean {
   return /^(sol ring|command tower|arcane signet|fellwar stone|mana crypt|forest|island|swamp|mountain|plains)$/i.test(
     name.trim(),
   );
+}
+
+function cleanCommanderNameCandidate(raw: string | null | undefined): string | null {
+  const cleaned = cleanCardName(String(raw || "").trim());
+  if (!cleaned || cleaned.length < 2 || cleaned.length > 120) return null;
+  return cleaned;
 }
 
 /**
@@ -90,20 +98,20 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
       const next = lines[i + 1];
       if (!next) return null;
       const oneCard = next.match(/^1\s*[xX]?\s+(.+)$/);
-      return oneCard ? oneCard[1].trim() : next;
+      return cleanCommanderNameCandidate(oneCard ? oneCard[1] : next);
     }
     // Also match "Commander: CardName" on same line
     const sameLineMatch = line.match(/^Commander\s*:\s*(.+)$/i);
     if (sameLineMatch) {
       const name = sameLineMatch[1].trim();
       const qtyMatch = name.match(/^1\s*[xX]?\s+(.+)$/);
-      return qtyMatch ? qtyMatch[1].trim() : name;
+      return cleanCommanderNameCandidate(qtyMatch ? qtyMatch[1] : name);
     }
-    // Inline "1 CardName COMMANDER!" (EDH export)
-    const inlineMarker = line.match(/^1\s*[xX]?\s+(.+?)\s+COMMANDER!?\s*$/i);
+    // Inline "1 CardName COMMANDER!" or "1 CardName - THIS IS THE COMMANDER"
+    const inlineMarker = line.match(/^1\s*[xX]?\s+(.+?)(?:\s*(?:<--|<-|←|—|–|-)\s*|\s+)(?:this\s+is\s+)?(?:my\s+|the\s+)?commander!?\s*$/i);
     if (inlineMarker) {
-      const name = inlineMarker[1].trim();
-      if (name.length >= 2 && name.length <= 120) return name;
+      const name = cleanCommanderNameCandidate(inlineMarker[1]);
+      if (name && name.length >= 2 && name.length <= 120) return name;
     }
   }
   
@@ -111,17 +119,17 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
   if (userMessage) {
     const commanderMatch = userMessage.match(/(?:my|the)\s+commander\s+(?:is|:)\s*([^.?!\n]+)/i);
     if (commanderMatch) {
-      return commanderMatch[1].replace(/[.,;:]+$/g, "").trim();
+      return cleanCommanderNameCandidate(commanderMatch[1].replace(/[.,;:]+$/g, ""));
     }
     const decl = userMessage.match(/^(.+?)\s+is\s+(?:my\s+)?(?:the\s+)?commander\s*\.?$/im);
     if (decl) {
-      const name = decl[1].trim();
-      if (name.length >= 2 && name.length <= 80) return name;
+      const name = cleanCommanderNameCandidate(decl[1]);
+      if (name && name.length >= 2 && name.length <= 80) return name;
     }
     // Also match "commander: X" or "using X as commander"
     const altMatch = userMessage.match(/(?:using|with)\s+(.+?)\s+as\s+(?:my\s+)?commander/i);
     if (altMatch) {
-      return altMatch[1].trim();
+      return cleanCommanderNameCandidate(altMatch[1]);
     }
   }
 
@@ -144,9 +152,9 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
       .map((line) => line.match(/^1\s*[xX]?\s+(.+)$/)?.[1]?.trim())
       .filter(Boolean) as string[];
     const first = oneOfs[0];
-    if (first && !isObviousNonCommanderFirstCard(first)) return first;
+    if (first && !isObviousNonCommanderFirstCard(first)) return cleanCommanderNameCandidate(first);
     const last = oneOfs[oneOfs.length - 1];
-    if (last) return last;
+    if (last) return cleanCommanderNameCandidate(last);
   }
 
   // Priority 4: First card in the list (fallback convention)
@@ -154,8 +162,8 @@ export function extractCommanderFromDecklistText(decklistText: string, userMessa
     if (/^(Deck|Mainboard|Main|Sideboard|Companion|Commander)\s*:?\s*$/i.test(line)) continue;
     if (line.includes(':') && !/^Commander\s*:\s*/i.test(line)) continue;
     const qtyMatch = line.match(/^1\s*[xX]?\s+(.+)$/);
-    if (qtyMatch) return qtyMatch[1].trim();
-    if (line && !line.includes(':') && line.length > 2) return line;
+    if (qtyMatch) return cleanCommanderNameCandidate(qtyMatch[1]);
+    if (line && !line.includes(':') && line.length > 2) return cleanCommanderNameCandidate(line);
   }
 
   return null;
@@ -181,22 +189,24 @@ export function inferCommander(
       const next = lines[i + 1];
       if (next) {
         const oneCard = next.match(/^1\s*[xX]?\s+(.+)$/);
-        const name = oneCard ? oneCard[1].trim() : next;
+        const name = cleanCommanderNameCandidate(oneCard ? oneCard[1] : next);
+        if (!name) continue;
         return { commanderName: name, confidence: 0.95, reason: "commander_section", candidates: [{ name, confidence: 0.95 }] };
       }
     }
     const sameLineMatch = line.match(/^Commander\s*:\s*(.+)$/i);
     if (sameLineMatch) {
-      let name = sameLineMatch[1].trim();
-      const qtyMatch = name.match(/^1\s*[xX]?\s+(.+)$/);
-      if (qtyMatch) name = qtyMatch[1].trim();
+      const rawName = sameLineMatch[1].trim();
+      const qtyMatch = rawName.match(/^1\s*[xX]?\s+(.+)$/);
+      const name = cleanCommanderNameCandidate(qtyMatch ? qtyMatch[1] : rawName);
+      if (!name) continue;
       return { commanderName: name, confidence: 0.95, reason: "commander_section_same_line", candidates: [{ name, confidence: 0.95 }] };
     }
-    // Inline "1 CardName COMMANDER!" or "CardName COMMANDER" (EDH export convention)
-    const inlineMarker = line.match(/^1\s*[xX]?\s+(.+?)\s+COMMANDER!?\s*$/i);
+    // Inline "1 CardName COMMANDER!" or "1 CardName - THIS IS THE COMMANDER"
+    const inlineMarker = line.match(/^1\s*[xX]?\s+(.+?)(?:\s*(?:<--|<-|←|—|–|-)\s*|\s+)(?:this\s+is\s+)?(?:my\s+|the\s+)?commander!?\s*$/i);
     if (inlineMarker) {
-      const name = inlineMarker[1].trim();
-      if (name.length >= 2 && name.length <= 120) {
+      const name = cleanCommanderNameCandidate(inlineMarker[1]);
+      if (name && name.length >= 2 && name.length <= 120) {
         return { commanderName: name, confidence: 0.95, reason: "explicit_inline_marker", candidates: [{ name, confidence: 0.95 }] };
       }
     }
@@ -206,16 +216,19 @@ export function inferCommander(
   if (userMessage) {
     const m = userMessage.match(/(?:my|the)\s+commander\s+(?:is|:)\s*([^.?!\n]+)/i);
     if (m) {
-      const name = m[1].replace(/[.,;:]+$/g, "").trim();
-      return { commanderName: name, confidence: 0.9, reason: "user_message", candidates: [{ name, confidence: 0.9 }] };
+      const name = cleanCommanderNameCandidate(m[1].replace(/[.,;:]+$/g, ""));
+      if (name) return { commanderName: name, confidence: 0.9, reason: "user_message", candidates: [{ name, confidence: 0.9 }] };
     }
     const decl = userMessage.match(/^(.+?)\s+is\s+(?:my\s+)?(?:the\s+)?commander\s*\.?$/im);
     if (decl) {
-      const name = decl[1].trim();
-      if (name.length >= 2 && name.length <= 80) return { commanderName: name, confidence: 0.9, reason: "user_message", candidates: [{ name, confidence: 0.9 }] };
+      const name = cleanCommanderNameCandidate(decl[1]);
+      if (name && name.length >= 2 && name.length <= 80) return { commanderName: name, confidence: 0.9, reason: "user_message", candidates: [{ name, confidence: 0.9 }] };
     }
     const alt = userMessage.match(/(?:using|with)\s+(.+?)\s+as\s+(?:my\s+)?commander/i);
-    if (alt) return { commanderName: alt[1].trim(), confidence: 0.9, reason: "user_message", candidates: [{ name: alt[1].trim(), confidence: 0.9 }] };
+    if (alt) {
+      const name = cleanCommanderNameCandidate(alt[1]);
+      if (name) return { commanderName: name, confidence: 0.9, reason: "user_message", candidates: [{ name, confidence: 0.9 }] };
+    }
   }
 
   const inlineCompressed = extractInlineCommanderFromCompressedText(decklistText);
@@ -249,7 +262,7 @@ export function inferCommander(
       .filter(Boolean) as string[];
     const first = oneOfs[0];
     const last = oneOfs[oneOfs.length - 1];
-    const name = first && !isObviousNonCommanderFirstCard(first) ? first : last;
+    const name = cleanCommanderNameCandidate(first && !isObviousNonCommanderFirstCard(first) ? first : last);
     if (name) {
       return { commanderName: name, confidence: 0.75, reason: first === name ? "commander_first_export" : "commander_last_export", candidates: [{ name, confidence: 0.75 }] };
     }
@@ -261,17 +274,18 @@ export function inferCommander(
     if (line.includes(":") && !/^Commander\s*:\s*/i.test(line)) continue;
     const qtyMatch = line.match(/^1\s*[xX]?\s+(.+)$/);
     if (qtyMatch) {
-      const name = qtyMatch[1].trim();
+      const name = cleanCommanderNameCandidate(qtyMatch[1]);
       const conf = 0.35;
-      if (conf >= COMMANDER_CONFIDENCE_THRESHOLD) {
+      if (name && conf >= COMMANDER_CONFIDENCE_THRESHOLD) {
         return { commanderName: name, confidence: conf, reason: "first_card_weak", candidates: [{ name, confidence: conf }] };
       }
       return null;
     }
     if (line && !line.includes(":") && line.length > 2) {
+      const name = cleanCommanderNameCandidate(line);
       const conf = 0.3;
-      if (conf >= COMMANDER_CONFIDENCE_THRESHOLD) {
-        return { commanderName: line, confidence: conf, reason: "first_card_weak", candidates: [{ name: line, confidence: conf }] };
+      if (name && conf >= COMMANDER_CONFIDENCE_THRESHOLD) {
+        return { commanderName: name, confidence: conf, reason: "first_card_weak", candidates: [{ name, confidence: conf }] };
       }
       return null;
     }
@@ -296,20 +310,23 @@ export function parseCardEntries(decklistText: string): Array<{ name: string; qt
     // Match "N CardName" or "Nx CardName"
     const qtyMatch = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
     if (qtyMatch) {
-      entries.push({ name: qtyMatch[2].trim(), qty: parseInt(qtyMatch[1], 10) });
+      const name = cleanCardName(qtyMatch[2]);
+      if (name) entries.push({ name, qty: parseInt(qtyMatch[1], 10) });
       continue;
     }
     
     // Match "- CardName" (bullet list)
     const dashMatch = line.match(/^-\s+(.+)$/);
     if (dashMatch) {
-      entries.push({ name: dashMatch[1].trim(), qty: 1 });
+      const name = cleanCardName(dashMatch[1]);
+      if (name) entries.push({ name, qty: 1 });
       continue;
     }
     
     // Plain card name
     if (line && !line.includes(':') && line.length > 2) {
-      entries.push({ name: line, qty: 1 });
+      const name = cleanCardName(line);
+      if (name) entries.push({ name, qty: 1 });
     }
   }
   

@@ -232,6 +232,17 @@ the commander is Alela, Cunning Conqueror`;
     "Alela, Cunning Conqueror",
     "explicit 'the commander is' must override first-card heuristic"
   );
+  const annotatedCommanderList = `1 Alela, Cunning Conqueror - THIS IS THE COMMANDER
+1 Command Tower
+1 Sol Ring
+1 Bitterblossom
+1 Counterspell
+1 Island`;
+  assert.equal(
+    extractCommanderFromDecklistText(annotatedCommanderList, annotatedCommanderList),
+    "Alela, Cunning Conqueror",
+    "commander annotations must not become part of the card name"
+  );
   assert.equal(looksLikeLandCardName("breeding pool"), true);
   assert.equal(looksLikeLandCardName("counterspell"), false);
 

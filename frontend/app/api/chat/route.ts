@@ -231,7 +231,9 @@ function stripMisappliedChatBoilerplate(outText: string, ctx: GuardContext = {})
   if (!ctx.isCustom) {
     text = text
       .replace(/\s*ManaTap AI would treat (?:the\s+)?custom card list hypothetically and\s*/gi, " ")
-      .replace(/\s*(?:the\s+)?custom card list hypothetically and\s*/gi, " ");
+      .replace(/\s*(?:the\s+)?custom card list hypothetically and\s*/gi, " ")
+      .replace(/\bI[’']d evaluate the custom card ideas hypothetically from that framework\.?\s*/gi, "")
+      .replace(/\bI would evaluate the custom card ideas hypothetically from that framework\.?\s*/gi, "");
   }
   if (!ctx.askedExternal) {
     text = text
@@ -2439,6 +2441,10 @@ Return the corrected answer with concise, user-facing tone.`;
     outText = stripMisappliedChatBoilerplate(outText, guardCtx);
     const { trimOutroLines } = await import("@/lib/chat/outputCleanupFilter");
     outText = trimOutroLines(outText);
+    const pastedCommanderName = String(pastedDecklistForCompose?.commanderName || "").trim();
+    if (pastedCommanderName && outText && !outText.toLowerCase().includes(pastedCommanderName.toLowerCase())) {
+      outText = `For your [[${pastedCommanderName}]] deck: ${outText}`;
+    }
 
     // Runtime validation: format-aware recommendation validator + output cleanup
     const deckCardsForValidate = entries.length > 0 ? entries : (pastedDecklistForCompose?.deckCards ?? []);

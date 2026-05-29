@@ -67,6 +67,15 @@ export function cleanCardName(raw: string): string {
   // "2x Card" or "2 x Card" or "x2 Card"
   s = s.replace(/^\s*\d+\s*[xX]?\s+/, '');
   s = s.replace(/^\s*[xX]\s*\d+\s+/, '');
+
+  // Strip human commander annotations from pasted decklists.
+  // Examples: "Alela, Cunning Conqueror - THIS IS THE COMMANDER",
+  // "Alela, Cunning Conqueror (Commander)", "Alela <-- commander".
+  s = s
+    .replace(/\s*[\(\[\{]\s*[^)\]\}]*\bcommander!?\s*[\)\]\}]\s*$/i, '')
+    .replace(/\s*(?:<--|<-|←|—|–|-)\s*.*\bcommander!?\s*$/i, '')
+    .replace(/\s*[\(\[\{]\s*(?:this\s+is\s+)?(?:my\s+|the\s+)?commander!?\s*[\)\]\}]\s*$/i, '')
+    .replace(/\s*(?:<--|<-|←|—|–|-)\s*(?:this\s+is\s+)?(?:my\s+|the\s+)?commander!?\s*$/i, '');
   
   // Remove bullet points or list markers
   s = s.replace(/^[-•*]\s*/, '');
