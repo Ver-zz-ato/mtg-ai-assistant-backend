@@ -80,6 +80,20 @@ const overridePaste = resolveActiveDeckContext(
 assert.strictEqual(overridePaste.source, "current_paste");
 assert.ok(overridePaste.commanderName === "Muldrotha, the Gravetide" || overridePaste.commanderName !== "Korvold");
 
+// --- explicit commander declaration in the pasted message is authoritative (no confirm detour)
+const explicitCommanderInPaste = resolveActiveDeckContext(
+  base({
+    text: `${MINI_DECK}
+
+the commander is Azusa, Lost but Seeking`,
+    context: { format: "commander" },
+  })
+);
+assert.strictEqual(explicitCommanderInPaste.commanderName, "Azusa, Lost but Seeking");
+assert.strictEqual(explicitCommanderInPaste.commanderStatus, "confirmed");
+assert.strictEqual(explicitCommanderInPaste.shouldAskCommanderConfirmation, false);
+assert.strictEqual(explicitCommanderInPaste.askReason, null);
+
 // --- confirm → follow-up without re-ask (thread has confirmed commander from prior persist)
 const confirmedFollowUp = resolveActiveDeckContext(
   base({
