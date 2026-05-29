@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import AuthenticMTGCard from "@/components/AuthenticMTGCard";
 import { getCardBySlug } from "@/lib/top-cards";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createClientForStatic } from "@/lib/supabase/server";
 import { getDisplayCardName } from "@/lib/cards/displayName";
 import { getCommanderBySlug } from "@/lib/commanders";
 import { buildCardDescription } from "@/lib/seo/metadata";
@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates: { canonical: `${BASE}/cards/${slug}` },
     };
   }
-  const sb = await createClient();
+  const sb = createClientForStatic();
   let { data: custom } = await sb.from("custom_cards").select("title").eq("public_slug", slug).maybeSingle();
   if (!custom) {
     const byId = await sb.from("custom_cards").select("title").eq("id", slug).maybeSingle();
@@ -76,12 +76,21 @@ export default async function CardPage({ params }: Props) {
     return <GlobalCardContent card={globalCard ?? topCard!} topCard={topCard} slug={slug} />;
   }
 
-  // Fall back to custom_cards (user-created cards)
-  const sb = await createClient();
-  let { data: customData } = await sb.from("custom_cards").select("id, title, data, public_slug").eq("public_slug", slug).maybeSingle();
+  // Fall back to custom_cards (user-created cards). Public slugs use anon; private UUID preview needs session.
+  const staticSb = createClientForStatic();
+  let { data: customData } = await staticSb
+    .from("custom_cards")
+    .select("id, title, data, public_slug")
+    .eq("public_slug", slug)
+    .maybeSingle();
   if (!customData) {
-    const byId = await sb.from("custom_cards").select("id, title, data, public_slug").eq("id", slug).maybeSingle();
+    const byId = await staticSb.from("custom_cards").select("id, title, data, public_slug").eq("id", slug).maybeSingle();
     customData = byId.data;
+  }
+  if (!customData) {
+    const sessionSb = await createClient();
+    const ownerById = await sessionSb.from("custom_cards").select("id, title, data, public_slug").eq("id", slug).maybeSingle();
+    customData = ownerById.data;
   }
   if (customData) {
     const val = ((customData as { data?: Record<string, unknown> }).data || {}) as Record<string, unknown>;
@@ -130,7 +139,7 @@ async function GlobalCardContent({
   const [detailsMap, priceRow] = await Promise.all([
     getDetailsForNamesCached([cardName]),
     (async () => {
-      const supabase = await createClient();
+      const supabase = createClientForStatic();
       const key = norm(cardName);
       const { data: byCardName } = await supabase
         .from("price_cache")

@@ -842,6 +842,27 @@ CREATE TABLE public.feedback (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT feedback_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.ai_feedback_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  user_id uuid,
+  guest_key text,
+  client text NOT NULL,
+  feature text NOT NULL,
+  route text,
+  surface_kind text NOT NULL,
+  rating smallint,
+  comment text,
+  issue_types text[] NOT NULL DEFAULT '{}'::text[],
+  user_input_text text,
+  ai_output_text text,
+  context_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+  submission_id uuid,
+  status text NOT NULL DEFAULT 'submitted'::text,
+  admin_notes text,
+  CONSTRAINT ai_feedback_events_pkey PRIMARY KEY (id),
+  CONSTRAINT ai_feedback_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.guest_sessions (
   token_hash text NOT NULL,
   message_count integer DEFAULT 0,

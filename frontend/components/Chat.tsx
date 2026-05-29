@@ -1295,15 +1295,30 @@ function Chat(props: ChatProps = {}) {
     async function send(rating: number) {
       setBusy(true);
       try {
-        await fetch('/api/feedback', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ rating, text, source: 'chat' }) });
+        const message = messages.find((m: any) => String(m.id) === msgId);
+        const messageIndex = messages.findIndex((m: any) => String(m.id) === msgId);
+        const userMessage = messageIndex > 0 ? messages[messageIndex - 1] : null;
+        const normalized =
+          rating >= 4 ? 1 : rating <= 0 && rating !== 0 ? -1 : rating === 0 ? 0 : rating > 0 ? 1 : -1;
+        await fetch('/api/ai/feedback', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            feature: 'web_chat_thread',
+            surfaceKind: 'chat_message',
+            rating: normalized,
+            comment: text?.trim() || null,
+            route: typeof window !== 'undefined' ? window.location.pathname : null,
+            userInputText: userMessage?.content || null,
+            aiOutputText: message?.content || content || null,
+            context: {
+              thread_id: threadId ?? null,
+              message_id: msgId,
+            },
+          }),
+        });
         try { 
           const { capture } = await import("@/lib/ph");
-          // Find the message being rated
-          const message = messages.find((m: any) => String(m.id) === msgId);
-          // Find the user message that preceded it
-          const messageIndex = messages.findIndex((m: any) => String(m.id) === msgId);
-          const userMessage = messageIndex > 0 ? messages[messageIndex - 1] : null;
-          
           capture('chat_feedback', enrichChatEvent(
             { rating, msg_id: msgId },
             {

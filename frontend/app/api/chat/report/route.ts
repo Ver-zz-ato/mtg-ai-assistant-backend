@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { addRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
+import { extractIP } from "@/lib/guest-tracking";
 import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
+import { bodyFromChatReportPayload, submitAiFeedback } from "@/lib/ai/submit-ai-feedback";
 
 const DECK_ANALYZER_SOURCE = "deck_analyzer_suggestion";
 const CHAT_CORRECTION_SOURCE = "chat_correction";
 
 export async function POST(req: NextRequest) {
+  const burst = checkRateLimit(req, {
+    windowMs: 10 * 60 * 1000,
+    maxRequests: 10,
+    keyGenerator: (request) => `chat_report:${extractIP(request)}`,
+  });
+  if (!burst.allowed) {
+    return addRateLimitHeaders(
+      NextResponse.json({ ok: false, error: "rate_limited", retryAfter: burst.retryAfter }, { status: 429 }),
+      burst,
+    );
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const {
@@ -41,116 +56,77 @@ export async function POST(req: NextRequest) {
 
     if (isSuggestionReport) {
       if (!hasReasons && !hasDescription) {
-        return NextResponse.json({ error: "Select at least one reason or add a description" }, { status: 400 });
+        return addRateLimitHeaders(
+          NextResponse.json({ error: "Select at least one reason or add a description" }, { status: 400 }),
+          burst,
+        );
       }
     } else if (isChatCorrection) {
       if (!hasReasons && !hasDescription && !hasCorrectionText && !hasBetterCards) {
-        return NextResponse.json({ error: "Add at least one reason, what it should have said, or better cards" }, { status: 400 });
+        return addRateLimitHeaders(
+          NextResponse.json(
+            { error: "Add at least one reason, what it should have said, or better cards" },
+            { status: 400 },
+          ),
+          burst,
+        );
       }
     } else {
       if (isAppChatSurface && !hasDescription) {
-        return NextResponse.json(
-          { error: "Please add a short description of the issue" },
-          { status: 400 },
+        return addRateLimitHeaders(
+          NextResponse.json({ error: "Please add a short description of the issue" }, { status: 400 }),
+          burst,
         );
       }
       if (!hasReasons) {
-        return NextResponse.json({ error: "At least one issue type is required" }, { status: 400 });
+        return addRateLimitHeaders(
+          NextResponse.json({ error: "At least one issue type is required" }, { status: 400 }),
+          burst,
+        );
       }
     }
 
-    const { supabase, user } = await getUserAndSupabase(req);
+    const { user } = await getUserAndSupabase(req);
 
-    const issueTypesArr = hasReasons ? (issueTypes as string[]) : ["other"];
-    const descriptionVal = typeof description === "string" ? description.trim().slice(0, 2000) : null;
-    const correctionTextVal = typeof correction_text === "string" ? correction_text.trim().slice(0, 2000) : null;
-    const betterCardsVal = typeof better_cards_text === "string" ? better_cards_text.trim().slice(0, 1000) : null;
-    const aiText = isSuggestionReport
-      ? (typeof suggested_card_name === "string" ? suggested_card_name : null) || aiResponseText
-      : aiResponseText;
-    const userText = isSuggestionReport ? descriptionVal : (userMessageText ?? descriptionVal);
-
-    let contextJsonb: Record<string, unknown> | null = null;
-    if (isSuggestionReport) {
-      contextJsonb = {
-        source: DECK_ANALYZER_SOURCE,
-        deck_id: deck_id ?? null,
-        commander_name: commander_name ?? null,
-        suggestion_id: suggestion_id ?? null,
-        suggested_card_name: suggested_card_name ?? null,
-        suggestion_category: suggestion_category ?? null,
-        suggestion_index: suggestion_index ?? null,
-        prompt_version_id: prompt_version_id ?? null,
-      };
-    } else if (isChatCorrection) {
-      contextJsonb = {
-        source: CHAT_CORRECTION_SOURCE,
-        correction_text: correctionTextVal,
-        better_cards_text: betterCardsVal,
-        deck_id: deck_id ?? null,
-        commander_name: commander_name ?? null,
-        format: format ?? null,
-        prompt_version_id: prompt_version_id ?? null,
-        page_path: page_path ?? null,
-        chat_surface: chat_surface ?? null,
-      };
-    } else if (isAppChatSurface) {
-      contextJsonb = {
-        source: "app_chat_issue",
-        chat_surface: chatSurfaceRaw,
-      };
+    const feedbackBody = bodyFromChatReportPayload(body as Record<string, unknown>, page_path);
+    if (!feedbackBody) {
+      return addRateLimitHeaders(
+        NextResponse.json({ error: "Invalid report payload" }, { status: 400 }),
+        burst,
+      );
     }
 
-    const row: Record<string, unknown> = {
-      user_id: user?.id || null,
-      thread_id: isSuggestionReport ? null : (threadId || null),
-      message_id: isSuggestionReport ? null : (messageId || null),
-      issue_types: issueTypesArr,
-      description: descriptionVal,
-      ai_response_text: aiText,
-      user_message_text: userText,
-      status: "pending",
-    };
-    if (contextJsonb !== null) row.context_jsonb = contextJsonb;
+    const result = await submitAiFeedback({ req, user, body: feedbackBody });
+    if (!result.ok) {
+      return addRateLimitHeaders(
+        NextResponse.json({ error: result.error }, { status: result.status }),
+        burst,
+      );
+    }
 
-    const { error } = await supabase.from("ai_response_reports").insert(row);
-
-    if (!error) {
-      try {
-        const { captureServer } = await import("@/lib/server/analytics");
-        if (typeof captureServer === "function") {
-          await captureServer("chat_issue_report_submitted", {
-            platform: isAppChatSurface ? "app" : "web",
-            chat_surface: chatSurfaceRaw || null,
-            thread_id: threadId ?? null,
-            message_id: messageId ?? null,
-            issue_types: issueTypesArr,
-            description_length: descriptionVal?.length ?? 0,
-            context_source:
-              contextJsonb && typeof contextJsonb === "object" && "source" in contextJsonb
-                ? String((contextJsonb as { source?: string }).source)
-                : null,
-          });
-        }
-      } catch {
-        /* non-blocking */
+    try {
+      const { captureServer } = await import("@/lib/server/analytics");
+      if (typeof captureServer === "function") {
+        await captureServer("chat_issue_report_submitted", {
+          platform: isAppChatSurface ? "app" : "web",
+          chat_surface: chatSurfaceRaw || null,
+          thread_id: threadId ?? null,
+          message_id: messageId ?? null,
+          issue_types: feedbackBody.issueTypes ?? [],
+          description_length: feedbackBody.comment?.length ?? 0,
+          feedback_event_id: result.id,
+        });
       }
+    } catch {
+      /* non-blocking */
     }
 
-    if (error) {
-      console.error('[Report API] Insert error:', error);
-      // If table doesn't exist, return success anyway (non-critical feature)
-      if (error.code === '42P01') {
-        console.warn('[Report API] Table does not exist yet - migration pending');
-        return NextResponse.json({ ok: true, warning: 'table_pending' });
-      }
-      return NextResponse.json({ error: "Failed to submit report" }, { status: 500 });
-    }
-    
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error('[Report API] Error:', e);
-    return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
+    return addRateLimitHeaders(NextResponse.json({ ok: true, id: result.id }), burst);
+  } catch {
+    return addRateLimitHeaders(
+      NextResponse.json({ error: "Internal error" }, { status: 500 }),
+      burst,
+    );
   }
 }
 
@@ -161,38 +137,37 @@ export async function GET(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    // Check if user is admin (using ADMIN_EMAILS or similar)
-    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
-    if (!adminEmails.includes(user.email?.toLowerCase() || '')) {
+
+    const adminEmails = (process.env.ADMIN_EMAILS || "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase());
+    if (!adminEmails.includes(user.email?.toLowerCase() || "")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    
+
     const url = new URL(req.url);
-    const status = url.searchParams.get('status') || 'pending';
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
-    const offset = parseInt(url.searchParams.get('offset') || '0');
-    
+    const status = url.searchParams.get("status") || "pending";
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50", 10), 100);
+    const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+
     let query = supabase
-      .from('ai_response_reports')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .from("ai_response_reports")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
-    
-    if (status !== 'all') {
-      query = query.eq('status', status);
+
+    if (status !== "all") {
+      query = query.eq("status", status);
     }
-    
+
     const { data, count, error } = await query;
-    
+
     if (error) {
-      console.error('[Report API] Fetch error:', error);
       return NextResponse.json({ error: "Failed to fetch reports" }, { status: 500 });
     }
-    
+
     return NextResponse.json({ reports: data, total: count });
-  } catch (e: any) {
-    console.error('[Report API] Error:', e);
-    return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

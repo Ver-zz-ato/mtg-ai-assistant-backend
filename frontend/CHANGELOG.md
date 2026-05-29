@@ -1,5 +1,22 @@
 # Frontend changelog
 
+## 2026-05-29
+
+### Cards SEO — static generation / Sentry
+
+- **`/cards/[slug]`:** Use `createClientForStatic()` for metadata, price cache, and public custom-card reads so `generateStaticParams` no longer hits `cookies()` during build (fixes Sentry `JAVASCRIPT-NEXTJS-2Z` / `JAVASCRIPT-NEXTJS-Q`).
+- **Private custom cards:** Owner UUID preview still falls back to session `createClient()` when anon lookup misses.
+- **Files:** `app/cards/[slug]/page.tsx`.
+
+### Unified AI feedback
+
+- **Migration `117_ai_feedback_events.sql`:** New **`ai_feedback_events`** table (service-role inserts from API).
+- **`POST /api/ai/feedback`:** Zod-validated unified endpoint; guest thumbs-only; signed-in reports with context.
+- **`/api/feedback`**, **`/api/chat/report`:** Delegate AI flows to unified store (no new **`ai_response_reports`** writes).
+- **Admin `/admin/ai-feedback`:** List, filters (24h/2d/7d/all), detail drawer, grouping, JSON export for Cursor.
+- **Web:** `Chat.tsx`, `AnalysisFeedbackRow.tsx` use unified API.
+- **Docs:** `docs/SUPABASE_SCHEMA.md`, `lib/ai/app-feature-labels.ts`.
+
 ## 2026-05-28
 
 ### Ops — daily Discord digest AI cost/call accuracy

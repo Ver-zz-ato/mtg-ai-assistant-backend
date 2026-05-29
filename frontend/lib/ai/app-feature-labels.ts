@@ -17,6 +17,14 @@ export const APP_FEATURE_PAGE_LABELS: Record<string, string> = {
   app_deck_roast: "Deck roast",
   app_swap_why: "Swap explanation",
   app_chat_voice: "Chat — voice",
+  app_card_explain: "Card explain",
+  app_deck_health_scan: "AI deck scan",
+  app_build_constructed_ai: "Build constructed (AI)",
+  app_collection_constructed_ideas: "Collection constructed ideas",
+  deck_analysis: "Deck analysis",
+  deck_analyzer_suggestion: "Deck analyzer suggestion",
+  chat_correction: "Chat correction",
+  web_chat_thread: "Web chat",
 };
 
 export function getAppFeaturePageLabel(sourcePage: string | null | undefined): string {

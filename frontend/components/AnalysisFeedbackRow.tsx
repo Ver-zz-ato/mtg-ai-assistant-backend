@@ -13,18 +13,22 @@ export default function AnalysisFeedbackRow({ score, deckId, promptVersion }: An
 
   const submit = React.useCallback(async (rating: number) => {
     setSubmitted(true);
+    const normalized = rating >= 4 ? 1 : -1;
     try {
-      const body: Record<string, unknown> = {
-        rating,
-        source: "deck_analysis",
-      };
-      if (score != null) body.score = score;
-      if (deckId) body.deck_id = deckId;
-
-      await fetch("/api/feedback", {
+      await fetch("/api/ai/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          feature: "deck_analysis",
+          surfaceKind: "ai_result",
+          rating: normalized,
+          route: typeof window !== "undefined" ? window.location.pathname : null,
+          context: {
+            deck_id: deckId ?? null,
+            prompt_version_id: promptVersion ?? null,
+            score: score ?? null,
+          },
+        }),
       });
     } catch {
       // fail-open: ignore
