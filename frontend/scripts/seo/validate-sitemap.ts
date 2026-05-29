@@ -9,7 +9,7 @@
  * Env: SITEMAP_VALIDATE_SAMPLE (default 20) - URLs to sample per child sitemap
  */
 
-const BASE = process.argv[2] || "https://www.manatap.ai";
+const SITEMAP_VALIDATE_BASE = process.argv[2] || "https://www.manatap.ai";
 const SAMPLE_PER_SEGMENT = parseInt(process.env.SITEMAP_VALIDATE_SAMPLE || "20", 10);
 
 async function fetchText(url: string): Promise<{ status: number; body: string; contentType: string }> {
@@ -60,10 +60,10 @@ function isXmlResponse(contentType: string, body: string): boolean {
 }
 
 async function main() {
-  console.log(`🔍 Sitemap validation: ${BASE}`);
+  console.log(`🔍 Sitemap validation: ${SITEMAP_VALIDATE_BASE}`);
   console.log(`   Sample per segment: ${SAMPLE_PER_SEGMENT}\n`);
 
-  const indexRes = await fetchText(`${BASE}/sitemap.xml`);
+  const indexRes = await fetchText(`${SITEMAP_VALIDATE_BASE}/sitemap.xml`);
   if (indexRes.status !== 200) {
     console.error(`❌ Sitemap index: ${indexRes.status}`);
     process.exit(1);

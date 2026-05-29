@@ -48,6 +48,8 @@
     "_autofix_backup_*",
     "_backup_legacy",
     "legacy_*_backup",
-    "app/api/deck/analyze/route.ts"
+    "app/api/deck/analyze/route.ts",
+    "scripts",
+    "tests"
   ]
 }
