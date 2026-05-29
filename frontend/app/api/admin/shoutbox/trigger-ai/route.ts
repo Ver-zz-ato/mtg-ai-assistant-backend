@@ -239,21 +239,18 @@ export async function POST(req: NextRequest) {
       const now_ts = Date.now();
       
       // Persist to database
-      const { data: inserted, error: insertError } = await supabase
-        .from('shoutbox_messages')
-        .insert({
-          user_name: msg.user,
-          message_text: msg.text,
-          is_ai_generated: true,
-          created_at: new Date(now_ts).toISOString()
-        })
-        .select('id')
-        .single();
-      
-      const shoutId = inserted?.id ? Number(inserted.id) : -nextIdNum();
-      
+      const { insertShoutboxMessage } = await import("@/lib/server/serviceRoleSupabase");
+      const { id: insertedId, error: insertError } = await insertShoutboxMessage({
+        user_name: msg.user,
+        message_text: msg.text,
+        is_ai_generated: true,
+        created_at: new Date(now_ts).toISOString(),
+      });
+
+      const shoutId = insertedId != null ? insertedId : -nextIdNum();
+
       if (insertError) {
-        console.warn(`[Admin Shoutbox Trigger] Failed to persist:`, insertError.message);
+        console.warn(`[Admin Shoutbox Trigger] Failed to persist:`, insertError);
       } else {
         console.log(`[Admin Shoutbox Trigger] Persisted message ID: ${shoutId}`);
       }

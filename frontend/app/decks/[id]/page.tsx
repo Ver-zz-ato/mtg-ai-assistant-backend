@@ -173,15 +173,12 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     const out: Record<string, any> = {};
     if (!uniqueNames.length) return out;
     
-    // Use admin client for cache when available (bypasses RLS for public deck viewers)
-    const { getAdmin } = await import("@/app/api/_lib/supa");
-    const admin = getAdmin();
-    const cacheClient = admin ?? supabase;
+    const { upsertScryfallCacheRows } = await import("@/lib/server/serviceRoleSupabase");
 
     // First, check local cache
     try {
       const normalizedNames = uniqueNames.map(n => norm(n));
-      const { data: cached } = await cacheClient
+      const { data: cached } = await supabase
         .from('scryfall_cache')
         .select('name, type_line, oracle_text, small, normal, art_crop, cmc, color_identity, mana_cost')
         .in('name', normalizedNames);
@@ -237,7 +234,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
         const up = rows
           .map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, { source: "decks/[id]/page" }))
           .filter((r): r is Record<string, unknown> => r != null);
-        if (up.length) await cacheClient.from('scryfall_cache').upsert(up, { onConflict: 'name' });
+        if (up.length) await upsertScryfallCacheRows(up);
       } catch (e) {
         console.error('Cache write failed:', e);
       }

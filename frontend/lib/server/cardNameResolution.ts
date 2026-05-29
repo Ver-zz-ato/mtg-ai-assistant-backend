@@ -168,14 +168,15 @@ function scryfallDataFromApiCard(card: any): NonNullable<ResolvedCardName["scryf
   };
 }
 
-async function upsertApiCard(supabase: SupabaseLike, card: any): Promise<void> {
+async function upsertApiCard(_supabase: SupabaseLike, card: any): Promise<void> {
   const row = buildScryfallCacheRowFromApiCard(card, {
     route: "cardNameResolution",
     source: "scryfall_api_fallback",
   });
   if (!row) return;
   try {
-    await supabase.from("scryfall_cache").upsert(row, { onConflict: "name" });
+    const { upsertScryfallCacheRows } = await import("@/lib/server/serviceRoleSupabase");
+    await upsertScryfallCacheRows([row]);
   } catch {
     /* Matching should not fail just because cache refresh failed. */
   }

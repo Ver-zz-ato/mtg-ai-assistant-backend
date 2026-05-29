@@ -295,14 +295,12 @@ export async function fetchCard(name: string): Promise<SfCard | null> {
     // Store in memory cache
     sfCache.set(key, card);
     
-    // Upsert to database cache
+    // Upsert to database cache (service role — not user JWT)
     try {
-      const supabase = await createClient();
+      const { upsertScryfallCacheRows } = await import("@/lib/server/serviceRoleSupabase");
       const row = buildScryfallCacheRowFromApiCard(j as Record<string, unknown>, { source: "inference.fetchCard" });
       if (row) {
-        await supabase.from("scryfall_cache").upsert(row, {
-          onConflict: "name",
-        });
+        await upsertScryfallCacheRows([row]);
       }
     } catch (error) {
       // If DB upsert fails, continue anyway (card is still in memory cache)
@@ -479,11 +477,11 @@ export async function fetchCardsBatch(names: string[]): Promise<Map<string, SfCa
           if (built) upsertRows.push(built);
         }
         
-        // Upsert to database cache
+        // Upsert to database cache (service role — not user JWT)
         if (upsertRows.length > 0) {
           try {
-            const supabase = await createClient();
-            await supabase.from("scryfall_cache").upsert(upsertRows, { onConflict: "name" });
+            const { upsertScryfallCacheRows } = await import("@/lib/server/serviceRoleSupabase");
+            await upsertScryfallCacheRows(upsertRows);
           } catch (error) {
             console.warn('[inference] DB batch cache upsert failed:', error);
           }

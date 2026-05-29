@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { deleteShoutboxMessagesByIds } from "@/lib/server/serviceRoleSupabase";
 
 async function isAdmin(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -86,11 +87,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "IDs array required" }, { status: 400 });
     }
     
-    const { error } = await supabase
-      .from('shoutbox_messages')
-      .delete()
-      .in('id', ids);
-    
+    const { error } = await deleteShoutboxMessagesByIds(ids);
+
     if (error) {
       console.error('[Admin Shoutbox] Delete error:', error);
       return NextResponse.json({ error: "Failed to delete messages" }, { status: 500 });

@@ -87,12 +87,18 @@ export async function POST(req: NextRequest) {
       if (typeof v.usd === 'number') rowsGBP.push({ snapshot_date, name_norm: k, currency: 'GBP', unit: +(Number(v.usd)*usd_gbp).toFixed(2), source: 'Scryfall' });
     });
 
-    // Upsert with compound conflict target
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const writeDb = getAdmin();
+    if (!writeDb) {
+      return NextResponse.json({ ok: false, error: "service_role_unconfigured" }, { status: 500 });
+    }
+
+    // Upsert with compound conflict target (service role — not user JWT)
     const allRows = [...rowsUSD, ...rowsEUR, ...rowsGBP];
     let inserted = 0;
     for (let i = 0; i < allRows.length; i += 1000) {
       const chunk = allRows.slice(i, i+1000);
-      const { error, count } = await supabase.from('price_snapshots').upsert(chunk, { onConflict: 'snapshot_date,name_norm,currency' });
+      const { error, count } = await writeDb.from('price_snapshots').upsert(chunk, { onConflict: 'snapshot_date,name_norm,currency' });
       if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 });
       inserted += chunk.length;
     }
@@ -103,10 +109,8 @@ export async function POST(req: NextRequest) {
       cutoffDate.setDate(cutoffDate.getDate() - 60);
       const cutoffDateStr = cutoffDate.toISOString().slice(0, 10);
       
-      const { getAdmin } = await import("@/app/api/_lib/supa");
-      const admin = getAdmin();
-      if (admin) {
-        const { error: deleteError, count: deletedCount } = await admin
+      if (writeDb) {
+        const { error: deleteError, count: deletedCount } = await writeDb
           .from('price_snapshots')
           .delete()
           .lt('snapshot_date', cutoffDateStr);

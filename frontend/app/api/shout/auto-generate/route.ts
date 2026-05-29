@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { broadcast, pushHistory, type Shout, getHistory } from "../hub";
 import { callLLM } from "@/lib/ai/unified-llm-client";
 import { createClient } from "@/lib/supabase/server";
+import { insertShoutboxMessage } from "@/lib/server/serviceRoleSupabase";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
@@ -485,22 +486,17 @@ async function handleGenerate(req: NextRequest) {
     
     // Persist to database first to get the real ID
     const now_ts = Date.now();
-    const { data: inserted, error: insertError } = await supabase
-      .from('shoutbox_messages')
-      .insert({
-        user_name: msg.user,
-        message_text: msg.text,
-        is_ai_generated: true,
-        created_at: new Date(now_ts).toISOString()
-      })
-      .select('id')
-      .single();
-    
-    // Use database ID if available, otherwise fallback to negative ID
-    const shoutId = inserted?.id ? Number(inserted.id) : -nextIdNum();
-    
+    const { id: insertedId, error: insertError } = await insertShoutboxMessage({
+      user_name: msg.user,
+      message_text: msg.text,
+      is_ai_generated: true,
+      created_at: new Date(now_ts).toISOString(),
+    });
+
+    const shoutId = insertedId != null ? insertedId : -nextIdNum();
+
     if (insertError) {
-      console.warn(`🗣️ Shoutbox: Failed to persist AI message:`, insertError.message);
+      console.warn(`🗣️ Shoutbox: Failed to persist AI message:`, insertError);
     }
     
     const shout: Shout = {

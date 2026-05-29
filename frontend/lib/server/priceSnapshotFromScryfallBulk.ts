@@ -100,9 +100,12 @@ export async function runPriceSnapshotFromScryfallBulk(supabase: SupabaseClient)
   const allRows = [...rows, ...rowsGBP];
   console.log(`💾 Inserting ${allRows.length} snapshot rows into database (in batches of 1000)...`);
   let inserted = 0;
+  const { getServiceRoleSupabase } = await import("@/lib/server/serviceRoleSupabase");
+  const writeDb = getServiceRoleSupabase() ?? supabase;
+
   for (let i = 0; i < allRows.length; i += 1000) {
     const chunk = allRows.slice(i, i + 1000);
-    const { error } = await supabase.from("price_snapshots").upsert(chunk, { onConflict: "snapshot_date,name_norm,currency" });
+    const { error } = await writeDb.from("price_snapshots").upsert(chunk, { onConflict: "snapshot_date,name_norm,currency" });
     if (error) {
       throw new Error(error.message);
     }

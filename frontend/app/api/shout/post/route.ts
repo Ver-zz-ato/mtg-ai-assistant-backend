@@ -1,6 +1,6 @@
 import { containsProfanity, PROFANITY_REJECTION_MESSAGE } from "@/lib/profanity";
 import { broadcast, pushHistory, type Shout } from "../hub";
-import { createClient } from "@/lib/supabase/server";
+import { insertShoutboxMessage } from "@/lib/server/serviceRoleSupabase";
 import { notifyDiscordShoutboxRealMessage } from "@/lib/shoutbox/discord-alert";
 import { extractIP } from "@/lib/guest-tracking";
 
@@ -42,15 +42,13 @@ export async function POST(req: Request) {
   // Save to database for persistence (get the ID back)
   let dbId: number | null = null;
   try {
-    const supabase = await createClient();
-    const { data, error } = await supabase.from('shoutbox_messages').insert({
+    const { id, error } = await insertShoutboxMessage({
       user_name: cleanUser,
       message_text: cleanText,
-      created_at: new Date(ts).toISOString()
-    }).select('id').single();
-    
-    if (!error && data) {
-      dbId = Number(data.id);
+      created_at: new Date(ts).toISOString(),
+    });
+    if (!error && id != null) {
+      dbId = id;
     }
   } catch (err) {
     console.error('Failed to save shoutbox message to database:', err);

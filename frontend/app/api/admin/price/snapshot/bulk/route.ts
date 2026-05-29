@@ -90,12 +90,18 @@ export async function POST(_req: NextRequest) {
       if (medUSD != null) rowsGBP.push({ snapshot_date: today, name_norm: k, currency: 'GBP', unit: +(medUSD*usd_gbp).toFixed(2), source: 'ScryfallBulk' });
     }
 
-    // Upsert in chunks
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const writeDb = getAdmin();
+    if (!writeDb) {
+      return NextResponse.json({ ok: false, error: "service_role_unconfigured" }, { status: 500 });
+    }
+
+    // Upsert in chunks (service role — not user JWT)
     const allRows = [...rows, ...rowsGBP];
     let inserted = 0;
     for (let i = 0; i < allRows.length; i += 1000) {
       const chunk = allRows.slice(i, i+1000);
-      const { error } = await supabase.from('price_snapshots').upsert(chunk, { onConflict: 'snapshot_date,name_norm,currency' });
+      const { error } = await writeDb.from('price_snapshots').upsert(chunk, { onConflict: 'snapshot_date,name_norm,currency' });
       if (error) return NextResponse.json({ ok:false, error: error.message }, { status:500 });
       inserted += chunk.length;
     }

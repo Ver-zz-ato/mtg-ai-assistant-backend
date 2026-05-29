@@ -12,6 +12,7 @@ export const SCRYFALL_CACHE_TTL_DAYS = 30;
 const MAX_REFRESH_PER_REQUEST = 200; // cap to reduce burst refreshes (raised for better banner coverage on listings)
 
 import { isStale } from "./scryfallTtl";
+import { upsertScryfallCacheRows } from "./serviceRoleSupabase";
 
 export async function getImagesForNamesCached(names: string[]) {
   const supabase = await createClient();
@@ -70,7 +71,7 @@ export async function getImagesForNamesCached(names: string[]) {
         up.push(buildScryfallCachePartialImageRow(k, { small: v.small, normal: v.normal, art_crop: v.art_crop }));
       });
       if (up.length) {
-        await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });
+        await upsertScryfallCacheRows(up);
       }
     } catch {}
   }
@@ -196,7 +197,7 @@ export async function getDetailsForNamesCached(names: string[]) {
           );
         }
       }
-      if (up.length) await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });
+      if (up.length) await upsertScryfallCacheRows(up);
     } catch {}
   }
 
@@ -442,7 +443,7 @@ export async function getEnrichmentForNames(names: string[]): Promise<Map<string
         }
       }
       if (up.length) {
-        await supabase.from("scryfall_cache").upsert(up, { onConflict: "name" });
+        await upsertScryfallCacheRows(up);
       }
     } catch (e) {
       if (process.env.DEBUG_DECK_INTELLIGENCE === "1") {

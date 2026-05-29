@@ -201,10 +201,11 @@ export async function POST(req: Request) {
             for (const c of rows) scry[String(c?.name||'').toLowerCase()] = c;
             // cache details
             try {
+              const { upsertScryfallCacheRows } = await import("@/lib/server/serviceRoleSupabase");
               const up = rows
                 .map((c: any) => buildScryfallCacheRowFromApiCard(c as Record<string, unknown>, { source: "decks/update" }))
                 .filter((r): r is Record<string, unknown> => r != null);
-              if (up.length) await supabase.from('scryfall_cache').upsert(up, { onConflict: 'name' });
+              if (up.length) await upsertScryfallCacheRows(up);
             } catch {}
           }
           const out = { aggro:0, control:0, combo:0, midrange:0, stax:0 } as Record<string, number>;

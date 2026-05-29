@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
+import { getServiceRoleSupabase } from '@/lib/server/serviceRoleSupabase';
 
 export const runtime = 'nodejs';
 
@@ -28,7 +29,10 @@ export async function POST(req: NextRequest) {
     const name = String(body?.name||'');
     if (!name) return NextResponse.json({ ok:false, error:'name required' }, { status:400 });
     // Kick a simple refresh by deleting the row; next fetch should repopulate on demand (as per app logic)
-    try { await supabase.from('scryfall_cache').delete().eq('name', name); } catch {}
+    try {
+      const admin = getServiceRoleSupabase();
+      if (admin) await admin.from('scryfall_cache').delete().eq('name', name);
+    } catch {}
     return NextResponse.json({ ok:true, refreshed: name });
   } catch (e:any) { return NextResponse.json({ ok:false, error: e?.message||'server_error' }, { status:500 }); }
 }
