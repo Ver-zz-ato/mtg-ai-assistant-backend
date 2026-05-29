@@ -228,7 +228,24 @@ flowchart TD
 
 ---
 
-## 6. Invariants Engineers Should Remember
+## 6. Memory Contract
+
+Both `/api/chat/stream` and `/api/chat` use the same memory builder in `lib/chat/chat-context-builder.ts`.
+
+| Memory layer | Applies to | Source | Prompt behavior |
+| --- | --- | --- | --- |
+| Thread memory | Logged-in threads | `chat_threads.summary`, generated from `chat_messages` after 4+ messages | Advisory summary for the current thread only. Current user text, linked deck DB data, and pasted deck context override it. |
+| Pro saved preferences | Pro users | `user_chat_preferences` | Cross-thread preference defaults such as format, budget, colors, playstyle. |
+| Pro durable memories | Pro users | Explicit user phrases like "remember that..." saved to `deck_memories` as confirmed rows | Cross-thread or deck-scoped memory. Deck-scoped memories require a stable linked `deck_id`; pasted-only deck threads stay thread-local. |
+| Local browser memory | Any tier when client consent exists | Website `lib/ai-memory.ts` passes `context.memoryContext` | Sanitized, advisory, and non-durable server-side. It must never be treated as authoritative over DB/thread context. |
+
+Thread summaries are generated synchronously the first time they become useful, then refreshed in the background after several new turns. The summary prompt strips private identifiers and keeps only MTG-relevant durable facts such as commander, format, constraints, decisions, goals, and important cards.
+
+Durable memory intentionally has no hidden auto-save from casual preference statements. The user must explicitly ask ManaTap to remember something. This keeps memory reversible and avoids saving accidental or sensitive chat text.
+
+---
+
+## 7. Invariants Engineers Should Remember
 
 1. `**resolveChatFormat` order:** recognized **prefs** → recognized **context** → **deck**; unparseable prefs alone **never** hides a valid `**decks.format`**.
 2. **Unknown canonical:** Commander **FORMAT_*** compose default (`formatKey`), but **commanderLayersOn === false** — no `**need_commander`** hard gate from `**applyCommanderNameGating**`.

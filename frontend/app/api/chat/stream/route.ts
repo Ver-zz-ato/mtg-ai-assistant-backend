@@ -1358,6 +1358,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Budget cap: block new API calls before memory summaries or final generation.
+    const { allowAIRequest, checkBudgetStatus } = await import('@/lib/server/budgetEnforcement');
+    const budgetCheck = await allowAIRequest(supabase);
+    if (!budgetCheck.allow) {
+      return new Response(JSON.stringify({
+        error: { message: budgetCheck.reason ?? 'AI budget limit reached. Try again later.' }
+      }), {
+        status: 429,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     // Thread summary (within-thread memory) - same logic as non-stream
     if (tid && !isGuest && selectedTier !== "micro") {
       const { data: summaryMsgs } = await supabase
@@ -1396,16 +1408,50 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Budget cap: block new API calls if daily/weekly limit exceeded
-    const { allowAIRequest, checkBudgetStatus } = await import('@/lib/server/budgetEnforcement');
-    const budgetCheck = await allowAIRequest(supabase);
-    if (!budgetCheck.allow) {
-      return new Response(JSON.stringify({
-        error: { message: budgetCheck.reason ?? 'AI budget limit reached. Try again later.' }
-      }), {
-        status: 429,
-        headers: { "Content-Type": "application/json" }
+    // Chat memory context: Pro durable memories + user-consented local browser memory.
+    try {
+      const {
+        saveExplicitMemoryFromUserText,
+        loadDurableChatMemories,
+        formatDurableMemoriesForPrompt,
+        sanitizeClientMemoryContext,
+      } = await import("@/lib/chat/chat-context-builder");
+      const memoryDeckId = activeDeckContext.deckId ?? deckIdLinked ?? null;
+      const memoryFormat = deckData?.d?.format || chatFmtResolved.supportEntry?.label || chatFmtResolved.canonical || null;
+
+      const savedMemory = await saveExplicitMemoryFromUserText({
+        supabase,
+        userId,
+        isPro,
+        text,
+        deckId: memoryDeckId,
+        format: memoryFormat,
+        threadId: tid,
       });
+      if (savedMemory.saved && adminPv) {
+        adminPv.notes.push(`Saved explicit chat memory: ${savedMemory.memory?.scope}/${savedMemory.memory?.memoryType}.`);
+      }
+
+      const durableMemoryPrompt = formatDurableMemoriesForPrompt(await loadDurableChatMemories({
+        supabase,
+        userId,
+        isPro,
+        deckId: memoryDeckId,
+        format: memoryFormat,
+        limit: 10,
+      }));
+      if (durableMemoryPrompt) {
+        sys += durableMemoryPrompt;
+        if (adminPv) adminPv.pro_cross_thread_prefs_text = `${adminPv.pro_cross_thread_prefs_text ?? ""}\n${durableMemoryPrompt.trim()}`.trim();
+      }
+
+      const localMemoryContext = sanitizeClientMemoryContext(raw?.context?.memoryContext);
+      if (localMemoryContext) {
+        sys += `\n\nLOCAL BROWSER MEMORY (user-consented and advisory; current message, thread memory, and server deck data override it; not durable server memory): ${localMemoryContext}`;
+        if (adminPv) adminPv.notes.push("Local browser memory context appended.");
+      }
+    } catch (error) {
+      console.warn("[chat-stream] Chat memory context failed:", error);
     }
 
     // Layer 0 treats bare card names (e.g. commander replies) as non-MTG via keyword check — must not run before chat + activeDeckContext.

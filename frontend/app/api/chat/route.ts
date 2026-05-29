@@ -1503,8 +1503,14 @@ export async function POST(req: NextRequest) {
       sys += ragContext;
     }
     
-    // Add conversation summary (within-thread memory) - shared with stream route
-    if (tid && !isGuest) {
+    // Add conversation summary (within-thread memory) - shared with stream route.
+    // Summary generation may call the LLM, so do not trigger it when budget guard is already closed.
+    let allowMemorySummaryGeneration = true;
+    try {
+      const { allowAIRequest } = await import("@/lib/server/budgetEnforcement");
+      allowMemorySummaryGeneration = (await allowAIRequest(supabase)).allow;
+    } catch {}
+    if (tid && !isGuest && allowMemorySummaryGeneration) {
       const { injectThreadSummaryContext } = await import("@/lib/chat/chat-context-builder");
       const summaryResult = await injectThreadSummaryContext(
         supabase,
@@ -1526,6 +1532,42 @@ export async function POST(req: NextRequest) {
         const proPrefsFormatted = formatProPreferencesForPrompt(savedPrefs);
         if (proPrefsFormatted) sys += proPrefsFormatted;
       }
+    }
+
+    // Chat memory context: Pro durable memories + user-consented local browser memory.
+    try {
+      const {
+        saveExplicitMemoryFromUserText,
+        loadDurableChatMemories,
+        formatDurableMemoriesForPrompt,
+        sanitizeClientMemoryContext,
+      } = await import("@/lib/chat/chat-context-builder");
+      const memoryFormat = deckFormat || chatFmtResolved.supportEntry?.label || chatFmtResolved.canonical || null;
+      await saveExplicitMemoryFromUserText({
+        supabase,
+        userId,
+        isPro,
+        text,
+        deckId: deckIdToUse,
+        format: memoryFormat,
+        threadId: tid,
+      });
+      const durableMemoryPrompt = formatDurableMemoriesForPrompt(await loadDurableChatMemories({
+        supabase,
+        userId,
+        isPro,
+        deckId: deckIdToUse,
+        format: memoryFormat,
+        limit: 10,
+      }));
+      if (durableMemoryPrompt) sys += durableMemoryPrompt;
+
+      const localMemoryContext = sanitizeClientMemoryContext(context?.memoryContext);
+      if (localMemoryContext) {
+        sys += `\n\nLOCAL BROWSER MEMORY (user-consented and advisory; current message, thread memory, and server deck data override it; not durable server memory): ${localMemoryContext}`;
+      }
+    } catch (error) {
+      console.warn("[chat] Chat memory context failed:", error);
     }
     
     // Add format-specific knowledge
