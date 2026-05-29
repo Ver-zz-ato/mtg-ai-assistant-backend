@@ -1006,7 +1006,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const safeDirectAnswer = buildSafeGeneralChatAnswer(text);
+    const hasClientMemoryContext = typeof context?.memoryContext === "string" && context.memoryContext.trim().length > 0;
+    const safeDirectAnswer = hasClientMemoryContext ? null : buildSafeGeneralChatAnswer(text);
     if (safeDirectAnswer) {
       if (!suppressInsert && !isGuest && tid) {
         await supabase.from("chat_messages").insert({ thread_id: tid, role: "assistant", content: safeDirectAnswer });
