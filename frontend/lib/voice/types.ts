@@ -37,7 +37,7 @@ export interface ClarifierResult {
 
 export interface VoiceContext {
   screen?: "game" | "other";
-  players?: Array< { id: string; name: string } >;
+  players?: Array< { id: string; name: string; aliases?: string[] } >;
   /** Player id to treat as "me" / self when targeting */
   selfPlayerId?: string;
   /** Disable TTS for this request. Useful for command-only board updates. */

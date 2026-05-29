@@ -1549,11 +1549,11 @@ export async function POST(req: NextRequest) {
     const streamForceFullRoutes = streamRuntimeConfig.llm_force_full_routes ?? [];
     const streamForceFull = Array.isArray(streamForceFullRoutes) && streamForceFullRoutes.includes("chat_stream");
     if (!streamForceFull && !skipLayer0ForCommanderFlow) {
-      const { layer0Decide } = await import("@/lib/ai/layer0-gate");
+      const { layer0DecideWithIntent } = await import("@/lib/ai/layer0-gate");
       const { getFaqAnswer } = await import("@/lib/ai/static-faq");
       const status = await checkBudgetStatus(supabase);
       const nearBudgetCap = status.daily_usage_pct >= 90;
-      const decision = layer0Decide({
+      const decision = await layer0DecideWithIntent({
         text,
         hasDeckContext: streamHasDeckContextForLayer0,
         deckCardCount: v2Summary?.card_count ?? null,
@@ -1562,6 +1562,7 @@ export async function POST(req: NextRequest) {
         nearBudgetCap,
         isPro,
         hasChatHistory: streamThreadHistory.length > 0,
+        chatHistory: streamThreadHistory,
       });
       if (decision.mode === "NO_LLM") {
         let actualHandler: string = decision.handler;

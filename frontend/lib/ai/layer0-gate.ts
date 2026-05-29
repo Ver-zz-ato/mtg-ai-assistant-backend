@@ -30,9 +30,12 @@ export type ChatTurnIntent =
   | "deck_analysis"
   | "deck_edit_followup"
   | "decklist_paste"
+  | "commander_confirmation"
   | "rules_question"
   | "legality_question"
   | "price_question"
+  | "format_question"
+  | "memory_recall"
   | "general_mtg"
   | "faq"
   | "off_topic"
@@ -71,9 +74,12 @@ export type Layer0DecideArgs = {
   isPro?: boolean;
   /** When true, skip off-topic gate (short corrections like "no it's chatterfang" are MTG follow-ups). */
   hasChatHistory?: boolean;
+  /** Recent messages used only by the low-cost OpenAI intent classifier. */
+  chatHistory?: ChatHistoryEntry[];
 };
 
 const MINI_MODEL = (typeof process !== "undefined" && (process.env.MODEL_GUEST || "").trim()) || DEFAULT_FALLBACK_MODEL;
+export const LOWEST_INTENT_MODEL = MINI_MODEL;
 // No reply shortening: allow full-length responses for all tiers
 const MINI_CEILING_TIGHT = 16384;
 const MINI_CEILING_NORMAL = 16384;
@@ -288,6 +294,198 @@ export function layer0Decide(args: Layer0DecideArgs): Layer0Decision {
 /** Chat history entry for off-topic AI check */
 export type ChatHistoryEntry = { role: string; content: string };
 
+export type OpenAIIntentResult = {
+  intent: ChatTurnIntent;
+  confidence: number;
+  needsDeckContext: boolean;
+  shouldUseFullLlm: boolean;
+  reason?: string;
+};
+
+const OPENAI_INTENTS: ReadonlySet<ChatTurnIntent> = new Set([
+  "deck_analysis",
+  "deck_edit_followup",
+  "decklist_paste",
+  "commander_confirmation",
+  "rules_question",
+  "legality_question",
+  "price_question",
+  "format_question",
+  "memory_recall",
+  "general_mtg",
+  "faq",
+  "off_topic",
+  "empty",
+]);
+
+function clampConfidence(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1, n));
+}
+
+function parseOpenAIIntentJson(text: string): OpenAIIntentResult | null {
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+  const jsonText = raw.startsWith("{") ? raw : raw.match(/\{[\s\S]*\}/)?.[0];
+  if (!jsonText) return null;
+  try {
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+    const intent = String(parsed.intent || "").trim() as ChatTurnIntent;
+    if (!OPENAI_INTENTS.has(intent)) return null;
+    return {
+      intent,
+      confidence: clampConfidence(parsed.confidence),
+      needsDeckContext: parsed.needsDeckContext === true,
+      shouldUseFullLlm: parsed.shouldUseFullLlm === true,
+      reason: typeof parsed.reason === "string" ? parsed.reason.slice(0, 160) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function recentHistoryForIntent(history: ChatHistoryEntry[] | undefined): Array<{ role: string; content: string }> {
+  return (history || [])
+    .slice(-6)
+    .map((m) => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: String(m.content || "").slice(0, 700),
+    }))
+    .filter((m) => m.content.trim().length > 0);
+}
+
+export function shouldUseOpenAIIntentClassifier(args: Layer0DecideArgs, baseDecision: Layer0Decision): boolean {
+  const q = String(args.text || "").trim();
+  if (!q || q.length < 2) return false;
+  if (isDecklist(q)) return false;
+
+  const hasConversationContext = !!args.hasDeckContext || !!args.hasChatHistory || recentHistoryForIntent(args.chatHistory).length > 0;
+  if (baseDecision.mode === "NO_LLM") {
+    return baseDecision.handler === "off_topic_ai_check" && hasConversationContext;
+  }
+
+  if (hasConversationContext) return true;
+
+  // No context: only ask the intent model for longer ambiguous general turns, not cheap rules/card one-liners.
+  return baseDecision.mode === "FULL_LLM" && baseDecision.reason === "default";
+}
+
+export function applyOpenAIIntentDecision(
+  baseDecision: Layer0Decision,
+  aiIntent: OpenAIIntentResult | null,
+  args: Layer0DecideArgs,
+): Layer0Decision {
+  if (!aiIntent || aiIntent.confidence < 0.62) return baseDecision;
+
+  const hasConversationContext = !!args.hasDeckContext || !!args.hasChatHistory || recentHistoryForIntent(args.chatHistory).length > 0;
+  const reason = `openai_intent_${aiIntent.intent}`;
+
+  if (
+    aiIntent.intent === "deck_analysis" ||
+    aiIntent.intent === "deck_edit_followup" ||
+    aiIntent.intent === "decklist_paste" ||
+    aiIntent.intent === "memory_recall" ||
+    aiIntent.intent === "commander_confirmation" ||
+    aiIntent.shouldUseFullLlm
+  ) {
+    if (hasConversationContext || aiIntent.intent !== "commander_confirmation") {
+      return { mode: "FULL_LLM", reason };
+    }
+  }
+
+  if (
+    !args.hasDeckContext &&
+    (aiIntent.intent === "rules_question" ||
+      aiIntent.intent === "legality_question" ||
+      aiIntent.intent === "price_question" ||
+      aiIntent.intent === "format_question") &&
+    aiIntent.confidence >= 0.72
+  ) {
+    return {
+      mode: "MINI_ONLY",
+      reason,
+      model: LOWEST_INTENT_MODEL,
+      max_tokens: MINI_CEILING_NORMAL,
+    };
+  }
+
+  if (!hasConversationContext && aiIntent.intent === "off_topic" && aiIntent.confidence >= 0.88) {
+    return { mode: "NO_LLM", reason, handler: "off_topic" };
+  }
+
+  return baseDecision;
+}
+
+export async function classifyChatTurnIntentWithOpenAI(args: Layer0DecideArgs): Promise<OpenAIIntentResult | null> {
+  const text = String(args.text || "").trim();
+  if (!text) return null;
+
+  const payload = {
+    latestMessage: text.slice(0, 3000),
+    hasDeckContext: !!args.hasDeckContext,
+    deckCardCount: args.deckCardCount ?? null,
+    hasChatHistory: !!args.hasChatHistory || recentHistoryForIntent(args.chatHistory).length > 0,
+    route: args.route,
+    recentHistory: recentHistoryForIntent(args.chatHistory),
+  };
+
+  const prompt = `You are ManaTap's cheap intent classifier for an MTG chat route.
+Classify only the user's latest turn. Do not answer the user.
+
+Intent labels:
+- deck_analysis: user wants analysis, upgrades, cuts, mana base review, sideboard help, or strategy for a deck/list.
+- deck_edit_followup: user asks to add, cut, replace, apply, undo, or revise deck changes.
+- decklist_paste: latest message is mostly a pasted decklist.
+- commander_confirmation: user confirms/corrects an inferred Commander commander.
+- rules_question: MTG rules or keyword explanation.
+- legality_question: format legality, banned/restricted, color identity, commander legality.
+- price_question: card/deck price, worth, market cost.
+- format_question: asks about Commander, Standard, Modern, Pioneer, Pauper, Legacy, Vintage, Brawl, Historic, Explorer, Alchemy, or other MTG format structure.
+- memory_recall: asks what you remember or refers to prior saved/thread facts.
+- general_mtg: MTG topic that does not fit the above.
+- faq: asks how to use ManaTap itself.
+- off_topic: unrelated to MTG or ManaTap.
+- empty: no real user content.
+
+Return JSON only:
+{"intent":"deck_analysis","confidence":0.0,"needsDeckContext":false,"shouldUseFullLlm":false,"reason":"short reason"}
+
+Routing rule: choose shouldUseFullLlm=true when the answer needs reasoning over deck context, chat history, memory, or ambiguous user intent. Choose false for simple standalone rules/format/price questions.`;
+
+  try {
+    const { callLLM } = await import("./unified-llm-client");
+    const res = await callLLM(
+      [
+        { role: "system", content: prompt },
+        { role: "user", content: JSON.stringify(payload) },
+      ],
+      {
+        model: LOWEST_INTENT_MODEL,
+        maxTokens: 180,
+        route: "/api/chat/intent",
+        feature: "chat_intent_classifier",
+        apiType: "chat",
+        userId: null,
+        isPro: false,
+        timeout: 10000,
+        jsonResponse: true,
+        skipRecordAiUsage: true,
+      }
+    );
+    return parseOpenAIIntentJson(res.text);
+  } catch {
+    return null;
+  }
+}
+
+export async function layer0DecideWithIntent(args: Layer0DecideArgs): Promise<Layer0Decision> {
+  const baseDecision = layer0Decide(args);
+  if (!shouldUseOpenAIIntentClassifier(args, baseDecision)) return baseDecision;
+  const aiIntent = await classifyChatTurnIntentWithOpenAI(args);
+  return applyOpenAIIntentDecision(baseDecision, aiIntent, args);
+}
+
 /**
  * Async mini-model check: given chat history and current message, is the user's message OFF_TOPIC or MTG_RELATED?
  * Returns true if off-topic (should gate), false if MTG-related (proceed to LLM).
@@ -326,6 +524,7 @@ Reply with exactly one word: OFF_TOPIC or MTG_RELATED`;
         apiType: "chat",
         userId: null,
         isPro: false,
+        skipRecordAiUsage: true,
       }
     );
     const out = (res.text || "").toUpperCase().trim();

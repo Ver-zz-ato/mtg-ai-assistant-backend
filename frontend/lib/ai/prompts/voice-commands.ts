@@ -9,14 +9,16 @@ Output ONLY valid JSON, no other text:
 {"mode": "game_action", "actions": [...], "spoken_confirmation": "short phrase"}
 
 Action schema (use exactly these):
-- set_life: {"action":"set_life","target":"id or name","value":number}
-- adjust_life: {"action":"adjust_life","target":"id or name","amount":number} - negative = lose, positive = gain
-- set_counter: {"action":"set_counter","target":"id or name","counter":"poison"|"energy"|"experience"|"rad"|"storm","value":number}
-- adjust_counter: {"action":"adjust_counter","target":"id or name","counter":"poison"|... ,"amount":number}
-- set_status: {"action":"set_status","target":"id or name","status":"monarch"|"initiative","value":true|false}
-- set_commander_damage: {"action":"set_commander_damage","target":"victim id","source":"attacker id","value":number}
-- adjust_commander_damage: {"action":"adjust_commander_damage","target":"victim id","source":"attacker id","amount":number}
+- set_life: {"action":"set_life","target_player_id":"player id","value":number}
+- adjust_life: {"action":"adjust_life","target_player_id":"player id","amount":number} - negative = lose, positive = gain
+- set_counter: {"action":"set_counter","target_player_id":"player id","counter":"poison"|"energy"|"experience"|"rad"|"storm","value":number}
+- adjust_counter: {"action":"adjust_counter","target_player_id":"player id","counter":"poison"|... ,"amount":number}
+- set_status: {"action":"set_status","target_player_id":"player id","status":"monarch"|"initiative","value":true|false}
+- set_commander_damage: {"action":"set_commander_damage","target_player_id":"victim id","source_player_id":"attacker id","value":number}
+- adjust_commander_damage: {"action":"adjust_commander_damage","target_player_id":"victim id","source_player_id":"attacker id","amount":number}
 - undo: {"action":"undo"}
+
+Always prefer the exact provided player id fields over free-typed names. Only fall back to "target" / "source" if the roster is missing.
 
 Commands:
 - "take 3", "lose 3" -> adjust_life amount -3
@@ -35,8 +37,8 @@ Commands:
 
 Targeting:
 - "me", "my" -> use provided self id
-- "player 1", "player 2", etc. -> use the matching player by list order
-- player names, handles, or obvious prefixes/nicknames -> use the matching player from the provided player list. Example: "Davy" can match "DavyDraws7" if unambiguous
+- "player 1", "player 2", etc. -> use the matching player by list order and return that player's id
+- player names, handles, aliases, or obvious prefixes/nicknames -> use the matching player from the provided player list and return that player's id. Example: "Davy" can match "DavyDraws7" if unambiguous
 - toxic means poison counters in board state
 - default target to self when speaker intent is clear
 

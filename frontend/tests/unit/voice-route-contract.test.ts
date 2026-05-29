@@ -9,8 +9,8 @@ const gameContext = {
   noTtsForCommands: true,
   players: [
     { id: "p1", name: "Player One" },
-    { id: "p2", name: "DavyDraws7" },
-    { id: "p3", name: "Player Three" },
+    { id: "p2", name: "DavyDraws7", aliases: ["Davy", "David"] },
+    { id: "p3", name: "Forest Fella", aliases: ["Forest"] },
   ],
 };
 
@@ -58,6 +58,11 @@ assert.equal(playerOrderContract.analytics["voice.action_type"], "adjust_life");
 const poisonContract = buildContract("add 5 poison to player 3");
 assert.deepEqual(poisonContract.actions, [
   { action: "adjust_counter", target: "p3", counter: "poison", amount: 5 },
+]);
+
+const aliasContract = buildContract("add 1 life to David");
+assert.deepEqual(aliasContract.actions, [
+  { action: "adjust_life", target: "p2", amount: 1 },
 ]);
 
 const dangerContract = buildContract("set player 1 to 0");

@@ -7,8 +7,8 @@ const ctx = {
   selfPlayerId: "p2",
   players: [
     { id: "p1", name: "Sarah" },
-    { id: "p2", name: "DavyDraws7" },
-    { id: "p3", name: "Nora" },
+    { id: "p2", name: "DavyDraws7", aliases: ["Davy", "David"] },
+    { id: "p3", name: "Forest Fella", aliases: ["Forest"] },
   ],
 };
 
@@ -41,6 +41,18 @@ assert.deepEqual(llmStyleToxic, [
 
 const setLifeByNickname = validateActions([{ action: "set_life", target: "Davy", value: 23 }], ctx);
 assert.deepEqual(setLifeByNickname, [{ action: "set_life", target: "p2", value: 23 }]);
+
+const setLifeByTargetId = validateActions(
+  [{ action: "set_life", target_player_id: "p2", value: 21 }],
+  ctx
+);
+assert.deepEqual(setLifeByTargetId, [{ action: "set_life", target: "p2", value: 21 }]);
+
+const forestByAlias = parseLocalGameCommand("add 1 life to Forest", ctx);
+assert.deepEqual(forestByAlias?.actions, [{ action: "adjust_life", target: "p3", amount: 1 }]);
+
+const davidByAlias = validateActions([{ action: "adjust_life", target: "David", amount: -2 }], ctx);
+assert.deepEqual(davidByAlias, [{ action: "adjust_life", target: "p2", amount: -2 }]);
 
 const lifeZero = parseLocalGameCommand("set player 1 to 0", ctx);
 assert.equal(assessConfirmationNeed(lifeZero?.actions ?? []).required, true);

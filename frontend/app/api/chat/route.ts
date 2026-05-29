@@ -1092,12 +1092,12 @@ export async function POST(req: NextRequest) {
     const forceFullForChat = Array.isArray(forceFullRoutes) && forceFullRoutes.includes("chat");
     const layer0Enabled = !forceFullForChat;
     if (layer0Enabled) {
-      const { layer0Decide } = await import("@/lib/ai/layer0-gate");
+      const { layer0DecideWithIntent } = await import("@/lib/ai/layer0-gate");
       const { getFaqAnswer } = await import("@/lib/ai/static-faq");
       const { checkBudgetStatus } = await import("@/lib/server/budgetEnforcement");
       const status = await checkBudgetStatus(supabase);
       const nearBudgetCap = status.daily_usage_pct >= 90;
-      const decision = layer0Decide({
+      const decision = await layer0DecideWithIntent({
         text,
         hasDeckContext: hasDeckContextForLayer0,
         deckCardCount: null,
@@ -1106,6 +1106,7 @@ export async function POST(req: NextRequest) {
         nearBudgetCap,
         isPro,
         hasChatHistory: threadHistory.length > 1,
+        chatHistory: threadHistory,
       });
       if (decision.mode === "NO_LLM") {
         let actualHandler: string = decision.handler;

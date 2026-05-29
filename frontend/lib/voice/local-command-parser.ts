@@ -4,6 +4,7 @@
  */
 
 import type { GameAction } from "./types";
+import { detectPlayerMention } from "./player-match";
 import { validateActions, type ValidateContext } from "./validate";
 
 const NUMBER_WORDS: Record<string, number> = {
@@ -82,41 +83,10 @@ function detectTarget(
   text: string,
   ctx?: LocalCommandParserContext
 ): { target: string; ambiguous: boolean } {
-  if (/\b(me|my|myself|self|i)\b/.test(text)) {
+  if (!ctx?.players?.length) {
     return { target: ctx?.selfPlayerId ?? "self", ambiguous: false };
   }
-  if (!ctx?.players?.length) return { target: ctx?.selfPlayerId ?? "self", ambiguous: false };
-
-  const playerNumber = text.match(/\bplayer\s*(\d+)\b/);
-  if (playerNumber) {
-    const index = Number.parseInt(playerNumber[1], 10) - 1;
-    if (ctx.players[index]) return { target: ctx.players[index].id, ambiguous: false };
-    return { target: ctx.selfPlayerId ?? "self", ambiguous: true };
-  }
-
-  const normalizedText = text.replace(/[^a-z0-9 ]/g, "");
-  const candidates = ctx.players
-    .map((player) => {
-      const normalizedName = player.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const normalizedId = player.id.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const tokens = normalizedText.split(" ").filter((token) => token.length >= 3);
-      const exactName = normalizedText.includes(normalizedName);
-      const exactId = normalizedText.includes(normalizedId);
-      const prefixToken = tokens.some((token) => normalizedName.startsWith(token) || normalizedId.startsWith(token));
-      return { player, score: exactName || exactId ? 3 : prefixToken ? 1 : 0 };
-    })
-    .filter((candidate) => candidate.score > 0)
-    .sort((a, b) => b.score - a.score);
-
-  if (candidates.length === 1 || candidates[0]?.score > candidates[1]?.score) {
-    return { target: candidates[0].player.id, ambiguous: false };
-  }
-
-  if (candidates.length > 1 && candidates[0]?.score === candidates[1]?.score) {
-    return { target: ctx.selfPlayerId ?? "self", ambiguous: true };
-  }
-
-  return { target: ctx.selfPlayerId ?? "self", ambiguous: false };
+  return detectPlayerMention(text, ctx.players, ctx.selfPlayerId);
 }
 
 function actionPhrase(text: string): string {

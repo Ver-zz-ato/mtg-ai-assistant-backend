@@ -5,10 +5,13 @@
 import assert from "node:assert";
 import {
   layer0Decide,
+  applyOpenAIIntentDecision,
   isDeckAnalysisRequest,
   isSimpleRulesOrTerm,
   isManaTapFaq,
   needsDeckButMissing,
+  shouldUseOpenAIIntentClassifier,
+  LOWEST_INTENT_MODEL,
 } from "@/lib/ai/layer0-gate";
 import { getFaqAnswer } from "@/lib/ai/static-faq";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
@@ -57,7 +60,8 @@ assert.ok(getFaqAnswer("how do i paste a decklist"), "FAQ matches paste decklist
 const whatIsWard = layer0Decide(base({ text: "what is ward?", hasDeckContext: false }));
 assert.strictEqual(whatIsWard.mode, "MINI_ONLY");
 assert.strictEqual((whatIsWard as any).reason, "simple_rules_or_term");
-assert.strictEqual((whatIsWard as any).model, process.env.MODEL_GUEST || DEFAULT_FALLBACK_MODEL);
+assert.strictEqual((whatIsWard as any).model, LOWEST_INTENT_MODEL);
+assert.strictEqual(LOWEST_INTENT_MODEL, process.env.MODEL_GUEST || DEFAULT_FALLBACK_MODEL);
 assert.strictEqual((whatIsWard as any).max_tokens, 16384);
 
 const whatTrample = layer0Decide(base({ text: "what does trample do?", hasDeckContext: false }));
@@ -122,6 +126,46 @@ assert.strictEqual(spec4.mode, "FULL_LLM");
 // ai_usage logs layer0 fields: tested implicitly by route behavior; we just ensure decision has reason
 assert.ok((analyzeWithDeck as any).reason);
 assert.ok((whatIsWard as any).reason);
+
+// --- OpenAI intent classifier guardrails (pure helpers; no network) ---
+const fuzzyWithDeck = base({
+  text: "is this too clunky?",
+  hasDeckContext: true,
+  hasChatHistory: true,
+  chatHistory: [{ role: "user", content: "analyse my deck" }],
+});
+const fuzzyBaseDecision = layer0Decide(fuzzyWithDeck);
+assert.strictEqual(shouldUseOpenAIIntentClassifier(fuzzyWithDeck, fuzzyBaseDecision), true);
+const fuzzyIntentDecision = applyOpenAIIntentDecision(
+  fuzzyBaseDecision,
+  {
+    intent: "deck_analysis",
+    confidence: 0.86,
+    needsDeckContext: true,
+    shouldUseFullLlm: true,
+    reason: "Ambiguous deck-quality follow-up.",
+  },
+  fuzzyWithDeck,
+);
+assert.strictEqual(fuzzyIntentDecision.mode, "FULL_LLM");
+assert.strictEqual((fuzzyIntentDecision as any).reason, "openai_intent_deck_analysis");
+
+const cheapRulesBase = layer0Decide(base({ text: "is lightning bolt legal in modern?", hasDeckContext: false }));
+const cheapRulesIntentDecision = applyOpenAIIntentDecision(
+  cheapRulesBase,
+  {
+    intent: "legality_question",
+    confidence: 0.9,
+    needsDeckContext: false,
+    shouldUseFullLlm: false,
+  },
+  base({ text: "is lightning bolt legal in modern?", hasDeckContext: false }),
+);
+assert.strictEqual(cheapRulesIntentDecision.mode, "MINI_ONLY");
+assert.strictEqual((cheapRulesIntentDecision as any).model, LOWEST_INTENT_MODEL);
+
+const deterministicFaq = layer0Decide(base({ text: "how do i paste a decklist" }));
+assert.strictEqual(shouldUseOpenAIIntentClassifier(base({ text: "how do i paste a decklist" }), deterministicFaq), false);
 
 // --- Helper predicates ---
 assert.strictEqual(isDeckAnalysisRequest("analyze my deck"), true);

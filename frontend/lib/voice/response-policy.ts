@@ -59,9 +59,26 @@ export function assessConfirmationNeed(
 }
 
 export function shouldSkipTtsForResponse(
-  context: { noTts?: boolean; noTtsForCommands?: boolean; tts?: boolean } | null | undefined,
+  context: {
+    noTts?: boolean;
+    noTtsForCommands?: boolean;
+    tts?: boolean;
+    voicePrefs?: {
+      commandFeedback?: { playSpokenReply?: boolean };
+      questionFeedback?: { playSpokenReply?: boolean };
+    };
+  } | null | undefined,
   mode: string
 ): boolean {
   if (context?.tts === false || context?.noTts) return true;
+  if (mode === "game_action") {
+    if (typeof context?.voicePrefs?.commandFeedback?.playSpokenReply === "boolean") {
+      return context.voicePrefs.commandFeedback.playSpokenReply !== true;
+    }
+  } else if (mode === "chat" || mode === "clarify") {
+    if (typeof context?.voicePrefs?.questionFeedback?.playSpokenReply === "boolean") {
+      return context.voicePrefs.questionFeedback.playSpokenReply !== true;
+    }
+  }
   return mode === "game_action" && context?.noTtsForCommands === true;
 }

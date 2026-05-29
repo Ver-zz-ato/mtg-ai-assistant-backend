@@ -6,7 +6,7 @@
  * - Request: multipart/form-data with file (or audio), optional mimeType, optional context
  * - Response: { transcript, assistant_text, audio_url, duration_ms, model_used, mode?, actions?, clarification?, spoken_confirmation? }
  * - Max file: 25MB. Reject empty, unsupported formats.
- * - Context: { deckId?, screen?, players?: {id,name}[], selfPlayerId?, voiceMode? }
+ * - Context: { deckId?, screen?, players?: {id,name,aliases?}[], selfPlayerId?, voiceMode? }
  */
 
 import { NextRequest } from "next/server";
@@ -144,9 +144,13 @@ export async function POST(req: NextRequest) {
     type VoiceContext = {
       deckId?: string;
       screen?: string;
-      players?: Array<{ id: string; name: string }>;
+      players?: Array<{ id: string; name: string; aliases?: string[] }>;
       selfPlayerId?: string;
       voiceMode?: string;
+      voicePrefs?: {
+        commandFeedback?: { playSpokenReply?: boolean };
+        questionFeedback?: { playSpokenReply?: boolean };
+      };
       noTts?: boolean;
       noTtsForCommands?: boolean;
       tts?: boolean;

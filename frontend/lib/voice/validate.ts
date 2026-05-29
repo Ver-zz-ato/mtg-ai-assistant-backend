@@ -3,6 +3,7 @@
  */
 
 import type { GameAction } from "./types";
+import { buildPlayerAliases, fuzzyResolvePlayerId, normalizeVoiceName, type VoicePlayerRef } from "./player-match";
 
 const LIFE_MAX = 999;
 const LIFE_MIN = 0;
@@ -25,12 +26,8 @@ const ALLOWED_COUNTERS = ["poison", "energy", "experience", "rad", "storm"];
 const ALLOWED_STATUSES = ["monarch", "initiative"];
 
 export interface ValidateContext {
-  players?: Array<{ id: string; name: string }>;
+  players?: Array<VoicePlayerRef>;
   selfPlayerId?: string;
-}
-
-function normalizeToken(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function playerOrdinalLabel(index: number): string {
@@ -39,7 +36,7 @@ function playerOrdinalLabel(index: number): string {
 
 function resolveCounter(counter: unknown): string | null {
   if (typeof counter !== "string") return null;
-  const normalized = normalizeToken(counter);
+  const normalized = normalizeVoiceName(counter).replace(/\s+/g, "");
   if (normalized === "toxic" || normalized === "toxicity") return "poison";
   return ALLOWED_COUNTERS.find((allowed) => allowed === normalized) ?? null;
 }
@@ -47,16 +44,17 @@ function resolveCounter(counter: unknown): string | null {
 /** Resolve target string to player id. Returns original if no match. */
 function resolveTarget(target: string, ctx?: ValidateContext): string {
   if (!ctx?.players?.length) return target;
-  const t = String(target).toLowerCase().trim();
-  const normalizedTarget = normalizeToken(t);
+  const t = normalizeVoiceName(String(target));
+  const normalizedTarget = t.replace(/\s+/g, "");
   if (t === "me" || t === "my" || t === "self") return ctx.selfPlayerId ?? target;
   const byId = ctx.players.find((p) => p.id === target);
   if (byId) return byId.id;
 
   const exactMatch = ctx.players.find((p, index) => {
     return (
-      p.name.toLowerCase() === t ||
-      p.id.toLowerCase() === t ||
+      normalizeVoiceName(p.name) === t ||
+      normalizeVoiceName(p.id) === t ||
+      buildPlayerAliases(p).includes(t) ||
       playerOrdinalLabel(index) === t ||
       `player${index + 1}` === normalizedTarget ||
       `${index + 1}` === normalizedTarget
@@ -64,14 +62,8 @@ function resolveTarget(target: string, ctx?: ValidateContext): string {
   });
   if (exactMatch) return exactMatch.id;
 
-  if (normalizedTarget.length >= 3) {
-    const fuzzyMatches = ctx.players.filter((p) => {
-      const normalizedName = normalizeToken(p.name);
-      const normalizedId = normalizeToken(p.id);
-      return normalizedName.startsWith(normalizedTarget) || normalizedId.startsWith(normalizedTarget);
-    });
-    if (fuzzyMatches.length === 1) return fuzzyMatches[0].id;
-  }
+  const fuzzy = fuzzyResolvePlayerId(target, ctx.players);
+  if (fuzzy) return fuzzy;
 
   return target;
 }
@@ -102,7 +94,12 @@ export function validateActions(
       continue;
     }
 
-    const target = typeof obj.target === "string" ? obj.target.trim() : "";
+    const target =
+      typeof obj.target_player_id === "string"
+        ? obj.target_player_id.trim()
+        : typeof obj.target === "string"
+          ? obj.target.trim()
+          : "";
     if (!target && action !== "undo") continue;
 
     const resolvedTarget = resolveTarget(target, ctx);
@@ -133,7 +130,7 @@ export function validateActions(
         break;
       }
       case "set_status": {
-        const status = typeof obj.status === "string" && ALLOWED_STATUSES.includes(obj.status)
+        const status = typeof obj.status === "string" && ALLOWED_STATUSES.includes(obj.status as "monarch" | "initiative")
           ? obj.status
           : null;
         const value = obj.value === true || obj.value === false ? obj.value : null;
@@ -144,7 +141,13 @@ export function validateActions(
       }
       case "set_commander_damage":
       case "adjust_commander_damage": {
-        const source = typeof obj.source === "string" ? resolveTarget(obj.source.trim(), ctx) : "";
+        const rawSource =
+          typeof obj.source_player_id === "string"
+            ? obj.source_player_id.trim()
+            : typeof obj.source === "string"
+              ? obj.source.trim()
+              : "";
+        const source = rawSource ? resolveTarget(rawSource, ctx) : "";
         if (!source) break;
 
         if (action === "set_commander_damage") {

@@ -26,7 +26,7 @@ export interface CommandParserOutput {
 }
 
 export interface ParserContext {
-  players?: Array<{ id: string; name: string }>;
+  players?: Array<{ id: string; name: string; aliases?: string[] }>;
   selfPlayerId?: string;
 }
 
@@ -61,7 +61,14 @@ export async function parseCommands(
   }
 
   const playersJson = ctx?.players?.length
-    ? `Players: ${JSON.stringify(ctx.players)}. Self/me: ${ctx.selfPlayerId ?? "unknown"}.`
+    ? `Players: ${JSON.stringify(
+        ctx.players.map((player, index) => ({
+          id: player.id,
+          seat: index + 1,
+          name: player.name,
+          aliases: player.aliases ?? [],
+        }))
+      )}. Self/me: ${ctx.selfPlayerId ?? "unknown"}.`
     : "No player context. Use 'self' or 'me' as target placeholder when speaker means themselves.";
 
   const body = prepareOpenAIBody({
