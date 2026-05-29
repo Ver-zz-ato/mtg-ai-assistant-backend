@@ -1447,7 +1447,7 @@ export async function POST(req: NextRequest) {
 
       const localMemoryContext = sanitizeClientMemoryContext(raw?.context?.memoryContext);
       if (localMemoryContext) {
-        sys += `\n\nCURRENT REQUEST MEMORY CONTEXT (provided by the user/client in this same request; safe to use directly when answering questions about remembered MTG preferences. Advisory only: current user message, thread memory, and server deck data override it): ${localMemoryContext}`;
+        sys += `\n\nCURRENT REQUEST MEMORY CONTEXT (provided by the user/client in this same request; safe to use directly when answering questions about remembered MTG preferences. If this conflicts with older saved preferences or durable memories, this current request context wins. Server deck data and explicit user instructions still override it): ${localMemoryContext}`;
         if (adminPv) adminPv.notes.push("Local browser memory context appended.");
       }
     } catch (error) {

@@ -1275,6 +1275,7 @@ export async function POST(req: NextRequest) {
     let promptResult: Awaited<ReturnType<typeof buildSystemPromptForRequest>>;
     let sys: string;
     let hasPromptMemoryContext = false;
+    let currentRequestMemoryContextForModel = "";
     let promptVersionId: string | null;
 
     if (evalRunId && !hasDeckContextForTier) {
@@ -1575,7 +1576,8 @@ export async function POST(req: NextRequest) {
 
       const localMemoryContext = sanitizeClientMemoryContext(context?.memoryContext);
       if (localMemoryContext) {
-        sys += `\n\nCURRENT REQUEST MEMORY CONTEXT (provided by the user/client in this same request; safe to use directly when answering questions about remembered MTG preferences. Advisory only: current user message, thread memory, and server deck data override it): ${localMemoryContext}`;
+        currentRequestMemoryContextForModel = localMemoryContext;
+        sys += `\n\nCURRENT REQUEST MEMORY CONTEXT (provided by the user/client in this same request; safe to use directly when answering questions about remembered MTG preferences. If this conflicts with older saved preferences or durable memories, this current request context wins. Server deck data and explicit user instructions still override it): ${localMemoryContext}`;
         hasPromptMemoryContext = true;
       }
     } catch (error) {
@@ -2109,6 +2111,9 @@ export async function POST(req: NextRequest) {
 
     const stage1T = Date.now();
     let sysForCall = sys + (researchNote ? `\n\nResearch: ${researchNote}` : '');
+    const textForModel = currentRequestMemoryContextForModel
+      ? `${text}\n\nCurrent request memory context:\n${currentRequestMemoryContextForModel}\n\nUse this current request memory context directly when the user asks about remembered MTG preferences.`
+      : text;
     const deckCardCount = v2Summary?.card_count ?? 0;
     type PlannerUsage = { model: string; inputTokens: number; outputTokens: number; cost_usd: number };
     let plannerUsage: PlannerUsage | null = null;
@@ -2159,7 +2164,7 @@ export async function POST(req: NextRequest) {
         callOpts.forceModel = layer0MiniOnly.model;
         callOpts.forceMaxTokens = layer0MiniOnly.max_tokens;
       }
-      out1 = await callOpenAI(text, sysForCall, layer0MiniOnly ? false : isComplexAnalysis, userId, isPro, isGuest, anonId, callOpts);
+      out1 = await callOpenAI(textForModel, sysForCall, layer0MiniOnly ? false : isComplexAnalysis, userId, isPro, isGuest, anonId, callOpts);
     } catch (error) {
       // Error recovery: fallback to keyword search
       console.warn('[chat] LLM call failed, attempting recovery:', error);
@@ -2450,7 +2455,7 @@ Return the corrected answer with concise, user-facing tone.`;
         if (result.needsRegeneration) {
           console.log("[chat] regeneration (needsRegeneration) triggered");
           try {
-            const regenOut = await callOpenAI(text, sys + "\n\n" + REPAIR_SYSTEM_MESSAGE, isComplexAnalysis, userId, isPro, isGuest, anonId);
+            const regenOut = await callOpenAI(textForModel, sys + "\n\n" + REPAIR_SYSTEM_MESSAGE, isComplexAnalysis, userId, isPro, isGuest, anonId);
             const regenText = firstOutputText((regenOut as any)?.json);
             if (typeof regenText === "string" && regenText.trim()) {
               outText = regenText.trim();
