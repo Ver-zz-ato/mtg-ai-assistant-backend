@@ -130,8 +130,8 @@ export async function submitAiFeedback(
   options: SubmitAiFeedbackOptions,
 ): Promise<SubmitAiFeedbackResult> {
   const { req, user, body } = options;
-  const isGuest = !user?.id;
-  const guestKey = isGuest ? guestKeyFromRequest(req) : null;
+  const isAnonymous = !user?.id;
+  const guestKey = isAnonymous ? guestKeyFromRequest(req) : null;
 
   const rating = body.rating ?? null;
   const comment = truncate(body.comment, MAX_COMMENT);
@@ -143,26 +143,37 @@ export async function submitAiFeedback(
     return { ok: false, error: "feedback_requires_rating_or_comment", status: 400 };
   }
 
-  if (isGuest && hasReportPayload) {
-    return { ok: false, error: "sign_in_required_for_report", status: 401 };
-  }
-
   if (comment && containsProfanity(comment)) {
     return { ok: false, error: "comment_contains_disallowed_words", status: 400 };
   }
 
-  const includeContext = body.includeContext !== false && !isGuest;
-  const userInputText = includeContext ? truncate(body.userInputText, MAX_USER_INPUT) : null;
-  const aiOutputText = includeContext ? truncate(body.aiOutputText, MAX_AI_OUTPUT) : null;
+  const signedInFullContext = !!user?.id && body.includeContext !== false;
+  const guestReportContext = isAnonymous && hasReportPayload;
+  const guestThumbOnly = isAnonymous && !hasReportPayload;
+
+  let userInputText: string | null = null;
+  let aiOutputText: string | null = null;
+  if (signedInFullContext || guestReportContext) {
+    userInputText = truncate(body.userInputText, MAX_USER_INPUT);
+    aiOutputText = truncate(body.aiOutputText, MAX_AI_OUTPUT);
+  }
+
   const contextJsonb = sanitizeContext({
     ...(body.context ?? {}),
-    ...(isGuest
+    ...(isAnonymous
       ? {
+          visitor_type: "guest",
           app_version: req.headers.get("X-App-Version") ?? undefined,
           platform: req.headers.get("X-App-Platform") ?? undefined,
         }
       : {}),
   });
+
+  if (guestThumbOnly) {
+    // Thumbs-only from guests: no transcript text stored.
+    userInputText = null;
+    aiOutputText = null;
+  }
 
   const db = getServiceRoleClient();
   if (!db) {

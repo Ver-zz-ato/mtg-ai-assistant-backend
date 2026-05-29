@@ -18,7 +18,7 @@
 ### Unified AI feedback
 
 - **Migration `117_ai_feedback_events.sql`:** New **`ai_feedback_events`** table (service-role inserts from API).
-- **`POST /api/ai/feedback`:** Zod-validated unified endpoint; guest thumbs-only; signed-in reports with context.
+- **`POST /api/ai/feedback`:** Zod-validated unified endpoint; guests may submit issue reports (full report context + `guest_key`, no `user_id`); guest thumbs-only still omit transcript text.
 - **`/api/feedback`**, **`/api/chat/report`:** Delegate AI flows to unified store (no new **`ai_response_reports`** writes).
 - **Admin `/admin/ai-feedback`:** List, filters (24h/2d/7d/all), detail drawer, grouping, JSON export for Cursor.
 - **Web:** `Chat.tsx`, `AnalysisFeedbackRow.tsx` use unified API.
