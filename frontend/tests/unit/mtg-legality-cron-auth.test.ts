@@ -10,15 +10,11 @@ const SECRET = "test-cron-secret-hex-123456";
 
 type RequestLikeOptions = {
   authorizationHeader?: string | null;
-  queryKey?: string | null;
   xVercelId?: string | null;
 };
 
 function makeRequest(options: RequestLikeOptions = {}) {
   const url = new URL("https://example.com/api/cron/mtg-legality-refresh");
-  if (options.queryKey) {
-    url.searchParams.set("key", options.queryKey);
-  }
 
   const headers = new Headers();
   if (options.authorizationHeader != null) {
@@ -32,7 +28,7 @@ function makeRequest(options: RequestLikeOptions = {}) {
     nextUrl: url,
     headers,
     method: "POST",
-  } as any;
+  } as unknown as { nextUrl: URL; headers: Headers; method: string };
 }
 
 try {
@@ -70,16 +66,13 @@ try {
     true,
   );
 
+  const queryOnlyRequest = {
+    nextUrl: new URL(`https://example.com/api/cron/mtg-legality-refresh?key=${SECRET}`),
+    headers: new Headers(),
+    method: "POST",
+  } as unknown as { nextUrl: URL; headers: Headers; method: string };
   assert.strictEqual(
-    verifyCronRequest(makeRequest({ queryKey: SECRET }), {
-      logUnauthorizedOnFailure: false,
-    }),
-    true,
-  );
-
-  assert.strictEqual(
-    verifyCronRequest(makeRequest({ queryKey: SECRET }), {
-      allowLegacyQueryParam: false,
+    verifyCronRequest(queryOnlyRequest, {
       logUnauthorizedOnFailure: false,
     }),
     false,

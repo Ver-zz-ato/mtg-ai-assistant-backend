@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
+import { isActiveProfilePro } from "@/lib/server-pro-check";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest){
       const offset = (page - 1) * perPage;
       const { data: profileRows, error: profErr } = await admin
         .from("profiles")
-        .select("id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at")
+        .select("id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, pro_until, created_at")
         .eq("is_pro", pro === "yes")
         .order("created_at", { ascending: false })
         .range(offset, offset + perPage - 1);
@@ -106,7 +107,7 @@ export async function GET(req: NextRequest){
       // Fallback when listUsers fails: fetch from profiles, then enrich with email via getUserById
       const limit = q ? 150 : perPage; // When searching, fetch more to filter (getUserById x N)
       const offset = q ? 0 : (page - 1) * perPage;
-      const { data: profileRows } = await admin.from('profiles').select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+      const { data: profileRows } = await admin.from('profiles').select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, pro_until, created_at').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
       if (profileRows?.length) {
         fallbackProfiles = profileRows;
         const enriched = await Promise.all(profileRows.map(async (p: any) => {
@@ -134,7 +135,7 @@ export async function GET(req: NextRequest){
     } else {
       const { data: profiles, error: profilesError } = await admin
         .from('profiles')
-        .select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, created_at')
+        .select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, pro_until, created_at')
         .in('id', userIds);
       if (profilesError) {
         console.warn('[admin/users/search] profiles query failed:', profilesError.message);
@@ -161,7 +162,7 @@ export async function GET(req: NextRequest){
       const username = profile?.username || um.username || um.display_name || null;
       const displayName = profile?.display_name || um.display_name || um.username || null;
       const emailVal = profile?.email || u.email || null;
-      const pro = profile ? !!profile.is_pro : !!um.pro;
+      const pro = isActiveProfilePro(profile ?? null);
       const pro_plan = profile?.pro_plan || null;
       const billing_active = !!um.billing_active;
       const created_at = u.created_at || null;

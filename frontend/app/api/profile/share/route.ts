@@ -3,6 +3,8 @@ import { getServerSupabase, createClientWithBearerToken } from "@/lib/server-sup
 import { captureServer } from "@/lib/server/analytics";
 import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 import { syncUserBadgeState } from "@/lib/badges/canonical";
+import { addRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
+import { extractIP } from "@/lib/guest-tracking";
 
 export const runtime = "nodejs";
 
@@ -29,12 +31,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    const burst = checkRateLimit(req, {
+      windowMs: 10 * 60 * 1000,
+      maxRequests: 12,
+      keyGenerator: (request) => `profile-share:${user.id}:${extractIP(request)}`,
+    });
+    if (!burst.allowed) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "rate_limited", retryAfter: burst.retryAfter }, { status: 429 }),
+        burst,
+      );
+    }
 
     const body = await req.json().catch(()=>({}));
     const is_public = body?.is_public !== false; // default true
 
     // upsert row in profiles_public from user metadata + computed stats
-    const md: any = user.user_metadata || {};
+    const md = (user.user_metadata || {}) as Record<string, unknown>;
     let profileUsername: string | null = typeof md.username === "string" && md.username.trim() ? md.username.trim() : null;
     if (!profileUsername) {
       try {
@@ -92,10 +105,13 @@ export async function POST(req: NextRequest) {
       collection_count,
       messages_30d,
       badges,
-    } as any;
+    } as Record<string, unknown>;
 
     const { error } = await supabase.from('profiles_public').upsert(row, { onConflict: 'id' });
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      console.error("profile_share_upsert", error);
+      return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    }
     try { await captureServer('profile_share', { user_id: user.id, is_public }); } catch {}
 
     // Use production domain or explicit base URL (never use preview URLs for sharing)
@@ -117,8 +133,9 @@ export async function POST(req: NextRequest) {
         submitToIndexNow(`/u/${encodeURIComponent(slug)}`).catch(() => {});
       } catch {}
     }
-    return NextResponse.json({ ok: true, url, is_public });
-  } catch (e:any) {
-    return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
+    return addRateLimitHeaders(NextResponse.json({ ok: true, url, is_public }), burst);
+  } catch (e: unknown) {
+    console.error("profile_share_route", e);
+    return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
 }

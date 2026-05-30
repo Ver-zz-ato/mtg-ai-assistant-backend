@@ -10,6 +10,8 @@ import {
 } from "@/lib/observability/cost-audit";
 import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
 import { validatePublicText } from "@/lib/profanity";
+import { addRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
+import { extractIP } from "@/lib/guest-tracking";
 
 export const dynamic = "force-dynamic";
 
@@ -141,7 +143,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       comments: enrichedComments,
       count: enrichedComments.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in comments GET:", error);
     if (isCostAuditStorageEnabled()) {
       costAuditServerLog({
@@ -155,7 +157,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       });
     }
     return NextResponse.json(
-      { ok: false, error: error.message || "Internal server error" },
+      { ok: false, error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -173,13 +175,35 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         { status: 403 }
       );
     }
-    let { supabase, user, authError } = await getUserAndSupabase(req);
+    const { supabase, user, authError } = await getUserAndSupabase(req);
     const { id: deckId } = await context.params;
 
     if (authError || !user) {
       return NextResponse.json(
         { ok: false, error: "Must be logged in to comment" },
         { status: 401 }
+      );
+    }
+    const userBurst = checkRateLimit(req, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 12,
+      keyGenerator: () => `deck-comments-post-user:${user.id}`,
+    });
+    if (!userBurst.allowed) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "rate_limited", retryAfter: userBurst.retryAfter }, { status: 429 }),
+        userBurst,
+      );
+    }
+    const ipBurst = checkRateLimit(req, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 20,
+      keyGenerator: (request) => `deck-comments-post-ip:${extractIP(request)}`,
+    });
+    if (!ipBurst.allowed) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "rate_limited", retryAfter: ipBurst.retryAfter }, { status: 429 }),
+        ipBurst,
       );
     }
 
@@ -271,14 +295,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       data: { deck_id: deckId, type: "deck_comment" },
     });
 
-    return NextResponse.json({
+    return addRateLimitHeaders(NextResponse.json({
       ok: true,
       comment: enrichedComment,
-    });
-  } catch (error: any) {
+    }), userBurst);
+  } catch (error: unknown) {
     console.error("Error in comments POST:", error);
     return NextResponse.json(
-      { ok: false, error: error.message || "Internal server error" },
+      { ok: false, error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -302,6 +326,17 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+    const burst = checkRateLimit(req, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 20,
+      keyGenerator: (request) => `deck-comments-delete:${user.id}:${extractIP(request)}`,
+    });
+    if (!burst.allowed) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "rate_limited", retryAfter: burst.retryAfter }, { status: 429 }),
+        burst,
       );
     }
 
@@ -367,11 +402,11 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
       );
     }
 
-    return NextResponse.json({ ok: true });
-  } catch (error: any) {
+    return addRateLimitHeaders(NextResponse.json({ ok: true }), burst);
+  } catch (error: unknown) {
     console.error("Error in comments DELETE:", error);
     return NextResponse.json(
-      { ok: false, error: error.message || "Internal server error" },
+      { ok: false, error: "Internal server error" },
       { status: 500 }
     );
   }

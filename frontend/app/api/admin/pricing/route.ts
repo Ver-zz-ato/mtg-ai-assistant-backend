@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { isActiveProfilePro, type ProfileProRow } from '@/lib/server-pro-check';
 
 export const runtime = 'nodejs';
 
@@ -49,12 +50,36 @@ export async function GET(req: NextRequest) {
       page++;
     }
 
-    // Calculate statistics
+    const userIds = allUsers.map((u) => u.id).filter(Boolean);
+    const profileMap = new Map<string, ProfileProRow>();
+    const chunkSize = 500;
+
+    for (let index = 0; index < userIds.length; index += chunkSize) {
+      const chunk = userIds.slice(index, index + chunkSize);
+      if (chunk.length === 0) continue;
+
+      const { data: profiles, error: profilesError } = await admin
+        .from('profiles')
+        .select('id, is_pro, pro_until')
+        .in('id', chunk);
+
+      if (profilesError) {
+        console.warn('[admin/pricing] profiles query failed:', profilesError.message);
+        continue;
+      }
+
+      for (const profile of profiles || []) {
+        const row = profile as { id: string; is_pro?: boolean | null; pro_until?: string | null };
+        profileMap.set(row.id, {
+          is_pro: row.is_pro ?? null,
+          pro_until: row.pro_until ?? null,
+        });
+      }
+    }
+
+    // Calculate statistics from canonical profile entitlement state, not user_metadata.
     const totalUsers = allUsers.length;
-    const proUsers = allUsers.filter(u => {
-      const um = (u?.user_metadata || {}) as any;
-      return !!(um?.pro || um?.is_pro);
-    }).length;
+    const proUsers = allUsers.filter((u) => isActiveProfilePro(profileMap.get(u.id) ?? null)).length;
     const freeUsers = totalUsers - proUsers;
     const conversionRate = totalUsers > 0 ? proUsers / totalUsers : 0;
     const monthlyRevenue = proUsers * 1.99; // $1.99/month

@@ -3,7 +3,6 @@ import type { NextRequest } from "next/server";
 
 type VerifyCronRequestOptions = {
   routePath?: string;
-  allowLegacyQueryParam?: boolean;
   logUnauthorizedOnFailure?: boolean;
 };
 
@@ -73,15 +72,6 @@ export function verifyCronRequest(
   // by any caller that can send custom headers to this route.
   if (authorizationHeader && safeEquals(authorizationHeader, expectedAuthorization)) {
     return true;
-  }
-
-  // Temporary compatibility only: query-string secrets leak into logs, browser history,
-  // analytics, and referrers. Keep this only long enough to migrate legacy manual callers.
-  if (options.allowLegacyQueryParam !== false) {
-    const legacyQueryKey = String(req.nextUrl.searchParams.get("key") || "").trim();
-    if (legacyQueryKey && safeEquals(legacyQueryKey, cronSecret)) {
-      return true;
-    }
   }
 
   if (options.logUnauthorizedOnFailure !== false) {

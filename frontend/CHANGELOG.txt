@@ -46,8 +46,6 @@
 
 2026-03-28 – **Audit script (read-only):** `scripts/audit-scryfall-cache-names.mjs` + `npm run audit:scryfall-cache-names` — DB `name` vs latest `default_cards` canonical set; JSON/CSV under `tmp/`; `db/SCRYFALL_CACHE_NAME_AUDIT_SCRIPT.md`. **Files:** `frontend/scripts/audit-scryfall-cache-names.mjs`, `frontend/package.json`, `frontend/.gitignore`, `db/SCRYFALL_CACHE_NAME_AUDIT_SCRIPT.md`, `docs/SCRYFALL_CACHE_REBUILD_AUDIT.md`.
 
-2026-03-28 – **scryfall_cache incomplete repair:** `isScryfallCacheRowIncomplete` + `POST /api/cron/scryfall-cache-incomplete-repair` (merge upsert, batched collection calls, resume `after`); `db/SCRYFALL_CACHE_INCOMPLETE_REPAIR.md`.
-
 2026-03-28 – **lightweight-scryfall + bulk-jobs/scryfall-import:** upserts use `buildScryfallCacheRowFromApiCard` (full Phase 2A row); dedupe key `String(row.name)`; schema probe uses same builder. **Files:** `app/api/cron/lightweight-scryfall/route.ts`, `app/api/bulk-jobs/scryfall-import/route.ts`.
 
 2026-03-28 – **scryfall_cache PK hardening (additive):**
@@ -126,11 +124,9 @@
 - `db/scryfall_cache_phase3b_duplicate_cleanup_review.sql`, `db/scryfall_cache_phase3b_duplicate_cleanup.sql`, `db/SCRYFALL_CACHE_PHASE3B_DUPLICATES.md` — bracketed `[[...]]` and print-annotation dupes vs existing canonical PK; commented safe deletes.
 
 2025-03-24 – Phase 3 scryfall_cache backfill (Phase 2A + legalities):
-- mergeScryfallCacheRowFromApiCard + needsPhase3Backfill; cron POST /api/cron/scryfall-cache-phase3-backfill (Scryfall collection, resumable cursor).
+- mergeScryfallCacheRowFromApiCard + needsPhase3Backfill; resumable Scryfall collection backfill tooling.
 - db/scryfall_cache_phase3_verification.sql, db/SCRYFALL_CACHE_PHASE3.md.
 - **build:** bulk-scryfall — `ScryfallCard` passed to `buildScryfallCacheRowFromApiCard` via `as unknown as Record<string, unknown>` for strict tsc.
-- Phase 3 backfill route: dedupe merged rows by PK before upsert (fixes Postgres “ON CONFLICT … second time” when Scryfall returns duplicate names in one batch); response includes `duplicatePkInBatch`.
-- Phase 3 resume: `nextAfter` is last **examined** row in the page (not last row of the 200 window) so the next `name > after` scan does not skip rows when the batch fills early.
 
 2025-03-24 – Phase 2B scryfall_cache image writes:
 - Image-cache DB upserts use resolved canonical Scryfall oracle name (normalizeScryfallCacheName(card.name)), not the request key; partial rows unchanged.

@@ -10,7 +10,6 @@ import { extractIP } from "@/lib/guest-tracking";
 export const runtime = "nodejs";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 type ResourceType = "collection" | "roast" | "health_report" | "analysis_report" | "custom_card";
 
@@ -127,8 +126,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, comments: enriched });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("share_comments_get", e);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }
 
@@ -180,7 +179,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
     }
 
-    const { data: inserted, error: insErr } = await supabase
+    const { data: inserted, error: insErr } = await admin
       .from("shared_item_comments")
       .insert({
         resource_type: type,
@@ -217,8 +216,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("share_comments_post", e);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }
 
@@ -281,7 +280,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("share_comments_delete", e);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }

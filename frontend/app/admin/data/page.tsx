@@ -455,7 +455,6 @@ export default function DataPage(){
               <div>• Takes ~3-5 minutes (downloads ~100MB)</div>
               <div>• Production: weekly (Sunday ~2:00 AM UTC) via GitHub Actions → <code className="bg-black/40 px-1 rounded">BASE_URL</code></div>
               <div>• Local: use RUN NOW anytime (dev, catch-up, or after new sets). Optional weekly/monthly cadence is up to you.</div>
-              <div>• Gap-fill for existing rows (legalities / flags) uses a separate cron: <code className="bg-black/40 px-1 rounded">POST /api/cron/scryfall-cache-phase3-backfill</code> — not this button.</div>
               
               <div className="font-semibold text-purple-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:bulk_scryfall'])}</div>

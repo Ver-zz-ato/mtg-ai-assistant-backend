@@ -33,7 +33,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       expires_at: data.expires_at,
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("analysis_share_get", e);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }

@@ -21,6 +21,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 - **Server:** `lib/server-pro-check.ts` → `checkProStatus(userId)`. Uses active `profiles.is_pro` (manual / Stripe / webhook-synced grants) or RevenueCat API. OR logic; any active source → Pro.
 - **Client:** `hooks/useProStatus.ts` → `useProStatus()`. Uses `/api/user/pro-status` as canonical truth with a short profile fallback. Subscribes to `profiles` changes and rechecks the API for real-time updates.
 - **API:** `GET /api/user/pro-status` uses `getProStatusDetails()` and returns `{ ok, isPro, fromProfile, fromMetadata, fromRevenueCat }`. Auth required. `fromMetadata` is diagnostic only; `user_metadata` is not trusted for authorization.
+- **Cross-platform contract:** a user can become Pro from manual admin grant, Stripe website billing, or RevenueCat mobile billing. App and website should converge on the same Pro result through the shared profile state plus RevenueCat fallback checks.
 
 ---
 
@@ -97,7 +98,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 |-------|--------|----------------------|
 | **`/api/deck/health-suggestions`** | `checkProStatus` | 403, "Deck Health features are Pro-only…" |
 | **`/api/watchlist/update`** | `checkProStatus` | 403 |
-| **`/api/watchlist/add`** | Profile `is_pro` or `user_metadata.pro` | 403 |
+| **`/api/watchlist/add`** | `checkProStatus` | 403 |
 
 ---
 

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserAndSupabase } from "@/lib/api/get-user-from-request";
 import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 import crypto from "node:crypto";
+import { addRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
+import { extractIP } from "@/lib/guest-tracking";
 
 export const runtime = "nodejs";
 
@@ -58,6 +60,29 @@ export async function POST(req: NextRequest, ctx: { params: Promise<Params> }) {
   }
 
   try {
+    const userBurst = checkRateLimit(req, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 20,
+      keyGenerator: () => `collection-likes-user:${user.id}`,
+    });
+    if (!userBurst.allowed) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "rate_limited", retryAfter: userBurst.retryAfter }, { status: 429 }),
+        userBurst,
+      );
+    }
+    const ipBurst = checkRateLimit(req, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 25,
+      keyGenerator: (request) => `collection-likes-ip:${extractIP(request)}`,
+    });
+    if (!ipBurst.allowed) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "rate_limited", retryAfter: ipBurst.retryAfter }, { status: 429 }),
+        ipBurst,
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const action = (body?.action || "toggle") as "like" | "unlike" | "toggle";
     const ipHash = ipHashFromReq(req);
@@ -82,9 +107,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<Params> }) {
         .eq("collection_id", id)
         .eq("user_id", user.id),
     ]);
-    return NextResponse.json({ ok: true, count: c || 0, liked: (lc || 0) > 0 });
+    return addRateLimitHeaders(NextResponse.json({ ok: true, count: c || 0, liked: (lc || 0) > 0 }), userBurst);
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "server_error";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("collection_likes_post", e);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }

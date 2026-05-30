@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   
   try {
     // Centralized verification avoids trusting spoofable headers like x-vercel-id.
-    // Temporary ?key=<CRON_SECRET> compatibility is handled in verifyCronRequest.
+    // Cron auth is handled centrally in verifyCronRequest via Authorization: Bearer <CRON_SECRET>.
     const vercelId = null;
     const cronKeyHeader = null;
     const cronKeyQuery = null;

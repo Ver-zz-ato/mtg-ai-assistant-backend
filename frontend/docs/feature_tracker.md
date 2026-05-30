@@ -49,8 +49,16 @@
 - [x] **Fixed Pro Status Synchronization** — Made `profiles.is_pro` the single source of truth
   - Admin panel now updates BOTH `user_metadata.pro` AND `profiles.is_pro`
   - Stripe webhooks now update BOTH `user_metadata.pro` AND `profiles.is_pro`
-  - ProContext prioritizes database over metadata with fallback
-  - All Pro checks now use database first for consistency
+  - ProContext prioritizes database-backed status and canonical `/api/user/pro-status`
+  - `user_metadata.pro` is sync/debug only and does not grant authorization
+  - All Pro checks now use canonical profile/RevenueCat resolution for consistency
+- [x] **Hardened Stripe entitlement flow** — Prevent duplicate active website subscriptions and improve customer recovery
+  - Checkout now reuses/recoveries Stripe customers before creating new ones
+  - Checkout blocks creating a second active Stripe subscription for the same customer
+  - Admin Stripe reconciliation surfaces can audit and repair paid-in-Stripe-but-not-Pro profile drift
+- [x] **Aligned app + website Pro contract** — Manual, Stripe, and RevenueCat now all converge through the same shared entitlement model
+  - Website/backend trust active `profiles.is_pro` / `pro_until` plus RevenueCat fallback
+  - Mobile `useEntitlements()` merges Supabase profile + RevenueCat SDK + backend `/api/user/pro-status`
 - [x] **Fixed Stripe Product IDs** — Corrected typo in billing.ts (prod_TDcEDlXjpoi33U → prod_TDaREGWGBQSSBQ)
 - [x] **Stripe Checkout Working** — Resolved "Invalid API Key" and "Failed to get price" errors
 

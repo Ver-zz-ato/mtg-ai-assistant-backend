@@ -1,7 +1,7 @@
 # ManaTap AI — Website Features & Functions
 
 > **Purpose:** Reference document for app version descriptions, release notes, changelogs, and marketing copy.  
-> **Last updated:** February 2025
+> **Last updated:** May 30, 2026
 
 ---
 
@@ -11,7 +11,7 @@
 
 **Target users:** Commander and EDH players, deck builders, budget-conscious players, collectors
 
-**Tech stack:** Next.js, React, Supabase, OpenAI, Stripe, Scryfall API
+**Tech stack:** Next.js, React, Supabase, OpenAI, Stripe, RevenueCat, Scryfall API
 
 ---
 
@@ -180,12 +180,16 @@
 
 | Feature | Description |
 |---------|-------------|
-| **Pro subscription** | Monthly or annual plan via Stripe |
-| **Checkout** | Stripe Checkout for payment |
+| **Website Pro subscription** | Monthly or annual plan via Stripe |
+| **Mobile Pro subscription** | iOS / Android subscriptions via RevenueCat |
+| **Checkout** | Stripe Checkout for website payment |
 | **Billing portal** | Manage subscription, payment method |
+| **Manual Pro grant** | Admin can grant Pro directly; writes the same shared entitlement state |
 | **Thank you page** | Post-purchase confirmation |
 
 *Routes: `/api/billing/create-checkout-session`, `/api/billing/portal`*
+
+**Entitlement note:** Pro access converges through shared Supabase profile state plus RevenueCat fallback checks. A user can be Pro from manual grant, Stripe website billing, or RevenueCat mobile billing and should resolve as Pro across website and app.
 
 ---
 

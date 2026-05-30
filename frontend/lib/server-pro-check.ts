@@ -61,12 +61,12 @@ type RevenueCatSubscriberJson = {
   };
 };
 
-type ProfileProRow = {
+export type ProfileProRow = {
   is_pro?: boolean | null;
   pro_until?: string | null;
 } | null;
 
-function isActiveProfilePro(profile: ProfileProRow): boolean {
+export function isActiveProfilePro(profile: ProfileProRow): boolean {
   if (profile?.is_pro !== true) return false;
   const proUntil = profile.pro_until;
   if (!proUntil) return true;

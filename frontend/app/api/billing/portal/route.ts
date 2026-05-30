@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { stripe } from '@/lib/stripe';
+import { ensureStripeCustomerForUser } from '@/lib/stripe/billing-state';
 
 export const runtime = 'nodejs';
 
@@ -45,37 +46,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!profile.stripe_customer_id) {
-      // If admin toggled billing_active on this user, create a Stripe customer so we can open portal for testing
-      try {
-        const { data: ures } = await supabase.auth.getUser();
-        const meta: any = ures?.user?.user_metadata || {};
-        if (meta.billing_active === true) {
-          const customer = await stripe.customers.create({ email: ures?.user?.email || undefined, metadata: { app_user_id: ures?.user?.id || '' } });
-          const { error: upd } = await supabase.from('profiles').update({ stripe_customer_id: customer.id }).eq('id', ures?.user?.id || '');
-          if (!upd) {
-            profile.stripe_customer_id = customer.id as any;
-          }
-        }
-      } catch {}
-    }
-    if (!profile.stripe_customer_id) {
-      return NextResponse.json(
-        { ok: false, error: 'No billing account found. Please upgrade first.' },
-        { status: 400 }
-      );
-    }
+    const { customerId, created } = await ensureStripeCustomerForUser({
+      supabase,
+      user,
+      profile,
+    });
 
     // Create billing portal session
     const session = await stripe.billingPortal.sessions.create({
-      customer: profile.stripe_customer_id,
+      customer: customerId,
       return_url: returnUrl || 'https://app.manatap.ai/pricing',
     });
 
     console.info('Billing portal session created', {
       sessionId: session.id,
-      customerId: profile.stripe_customer_id,
+      customerId,
       userId: user.id,
+      customerResolution: created ? 'created' : 'reused',
     });
 
     return NextResponse.json({
@@ -83,11 +70,12 @@ export async function POST(req: NextRequest) {
       url: session.url,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Billing portal session creation failed:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create billing portal session';
     
     return NextResponse.json(
-      { ok: false, error: error.message || 'Failed to create billing portal session' },
+      { ok: false, error: message },
       { status: 500 }
     );
   }

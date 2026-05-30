@@ -1,10 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type Stripe from 'stripe';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { stripe } from '@/lib/stripe';
+import { getAdmin } from '@/app/api/_lib/supa';
 
 export const runtime = 'nodejs';
 
-function isAdmin(user: any): boolean {
+type AdminUserLike = {
+  id?: string;
+  email?: string;
+} | null | undefined;
+
+type StripeSubscriberStripeData = {
+  status: string;
+  current_period_end: string | null;
+  current_period_start: string | null;
+  cancel_at_period_end: boolean;
+  canceled_at: string | null;
+  items?: Array<{
+    price_id: string;
+    product_id: string | Stripe.DeletedProduct | Stripe.Product | null;
+    amount: number | null;
+    currency: string;
+    interval: Stripe.Price.Recurring.Interval | null | undefined;
+  }>;
+  error?: string;
+};
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function isAdmin(user: AdminUserLike): boolean {
   const ids = String(process.env.ADMIN_USER_IDS || "").split(/[\s,]+/).filter(Boolean);
   const emails = String(process.env.ADMIN_EMAILS || "").split(/[\s,]+/).filter(Boolean).map(s=>s.toLowerCase());
   const uid = String(user?.id || "");
@@ -23,11 +50,16 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get('include_inactive') === 'true';
+    const admin = getAdmin();
+
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: 'Missing service role' }, { status: 500 });
+    }
 
     // Get all profiles with Stripe subscriptions
-    let query = supabase
+    const query = supabase
       .from('profiles')
-      .select('id, email, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, pro_until, created_at, updated_at')
+      .select('id, username, is_pro, pro_plan, stripe_subscription_id, stripe_customer_id, pro_since, pro_until, created_at, updated_at')
       .not('stripe_subscription_id', 'is', null)
       .order('updated_at', { ascending: false });
 
@@ -52,7 +84,8 @@ export async function GET(req: NextRequest) {
     // Enrich with Stripe subscription data
     const enrichedSubscribers = await Promise.all(
       profiles.map(async (profile) => {
-        let stripeData: any = {
+        let email: string | null = null;
+        let stripeData: StripeSubscriberStripeData = {
           status: 'unknown',
           current_period_end: null,
           current_period_start: null,
@@ -61,10 +94,21 @@ export async function GET(req: NextRequest) {
         };
 
         try {
+          const { data: authUser } = await admin.auth.admin.getUserById(profile.id);
+          email = authUser?.user?.email || null;
+        } catch (authError: unknown) {
+          console.error(`Failed to fetch auth user for ${profile.id}:`, errorMessage(authError, 'Auth lookup failed'));
+        }
+
+        try {
           if (profile.stripe_subscription_id) {
             const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
-            // Type assertion to access subscription properties
-            const sub = subscription as any;
+            const sub = subscription as Stripe.Subscription & {
+              current_period_end?: number | null;
+              current_period_start?: number | null;
+              cancel_at_period_end?: boolean | null;
+              canceled_at?: number | null;
+            };
             stripeData = {
               status: subscription.status,
               current_period_end: sub.current_period_end 
@@ -77,7 +121,7 @@ export async function GET(req: NextRequest) {
               canceled_at: sub.canceled_at
                 ? new Date(sub.canceled_at * 1000).toISOString()
                 : null,
-              items: subscription.items.data.map((item: any) => ({
+              items: subscription.items.data.map((item) => ({
                 price_id: item.price.id,
                 product_id: item.price.product,
                 amount: item.price.unit_amount,
@@ -86,14 +130,15 @@ export async function GET(req: NextRequest) {
               })),
             };
           }
-        } catch (stripeError: any) {
-          console.error(`Failed to fetch Stripe data for ${profile.stripe_subscription_id}:`, stripeError.message);
-          stripeData.error = stripeError.message;
+        } catch (stripeError: unknown) {
+          const message = errorMessage(stripeError, 'Stripe fetch failed');
+          console.error(`Failed to fetch Stripe data for ${profile.stripe_subscription_id}:`, message);
+          stripeData.error = message;
         }
 
         return {
           user_id: profile.id,
-          email: profile.email,
+          email,
           username: profile.username,
           is_pro: profile.is_pro,
           pro_plan: profile.pro_plan,
@@ -136,10 +181,10 @@ export async function GET(req: NextRequest) {
       total: activeSubscribers.length,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to fetch subscribers:', error);
     return NextResponse.json(
-      { ok: false, error: error.message || 'Failed to fetch subscribers' },
+      { ok: false, error: errorMessage(error, 'Failed to fetch subscribers') },
       { status: 500 }
     );
   }

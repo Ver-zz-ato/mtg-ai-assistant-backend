@@ -1,9 +1,13 @@
 // app/api/stats/activity/log/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
+import { addRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
+import { validateOrigin } from "@/lib/api/csrf";
+import { extractIP } from "@/lib/guest-tracking";
 
 const MAX_ACTIVITIES = 50;
 const ACTIVITY_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_MESSAGE_LENGTH = 200;
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,11 +20,39 @@ interface ActivityItem {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!validateOrigin(req, "/api/stats/activity/log")) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
+
+    const burst = checkRateLimit(req, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 30,
+      keyGenerator: (request) => `activity-log:${extractIP(request)}`,
+    });
+    if (!burst.allowed) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "rate_limited", retryAfter: burst.retryAfter }, { status: 429 }),
+        burst,
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
-    const { type, message, metadata } = body;
+    const { type, message } = body;
 
     if (!type || !message) {
-      return NextResponse.json({ ok: false, error: 'type and message required' }, { status: 400 });
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: 'type and message required' }, { status: 400 }),
+        burst,
+      );
+    }
+
+    const cleanType = typeof type === "string" ? type.trim().slice(0, 50) : "";
+    const cleanMessage = typeof message === "string" ? message.trim().slice(0, MAX_MESSAGE_LENGTH) : "";
+    if (!cleanType || !cleanMessage) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "invalid_activity_payload" }, { status: 400 }),
+        burst,
+      );
     }
 
     // Get existing activities from cache
@@ -29,8 +61,8 @@ export async function POST(req: NextRequest) {
 
     // Create new activity
     const newActivity: ActivityItem = {
-      type,
-      message: String(message).slice(0, 200), // Limit message length
+      type: cleanType,
+      message: cleanMessage,
       timestamp: new Date().toISOString(),
     };
 
@@ -46,10 +78,10 @@ export async function POST(req: NextRequest) {
     // Save back to cache
     memoSet(cacheKey, updated, ACTIVITY_TTL);
 
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
+    return addRateLimitHeaders(NextResponse.json({ ok: true }), burst);
+  } catch (e: unknown) {
     console.error('Failed to log activity:', e);
-    return NextResponse.json({ ok: false, error: e?.message || 'server_error' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'server_error' }, { status: 500 });
   }
 }
 

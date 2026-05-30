@@ -5,8 +5,8 @@ import { ELI5, HelpTip } from '@/components/AdminHelp';
 function SyncFromStripeButton({ onSynced }: { onSynced: () => void }) {
   const [busy, setBusy] = React.useState(false);
   const run = async () => {
-    if (!confirm('Sync Stripe subscriptions to profiles? Matches by customer email.')) return;
-    const confirmation = prompt('Type SYNC STRIPE to confirm Stripe profile sync.');
+    if (!confirm('Repair Stripe/profile mismatches for active and trialing Stripe subscriptions?')) return;
+    const confirmation = prompt('Type SYNC STRIPE to confirm Stripe repair.');
     if (confirmation !== 'SYNC STRIPE') return;
     setBusy(true);
     try {
@@ -17,7 +17,7 @@ function SyncFromStripeButton({ onSynced }: { onSynced: () => void }) {
       });
       const j = await r.json();
       if (!r.ok || !j?.ok) throw new Error(j?.error || 'Sync failed');
-      alert(`Synced ${j.synced} profile(s). Skipped: ${j.skipped}.`);
+      alert(`Repaired ${j.repaired} profile(s). Skipped: ${j.skipped}.`);
       onSynced();
     } catch (e: any) {
       alert(e?.message || 'Sync failed');
@@ -27,7 +27,7 @@ function SyncFromStripeButton({ onSynced }: { onSynced: () => void }) {
   };
   return (
     <button onClick={run} disabled={busy} className="text-[10px] text-amber-400 hover:text-amber-300 mt-1 underline disabled:opacity-50">
-      {busy ? 'Syncing…' : 'Sync from Stripe'}
+      {busy ? 'Repairing...' : 'Repair from Stripe'}
     </button>
   );
 }
@@ -54,6 +54,9 @@ export default function AdminMonetizePage() {
   const [subscriberStats, setSubscriberStats] = React.useState<any>(null);
   const [showInactive, setShowInactive] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [reconciliation, setReconciliation] = React.useState<any>(null);
+  const [reconciliationLoading, setReconciliationLoading] = React.useState(false);
+  const [reconciliationRepairing, setReconciliationRepairing] = React.useState(false);
 
   // Admin check state (handled by AdminGuard in layout, but we keep this for data loading)
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
@@ -99,12 +102,14 @@ export default function AdminMonetizePage() {
     loadStats();
     loadWebhookStatus();
     loadSubscribers();
+    loadReconciliation();
     
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       loadStats();
       loadWebhookStatus();
       loadSubscribers();
+      loadReconciliation();
     }, 30000);
     return () => clearInterval(interval);
   }, [isAdmin]);
@@ -173,6 +178,44 @@ export default function AdminMonetizePage() {
       console.error('Failed to load subscribers:', e);
     } finally {
       setSubscribersLoading(false);
+    }
+  }
+
+  async function loadReconciliation() {
+    setReconciliationLoading(true);
+    try {
+      const r = await fetch('/api/admin/stripe/sync-from-stripe', { cache: 'no-store' });
+      const j = await r.json();
+      if (r.ok && j?.ok) {
+        setReconciliation(j);
+      }
+    } catch (e) {
+      console.error('Failed to load Stripe reconciliation audit:', e);
+    } finally {
+      setReconciliationLoading(false);
+    }
+  }
+
+  async function runReconciliationRepair() {
+    if (!confirm('Repair Stripe/profile mismatches for active and trialing Stripe subscriptions?')) return;
+    const confirmation = prompt('Type SYNC STRIPE to confirm Stripe repair.');
+    if (confirmation !== 'SYNC STRIPE') return;
+
+    setReconciliationRepairing(true);
+    try {
+      const r = await fetch('/api/admin/stripe/sync-from-stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Repair failed');
+      alert(`Repaired ${j.repaired} profile(s). Skipped: ${j.skipped}.`);
+      await Promise.all([loadReconciliation(), loadSubscribers(), loadStats(), loadWebhookStatus()]);
+    } catch (e: any) {
+      alert(e?.message || 'Repair failed');
+    } finally {
+      setReconciliationRepairing(false);
     }
   }
 
@@ -271,7 +314,7 @@ export default function AdminMonetizePage() {
                 <div className="text-2xl font-bold text-emerald-300">{stats.stats?.stripe_api_active ?? '—'}</div>
                 <div className="text-[10px] text-emerald-500 mt-1">Active subs from Stripe</div>
                 {(stats.stats?.stripe_api_active ?? 0) > (stats.stats?.stripe_subscribers ?? 0) && (
-                  <SyncFromStripeButton onSynced={loadStats} />
+                  <SyncFromStripeButton onSynced={() => { loadStats(); loadSubscribers(); loadWebhookStatus(); loadReconciliation(); }} />
                 )}
               </div>
               <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
@@ -338,6 +381,142 @@ export default function AdminMonetizePage() {
           </>
         ) : (
           <div className="text-center py-8 text-neutral-500">Failed to load stats</div>
+        )}
+      </section>
+
+      {/* Stripe/Profile Reconciliation */}
+      <section className="rounded border border-neutral-800 p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="font-medium">Stripe to Profile Reconciliation</div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadReconciliation}
+              disabled={reconciliationLoading}
+              className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 text-xs"
+            >
+              {reconciliationLoading ? 'Loading...' : 'Refresh'}
+            </button>
+            <button
+              onClick={runReconciliationRepair}
+              disabled={reconciliationRepairing || !reconciliation?.summary?.repairable}
+              className="px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 disabled:opacity-60 text-xs"
+            >
+              {reconciliationRepairing ? 'Repairing...' : 'Repair Mismatches'}
+            </button>
+          </div>
+        </div>
+
+        {reconciliationLoading && !reconciliation ? (
+          <div className="text-center py-4 text-neutral-500">Loading reconciliation audit...</div>
+        ) : reconciliation ? (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
+                <div className="text-xs text-neutral-400 mb-1">Stripe Active/Trialing</div>
+                <div className="text-2xl font-bold">{reconciliation.summary?.stripe_entitlement_subscriptions || 0}</div>
+              </div>
+              <div className="rounded border border-yellow-700 p-3 bg-yellow-900/20">
+                <div className="text-xs text-yellow-400 mb-1">Needs Repair</div>
+                <div className="text-2xl font-bold text-yellow-300">{reconciliation.summary?.needs_repair || 0}</div>
+              </div>
+              <div className="rounded border border-emerald-700 p-3 bg-emerald-900/20">
+                <div className="text-xs text-emerald-400 mb-1">Repairable</div>
+                <div className="text-2xl font-bold text-emerald-300">{reconciliation.summary?.repairable || 0}</div>
+              </div>
+              <div className="rounded border border-red-700 p-3 bg-red-900/20">
+                <div className="text-xs text-red-400 mb-1">No Match</div>
+                <div className="text-2xl font-bold text-red-300">{reconciliation.summary?.no_user_match || 0}</div>
+              </div>
+              <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
+                <div className="text-xs text-neutral-400 mb-1">Matched by Metadata</div>
+                <div className="text-2xl font-bold">{reconciliation.summary?.matched_by_metadata || 0}</div>
+              </div>
+              <div className="rounded border border-neutral-700 p-3 bg-neutral-900">
+                <div className="text-xs text-neutral-400 mb-1">Matched by Email</div>
+                <div className="text-2xl font-bold">{reconciliation.summary?.matched_by_email || 0}</div>
+              </div>
+            </div>
+
+            <div className="rounded border border-neutral-700 bg-neutral-900 overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-700 bg-neutral-800">
+                    <th className="text-left py-2 px-3">Stripe User</th>
+                    <th className="text-left py-2 px-3">Status</th>
+                    <th className="text-left py-2 px-3">Plan</th>
+                    <th className="text-left py-2 px-3">Match</th>
+                    <th className="text-left py-2 px-3">Profile State</th>
+                    <th className="text-left py-2 px-3">Issues</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(reconciliation.subscriptions || [])
+                    .filter((sub: any) => sub.needs_repair)
+                    .map((sub: any, i: number) => (
+                      <tr key={`${sub.subscription_id}-${i}`} className="border-b border-neutral-800 hover:bg-neutral-800/50">
+                        <td className="py-2 px-3">
+                          <div className="font-medium">{sub.customer_email || 'Unknown email'}</div>
+                          <div className="text-[11px] text-neutral-500 font-mono mt-0.5">
+                            {sub.customer_id?.slice(0, 20)}...
+                          </div>
+                          <div className="text-[11px] text-neutral-600 font-mono">
+                            {sub.subscription_id?.slice(0, 20)}...
+                          </div>
+                        </td>
+                        <td className="py-2 px-3">
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            sub.status === 'active' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-blue-900/50 text-blue-400'
+                          }`}>
+                            {sub.status}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3">
+                          <span className="text-xs px-2 py-0.5 rounded bg-blue-900/40 text-blue-300 uppercase">
+                            {sub.plan || 'unknown'}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="text-xs">
+                            <div className="text-neutral-300">{sub.matched_by}</div>
+                            <div className="text-neutral-500 font-mono mt-0.5">
+                              {sub.matched_user_id ? `${sub.matched_user_id.slice(0, 8)}...` : 'No user match'}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2 px-3">
+                          {sub.profile ? (
+                            <div className="text-xs">
+                              <div className={sub.profile.is_pro ? 'text-emerald-400' : 'text-red-400'}>
+                                {sub.profile.is_pro ? 'Pro' : 'Not Pro'}
+                              </div>
+                              <div className="text-neutral-500 mt-0.5">
+                                plan: {sub.profile.pro_plan || '-'}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-red-400">No profile</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(sub.issues || []).map((issue: string) => (
+                              <span key={issue} className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300">
+                                {issue}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+              {!(reconciliation.subscriptions || []).some((sub: any) => sub.needs_repair) && (
+                <div className="p-4 text-sm text-emerald-400">No Stripe/profile mismatches found.</div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-4 text-neutral-500">Failed to load reconciliation audit</div>
         )}
       </section>
 

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { stripe } from '@/lib/stripe';
 import { getProductIdForPlan, getPriceIdForProduct } from '@/lib/billing';
+import {
+  ensureStripeCustomerForUser,
+  findExistingBlockingSubscription,
+} from '@/lib/stripe/billing-state';
 
 export const runtime = 'nodejs';
 
@@ -54,30 +58,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get or create Stripe customer
-    let customerId = profile.stripe_customer_id;
-    
-    if (!customerId) {
-      // Create new Stripe customer
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          app_user_id: user.id,
-        },
+    const { customerId, created, recoveredFrom } = await ensureStripeCustomerForUser({
+      supabase,
+      user,
+      profile,
+    });
+
+    const existingSubscription = await findExistingBlockingSubscription({
+      customerId,
+      profileSubscriptionId: profile.stripe_subscription_id,
+    });
+
+    if (existingSubscription) {
+      console.warn('Checkout blocked: active Stripe subscription already exists', {
+        userId: user.id,
+        customerId,
+        subscriptionId: existingSubscription.id,
+        status: existingSubscription.status,
       });
-      
-      customerId = customer.id;
-      
-      // Update profile with customer ID
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', user.id);
-      
-      if (updateError) {
-        console.error('Failed to update profile with customer ID:', updateError);
-        // Continue anyway - we have the customer ID
-      }
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'ALREADY_SUBSCRIBED',
+          error: 'You already have an active subscription. Please manage billing instead.',
+        },
+        { status: 409 }
+      );
     }
 
     // Resolve product ID and price ID
@@ -121,6 +127,7 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       plan,
       priceId,
+      customerResolution: created ? 'created' : recoveredFrom,
       ...(isDev && {
         success_url_host: new URL(successUrlFinal).host,
         cancel_url_host: new URL(cancelUrlFinal).host,
@@ -133,11 +140,12 @@ export async function POST(req: NextRequest) {
       url: session.url,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Checkout session creation failed:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create checkout session';
     
     return NextResponse.json(
-      { ok: false, error: error.message || 'Failed to create checkout session' },
+      { ok: false, error: message },
       { status: 500 }
     );
   }
