@@ -100,15 +100,15 @@ function getEventId(body: RevenueCatWebhookPayload): string | undefined {
   return ev?.id;
 }
 
-/** Merge nested `event` for Discord formatting when RevenueCat sends api_version + event wrapper. */
-function effectiveForDiscord(body: RevenueCatWebhookPayload): RevenueCatWebhookPayload {
+/** Merge nested `event` when RevenueCat sends api_version + event wrapper. */
+function effectiveEvent(body: RevenueCatWebhookPayload): RevenueCatWebhookPayload {
   const ev = (body as { event?: RevenueCatWebhookPayload }).event;
   if (!ev || typeof ev !== 'object') return body;
-  return { ...ev, ...body };
+  return { ...body, ...ev };
 }
 
 function formatDiscordAppSubMessage(body: RevenueCatWebhookPayload, eventType: string): string {
-  const d = effectiveForDiscord(body);
+  const d = effectiveEvent(body);
   const emoji = DISCORD_EVENT_EMOJI[eventType] ?? '📱';
   const title = DISCORD_EVENT_LABEL[eventType] ?? eventType;
   const lines: string[] = [`${emoji} App Sub: ${title}`];
@@ -303,8 +303,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const eventType = getEventType(body);
-  const eventId = getEventId(body);
+  const eventBody = effectiveEvent(body);
+  const eventType = getEventType(eventBody);
+  const eventId = getEventId(eventBody);
 
   // Idempotency: in-memory (same pattern as Stripe webhook)
   if (eventId && processedEvents.has(eventId)) {
@@ -318,7 +319,7 @@ export async function POST(req: NextRequest) {
     processedEvents.add(eventId);
   }
 
-  await notifyDiscordAppSubscriptionIfNeeded(body, eventType);
+  await notifyDiscordAppSubscriptionIfNeeded(eventBody, eventType);
 
   const traceLog = process.env.NODE_ENV !== 'production' || process.env.DEBUG_ENTITLEMENTS === '1';
   if (traceLog) {
@@ -329,18 +330,18 @@ export async function POST(req: NextRequest) {
   const eventMeta = {
     source: eventType || 'unknown',
     eventId,
-    environment: body.environment,
-    store: body.store,
+    environment: eventBody.environment,
+    store: eventBody.store,
   };
 
   // TRANSFER: app_user_id is not set; use transferred_to for recipients
   if (eventType === 'TRANSFER') {
-    const to = body.transferred_to ?? [];
+    const to = eventBody.transferred_to ?? [];
     const isPro = GRANT_EVENTS.has(eventType);
-    const proUntil = body.expiration_at_ms
-      ? new Date(body.expiration_at_ms).toISOString()
+    const proUntil = eventBody.expiration_at_ms
+      ? new Date(eventBody.expiration_at_ms).toISOString()
       : null;
-    const plan = planFromProductId(body.product_id) ?? 'monthly';
+    const plan = planFromProductId(eventBody.product_id) ?? 'monthly';
 
     for (const userId of to) {
       if (userId && typeof userId === 'string') {
@@ -366,7 +367,7 @@ export async function POST(req: NextRequest) {
   }
 
   // All other events: app_user_id or original_app_user_id
-  const userId = body.app_user_id ?? body.original_app_user_id;
+  const userId = eventBody.app_user_id ?? eventBody.original_app_user_id;
   if (!userId || typeof userId !== 'string') {
     console.warn('[RevenueCat webhook] No app_user_id', { type: eventType });
     await logWebhookProcessed(supabase, {
@@ -378,7 +379,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Check if this event pertains to our "pro" entitlement
-  const entitlementIds = body.entitlement_ids ?? (body.entitlement_id ? [body.entitlement_id] : []);
+  const entitlementIds = eventBody.entitlement_ids ?? (eventBody.entitlement_id ? [eventBody.entitlement_id] : []);
   const hasProEntitlement = entitlementIds.some((id) => PRO_ENTITLEMENT_IDS.includes(id as (typeof PRO_ENTITLEMENT_IDS)[number]));
 
   if (GRANT_EVENTS.has(eventType)) {
@@ -391,10 +392,10 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ received: true, skipped: 'not_pro_entitlement' });
     }
-    const proUntil = body.expiration_at_ms
-      ? new Date(body.expiration_at_ms).toISOString()
+    const proUntil = eventBody.expiration_at_ms
+      ? new Date(eventBody.expiration_at_ms).toISOString()
       : null;
-    const plan = planFromProductId(body.product_id) ?? 'monthly';
+    const plan = planFromProductId(eventBody.product_id) ?? 'monthly';
     try {
       await updateProStatus(supabase, userId, true, proUntil, plan, eventType);
     } catch (error) {
