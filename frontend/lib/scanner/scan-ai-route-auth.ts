@@ -36,7 +36,8 @@ function getIp(req: NextRequest): string {
 export async function resolveScanAiRouteAuth(
   req: NextRequest,
   routePath: string,
-  limits: { guest: number; free: number; pro: number }
+  limits: { guest: number; free: number; pro: number },
+  options?: { skipDailyLimit?: boolean }
 ): Promise<ScanAiRouteAuth | NextResponse> {
   const { supabase, user } = await getUserAndSupabase(req);
   const isAnonymousUser = isSupabaseAnonymousUser(user);
@@ -61,7 +62,9 @@ export async function resolveScanAiRouteAuth(
 
   // Pro: no per-route daily cap (global AI budget check still applies below).
   const rateLimit =
-    userTier === "pro" && realUserId
+    options?.skipDailyLimit
+      ? { allowed: true as const, remaining: -1, limit: -1, count: 0 }
+      : userTier === "pro" && realUserId
       ? { allowed: true as const, remaining: -1, limit: -1, count: 0 }
       : await checkDurableRateLimit(supabase, keyHash, routePath, dailyLimit, 1, {
           identity: userTier,

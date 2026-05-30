@@ -12,7 +12,7 @@ import { getBudgetSwaps } from "@/lib/data/get-budget-swaps";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { checkProStatus } from "@/lib/server-pro-check";
 import { hashString, hashGuestToken } from "@/lib/guest-tracking";
-import { GUEST_DAILY_FEATURE_LIMIT, SWAP_SUGGESTIONS_FREE, SWAP_SUGGESTIONS_PRO } from "@/lib/feature-limits";
+import { SWAP_SUGGESTIONS_FREE, SWAP_SUGGESTIONS_GUEST, SWAP_SUGGESTIONS_PRO } from "@/lib/feature-limits";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
 import { classifyCardRoles, formatRoleSummaryForPrompt, summarizeDeckRoles } from "@/lib/deck/role-classifier";
@@ -418,7 +418,7 @@ export async function POST(req: NextRequest) {
       const keyHash = guestToken
         ? `guest:${await hashGuestToken(guestToken)}`
         : `ip:${await hashString((req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown')}`;
-      const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/swap-suggestions', GUEST_DAILY_FEATURE_LIMIT, 1, {
+      const rateLimit = await checkDurableRateLimit(supabase, keyHash, '/api/deck/swap-suggestions', SWAP_SUGGESTIONS_GUEST, 1, {
         identity: keyHash.startsWith('guest:') ? 'guest' : 'anonymous',
       });
       if (!rateLimit.allowed) {
@@ -426,7 +426,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           code: 'RATE_LIMIT_DAILY',
           proUpsell: true,
-          error: `You've used your ${GUEST_DAILY_FEATURE_LIMIT} free runs today. Sign in for more!`,
+          error: `You've used your ${SWAP_SUGGESTIONS_GUEST} free runs today. Sign in for more!`,
           resetAt: rateLimit.resetAt,
         }, { status: 429 });
       }

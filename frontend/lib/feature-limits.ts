@@ -10,12 +10,13 @@ export const GUEST_DAILY_FEATURE_LIMIT = 5;
 export const HEALTH_SCAN_FREE = 10;
 export const HEALTH_SCAN_PRO = 50;
 
-/** Deck Analyze: guest 5/day, free 20/day, Pro 200/day. */
-export const DECK_ANALYZE_GUEST = 5;
-export const DECK_ANALYZE_FREE = 20;
+/** Deck Analyze: guest 3/day, free 10/day, Pro 200/day. */
+export const DECK_ANALYZE_GUEST = 3;
+export const DECK_ANALYZE_FREE = 10;
 export const DECK_ANALYZE_PRO = 200;
 
-/** Budget Swap (AI): free 5/day, Pro 50/day; guests capped by GUEST_DAILY_FEATURE_LIMIT. */
+/** Budget Swap (AI): guest 3/day, free 5/day, Pro 50/day. */
+export const SWAP_SUGGESTIONS_GUEST = 3;
 export const SWAP_SUGGESTIONS_FREE = 5;
 export const SWAP_SUGGESTIONS_PRO = 50;
 
@@ -38,8 +39,8 @@ export const DECK_COMPARE_PRO = 20;
 /** POST /api/mobile/deck/compare-ai: free tier daily cap (Pro skips durable limiter on that route). */
 export const DECK_COMPARE_AI_MOBILE_FREE_DAILY = 5;
 
-/** Pro Health Report (full deck health): Pro-only, 10/day. Used by mobile POST /api/decks/health-report. */
-export const HEALTH_REPORT_PRO = 10;
+/** Pro Health Report (full deck health): Pro-only, 30/day. Used by mobile POST /api/decks/health-report. */
+export const HEALTH_REPORT_PRO = 30;
 
 /** Deck analyze: max output tokens (ceiling regardless of deck size). */
 export const MAX_DECK_ANALYZE_OUTPUT_TOKENS = 8192;
@@ -51,15 +52,16 @@ export const MAX_DECK_ANALYZE_DECK_TEXT_CHARS = 30_000;
 export const MULLIGAN_FREE = 5;
 export const MULLIGAN_PRO = 50;
 
-/** Mulligan AI Advice: guest 2/day, free 10/day, Pro 50/day. */
-export const MULLIGAN_ADVICE_GUEST = 2;
+/** Mulligan AI Advice: guest 3/day, free 10/day, Pro 50/day. */
+export const MULLIGAN_ADVICE_GUEST = 3;
 export const MULLIGAN_ADVICE_FREE = 10;
 export const MULLIGAN_ADVICE_PRO = 50;
 
-/** Mobile Card Explain: guest 5/day, free 10/day, Pro 50/day. */
-export const CARD_EXPLAIN_GUEST = 5;
-export const CARD_EXPLAIN_FREE = 10;
-export const CARD_EXPLAIN_PRO = 50;
+/** Mobile Card Explain: guest 3/day, free 20/day, Pro uncapped in route logic. */
+export const CARD_EXPLAIN_GUEST = 3;
+export const CARD_EXPLAIN_FREE = 20;
+/** Legacy ceiling constant; route skips durable daily limiting for Pro. */
+export const CARD_EXPLAIN_PRO = -1;
 
 /** Deck roast AI: guest 3/day, free 5/day, Pro 25/day. */
 export const DECK_ROAST_GUEST = 3;
@@ -72,14 +74,14 @@ export const VOICE_ASSISTANT_FREE = 30;
 /** Legacy ceiling constant; route skips durable daily limiting for Pro. */
 export const VOICE_ASSISTANT_PRO = 999999;
 
-/** Playstyle explanation: guest 5/day, free 20/day, Pro 100/day. */
-export const PLAYSTYLE_EXPLAIN_GUEST = 5;
+/** Playstyle explanation: guest 3/day, free 20/day, Pro 100/day. */
+export const PLAYSTYLE_EXPLAIN_GUEST = 3;
 export const PLAYSTYLE_EXPLAIN_FREE = 20;
 export const PLAYSTYLE_EXPLAIN_PRO = 100;
 
-/** Custom card generator: guest 5/day, free 10/day, Pro unlimited. */
-export const CUSTOM_CARD_GENERATE_GUEST = 5;
-export const CUSTOM_CARD_GENERATE_FREE = 10;
+/** Custom card generator: guest 10/day, free 20/day, Pro unlimited. */
+export const CUSTOM_CARD_GENERATE_GUEST = 10;
+export const CUSTOM_CARD_GENERATE_FREE = 20;
 
 /** Mobile card scanner AI assist: guest 3/day, free 10/day; Pro uncapped (see scan-ai-route-auth). */
 export const SCAN_AI_GUEST = 3;
@@ -93,8 +95,8 @@ export const SCAN_DISAMBIGUATE_FREE = 40;
 /** Legacy constant — Pro skips durable daily limiter on scanner routes. */
 export const SCAN_DISAMBIGUATE_PRO = 200;
 
-/** Probability Tool: free 5/day, Pro 50/day. */
-export const PROBABILITY_FREE = 5;
+/** Probability Tool: free 20/day, Pro 50/day. */
+export const PROBABILITY_FREE = 20;
 export const PROBABILITY_PRO = 50;
 
 /** Cost to Finish: free 5/day, Pro 50/day. */
@@ -109,16 +111,17 @@ export const PRICE_TRACKER_MOVERS_PRO = 100;
 export const PRICE_TRACKER_DECK_SERIES_FREE = 5;
 export const PRICE_TRACKER_DECK_SERIES_PRO = 50;
 
-/** Generate deck from collection (Build Deck From Collection, Commander Builder Module D): free 3/day, Pro 20/day. */
-export const GENERATE_FROM_COLLECTION_FREE = 3;
-export const GENERATE_FROM_COLLECTION_PRO = 20;
+/** Generate deck from collection (Build Deck From Collection, Commander Builder Module D): free 5/day, Pro unlimited. */
+export const GENERATE_FROM_COLLECTION_FREE = 5;
+/** Legacy ceiling constant; route skips durable daily limiting for Pro. */
+export const GENERATE_FROM_COLLECTION_PRO = -1;
 
 /** Deck transform/refine (POST /api/deck/transform): free 5/day, Pro unlimited. */
 export const DECK_TRANSFORM_FREE = 5;
 
 /** POST /api/deck/generate-constructed — 60-card competitive formats (guest website / IP bucket). */
-export const GENERATE_CONSTRUCTED_GUEST = 1;
+export const GENERATE_CONSTRUCTED_GUEST = 3;
 
-/** Free signed-in users: 1/day; Pro: higher cap (server-side only). */
-export const GENERATE_CONSTRUCTED_FREE = 1;
-export const GENERATE_CONSTRUCTED_PRO = 25;
+/** Free signed-in users: 5/day; Pro: higher cap (server-side only). */
+export const GENERATE_CONSTRUCTED_FREE = 5;
+export const GENERATE_CONSTRUCTED_PRO = 30;

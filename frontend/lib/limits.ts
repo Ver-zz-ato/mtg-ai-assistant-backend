@@ -8,7 +8,7 @@
 export const GUEST_MESSAGE_LIMIT = 10;
 
 /** Free (logged-in): messages per day. */
-export const FREE_DAILY_MESSAGE_LIMIT = 50;
+export const FREE_DAILY_MESSAGE_LIMIT = 30;
 
 /** Pro: messages per day (server-side only; do not display in UI). */
 export const PRO_DAILY_MESSAGE_LIMIT = 500;

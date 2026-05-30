@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
       guest: SCAN_DISAMBIGUATE_GUEST,
       free: SCAN_DISAMBIGUATE_FREE,
       pro: SCAN_DISAMBIGUATE_PRO,
+    }, {
+      skipDailyLimit: true,
     });
     if (authResult instanceof NextResponse) return authResult;
     const auth = authResult;

@@ -15,7 +15,7 @@
 | **Persistent deck context** | Thread-level `commander` and `decklist_text` slots (paste-only) persist across turns so the AI never re-asks. |
 | **Memory within conversation** | Pro and Guest both support multi-turn: "I believe your commander is X — is this correct?" → "yes" → full analysis. |
 | **Cost control** | Cheaper models for trivial queries; full models for deck analysis. Budget caps enforced. |
-| **Fair limits** | Guest: 10/session; Free: 50/day; Pro: 500/day. |
+| **Fair limits** | Guest: 10/session; Free: 30/day; Pro: 500/day. |
 | **Evidence-based analysis** | Problems backed by decklist evidence; ADD/CUT recommendations; synergy chains; report-card style. |
 
 ---
@@ -124,7 +124,7 @@ When `refreshMessages(tid)` runs (e.g. on thread switch):
 | Tier | Limit | Scope |
 |------|-------|-------|
 | Guest | 10 | Per session (cookie) |
-| Free | 50/day | Per user |
+| Free | 30/day | Per user |
 | Pro | 500/day | Per user |
 
 **File:** `frontend/app/api/chat/stream/route.ts`, `frontend/lib/limits.ts`, `frontend/lib/api/guest-limit-check.ts`, `frontend/lib/api/durable-rate-limit.ts`

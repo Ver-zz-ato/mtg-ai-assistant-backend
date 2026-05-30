@@ -110,45 +110,43 @@ export async function POST(req: NextRequest) {
       const { checkProStatus } = await import("@/lib/server-pro-check");
       isPro = await checkProStatus(user.id);
     } catch {}
-    const dailyLimit = isPro ? GENERATE_FROM_COLLECTION_PRO : GENERATE_FROM_COLLECTION_FREE;
-    const keyHash = `user:${user.id}`;
-    try {
-      const durableLimit = await checkDurableRateLimit(
-        supabase,
-        keyHash,
-        "/api/deck/generate-from-collection",
-        dailyLimit,
-        1,
-        {
-          identity: isPro ? 'pro' : 'free',
-          verifiedUserId: isPro ? user.id : null,
+    if (!isPro) {
+      const keyHash = `user:${user.id}`;
+      try {
+        const durableLimit = await checkDurableRateLimit(
+          supabase,
+          keyHash,
+          "/api/deck/generate-from-collection",
+          GENERATE_FROM_COLLECTION_FREE,
+          1,
+          {
+            identity: 'free',
+            verifiedUserId: null,
+          }
+        );
+        if (!durableLimit.allowed) {
+          return NextResponse.json(
+            {
+              ok: false,
+              code: "RATE_LIMIT_DAILY",
+              error: `You've used your ${GENERATE_FROM_COLLECTION_FREE} free deck generations today. Upgrade to Pro for more!`,
+              resetAt: durableLimit.resetAt,
+              remaining: 0,
+            },
+            { status: 429, headers: { "Content-Type": "application/json" } }
+          );
         }
-      );
-      if (!durableLimit.allowed) {
-        const errMsg = isPro
-          ? "You've reached your daily limit. Contact support if you need higher limits."
-          : `You've used your ${GENERATE_FROM_COLLECTION_FREE} free deck generations today. Upgrade to Pro for more!`;
+      } catch (e) {
+        console.error("[generate-from-collection] Rate limit check failed:", e);
         return NextResponse.json(
           {
             ok: false,
-            code: "RATE_LIMIT_DAILY",
-            error: errMsg,
-            resetAt: durableLimit.resetAt,
-            remaining: 0,
+            code: "RATE_LIMIT_UNAVAILABLE",
+            error: "AI deck generation from collection is temporarily unavailable. Please try again shortly.",
           },
-          { status: 429, headers: { "Content-Type": "application/json" } }
+          { status: 503 }
         );
       }
-    } catch (e) {
-      console.error("[generate-from-collection] Rate limit check failed:", e);
-      return NextResponse.json(
-        {
-          ok: false,
-          code: "RATE_LIMIT_UNAVAILABLE",
-          error: "AI deck generation from collection is temporarily unavailable. Please try again shortly.",
-        },
-        { status: 503 }
-      );
     }
 
   // Fetch collection cards if collectionId provided

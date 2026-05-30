@@ -165,25 +165,25 @@ Caching: `Cache-Control: public, s-maxage=60, stale-while-revalidate=120`.
   "tierLimits": {
     "guest": {
       "chatPerDay": 10,
-      "deckAnalysisPerDay": 5,
+      "deckAnalysisPerDay": 3,
       "roastPerDay": 3,
       "voicePerDay": 10,
-      "mulliganAdvicePerDay": 2,
-      "cardExplainPerDay": 5,
+      "mulliganAdvicePerDay": 3,
+      "cardExplainPerDay": 3,
       "deckComparePerDay": 0,
       "generateFromCollectionPerDay": 0,
-      "generateConstructedPerDay": 1
+      "generateConstructedPerDay": 3
     },
     "free": {
-      "chatPerDay": 50,
-      "deckAnalysisPerDay": 20,
+      "chatPerDay": 30,
+      "deckAnalysisPerDay": 10,
       "roastPerDay": 5,
       "voicePerDay": 30,
       "mulliganAdvicePerDay": 10,
-      "cardExplainPerDay": 10,
+      "cardExplainPerDay": 20,
       "deckComparePerDay": 5,
-      "generateFromCollectionPerDay": 3,
-      "generateConstructedPerDay": 1
+      "generateFromCollectionPerDay": 5,
+      "generateConstructedPerDay": 5
     },
     "pro": {
       "chatPerDay": -1,
@@ -191,10 +191,10 @@ Caching: `Cache-Control: public, s-maxage=60, stale-while-revalidate=120`.
       "roastPerDay": 25,
       "voicePerDay": -1,
       "mulliganAdvicePerDay": 50,
-      "cardExplainPerDay": 50,
+      "cardExplainPerDay": -1,
       "deckComparePerDay": -1,
-      "generateFromCollectionPerDay": 20,
-      "generateConstructedPerDay": 25
+      "generateFromCollectionPerDay": -1,
+      "generateConstructedPerDay": 30
     }
   },
   "whatsNew": [

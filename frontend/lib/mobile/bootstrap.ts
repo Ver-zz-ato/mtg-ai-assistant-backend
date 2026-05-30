@@ -102,7 +102,7 @@ const DEFAULT_TIERS: TierLimits = {
     generateConstructedPerDay: GENERATE_CONSTRUCTED_GUEST,
   },
   free: {
-    chatPerDay: 50,
+    chatPerDay: 30,
     deckAnalysisPerDay: DECK_ANALYZE_FREE,
     roastPerDay: DECK_ROAST_FREE,
     voicePerDay: VOICE_ASSISTANT_FREE,

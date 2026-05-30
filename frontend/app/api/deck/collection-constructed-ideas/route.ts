@@ -250,38 +250,36 @@ export async function POST(req: NextRequest) {
     } catch {
       /* ignore */
     }
-    const dailyLimit = isPro ? GENERATE_FROM_COLLECTION_PRO : GENERATE_FROM_COLLECTION_FREE;
-    const keyHash = `user:${user.id}`;
-    try {
-      const durableLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1, {
-        identity: isPro ? 'pro' : 'free',
-        verifiedUserId: isPro ? user.id : null,
-      });
-      if (!durableLimit.allowed) {
-        const errMsg = isPro
-          ? "You've reached your daily limit. Contact support if you need higher limits."
-          : `You've used your ${GENERATE_FROM_COLLECTION_FREE} free deck generations today. Upgrade to Pro for more!`;
+    if (!isPro) {
+      const keyHash = `user:${user.id}`;
+      try {
+        const durableLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, GENERATE_FROM_COLLECTION_FREE, 1, {
+          identity: 'free',
+          verifiedUserId: null,
+        });
+        if (!durableLimit.allowed) {
+          return NextResponse.json(
+            {
+              ok: false,
+              code: "RATE_LIMIT_DAILY",
+              error: `You've used your ${GENERATE_FROM_COLLECTION_FREE} free deck generations today. Upgrade to Pro for more!`,
+              resetAt: durableLimit.resetAt,
+              remaining: 0,
+            },
+            { status: 429, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      } catch (e) {
+        console.error("[collection-constructed-ideas] Rate limit check failed:", e);
         return NextResponse.json(
           {
             ok: false,
-            code: "RATE_LIMIT_DAILY",
-            error: errMsg,
-            resetAt: durableLimit.resetAt,
-            remaining: 0,
+            code: "RATE_LIMIT_UNAVAILABLE",
+            error: "Collection-based AI ideas are temporarily unavailable. Please try again shortly.",
           },
-          { status: 429, headers: { "Content-Type": "application/json" } }
+          { status: 503 }
         );
       }
-    } catch (e) {
-      console.error("[collection-constructed-ideas] Rate limit check failed:", e);
-      return NextResponse.json(
-        {
-          ok: false,
-          code: "RATE_LIMIT_UNAVAILABLE",
-          error: "Collection-based AI ideas are temporarily unavailable. Please try again shortly.",
-        },
-        { status: 503 }
-      );
     }
 
     const { data: col } = await supabase

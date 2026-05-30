@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
-import { GUEST_DAILY_FEATURE_LIMIT, PRICE_TRACKER_MOVERS_FREE, PRICE_TRACKER_MOVERS_PRO } from "@/lib/feature-limits";
 
 export const runtime = "nodejs";
 
@@ -65,40 +64,9 @@ export async function GET(req: NextRequest) {
     type SnapshotDateRow = { snapshot_date: string };
     type NameUnitRow = { name_norm: string; unit: number };
 
-    const { checkDurableRateLimit } = await import("@/lib/api/durable-rate-limit");
-    const { hashString } = await import("@/lib/guest-tracking");
-    const forwarded = req.headers.get("x-forwarded-for");
-    const ip = (forwarded ? forwarded.split(",")[0].trim() : req.headers.get("x-real-ip")) || "unknown";
-
-    let dailyCap: number;
-    let rateLimitKey: string;
-    let isPro = false;
-
     if (user) {
       const { checkProStatus } = await import("@/lib/server-pro-check");
-      isPro = await checkProStatus(user.id);
-      dailyCap = isPro ? PRICE_TRACKER_MOVERS_PRO : PRICE_TRACKER_MOVERS_FREE;
-      rateLimitKey = `user:${await hashString(user.id)}`;
-    } else {
-      dailyCap = GUEST_DAILY_FEATURE_LIMIT;
-      rateLimitKey = `ip:${await hashString(ip)}`;
-    }
-
-    const rateLimit = await checkDurableRateLimit(supabase, rateLimitKey, MOVERS_ROUTE, dailyCap, 1, {
-      identity: user ? (isPro ? 'pro' : 'free') : 'anonymous',
-      verifiedUserId: user && isPro ? user.id : null,
-    });
-    const skipLimitInDev = process.env.NODE_ENV === "development" && process.env.SKIP_PRICE_RATE_LIMIT === "1";
-    if (!skipLimitInDev && !rateLimit.allowed) {
-      return NextResponse.json({
-        ok: false,
-        code: "RATE_LIMIT_DAILY",
-        proUpsell: !user,
-        error: user
-          ? (isPro ? "You've reached your daily limit. Contact support if you need higher limits." : `You've used your ${PRICE_TRACKER_MOVERS_FREE} free Price Tracker runs today. Upgrade to Pro for more!`)
-          : "Daily limit reached. Sign in for more.",
-        resetAt: rateLimit.resetAt,
-      }, { status: 429 });
+      await checkProStatus(user.id);
     }
 
     // Use admin client so we can read price_snapshots (RLS may block anon/authenticated)

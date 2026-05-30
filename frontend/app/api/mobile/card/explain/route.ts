@@ -240,10 +240,13 @@ export async function POST(req: NextRequest) {
           ? `guest:${await hashString(`anonymous-user:${user.id}`)}`
           : `ip:${await hashString(ip)}`;
 
-    const rateLimit = await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1, {
-      identity: tier,
-      verifiedUserId: tier === 'pro' && realUserId ? realUserId : null,
-    });
+    const rateLimit =
+      tier === "pro" && realUserId
+        ? { allowed: true as const, remaining: -1, limit: -1, resetAt: null }
+        : await checkDurableRateLimit(supabase, keyHash, ROUTE_PATH, dailyLimit, 1, {
+            identity: tier,
+            verifiedUserId: null,
+          });
     if (!rateLimit.allowed) {
       return jsonError(req, 429, {
         code: "RATE_LIMIT_DAILY",
