@@ -8,7 +8,7 @@ import { createClient, createClientForStatic } from "@/lib/supabase/server";
 import { getDisplayCardName } from "@/lib/cards/displayName";
 import { getCommanderBySlug } from "@/lib/commanders";
 import { buildCardDescription } from "@/lib/seo/metadata";
-import { getGlobalMetaCardBySlug, getGlobalMetaCards } from "@/lib/meta/global-meta-entities";
+import { getGlobalMetaCardBySlug } from "@/lib/meta/global-meta-entities";
 
 function norm(name: string): string {
   return String(name || "")
@@ -20,11 +20,9 @@ function norm(name: string): string {
     .trim();
 }
 
-export async function generateStaticParams() {
-  const cards = await getGlobalMetaCards();
-  return cards.map((c) => ({ slug: c.slug }));
-}
-
+// This route can fall back to session-aware Supabase reads for private custom-card previews
+// and also uses shared server helpers that read request cookies, so it must stay dynamic.
+export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 
 type Props = { params: Promise<{ slug: string }> };
