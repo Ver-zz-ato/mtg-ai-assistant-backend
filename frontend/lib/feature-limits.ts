@@ -48,14 +48,17 @@ export const MAX_DECK_ANALYZE_OUTPUT_TOKENS = 8192;
 /** Deck analyze: hard cap on deck list character length; over this we truncate and add a note. */
 export const MAX_DECK_ANALYZE_DECK_TEXT_CHARS = 30_000;
 
-/** Mulligan Simulator: free 5/day, Pro 50/day. */
-export const MULLIGAN_FREE = 5;
-export const MULLIGAN_PRO = 50;
+/** Mulligan Simulator: guest 3/day, free 10/day, Pro uncapped in route logic. */
+export const MULLIGAN_GUEST = 3;
+export const MULLIGAN_FREE = 10;
+/** Legacy ceiling constant; route skips durable daily limiting for Pro. */
+export const MULLIGAN_PRO = -1;
 
-/** Mulligan AI Advice: guest 3/day, free 10/day, Pro 50/day. */
+/** Mulligan AI Advice: guest 3/day, free 10/day, Pro uncapped in route logic. */
 export const MULLIGAN_ADVICE_GUEST = 3;
 export const MULLIGAN_ADVICE_FREE = 10;
-export const MULLIGAN_ADVICE_PRO = 50;
+/** Legacy ceiling constant; route skips durable daily limiting for Pro. */
+export const MULLIGAN_ADVICE_PRO = -1;
 
 /** Mobile Card Explain: guest 3/day, free 20/day, Pro uncapped in route logic. */
 export const CARD_EXPLAIN_GUEST = 3;

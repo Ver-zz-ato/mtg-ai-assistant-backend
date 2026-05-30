@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { capture } from '@/lib/ph';
 import EditorAddBar from "@/components/EditorAddBar";
 import CardDetailLink from "@/components/cards/CardDetailLink";
+import WebsiteAddCardDestinationModal from "@/components/cards/WebsiteAddCardDestinationModal";
 import FixSingleCardModal from "./FixSingleCardModal";
 import {
   isMaybeFlexBucketEnabledForFormat,
@@ -45,6 +46,7 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
   const [pendingAddName, setPendingAddName] = useState<string>('');
   const [pendingAddQty, setPendingAddQty] = useState<number>(1);
   const [offColorCards, setOffColorCards] = useState<Set<string>>(new Set());
+  const [copyDestinationKind, setCopyDestinationKind] = useState<"collection" | "wishlist" | null>(null);
   const showMaybeFlex = useMemo(() => isMaybeFlexBucketEnabledForFormat(format), [format]);
   const [maybeFlex, setMaybeFlex] = useState<MaybeFlexCard[]>([]);
   const [flexBusy, setFlexBusy] = useState(false);
@@ -137,6 +139,7 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     [tabPoolCards]
   );
   const tabPoolCardIds = useMemo(() => tabPoolCards.map((c) => c.id), [tabPoolCards]);
+  const selectedRows = useMemo(() => cards.filter((c) => selected.has(c.id)), [cards, selected]);
   const mainListCount = useMemo(
     () => getMainboardCardCount(cards.map((c) => ({ qty: c.qty, zone: c.zone }))),
     [cards]
@@ -1054,6 +1057,22 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
               </button>
               {selected.size > 0 && (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => setCopyDestinationKind("collection")}
+                    className="px-2 py-1 rounded border border-amber-800/70 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 hover:text-amber-100 transition-colors"
+                    title={`Copy ${selected.size} selected card${selected.size > 1 ? "s" : ""} to a collection`}
+                  >
+                    Add to collection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCopyDestinationKind("wishlist")}
+                    className="px-2 py-1 rounded border border-violet-800/70 bg-violet-950/30 text-violet-300 hover:bg-violet-900/40 hover:text-violet-100 transition-colors"
+                    title={`Copy ${selected.size} selected card${selected.size > 1 ? "s" : ""} to a wishlist`}
+                  >
+                    Add to wishlist
+                  </button>
                   {isConstructed60 && (
                     <button
                       type="button"
@@ -1519,6 +1538,18 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
           </div>
         </div>
       )}
+      <WebsiteAddCardDestinationModal
+        open={copyDestinationKind !== null}
+        onClose={() => setCopyDestinationKind(null)}
+        cards={selectedRows.map((card) => ({ name: card.name, qty: card.qty }))}
+        allowedKinds={copyDestinationKind === "collection" ? ["collection"] : copyDestinationKind === "wishlist" ? ["wishlist"] : ["collection", "wishlist"]}
+        title={copyDestinationKind === "collection" ? "Add selected cards to collection" : "Add selected cards to wishlist"}
+        subtitle={`${selectedRows.length} selected cards`}
+        onSuccess={() => {
+          setCopyDestinationKind(null);
+          setSelected(new Set());
+        }}
+      />
     </div>
   );
 }

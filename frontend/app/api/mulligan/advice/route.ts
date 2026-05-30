@@ -77,34 +77,34 @@ export async function POST(req: NextRequest) {
       : `ip:${await hashString((req.headers.get("x-forwarded-for") || "").split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown")}`;
   }
 
-  const rateLimit = await checkDurableRateLimit(
-    supabase,
-    keyHash,
-    "/api/mulligan/advice",
-    limit,
-    1,
-    {
-      identity: effectiveTier === 'guest' ? (keyHash.startsWith('guest:') ? 'guest' : 'anonymous') : effectiveTier,
-      verifiedUserId: effectiveTier === 'pro' && user ? user.id : null,
-    }
-  );
-
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
+  if (effectiveTier !== "pro") {
+    const rateLimit = await checkDurableRateLimit(
+      supabase,
+      keyHash,
+      "/api/mulligan/advice",
+      limit,
+      1,
       {
-        ok: false,
-        code: "RATE_LIMIT_DAILY",
-        proUpsell: effectiveTier !== "pro",
-        error:
-          effectiveTier === "guest"
-            ? `You've used your ${limit} free AI advice runs today. Sign in for more!`
-            : effectiveTier === "free"
-              ? `You've used your ${limit} free runs today. Upgrade to Pro for more!`
-              : "You've reached your daily limit.",
-        resetAt: rateLimit.resetAt,
-      },
-      { status: 429 }
+        identity: effectiveTier === 'guest' ? (keyHash.startsWith('guest:') ? 'guest' : 'anonymous') : effectiveTier,
+        verifiedUserId: null,
+      }
     );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "RATE_LIMIT_DAILY",
+          proUpsell: true,
+          error:
+            effectiveTier === "guest"
+              ? `You've used your ${limit} free AI advice runs today. Sign in for more!`
+              : `You've used your ${limit} free runs today. Upgrade to Pro for more!`,
+          resetAt: rateLimit.resetAt,
+        },
+        { status: 429 }
+      );
+    }
   }
 
   const modelTier = effectiveTier === "pro" ? (parsed.data.modelTier ?? "mini") : "mini";

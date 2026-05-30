@@ -1,8 +1,12 @@
 "use client";
 
 import React from "react";
-import { BarChart3, Bot, ExternalLink, GitBranch, Lock, PiggyBank, Sparkles, X } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, Bot, ExternalLink, FolderPlus, GitBranch, Lock, PiggyBank, Sparkles, X } from "lucide-react";
 import { normalizeCurrency, usePrefs, type CurrencyPref } from "@/components/PrefsContext";
+import { useAuth } from "@/lib/auth-context";
+import { toast } from "@/lib/toast-client";
+import WebsiteAddCardDestinationModal from "@/components/cards/WebsiteAddCardDestinationModal";
 
 type CardMetadata = {
   name: string;
@@ -231,6 +235,7 @@ export default function WebsiteCardDetailModal({
   imageNormal,
   onClose,
 }: WebsiteCardDetailModalProps) {
+  const { user } = useAuth();
   const { currency: prefCurrency } = usePrefs();
   const currency = normalizeCurrency(prefCurrency) || "USD";
   const [metadata, setMetadata] = React.useState<CardMetadata | null>(null);
@@ -243,6 +248,7 @@ export default function WebsiteCardDetailModal({
   const [tacticsText, setTacticsText] = React.useState<string | null>(null);
   const [explainError, setExplainError] = React.useState<string | null>(null);
   const [explainTier, setExplainTier] = React.useState<ExplainTier | null>(null);
+  const [destinationPickerOpen, setDestinationPickerOpen] = React.useState(false);
 
   const cleanName = cardName.trim();
   const cacheKey = normalizeCardKey(cleanName);
@@ -371,19 +377,28 @@ export default function WebsiteCardDetailModal({
     }
   }
 
+  function handleAddTo() {
+    if (!user) {
+      toast("Sign in to add cards to your collections, decks, or wishlists.", "info");
+      return;
+    }
+    setDestinationPickerOpen(true);
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
-      role="presentation"
-      onClick={onClose}
-    >
+    <>
       <div
-        className="relative grid max-h-[90vh] w-full max-w-4xl gap-5 overflow-y-auto rounded-xl border border-amber-300/20 bg-[#11100d] p-4 shadow-2xl shadow-black/60 md:grid-cols-[minmax(220px,320px)_1fr] md:p-5"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${displayName} card details`}
-        onClick={(event) => event.stopPropagation()}
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+        role="presentation"
+        onClick={onClose}
       >
+        <div
+          className="relative grid max-h-[90vh] w-full max-w-4xl gap-5 overflow-y-auto rounded-xl border border-amber-300/20 bg-[#11100d] p-4 shadow-2xl shadow-black/60 md:grid-cols-[minmax(220px,320px)_1fr] md:p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${displayName} card details`}
+          onClick={(event) => event.stopPropagation()}
+        >
         <button
           type="button"
           onClick={onClose}
@@ -477,14 +492,14 @@ export default function WebsiteCardDetailModal({
                   <span className="rounded-full border border-violet-200/30 px-1.5 py-0.5 text-[10px] uppercase text-violet-100">Pro</span>
                 </button>
               ) : (
-                <a
+                <Link
                   href="/pricing"
                   className="mt-3 inline-flex items-center gap-2 rounded-lg border border-violet-300/25 bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-200/50 hover:bg-violet-500/15"
                 >
                   <Lock size={14} />
                   Show deeper tactics
                   <span className="rounded-full border border-violet-200/30 px-1.5 py-0.5 text-[10px] uppercase text-violet-100">Pro</span>
-                </a>
+                </Link>
               )
             ) : null}
 
@@ -509,76 +524,90 @@ export default function WebsiteCardDetailModal({
             ) : null}
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <ActionButton
-              icon={<BarChart3 size={18} />}
-              title="Open in Price Tracker"
-              subtitle="View price history and trend data."
-              onClick={() => {
-                onClose();
-                window.location.href = `/price-tracker?card=${encodeURIComponent(displayName)}`;
-              }}
-            />
-            <ActionButton
-              icon={<Sparkles size={18} />}
-              title="Find similar cards"
-              subtitle="Ask for same-role cards and substitutes."
-              onClick={() => {
-                onClose();
-                openChatPrompt(`Find cards similar to ${displayName}. Explain the role match and cheaper options if any.`);
-              }}
-            />
-            <ActionButton
-              icon={<GitBranch size={18} />}
-              title="Combos and synergies"
-              subtitle="Check combo lines and support pieces."
-              onClick={() => {
-                onClose();
-                openChatPrompt(`What cards combo or synergize with ${displayName}? Separate fair synergies from true combo lines.`);
-              }}
-            />
-            <ActionButton
-              icon={<PiggyBank size={18} />}
-              title="Budget alternatives"
-              subtitle="Find cheaper cards for a similar job."
-              onClick={() => {
-                onClose();
-                openChatPrompt(`Find budget alternatives for ${displayName}. Prioritize cards that fill the same role, and say what gets weaker.`);
-              }}
-            />
-            <ActionButton
-              icon={<ExternalLink size={18} />}
-              title="Open in Scryfall"
-              subtitle="Leave ManaTap for Scryfall details."
-              onClick={() => window.open(scryfallUrl, "_blank", "noopener,noreferrer")}
-            />
-          </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <ActionButton
+                icon={<FolderPlus size={18} />}
+                title="Add to..."
+                subtitle={user ? "Save this card to a collection, deck, or wishlist." : "Sign in to save this card to your account."}
+                onClick={handleAddTo}
+              />
+              <ActionButton
+                icon={<BarChart3 size={18} />}
+                title="Open in Price Tracker"
+                subtitle="View price history and trend data."
+                onClick={() => {
+                  onClose();
+                  window.location.href = `/price-tracker?card=${encodeURIComponent(displayName)}`;
+                }}
+              />
+              <ActionButton
+                icon={<Sparkles size={18} />}
+                title="Find similar cards"
+                subtitle="Ask for same-role cards and substitutes."
+                onClick={() => {
+                  onClose();
+                  openChatPrompt(`Find cards similar to ${displayName}. Explain the role match and cheaper options if any.`);
+                }}
+              />
+              <ActionButton
+                icon={<GitBranch size={18} />}
+                title="Combos and synergies"
+                subtitle="Check combo lines and support pieces."
+                onClick={() => {
+                  onClose();
+                  openChatPrompt(`What cards combo or synergize with ${displayName}? Separate fair synergies from true combo lines.`);
+                }}
+              />
+              <ActionButton
+                icon={<PiggyBank size={18} />}
+                title="Budget alternatives"
+                subtitle="Find cheaper cards for a similar job."
+                onClick={() => {
+                  onClose();
+                  openChatPrompt(`Find budget alternatives for ${displayName}. Prioritize cards that fill the same role, and say what gets weaker.`);
+                }}
+              />
+              <ActionButton
+                icon={<ExternalLink size={18} />}
+                title="Open in Scryfall"
+                subtitle="Leave ManaTap for Scryfall details."
+                onClick={() => window.open(scryfallUrl, "_blank", "noopener,noreferrer")}
+              />
+            </div>
 
-          <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
-            <div className="text-sm font-semibold text-neutral-100">Format legalities</div>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {LEGALITY_FORMATS.map((format) => {
-                const status = legalityStatus(metadata?.legalities, format.key);
-                const tone =
-                  status === "legal"
-                    ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
-                    : status === "unknown"
-                      ? "border-neutral-500/20 bg-neutral-500/10 text-neutral-300"
-                      : "border-red-300/20 bg-red-400/10 text-red-200";
-                return (
-                  <div key={format.key} className="rounded-md border border-white/10 bg-neutral-950/60 p-2 text-center">
-                    <div className="text-xs font-semibold text-neutral-200">{format.label}</div>
-                    <div className={`mt-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${tone}`}>
-                      {loading && !metadata ? "Loading" : legalityLabel(status)}
+            <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
+              <div className="text-sm font-semibold text-neutral-100">Format legalities</div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {LEGALITY_FORMATS.map((format) => {
+                  const status = legalityStatus(metadata?.legalities, format.key);
+                  const tone =
+                    status === "legal"
+                      ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
+                      : status === "unknown"
+                        ? "border-neutral-500/20 bg-neutral-500/10 text-neutral-300"
+                        : "border-red-300/20 bg-red-400/10 text-red-200";
+                  return (
+                    <div key={format.key} className="rounded-md border border-white/10 bg-neutral-950/60 p-2 text-center">
+                      <div className="text-xs font-semibold text-neutral-200">{format.label}</div>
+                      <div className={`mt-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${tone}`}>
+                        {loading && !metadata ? "Loading" : legalityLabel(status)}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      <WebsiteAddCardDestinationModal
+        open={destinationPickerOpen}
+        onClose={() => setDestinationPickerOpen(false)}
+        cards={[{ name: displayName, qty: 1 }]}
+        title="Add to collection, deck, or wishlist"
+        subtitle={displayName}
+      />
+    </>
   );
 }
 
