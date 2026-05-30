@@ -184,6 +184,42 @@ function getAdminSupabase(): SupabaseClient {
   return admin;
 }
 
+async function logWebhookProcessed(
+  supabase: SupabaseClient,
+  {
+    status,
+    reason,
+    userId,
+    source,
+    eventId,
+    environment,
+    store,
+  }: {
+    status: 'ok' | 'fail' | 'skipped';
+    reason?: string;
+    userId?: string;
+    source: string;
+    eventId?: string;
+    environment?: string;
+    store?: string;
+  }
+) {
+  try {
+    const { logOpsEvent } = await import('@/lib/ops-events');
+    await logOpsEvent(supabase, {
+      event_type: 'ops_revenuecat_webhook_processed',
+      route: 'revenuecat_webhook',
+      status,
+      reason,
+      user_id: userId,
+      source,
+      event_id: eventId,
+      rc_environment: environment,
+      rc_store: store,
+    });
+  } catch {}
+}
+
 /** Derive pro_plan from product_id. */
 function planFromProductId(productId: string | undefined): 'monthly' | 'yearly' | null {
   if (!productId) return null;
@@ -290,6 +326,12 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getAdminSupabase();
+  const eventMeta = {
+    source: eventType || 'unknown',
+    eventId,
+    environment: body.environment,
+    store: body.store,
+  };
 
   // TRANSFER: app_user_id is not set; use transferred_to for recipients
   if (eventType === 'TRANSFER') {
@@ -304,8 +346,19 @@ export async function POST(req: NextRequest) {
       if (userId && typeof userId === 'string') {
         try {
           await updateProStatus(supabase, userId, isPro, proUntil, plan, 'transfer');
+          await logWebhookProcessed(supabase, {
+            ...eventMeta,
+            status: 'ok',
+            userId,
+          });
         } catch (e) {
           console.error('[RevenueCat webhook] Transfer update failed for', userId, e);
+          await logWebhookProcessed(supabase, {
+            ...eventMeta,
+            status: 'fail',
+            reason: 'transfer_update_failed',
+            userId,
+          });
         }
       }
     }
@@ -316,6 +369,11 @@ export async function POST(req: NextRequest) {
   const userId = body.app_user_id ?? body.original_app_user_id;
   if (!userId || typeof userId !== 'string') {
     console.warn('[RevenueCat webhook] No app_user_id', { type: eventType });
+    await logWebhookProcessed(supabase, {
+      ...eventMeta,
+      status: 'skipped',
+      reason: 'no_user_id',
+    });
     return NextResponse.json({ received: true, skipped: 'no_user_id' });
   }
 
@@ -325,13 +383,29 @@ export async function POST(req: NextRequest) {
 
   if (GRANT_EVENTS.has(eventType)) {
     if (!hasProEntitlement && eventType !== 'TRANSFER') {
+      await logWebhookProcessed(supabase, {
+        ...eventMeta,
+        status: 'skipped',
+        reason: 'not_pro_entitlement',
+        userId,
+      });
       return NextResponse.json({ received: true, skipped: 'not_pro_entitlement' });
     }
     const proUntil = body.expiration_at_ms
       ? new Date(body.expiration_at_ms).toISOString()
       : null;
     const plan = planFromProductId(body.product_id) ?? 'monthly';
-    await updateProStatus(supabase, userId, true, proUntil, plan, eventType);
+    try {
+      await updateProStatus(supabase, userId, true, proUntil, plan, eventType);
+    } catch (error) {
+      await logWebhookProcessed(supabase, {
+        ...eventMeta,
+        status: 'fail',
+        reason: 'grant_update_failed',
+        userId,
+      });
+      throw error;
+    }
     try {
       const { logOpsEvent } = await import('@/lib/ops-events');
       await logOpsEvent(supabase, {
@@ -342,8 +416,19 @@ export async function POST(req: NextRequest) {
         source: eventType,
       });
     } catch {}
+    await logWebhookProcessed(supabase, {
+      ...eventMeta,
+      status: 'ok',
+      userId,
+    });
   } else if (REVOKE_EVENTS.has(eventType)) {
     if (!hasProEntitlement) {
+      await logWebhookProcessed(supabase, {
+        ...eventMeta,
+        status: 'skipped',
+        reason: 'not_pro_entitlement',
+        userId,
+      });
       return NextResponse.json({ received: true, skipped: 'not_pro_entitlement' });
     }
     if (eventType === 'CANCELLATION') {
@@ -357,6 +442,12 @@ export async function POST(req: NextRequest) {
             error: debug.error,
           });
         }
+        await logWebhookProcessed(supabase, {
+          ...eventMeta,
+          status: 'skipped',
+          reason,
+          userId,
+        });
         return NextResponse.json({ received: true, skipped: reason });
       }
     }
@@ -385,9 +476,21 @@ export async function POST(req: NextRequest) {
           eventType,
         });
       }
+      await logWebhookProcessed(supabase, {
+        ...eventMeta,
+        status: 'skipped',
+        reason: 'manual_or_indefinite_pro',
+        userId,
+      });
       return NextResponse.json({ received: true, skipped: 'manual_or_indefinite_pro' });
     }
     if (stripeSubId && !process.env.STRIPE_SECRET_KEY) {
+      await logWebhookProcessed(supabase, {
+        ...eventMeta,
+        status: 'skipped',
+        reason: 'stripe_status_unknown',
+        userId,
+      });
       return NextResponse.json({ received: true, skipped: 'stripe_status_unknown' });
     }
     if (stripeSubId && process.env.STRIPE_SECRET_KEY) {
@@ -409,13 +512,35 @@ export async function POST(req: NextRequest) {
               source: eventType,
             });
           } catch {}
+          await logWebhookProcessed(supabase, {
+            ...eventMeta,
+            status: 'skipped',
+            reason: 'stripe_active',
+            userId,
+          });
           return NextResponse.json({ received: true, skipped: 'stripe_active' });
         }
       } catch {
+        await logWebhookProcessed(supabase, {
+          ...eventMeta,
+          status: 'skipped',
+          reason: 'stripe_status_unknown',
+          userId,
+        });
         return NextResponse.json({ received: true, skipped: 'stripe_status_unknown' });
       }
     }
-    await updateProStatus(supabase, userId, false, null, null, eventType);
+    try {
+      await updateProStatus(supabase, userId, false, null, null, eventType);
+    } catch (error) {
+      await logWebhookProcessed(supabase, {
+        ...eventMeta,
+        status: 'fail',
+        reason: 'revoke_update_failed',
+        userId,
+      });
+      throw error;
+    }
     try {
       const { logOpsEvent } = await import('@/lib/ops-events');
       await logOpsEvent(supabase, {
@@ -426,8 +551,19 @@ export async function POST(req: NextRequest) {
         source: eventType,
       });
     } catch {}
+    await logWebhookProcessed(supabase, {
+      ...eventMeta,
+      status: 'ok',
+      userId,
+    });
   } else {
     // TEST, BILLING_ISSUE, etc.: acknowledge but no profile update
+    await logWebhookProcessed(supabase, {
+      ...eventMeta,
+      status: 'skipped',
+      reason: 'unhandled_type',
+      userId,
+    });
     return NextResponse.json({ received: true, skipped: 'unhandled_type' });
   }
 
