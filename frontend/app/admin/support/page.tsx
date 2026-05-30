@@ -6,6 +6,16 @@ import { useAuth } from '@/lib/auth-context';
 import { useProStatus } from '@/hooks/useProStatus';
 
 type Notice = { type: 'success' | 'error' | 'info'; message: string };
+type SortKey =
+  | 'username'
+  | 'email'
+  | 'created_at'
+  | 'last_sign_in_at'
+  | 'deck_count'
+  | 'pro'
+  | 'billing_active'
+  | 'stripe_subscription_id';
+type SortDirection = 'asc' | 'desc';
 
 function fmt(d: string | null) {
   if (!d) return '-';
@@ -26,6 +36,8 @@ function fmt(d: string | null) {
 export default function SupportPage() {
   const [q, setQ] = React.useState('');
   const [rows, setRows] = React.useState<any[]>([]);
+  const [sortKey, setSortKey] = React.useState<SortKey>('created_at');
+  const [sortDirection, setSortDirection] = React.useState<SortDirection>('desc');
   const [busy, setBusy] = React.useState(false);
   const [page, setPage] = React.useState(1);
   const [hasMore, setHasMore] = React.useState(false);
@@ -41,6 +53,73 @@ export default function SupportPage() {
     () => rows.find((row) => row.id === selectedUserId) || null,
     [rows, selectedUserId]
   );
+  const sortedRows = React.useMemo(() => {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    const getDisplayUser = (row: any) => row.username || row.display_name || '';
+    const getTime = (value: string | null | undefined) => {
+      if (!value) return 0;
+      const ts = new Date(value).getTime();
+      return Number.isFinite(ts) ? ts : 0;
+    };
+
+    return [...rows].sort((a, b) => {
+      let left: string | number | boolean = '';
+      let right: string | number | boolean = '';
+
+      switch (sortKey) {
+        case 'username':
+          left = getDisplayUser(a).toLowerCase();
+          right = getDisplayUser(b).toLowerCase();
+          break;
+        case 'email':
+          left = String(a.email || '').toLowerCase();
+          right = String(b.email || '').toLowerCase();
+          break;
+        case 'created_at':
+          left = getTime(a.created_at);
+          right = getTime(b.created_at);
+          break;
+        case 'last_sign_in_at':
+          left = getTime(a.last_sign_in_at);
+          right = getTime(b.last_sign_in_at);
+          break;
+        case 'deck_count':
+          left = Number(a.deck_count || 0);
+          right = Number(b.deck_count || 0);
+          break;
+        case 'pro':
+          left = !!a.pro;
+          right = !!b.pro;
+          break;
+        case 'billing_active':
+          left = !!a.billing_active;
+          right = !!b.billing_active;
+          break;
+        case 'stripe_subscription_id':
+          left = !!a.stripe_subscription_id;
+          right = !!b.stripe_subscription_id;
+          break;
+      }
+
+      if (left < right) return -1 * direction;
+      if (left > right) return 1 * direction;
+      return String(a.email || '').localeCompare(String(b.email || ''));
+    });
+  }, [rows, sortDirection, sortKey]);
+
+  function toggleSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection(nextKey === 'username' || nextKey === 'email' ? 'asc' : 'desc');
+  }
+
+  function sortIndicator(key: SortKey) {
+    if (sortKey !== key) return ' ';
+    return sortDirection === 'asc' ? '▲' : '▼';
+  }
 
   function patchRow(userId: string, patch: Record<string, unknown>) {
     setRows((prev) => prev.map((row) => (row.id === userId ? { ...row, ...patch } : row)));
@@ -317,19 +396,51 @@ export default function SupportPage() {
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-neutral-900 z-10">
               <tr>
-                <th className="text-left py-2 px-2 font-medium">User</th>
-                <th className="text-left py-2 px-2 font-medium">Email</th>
-                <th className="text-left py-2 px-2 font-medium">Created</th>
-                <th className="text-left py-2 px-2 font-medium">Last sign-in</th>
-                <th className="text-left py-2 px-2 font-medium">Decks</th>
-                <th className="text-left py-2 px-2 font-medium">Pro</th>
-                <th className="text-left py-2 px-2 font-medium">Billing</th>
-                <th className="text-left py-2 px-2 font-medium">Stripe</th>
+                <th className="text-left py-2 px-2 font-medium">
+                  <button type="button" onClick={() => toggleSort('username')} className="inline-flex items-center gap-1 hover:text-white">
+                    User <span className="text-[10px] text-neutral-500">{sortIndicator('username')}</span>
+                  </button>
+                </th>
+                <th className="text-left py-2 px-2 font-medium">
+                  <button type="button" onClick={() => toggleSort('email')} className="inline-flex items-center gap-1 hover:text-white">
+                    Email <span className="text-[10px] text-neutral-500">{sortIndicator('email')}</span>
+                  </button>
+                </th>
+                <th className="text-left py-2 px-2 font-medium">
+                  <button type="button" onClick={() => toggleSort('created_at')} className="inline-flex items-center gap-1 hover:text-white">
+                    Created <span className="text-[10px] text-neutral-500">{sortIndicator('created_at')}</span>
+                  </button>
+                </th>
+                <th className="text-left py-2 px-2 font-medium">
+                  <button type="button" onClick={() => toggleSort('last_sign_in_at')} className="inline-flex items-center gap-1 hover:text-white">
+                    Last sign-in <span className="text-[10px] text-neutral-500">{sortIndicator('last_sign_in_at')}</span>
+                  </button>
+                </th>
+                <th className="text-left py-2 px-2 font-medium">
+                  <button type="button" onClick={() => toggleSort('deck_count')} className="inline-flex items-center gap-1 hover:text-white">
+                    Decks <span className="text-[10px] text-neutral-500">{sortIndicator('deck_count')}</span>
+                  </button>
+                </th>
+                <th className="text-left py-2 px-2 font-medium">
+                  <button type="button" onClick={() => toggleSort('pro')} className="inline-flex items-center gap-1 hover:text-white">
+                    Pro <span className="text-[10px] text-neutral-500">{sortIndicator('pro')}</span>
+                  </button>
+                </th>
+                <th className="text-left py-2 px-2 font-medium">
+                  <button type="button" onClick={() => toggleSort('billing_active')} className="inline-flex items-center gap-1 hover:text-white">
+                    Billing <span className="text-[10px] text-neutral-500">{sortIndicator('billing_active')}</span>
+                  </button>
+                </th>
+                <th className="text-left py-2 px-2 font-medium">
+                  <button type="button" onClick={() => toggleSort('stripe_subscription_id')} className="inline-flex items-center gap-1 hover:text-white">
+                    Stripe <span className="text-[10px] text-neutral-500">{sortIndicator('stripe_subscription_id')}</span>
+                  </button>
+                </th>
                 <th className="text-left py-2 px-2 font-medium">Select</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((u) => (
+              {sortedRows.map((u) => (
                 <tr key={u.id} className="border-t border-neutral-800 hover:bg-neutral-900/50">
                   <td className="py-1.5 px-2">{u.username || u.display_name || '-'}</td>
                   <td className="py-1.5 px-2 text-neutral-300">{u.email || '-'}</td>
