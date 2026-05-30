@@ -32,15 +32,15 @@ export default function ProUpsellBanner({ context, deckCount }: ProUpsellBannerP
     switch (context) {
       case 'deck_page':
         if (deckCount && deckCount >= 3) {
-          return 'You\'re building amazing decks! Unlock unlimited AI analysis and advanced tools with Pro.';
+          return 'You\'re building amazing decks! Unlock higher AI usage limits and advanced tools with Pro.';
         }
-        return 'Unlock unlimited AI analysis, hand testing, and price tracking with Pro.';
+        return 'Unlock higher AI usage limits, hand testing, and price tracking with Pro.';
       case 'collections':
         return 'Track prices with Pro - Get historical price data for your collection.';
       case 'cost_to_finish':
         return 'See price trends with Pro - Track your collection value over time.';
       default:
-        return 'Unlock unlimited AI analysis and advanced features with Pro.';
+        return 'Unlock higher AI usage limits and advanced features with Pro.';
     }
   };
 

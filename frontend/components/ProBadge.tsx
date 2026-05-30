@@ -53,7 +53,7 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-50">
             <div className="font-semibold mb-1">🚀 Upgrade to Pro</div>
             <div className="text-[11px] opacity-90 mb-2 max-w-xs">
-              • Unlimited AI analysis<br/>
+              • Higher AI usage limits<br/>
               • Advanced deck statistics<br/>
               • Price tracking<br/>
               • Priority support

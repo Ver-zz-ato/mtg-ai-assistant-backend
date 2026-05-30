@@ -714,7 +714,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="space-y-2">
                     <div className="text-sm opacity-80">Thanks for supporting ManaTap AI Pro! You have access to:</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Unlimited AI analysis</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Higher AI usage limits</div>
                       <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Advanced deck statistics</div>
                       <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Price tracking & alerts</div>
                       <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Priority support</div>
@@ -726,12 +726,12 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 ) : (
                   <div className="space-y-3">
                     <div className="text-sm opacity-80">
-                      Unlock unlimited AI analysis, advanced insights, and premium features with Pro.
+                      Unlock higher AI usage limits, advanced insights, and premium features with Pro.
                     </div>
                     
                     <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-blue-500/20 rounded-lg p-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs mb-3">
-                        <div className="flex items-center gap-2"><span className="text-blue-400">⚡</span> Unlimited AI analysis</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">⚡</span> Higher AI usage limits</div>
                         <div className="flex items-center gap-2"><span className="text-blue-400">📊</span> Advanced deck stats</div>
                         <div className="flex items-center gap-2"><span className="text-blue-400">📈</span> Price tracking & alerts</div>
                         <div className="flex items-center gap-2"><span className="text-blue-400">🎯</span> Personalized recommendations</div>
@@ -1220,7 +1220,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                         <div className="flex items-start gap-3">
                           <span className="text-blue-400 text-2xl flex-shrink-0">🤖</span>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-neutral-100">Unlimited AI Analysis</div>
+                            <div className="text-sm font-semibold text-neutral-100">Higher AI Usage Limits</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Higher limits on deck analysis & AI chat</div>
                           </div>
                         </div>
@@ -1282,7 +1282,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 <div className="space-y-4">
                   <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-700/40 rounded-lg p-4">
                     <div className="text-sm text-neutral-300 mb-3">
-                      Unlock unlimited AI analysis, advanced insights, and premium features with ManaTap Pro.
+                      Unlock higher AI usage limits, advanced insights, and premium features with ManaTap Pro.
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="bg-neutral-950 rounded-lg border border-neutral-700 p-4 space-y-2">

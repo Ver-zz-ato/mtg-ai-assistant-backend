@@ -240,7 +240,7 @@ function ThankYouContent() {
             
             <div className="grid md:grid-cols-2 gap-4">
               {[
-                { icon: '🤖', title: 'Unlimited AI Analysis', desc: 'Get unlimited AI-powered deck analysis and suggestions' },
+                { icon: '🤖', title: 'Higher AI Usage Limits', desc: 'Get more AI-powered deck analysis and suggestions with higher Pro limits' },
                 { icon: '📊', title: 'Advanced Deck Statistics', desc: 'Deep insights into your deck\'s performance and composition' },
                 { icon: '💾', title: 'Deck Versioning', desc: 'Save snapshots and restore previous versions of your decks' },
                 { icon: '💰', title: 'Price Tracking', desc: 'Track card prices over time' },
