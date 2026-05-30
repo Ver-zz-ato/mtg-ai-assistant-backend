@@ -1,6 +1,34 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { tierLimitsSchema, type TierLimits } from "@/lib/mobile/validation";
+import {
+  tierLimitFieldKeys,
+  tierLimitOverridesSchema,
+  type TierLimitBucket,
+  type TierLimits,
+  type TierLimitsOverride,
+} from "@/lib/mobile/validation";
 import { versionInRange } from "@/lib/mobile/semver-compare";
+import {
+  CARD_EXPLAIN_FREE,
+  CARD_EXPLAIN_GUEST,
+  CARD_EXPLAIN_PRO,
+  DECK_ANALYZE_FREE,
+  DECK_ANALYZE_GUEST,
+  DECK_ANALYZE_PRO,
+  DECK_COMPARE_AI_MOBILE_FREE_DAILY,
+  DECK_ROAST_FREE,
+  DECK_ROAST_GUEST,
+  DECK_ROAST_PRO,
+  GENERATE_CONSTRUCTED_FREE,
+  GENERATE_CONSTRUCTED_GUEST,
+  GENERATE_CONSTRUCTED_PRO,
+  GENERATE_FROM_COLLECTION_FREE,
+  GENERATE_FROM_COLLECTION_PRO,
+  MULLIGAN_ADVICE_FREE,
+  MULLIGAN_ADVICE_GUEST,
+  MULLIGAN_ADVICE_PRO,
+  VOICE_ASSISTANT_FREE,
+  VOICE_ASSISTANT_GUEST,
+} from "@/lib/feature-limits";
 
 function shouldIncludeByVersion(
   version: string | null | undefined,
@@ -62,10 +90,63 @@ function changelogPlatformMatches(rowPlatform: string, requested: BootstrapPlatf
 }
 
 const DEFAULT_TIERS: TierLimits = {
-  guest: { chatPerDay: 3, deckAnalysisPerDay: 2, roastPerDay: 1 },
-  free: { chatPerDay: 10, deckAnalysisPerDay: 5, roastPerDay: 3 },
-  pro: { chatPerDay: -1, deckAnalysisPerDay: -1, roastPerDay: -1 },
+  guest: {
+    chatPerDay: 10,
+    deckAnalysisPerDay: DECK_ANALYZE_GUEST,
+    roastPerDay: DECK_ROAST_GUEST,
+    voicePerDay: VOICE_ASSISTANT_GUEST,
+    mulliganAdvicePerDay: MULLIGAN_ADVICE_GUEST,
+    cardExplainPerDay: CARD_EXPLAIN_GUEST,
+    deckComparePerDay: 0,
+    generateFromCollectionPerDay: 0,
+    generateConstructedPerDay: GENERATE_CONSTRUCTED_GUEST,
+  },
+  free: {
+    chatPerDay: 50,
+    deckAnalysisPerDay: DECK_ANALYZE_FREE,
+    roastPerDay: DECK_ROAST_FREE,
+    voicePerDay: VOICE_ASSISTANT_FREE,
+    mulliganAdvicePerDay: MULLIGAN_ADVICE_FREE,
+    cardExplainPerDay: CARD_EXPLAIN_FREE,
+    deckComparePerDay: DECK_COMPARE_AI_MOBILE_FREE_DAILY,
+    generateFromCollectionPerDay: GENERATE_FROM_COLLECTION_FREE,
+    generateConstructedPerDay: GENERATE_CONSTRUCTED_FREE,
+  },
+  pro: {
+    chatPerDay: -1,
+    deckAnalysisPerDay: DECK_ANALYZE_PRO,
+    roastPerDay: DECK_ROAST_PRO,
+    voicePerDay: -1,
+    mulliganAdvicePerDay: MULLIGAN_ADVICE_PRO,
+    cardExplainPerDay: CARD_EXPLAIN_PRO,
+    deckComparePerDay: -1,
+    generateFromCollectionPerDay: GENERATE_FROM_COLLECTION_PRO,
+    generateConstructedPerDay: GENERATE_CONSTRUCTED_PRO,
+  },
 };
+
+function mergeTierBucketDefaults(
+  defaults: TierLimitBucket,
+  overrides: Partial<TierLimitBucket> | undefined
+): TierLimitBucket {
+  if (!overrides) return defaults;
+  const merged: TierLimitBucket = { ...defaults };
+  for (const key of tierLimitFieldKeys) {
+    const next = overrides[key];
+    if (typeof next === "number" && Number.isFinite(next)) {
+      merged[key] = next;
+    }
+  }
+  return merged;
+}
+
+function resolveTierLimits(overrides: TierLimitsOverride | null | undefined): TierLimits {
+  return {
+    guest: mergeTierBucketDefaults(DEFAULT_TIERS.guest, overrides?.guest),
+    free: mergeTierBucketDefaults(DEFAULT_TIERS.free, overrides?.free),
+    pro: mergeTierBucketDefaults(DEFAULT_TIERS.pro, overrides?.pro),
+  };
+}
 
 export async function buildMobileBootstrapPayload(
   admin: SupabaseClient,
@@ -117,8 +198,10 @@ export async function buildMobileBootstrapPayload(
 
   let tierLimits: TierLimits = DEFAULT_TIERS;
   const rawTiers = remoteConfig["mobile.tiers.limits"];
-  const parsed = tierLimitsSchema.safeParse(rawTiers);
-  if (parsed.success) tierLimits = parsed.data;
+  const parsed = tierLimitOverridesSchema.safeParse(rawTiers);
+  if (parsed.success) {
+    tierLimits = resolveTierLimits(parsed.data);
+  }
 
   const whatsNew: MobileBootstrapPayload["whatsNew"] = [];
   const tnow = Date.now();

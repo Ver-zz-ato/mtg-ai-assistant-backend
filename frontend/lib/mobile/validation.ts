@@ -2,25 +2,50 @@ import { z } from "zod";
 
 const limitNumber = z.number().int();
 
+export const tierLimitFieldKeys = [
+  "chatPerDay",
+  "deckAnalysisPerDay",
+  "roastPerDay",
+  "voicePerDay",
+  "mulliganAdvicePerDay",
+  "cardExplainPerDay",
+  "deckComparePerDay",
+  "generateFromCollectionPerDay",
+  "generateConstructedPerDay",
+] as const;
+
+export type TierLimitFieldKey = (typeof tierLimitFieldKeys)[number];
+
+const tierLimitBucketShape = {
+  chatPerDay: limitNumber,
+  deckAnalysisPerDay: limitNumber,
+  roastPerDay: limitNumber,
+  voicePerDay: limitNumber,
+  mulliganAdvicePerDay: limitNumber,
+  cardExplainPerDay: limitNumber,
+  deckComparePerDay: limitNumber,
+  generateFromCollectionPerDay: limitNumber,
+  generateConstructedPerDay: limitNumber,
+};
+
+export const tierLimitBucketSchema = z.object(tierLimitBucketShape);
+export const tierLimitBucketOverrideSchema = z.object(tierLimitBucketShape).partial();
+
 export const tierLimitsSchema = z.object({
-  guest: z.object({
-    chatPerDay: limitNumber,
-    deckAnalysisPerDay: limitNumber,
-    roastPerDay: limitNumber,
-  }),
-  free: z.object({
-    chatPerDay: limitNumber,
-    deckAnalysisPerDay: limitNumber,
-    roastPerDay: limitNumber,
-  }),
-  pro: z.object({
-    chatPerDay: limitNumber,
-    deckAnalysisPerDay: limitNumber,
-    roastPerDay: limitNumber,
-  }),
+  guest: tierLimitBucketSchema,
+  free: tierLimitBucketSchema,
+  pro: tierLimitBucketSchema,
+});
+
+export const tierLimitOverridesSchema = z.object({
+  guest: tierLimitBucketOverrideSchema.optional(),
+  free: tierLimitBucketOverrideSchema.optional(),
+  pro: tierLimitBucketOverrideSchema.optional(),
 });
 
 export type TierLimits = z.infer<typeof tierLimitsSchema>;
+export type TierLimitBucket = z.infer<typeof tierLimitBucketSchema>;
+export type TierLimitsOverride = z.infer<typeof tierLimitOverridesSchema>;
 
 export function parseJsonObject(raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
   try {
@@ -34,10 +59,10 @@ export function parseJsonObject(raw: string): { ok: true; value: unknown } | { o
   }
 }
 
-export function parseTierLimitsJson(raw: string): { ok: true; value: TierLimits } | { ok: false; error: string } {
+export function parseTierLimitsJson(raw: string): { ok: true; value: TierLimitsOverride } | { ok: false; error: string } {
   const parsed = parseJsonObject(raw);
   if (!parsed.ok) return parsed;
-  const r = tierLimitsSchema.safeParse(parsed.value);
+  const r = tierLimitOverridesSchema.safeParse(parsed.value);
   if (!r.success) return { ok: false, error: r.error.flatten().formErrors.join("; ") || "Validation failed" };
   return { ok: true, value: r.data };
 }

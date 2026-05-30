@@ -163,9 +163,39 @@ Caching: `Cache-Control: public, s-maxage=60, stale-while-revalidate=120`.
     "mobile.home.hero": { "title": "…" }
   },
   "tierLimits": {
-    "guest": { "chatPerDay": 3, "deckAnalysisPerDay": 2, "roastPerDay": 1 },
-    "free": { "chatPerDay": 10, "deckAnalysisPerDay": 5, "roastPerDay": 3 },
-    "pro": { "chatPerDay": -1, "deckAnalysisPerDay": -1, "roastPerDay": -1 }
+    "guest": {
+      "chatPerDay": 10,
+      "deckAnalysisPerDay": 5,
+      "roastPerDay": 3,
+      "voicePerDay": 10,
+      "mulliganAdvicePerDay": 2,
+      "cardExplainPerDay": 5,
+      "deckComparePerDay": 0,
+      "generateFromCollectionPerDay": 0,
+      "generateConstructedPerDay": 1
+    },
+    "free": {
+      "chatPerDay": 50,
+      "deckAnalysisPerDay": 20,
+      "roastPerDay": 5,
+      "voicePerDay": 30,
+      "mulliganAdvicePerDay": 10,
+      "cardExplainPerDay": 10,
+      "deckComparePerDay": 5,
+      "generateFromCollectionPerDay": 3,
+      "generateConstructedPerDay": 1
+    },
+    "pro": {
+      "chatPerDay": -1,
+      "deckAnalysisPerDay": 200,
+      "roastPerDay": 25,
+      "voicePerDay": -1,
+      "mulliganAdvicePerDay": 50,
+      "cardExplainPerDay": 50,
+      "deckComparePerDay": -1,
+      "generateFromCollectionPerDay": 20,
+      "generateConstructedPerDay": 25
+    }
   },
   "whatsNew": [
     {
@@ -181,6 +211,14 @@ Caching: `Cache-Control: public, s-maxage=60, stale-while-revalidate=120`.
 ```
 
 Assembly logic is centralized in `lib/mobile/bootstrap.ts` (`buildMobileBootstrapPayload`).
+
+`mobile.tiers.limits` is now treated as a per-function override layer, not a fully separate truth source. The server resolves the final bootstrap payload by merging:
+
+1. backend safe defaults
+2. admin-managed `remote_config["mobile.tiers.limits"]` overrides
+3. intentional route/platform exceptions where product rules differ
+
+The mobile app should display the resolved bootstrap values and should not hardcode separate entitlement truth when bootstrap is available.
 
 ## Mobile support dependency note
 

@@ -47,6 +47,7 @@ export type CriticResult<T> = {
 
 type PassSpec<T> = {
   enabled?: boolean;
+  recordUsage?: boolean;
   passName: string;
   buildMessages: (current: T) => Array<{ role: "system" | "user"; content: string }>;
   parse: (text: string, current: T) => T;
@@ -162,7 +163,8 @@ async function runPass<T>(
     source: context.source,
     source_page: context.sourcePage,
     jsonResponse: spec.jsonResponse ?? true,
-    skipRecordAiUsage: true,
+    request_kind: spec.recordUsage ? `structured_${spec.passName}` : null,
+    skipRecordAiUsage: spec.recordUsage !== true,
   });
   return {
     next: spec.parse(response.text || "", current),

@@ -388,6 +388,7 @@ export async function POST(req: NextRequest) {
         routePath: ROUTE_PATH,
         deterministic,
         judge: {
+          recordUsage: context.judgePasses < 2,
           passName: 'judge',
           maxTokens: body.level === 'short' ? 500 : 900,
           buildMessages: () => [
@@ -436,6 +437,7 @@ export async function POST(req: NextRequest) {
           },
         },
         writer: {
+          recordUsage: context.judgePasses >= 2,
           passName: 'writer',
           maxTokens: body.level === 'short' ? 400 : 700,
           buildMessages: (current) => [
