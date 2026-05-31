@@ -17,9 +17,7 @@ import {
   getMobileCommandCenterSecurity,
   getMobileCommandCenterUsers,
   shouldCountForDailyDigestStatus,
-  WEEKLY_PIPELINE_JOB_IDS,
 } from "@/lib/admin/mobile-command-center";
-import { jobLastSuccessConfigKey } from "@/lib/admin/adminJobDetail";
 import { posthogHogql, getPosthogQueryCredentials } from "@/lib/server/posthog-hogql";
 import { postOpsReportToDiscord } from "@/lib/ops/discord";
 
@@ -39,6 +37,7 @@ const SEO_WINNERS_THRESHOLD = 10;
 const SEO_WINNERS_LIMIT = 50;
 const STALE_HOURS = 48;
 const DAILY_WINDOW_HOURS = 24;
+const WEEKLY_WINDOW_DAYS = 7;
 const OPENAI_USAGE_URL = "https://api.openai.com/v1/organization/usage/completions";
 
 /** HogQL predicate: signup_completed events attributed to the mobile app. */
@@ -576,39 +575,204 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
   };
 }
 async function buildWeeklyDigestDetails(admin: NonNullable<ReturnType<typeof getAdmin>>) {
-  const jobKeys = WEEKLY_PIPELINE_JOB_IDS.map((jobId) => jobLastSuccessConfigKey(jobId));
-  const { data: configRows } = await admin.from("app_config").select("key, value").in("key", jobKeys);
-  const configMap = new Map((configRows || []).map((row: { key: string; value: string }) => [row.key, row.value]));
-  const nowMs = Date.now();
-  const rows = WEEKLY_PIPELINE_JOB_IDS.map((jobId) => {
-    const raw = configMap.get(jobLastSuccessConfigKey(jobId));
-    const labelMap: Record<string, string> = {
-      bulk_scryfall: "Scryfall import",
-      "mtg-legality-refresh": "Legality refresh",
-      "budget-swaps-update": "Budget swaps refresh",
-    };
-    if (!raw) {
-      return { job: labelMap[jobId] || jobId, job_id: jobId, status: "not seen yet", last_seen: "never", age_hours: null };
-    }
-    try {
-      const parsed = JSON.parse(String(raw));
-      const iso = typeof parsed === "string" ? parsed : String(parsed);
-      const ageHours = Math.round((nowMs - new Date(iso).getTime()) / (1000 * 60 * 60));
-      const staleAfter = jobId === "bulk_scryfall" ? 24 * 7 : 24 * 7;
-      const status = ageHours > staleAfter ? "late" : "working";
-      return {
-        job: labelMap[jobId] || jobId,
-        job_id: jobId,
-        status,
-        last_seen: `${ageHours}h ago`,
-        age_hours: ageHours,
-      };
-    } catch {
-      return { job: labelMap[jobId] || jobId, job_id: jobId, status: "unknown", last_seen: String(raw), age_hours: null };
-    }
+  const now = new Date();
+  const windowEnd = now.toISOString();
+  const windowStartDate = new Date(now.getTime() - WEEKLY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const windowStart = windowStartDate.toISOString();
+  const windowStartEpoch = Math.floor(windowStartDate.getTime() / 1000);
+  const windowEndEpoch = Math.floor(now.getTime() / 1000);
+
+  const [overview, ai, users, analytics, revenue, errors, security, feedback, ops, websitePosthog, signupCounts, aiUsageWindow, websiteFeedbackCount, openAiCostAdjuster, openAiWeekSpend, openAiMonthToDate] =
+    await Promise.all([
+      getMobileCommandCenterOverview(WEEKLY_WINDOW_DAYS),
+      getMobileCommandCenterAi(WEEKLY_WINDOW_DAYS),
+      getMobileCommandCenterUsers(WEEKLY_WINDOW_DAYS),
+      getMobileCommandCenterAnalytics(WEEKLY_WINDOW_DAYS),
+      getMobileCommandCenterRevenue(WEEKLY_WINDOW_DAYS),
+      getMobileCommandCenterErrors(WEEKLY_WINDOW_DAYS),
+      getMobileCommandCenterSecurity(WEEKLY_WINDOW_DAYS, 24 * WEEKLY_WINDOW_DAYS),
+      getMobileCommandCenterFeedback(WEEKLY_WINDOW_DAYS),
+      getMobileCommandCenterOps(WEEKLY_WINDOW_DAYS),
+      getWebsitePosthogDigest(24 * WEEKLY_WINDOW_DAYS),
+      getPosthogSignupCounts(24 * WEEKLY_WINDOW_DAYS),
+      admin
+        .from("ai_usage")
+        .select("source,source_page,route,model,cost_usd,planner_cost_usd,error_code,cache_hit,eval_run_id")
+        .gte("created_at", windowStart)
+        .order("created_at", { ascending: false })
+        .limit(AI_WINDOW_LIMIT),
+      admin.from("feedback").select("id", { count: "exact", head: true }).gte("created_at", windowStart),
+      getOpenAiModelCostAdjuster(windowStart, windowEnd),
+      fetchOpenAiOrgSpendSnapshot({
+        startTime: windowStartEpoch,
+        endTime: windowEndEpoch,
+      }).catch(() => null),
+      fetchOpenAiOrgSpendSnapshot({
+        startTime: getMonthStartUtcEpoch(now),
+        endTime: windowEndEpoch,
+      }).catch(() => null),
+    ]);
+
+  const aiWindowRows = aiUsageWindow.data || [];
+  const aiSplit = splitAiUsageWindow(aiWindowRows, (row) => {
+    const raw = rowCostUsd(row);
+    const modelKey = (getPricingModelKey(String(row.model || "")) || String(row.model || "").trim()).toLowerCase();
+    const ratio = openAiCostAdjuster.ratiosByModel.get(modelKey);
+    return ratio != null ? raw * ratio : raw;
   });
-  const lateJobs = rows.filter((row) => row.status === "late").map((row) => row.job);
-  return { weekly_jobs: rows, late_jobs: lateJobs };
+
+  const overviewAlerts = (overview.alerts || []).filter((alert) => alert.severity === "critical" || alert.severity === "warn");
+  const weeklyDigestAlerts = overviewAlerts.filter(shouldCountForDailyDigestStatus);
+  const criticalAlerts = weeklyDigestAlerts.filter((alert) => alert.severity === "critical");
+  const warnAlerts = weeklyDigestAlerts.filter((alert) => alert.severity === "warn");
+
+  const weeklyJobs = ((ops.tables?.["Weekly jobs (Sunday digest)"] || []) as Array<Record<string, unknown>>).map((row) => ({
+    job: row.job,
+    status: row.status,
+    last_seen: row.last_seen,
+    last_at: row.last_at,
+    detail: row.detail,
+    severity: row.severity,
+  }));
+  const pipelineJobs = ((ops.tables?.["Pipeline jobs"] || []) as Array<Record<string, unknown>>).map((row) => ({
+    job: row.job,
+    status: row.status,
+    last_seen: row.last_seen,
+    severity: row.severity,
+  }));
+  const discoverJobs = ((ops.tables?.["Discover jobs (daily digest)"] || []) as Array<Record<string, unknown>>).map((row) => ({
+    job: row.job,
+    status: row.status,
+    last_seen: row.last_seen,
+    severity: row.severity,
+  }));
+  const lateJobs = weeklyJobs
+    .filter((row) => row.severity === "warn" || row.severity === "critical" || row.status === "late")
+    .map((row) => String(row.job || "unknown"));
+
+  return {
+    window: {
+      days: WEEKLY_WINDOW_DAYS,
+      start_iso: windowStart,
+      end_iso: windowEnd,
+      london_range: `${formatLondonTimestamp(new Date(windowStart))} -> ${formatLondonTimestamp(now)} Europe/London`,
+    },
+    app: {
+      launch_health: {
+        value: asString(getMetric(overview, "launch_health")?.value || "unknown"),
+        sub: asString(getMetric(overview, "launch_health")?.sub || ""),
+      },
+      analytics: {
+        events_seen_7d: asNumber(getMetric(analytics, "app_events")?.value),
+        scanner_events_seen_7d: asNumber(getMetric(analytics, "scanner_events_seen")?.value),
+        scanner_sessions_completed_7d: asNumber(getMetric(analytics, "scanner_sessions_completed")?.value),
+        tool_events_seen_7d: asNumber(getMetric(analytics, "tool_events_seen")?.value),
+        feedback_events_seen_7d: asNumber(getMetric(analytics, "feedback_events")?.value),
+        missing_families: asString(getMetric(analytics, "missing_families")?.sub || "none"),
+      },
+      users: {
+        signups_7d: signupCounts.appSignups,
+        new_profiles_7d: asNumber(getMetric(users, "new_profiles")?.value),
+        total_pro_profiles: asNumber(getMetric(users, "pro_profiles")?.value),
+      },
+      ai: {
+        logged_rows_7d: aiSplit.app.logged_rows,
+        calls_7d: aiSplit.app.billable_calls,
+        cost_usd_7d: aiSplit.app.cost_usd,
+        error_rate_pct: aiSplit.app.error_rate_pct,
+        cache_hit_pct: aiSplit.app.cache_hit_pct,
+        requests_metric: asNumber(getMetric(ai, "requests")?.value),
+      },
+      revenue: {
+        active_pro_profiles: asNumber(getMetric(revenue, "pro")?.value),
+        revenuecat_grants_7d: asNumber(getMetric(revenue, "rc_grants")?.value),
+        revenuecat_revokes_7d: asNumber(getMetric(revenue, "rc_revokes")?.value),
+      },
+      feedback: {
+        app_feedback_events_7d: asNumber(getMetric(analytics, "feedback_events")?.value),
+        app_ai_reports_7d: asNumber(getMetric(feedback, "app_ai_reports")?.value),
+        feedback_submit_failures_7d: asNumber(getMetric(feedback, "feedback_submit_failures")?.value),
+      },
+    },
+    website: {
+      analytics: {
+        pageviews_7d: websitePosthog.pageviews,
+        first_visits_7d: websitePosthog.firstVisits,
+        logins_7d: websitePosthog.logins,
+        signups_7d: signupCounts.websiteSignups,
+        pro_upgrade_starts_7d: websitePosthog.proStarts,
+        pro_upgrade_completions_7d: websitePosthog.proCompletes,
+        feedback_sent_7d: websitePosthog.feedbackSent,
+        posthog_status: websitePosthog.configured ? (websitePosthog.error ? "failing" : "connected") : "missing",
+      },
+      ai: {
+        logged_rows_7d: aiSplit.website.logged_rows,
+        calls_7d: aiSplit.website.billable_calls,
+        cost_usd_7d: aiSplit.website.cost_usd,
+        error_rate_pct: aiSplit.website.error_rate_pct,
+        cache_hit_pct: aiSplit.website.cache_hit_pct,
+        cost_basis: openAiCostAdjuster.source,
+      },
+      feedback: {
+        generic_feedback_rows_7d: websiteFeedbackCount.count || 0,
+      },
+    },
+    shared: {
+      users: {
+        new_profiles_7d: asNumber(getMetric(users, "new_profiles")?.value),
+        posthog_signup_split_configured: signupCounts.configured,
+        posthog_signup_split_error: signupCounts.error ?? null,
+      },
+      revenue: {
+        stripe_subs: asNumber(getMetric(revenue, "stripe")?.value),
+        stripe_webhooks_7d: asNumber(getMetric(revenue, "stripe_webhooks")?.value),
+        openai_actual_7d_usd: Number(openAiWeekSpend?.totals?.cost_usd || 0),
+        openai_actual_latest_day_usd: Number(openAiWeekSpend?.latest_completed_day?.cost_usd || 0),
+        openai_actual_latest_day_date_utc: openAiWeekSpend?.latest_completed_day?.date || null,
+        openai_actual_mtd_usd: Number(openAiMonthToDate?.totals?.cost_usd || 0),
+        openai_actual_cost_source: openAiWeekSpend?.cost_source || null,
+        openai_actual_project_names: (openAiWeekSpend?.projects || []).map((project) => project.project_name).filter(Boolean),
+      },
+      reliability: {
+        sentry_status: asString(getMetric(errors, "sentry")?.value),
+        sentry_unresolved: asNumber(getMetric(errors, "sentry_unresolved")?.value),
+        local_error_logs_7d: asNumber(getMetric(errors, "local_errors")?.value),
+        rate_limit_rows_7d: asNumber(getMetric(security, "rate_limit_rows")?.value),
+        rate_limit_hits_7d: asNumber(getMetric(security, "rate_limit_hits")?.value),
+        admin_audit_rows_7d: asNumber(getMetric(security, "admin_audit")?.value),
+      },
+      ops: {
+        config_freshness_hours: asNumber(getMetric(ops, "config_freshness")?.value),
+        pipeline_jobs: pipelineJobs,
+        discover_jobs: discoverJobs,
+        weekly_jobs: weeklyJobs,
+      },
+    },
+    weekly_jobs: weeklyJobs,
+    late_jobs: lateJobs,
+    top_alerts: weeklyDigestAlerts.slice(0, 6).map((alert) => ({
+      severity: alert.severity,
+      title: alert.title,
+      detail: alert.detail,
+    })),
+    counts: {
+      critical_alerts: criticalAlerts.length,
+      warning_alerts: warnAlerts.length,
+      late_weekly_jobs: lateJobs.length,
+    },
+    notes: [
+      openAiCostAdjuster.source === "openai_cached_input_usage"
+        ? "AI route cost uses ai_usage billable rows, excludes ai_test/eval runs, includes planner_cost_usd, and applies cached-input usage discounts by model."
+        : "AI route cost uses ai_usage billable rows (model != none, cost > 0), excludes ai_test/eval runs, and includes planner_cost_usd.",
+      openAiWeekSpend?.latest_completed_day?.date
+        ? `OpenAI live costs use UTC day buckets. Latest completed bucket: ${openAiWeekSpend.latest_completed_day.date}.`
+        : null,
+      websitePosthog.error ? `Website PostHog warning: ${websitePosthog.error}` : null,
+      asString(getMetric(analytics, "missing_families")?.sub || ""),
+      asString(getMetric(overview, "launch_health")?.sub || ""),
+      lateJobs.length ? `Weekly jobs needing attention: ${lateJobs.join(", ")}.` : "Weekly pipeline jobs are all reporting healthy or recent.",
+    ].filter(Boolean),
+  };
 }
 
 export type ReportType = "daily_ops" | "weekly_ops";
@@ -850,7 +1014,7 @@ export async function runOpsReport(reportType: ReportType): Promise<{
   const dailyDigest = details.daily_digest as Record<string, unknown> | undefined;
   const weeklyDigestPayload = details.weekly_digest as Record<string, unknown> | undefined;
 
-  const reportVersion = reportType === "daily_ops" ? "2" : "1";
+  const reportVersion = reportType === "daily_ops" ? "2" : "2";
   const gitSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.RENDER_GIT_COMMIT || null;
   const today = new Date().toISOString().slice(0, 10);
   const runKey = `${reportType}:${today}`;

@@ -22,6 +22,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 - **Client:** `hooks/useProStatus.ts` → `useProStatus()`. Uses `/api/user/pro-status` as canonical truth with a short profile fallback. Subscribes to `profiles` changes and rechecks the API for real-time updates.
 - **API:** `GET /api/user/pro-status` uses `getProStatusDetails()` and returns `{ ok, isPro, fromProfile, fromMetadata, fromRevenueCat }`. Auth required. `fromMetadata` is diagnostic only; `user_metadata` is not trusted for authorization.
 - **Cross-platform contract:** a user can become Pro from manual admin grant, Stripe website billing, or RevenueCat mobile billing. App and website should converge on the same Pro result through the shared profile state plus RevenueCat fallback checks.
+- **Stripe billing integrity:** `profiles.stripe_customer_id` and `profiles.stripe_subscription_id` identify the current website billing source. Stripe cancellation/deletion webhooks must only downgrade a user when the event subscription matches the profile's current `stripe_subscription_id`; stale duplicate-customer events are skipped when the profile points at a different kept active subscription. Customer recovery for checkout/portal must prefer the profile customer, then duplicate customer candidates that own the profile subscription or another blocking active/past_due/unpaid subscription, rather than accepting the first metadata/email match.
 
 ---
 

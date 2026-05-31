@@ -55,6 +55,8 @@
 - [x] **Hardened Stripe entitlement flow** — Prevent duplicate active website subscriptions and improve customer recovery
   - Checkout now reuses/recoveries Stripe customers before creating new ones
   - Checkout blocks creating a second active Stripe subscription for the same customer
+  - Stripe downgrade webhooks ignore stale duplicate subscription events when Supabase already points at a different kept active subscription
+  - Customer fallback ranks duplicate Stripe customers by profile subscription / blocking active subscription instead of first metadata/email match
   - Admin Stripe reconciliation surfaces can audit and repair paid-in-Stripe-but-not-Pro profile drift
 - [x] **Aligned app + website Pro contract** — Manual, Stripe, and RevenueCat now all converge through the same shared entitlement model
   - Website/backend trust active `profiles.is_pro` / `pro_until` plus RevenueCat fallback
