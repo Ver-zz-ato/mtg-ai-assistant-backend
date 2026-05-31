@@ -1,6 +1,6 @@
 /**
  * Post ops report summary to Discord webhook.
- * Env: DISCORD_WEBHOOK_URL
+ * Env: DISCORD_WEBHOOK_URL, with fallback to the admin/app-sub alert hooks
  * Failure must not block report save.
  * Discord content limit: 2000 chars - we cap at 1900.
  */
@@ -36,7 +36,12 @@ function valueAtPath(root: Record<string, unknown> | undefined, path: string[]):
 }
 
 export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promise<void> {
-  const url = process.env.DISCORD_WEBHOOK_URL;
+  const url =
+    process.env.DISCORD_WEBHOOK_URL ||
+    process.env.DISCORD_ADMIN_ALERT_WEBHOOK ||
+    process.env.DISCORD_APPSUB_WEBHOOK ||
+    process.env.DISCORD_APP_SUBS_WEBHOOK ||
+    "";
   if (!url) return;
 
   const emoji = payload.status === "ok" ? "OK" : payload.status === "warn" ? "WARN" : "FAIL";
