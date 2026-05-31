@@ -7,6 +7,14 @@ type ProfileBillingRow = {
   stripe_subscription_id?: string | null;
 } | null;
 
+type StripeCustomerCandidate = {
+  id: string;
+  created?: number | null;
+  deleted?: boolean | null | void;
+};
+
+type StripeSubscriptionCandidate = Pick<Stripe.Subscription, 'id' | 'status'>;
+
 const DUPLICATE_SUBSCRIPTION_STATUSES = new Set<Stripe.Subscription.Status>([
   'active',
   'trialing',
@@ -20,6 +28,12 @@ export function isBlockingStripeSubscriptionStatus(status: Stripe.Subscription.S
 
 function escapeStripeSearchValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function isLiveStripeCustomer(
+  customer: Stripe.Customer | Stripe.DeletedCustomer
+): customer is Stripe.Customer {
+  return !customer.deleted;
 }
 
 async function persistStripeCustomerId(opts: {
@@ -55,40 +69,108 @@ async function getCustomerById(customerId: string | null | undefined): Promise<S
   }
 }
 
-async function findCustomerByAppUserId(userId: string): Promise<Stripe.Customer | null> {
-  try {
-    const results = await stripe.customers.search({
-      query: `metadata['app_user_id']:'${escapeStripeSearchValue(userId)}'`,
-      limit: 5,
-    });
-    const customer = results.data.find((entry) => !entry.deleted) ?? null;
-    return customer && !customer.deleted ? customer : null;
-  } catch {
-    return null;
-  }
+function customerCandidateRank(
+  customer: StripeCustomerCandidate,
+  subscriptions: StripeSubscriptionCandidate[],
+  profileSubscriptionId?: string | null
+): number {
+  const ownsProfileSubscription = !!profileSubscriptionId &&
+    subscriptions.some((subscription) => subscription.id === profileSubscriptionId);
+  const ownsBlockingProfileSubscription = !!profileSubscriptionId &&
+    subscriptions.some((subscription) =>
+      subscription.id === profileSubscriptionId &&
+      isBlockingStripeSubscriptionStatus(subscription.status)
+    );
+  const ownsBlockingSubscription = subscriptions.some((subscription) =>
+    isBlockingStripeSubscriptionStatus(subscription.status)
+  );
+
+  if (ownsBlockingProfileSubscription) return 400;
+  if (ownsBlockingSubscription) return 300;
+  if (ownsProfileSubscription) return 200;
+  if (subscriptions.length === 0) return 100;
+  return 50;
 }
 
-async function findCustomerByEmail(email: string | null | undefined): Promise<Stripe.Customer | null> {
-  if (!email) return null;
-  try {
-    const results = await stripe.customers.list({ email, limit: 10 });
-    const candidates = results.data.filter((entry) => !entry.deleted);
-    if (candidates.length <= 1) {
-      return candidates[0] ?? null;
-    }
+export function chooseBestStripeCustomerCandidate<T extends StripeCustomerCandidate>(
+  candidates: T[],
+  subscriptionsByCustomer: Map<string, StripeSubscriptionCandidate[]>,
+  profileSubscriptionId?: string | null
+): T | null {
+  const liveCandidates = candidates.filter((candidate) => !candidate.deleted);
+  if (liveCandidates.length === 0) return null;
 
-    for (const customer of candidates) {
+  return [...liveCandidates].sort((a, b) => {
+    const rankDelta =
+      customerCandidateRank(b, subscriptionsByCustomer.get(b.id) || [], profileSubscriptionId) -
+      customerCandidateRank(a, subscriptionsByCustomer.get(a.id) || [], profileSubscriptionId);
+    if (rankDelta !== 0) return rankDelta;
+    return (b.created || 0) - (a.created || 0);
+  })[0] || null;
+}
+
+async function getSubscriptionsByCustomer(
+  candidates: Stripe.Customer[]
+): Promise<Map<string, StripeSubscriptionCandidate[]>> {
+  const entries = await Promise.all(
+    candidates.map(async (customer) => {
       const subscriptions = await stripe.subscriptions.list({
         customer: customer.id,
         status: 'all',
         limit: 10,
       });
-      if (subscriptions.data.some((subscription) => isBlockingStripeSubscriptionStatus(subscription.status))) {
-        return customer;
-      }
-    }
+      return [
+        customer.id,
+        subscriptions.data.map((subscription) => ({
+          id: subscription.id,
+          status: subscription.status,
+        })),
+      ] as const;
+    })
+  );
 
-    return candidates[0] ?? null;
+  return new Map(entries);
+}
+
+async function findCustomerByAppUserId(
+  userId: string,
+  profileSubscriptionId?: string | null
+): Promise<Stripe.Customer | null> {
+  try {
+    const results = await stripe.customers.search({
+      query: `metadata['app_user_id']:'${escapeStripeSearchValue(userId)}'`,
+      limit: 100,
+    });
+    const candidates = results.data.filter(isLiveStripeCustomer);
+    if (candidates.length <= 1) return candidates[0] ?? null;
+
+    const subscriptionsByCustomer = await getSubscriptionsByCustomer(candidates);
+    return chooseBestStripeCustomerCandidate<Stripe.Customer>(
+      candidates,
+      subscriptionsByCustomer,
+      profileSubscriptionId
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function findCustomerByEmail(
+  email: string | null | undefined,
+  profileSubscriptionId?: string | null
+): Promise<Stripe.Customer | null> {
+  if (!email) return null;
+  try {
+    const results = await stripe.customers.list({ email, limit: 10 });
+    const candidates = results.data.filter(isLiveStripeCustomer);
+    if (candidates.length <= 1) return candidates[0] ?? null;
+
+    const subscriptionsByCustomer = await getSubscriptionsByCustomer(candidates);
+    return chooseBestStripeCustomerCandidate<Stripe.Customer>(
+      candidates,
+      subscriptionsByCustomer,
+      profileSubscriptionId
+    );
   } catch {
     return null;
   }
@@ -109,7 +191,7 @@ export async function resolveStripeCustomerForUser(opts: {
     return { customerId: profileCustomer.id, recoveredFrom: 'profile' };
   }
 
-  const metadataCustomer = await findCustomerByAppUserId(user.id);
+  const metadataCustomer = await findCustomerByAppUserId(user.id, profile?.stripe_subscription_id);
   if (metadataCustomer) {
     await persistStripeCustomerId({
       supabase,
@@ -120,7 +202,7 @@ export async function resolveStripeCustomerForUser(opts: {
     return { customerId: metadataCustomer.id, recoveredFrom: 'metadata' };
   }
 
-  const emailCustomer = await findCustomerByEmail(user.email);
+  const emailCustomer = await findCustomerByEmail(user.email, profile?.stripe_subscription_id);
   if (emailCustomer) {
     await persistStripeCustomerId({
       supabase,
