@@ -66,7 +66,7 @@ setup('authenticate', async ({ page }) => {
     await page.waitForTimeout(500);
   }
 
-  const modalTitle = page.getByText('Sign in or Create account', { exact: true });
+  const modalTitle = page.getByText(/^(Sign in to ManaTap|Create your ManaTap account)$/).first();
   if (!(await modalTitle.isVisible({ timeout: 3_000 }).catch(() => false))) {
     if (await authLauncher.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await authLauncher.click();
@@ -74,7 +74,7 @@ setup('authenticate', async ({ page }) => {
   }
   await expect(modalTitle).toBeVisible({ timeout: 10_000 });
 
-  const switchToSignIn = page.getByRole('button', { name: /already have an account.*sign in/i });
+  const switchToSignIn = page.getByRole('tab', { name: /^sign in$/i });
   if (await switchToSignIn.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await switchToSignIn.click();
     await page.waitForTimeout(500);

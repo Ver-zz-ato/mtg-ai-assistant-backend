@@ -241,9 +241,12 @@ export default function Header() {
 
   // Listen for auth modal open events from guest components
   useEffect(() => {
-    const handleOpenAuth = (e: any) => {
-      const mode = e.detail?.mode;
-      if (mode === 'signup' || mode === 'signin') {
+    const handleOpenAuth = (e: Event) => {
+      const mode = e instanceof CustomEvent ? e.detail?.mode : undefined;
+      if (mode === 'signup' || mode === 'signin' || mode === 'login') {
+        setEmailFormMode(mode === 'signin' || mode === 'login' ? 'login' : 'signup');
+        setSignupEmailError('');
+        setSignupPasswordError('');
         setShowSignUp(true);
       }
     };
@@ -654,36 +657,123 @@ export default function Header() {
                 >
                   ×
                 </button>
-                <div className="text-2xl font-bold mb-3 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  Sign in or Create account
+                <div className="pr-7">
+                  <div className="text-2xl font-bold mb-2 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    {emailFormMode === 'login' ? 'Sign in to ManaTap' : 'Create your ManaTap account'}
+                  </div>
+                  <div className="text-sm text-neutral-300 mb-3">
+                    {emailFormMode === 'login' ? (
+                      <>Use your existing account to get back to saved decks, collections, and Pro access.</>
+                    ) : (
+                      <>Save decks, track collections, and explore <span className="text-yellow-400 font-semibold">Pro features</span> ✨</>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-neutral-300 mb-2">
-                  Save decks, track collections, and explore <span className="text-yellow-400 font-semibold">Pro features</span> ✨
+
+                <div
+                  className="mb-4 grid grid-cols-2 gap-1 rounded-lg border border-neutral-700 bg-neutral-950/80 p-1"
+                  role="tablist"
+                  aria-label="Authentication mode"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={emailFormMode === 'signup'}
+                    onClick={() => {
+                      setEmailFormMode('signup');
+                      setSignupEmailError('');
+                      setSignupPasswordError('');
+                    }}
+                    className={`min-h-[44px] rounded-md px-3 text-sm font-bold transition-all ${
+                      emailFormMode === 'signup'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-950/40'
+                        : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                    }`}
+                  >
+                    Create account
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={emailFormMode === 'login'}
+                    onClick={() => {
+                      setEmailFormMode('login');
+                      setSignupEmailError('');
+                      setSignupPasswordError('');
+                    }}
+                    className={`min-h-[44px] rounded-md px-3 text-sm font-bold transition-all ${
+                      emailFormMode === 'login'
+                        ? 'bg-gradient-to-r from-yellow-500 to-amber-600 text-black shadow-lg shadow-amber-950/40'
+                        : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                    }`}
+                  >
+                    Sign in
+                  </button>
                 </div>
+
                 <div className="flex items-center gap-2 mb-4 text-xs text-neutral-400">
-                  <span className="flex items-center gap-1">
-                    <span className="text-emerald-400">✓</span> Free forever
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <span className="text-emerald-400">✓</span> No credit card required
-                  </span>
+                  {emailFormMode === 'login' ? (
+                    <>
+                      <span className="flex items-center gap-1">
+                        <span className="text-yellow-400">✓</span> Returning player
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-yellow-400">✓</span> Existing account
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex items-center gap-1">
+                        <span className="text-emerald-400">✓</span> Free forever
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-emerald-400">✓</span> No credit card required
+                      </span>
+                    </>
+                  )}
                 </div>
                 
                 {/* Live Presence Banner - Enhanced */}
-                <div className="mb-5 p-4 bg-gradient-to-r from-emerald-600/20 to-green-600/20 border border-emerald-500/40 rounded-lg shadow-lg">
+                <div className={`mb-5 rounded-lg border p-4 shadow-lg ${
+                  emailFormMode === 'login'
+                    ? 'border-yellow-500/40 bg-gradient-to-r from-yellow-500/15 to-amber-600/10'
+                    : 'border-emerald-500/40 bg-gradient-to-r from-emerald-600/20 to-green-600/20'
+                }`}>
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50"></div>
-                    <span className="text-emerald-300 font-bold text-base">
-                      {activeUsers
-                        ? `${activeUsers} Players brewing right now`
-                        : '🟢 Join the community brewing decks'}
+                    <div className={`w-3 h-3 rounded-full shadow-lg ${
+                      emailFormMode === 'login'
+                        ? 'bg-yellow-400 shadow-yellow-500/50'
+                        : 'bg-emerald-400 animate-pulse shadow-emerald-500/50'
+                    }`}></div>
+                    <span className={`text-base font-bold ${
+                      emailFormMode === 'login' ? 'text-yellow-200' : 'text-emerald-300'
+                    }`}>
+                      {emailFormMode === 'login'
+                        ? 'Welcome back - sign in mode'
+                        : activeUsers
+                          ? `${activeUsers} Players brewing right now`
+                          : '🟢 Join the community brewing decks'}
                     </span>
                   </div>
                   
                   {/* Activity Ticker - Enhanced */}
-                  <div className="text-sm text-emerald-200/90 space-y-1.5 border-t border-emerald-500/30 pt-3">
-                    {userStats && userStats.totalUsers > 0 ? (
+                  <div className={`space-y-1.5 border-t pt-3 text-sm ${
+                    emailFormMode === 'login'
+                      ? 'border-yellow-500/30 text-yellow-100/90'
+                      : 'border-emerald-500/30 text-emerald-200/90'
+                  }`}>
+                    {emailFormMode === 'login' ? (
+                      <>
+                        <div className="font-medium">
+                          Use your existing account password below or choose a connected provider.
+                        </div>
+                        <div className="text-neutral-300">
+                          Your saved decks, collections, and Pro features stay linked to this login.
+                        </div>
+                      </>
+                    ) : userStats && userStats.totalUsers > 0 ? (
                       <>
                         <div className="flex items-center gap-2">
                           <span className="text-emerald-400 text-base">⚡</span>
@@ -719,7 +809,7 @@ export default function Header() {
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
-                    Sign in with Google
+                    {emailFormMode === 'login' ? 'Sign in with Google' : 'Continue with Google'}
                   </button>
                   <button
                     type="button"
@@ -729,7 +819,7 @@ export default function Header() {
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path d="M16.365 1.43c0 1.14-.41 1.99-1.05 2.75-.68.8-1.8 1.42-2.9 1.33-.14-1.06.39-2.2 1.03-2.94.7-.8 1.9-1.37 2.92-1.14zM20.58 17.02c-.53 1.22-.78 1.77-1.47 2.9-.96 1.58-2.31 3.55-3.98 3.56-1.49.01-1.88-.97-3.9-.96-2.02.01-2.45.98-3.94.97-1.67-.02-2.95-1.8-3.92-3.38C.66 16.08.38 11.39 2.06 8.8c1.19-1.84 3.07-2.91 4.83-2.91 1.79 0 2.92.98 4.4.98 1.43 0 2.3-.98 4.38-.98 1.57 0 3.23.86 4.42 2.35-3.88 2.13-3.25 7.68.49 8.78z" />
                     </svg>
-                    Sign in with Apple
+                    {emailFormMode === 'login' ? 'Sign in with Apple' : 'Continue with Apple'}
                   </button>
                   <button
                     type="button"
@@ -739,7 +829,7 @@ export default function Header() {
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
                     </svg>
-                    Sign in with GitHub
+                    {emailFormMode === 'login' ? 'Sign in with GitHub' : 'Continue with GitHub'}
                   </button>
                   <button
                     type="button"
@@ -749,12 +839,14 @@ export default function Header() {
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
                     </svg>
-                    Sign in with Discord
+                    {emailFormMode === 'login' ? 'Sign in with Discord' : 'Continue with Discord'}
                   </button>
                 </div>
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex-1 h-px bg-neutral-700" />
-                  <span className="text-xs text-neutral-500">or continue with email</span>
+                  <span className="text-xs text-neutral-500">
+                    {emailFormMode === 'login' ? 'or sign in with email' : 'or create account with email'}
+                  </span>
                   <div className="flex-1 h-px bg-neutral-700" />
                 </div>
 
@@ -926,12 +1018,19 @@ export default function Header() {
                       </button>
                       <button 
                         type="submit" 
-                        className="px-6 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold transition-all shadow-lg hover:shadow-xl"
+                        className={`px-6 py-2 rounded-lg font-bold transition-all shadow-lg hover:shadow-xl ${
+                          emailFormMode === 'login'
+                            ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-black'
+                            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white'
+                        }`}
                       >
                         {emailFormMode === 'login' ? 'Sign in' : 'Create account'}
                       </button>
                     </div>
-                    <div className="flex items-center justify-center gap-4 flex-wrap">
+                    <div className="w-full rounded-lg border border-neutral-700 bg-neutral-950/60 p-3 text-center">
+                      <div className="mb-2 text-sm font-medium text-neutral-300">
+                        {emailFormMode === 'signup' ? 'Already have an account?' : 'New to ManaTap?'}
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -939,18 +1038,24 @@ export default function Header() {
                           setSignupEmailError('');
                           setSignupPasswordError('');
                         }}
-                        className="text-xs text-blue-400 hover:text-blue-300 underline"
+                        className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-4 py-2 text-sm font-bold transition-colors ${
+                          emailFormMode === 'signup'
+                            ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-200 hover:bg-yellow-500/20'
+                            : 'border-blue-500/50 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20'
+                        }`}
                       >
-                        {emailFormMode === 'signup' ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
+                        {emailFormMode === 'signup' ? 'Switch to sign in' : 'Create an account'}
                       </button>
                       {emailFormMode === 'login' && (
-                        <button
-                          type="button"
-                          onClick={() => { setShowSignUp(false); setShowForgot(true); setForgotEmail(signupEmail); }}
-                          className="text-xs text-neutral-400 hover:text-neutral-300 underline"
-                        >
-                          Forgot password?
-                        </button>
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => { setShowSignUp(false); setShowForgot(true); setForgotEmail(signupEmail); }}
+                            className="text-xs text-neutral-400 hover:text-neutral-300 underline"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
