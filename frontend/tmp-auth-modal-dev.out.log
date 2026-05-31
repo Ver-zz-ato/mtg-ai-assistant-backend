@@ -49,3 +49,18 @@
  GET /api/shout/history 200 in 129ms (compile: 8ms, proxy.ts: 6ms, render: 115ms)
 [CostAudit] {"ts":"2026-05-31T11:53:02.766Z","route":"/api/shout/history","method":"GET","reqId":"179420e8-3","event":"shout.history","durationMs":147,"messageCount":7,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
  GET /api/shout/history 200 in 168ms (compile: 7ms, proxy.ts: 4ms, render: 157ms)
+[CostAudit] {"ts":"2026-05-31T11:53:17.768Z","route":"/api/shout/history","method":"GET","reqId":"b5c3547d-0","event":"shout.history","durationMs":142,"messageCount":7,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 166ms (compile: 8ms, proxy.ts: 5ms, render: 154ms)
+ GET /api/stats/users 200 in 570ms (compile: 197ms, proxy.ts: 7ms, render: 366ms)
+[CostAudit] {"ts":"2026-05-31T11:53:32.758Z","route":"/api/shout/history","method":"GET","reqId":"6d0e1d4d-c","event":"shout.history","durationMs":141,"messageCount":7,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 163ms (compile: 6ms, proxy.ts: 6ms, render: 151ms)
+[CostAudit] {"ts":"2026-05-31T11:53:47.732Z","route":"/api/shout/history","method":"GET","reqId":"18e9711d-d","event":"shout.history","durationMs":116,"messageCount":7,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 137ms (compile: 7ms, proxy.ts: 6ms, render: 124ms)
+[CostAudit] {"ts":"2026-05-31T11:53:50.380Z","route":"/api/shout/history","method":"GET","reqId":"7cdc9833-4","event":"shout.history","durationMs":112,"messageCount":7,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 149ms (compile: 17ms, proxy.ts: 14ms, render: 118ms)
+ GET /api/stats/activity 200 in 269ms (compile: 14ms, proxy.ts: 17ms, render: 239ms)
+[CostAudit] {"ts":"2026-05-31T11:54:05.383Z","route":"/api/shout/history","method":"GET","reqId":"67c64902-6","event":"shout.history","durationMs":145,"messageCount":7,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 157ms (compile: 4ms, proxy.ts: 3ms, render: 150ms)
+ GET /api/stats/activity 200 in 11ms (compile: 4ms, proxy.ts: 3ms, render: 4ms)
+[CostAudit] {"ts":"2026-05-31T11:54:14.255Z","route":"/api/shout/history","method":"GET","reqId":"e14cfc59-1","event":"shout.history","durationMs":157,"messageCount":7,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 177ms (compile: 7ms, proxy.ts: 6ms, render: 164ms)
