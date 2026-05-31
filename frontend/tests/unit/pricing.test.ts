@@ -4,7 +4,7 @@
  * Run: npx tsx tests/unit/pricing.test.ts
  */
 import assert from "node:assert";
-import { costUSD, PRICING_VERSION } from "@/lib/ai/pricing";
+import { costUSD, costUSDWithCachedInput, PRICING_VERSION } from "@/lib/ai/pricing";
 
 // gpt-4o: $2.50/1M in = 0.0025/1K, $10/1M out = 0.01/1K
 // (100,100): 0.1*0.0025 + 0.1*0.01 = 0.00125
@@ -36,6 +36,14 @@ assert.ok(typeof PRICING_VERSION === "string" && PRICING_VERSION.length > 0);
 // gpt-5 / gpt-5.2-codex (model matching uses includes)
 assert.strictEqual(costUSD("gpt-5", 1000, 0), 0.0025);
 assert.strictEqual(costUSD("gpt-5.2-codex", 1000, 0), 0.0025);
+
+// Cached input pricing should reduce cost materially for repeated prompts.
+assert.strictEqual(costUSDWithCachedInput("gpt-5.4", 1000, 0, 1000), 0.00025);
+assert.strictEqual(costUSDWithCachedInput("gpt-5.4-mini", 1000, 1000, 500), 0.004912);
+assert.ok(
+  costUSDWithCachedInput("gpt-5.4-mini", 4000, 500, 3000) < costUSD("gpt-5.4-mini", 4000, 500),
+  "cached input should lower total cost",
+);
 
 console.log("pricing.test.ts: all assertions passed.");
 export {};

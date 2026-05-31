@@ -2,7 +2,7 @@
  * Run ops report checks. Used by cron routes.
  */
 import { getAdmin } from "@/app/api/_lib/supa";
-import { costUSD } from "@/lib/ai/pricing";
+import { costUSD, costUSDWithCachedInput, getPricingModelKey } from "@/lib/ai/pricing";
 import { isAppAiUsageRow } from "@/lib/ai/manatap-client-origin";
 import {
   type CommandCenterPayload,
@@ -38,6 +38,7 @@ const SEO_WINNERS_THRESHOLD = 10;
 const SEO_WINNERS_LIMIT = 50;
 const STALE_HOURS = 48;
 const DAILY_WINDOW_HOURS = 24;
+const OPENAI_USAGE_URL = "https://api.openai.com/v1/organization/usage/completions";
 
 /** HogQL predicate: signup_completed events attributed to the mobile app. */
 const POSTHOG_APP_SIGNUP_FILTER = `
@@ -52,6 +53,104 @@ const POSTHOG_APP_SIGNUP_FILTER = `
 
 function costUSDFromRow(r: { model?: string | null; input_tokens?: number | null; output_tokens?: number | null }): number {
   return costUSD(String(r.model ?? ""), Number(r.input_tokens) || 0, Number(r.output_tokens) || 0);
+}
+
+type OpenAiUsageBucket = {
+  start_time: number;
+  end_time: number;
+  results?: Array<{
+    model?: string | null;
+    input_tokens?: number;
+    output_tokens?: number;
+    input_cached_tokens?: number;
+  }>;
+};
+
+type ModelCostAdjuster = {
+  ratiosByModel: Map<string, number>;
+  source: "openai_cached_input_usage" | "internal_pricing_table";
+};
+
+async function fetchOpenAiUsageBuckets(
+  adminKey: string,
+  params: Record<string, string | number | undefined>,
+): Promise<OpenAiUsageBucket[]> {
+  const buckets: OpenAiUsageBucket[] = [];
+  let pageCursor: string | undefined;
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null && value !== "") searchParams.set(key, String(value));
+  }
+
+  do {
+    if (pageCursor) searchParams.set("page", pageCursor);
+    const res = await fetch(`${OPENAI_USAGE_URL}?${searchParams.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${adminKey}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`OpenAI usage API ${res.status}: ${err}`);
+    }
+    const json = await res.json() as { data?: OpenAiUsageBucket[]; next_page?: string };
+    buckets.push(...(json.data || []));
+    pageCursor = json.next_page || undefined;
+  } while (pageCursor);
+
+  return buckets;
+}
+
+async function getOpenAiModelCostAdjuster(windowStart: string, windowEnd: string): Promise<ModelCostAdjuster> {
+  const adminKey = process.env.OPENAI_ADMIN_API_KEY;
+  if (!adminKey) {
+    return { ratiosByModel: new Map(), source: "internal_pricing_table" };
+  }
+
+  try {
+    const buckets = await fetchOpenAiUsageBuckets(adminKey, {
+      start_time: Math.floor(new Date(windowStart).getTime() / 1000),
+      end_time: Math.floor(new Date(windowEnd).getTime() / 1000),
+      bucket_width: "1d",
+      limit: 2,
+      group_by: "model",
+    });
+
+    const byModel = new Map<string, { naive: number; adjusted: number }>();
+    for (const bucket of buckets) {
+      for (const row of bucket.results || []) {
+        const model = String(row.model || "").trim();
+        if (!model) continue;
+        const input = Number(row.input_tokens) || 0;
+        const output = Number(row.output_tokens) || 0;
+        const cached = Number(row.input_cached_tokens) || 0;
+        const naive = costUSD(model, input, output);
+        if (naive <= 0) continue;
+        const adjusted = costUSDWithCachedInput(model, input, output, cached);
+        const normalizedModel = getPricingModelKey(model) || model.toLowerCase();
+        const existing = byModel.get(normalizedModel) || { naive: 0, adjusted: 0 };
+        existing.naive += naive;
+        existing.adjusted += adjusted;
+        byModel.set(normalizedModel, existing);
+      }
+    }
+
+    if (byModel.size === 0) {
+      return { ratiosByModel: new Map(), source: "internal_pricing_table" };
+    }
+
+    const ratiosByModel = new Map<string, number>();
+    for (const [model, totals] of byModel.entries()) {
+      const ratio = totals.naive > 0 ? totals.adjusted / totals.naive : 1;
+      ratiosByModel.set(model.toLowerCase(), Math.max(0, Math.min(1, ratio || 1)));
+    }
+
+    return { ratiosByModel, source: "openai_cached_input_usage" };
+  } catch {
+    return { ratiosByModel: new Map(), source: "internal_pricing_table" };
+  }
 }
 
 function round(value: number, digits = 2): number {
@@ -222,7 +321,11 @@ function summarizeAiUsageWindow(rows: Array<{
   error_code?: string | null;
   cache_hit?: boolean | null;
   eval_run_id?: string | null | number;
-}>) {
+}>, costAdjuster?: (row: {
+  model?: string | null;
+  cost_usd?: number | null;
+  planner_cost_usd?: number | null;
+}) => number) {
   let loggedRows = 0;
   let billableCalls = 0;
   let costUsd = 0;
@@ -239,7 +342,7 @@ function summarizeAiUsageWindow(rows: Array<{
     if (isCacheHit) cacheHits += 1;
     if (!isBillableAiUsageRow(row)) continue;
     billableCalls += 1;
-    costUsd += cost;
+    costUsd += costAdjuster ? costAdjuster(row) : cost;
   }
 
   return {
@@ -261,7 +364,11 @@ function splitAiUsageWindow(rows: Array<{
   error_code?: string | null;
   cache_hit?: boolean | null;
   eval_run_id?: string | null | number;
-}>) {
+}>, costAdjuster?: (row: {
+  model?: string | null;
+  cost_usd?: number | null;
+  planner_cost_usd?: number | null;
+}) => number) {
   const appRows: typeof rows = [];
   const websiteRows: typeof rows = [];
   for (const row of rows) {
@@ -279,8 +386,8 @@ function splitAiUsageWindow(rows: Array<{
     }
   }
   return {
-    app: summarizeAiUsageWindow(appRows),
-    website: summarizeAiUsageWindow(websiteRows),
+    app: summarizeAiUsageWindow(appRows, costAdjuster),
+    website: summarizeAiUsageWindow(websiteRows, costAdjuster),
   };
 }
 
@@ -289,7 +396,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
   const windowEnd = now.toISOString();
   const windowStart = new Date(now.getTime() - DAILY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
-  const [overview, ai, users, analytics, revenue, errors, security, feedback, ops, websitePosthog, signupCounts, aiUsageWindow, websiteFeedbackCount] =
+  const [overview, ai, users, analytics, revenue, errors, security, feedback, ops, websitePosthog, signupCounts, aiUsageWindow, websiteFeedbackCount, openAiCostAdjuster] =
     await Promise.all([
       getMobileCommandCenterOverview(1),
       getMobileCommandCenterAi(1),
@@ -309,10 +416,16 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         .order("created_at", { ascending: false })
         .limit(AI_WINDOW_LIMIT),
       admin.from("feedback").select("id", { count: "exact", head: true }).gte("created_at", windowStart),
+      getOpenAiModelCostAdjuster(windowStart, windowEnd),
     ]);
 
   const aiWindowRows = aiUsageWindow.data || [];
-  const aiSplit = splitAiUsageWindow(aiWindowRows);
+  const aiSplit = splitAiUsageWindow(aiWindowRows, (row) => {
+    const raw = rowCostUsd(row);
+    const modelKey = (getPricingModelKey(String(row.model || "")) || String(row.model || "").trim()).toLowerCase();
+    const ratio = openAiCostAdjuster.ratiosByModel.get(modelKey);
+    return ratio != null ? raw * ratio : raw;
+  });
 
   const overviewAlerts = (overview.alerts || []).filter((alert) => alert.severity === "critical" || alert.severity === "warn");
   const dailyDigestAlerts = overviewAlerts.filter(shouldCountForDailyDigestStatus);
@@ -382,7 +495,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         cost_usd_24h: aiSplit.website.cost_usd,
         error_rate_pct: aiSplit.website.error_rate_pct,
         cache_hit_pct: aiSplit.website.cache_hit_pct,
-        cost_basis: "internal_pricing_table",
+        cost_basis: openAiCostAdjuster.source,
       },
       feedback: {
         generic_feedback_rows_24h: websiteFeedbackCount.count || 0,
@@ -438,8 +551,10 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       warning_alerts: warnAlerts.length,
     },
     notes: [
-      "AI cost uses ai_usage billable rows (model != none, cost > 0), excludes ai_test/eval runs, and includes planner_cost_usd.",
-      "OpenAI billing may be lower when chat/stream logs actual usage tokens; legacy rows used char/4 estimates.",
+      openAiCostAdjuster.source === "openai_cached_input_usage"
+        ? "AI cost uses ai_usage billable rows, excludes ai_test/eval runs, includes planner_cost_usd, and applies OpenAI cached-input usage discounts by model."
+        : "AI cost uses ai_usage billable rows (model != none, cost > 0), excludes ai_test/eval runs, and includes planner_cost_usd.",
+      "OpenAI billing may still differ slightly from this estimate because org costs are bucketed separately from per-route ai_usage rows.",
       websitePosthog.error ? `Website PostHog warning: ${websitePosthog.error}` : null,
       asString(getMetric(analytics, "scanner_events_seen")?.sub || ""),
       asString(getMetric(overview, "launch_health")?.sub || ""),

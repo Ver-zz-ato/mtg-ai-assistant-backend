@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { isAdmin } from '@/lib/admin-check';
-import { costUSD } from '@/lib/ai/pricing';
+import { costUSD, costUSDWithCachedInput } from '@/lib/ai/pricing';
 
 export const runtime = 'nodejs';
 
@@ -91,34 +91,41 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Aggregate usage
-    const byModel = new Map<string, { input_tokens: number; output_tokens: number; requests: number }>();
+    const byModel = new Map<string, { input_tokens: number; output_tokens: number; cached_input_tokens: number; requests: number }>();
     let totalInput = 0;
     let totalOutput = 0;
+    let totalCachedInput = 0;
     let totalRequests = 0;
-    const dailyUsage: Array<{ date: string; input_tokens: number; output_tokens: number; requests: number }> = [];
+    const dailyUsage: Array<{ date: string; input_tokens: number; output_tokens: number; cached_input_tokens: number; requests: number }> = [];
 
     for (const bucket of usageBuckets) {
       let dayInput = 0;
       let dayOutput = 0;
+      let dayCachedInput = 0;
       let dayRequests = 0;
       for (const r of bucket.results ?? []) {
         const model = r.model ?? 'unknown';
-        const entry = byModel.get(model) ?? { input_tokens: 0, output_tokens: 0, requests: 0 };
+        const cachedInput = r.input_cached_tokens ?? 0;
+        const entry = byModel.get(model) ?? { input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, requests: 0 };
         entry.input_tokens += r.input_tokens ?? 0;
         entry.output_tokens += r.output_tokens ?? 0;
+        entry.cached_input_tokens += cachedInput;
         entry.requests += r.num_model_requests ?? 0;
         byModel.set(model, entry);
         dayInput += r.input_tokens ?? 0;
         dayOutput += r.output_tokens ?? 0;
+        dayCachedInput += cachedInput;
         dayRequests += r.num_model_requests ?? 0;
         totalInput += r.input_tokens ?? 0;
         totalOutput += r.output_tokens ?? 0;
+        totalCachedInput += cachedInput;
         totalRequests += r.num_model_requests ?? 0;
       }
       dailyUsage.push({
         date: new Date(bucket.start_time * 1000).toISOString().slice(0, 10),
         input_tokens: dayInput,
         output_tokens: dayOutput,
+        cached_input_tokens: dayCachedInput,
         requests: dayRequests,
       });
     }
@@ -146,7 +153,7 @@ export async function GET(req: NextRequest) {
     if (totalCostUsd === 0 && totalInput + totalOutput > 0) {
       totalCostUsd = 0;
       for (const [model, v] of byModel.entries()) {
-        totalCostUsd += costUSD(model, v.input_tokens, v.output_tokens);
+        totalCostUsd += costUSDWithCachedInput(model, v.input_tokens, v.output_tokens, v.cached_input_tokens);
       }
       totalCostUsd = Math.round(totalCostUsd * 10000) / 10000;
       costSource = 'estimated_from_tokens';
@@ -161,6 +168,10 @@ export async function GET(req: NextRequest) {
         cost_usd: Math.round(totalCostUsd * 10000) / 10000,
         input_tokens: totalInput,
         output_tokens: totalOutput,
+        cached_input_tokens: totalCachedInput,
+        naive_uncached_cost_usd: Math.round(Array.from(byModel.entries()).reduce((sum, [model, v]) => (
+          sum + costUSD(model, v.input_tokens, v.output_tokens)
+        ), 0) * 10000) / 10000,
         requests: totalRequests,
       },
       by_model: Array.from(byModel.entries()).map(([model, v]) => ({

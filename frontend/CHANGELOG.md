@@ -1,5 +1,14 @@
 # Frontend changelog
 
+## 2026-05-30
+
+### Ops - daily digest website AI cost estimate
+
+- **`lib/ai/pricing.ts`:** Added cached-input-aware pricing helper alongside the existing token pricing table.
+- **`lib/ops/run-ops-report.ts`:** Daily digest AI cost now applies OpenAI org usage cached-input discounts by model when admin usage data is available, instead of treating every input token as full-price.
+- **`app/api/admin/ai/openai-usage/route.ts`:** Admin OpenAI usage fallback estimate now includes cached input tokens and returns naive-vs-cached totals for easier sanity checks.
+- **`tests/unit/pricing.test.ts`:** Added coverage for cached input pricing math.
+
 ## 2026-05-29
 
 ### Main chat — deck analysis intent, commander, send button
