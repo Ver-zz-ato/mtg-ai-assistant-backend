@@ -23,6 +23,7 @@ import InlineCardLink from "@/components/chat/InlineCardLink";
 import CardDetailLink from "@/components/cards/CardDetailLink";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string; metadata?: Record<string, unknown> | null };
+const CHAT_BACKGROUND_WATERMARK = "ManaTap AI can make mistakes. Double-check important advice.";
 
 export default function DeckAssistant({ deckId, format: initialFormat }: { deckId: string; format?: string }) {
   const pathname = usePathname() || "/my-decks/[id]";
@@ -865,7 +866,12 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
           Deck Assistant
         </h3>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-700 bg-black/30" style={{ scrollbarGutter: 'auto' }}>
+      <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-700 bg-black/30" style={{ scrollbarGutter: 'auto' }}>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+          <div className="max-w-sm text-center text-xs sm:text-sm text-amber-50/10">
+            {CHAT_BACKGROUND_WATERMARK}
+          </div>
+        </div>
         <div className="p-3">
           {msgs.length === 0 ? (
             <div className="flex items-center justify-center py-12 opacity-70 text-sm text-neutral-400">

@@ -90,6 +90,7 @@ function SavePreferencesButton({ format, budget, colors }: { format: string; bud
 let currentlyAddingTypingMessage = false;
 // Prevent React Strict Mode duplicate streaming registrations
 let activeStreamingRef: { current: string | null } = { current: null };
+const CHAT_BACKGROUND_WATERMARK = "ManaTap AI can make mistakes. Double-check important advice.";
 
 type AnalysisPayload = {
   type: "analysis";
@@ -1801,7 +1802,12 @@ function Chat(props: ChatProps = {}) {
           </div>
         )}
         
-        <div ref={messagesContainerRef} className="h-[50vh] md:h-[55vh] lg:h-[60vh] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
+        <div ref={messagesContainerRef} className="relative h-[50vh] md:h-[55vh] lg:h-[60vh] flex flex-col space-y-3 bg-neutral-950 text-neutral-100 border border-neutral-800 rounded-lg p-4 overflow-y-auto overscroll-contain">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+            <div className="max-w-md text-center text-xs sm:text-sm text-amber-50/10">
+              {CHAT_BACKGROUND_WATERMARK}
+            </div>
+          </div>
           {/* Messages with streaming content */}
           {(!Array.isArray(messages) || messages.length === 0) ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
