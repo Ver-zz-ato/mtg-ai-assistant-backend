@@ -5,6 +5,7 @@ import { PRODUCT_TO_PLAN } from '@/lib/billing';
 import { captureServer } from '@/lib/server/analytics';
 import { getRevenueCatSubscriberState } from '@/lib/server-pro-check';
 import { notifyDiscordStripeProUpgrade } from '@/lib/stripe/discord-pro-upgrade';
+import { shouldSkipMismatchedStripeDowngrade } from '@/lib/stripe/reconciliation';
 import Stripe from 'stripe';
 
 /** Use service role for webhook DB ops - webhooks have no cookies, so anon client would be blocked by RLS. */
@@ -35,6 +36,10 @@ function shortId(value: string | number | null | undefined): string {
   if (!s) return 'n/a';
   if (s.length <= 14) return s;
   return `${s.slice(0, 8)}...${s.slice(-4)}`;
+}
+
+function getStripeCustomerId(customer: Stripe.Subscription['customer']): string {
+  return typeof customer === 'string' ? customer : customer.id;
 }
 
 async function getStripeCustomerEmail(customerId: string | null | undefined): Promise<string | null> {
@@ -110,7 +115,8 @@ async function getProfileEntitlementState(
 async function shouldSkipStripeDowngrade(
   supabase: ReturnType<typeof getWebhookSupabase>,
   userId: string,
-  source: string
+  source: string,
+  event?: { subscriptionId: string; customerId: string }
 ): Promise<boolean> {
   const profile = await getProfileEntitlementState(supabase, userId);
   if (hasNonStripeProfilePro(profile)) {
@@ -126,6 +132,46 @@ async function shouldSkipStripeDowngrade(
       matchedEntitlementId: debug.matchedEntitlementId,
     });
     return true;
+  }
+
+  if (event) {
+    let currentLinkedSubscription: Pick<Stripe.Subscription, 'id' | 'status'> | null = null;
+
+    if (profile?.stripe_subscription_id && profile.stripe_subscription_id !== event.subscriptionId) {
+      try {
+        const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+        currentLinkedSubscription = {
+          id: subscription.id,
+          status: subscription.status,
+        };
+      } catch (e) {
+        console.warn('Stripe downgrade current subscription lookup failed (skipping mismatched event if needed)', {
+          userId,
+          source,
+          eventSubscriptionId: shortId(event.subscriptionId),
+          profileSubscriptionId: shortId(profile.stripe_subscription_id),
+        });
+      }
+    }
+
+    const mismatchDecision = shouldSkipMismatchedStripeDowngrade(
+      profile,
+      { subscriptionId: event.subscriptionId },
+      currentLinkedSubscription
+    );
+
+    if (mismatchDecision.skip) {
+      console.info('Stripe downgrade skipped: event does not match current profile subscription', {
+        userId,
+        source,
+        reason: mismatchDecision.reason,
+        eventCustomerId: shortId(event.customerId),
+        eventSubscriptionId: shortId(event.subscriptionId),
+        profileSubscriptionId: shortId(profile?.stripe_subscription_id),
+        currentLinkedStatus: currentLinkedSubscription?.status || null,
+      });
+      return true;
+    }
   }
 
   return false;
@@ -449,10 +495,11 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
 async function handleSubscriptionUpdated(event: Stripe.Event) {
   const subscription = event.data.object as Stripe.Subscription;
   const previousAttributes = (event.data as { previous_attributes?: Partial<Stripe.Subscription> }).previous_attributes;
+  const subscriptionCustomerId = getStripeCustomerId(subscription.customer);
 
   console.info('Processing subscription updated', {
     subscriptionId: subscription.id,
-    customerId: subscription.customer,
+    customerId: subscriptionCustomerId,
     status: subscription.status,
     previousStatus: previousAttributes?.status,
   });
@@ -464,7 +511,7 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
   const { data: profileByCustomer, error: findError } = await supabase
     .from('profiles')
     .select('id')
-    .eq('stripe_customer_id', subscription.customer)
+    .eq('stripe_customer_id', subscriptionCustomerId)
     .maybeSingle();
 
   if (profileByCustomer) {
@@ -472,13 +519,13 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
   } else {
     // Fallback: Look up by Stripe customer email (handles placeholder stripe_customer_id)
     try {
-      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      const customer = await stripe.customers.retrieve(subscriptionCustomerId);
       if (customer && !customer.deleted && (customer as any).email) {
         const email = ((customer as any).email as string).trim();
         const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
         if (userId) {
           profile = { id: userId };
-          console.info('Found user by Stripe customer email (subscription.updated)', { email, customerId: subscription.customer });
+          console.info('Found user by Stripe customer email (subscription.updated)', { email, customerId: subscriptionCustomerId });
         }
       }
     } catch (e) {
@@ -487,7 +534,7 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
   }
 
   if (!profile) {
-    console.error('Failed to find user profile for customer:', subscription.customer, findError);
+    console.error('Failed to find user profile for customer:', subscriptionCustomerId, findError);
     return;
   }
 
@@ -501,7 +548,7 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
       console.error('Unknown product ID in subscription.updated:', productId, {
         availableProducts: Object.keys(PRODUCT_TO_PLAN),
         subscriptionId: subscription.id,
-        customerId: subscription.customer,
+        customerId: subscriptionCustomerId,
       });
     }
 
@@ -509,6 +556,7 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
       is_pro: true,
       pro_plan: plan,
       stripe_subscription_id: subscription.id,
+      stripe_customer_id: subscriptionCustomerId,
       pro_until: null, // Clear any end date
     };
 
@@ -577,14 +625,14 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
         console.error('Failed to track pro_upgrade_completed (non-fatal):', e);
       }
 
-      const customerEmail = await getStripeCustomerEmail(subscription.customer as string);
+      const customerEmail = await getStripeCustomerEmail(subscriptionCustomerId);
       await notifyDiscordProUpgrade({
         source: 'customer.subscription.updated',
         userId: profile.id,
         email: customerEmail,
         plan,
         subscriptionId: subscription.id,
-        customerId: String(subscription.customer),
+        customerId: subscriptionCustomerId,
         livemode: subscription.livemode,
       });
     }
@@ -595,7 +643,10 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
       ? new Date(subscription.cancel_at * 1000).toISOString()
       : new Date().toISOString();
 
-    if (await shouldSkipStripeDowngrade(supabase, profile.id, 'subscription.updated')) {
+    if (await shouldSkipStripeDowngrade(supabase, profile.id, 'subscription.updated', {
+      subscriptionId: subscription.id,
+      customerId: subscriptionCustomerId,
+    })) {
       return;
     }
 
@@ -634,10 +685,11 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
 
 async function handleSubscriptionDeleted(event: Stripe.Event) {
   const subscription = event.data.object as Stripe.Subscription;
+  const subscriptionCustomerId = getStripeCustomerId(subscription.customer);
   
   console.info('Processing subscription deleted', {
     subscriptionId: subscription.id,
-    customerId: subscription.customer,
+    customerId: subscriptionCustomerId,
   });
 
   // Find user by customer ID (service role - webhooks have no cookies)
@@ -647,7 +699,7 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   const { data: profileByCustomer, error: findError } = await supabase
     .from('profiles')
     .select('id')
-    .eq('stripe_customer_id', subscription.customer)
+    .eq('stripe_customer_id', subscriptionCustomerId)
     .maybeSingle();
 
   if (profileByCustomer) {
@@ -655,13 +707,13 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   } else {
     // Fallback: Look up by Stripe customer email (handles placeholder stripe_customer_id)
     try {
-      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      const customer = await stripe.customers.retrieve(subscriptionCustomerId);
       if (customer && !customer.deleted && (customer as any).email) {
         const email = ((customer as any).email as string).trim();
         const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
         if (userId) {
           profile = { id: userId };
-          console.info('Found user by Stripe customer email (subscription.deleted)', { email, customerId: subscription.customer });
+          console.info('Found user by Stripe customer email (subscription.deleted)', { email, customerId: subscriptionCustomerId });
         }
       }
     } catch (e) {
@@ -670,11 +722,14 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   }
 
   if (!profile) {
-    console.error('Failed to find user profile for customer:', subscription.customer, findError);
+    console.error('Failed to find user profile for customer:', subscriptionCustomerId, findError);
     return;
   }
 
-  if (await shouldSkipStripeDowngrade(supabase, profile.id, 'subscription.deleted')) {
+  if (await shouldSkipStripeDowngrade(supabase, profile.id, 'subscription.deleted', {
+    subscriptionId: subscription.id,
+    customerId: subscriptionCustomerId,
+  })) {
     return;
   }
 
@@ -684,7 +739,7 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
     .update({
       is_pro: false,
       pro_until: new Date().toISOString(),
-      stripe_customer_id: subscription.customer as string, // Fix placeholder so future webhooks work
+      stripe_customer_id: subscriptionCustomerId, // Fix placeholder so future webhooks work
     })
     .eq('id', profile.id);
 

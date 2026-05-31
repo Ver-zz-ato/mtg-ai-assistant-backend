@@ -5,6 +5,7 @@ import {
   derivePlanFromStripeSubscription,
   isStripeEntitlementStatus,
   needsStripeProfileRepair,
+  shouldSkipMismatchedStripeDowngrade,
 } from '@/lib/stripe/reconciliation';
 
 function makeSubscription(interval: 'month' | 'year', productId?: string) {
@@ -71,6 +72,37 @@ describe('stripe reconciliation helpers', () => {
         }
       ),
       true
+    );
+  });
+
+  it('skips downgrade events from stale duplicate subscriptions', () => {
+    assert.deepEqual(
+      shouldSkipMismatchedStripeDowngrade(
+        { stripe_subscription_id: 'sub_kept_active' },
+        { subscriptionId: 'sub_old_canceled' },
+        { id: 'sub_kept_active', status: 'active' } as Pick<Stripe.Subscription, 'id' | 'status'>
+      ),
+      { skip: true, reason: 'profile_linked_subscription_still_active' }
+    );
+
+    assert.deepEqual(
+      shouldSkipMismatchedStripeDowngrade(
+        { stripe_subscription_id: 'sub_current' },
+        { subscriptionId: 'sub_old_canceled' },
+        null
+      ),
+      { skip: true, reason: 'event_subscription_does_not_match_profile' }
+    );
+  });
+
+  it('allows downgrade when the event subscription is the profile subscription', () => {
+    assert.deepEqual(
+      shouldSkipMismatchedStripeDowngrade(
+        { stripe_subscription_id: 'sub_current' },
+        { subscriptionId: 'sub_current' },
+        { id: 'sub_current', status: 'active' } as Pick<Stripe.Subscription, 'id' | 'status'>
+      ),
+      { skip: false, reason: null }
     );
   });
 });

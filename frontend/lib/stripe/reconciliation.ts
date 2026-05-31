@@ -48,3 +48,24 @@ export function needsStripeProfileRepair(
   if ((profile.pro_plan || null) !== expected.plan) return true;
   return false;
 }
+
+export function shouldSkipMismatchedStripeDowngrade(
+  profile: Pick<StripeEntitlementProfile, 'stripe_subscription_id'> | null,
+  event: { subscriptionId: string },
+  currentLinkedSubscription?: Pick<Stripe.Subscription, 'id' | 'status'> | null
+): { skip: boolean; reason: string | null } {
+  const profileSubscriptionId = profile?.stripe_subscription_id || null;
+
+  if (!profileSubscriptionId || profileSubscriptionId === event.subscriptionId) {
+    return { skip: false, reason: null };
+  }
+
+  if (
+    currentLinkedSubscription?.id === profileSubscriptionId &&
+    isStripeEntitlementStatus(currentLinkedSubscription.status)
+  ) {
+    return { skip: true, reason: 'profile_linked_subscription_still_active' };
+  }
+
+  return { skip: true, reason: 'event_subscription_does_not_match_profile' };
+}
