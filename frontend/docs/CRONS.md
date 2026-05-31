@@ -64,6 +64,11 @@ Run in order: price-snapshot → deck-costs → commander-aggregates → meta-si
 - The production daily history source is the website cron route **`/api/cron/price/snapshot`** (Vercel cron).
 - Legacy external schedulers may still exist; keep this route as canonical for historical trackers.
 
+## Operator note
+
+- After deploying a retention fix, run **`POST /api/admin/data/cleanup-snapshots`** once with typed confirmation `DELETE` to remove any pre-existing backlog older than 60 days.
+- Verify the oldest retained `price_snapshots.snapshot_date` is within the last 60 days before treating Disk I/O as normalized.
+
 ## Budget Swaps (weekly)
 
 - **budget-swaps-update** — AI-powered refresh of Quick Swaps map. Uses GPT to suggest new expensive→budget pairs, merges into `app_config.budget_swaps`. Hands-off; runs Sundays 03:00 UTC.

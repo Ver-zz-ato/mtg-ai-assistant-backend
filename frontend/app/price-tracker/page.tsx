@@ -416,6 +416,10 @@ export default function PriceTrackerPage(){
 
 
 function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'|'GBP' }){
+  const deckHistoryFrom = React.useMemo(() => {
+    const date = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    return date.toISOString().slice(0, 10);
+  }, []);
   const [hoverIdx, setHoverIdx] = React.useState<number|null>(null);
   const [points, setPoints] = React.useState<Array<{date:string; total:number}>>([]);
   const [loading, setLoading] = React.useState(true); // Start with loading=true to show skeleton immediately
@@ -423,7 +427,7 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   const [showMA30, setShowMA30] = React.useState(false); // #12 Moving average 30-day
   const [zoomRange, setZoomRange] = React.useState<[number, number]>([0, 1]); // #11 Zoom state (0-1 normalized)
   
-  React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); setLoading(false); return; } try{ setLoading(true); setPoints([]); const qs = new URLSearchParams({ deck_id: deckId, currency }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.status === 429 && j?.proUpsell) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {} } if (r.ok && j?.ok && Array.isArray(j.points)) setPoints(j.points); else setPoints([]); } catch { setPoints([]); } finally { setLoading(false);} })(); }, [deckId, currency]);
+  React.useEffect(()=>{ (async()=>{ if (!deckId) { setPoints([]); setLoading(false); return; } try{ setLoading(true); setPoints([]); const qs = new URLSearchParams({ deck_id: deckId, currency, from: deckHistoryFrom }); const r = await fetch(`/api/price/deck-series?${qs.toString()}`, { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.status === 429 && j?.proUpsell) { try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch {} } if (r.ok && j?.ok && Array.isArray(j.points)) setPoints(j.points); else setPoints([]); } catch { setPoints([]); } finally { setLoading(false);} })(); }, [deckHistoryFrom, deckId, currency]);
   
   if (!deckId) return <div className="text-xs opacity-70">Select a deck to see its total value over time.</div>;
   
@@ -448,16 +452,13 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
   
   if (!points.length) return <div className="text-xs opacity-70">No data yet for this deck.</div>;
   
-  // #1-3: Calculate current value, changes, high/low
+  // #1-3: Calculate current value, changes, and 60-day high/low
   const currentValue = points[points.length - 1]?.total || 0;
   const weekAgo = points[Math.max(0, points.length - 7)]?.total || currentValue;
   const weekChange = currentValue - weekAgo;
   const weekChangePct = weekAgo > 0 ? (weekChange / weekAgo) * 100 : 0;
-  const allTimeHigh = Math.max(...points.map(p => p.total));
-  const allTimeLow = Math.min(...points.map(p => p.total));
-  const recentPoints = Array.isArray(points) ? points.slice(-365) : [];
-  const fiftyTwoWeekHigh = recentPoints.length > 0 ? Math.max(...recentPoints.map(p => p.total)) : 0;
-  const fiftyTwoWeekLow = recentPoints.length > 0 ? Math.min(...recentPoints.map(p => p.total)) : 0;
+  const sixtyDayHigh = Math.max(...points.map(p => p.total));
+  const sixtyDayLow = Math.min(...points.map(p => p.total));
   
   // #12: Calculate moving averages
   const calculateMA = (period: number) => {
@@ -519,10 +520,10 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
       {/* #3: Historical High/Low Badges */}
       <div className="flex gap-2 text-[10px] flex-wrap justify-center">
         <span className="px-2 py-1 rounded bg-emerald-900/30 text-emerald-300 border border-emerald-700/50">
-          All-time high: {currSym}{allTimeHigh.toFixed(2)}
+          60-day high: {currSym}{sixtyDayHigh.toFixed(2)}
         </span>
         <span className="px-2 py-1 rounded bg-blue-900/30 text-blue-300 border border-blue-700/50">
-          52-week low: {currSym}{fiftyTwoWeekLow.toFixed(2)}
+          60-day low: {currSym}{sixtyDayLow.toFixed(2)}
         </span>
       </div>
       
@@ -762,10 +763,10 @@ function DeckValueSkeleton({ currency, onUpgrade, isProNoDeck }: { currency: 'US
         </div>
         <div className="flex gap-2 text-[10px] flex-wrap justify-center">
           <span className="px-2 py-1 rounded bg-emerald-900/20 text-emerald-300/70 border border-emerald-700/30">
-            All-time high: {currSym}892
+            60-day high: {currSym}892
           </span>
           <span className="px-2 py-1 rounded bg-blue-900/20 text-blue-300/70 border border-blue-700/30">
-            52-week low: {currSym}721
+            60-day low: {currSym}721
           </span>
         </div>
         <div className="flex gap-2 flex-wrap text-xs opacity-70">

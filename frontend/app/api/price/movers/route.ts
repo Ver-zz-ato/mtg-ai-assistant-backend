@@ -18,20 +18,20 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const currency = (url.searchParams.get("currency") || "USD").toUpperCase();
-    const windowDays = Math.max(1, Math.min(90, parseInt(url.searchParams.get("window_days") || "7", 10)));
+    const windowDays = Math.max(1, Math.min(60, parseInt(url.searchParams.get("window_days") || "7", 10)));
     const limit = Math.max(1, Math.min(200, parseInt(url.searchParams.get("limit") || "50", 10)));
     const cacheKey = `movers:${currency}:${windowDays}:${limit}`;
 
     const cached = moversResponseCache.get(cacheKey);
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
-      if (process.env.OPS_LOG_CACHE_EVENTS === '1') {
+      if (process.env.OPS_LOG_CACHE_EVENTS === "1") {
         try {
           const supabase = await getServerSupabase();
-          const { logOpsEvent } = await import('@/lib/ops-events');
+          const { logOpsEvent } = await import("@/lib/ops-events");
           await logOpsEvent(supabase, {
-            event_type: 'ops_movers_cache_hit',
+            event_type: "ops_movers_cache_hit",
             route: MOVERS_ROUTE,
-            status: 'ok',
+            status: "ok",
           });
         } catch {}
       }
@@ -41,19 +41,19 @@ export async function GET(req: NextRequest) {
     }
 
     let supabase = await getServerSupabase();
-    let { data: { user } } = await supabase.auth.getUser();
+    let {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    // Auth precedence:
-    // 1) cookie user (website)
-    // 2) else Authorization: Bearer <token> (mobile app)
-    // 3) else guest/IP-based behavior (existing)
     if (!user) {
-      const authHeader = req.headers.get('Authorization');
-      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      const authHeader = req.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
       if (bearerToken) {
-        const { createClientWithBearerToken } = await import('@/lib/server-supabase');
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
         const bearerSupabase = createClientWithBearerToken(bearerToken);
-        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser(bearerToken);
+        const {
+          data: { user: bearerUser },
+        } = await bearerSupabase.auth.getUser(bearerToken);
         if (bearerUser) {
           user = bearerUser;
           supabase = bearerSupabase;
@@ -69,18 +69,15 @@ export async function GET(req: NextRequest) {
       await checkProStatus(user.id);
     }
 
-    // Use admin client so we can read price_snapshots (RLS may block anon/authenticated)
     const admin = (await import("@/app/api/_lib/supa")).getAdmin();
     const db = admin ?? supabase;
-
     const debug = url.searchParams.get("debug") === "1";
 
-    // Find latest snapshot date for this currency
     const { data: latestRows, error: latestError } = await db
-      .from('price_snapshots')
-      .select('snapshot_date')
-      .eq('currency', currency)
-      .order('snapshot_date', { ascending: false })
+      .from("price_snapshots")
+      .select("snapshot_date")
+      .eq("currency", currency)
+      .order("snapshot_date", { ascending: false })
       .limit(1);
     const latest = ((latestRows as unknown as SnapshotDateRow[] | null)?.[0]?.snapshot_date) ?? null;
     if (!latest) {
@@ -89,76 +86,65 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(empty);
     }
 
-    const cutoff = new Date(new Date(latest).getTime() - windowDays*24*60*60*1000).toISOString().slice(0,10);
+    const cutoff = new Date(new Date(latest).getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    // Pick the earliest snapshot inside the requested window (true window baseline).
     const { data: priorRows } = await db
-      .from('price_snapshots')
-      .select('snapshot_date')
-      .eq('currency', currency)
-      .gte('snapshot_date', cutoff)
-      .lt('snapshot_date', latest)
-      .order('snapshot_date', { ascending: true })
+      .from("price_snapshots")
+      .select("snapshot_date")
+      .eq("currency", currency)
+      .gte("snapshot_date", cutoff)
+      .lt("snapshot_date", latest)
+      .order("snapshot_date", { ascending: true })
       .limit(1);
-    let prior = ((priorRows as unknown as SnapshotDateRow[] | null)?.[0]?.snapshot_date) ?? null;
-    if (!prior) {
-      const fallbackCutoff = new Date(new Date(latest).getTime() - 90*24*60*60*1000).toISOString().slice(0,10);
-      const { data: fallbackRows } = await db
-        .from('price_snapshots')
-        .select('snapshot_date')
-        .eq('currency', currency)
-        .lt('snapshot_date', latest)
-        .gte('snapshot_date', fallbackCutoff)
-        .order('snapshot_date', { ascending: false })
-        .limit(1);
-      prior = ((fallbackRows as unknown as SnapshotDateRow[] | null)?.[0]?.snapshot_date) ?? null;
-    }
+    const prior = ((priorRows as unknown as SnapshotDateRow[] | null)?.[0]?.snapshot_date) ?? null;
     if (!prior) return NextResponse.json({ ok: true, rows: [], latest });
 
-    // Pull prior/latest rows in pages to avoid truncation from row caps.
-    const fetchRowsForDate = async (d: string): Promise<NameUnitRow[]> => {
+    const fetchRowsForDate = async (date: string): Promise<NameUnitRow[]> => {
       const out: NameUnitRow[] = [];
-      const PAGE = 2000;
-      const MAX_ROWS = 100000;
+      const page = 2000;
+      const maxRows = 100000;
       let offset = 0;
-      while (offset < MAX_ROWS) {
+      while (offset < maxRows) {
         const { data, error } = await db
-          .from('price_snapshots')
-          .select('name_norm, unit')
-          .eq('currency', currency)
-          .eq('snapshot_date', d)
-          .order('name_norm', { ascending: true })
-          .range(offset, offset + PAGE - 1);
+          .from("price_snapshots")
+          .select("name_norm, unit")
+          .eq("currency", currency)
+          .eq("snapshot_date", date)
+          .order("name_norm", { ascending: true })
+          .range(offset, offset + page - 1);
         if (error || !data?.length) break;
         out.push(...(data as unknown as NameUnitRow[]));
-        if (data.length < PAGE) break;
-        offset += PAGE;
+        if (data.length < page) break;
+        offset += page;
       }
       return out;
     };
+
     const [priorData, latestData] = await Promise.all([fetchRowsForDate(prior), fetchRowsForDate(latest)]);
     const priorMap = new Map<string, number>();
     for (const r of priorData) {
       priorMap.set(String(r.name_norm), Number(r.unit));
     }
+
     const rows: { name_norm: string; snapshot_date: string; unit: number }[] = [];
     for (const r of latestData) {
-      const n = r.name_norm ? String(r.name_norm) : '';
-      if (priorMap.has(n)) {
-        rows.push({ name_norm: n, snapshot_date: prior, unit: priorMap.get(n)! });
-        rows.push({ name_norm: n, snapshot_date: latest, unit: Number(r.unit) });
+      const name = r.name_norm ? String(r.name_norm) : "";
+      if (priorMap.has(name)) {
+        rows.push({ name_norm: name, snapshot_date: prior, unit: priorMap.get(name)! });
+        rows.push({ name_norm: name, snapshot_date: latest, unit: Number(r.unit) });
       }
     }
+
     const byName: Record<string, { prior?: number; latest?: number }> = {};
     for (const r of rows) {
-      const k = String(r.name_norm);
-      if (!byName[k]) byName[k] = {};
-      if (r.snapshot_date === prior) byName[k].prior = Number(r.unit);
-      if (r.snapshot_date === latest) byName[k].latest = Number(r.unit);
+      const key = String(r.name_norm);
+      if (!byName[key]) byName[key] = {};
+      if (r.snapshot_date === prior) byName[key].prior = Number(r.unit);
+      if (r.snapshot_date === latest) byName[key].latest = Number(r.unit);
     }
 
     const out = Object.entries(byName)
-      .filter(([, v]) => typeof v.prior === 'number' && typeof v.latest === 'number' && Number(v.prior) > 0)
+      .filter(([, v]) => typeof v.prior === "number" && typeof v.latest === "number" && Number(v.prior) > 0)
       .map(([name, v]) => {
         const priorV = Number(v.prior);
         const latestV = Number(v.latest);
@@ -166,7 +152,7 @@ export async function GET(req: NextRequest) {
         const pct = delta / priorV;
         return { name, prior: priorV, latest: latestV, delta, pct };
       })
-      .sort((a,b) => Math.abs(b.pct) - Math.abs(a.pct))
+      .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))
       .slice(0, limit);
 
     type ArtRow = { name: string; small?: string | null; normal?: string | null; art_crop?: string | null };
@@ -174,9 +160,9 @@ export async function GET(req: NextRequest) {
     const artByName = new Map<string, ArtRow>();
     if (moverNames.length > 0) {
       const { data: artRows } = await db
-        .from('scryfall_cache')
-        .select('name, small, normal, art_crop')
-        .in('name', moverNames);
+        .from("scryfall_cache")
+        .select("name, small, normal, art_crop")
+        .in("name", moverNames);
       for (const row of (artRows || []) as ArtRow[]) {
         artByName.set(String(row.name), row);
       }
@@ -197,10 +183,10 @@ export async function GET(req: NextRequest) {
       body._debug = { usedAdmin: !!admin, rawRowCount: rows.length, byNameKeys: Object.keys(byName).length, prior, latest };
     }
     moversResponseCache.set(cacheKey, { body, at: Date.now() });
-    if (process.env.OPS_LOG_CACHE_EVENTS === '1') {
+    if (process.env.OPS_LOG_CACHE_EVENTS === "1") {
       try {
-        const { logOpsEvent } = await import('@/lib/ops-events');
-        await logOpsEvent(db, { event_type: 'ops_movers_cache_miss', route: MOVERS_ROUTE, status: 'ok' });
+        const { logOpsEvent } = await import("@/lib/ops-events");
+        await logOpsEvent(db, { event_type: "ops_movers_cache_miss", route: MOVERS_ROUTE, status: "ok" });
       } catch {}
     }
     return NextResponse.json(body, {
@@ -208,6 +194,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg || 'server_error' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: msg || "server_error" }, { status: 500 });
   }
 }
