@@ -369,7 +369,8 @@ export default function AdminAIUsagePage() {
         </header>
 
         <ELI5 heading="AI Usage" items={[
-          'Our estimate: from our ai_usage table (we log each request). OpenAI actual: from their API when available.',
+          'Our estimate: from our ai_usage table (we log each request). OpenAI actual: live from the OpenAI Costs API.',
+          'OpenAI actual is project-level spend, not website-vs-app route attribution. Route splits still come from our ai_usage logs.',
           'If OpenAI actual shows $0, we fall back to estimating from token usage. Check OPENAI_ADMIN_API_KEY.',
           'Use for: cost tracking, spotting expensive routes, debugging model usage.'
         ]} />
@@ -486,6 +487,20 @@ export default function AdminAIUsagePage() {
                         <div className="text-lg font-semibold text-emerald-300">${openaiData.totals.cost_usd?.toFixed(4) ?? "0"}</div>
                       </div>
                       <div>
+                        <div className="text-[11px] uppercase text-neutral-500">Latest completed UTC day</div>
+                        <div className="text-lg font-semibold tabular-nums">
+                          ${openaiData.latest_completed_day?.cost_usd?.toFixed(4) ?? "0"}
+                        </div>
+                        <div className="text-xs text-neutral-500">{openaiData.latest_completed_day?.date ?? "Unavailable"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase text-neutral-500">Month to date</div>
+                        <div className="text-lg font-semibold tabular-nums">
+                          ${openaiData.month_to_date?.cost_usd?.toFixed(4) ?? "0"}
+                        </div>
+                        <div className="text-xs text-neutral-500">Since {openaiData.month_to_date?.start_date ?? "month start"}</div>
+                      </div>
+                      <div>
                         <div className="text-[11px] uppercase text-neutral-500">Requests</div>
                         <div className="text-lg font-semibold tabular-nums">{openaiData.totals.requests ?? 0}</div>
                       </div>
@@ -498,12 +513,29 @@ export default function AdminAIUsagePage() {
                         <div className="text-sm font-mono tabular-nums">{openaiData.totals.output_tokens?.toLocaleString() ?? 0}</div>
                       </div>
                     </div>
+                    {(openaiData.projects?.length ?? 0) > 0 && (
+                      <div className="text-xs text-neutral-400">
+                        Projects in this OpenAI view: {openaiData.projects.map((project: any) => project.project_name || project.project_id || "unknown").join(", ")}
+                      </div>
+                    )}
                     {overview?.totals?.total_cost_usd != null && (
                       <div className="text-xs text-neutral-400">
                         Our estimate: ${overview.totals.total_cost_usd?.toFixed(4)} vs OpenAI actual: ${openaiData.totals.cost_usd?.toFixed(4)}
                         {Math.abs((overview.totals.total_cost_usd ?? 0) - (openaiData.totals.cost_usd ?? 0)) > 0.01 && (
                           <span className="text-amber-400 ml-1">(diff: ${((overview.totals.total_cost_usd ?? 0) - (openaiData.totals.cost_usd ?? 0)).toFixed(4)})</span>
                         )}
+                      </div>
+                    )}
+                    {(openaiData.daily_costs?.length ?? 0) > 0 && (
+                      <div className="h-52 mt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={openaiData.daily_costs} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                            <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                            <YAxis tick={{ fontSize: 10 }} />
+                            <Tooltip />
+                            <Bar dataKey="cost_usd" fill="#34d399" name="OpenAI actual USD" />
+                          </BarChart>
+                        </ResponsiveContainer>
                       </div>
                     )}
                     {(openaiData.by_model?.length ?? 0) > 0 && (

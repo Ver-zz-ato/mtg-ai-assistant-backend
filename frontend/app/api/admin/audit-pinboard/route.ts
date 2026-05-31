@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
-import { getAdmin } from '@/app/api/_lib/supa';
 import { requireAdminForApi } from '@/lib/server-admin';
+import { fetchOpenAiOrgSpendSnapshot } from '@/lib/ai/openai-org-usage';
 
 export const runtime = 'nodejs';
 
@@ -11,8 +11,6 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = await getServerSupabase();
-    const admin = getAdmin();
-    const db = admin ?? supabase;
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     
@@ -44,26 +42,30 @@ export async function GET(req: NextRequest) {
       }
     } catch {}
     
-    // 3. AI spending (today UTC and this week) - use admin client to match AI usage summary
+    // 3. AI spending (today UTC and trailing 7d) from OpenAI actual costs when available.
     const todayStartUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     
     let todayCost = 0;
     let weekCost = 0;
+    let spendBasis = 'openai_api';
     try {
-      const { data: todayData } = await db
-        .from('ai_usage')
-        .select('cost_usd')
-        .gte('created_at', todayStartUTC);
-      
-      const { data: weekData } = await db
-        .from('ai_usage')
-        .select('cost_usd')
-        .gte('created_at', weekStart);
-      
-      todayCost = (todayData || []).reduce((sum: number, row: any) => sum + (Number(row.cost_usd) || 0), 0);
-      weekCost = (weekData || []).reduce((sum: number, row: any) => sum + (Number(row.cost_usd) || 0), 0);
-    } catch {}
+      const [todaySpend, weekSpend] = await Promise.all([
+        fetchOpenAiOrgSpendSnapshot({
+          startTime: Math.floor(new Date(todayStartUTC).getTime() / 1000),
+          endTime: Math.floor(Date.now() / 1000),
+        }),
+        fetchOpenAiOrgSpendSnapshot({
+          startTime: Math.floor(new Date(weekStart).getTime() / 1000),
+          endTime: Math.floor(Date.now() / 1000),
+        }),
+      ]);
+      todayCost = Number(todaySpend.totals.cost_usd) || 0;
+      weekCost = Number(weekSpend.totals.cost_usd) || 0;
+      spendBasis = todaySpend.cost_source;
+    } catch {
+      spendBasis = 'unavailable';
+    }
     
     // 4. Get budget limits from config (following your existing pattern)
     let budget = { daily_usd: 0, weekly_usd: 0 };
@@ -126,6 +128,7 @@ export async function GET(req: NextRequest) {
       ai_spending: {
         today_usd: Number(todayCost).toFixed(2),
         week_usd: Number(weekCost).toFixed(2),
+        basis: spendBasis,
         daily_limit_usd: budget.daily_usd || 0,
         weekly_limit_usd: budget.weekly_usd || 0,
         daily_usage_pct: budget.daily_usd > 0 ? Math.round((todayCost / budget.daily_usd) * 100) : 0,

@@ -1,8 +1,8 @@
 /**
  * Post ops report summary to Discord webhook.
  * Env: DISCORD_WEBHOOK_URL
- * Failure MUST NOT block report save — catches and logs only.
- * Discord content limit: 2000 chars — we cap at 1900.
+ * Failure must not block report save.
+ * Discord content limit: 2000 chars - we cap at 1900.
  */
 
 const DISCORD_CONTENT_MAX = 1900;
@@ -39,7 +39,7 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
   const url = process.env.DISCORD_WEBHOOK_URL;
   if (!url) return;
 
-  const emoji = payload.status === "ok" ? "✅" : payload.status === "warn" ? "⚠️" : "❌";
+  const emoji = payload.status === "ok" ? "OK" : payload.status === "warn" ? "WARN" : "FAIL";
   const lines: string[] = [`${emoji} **Ops Report** (${payload.reportType})`];
 
   if (payload.reportType === "daily_ops" && payload.dailyDigest) {
@@ -49,82 +49,88 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
       (valueAtPath(digest, ["shared", "ops", "discover_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
     const pipelineJobs =
       (valueAtPath(digest, ["shared", "ops", "pipeline_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
+
     lines.push(
       "",
       `**Last 24h**`,
       `${String(valueAtPath(digest, ["window", "london_range"]) || "")}`,
       "",
       `**App**`,
-      `• App signups (mobile): ${valueAtPath(digest, ["app", "users", "signups_24h"]) ?? 0}`,
-      `• Billable LLM calls: ${valueAtPath(digest, ["app", "ai", "calls_24h"]) ?? 0} ($${Number(valueAtPath(digest, ["app", "ai", "cost_usd_24h"]) ?? 0).toFixed(2)} est.)`,
-      `• App events: ${valueAtPath(digest, ["app", "analytics", "events_seen"]) ?? 0}`,
-      `• Scanner sessions: ${valueAtPath(digest, ["app", "analytics", "scanner_sessions_completed"]) ?? 0}`,
-      `• Tool events: ${valueAtPath(digest, ["app", "analytics", "tool_events_seen"]) ?? 0}`,
+      `- App signups (mobile): ${valueAtPath(digest, ["app", "users", "signups_24h"]) ?? 0}`,
+      `- Billable LLM calls: ${valueAtPath(digest, ["app", "ai", "calls_24h"]) ?? 0}`,
+      `- Estimated route cost: $${Number(valueAtPath(digest, ["app", "ai", "cost_usd_24h"]) ?? 0).toFixed(2)}`,
+      `- App events: ${valueAtPath(digest, ["app", "analytics", "events_seen"]) ?? 0}`,
+      `- Scanner sessions: ${valueAtPath(digest, ["app", "analytics", "scanner_sessions_completed"]) ?? 0}`,
+      `- Tool events: ${valueAtPath(digest, ["app", "analytics", "tool_events_seen"]) ?? 0}`,
       "",
       `**Website**`,
-      `• Pageviews: ${valueAtPath(digest, ["website", "analytics", "pageviews_24h"]) ?? 0}`,
-      `• First visits: ${valueAtPath(digest, ["website", "analytics", "first_visits_24h"]) ?? 0}`,
-      `• Website signups: ${valueAtPath(digest, ["website", "analytics", "signups_24h"]) ?? 0}`,
-      `• Billable LLM calls: ${valueAtPath(digest, ["website", "ai", "calls_24h"]) ?? 0} ($${Number(valueAtPath(digest, ["website", "ai", "cost_usd_24h"]) ?? 0).toFixed(2)} est.)`,
-      `• Website feedback rows: ${valueAtPath(digest, ["website", "feedback", "generic_feedback_rows_24h"]) ?? 0}`,
+      `- Pageviews: ${valueAtPath(digest, ["website", "analytics", "pageviews_24h"]) ?? 0}`,
+      `- First visits: ${valueAtPath(digest, ["website", "analytics", "first_visits_24h"]) ?? 0}`,
+      `- Website signups: ${valueAtPath(digest, ["website", "analytics", "signups_24h"]) ?? 0}`,
+      `- Billable LLM calls: ${valueAtPath(digest, ["website", "ai", "calls_24h"]) ?? 0}`,
+      `- Estimated route cost: $${Number(valueAtPath(digest, ["website", "ai", "cost_usd_24h"]) ?? 0).toFixed(2)}`,
+      `- Website feedback rows: ${valueAtPath(digest, ["website", "feedback", "generic_feedback_rows_24h"]) ?? 0}`,
       "",
       `**Revenue & Reliability**`,
-      `• New profiles (all platforms): ${valueAtPath(digest, ["shared", "users", "new_profiles_24h"]) ?? 0}`,
-      `• Stripe subs: ${valueAtPath(digest, ["shared", "revenue", "stripe_subs"]) ?? 0}`,
-      `• Sentry unresolved: ${valueAtPath(digest, ["shared", "reliability", "sentry_unresolved"]) ?? 0}`,
-      `• Rate-limit hits: ${valueAtPath(digest, ["shared", "reliability", "rate_limit_hits_24h"]) ?? 0}`,
-      `• Error logs: ${valueAtPath(digest, ["shared", "reliability", "local_error_logs_24h"]) ?? 0}`,
+      `- New profiles (all platforms): ${valueAtPath(digest, ["shared", "users", "new_profiles_24h"]) ?? 0}`,
+      `- Stripe subs: ${valueAtPath(digest, ["shared", "revenue", "stripe_subs"]) ?? 0}`,
+      `- OpenAI actual: $${Number(valueAtPath(digest, ["shared", "revenue", "openai_actual_latest_day_usd"]) ?? 0).toFixed(2)} on ${String(valueAtPath(digest, ["shared", "revenue", "openai_actual_latest_day_date_utc"]) || "latest UTC day unavailable")} UTC`,
+      `- OpenAI MTD actual: $${Number(valueAtPath(digest, ["shared", "revenue", "openai_actual_mtd_usd"]) ?? 0).toFixed(2)}`,
+      `- Sentry unresolved: ${valueAtPath(digest, ["shared", "reliability", "sentry_unresolved"]) ?? 0}`,
+      `- Rate-limit hits: ${valueAtPath(digest, ["shared", "reliability", "rate_limit_hits_24h"]) ?? 0}`,
+      `- Error logs: ${valueAtPath(digest, ["shared", "reliability", "local_error_logs_24h"]) ?? 0}`,
     );
+
     if (pipelineJobs.length > 0) {
       lines.push("", `**Pipeline jobs**`);
       for (const job of pipelineJobs.slice(0, 4)) {
-        lines.push(`• ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
+        lines.push(`- ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
       }
     }
     if (discoverJobs.length > 0) {
       lines.push("", `**Discover jobs**`);
       for (const job of discoverJobs.slice(0, 3)) {
-        lines.push(`• ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
+        lines.push(`- ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
       }
     }
     if (topAlerts.length > 0) {
       lines.push("", `**Watch list**`);
       for (const alert of topAlerts.slice(0, 4)) {
-        lines.push(`• [${String(alert.severity || "info")}] ${String(alert.title || "Alert")}: ${String(alert.detail || "")}`);
+        lines.push(`- [${String(alert.severity || "info")}] ${String(alert.title || "Alert")}: ${String(alert.detail || "")}`);
       }
     }
   } else if (payload.reportType === "weekly_ops" && payload.weeklyDigest) {
     const weeklyJobs = (valueAtPath(payload.weeklyDigest, ["weekly_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
     lines.push("", `**Weekly pipeline jobs**`);
     for (const job of weeklyJobs) {
-      lines.push(`• ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
+      lines.push(`- ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
     }
   } else {
     lines.push(
       "",
-      `• AI cost mismatch: ${(payload.aiMismatchRate ?? 0).toFixed(1)}%`,
-      `• 429 rate: ${payload.rate429 ?? "—"}`,
-      `• Route null: ${(payload.routeNullPct ?? 0).toFixed(1)}%`,
+      `- AI cost mismatch: ${(payload.aiMismatchRate ?? 0).toFixed(1)}%`,
+      `- 429 rate: ${payload.rate429 ?? "-"}`,
+      `- Route null: ${(payload.routeNullPct ?? 0).toFixed(1)}%`,
     );
   }
 
   if (payload.staleJobs && payload.staleJobs.length > 0) {
-    lines.push(`• Stale jobs: ${payload.staleJobs.slice(0, STALE_JOBS_CAP).join(", ")}`);
+    lines.push(`- Stale jobs: ${payload.staleJobs.slice(0, STALE_JOBS_CAP).join(", ")}`);
   }
   if (payload.indexedPageCount != null) {
-    lines.push(`• Indexed pages: ${payload.indexedPageCount}`);
+    lines.push(`- Indexed pages: ${payload.indexedPageCount}`);
   }
   if (payload.seoWinnersCount != null && payload.seoWinnersCount > 0) {
-    lines.push(`• SEO winners (noindex w/ impressions): ${payload.seoWinnersCount}`);
+    lines.push(`- SEO winners (noindex w/ impressions): ${payload.seoWinnersCount}`);
     if (payload.seoWinnersSlugs && payload.seoWinnersSlugs.length > 0) {
       lines.push(`  Top: ${payload.seoWinnersSlugs.slice(0, SEO_SLUGS_CAP).join(", ")}`);
     }
   }
   if (payload.status === "fail" && payload.errorSummary) {
     const truncated = payload.errorSummary.length > ERROR_TRUNCATE
-      ? payload.errorSummary.slice(0, ERROR_TRUNCATE) + "…"
+      ? `${payload.errorSummary.slice(0, ERROR_TRUNCATE)}...`
       : payload.errorSummary;
-    lines.push(`• Error: ${truncated}`);
+    lines.push(`- Error: ${truncated}`);
   }
   if (payload.adminUrl) {
     lines.push("", `View in [admin/ops](${payload.adminUrl})`);
@@ -132,7 +138,7 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
 
   let content = lines.join("\n");
   if (content.length > DISCORD_CONTENT_MAX) {
-    content = content.slice(0, DISCORD_CONTENT_MAX - 3) + "…";
+    content = `${content.slice(0, DISCORD_CONTENT_MAX - 3)}...`;
   }
 
   try {
@@ -144,7 +150,7 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
     if (!res.ok) {
       console.warn("[discord] Webhook failed:", res.status, await res.text());
     }
-  } catch (e) {
-    console.warn("[discord] Post failed:", e);
+  } catch (error) {
+    console.warn("[discord] Post failed:", error);
   }
 }

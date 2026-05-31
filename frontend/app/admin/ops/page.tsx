@@ -194,6 +194,9 @@ export default function OpsPage() {
               <div className="text-xs">
                 Week: ${pinboard.ai_spending.week_usd} ({pinboard.ai_spending.weekly_usage_pct}%)
               </div>
+              <div className="text-[10px] opacity-70 mt-1">
+                Basis: {pinboard.ai_spending.basis === 'openai_api' ? 'OpenAI live costs' : pinboard.ai_spending.basis}
+              </div>
             </div>
             
             {/* Price Snapshots */}

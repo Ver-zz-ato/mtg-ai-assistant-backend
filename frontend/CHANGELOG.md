@@ -9,6 +9,16 @@
 - **`app/api/admin/ai/openai-usage/route.ts`:** Admin OpenAI usage fallback estimate now includes cached input tokens and returns naive-vs-cached totals for easier sanity checks.
 - **`tests/unit/pricing.test.ts`:** Added coverage for cached input pricing math.
 
+## 2026-05-31
+
+### Ops - live OpenAI costs in admin + Discord
+
+- **`lib/ai/openai-org-usage.ts`:** New shared OpenAI org spend helper using the live Usage + Costs APIs, with project-aware daily cost buckets, latest completed UTC day, and month-to-date totals.
+- **`app/api/admin/ai/openai-usage/route.ts`:** Admin AI usage now returns live OpenAI daily/project spend plus month-to-date actuals.
+- **`app/admin/ai-usage/page.tsx`:** OpenAI panel now shows latest completed UTC day, month-to-date actual spend, project names, and an actual-cost chart.
+- **`lib/ops/run-ops-report.ts` / `lib/ops/discord.ts`:** Daily Discord digest now includes live OpenAI actual spend lines alongside internal per-surface estimates.
+- **`app/api/admin/audit-pinboard/route.ts` / `app/admin/ops/page.tsx`:** Ops pinboard AI spend now uses live OpenAI costs when available and shows the spend basis.
+
 ## 2026-05-29
 
 ### Main chat — deck analysis intent, commander, send button
