@@ -147,7 +147,7 @@ Once you've built your first deck:
 
 Building your first Commander deck doesn't have to be complicated. Start with a commander you love, follow the basic structure (lands, ramp, draw, removal, wincons), and build around your commander's strategy. Use tools like ManaTap AI to get suggestions and optimize your deck as you learn.
 
-**Ready to build your first Commander deck?** [Try ManaTap AI's free deck builder →](/mtg-commander-ai-deck-builder)
+**Ready to build your first Commander deck?** [Try ManaTap AI's free deck builder →](/build-a-deck)
 
 ---
 

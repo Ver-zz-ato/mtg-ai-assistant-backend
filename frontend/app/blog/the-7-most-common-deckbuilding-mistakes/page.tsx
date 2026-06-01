@@ -94,7 +94,7 @@ Even experienced players make these mistakes. Learn to spot and fix them before 
 3. **Review suggestions** - Get AI-powered fixes for each problem
 4. **Optimize** - Apply suggestions and rebuild
 
-[Analyze Your Deck Now →](/mtg-commander-ai-deck-builder)
+[Analyze Your Deck Now →](/build-a-deck)
 
 ## Quick Checklist
 

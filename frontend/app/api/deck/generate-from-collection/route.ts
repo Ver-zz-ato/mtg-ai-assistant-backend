@@ -244,7 +244,6 @@ export async function POST(req: NextRequest) {
         model,
         messages,
         max_completion_tokens: DECK_GEN_MAX_COMPLETION_TOKENS,
-        temperature: 0.7,
       } as Record<string, unknown>);
       // eslint-disable-next-line no-restricted-globals -- OpenAI streaming-compatible POST
       const resp = await fetch(OPENAI_URL, {

@@ -55,11 +55,11 @@ export default function TopToolsStrip() {
 
   // Map href to tool identifier
   const getToolId = (href: string, tour: string): string => {
-    if (tour === 'cost-to-finish') return 'cost-to-finish';
+    if (tour === 'deck-checker') return 'deck-checker';
     if (tour === 'budget-swaps') return 'budget-swaps';
     if (tour === 'price-tracker') return 'price-tracker';
     if (tour === 'mulligan') return 'mulligan';
-    if (tour === 'probability') return 'probability';
+    if (tour === 'build-a-deck') return 'build-a-deck';
     return tour;
   };
 
@@ -76,11 +76,11 @@ export default function TopToolsStrip() {
   };
 
   const tools = [
-    { href: "/collections/cost-to-finish", img: "/cost-to-finish.png", alt: "Cost to Finish", tour: "cost-to-finish" },
-    { href: "/deck/swap-suggestions", img: "/budget-swaps.png", alt: "Budget Swaps", tour: "budget-swaps" },
-    ...(riskyOn ? [{ href: "/price-tracker", img: "/price-tracker.png", alt: "Price Tracker", tour: "price-tracker" }] : []),
-    { href: "/tools/mulligan", img: "/mulligan-simulator.png", alt: "Mulligan Simulator", tour: "mulligan" },
-    { href: "/tools/probability", img: "/probability-helpers.png", alt: "Probability Helpers", tour: "probability" },
+    { href: "/mtg-deck-checker", img: "/tool-deck-checker.png", alt: "Deck Checker", tour: "deck-checker" },
+    { href: "/deck/swap-suggestions", img: "/tool-budget-swaps.png", alt: "Budget Swaps", tour: "budget-swaps" },
+    ...(riskyOn ? [{ href: "/price-tracker", img: "/tool-price-tracker.png", alt: "Price Tracker", tour: "price-tracker" }] : []),
+    { href: "/tools/mulligan", img: "/tool-mulligan-lab.png", alt: "Mulligan Lab", tour: "mulligan" },
+    { href: "/build-a-deck", img: "/tool-build-a-deck.png", alt: "Build a Deck", tour: "build-a-deck" },
   ];
 
   return (

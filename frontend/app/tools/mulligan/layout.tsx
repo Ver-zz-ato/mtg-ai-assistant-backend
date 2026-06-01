@@ -68,8 +68,9 @@ const IntroBlock = () => (
     </dl>
     <RelatedTools
       tools={[
-        { href: "/tools/probability", label: "MTG Probability Calculator" },
-        { href: "/collections/cost-to-finish", label: "Cost to Finish" },
+        { href: "/tools/mulligan#probability", label: "Probability Calculator" },
+        { href: "/mtg-deck-checker", label: "Deck Checker" },
+        { href: "/build-a-deck", label: "Build a Deck" },
         { href: "/deck/swap-suggestions", label: "Budget Swaps" },
       ]}
     />

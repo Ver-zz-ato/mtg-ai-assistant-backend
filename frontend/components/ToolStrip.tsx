@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 const TOOLS = [
-  { href: "/collections/cost-to-finish", label: "Cost to Finish" },
+  { href: "/mtg-deck-checker", label: "Deck Checker" },
+  { href: "/build-a-deck", label: "Build a Deck" },
   { href: "/deck/swap-suggestions", label: "Budget Swaps" },
   { href: "/price-tracker", label: "Price Tracker" },
-  { href: "/tools/mulligan", label: "Mulligan Simulator" },
-  { href: "/tools/probability", label: "Probability Helpers" },
+  { href: "/tools/mulligan", label: "Mulligan + Probability" },
 ] as const;
 
 export type ToolStripVariant = "compact" | "full";

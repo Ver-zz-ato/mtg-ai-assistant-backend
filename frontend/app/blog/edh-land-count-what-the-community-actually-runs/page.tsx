@@ -167,7 +167,7 @@ Our AI deck analyzer checks your land count and suggests improvements:
 - Analyzes color fixing needs
 - Recommends budget-friendly alternatives
 
-[Analyze Your Mana Base →](/mtg-commander-ai-deck-builder)
+[Analyze Your Mana Base →](/build-a-deck)
 
 ---
 

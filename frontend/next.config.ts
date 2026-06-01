@@ -39,6 +39,15 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
+      { source: "/mtg-deck-check", destination: "/mtg-deck-checker", permanent: true },
+      { source: "/deck-checker-mtg", destination: "/mtg-deck-checker", permanent: true },
+      { source: "/mtg-deck-rater", destination: "/mtg-deck-checker", permanent: true },
+      { source: "/mtg-deck-optimizer", destination: "/mtg-deck-checker", permanent: true },
+      { source: "/mtg-build-a-deck", destination: "/build-a-deck", permanent: true },
+      { source: "/build-mtg-deck", destination: "/build-a-deck", permanent: true },
+      { source: "/magic-deck-builder", destination: "/build-a-deck", permanent: true },
+      { source: "/mtg-commander-ai-deck-builder", destination: "/build-a-deck", permanent: true },
+      { source: "/tools/probability", destination: "/tools/mulligan#probability", permanent: true },
       { source: "/budget-swaps", destination: "/deck/swap-suggestions", permanent: true },
     ];
   },

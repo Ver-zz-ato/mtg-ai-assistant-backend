@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import ImportDeckForMath from "@/components/ImportDeckForMath";
 import HandTestingWidget from "@/components/mulligan/HandTestingWidget";
+import ProbabilityHelpersTool from "../probability/ProbabilityHelpersTool";
 import { comb, hypergeomCDFAtLeast } from "@/lib/math/hypergeometric";
 import { SAMPLE_DECKS } from "@/lib/sample-decks";
 
@@ -105,7 +106,7 @@ export default function MulliganSimulatorPage() {
   React.useEffect(() => {
     try {
       const params = new URLSearchParams(); params.set('N', String(deckSize)); params.set('K', String(successCards)); params.set('L', String(landsInDeck)); params.set('k', String(minKeep)); params.set('I', String(iterations)); params.set('minL', String(minLands)); params.set('maxL', String(maxLands)); params.set('fm', freeMull7?'1':'0');
-      const url = `${window.location.pathname}?${params.toString()}`;
+      const url = `${window.location.pathname}?${params.toString()}${window.location.hash || ""}`;
       window.history.replaceState({}, '', url);
       localStorage.setItem('mull:N', String(deckSize));
       localStorage.setItem('mull:K', String(successCards));
@@ -563,6 +564,16 @@ export default function MulliganSimulatorPage() {
             </div>
           </aside>
         </div>
+        <section id="probability" className="mt-10 scroll-mt-24 border-t border-neutral-800 pt-8">
+          <div className="mb-4">
+            <div className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">Probability Helper</div>
+            <h2 className="mt-2 text-2xl font-bold text-white">Draw Odds Calculator</h2>
+            <p className="mt-2 text-sm text-neutral-400">
+              The old Probability page now lives here, directly under the mulligan simulator, so hand testing and draw math stay together.
+            </p>
+          </div>
+          <ProbabilityHelpersTool embedded />
+        </section>
     </div>
   );
 }

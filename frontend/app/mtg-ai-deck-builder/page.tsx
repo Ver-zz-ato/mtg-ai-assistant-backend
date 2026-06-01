@@ -96,7 +96,7 @@ export default function MTGAIDeckBuilderPage() {
                   Start Building Your Deck →
                 </Link>
                 <Link
-                  href="/mtg-commander-ai-deck-builder"
+                  href="/build-a-deck"
                   className="px-8 py-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl font-bold text-lg border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                 >
                   Commander-Specific Tools
@@ -143,7 +143,7 @@ export default function MTGAIDeckBuilderPage() {
                 and Commander-specific strategies. Get suggestions for ramp, draw, removal, and win conditions.
               </p>
               <Link
-                href="/mtg-commander-ai-deck-builder"
+                href="/build-a-deck"
                 className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
               >
                 Learn more →
@@ -409,7 +409,7 @@ export default function MTGAIDeckBuilderPage() {
               </Link>
 
               <Link
-                href="/mtg-commander-ai-deck-builder"
+                href="/build-a-deck"
                 className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
               >
                 <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">

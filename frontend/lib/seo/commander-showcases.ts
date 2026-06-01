@@ -140,7 +140,7 @@ function buildGeneratedShowcase(
     packagesSubtitle: isBudget
       ? "Use these as staged upgrades: consistency first, splash later."
       : "Use these as deckbuilding lanes, not just a shopping list.",
-    ctaHref: isBudget ? "/collections/cost-to-finish" : "/mtg-commander-ai-deck-builder",
+    ctaHref: isBudget ? "/collections/cost-to-finish" : "/build-a-deck",
     ctaLabel: isBudget ? `Price-check your ${guide.shortName} upgrades` : `Analyze your ${guide.shortName} list`,
     packages: lanes.map((lane) => ({
       title: lane.title,
@@ -209,7 +209,7 @@ const SHOWCASES: Record<string, CommanderLandingShowcaseContent> = {
     ],
     packagesTitle: "Best Card Packages for Y'shtola",
     packagesSubtitle: "Use these as deckbuilding lanes, not just a shopping list.",
-    ctaHref: "/mtg-commander-ai-deck-builder",
+    ctaHref: "/build-a-deck",
     ctaLabel: "Analyze your list",
     packages: [
       {
@@ -292,7 +292,7 @@ const SHOWCASES: Record<string, CommanderLandingShowcaseContent> = {
     ],
     packagesTitle: "Best Card Packages for The Ur-Dragon",
     packagesSubtitle: "Build the deck around jobs: cast dragons, multiply them, then end the game.",
-    ctaHref: "/mtg-commander-ai-deck-builder",
+    ctaHref: "/build-a-deck",
     ctaLabel: "Analyze your dragon list",
     packages: [
       {
@@ -450,7 +450,7 @@ const SHOWCASES: Record<string, CommanderLandingShowcaseContent> = {
     ],
     packagesTitle: "Best Card Packages for Krenko",
     packagesSubtitle: "The deck is strongest when every card supports the first explosive tap.",
-    ctaHref: "/mtg-commander-ai-deck-builder",
+    ctaHref: "/build-a-deck",
     ctaLabel: "Analyze your goblin list",
     packages: [
       {
@@ -529,7 +529,7 @@ const SHOWCASES: Record<string, CommanderLandingShowcaseContent> = {
     ],
     packagesTitle: "Best Card Packages for Edgar Markov",
     packagesSubtitle: "Build around low-cost vampires first, then add the payoffs that make width lethal.",
-    ctaHref: "/mtg-commander-ai-deck-builder",
+    ctaHref: "/build-a-deck",
     ctaLabel: "Analyze your vampire list",
     packages: [
       {
@@ -687,7 +687,7 @@ const SHOWCASES: Record<string, CommanderLandingShowcaseContent> = {
     ],
     packagesTitle: "Best Card Packages for Kaalia",
     packagesSubtitle: "Every package should either protect the first swing or make that swing devastating.",
-    ctaHref: "/mtg-commander-ai-deck-builder",
+    ctaHref: "/build-a-deck",
     ctaLabel: "Analyze your Kaalia list",
     packages: [
       {

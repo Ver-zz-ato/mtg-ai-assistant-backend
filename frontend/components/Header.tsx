@@ -256,15 +256,15 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="w-full border-b">
-      <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between gap-4">
+    <header className="w-full overflow-x-clip border-b">
+      <div className="mx-auto flex w-full max-w-[1500px] min-w-0 items-center justify-between gap-3 px-4 py-3">
         <Link href="/" className="font-semibold flex items-center gap-2 flex-shrink-0">
           <Logo size={63} />
           <span className="hidden sm:block text-3xl font-bold whitespace-nowrap">ManaTap AI</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-3 flex-shrink-0">
+        <nav className="hidden min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain lg:flex">
           <Link 
             href="/changelog" 
             className="text-sm hover:underline text-green-500 font-medium flex items-center gap-1 px-2 py-1 rounded transition-all hover:bg-green-500/10 hover:shadow-sm"
@@ -288,9 +288,9 @@ export default function Header() {
             Browse Decks
           </Link>
           <Link 
-            href="/mtg-commander-ai-deck-builder" 
+            href="/build-a-deck" 
             className="text-sm hover:underline text-blue-400 font-medium px-2 py-1 rounded transition-all hover:bg-blue-400/10 hover:shadow-sm"
-            onClick={() => capture('nav_link_clicked', { destination: '/mtg-commander-ai-deck-builder', source: 'header' })}
+            onClick={() => capture('nav_link_clicked', { destination: '/build-a-deck', source: 'header' })}
           >
             Deck Builder
           </Link>
@@ -392,7 +392,7 @@ export default function Header() {
         </nav>
 
         {/* Right side: Auth */}
-        <div className="flex items-center gap-3" suppressHydrationWarning>
+        <div className="flex flex-shrink-0 items-center gap-3" suppressHydrationWarning>
           {!isHydrated ? (
             <div className="h-[38px]" /> 
           ) : sessionUser ? (
@@ -493,10 +493,10 @@ export default function Header() {
               Browse Decks
             </Link>
             <Link 
-              href="/mtg-commander-ai-deck-builder" 
+              href="/build-a-deck" 
               className="block min-h-[44px] py-2 px-1 text-sm text-blue-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/mtg-commander-ai-deck-builder', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/build-a-deck', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
               }}
             >

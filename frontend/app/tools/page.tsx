@@ -45,7 +45,7 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
     accent: "from-amber-300/70 to-violet-300/60",
     tools: [
       {
-        href: "/mtg-ai-deck-builder",
+        href: "/build-a-deck",
         title: "Build a Deck",
         subtitle: "Start a Commander or 60-card list with guided AI help.",
         badge: "Limited",
@@ -71,9 +71,9 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         accent: "text-rose-200 border-rose-300/25 bg-rose-300/10",
       },
       {
-        href: "/tools/probability",
+        href: "/tools/mulligan#probability",
         title: "Probability Calculator",
-        subtitle: "Check draw odds for lands, combos, and key cards.",
+        subtitle: "Now lives inside the Mulligan Lab for hand and draw-odds testing.",
         badge: "Free",
         icon: BarChart3,
         accent: "text-sky-200 border-sky-300/25 bg-sky-300/10",
@@ -104,12 +104,12 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         priority: "recommended",
       },
       {
-        href: "/collections/cost-to-finish",
-        title: "Cost to Finish",
-        subtitle: "See what you still need and estimate the remaining cost.",
+        href: "/mtg-deck-checker",
+        title: "Deck Checker",
+        subtitle: "Paste a list and check curve, mana, roles, and weak slots.",
         badge: "Limited",
         icon: ListChecks,
-        accent: "text-lime-200 border-lime-300/25 bg-lime-300/10",
+        accent: "text-cyan-200 border-cyan-300/25 bg-cyan-300/10",
       },
     ],
   },
