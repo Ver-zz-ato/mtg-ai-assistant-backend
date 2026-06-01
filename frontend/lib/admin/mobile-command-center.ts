@@ -426,6 +426,7 @@ function summarizeAi(rows: JsonRecord[]) {
 function getCacheMetricCard(summary: ReturnType<typeof summarizeAi>): MetricCard {
   const { requests, cache_hits: cacheHits, cache_known: cacheKnown, cache_hit_rate: cacheHitRate } = summary.totals;
   const missing = Math.max(0, requests - cacheKnown);
+  const coverage = requests > 0 ? cacheKnown / requests : 0;
 
   if (requests === 0) {
     return {
@@ -441,15 +442,17 @@ function getCacheMetricCard(summary: ReturnType<typeof summarizeAi>): MetricCard
     return {
       key: "cache",
       label: "AI cache reuse",
-      value: "not enough data yet",
-      sub: "Recent app AI rows did not include cache info.",
+      value: "tracking incomplete",
+      sub: "No recent app AI rows reported cache status yet.",
       severity: "info",
     };
   }
 
-  const sampleNote = missing > 0 ? `${cacheKnown} of ${requests} rows reported cache info` : `${cacheHits} hits from ${cacheKnown} measured rows`;
+  const sampleNote = missing > 0
+    ? `Only ${cacheKnown} of ${requests} recent app AI rows reported cache status (${cacheHits} hits, ${missing} missing).`
+    : `${cacheHits} hits from ${cacheKnown} measured rows.`;
   const severity: Severity =
-    cacheKnown < 5
+    coverage < 0.8 || cacheKnown < 10
       ? "info"
       : (cacheHitRate ?? 0) < 0.2
         ? "warn"
@@ -458,7 +461,7 @@ function getCacheMetricCard(summary: ReturnType<typeof summarizeAi>): MetricCard
   return {
     key: "cache",
     label: "AI cache reuse",
-    value: `${round((cacheHitRate ?? 0) * 100, 1)}%`,
+    value: coverage < 0.8 ? "tracking incomplete" : `${round((cacheHitRate ?? 0) * 100, 1)}%`,
     sub: sampleNote,
     severity,
   };

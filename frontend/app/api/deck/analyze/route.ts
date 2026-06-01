@@ -1696,6 +1696,7 @@ export async function runDeckAnalyzeCore(
       request_kind: "NO_LLM",
       layer0_mode: "NO_LLM",
       layer0_reason: "no_deck",
+      cache_hit: false,
       source_page: body.sourcePage?.trim() || null,
       eval_run_id: typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null,
       source: deckAnalyzeUsageSource,

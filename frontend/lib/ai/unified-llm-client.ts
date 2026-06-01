@@ -502,7 +502,7 @@ export async function callLLM(
       user_tier: config.user_tier ?? null,
       is_guest: config.is_guest ?? null,
       deck_id: config.deck_id ?? null,
-      cache_hit: config.cache_hit ?? null,
+      cache_hit: config.cache_hit ?? false,
       cache_kind: config.cache_kind ?? null,
       error_code: config.error_code ?? null,
       stop_sequences_enabled: config.stop_sequences_enabled ?? null,

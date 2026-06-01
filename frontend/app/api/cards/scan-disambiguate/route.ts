@@ -206,6 +206,7 @@ export async function POST(req: NextRequest) {
       latency_ms: Date.now() - t0,
       user_tier: auth.userTier,
       is_guest: auth.userTier === "guest",
+      cache_hit: false,
       scanner_session_id: body.scanSessionId,
       scanner_attempt_id: body.scanAttemptId,
       source_screen: sourceScreen,

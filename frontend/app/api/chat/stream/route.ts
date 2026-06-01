@@ -324,6 +324,7 @@ export async function POST(req: NextRequest) {
             context_source: "memory_context",
             layer0_mode: "NO_LLM",
             layer0_reason: "current_request_memory_recall",
+            cache_hit: false,
             is_guest: isGuest,
             user_tier: modelTierRes.tier,
           });
@@ -1612,6 +1613,7 @@ export async function POST(req: NextRequest) {
           context_source: streamContextSource,
           layer0_mode: "NO_LLM",
           layer0_reason: decision.reason,
+          cache_hit: false,
           is_guest: isGuest,
           user_tier: modelTierRes.tier,
         });

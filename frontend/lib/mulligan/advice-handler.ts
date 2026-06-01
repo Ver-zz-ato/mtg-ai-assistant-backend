@@ -14,6 +14,7 @@ import { logMulliganRun } from "@/lib/mulligan/run-logger";
 import { evaluateHandDeterministically } from "@/lib/mulligan/hand-eval";
 import { computeHandTags } from "@/lib/mulligan/hand-tags";
 import { callLLM } from "@/lib/ai/unified-llm-client";
+import { recordAiUsage } from "@/lib/ai/log-usage";
 import { costUSD } from "@/lib/ai/pricing";
 import { AI_USAGE_SOURCE_MANATAP_APP } from "@/lib/ai/manatap-client-origin";
 import { DEFAULT_FALLBACK_MODEL, DEFAULT_PRO_DECK_MODEL } from "@/lib/ai/default-models";
@@ -316,6 +317,29 @@ export async function runMulliganAdvice(
         effectiveTier,
         gateAction: "CALL_LLM",
       }).catch(() => {});
+      recordAiUsage({
+        user_id: userId ?? null,
+        anon_id: null,
+        thread_id: null,
+        model: cached.model_used || "cached",
+        input_tokens: 0,
+        output_tokens: 0,
+        cost_usd: 0,
+        route: "mulligan_advice",
+        request_kind: "CACHE_HIT",
+        layer0_mode: "CACHE_HIT",
+        cache_hit: true,
+        cache_kind: "mulligan_advice",
+        user_tier: effectiveTier,
+        is_guest: effectiveTier === "guest",
+        source_page: sourcePage ?? null,
+        source:
+          aiUsageSource === AI_USAGE_SOURCE_MANATAP_APP
+            ? AI_USAGE_SOURCE_MANATAP_APP
+            : source === "admin_playground"
+              ? "admin_mulligan_playground"
+              : "production_widget",
+      }).catch(() => {});
       return cachedPayload as AdviceResult;
     }
   }
@@ -379,6 +403,7 @@ Task: Decide KEEP or MULLIGAN. If deterministic keepBias is KEEP with high confi
               ? "admin_mulligan_playground"
               : "production_widget",
         source_page: sourcePage ?? null,
+        cache_hit: false,
       }
     );
 
