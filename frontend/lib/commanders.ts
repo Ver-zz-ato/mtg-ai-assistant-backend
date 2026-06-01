@@ -71,7 +71,7 @@ const COLOR_MAP: Record<string, string[]> = {
   "miirymsentinelwyrm": ["U", "R", "G"],
   "thewisemothman": ["U", "B", "G"],
   "nekusarthemindrazer": ["U", "B", "R"],
-  "yshtolanightsblessed": ["W", "U", "R"],
+  "yshtolanightsblessed": ["W", "U", "B"],
   "isshintwoheavensasone": ["W", "B", "R"],
   "hakbalofthesurgingsoul": ["U", "G"],
   "ulalekfusedatrocity": [], // colorless

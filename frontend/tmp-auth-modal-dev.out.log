@@ -66,3 +66,4 @@
  GET /api/shout/history 200 in 177ms (compile: 7ms, proxy.ts: 6ms, render: 164ms)
 [memoCache] Auto-cleaned 1 expired entries
 [memoCache] Auto-cleaned 1 expired entries
+✓ Compiled in 1473ms

@@ -240,10 +240,10 @@
     "notes": "Ensure redundancy in wheel effects and damage doublers." 
   },
   "Y'shtola, Night's Blessed": {
-    "plan": "Spellslinger control leveraging noncreature spells for damage and lifegain.",
+    "plan": "Esper control that turns mana value 3+ noncreature spells into table drain, lifegain, and end-step cards.",
     "preferTags": ["spellslinger", "control", "lifegain", "burn"],
-    "avoid": ["creature-heavy builds", "overreliance on combat"],
-    "notes": "Keep curve low with instant-speed interaction and storm-style payoffs." 
+    "avoid": ["creature-heavy builds", "overreliance on combat", "expensive spells that do not stabilize"],
+    "notes": "Prioritize instant-speed interaction, curiosity effects, and reliable ways to make a player lose 4 life before each end step." 
   },
   "Isshin, Two Heavens as One": {
     "plan": "Attack-trigger doubling with token makers, equipment, and extra combats.",

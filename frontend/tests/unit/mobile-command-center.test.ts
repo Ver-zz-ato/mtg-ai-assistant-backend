@@ -61,6 +61,10 @@ assert.strictEqual(
   shouldCountForDailyDigestStatus({ key: "tier1_pipeline_jobs", title: "Daily price jobs", detail: "mostly okay", severity: "warn", source: "overview" }),
   false,
 );
+assert.strictEqual(
+  shouldCountForDailyDigestStatus({ key: "config_freshness", title: "App settings update", detail: "stale (7d ago)", severity: "warn", source: "overview" }),
+  false,
+);
 
 const alert = {
   key: "sentry",

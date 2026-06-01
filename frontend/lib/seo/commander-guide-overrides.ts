@@ -598,30 +598,30 @@ export const COMMANDER_GUIDE_OVERRIDES: Record<string, CommanderGuideOverride> =
   },
   "y-shtola-night-s-blessed": {
     intro:
-      "[[Y'Shtola, Night's Blessed]] is strongest as an Esper control-spellslinger deck that treats the four-life threshold like a deckbuilding rule. The popular builds are not winning with random lifegain; they are winning by chaining efficient interaction, making sure someone loses four life every turn cycle, and cashing that in for cards while the commander pings the table.",
+      "[[Y'shtola, Night's Blessed]] is strongest as an Esper control-spellslinger deck that treats the four-life threshold like a deckbuilding rule. The popular builds are not winning with random lifegain; they are winning by chaining efficient interaction, making sure someone loses four life every turn cycle, and cashing that in for cards while the commander pings the table.",
     howWins:
-      "Most strong [[Y'Shtola, Night's Blessed]] lists win by turning larger noncreature spells and curiosity-style effects into a relentless drain engine. EDHREC's current high-synergy cards like [[Curiosity]], [[Ophidian Eye]], [[Snuff Out]], [[Propaganda]], [[Void Rend]], and [[Exsanguinate]] show the shape clearly: keep the board clean, keep cards flowing, and make every spell over three mana hurt.",
+      "Most strong [[Y'shtola, Night's Blessed]] lists win by turning larger noncreature spells and curiosity-style effects into a relentless drain engine. EDHREC's current high-synergy cards like [[Curiosity]], [[Ophidian Eye]], [[Snuff Out]], [[Propaganda]], [[Void Rend]], and [[Exsanguinate]] show the shape clearly: keep the board clean, keep cards flowing, and make every mana value 3+ noncreature spell hurt.",
     mistakes:
-      "The trap is building Y'Shtola like generic Esper lifegain or stuffing the deck with expensive haymakers that technically trigger her but do not improve your control posture. The commander wants the spell suite to be efficient first and stylish second.",
+      "The trap is building Y'shtola like generic Esper lifegain or stuffing the deck with expensive haymakers that technically trigger her but do not improve your control posture. The commander wants the spell suite to be efficient first and stylish second.",
     mulligan: {
       keep:
-        "Keep hands with clean mana, early interaction, and a credible way to trigger the end-step draw. Cheap removal plus one of [[Curiosity]], [[Ophidian Eye]], [[Propaganda]], or a clean turn-three setup spell is often enough, because Y'Shtola rewards you for surviving into a spell-heavy midgame.",
+        "Keep hands with clean mana, early interaction, and a credible way to trigger the end-step draw. Cheap removal plus one of [[Curiosity]], [[Ophidian Eye]], [[Propaganda]], or a clean turn-three setup spell is often enough, because Y'shtola rewards you for surviving into a spell-heavy midgame.",
       ship:
-        "Ship hands that only contain expensive spells, hands with no black or blue mana, and sevens that do not interact before turn three. Y'Shtola is popular because she stabilizes well, but only if the deck actually reaches that stage cleanly.",
+        "Ship hands that only contain expensive spells, hands with no black or blue mana, and sevens that do not interact before turn three. Y'shtola is popular because she stabilizes well, but only if the deck actually reaches that stage cleanly.",
       pattern:
-        "The first turns should keep damage and mana flowing while you line up a draw trigger for the first end step after Y'Shtola lands. It is often better to cast one efficient answer now and guarantee the four-life threshold than to hold out for a splashier line later.",
+        "The first turns should keep damage and mana flowing while you line up a draw trigger for the first end step after Y'shtola lands. It is often better to cast one efficient answer now and guarantee the four-life threshold than to hold out for a splashier line later.",
     },
     bestCards: {
       engines:
-        "The engine cards are the ones that make every spell or damage source count twice. [[Curiosity]], [[Ophidian Eye]], [[Archmage Emeritus]], [[Propaganda]], and flexible high-impact noncreature spells all help Y'Shtola convert control turns into cards and drain. The point is not just to cast big spells; it is to cast big spells that keep the game under control.",
+        "The engine cards are the ones that make every spell or damage source count twice. [[Curiosity]], [[Ophidian Eye]], [[Archmage Emeritus]], [[Propaganda]], and flexible high-impact noncreature spells all help Y'shtola convert control turns into cards and drain. The point is not just to cast big spells; it is to cast big spells that keep the game under control.",
       interaction:
         "This commander wants premium, low-friction interaction. Current high-synergy EDHREC cards like [[Snuff Out]], [[Void Rend]], [[Vindicate]], [[Anguished Unmaking]], and [[Deadly Rollick]] make sense because they help you keep someone under the four-life threshold without giving up tempo.",
       finishers:
-        "The closes are usually incremental until they are suddenly not. [[Exsanguinate]] is an obvious finisher, but curiosity effects on Y'Shtola, repeated burn from larger spells, and a protected control shell often get the deck there first. If the list is all removal and no actual payoff damage, it will feel flatter than the popular builds.",
+        "The closes are usually incremental until they are suddenly not. [[Exsanguinate]] is an obvious finisher, but curiosity effects on Y'shtola, repeated burn from larger spells, and a protected control shell often get the deck there first. If the list is all removal and no actual payoff damage, it will feel flatter than the popular builds.",
     },
     budget: {
       first:
-        "Budget should go into the cheap interaction suite and the best card-flow pieces you can afford. Y'Shtola does not need expensive finishers to feel good if the shell consistently hits the four-life threshold.",
+        "Budget should go into the cheap interaction suite and the best card-flow pieces you can afford. Y'shtola does not need expensive finishers to feel good if the shell consistently hits the four-life threshold.",
       cheap:
         "High-value upgrades include affordable curiosity effects, efficient removal, and pillow-fort pieces that buy time while still supporting the control plan. Those cards usually do more for the deck than one expensive splash spell.",
       premium:

@@ -168,6 +168,7 @@ export function shouldSendHourlyDiscordAlert(alert: LaunchAlert): boolean {
 export function shouldCountForDailyDigestStatus(alert: LaunchAlert): boolean {
   if (alert.severity !== "critical" && alert.severity !== "warn") return false;
   if (alert.key === "discord_missing") return false;
+  if (alert.key === "config_freshness") return false;
   if (shouldSendHourlyDiscordAlert(alert)) return false;
   return true;
 }
