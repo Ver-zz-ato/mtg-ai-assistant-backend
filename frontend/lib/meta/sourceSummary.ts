@@ -7,6 +7,7 @@ import { SCRYFALL_META } from "@/lib/meta/scryfallGlobalMeta";
 export type MetaSourceSummary = {
   publicCommanderDecks: number | null;
   globalCommanderRows: number | null;
+  budgetCommanderRows: number | null;
   globalCardRows: number | null;
   budgetCardRows: number | null;
   recentSetCommanderRows: number | null;
@@ -57,6 +58,7 @@ export async function getMetaSourceSummary(): Promise<MetaSourceSummary> {
     jobConfig,
     deckCountResult,
     commanderRows,
+    budgetCommanderRows,
     popularCardRows,
     budgetCardRows,
   ] = await Promise.all([
@@ -71,6 +73,7 @@ export async function getMetaSourceSummary(): Promise<MetaSourceSummary> {
       .eq("is_public", true)
       .eq("format", "Commander"),
     countLatestRows(db, "meta_commander_daily", SCRYFALL_META.twPopular),
+    countLatestRows(db, "meta_commander_daily", SCRYFALL_META.twBudget),
     countLatestRows(db, "meta_card_daily", SCRYFALL_META.twPopular),
     countLatestRows(db, "meta_card_daily", SCRYFALL_META.twBudget),
   ]);
@@ -82,6 +85,7 @@ export async function getMetaSourceSummary(): Promise<MetaSourceSummary> {
   return {
     publicCommanderDecks: deckCountResult.count ?? null,
     globalCommanderRows: commanderRows.count ?? sources?.scryfallCommanders ?? null,
+    budgetCommanderRows: budgetCommanderRows.count ?? sources?.scryfallBudgetCommanders ?? null,
     globalCardRows: popularCardRows.count ?? sources?.scryfallCards ?? null,
     budgetCardRows: budgetCardRows.count ?? sources?.scryfallBudget ?? null,
     recentSetCommanderRows: sources?.recentSetCommanders ?? null,

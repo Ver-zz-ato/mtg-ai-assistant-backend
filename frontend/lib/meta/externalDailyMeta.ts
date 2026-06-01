@@ -3,7 +3,7 @@ import { getCommanderBySlug } from "@/lib/commanders";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getAdmin } from "@/lib/supa";
 import { createClient } from "@/lib/supabase/server";
-import { SCRYFALL_META } from "@/lib/meta/scryfallGlobalMeta";
+import { fetchGlobalBudgetCommanders, SCRYFALL_META } from "@/lib/meta/scryfallGlobalMeta";
 
 type MetaTable = "meta_commander_daily" | "meta_card_daily";
 
@@ -13,6 +13,11 @@ type DailyCommanderRow = {
   rank?: number | null;
   snapshot_date?: string | null;
   updated_at?: string | null;
+};
+
+type PriceCacheRow = {
+  card_name?: string | null;
+  usd_price?: number | string | null;
 };
 
 type DailyCardRow = {
@@ -52,6 +57,10 @@ function toSlug(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function priceCacheKey(name: string): string {
+  return norm(name).replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 }
 
 async function getDb(): Promise<SupabaseClient> {
@@ -94,6 +103,10 @@ async function previousSnapshotDate(
 
 function rankLabel(rank: number): string {
   return `EDHREC rank #${rank.toLocaleString()}`;
+}
+
+function budgetRankLabel(rank: number): string {
+  return `Budget EDHREC rank #${rank.toLocaleString()}`;
 }
 
 function trendLabel(rank: number, delta?: number): string {
@@ -221,6 +234,110 @@ export async function getExternalTrendingCommanders(limit = 48): Promise<{
     imageMap: await commanderImages(items),
     updatedAt: rows.find((row) => row.updated_at)?.updated_at ?? null,
     snapshotDate,
+  };
+}
+
+export async function getExternalBudgetCommanders(limit = 48): Promise<{
+  items: ExternalCommanderMetaItem[];
+  imageMap: Map<string, string>;
+  updatedAt: string | null;
+  snapshotDate: string | null;
+}> {
+  const db = await getDb();
+  const snapshotDate = await latestSnapshotDate(db, "meta_commander_daily", SCRYFALL_META.twBudget);
+
+  if (snapshotDate) {
+    const { data } = await db
+      .from("meta_commander_daily")
+      .select("commander_name, rank, updated_at")
+      .eq("source", SCRYFALL_META.source)
+      .eq("time_window", SCRYFALL_META.twBudget)
+      .eq("snapshot_date", snapshotDate)
+      .order("rank", { ascending: true })
+      .limit(limit);
+
+    const rows = (data ?? []) as DailyCommanderRow[];
+    const items = rows
+      .map((row) => {
+        const name = String(row.commander_name || "").trim();
+        const rank = typeof row.rank === "number" ? row.rank : 0;
+        if (!name || rank <= 0) return null;
+        const slug = getCommanderBySlug(toSlug(name))?.slug ?? toSlug(name);
+        return { name, slug, rank, metaLabel: budgetRankLabel(rank) };
+      })
+      .filter((row): row is ExternalCommanderMetaItem => Boolean(row));
+
+    return {
+      items,
+      imageMap: await commanderImages(items),
+      updatedAt: rows.find((row) => row.updated_at)?.updated_at ?? null,
+      snapshotDate,
+    };
+  }
+
+  const popularSnapshotDate = await latestSnapshotDate(db, "meta_commander_daily", SCRYFALL_META.twPopular);
+  if (!popularSnapshotDate) return { items: [], imageMap: new Map(), updatedAt: null, snapshotDate: null };
+
+  const { data: popularRows } = await db
+    .from("meta_commander_daily")
+    .select("commander_name, rank, updated_at")
+    .eq("source", SCRYFALL_META.source)
+    .eq("time_window", SCRYFALL_META.twPopular)
+    .eq("snapshot_date", popularSnapshotDate)
+    .order("rank", { ascending: true })
+    .limit(300);
+
+  const rows = (popularRows ?? []) as DailyCommanderRow[];
+  const priceKeys = Array.from(new Set(rows.map((row) => priceCacheKey(String(row.commander_name || ""))).filter(Boolean)));
+  const { data: priceRows } = priceKeys.length
+    ? await db.from("price_cache").select("card_name, usd_price").in("card_name", priceKeys)
+    : { data: [] };
+
+  const priceMap = new Map<string, number>();
+  for (const row of (priceRows ?? []) as PriceCacheRow[]) {
+    const key = String(row.card_name || "");
+    const price = Number(row.usd_price);
+    if (key && Number.isFinite(price) && price > 0) priceMap.set(key, price);
+  }
+
+  const items = rows
+    .map((row) => {
+      const name = String(row.commander_name || "").trim();
+      const rank = typeof row.rank === "number" ? row.rank : 0;
+      const price = priceMap.get(priceCacheKey(name));
+      if (!name || rank <= 0 || price == null || price > 5) return null;
+      const slug = getCommanderBySlug(toSlug(name))?.slug ?? toSlug(name);
+      return { name, slug, rank, metaLabel: budgetRankLabel(rank) };
+    })
+    .filter((row): row is ExternalCommanderMetaItem => Boolean(row))
+    .slice(0, limit);
+
+  if (items.length === 0) {
+    const liveRows = await fetchGlobalBudgetCommanders(2);
+    const now = new Date().toISOString();
+    const liveItems = liveRows.slice(0, limit).map((row) => {
+      const slug = getCommanderBySlug(toSlug(row.name))?.slug ?? toSlug(row.name);
+      return {
+        name: row.name,
+        slug,
+        rank: row.rank,
+        metaLabel: budgetRankLabel(row.rank),
+      };
+    });
+
+    return {
+      items: liveItems,
+      imageMap: await commanderImages(liveItems),
+      updatedAt: now,
+      snapshotDate: now.slice(0, 10),
+    };
+  }
+
+  return {
+    items,
+    imageMap: await commanderImages(items),
+    updatedAt: rows.find((row) => row.updated_at)?.updated_at ?? null,
+    snapshotDate: popularSnapshotDate,
   };
 }
 

@@ -112,6 +112,15 @@ export async function fetchGlobalCommanderPopular(maxPages = 2): Promise<Normali
   return normalizeCommanderRows(cards, TW_EDHREC_POPULAR, 1);
 }
 
+/** Budget-friendly commanders, ranked by EDHREC popularity among inexpensive paper commanders. */
+export async function fetchGlobalBudgetCommanders(maxPages = 2): Promise<NormalizedGlobalMetaRow[]> {
+  const q =
+    "is:commander legal:commander game:paper usd<=5 -type:plane -type:phenomenon -border:silver -stamp:galaxy";
+  const url = `https://api.scryfall.com/cards/search?q=${ENC(q)}&unique=cards&order=edhrec&dir=asc`;
+  const cards = await fetchScryfallListPages(url, maxPages);
+  return normalizeCommanderRows(cards, TW_EDHREC_BUDGET, 1);
+}
+
 /** Expand when the tighter window returns too few candidates to rank meaningfully. */
 const RECENT_SET_ELIGIBILITY_DAYS = [180, 270, 365] as const;
 /** Stop at the first window where we have at least this many Scryfall rows after date filter (or use 365d pool). */

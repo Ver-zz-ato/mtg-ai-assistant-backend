@@ -53,8 +53,8 @@ const TILES = [
   {
     href: "/meta/budget-commanders",
     title: "Budget Commanders",
-    description: "Lowest median deck cost. Build on a budget.",
-    statHint: "Affordable builds",
+    description: "Low-price commanders ranked by external EDHREC-order popularity.",
+    statHint: "Budget meta",
     icon: Wallet,
   },
   {

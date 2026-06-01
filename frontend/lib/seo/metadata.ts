@@ -23,13 +23,13 @@ export const TOOL_DESCRIPTIONS = {
 
 export const META_DESCRIPTIONS = {
   index:
-    "Explore the Commander meta with ManaTap. See trending commanders, most-played cards, budget commanders, and daily public deck data.",
+    "Explore the Commander meta with ManaTap. See trending commanders, most-played cards, and budget commanders from external EDHREC-order signals.",
   "trending-commanders":
     "Discover trending Commander decks on ManaTap. See commanders gaining the most new public decks, updated daily from community data.",
   "most-played-commanders":
     "Browse the most-played Commander leaders on ManaTap. Compare public deck counts, popular choices, and links to deck-building tools.",
   "budget-commanders":
-    "Find budget Commander options on ManaTap. Compare commanders by median deck cost and discover affordable MTG decks to build next.",
+    "Find budget Commander options on ManaTap using external Scryfall price filters and EDHREC-order popularity signals.",
   "trending-cards":
     "Track trending Commander cards on ManaTap. See cards appearing in newly created public decks and spot rising MTG staples early.",
   "most-played-cards":

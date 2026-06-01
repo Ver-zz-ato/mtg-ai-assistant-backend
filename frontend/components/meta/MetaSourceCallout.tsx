@@ -16,6 +16,7 @@ export function MetaSourceCallout({ summary, compact = false, scope = "blended" 
   const refreshed = summary.lastUpdated ? formatRelative(summary.lastUpdated) : null;
   const externalRows =
     (summary.globalCommanderRows ?? 0) +
+    (summary.budgetCommanderRows ?? 0) +
     (summary.globalCardRows ?? 0) +
     (summary.budgetCardRows ?? 0);
 
@@ -32,7 +33,7 @@ export function MetaSourceCallout({ summary, compact = false, scope = "blended" 
     {
       icon: Globe2,
       label: "Global commander signal",
-      value: `${formatNumber(summary.globalCommanderRows)} EDHREC-order commanders`,
+      value: `${formatNumber(summary.globalCommanderRows)} popular + ${formatNumber(summary.budgetCommanderRows)} budget commanders`,
     },
     {
       icon: Layers3,

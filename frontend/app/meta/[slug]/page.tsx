@@ -7,12 +7,12 @@ import { MetaSectionHeader } from "@/components/meta/MetaSectionHeader";
 import { MetaStatStrip } from "@/components/meta/MetaStatStrip";
 import { CommanderCard } from "@/components/meta/CommanderCard";
 import { CardMetaCard } from "@/components/meta/CardMetaCard";
-import { getBudgetCommanders } from "@/lib/meta/getBudgetCommanders";
 import { formatRelative } from "@/lib/meta/getMetaSnapshot";
 import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
 import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
 import { META_DESCRIPTIONS } from "@/lib/seo/metadata";
 import {
+  getExternalBudgetCommanders,
   getExternalMostPlayedCards,
   getExternalMostPlayedCommanders,
   getExternalTrendingCards,
@@ -49,6 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 // Revalidate every hour - meta data refreshed daily by cron
 export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function MetaPage({ params }: Props) {
   const { slug } = await params;
@@ -79,11 +80,11 @@ export default async function MetaPage({ params }: Props) {
     updatedAt = data.updatedAt;
     description = "Top commanders by external EDHREC-order global popularity.";
   } else if (slug === "budget-commanders") {
-    const data = await getBudgetCommanders();
+    const data = await getExternalBudgetCommanders();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Budget-friendly cards and commander-adjacent staples from ManaTap deck counts and low-cost global signals.";
+    description = "Budget-friendly commanders from external Scryfall price filters, ranked by EDHREC-order popularity.";
   } else if (slug === "trending-cards") {
     const data = await getExternalTrendingCards();
     items = data.items;
@@ -110,7 +111,7 @@ export default async function MetaPage({ params }: Props) {
           },
         ]
       : []),
-    { label: "Data source", value: slug === "budget-commanders" ? "Blended public + global" : "External EDHREC-order signals" },
+    { label: "Data source", value: "External EDHREC-order signals" },
   ];
 
   return (
@@ -139,7 +140,7 @@ export default async function MetaPage({ params }: Props) {
         />
 
         <div className="mb-8">
-          <MetaSourceCallout summary={sourceSummary} compact scope={slug === "budget-commanders" ? "blended" : "external"} />
+          <MetaSourceCallout summary={sourceSummary} compact scope="external" />
         </div>
 
         {items.length > 0 ? (

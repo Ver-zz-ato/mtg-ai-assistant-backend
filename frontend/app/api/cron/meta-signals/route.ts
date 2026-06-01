@@ -33,6 +33,7 @@ import type { NormalizedGlobalMetaRow } from "@/lib/meta/scryfallGlobalMeta";
 import { rankNewSetBreakoutCommanders } from "@/lib/meta/newSetBreakoutsRank";
 import {
   fetchGlobalBudgetCards,
+  fetchGlobalBudgetCommanders,
   fetchGlobalCommanderPopular,
   fetchGlobalPopularCards,
   fetchRecentSetBreakoutCommanders,
@@ -243,24 +244,27 @@ async function runMetaSignals() {
 
   // --- External (Scryfall): Commander / card popularity proxies (EDHREC order); parallel fetches. ---
   let globalPopularCommanders: Awaited<ReturnType<typeof fetchGlobalCommanderPopular>> = [];
+  let globalBudgetCommanders: Awaited<ReturnType<typeof fetchGlobalBudgetCommanders>> = [];
   let recentSetBreakoutFetch: RecentSetBreakoutFetchResult | null = null;
   let recentSetCommanders: NormalizedGlobalMetaRow[] = [];
   let globalPopularCards: Awaited<ReturnType<typeof fetchGlobalPopularCards>> = [];
   let globalBudgetCards: Awaited<ReturnType<typeof fetchGlobalBudgetCards>> = [];
 
   try {
-    const [p1, p2, p3, p4] = await Promise.all([
+    const [p1, p2, p3, p4, p5] = await Promise.all([
       fetchGlobalCommanderPopular(2),
+      fetchGlobalBudgetCommanders(2),
       safeFetchRecentSetBreakout(),
       fetchGlobalPopularCards(2),
       fetchGlobalBudgetCards(2),
     ]);
     globalPopularCommanders = p1;
-    recentSetBreakoutFetch = p2;
-    recentSetCommanders = p2?.rows ?? [];
-    globalPopularCards = p3;
-    globalBudgetCards = p4;
-    if (!p2) {
+    globalBudgetCommanders = p2;
+    recentSetBreakoutFetch = p3;
+    recentSetCommanders = p3?.rows ?? [];
+    globalPopularCards = p4;
+    globalBudgetCards = p5;
+    if (!p3) {
       warnings.push("Recent-set Scryfall breakout fetch failed or returned null — trending blend omits recent-set signal.");
     }
   } catch (e) {
@@ -271,6 +275,7 @@ async function runMetaSignals() {
 
   if (
     globalPopularCommanders.length === 0 &&
+    globalBudgetCommanders.length === 0 &&
     globalPopularCards.length === 0 &&
     globalBudgetCards.length === 0 &&
     recentSetCommanders.length === 0
@@ -288,6 +293,16 @@ async function runMetaSignals() {
       SCRYFALL_META.twPopular
     );
     if (okCmd) commanderDailyRowsUpserted = globalPopularCommanders.length;
+  }
+  if (globalBudgetCommanders.length > 0) {
+    const okBudgetCmd = await upsertCommanderDaily(
+      admin,
+      todayStr,
+      globalBudgetCommanders,
+      SCRYFALL_META.source,
+      SCRYFALL_META.twBudget
+    );
+    if (okBudgetCmd) commanderDailyRowsUpserted += globalBudgetCommanders.length;
   }
   if (globalPopularCards.length > 0) {
     const okPop = await upsertCardDaily(
@@ -586,10 +601,11 @@ async function runMetaSignals() {
   if (!e3) updated++;
 
   const hasCmd = globalPopularCommanders.length > 0;
+  const hasBudgetCmd = globalBudgetCommanders.length > 0;
   const hasCardPop = globalPopularCards.length > 0;
   const hasBudget = globalBudgetCards.length > 0;
   const hasRecent = recentSetCommanders.length > 0;
-  const anyExternal = hasCmd || hasCardPop || hasBudget || hasRecent;
+  const anyExternal = hasCmd || hasBudgetCmd || hasCardPop || hasBudget || hasRecent;
 
   let pillMode: MetaSignalsPillMode = "manatap";
   if (hasCmd && hasCardPop && hasBudget) pillMode = "global";
@@ -670,6 +686,7 @@ async function runMetaSignals() {
 
   const sourcesObj = {
     scryfallCommanders: globalPopularCommanders.length,
+    scryfallBudgetCommanders: globalBudgetCommanders.length,
     scryfallCards: globalPopularCards.length,
     scryfallBudget: globalBudgetCards.length,
     recentSetCommanders: recentSetCommanders.length,
@@ -757,6 +774,9 @@ async function runMetaSignals() {
   const sourcesLineParts: string[] = [];
   if (sourcesObj.scryfallCommanders) {
     sourcesLineParts.push(`${sourcesObj.scryfallCommanders} cmd (Scryfall)`);
+  }
+  if (sourcesObj.scryfallBudgetCommanders) {
+    sourcesLineParts.push(`${sourcesObj.scryfallBudgetCommanders} budget cmd (Scryfall)`);
   }
   if (sourcesObj.scryfallCards) {
     sourcesLineParts.push(`${sourcesObj.scryfallCards} cards (popular)`);
@@ -859,6 +879,7 @@ async function runMetaSignals() {
       sectionCounts: {},
       sources: {
         scryfallCommanders: 0,
+        scryfallBudgetCommanders: 0,
         scryfallCards: 0,
         scryfallBudget: 0,
         recentSetCommanders: 0,

@@ -33,6 +33,7 @@ export type MetaSignalsJobDetail = {
   sectionSummaries?: Record<string, MetaSignalsSectionEntry>;
   sources: {
     scryfallCommanders: number;
+    scryfallBudgetCommanders?: number;
     scryfallCards: number;
     scryfallBudget: number;
     recentSetCommanders: number;
