@@ -5,6 +5,8 @@
  */
 
 import Link from "next/link";
+import CardDetailLink from "@/components/cards/CardDetailLink";
+import { getCommanderBySlug } from "@/lib/commanders";
 
 export type CommanderCardItem = {
   name: string;
@@ -14,6 +16,7 @@ export type CommanderCardItem = {
   rank?: number;
   delta?: number;
   metaLabel?: string;
+  hasGuide?: boolean;
 };
 
 type Props = {
@@ -22,12 +25,13 @@ type Props = {
 };
 
 export function CommanderCard({ item, imageUrl }: Props) {
-  return (
-    <Link
-      href={`/commanders/${item.slug}`}
-      className="group block rounded-xl bg-neutral-800/90 border border-neutral-700 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-200 overflow-hidden"
-    >
-      {/* Fixed aspect ratio for card image */}
+  const profile = getCommanderBySlug(item.slug);
+  const hasGuide = item.hasGuide ?? Boolean(profile && profile.hasGuide !== false);
+  const chrome =
+    "group block rounded-xl bg-neutral-800/90 border border-neutral-700 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-200 overflow-hidden";
+
+  const body = (
+    <>
       <div className="aspect-[488/680] relative bg-neutral-800 overflow-hidden">
         {imageUrl ? (
           <img
@@ -41,8 +45,13 @@ export function CommanderCard({ item, imageUrl }: Props) {
           </div>
         )}
         {item.rank != null && item.rank <= 5 && (
-          <span className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/70 flex items-center justify-center text-white text-sm font-bold">
+          <span className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/70 flex items-center justify-center text-white text-sm font-bold z-10">
             #{item.rank}
+          </span>
+        )}
+        {hasGuide && (
+          <span className="absolute top-2 right-2 rounded-full border border-amber-300/40 bg-black/75 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-100 shadow-lg shadow-black/30">
+            Guide available
           </span>
         )}
       </div>
@@ -67,6 +76,24 @@ export function CommanderCard({ item, imageUrl }: Props) {
           <p className="text-emerald-400 text-xs mt-1">+{item.delta} this week</p>
         )}
       </div>
-    </Link>
+    </>
+  );
+
+  if (hasGuide) {
+    return (
+      <Link href={`/commanders/${item.slug}`} className={chrome}>
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <CardDetailLink
+      cardName={item.name}
+      imageNormal={imageUrl ?? undefined}
+      className={`${chrome} h-auto w-full p-0 text-left appearance-none`}
+    >
+      {body}
+    </CardDetailLink>
   );
 }
