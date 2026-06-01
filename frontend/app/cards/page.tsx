@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardSearchCommandCenter from "@/components/cards/CardSearchCommandCenter";
 import CardsInfiniteList from "@/components/cards/CardsInfiniteList";
+import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
 import { SCRYFALL_META } from "@/lib/meta/scryfallGlobalMeta";
+import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { getAdmin } from "@/lib/supa";
 import { createClient } from "@/lib/supabase/server";
@@ -13,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Top Commander Cards | ManaTap",
   description:
-    "Top global Commander cards by Scryfall meta signals. Card pages with oracle text, price, and commanders.",
+    "Top Commander cards from ManaTap public decks, Scryfall card data, and EDHREC-order global signals. Card pages with oracle text, price, and commanders.",
   alternates: { canonical: "https://www.manatap.ai/cards" },
 };
 
@@ -37,6 +39,16 @@ type GlobalMetaCardRow = {
     edhrec_rank?: number | null;
     usd?: number | string | null;
   } | null;
+};
+
+type CachedCardDetails = {
+  image_uris?: {
+    small?: string;
+    normal?: string;
+    large?: string;
+  };
+  set?: string;
+  rarity?: string;
 };
 
 function norm(name: string): string {
@@ -117,7 +129,7 @@ async function getGlobalMetaCards(): Promise<CardListRow[]> {
   const supabase = await createClient();
   const priceKeys = Array.from(new Set(names.map(normalizePriceCacheName)));
   const [detailsMap, priceResult] = await Promise.all([
-    getDetailsForNamesCached(names).catch(() => new Map<string, any>()),
+    getDetailsForNamesCached(names).catch(() => new Map<string, CachedCardDetails>()),
     supabase
       .from("price_cache")
       .select("card_name, usd_price")
@@ -148,7 +160,10 @@ async function getGlobalMetaCards(): Promise<CardListRow[]> {
 }
 
 export default async function CardsIndexPage() {
-  const cards = await getGlobalMetaCards();
+  const [cards, sourceSummary] = await Promise.all([
+    getGlobalMetaCards(),
+    getMetaSourceSummary(),
+  ]);
 
   return (
     <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -162,8 +177,11 @@ export default async function CardsIndexPage() {
           Top Commander Cards
         </h1>
         <p className="text-neutral-300 mb-6 max-w-3xl text-lg leading-relaxed">
-          Most-played cards in public Commander decks, updated daily. Explore staple cards, discover format trends, and open any card for prices, oracle text, and commander synergies.
+          Most-played Commander cards blended from ManaTap public decks, Scryfall card data, and EDHREC-order global popularity signals. Explore staples, prices, oracle text, and commander synergies.
         </p>
+        <div className="mb-8">
+          <MetaSourceCallout summary={sourceSummary} compact />
+        </div>
         <CardSearchCommandCenter />
         <section className="mt-10">
           <h2 className="text-2xl font-bold text-white">Top Commander Cards</h2>

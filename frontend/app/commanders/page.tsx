@@ -5,6 +5,8 @@ import { COMMANDERS, getRecentlyUpdatedCommanders } from "@/lib/commanders";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { MetaLayout } from "@/components/meta/MetaLayout";
 import { CommanderCard } from "@/components/meta/CommanderCard";
+import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
+import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
 
 export const metadata: Metadata = {
   title: "Commander Tools & Guides | Mulligan, Cost, Budget | ManaTap",
@@ -45,6 +47,7 @@ export default async function CommandersIndexPage() {
     getRecentlyUpdatedCommanders(8),
     getImagesForNamesCached(COMMANDERS.map((c) => c.name)),
   ]);
+  const sourceSummary = await getMetaSourceSummary();
 
   return (
     <MetaLayout>
@@ -72,6 +75,10 @@ export default async function CommandersIndexPage() {
             cards. All SSR, indexable. No signup required.
           </p>
         </section>
+
+        <div className="mb-10">
+          <MetaSourceCallout summary={sourceSummary} compact />
+        </div>
 
         {/* Recently Updated - more visually distinct */}
         {recentUpdates.length > 0 && (

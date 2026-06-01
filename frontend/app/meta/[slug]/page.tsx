@@ -13,6 +13,8 @@ import { getBudgetCommanders } from "@/lib/meta/getBudgetCommanders";
 import { getTrendingCards } from "@/lib/meta/getTrendingCards";
 import { getMostPlayedCards } from "@/lib/meta/getMostPlayedCards";
 import { formatRelative } from "@/lib/meta/getMetaSnapshot";
+import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
+import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
 import { META_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 const BASE = "https://www.manatap.ai";
@@ -55,43 +57,43 @@ export default async function MetaPage({ params }: Props) {
     slug === "trending-commanders" ||
     slug === "most-played-commanders" ||
     slug === "budget-commanders";
-  const isCard = slug === "trending-cards" || slug === "most-played-cards";
 
   let items: unknown[] = [];
   let imageMap = new Map<string, string>();
   let updatedAt: string | null = null;
-  let description = "Based on public Commander deck data. Updated daily.";
+  let description = "Based on blended ManaTap public deck activity and global Commander signals. Updated daily.";
+  const sourceSummary = await getMetaSourceSummary();
 
   if (slug === "trending-commanders") {
     const data = await getTrendingCommanders();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Commanders with the most new decks in the last 30 days.";
+    description = "Commanders rising through ManaTap deck activity, recent-set momentum, and global EDHREC-order signals.";
   } else if (slug === "most-played-commanders") {
     const data = await getMostPlayedCommanders();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Top commanders by total public deck count.";
+    description = "Top commanders from a blend of ManaTap public Commander decks and global popularity signals.";
   } else if (slug === "budget-commanders") {
     const data = await getBudgetCommanders();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Lowest median deck cost. Build on a budget.";
+    description = "Budget-friendly cards and commander-adjacent staples from ManaTap deck counts and low-cost global signals.";
   } else if (slug === "trending-cards") {
     const data = await getTrendingCards();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Cards appearing most in recently created decks.";
+    description = "Cards gaining momentum in recent ManaTap decks, backed by global Commander popularity signals.";
   } else if (slug === "most-played-cards") {
     const data = await getMostPlayedCards();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Most included cards across all public Commander decks.";
+    description = "Most-played Commander cards from ManaTap deck activity and global EDHREC-order card signals.";
   }
 
   const statStripStats = [
@@ -106,6 +108,7 @@ export default async function MetaPage({ params }: Props) {
           },
         ]
       : []),
+    { label: "Data source", value: "Blended public + global" },
   ];
 
   return (
@@ -132,6 +135,10 @@ export default async function MetaPage({ params }: Props) {
             ) : undefined
           }
         />
+
+        <div className="mb-8">
+          <MetaSourceCallout summary={sourceSummary} compact />
+        </div>
 
         {items.length > 0 ? (
           <>

@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { COMMANDERS, getCommanderBySlug, getFirst50CommanderSlugs } from "@/lib/commanders";
 import type { CommanderProfile } from "@/lib/commanders";
+import { getGlobalMetaCommanders } from "@/lib/meta/global-meta-entities";
 
 function norm(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -16,19 +17,28 @@ function tagOverlap(a: string[], b: string[]): number {
   return a.filter((t) => setB.has(norm(t))).length;
 }
 
-function getSimilarCommanders(currentSlug: string, limit = 6): CommanderProfile[] {
+async function getSimilarCommanders(currentSlug: string, limit = 6): Promise<CommanderProfile[]> {
   const current = getCommanderBySlug(currentSlug);
   if (!current) return getFirst50CommanderSlugs().slice(0, limit).map((s) => getCommanderBySlug(s)!).filter(Boolean);
 
   const currentTags = current.tags ?? [];
+  const metaRows = await getGlobalMetaCommanders(100).catch(() => []);
+  const metaScore = new Map(
+    metaRows.map((row) => [
+      row.slug,
+      (row.trendingRank ? 80 - row.trendingRank : 0) +
+        (row.mostPlayedRank ? 60 - row.mostPlayedRank : 0),
+    ])
+  );
   const scored = COMMANDERS.filter((c) => c.slug !== currentSlug).map((c) => ({
     profile: c,
-    score: tagOverlap(currentTags, c.tags ?? []),
+    overlap: tagOverlap(currentTags, c.tags ?? []),
+    score: tagOverlap(currentTags, c.tags ?? []) * 1000 + (metaScore.get(c.slug) ?? 0),
   }));
 
   scored.sort((a, b) => b.score - a.score);
-  const withOverlap = scored.filter((s) => s.score > 0).map((s) => s.profile);
-  const rest = scored.filter((s) => s.score === 0).map((s) => s.profile);
+  const withOverlap = scored.filter((s) => s.overlap > 0).map((s) => s.profile);
+  const rest = scored.filter((s) => s.overlap === 0).map((s) => s.profile);
   const result = [...withOverlap, ...rest].slice(0, limit);
 
   if (result.length < limit) {
@@ -52,14 +62,14 @@ type Props = {
   currentSlug: string;
 };
 
-export function SimilarCommanders({ currentSlug }: Props) {
-  const similar = getSimilarCommanders(currentSlug);
+export async function SimilarCommanders({ currentSlug }: Props) {
+  const similar = await getSimilarCommanders(currentSlug);
   if (similar.length === 0) return null;
 
   return (
     <section className="rounded-xl border border-neutral-700 bg-neutral-800/60 p-5 mb-6">
       <h2 className="text-lg font-semibold text-neutral-100 mb-4">
-        Similar commanders you may like
+        Similar commanders in the meta
       </h2>
       <div className="overflow-x-auto -mx-1 pb-2">
         <ul className="flex gap-2 min-w-0">

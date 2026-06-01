@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArchetypeBySlug, getAllArchetypeSlugs, getCommandersByArchetype } from "@/lib/archetypes";
+import { getGlobalMetaCommanders } from "@/lib/meta/global-meta-entities";
 
 const BASE = "https://www.manatap.ai";
 
@@ -40,6 +41,8 @@ export default async function ArchetypePage({ params }: Props) {
   if (!archetype) notFound();
 
   const commanders = await getCommandersByArchetype(slug);
+  const metaRows = await getGlobalMetaCommanders(150).catch(() => []);
+  const metaBySlug = new Map(metaRows.map((row) => [row.slug, row]));
 
   const faqs = [
     {
@@ -80,13 +83,26 @@ export default async function ArchetypePage({ params }: Props) {
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-neutral-100 mb-4">Commanders</h2>
             <ul className="grid gap-2 sm:grid-cols-2">
-              {commanders.map((c) => (
-                <li key={c.slug}>
+              {commanders.map((c) => {
+                const meta = metaBySlug.get(c.slug);
+                const badge = meta?.trendingRank
+                  ? `Trending #${meta.trendingRank}`
+                  : meta?.mostPlayedRank
+                    ? `Meta #${meta.mostPlayedRank}`
+                    : null;
+                return (
+                <li key={c.slug} className="flex items-center gap-2">
                   <Link href={`/commanders/${c.slug}`} className="text-blue-400 hover:underline">
                     {c.name}
                   </Link>
+                  {badge ? (
+                    <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                      {badge}
+                    </span>
+                  ) : null}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
         )}

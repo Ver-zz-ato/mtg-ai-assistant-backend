@@ -1,10 +1,13 @@
-import { COMMANDERS } from "@/lib/commanders";
 import { CommanderLinkWithHover } from "@/components/CommanderLinkWithHover";
+import { getGlobalMetaCommanders } from "@/lib/meta/global-meta-entities";
 
-/** Take first 10 commanders for Popular Commanders section (SSR) */
-const POPULAR = COMMANDERS.slice(0, 10);
+export async function PopularCommanders() {
+  const popular = (await getGlobalMetaCommanders(10).catch(() => [])).filter(
+    (commander) => commander.inCatalog
+  );
 
-export function PopularCommanders() {
+  if (popular.length === 0) return null;
+
   return (
     <section
       className="mt-8 pt-6 border-t border-neutral-700"
@@ -14,10 +17,10 @@ export function PopularCommanders() {
         Popular Commanders
       </h2>
       <p className="text-neutral-400 text-sm mb-3">
-        Common commander shells people use this tool for.
+        Live Commander shells from ManaTap&apos;s blended meta signals.
       </p>
       <ul className="flex flex-wrap gap-3">
-        {POPULAR.map((c) => (
+        {popular.map((c) => (
           <li key={c.slug}>
             <CommanderLinkWithHover
               href={`/commanders/${c.slug}`}

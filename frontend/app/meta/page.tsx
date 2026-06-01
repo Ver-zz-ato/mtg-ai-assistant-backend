@@ -12,6 +12,8 @@ import { MetaHero } from "@/components/meta/MetaHero";
 import { MetaStatStrip } from "@/components/meta/MetaStatStrip";
 import { MetaTileGrid } from "@/components/meta/MetaTileGrid";
 import { getMetaSnapshot, formatRelative } from "@/lib/meta/getMetaSnapshot";
+import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
+import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
 import { META_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
@@ -62,21 +64,32 @@ const TILES = [
 ];
 
 export default async function MetaIndexPage() {
-  const snapshot = await getMetaSnapshot();
+  const [snapshot, sourceSummary] = await Promise.all([
+    getMetaSnapshot(),
+    getMetaSourceSummary(),
+  ]);
 
   const stats = [
-    ...(snapshot.decksAnalyzed != null
-      ? [{ label: "Decks analyzed", value: snapshot.decksAnalyzed.toLocaleString() }]
+    ...(sourceSummary.publicCommanderDecks != null
+      ? [{ label: "ManaTap decks", value: sourceSummary.publicCommanderDecks.toLocaleString() }]
       : []),
-    ...(snapshot.lastUpdated
+    ...(sourceSummary.globalCommanderRows != null || sourceSummary.globalCardRows != null
       ? [
           {
-            label: "Last updated",
-            value: formatRelative(snapshot.lastUpdated),
+            label: "Global signals",
+            value: `${(sourceSummary.globalCommanderRows ?? 0).toLocaleString()} commanders / ${(sourceSummary.globalCardRows ?? 0).toLocaleString()} cards`,
           },
         ]
       : []),
-    { label: "Data source", value: "Scryfall API" },
+    ...((sourceSummary.lastUpdated ?? snapshot.lastUpdated)
+      ? [
+          {
+            label: "Last updated",
+            value: formatRelative(sourceSummary.lastUpdated ?? snapshot.lastUpdated!),
+          },
+        ]
+      : []),
+    { label: "Data source", value: "Blended public + global" },
   ];
 
   return (
@@ -92,10 +105,14 @@ export default async function MetaIndexPage() {
 
         <MetaHero
           headline="Stay Ahead of the Commander Meta"
-          subtext="Updated daily from public deck data."
+          subtext="Updated daily from ManaTap deck activity, Scryfall card data, and EDHREC-order global popularity signals."
         >
           <MetaStatStrip stats={stats} />
         </MetaHero>
+
+        <div className="mb-10">
+          <MetaSourceCallout summary={sourceSummary} />
+        </div>
 
         {/* Feature panel: Top Trending Commander */}
         {snapshot.topCommander && (

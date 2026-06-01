@@ -5,8 +5,21 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { COMMANDERS, type CommanderProfile } from "@/lib/commanders";
-import { getArchetypeBySlug, getAllArchetypeSlugs } from "@/lib/data/archetypes";
-import { getStrategyBySlug, getAllStrategySlugs } from "@/lib/data/strategies";
+import { getArchetypeBySlug } from "@/lib/data/archetypes";
+import { getStrategyBySlug } from "@/lib/data/strategies";
+import { getGlobalMetaCommanders } from "@/lib/meta/global-meta-entities";
+
+async function sortByMetaSignal(commanders: CommanderProfile[]): Promise<CommanderProfile[]> {
+  const metaRows = await getGlobalMetaCommanders(150).catch(() => []);
+  const score = new Map(
+    metaRows.map((row) => [
+      row.slug,
+      (row.trendingRank ? 1000 - row.trendingRank * 4 : 0) +
+        (row.mostPlayedRank ? 600 - row.mostPlayedRank * 2 : 0),
+    ])
+  );
+  return [...commanders].sort((a, b) => (score.get(b.slug) ?? 0) - (score.get(a.slug) ?? 0));
+}
 
 /** Commanders with tag match AND deck_count > 0. Fallback to tag-only if empty. */
 export async function getCommandersByArchetype(slug: string): Promise<CommanderProfile[]> {
@@ -33,7 +46,7 @@ export async function getCommandersByArchetype(slug: string): Promise<CommanderP
   );
 
   const grounded = withTagMatch.filter((c) => withDecks.has(c.slug));
-  return grounded.length > 0 ? grounded : withTagMatch;
+  return sortByMetaSignal(grounded.length > 0 ? grounded : withTagMatch);
 }
 
 export async function getCommandersByStrategy(slug: string): Promise<CommanderProfile[]> {
@@ -60,7 +73,7 @@ export async function getCommandersByStrategy(slug: string): Promise<CommanderPr
   );
 
   const grounded = withTagMatch.filter((c) => withDecks.has(c.slug));
-  return grounded.length > 0 ? grounded : withTagMatch;
+  return sortByMetaSignal(grounded.length > 0 ? grounded : withTagMatch);
 }
 
 export { getArchetypeBySlug, getAllArchetypeSlugs } from "@/lib/data/archetypes";
