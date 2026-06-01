@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useProStatus } from '@/hooks/useProStatus';
 
 type Notice = { type: 'success' | 'error' | 'info'; message: string };
+type ModerationActionType = 'warn' | 'ban' | 'unban' | 'note';
 type SortKey =
   | 'username'
   | 'email'
@@ -16,6 +17,46 @@ type SortKey =
   | 'billing_active'
   | 'stripe_subscription_id';
 type SortDirection = 'asc' | 'desc';
+type ModerationData = {
+  status: {
+    user_id: string;
+    warning_count: number;
+    is_banned: boolean;
+    banned_until: string | null;
+    last_action_type: ModerationActionType | null;
+    last_reason: string | null;
+    last_note: string | null;
+    updated_at: string | null;
+    updated_by: string | null;
+    active_ban: boolean;
+  };
+  recentActions: Array<{
+    id: string;
+    action_type: ModerationActionType;
+    reason: string;
+    details: string | null;
+    banned_until: string | null;
+    created_at: string;
+    actor: { id: string; email: string | null; username: string | null } | null;
+  }>;
+  recentReports: Array<{
+    id: string;
+    subject_type: string;
+    resource_type: string | null;
+    reason: string;
+    details: string | null;
+    status: string;
+    created_at: string;
+    reporter: { id: string; email: string | null; username: string | null } | null;
+  }>;
+  reportCounts: {
+    open: number;
+    reviewed: number;
+    resolved: number;
+    dismissed: number;
+    total: number;
+  };
+};
 
 function fmt(d: string | null) {
   if (!d) return '-';
@@ -46,6 +87,11 @@ export default function SupportPage() {
   const [toggleBusyKey, setToggleBusyKey] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<Notice | null>(null);
   const [verificationLink, setVerificationLink] = React.useState<string | null>(null);
+  const [moderationData, setModerationData] = React.useState<ModerationData | null>(null);
+  const [moderationBusy, setModerationBusy] = React.useState(false);
+  const [moderationReason, setModerationReason] = React.useState('');
+  const [moderationDetails, setModerationDetails] = React.useState('');
+  const [moderationBanDuration, setModerationBanDuration] = React.useState<'7' | '30' | 'permanent'>('7');
   const { user } = useAuth();
   const { isPro } = useProStatus();
 
@@ -125,6 +171,14 @@ export default function SupportPage() {
     setRows((prev) => prev.map((row) => (row.id === userId ? { ...row, ...patch } : row)));
   }
 
+  function buildBanUntil(duration: '7' | '30' | 'permanent') {
+    if (duration === 'permanent') return null;
+    const days = Number(duration);
+    const next = new Date();
+    next.setDate(next.getDate() + days);
+    return next.toISOString();
+  }
+
   async function loadUsers(searchQuery?: string, pageNum = 1) {
     setBusy(true);
     try {
@@ -158,6 +212,64 @@ export default function SupportPage() {
     loadUsers('', 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadModeration(userId: string) {
+    setModerationBusy(true);
+    try {
+      const params = new URLSearchParams({ userId });
+      const r = await fetch(`/api/admin/users/moderation?${params.toString()}`);
+      const j = await r.json();
+      if (!r.ok || j?.ok === false) throw new Error(j?.error || 'moderation_load_failed');
+      setModerationData(j);
+      setModerationReason('');
+      setModerationDetails('');
+    } catch (e: any) {
+      setModerationData(null);
+      setNotice({ type: 'error', message: e?.message || 'Failed to load moderation details.' });
+    } finally {
+      setModerationBusy(false);
+    }
+  }
+
+  React.useEffect(() => {
+    if (!selectedUserId) {
+      setModerationData(null);
+      return;
+    }
+    loadModeration(selectedUserId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUserId]);
+
+  async function runModerationAction(actionType: ModerationActionType) {
+    if (!selectedUserId) return;
+    if (!moderationReason.trim() || moderationReason.trim().length < 3) {
+      setNotice({ type: 'info', message: 'Add a short moderation reason first.' });
+      return;
+    }
+    setModerationBusy(true);
+    setNotice(null);
+    try {
+      const r = await fetch('/api/admin/users/moderation', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          userId: selectedUserId,
+          actionType,
+          reason: moderationReason,
+          details: moderationDetails,
+          bannedUntil: actionType === 'ban' ? buildBanUntil(moderationBanDuration) : null,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok || j?.ok === false) throw new Error(j?.error || 'moderation_update_failed');
+      setNotice({ type: 'success', message: `${actionType} saved.` });
+      await loadModeration(selectedUserId);
+    } catch (e: any) {
+      setNotice({ type: 'error', message: e?.message || 'Failed to save moderation action.' });
+    } finally {
+      setModerationBusy(false);
+    }
+  }
 
   async function setPro(userId: string, pro: boolean) {
     const current = rows.find((r) => r.id === userId);
@@ -348,7 +460,7 @@ export default function SupportPage() {
         items={[
           'Scrollable list of users with detailed info: email, decks, Pro status, Stripe, last sign-in.',
           'Search by email, id, or username. Toggle Pro/Billing for access or refund fixes.',
-          'Select a user for account actions: generate a verification link, export data, or delete account.',
+          'Select a user for account actions: generate a verification link, export data, delete account, or apply moderation actions.',
         ]}
       />
 
@@ -512,7 +624,12 @@ export default function SupportPage() {
       </section>
 
       <section className="rounded border border-neutral-800 p-3 space-y-3">
-        <div className="font-medium">Account Actions & GDPR</div>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="font-medium">Account Actions, GDPR & Moderation</div>
+          <a href="/admin/moderation" className="text-sm text-blue-400 hover:text-blue-300 underline">
+            Open moderation queue
+          </a>
+        </div>
         {!selectedUserId ? (
           <div className="text-sm opacity-70">Select a user from search results above to perform actions.</div>
         ) : (
@@ -589,6 +706,127 @@ export default function SupportPage() {
                 </div>
               </div>
             )}
+
+            <div className="rounded border border-neutral-800 bg-neutral-950/40 p-3 space-y-3">
+              <div className="font-medium text-sm">Moderation</div>
+              {moderationBusy && !moderationData ? (
+                <div className="text-sm text-neutral-400">Loading moderation details...</div>
+              ) : moderationData ? (
+                <>
+                  <div className="grid gap-2 text-xs text-neutral-300 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>Warnings: <span className="text-neutral-100">{moderationData.status.warning_count}</span></div>
+                    <div>Ban: <span className="text-neutral-100">{moderationData.status.active_ban ? (moderationData.status.banned_until ? `Until ${fmt(moderationData.status.banned_until)}` : 'Permanent') : 'Not banned'}</span></div>
+                    <div>Open reports: <span className="text-neutral-100">{moderationData.reportCounts.open}</span></div>
+                    <div>Total reports: <span className="text-neutral-100">{moderationData.reportCounts.total}</span></div>
+                  </div>
+
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className="space-y-2">
+                      <label className="block text-xs text-neutral-400">Moderation reason</label>
+                      <input
+                        value={moderationReason}
+                        onChange={(e) => setModerationReason(e.target.value)}
+                        className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                        placeholder="Harassment in public comments"
+                      />
+                      <label className="block text-xs text-neutral-400">Internal detail</label>
+                      <textarea
+                        value={moderationDetails}
+                        onChange={(e) => setModerationDetails(e.target.value)}
+                        rows={4}
+                        className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+                        placeholder="What happened, what warning was sent, any follow-up..."
+                      />
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <select
+                          value={moderationBanDuration}
+                          onChange={(e) => setModerationBanDuration(e.target.value as '7' | '30' | 'permanent')}
+                          className="rounded border border-neutral-700 bg-neutral-950 px-2 py-2 text-sm"
+                        >
+                          <option value="7">Ban 7d</option>
+                          <option value="30">Ban 30d</option>
+                          <option value="permanent">Permanent ban</option>
+                        </select>
+                        <button
+                          onClick={() => runModerationAction('warn')}
+                          disabled={moderationBusy}
+                          className="px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-sm"
+                        >
+                          Warn
+                        </button>
+                        <button
+                          onClick={() => runModerationAction('note')}
+                          disabled={moderationBusy}
+                          className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600 disabled:opacity-60 text-sm"
+                        >
+                          Add note
+                        </button>
+                        <button
+                          onClick={() => runModerationAction('ban')}
+                          disabled={moderationBusy}
+                          className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-500 disabled:opacity-60 text-sm"
+                        >
+                          Ban
+                        </button>
+                        <button
+                          onClick={() => runModerationAction('unban')}
+                          disabled={moderationBusy}
+                          className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 text-sm"
+                        >
+                          Unban
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded border border-neutral-800 bg-neutral-950/40 p-3 text-xs text-neutral-300 space-y-2">
+                      <div className="font-medium text-neutral-100">Recent reports</div>
+                      {moderationData.recentReports.length === 0 ? (
+                        <div className="text-neutral-500">No reports for this user yet.</div>
+                      ) : (
+                        moderationData.recentReports.slice(0, 5).map((report) => (
+                          <div key={report.id} className="rounded border border-neutral-800 p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-neutral-100">{report.reason}</span>
+                              <span className="uppercase tracking-wide text-[10px] text-neutral-500">{report.status}</span>
+                            </div>
+                            <div className="text-neutral-500 mt-1">{report.subject_type} · {report.resource_type || 'n/a'}</div>
+                            <div className="text-neutral-500">{fmt(report.created_at)}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div className="rounded border border-neutral-800 bg-neutral-950/40 p-3 text-xs text-neutral-300 space-y-2">
+                      <div className="font-medium text-neutral-100">Recent actions</div>
+                      {moderationData.recentActions.length === 0 ? (
+                        <div className="text-neutral-500">No moderation actions yet.</div>
+                      ) : (
+                        moderationData.recentActions.slice(0, 5).map((action) => (
+                          <div key={action.id} className="rounded border border-neutral-800 p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="uppercase tracking-wide text-neutral-100">{action.action_type}</span>
+                              <span className="text-neutral-500">{fmt(action.created_at)}</span>
+                            </div>
+                            <div className="mt-1">{action.reason}</div>
+                            {action.details ? <div className="mt-1 text-neutral-500">{action.details}</div> : null}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="rounded border border-neutral-800 bg-neutral-950/40 p-3 text-xs text-neutral-300">
+                      <div className="font-medium text-neutral-100 mb-2">Last moderation state</div>
+                      <div>Last action: <span className="text-neutral-100">{moderationData.status.last_action_type || '-'}</span></div>
+                      <div className="mt-1">Last reason: <span className="text-neutral-100">{moderationData.status.last_reason || '-'}</span></div>
+                      <div className="mt-1">Updated: <span className="text-neutral-100">{fmt(moderationData.status.updated_at)}</span></div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-neutral-400">Moderation details unavailable.</div>
+              )}
+            </div>
 
             <div className="text-xs text-red-400 border-t border-neutral-800 pt-2 mt-2">
               Warning: Delete Account permanently removes all user data including decks, collections, chat history, and profile. This cannot be undone.

@@ -75,6 +75,35 @@ Deck badge instrumentation now also relies on tagged `decks.meta` values when pr
 - `generation_intent`
   - currently used for idea/build-around save metadata and future-safe attribution
 
+### UGC safety additions (2026-06-01)
+
+Additive moderation support for public mobile/web share surfaces:
+
+- `user_blocks`
+  - one row per `blocker_user_id + blocked_user_id`
+  - used to hide blocked users’ public profiles/comments in the app
+- `user_content_reports`
+  - first-pass moderation queue for `public_profile`, `shared_item`, and `shared_comment`
+- `user_moderation_status`
+  - latest server-owned state for warnings and bans on a given user
+- `user_moderation_actions`
+  - append-only admin history for `warn`, `ban`, `unban`, and internal moderation notes
+
+Route surface:
+
+- `GET` / `POST /api/users/me/blocks`
+- `POST /api/moderation/reports`
+- `GET` / `PATCH /api/admin/moderation/reports`
+- `GET` / `POST /api/admin/users/moderation`
+
+Expected behavior:
+
+- authenticated users manage their own block list
+- authenticated users submit moderation reports
+- `/api/share/comments` filters out authors the current viewer has blocked when Bearer auth is present
+- banned users are blocked from posting new public share comments or new moderation reports
+- admin support/moderation pages operate through service-role routes rather than direct client DB access
+
 ---
 
 ### Deck size enforcement (2026-05-19)

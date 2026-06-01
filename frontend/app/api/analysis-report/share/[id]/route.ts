@@ -31,6 +31,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       snapshot_json: data.snapshot_json,
       created_at: data.created_at,
       expires_at: data.expires_at,
+      owner_user_id: data.user_id,
     });
   } catch (e: unknown) {
     console.error("analysis_share_get", e);

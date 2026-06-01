@@ -39,6 +39,7 @@ const GROUPS = [
       { href: "/admin/feedback", label: "Feedback", eli5: "General support widget feedback (non-AI)" },
       { href: "/admin/ai-reports", label: "AI Reports (legacy)", eli5: "Historical ai_response_reports before unified events" },
       { href: "/admin/app-ai-feedback", label: "App AI Feedback (legacy)", eli5: "Redirects to unified AI Feedback" },
+      { href: "/admin/moderation", label: "Moderation Queue", eli5: "Public profile/share/comment reports plus warn and ban actions" },
       { href: "/admin/support", label: "User Support", eli5: "Grant Pro, resend emails, GDPR export/delete" },
       { href: "/admin/shoutbox", label: "Shoutbox", eli5: "Moderate messages, ban users, trigger AI posts" },
     ],

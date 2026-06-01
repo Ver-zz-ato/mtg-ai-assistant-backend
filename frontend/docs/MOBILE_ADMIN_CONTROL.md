@@ -117,7 +117,12 @@ Private tables:
 | `admin_app_metric_snapshots` | Cached metric rollups for fast phone checks and cron refreshes |
 | `admin_app_alerts` | Alert history, dedupe keys, status, payload, and Discord send metadata |
 
-Identity is masked in list views by default. Use the existing support, entitlement debug, Stripe sync, feedback triage, and ops pages for one-user investigations or mutating controls.
+Identity is masked in list views by default. Use the existing support, entitlement debug, Stripe sync, feedback triage, moderation queue, and ops pages for one-user investigations or mutating controls.
+
+Moderation note:
+
+- `/admin/moderation` is the first-pass queue for public profile/share/comment reports.
+- `/admin/support` now also includes one-user moderation controls (warn, note, ban, unban) alongside the existing account support actions.
 
 Ops tab note:
 

@@ -6,6 +6,7 @@ import { validatePublicText } from "@/lib/profanity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { checkRateLimit } from "@/lib/api/rate-limit";
 import { extractIP } from "@/lib/guest-tracking";
+import { getModerationStatus, isBanActive } from "@/lib/admin/moderation";
 
 export const runtime = "nodejs";
 
@@ -109,8 +110,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Failed to load" }, { status: 500 });
     }
 
+    const { user } = await getUserAndSupabase(req);
+    let blockedIds = new Set<string>();
+    if (user?.id) {
+      const { data: blockedRows } = await admin
+        .from("user_blocks")
+        .select("blocked_user_id")
+        .eq("blocker_user_id", user.id);
+      blockedIds = new Set(
+        (blockedRows || [])
+          .map((row) => String(row.blocked_user_id || "").trim())
+          .filter(Boolean)
+      );
+    }
+
+    const visibleComments = (comments || []).filter((comment) => !blockedIds.has(comment.user_id));
+
     const enriched = await Promise.all(
-      (comments || []).map(async (comment) => {
+      visibleComments.map(async (comment) => {
         const { data: userData } = await admin.auth.admin.getUserById(comment.user_id);
         const meta = userData?.user?.user_metadata || {};
         return {
@@ -156,6 +173,11 @@ export async function POST(req: NextRequest) {
     const admin = adminClient();
     if (!admin) {
       return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 500 });
+    }
+
+    const moderation = await getModerationStatus(admin, user.id);
+    if (isBanActive(moderation)) {
+      return NextResponse.json({ ok: false, error: "account_banned_from_public_actions" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));

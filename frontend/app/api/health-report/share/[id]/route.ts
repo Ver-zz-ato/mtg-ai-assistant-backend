@@ -34,6 +34,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       snapshot_json: data.snapshot_json,
       created_at: data.created_at,
       expires_at: data.expires_at,
+      owner_user_id: data.user_id,
     });
   } catch (e: unknown) {
     console.error("health_share_get", e);
