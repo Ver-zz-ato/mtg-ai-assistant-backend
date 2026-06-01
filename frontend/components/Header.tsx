@@ -29,6 +29,8 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showHelpMenu, setShowHelpMenu] = useState(false);
   const helpMenuRef = useRef<HTMLDivElement>(null);
+  const helpButtonRef = useRef<HTMLButtonElement>(null);
+  const [helpMenuPosition, setHelpMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentDecks: number } | null>(null);
   const { activeUsers } = useActiveUsers();
 
@@ -124,6 +126,30 @@ export default function Header() {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
+  }, [showHelpMenu]);
+
+  useEffect(() => {
+    if (!showHelpMenu) return;
+
+    const updateHelpMenuPosition = () => {
+      const button = helpButtonRef.current;
+      if (!button) return;
+
+      const rect = button.getBoundingClientRect();
+      setHelpMenuPosition({
+        top: rect.bottom + 8,
+        right: Math.max(window.innerWidth - rect.right, 16),
+      });
+    };
+
+    updateHelpMenuPosition();
+    window.addEventListener('resize', updateHelpMenuPosition);
+    window.addEventListener('scroll', updateHelpMenuPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updateHelpMenuPosition);
+      window.removeEventListener('scroll', updateHelpMenuPosition, true);
+    };
   }, [showHelpMenu]);
 
   async function signInWithGoogle() {
@@ -326,6 +352,7 @@ export default function Header() {
           {/* Help Menu */}
           <div className="relative" ref={helpMenuRef}>
             <button
+              ref={helpButtonRef}
               onClick={() => setShowHelpMenu(!showHelpMenu)}
               className="text-sm hover:underline text-orange-400 font-medium flex items-center gap-1"
             >
@@ -333,8 +360,11 @@ export default function Header() {
               <span className="text-xs">▾</span>
             </button>
             
-            {showHelpMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+             {showHelpMenu && (
+              <div
+                className="fixed w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50"
+                style={helpMenuPosition ? { top: helpMenuPosition.top, right: helpMenuPosition.right } : undefined}
+              >
                 <Link
                   href="/support"
                   className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
