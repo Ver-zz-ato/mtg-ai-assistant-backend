@@ -10,6 +10,8 @@ import { RelatedTools } from "@/components/RelatedTools";
 import { CommanderArtBanner } from "@/components/CommanderArtBanner";
 import { CommanderStatsRibbon } from "@/components/commander/CommanderStatsRibbon";
 import { CommanderToolActions } from "@/components/commander/CommanderToolActions";
+import { CommanderLandingShowcase } from "@/components/commander/CommanderLandingShowcase";
+import { getCommanderShowcase } from "@/lib/seo/commander-showcases";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 import { GuideInlineText } from "@/components/commander/GuideInlineText";
@@ -21,6 +23,10 @@ export async function generateStaticParams() {
 type Props = { params: Promise<{ slug: string }> };
 
 const BASE = "https://www.manatap.ai";
+
+function norm(s: string) {
+  return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
 
 function faqJsonLd() {
   return JSON.stringify({
@@ -56,14 +62,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const colorNames: Record<string, string> = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green" };
   const colors = profile.colors?.map(c => colorNames[c] || c).join("/") || "";
   const colorSnippet = colors ? ` (${colors})` : "";
+  const showcase = getCommanderShowcase(slug, "budget-upgrades");
   
   return {
-    title: `${profile.name} Budget Upgrades 2026 | $50-$200 EDH Deck Guide`,
-    description: `Upgrade your ${profile.name}${colorSnippet} Commander deck on a budget. Top 10 affordable staples, mana base fixes, and $5-under swaps. Free deck cost calculator included.`,
+    title: showcase
+      ? showcase.metadata.title
+      : `${profile.name} Budget Upgrades 2026 | $50-$200 EDH Deck Guide`,
+    description: showcase
+      ? showcase.metadata.description
+      : `Upgrade your ${profile.name}${colorSnippet} Commander deck on a budget. Top 10 affordable staples, mana base fixes, and $5-under swaps. Free deck cost calculator included.`,
     alternates: { canonical: `${BASE}/commanders/${slug}/budget-upgrades` },
     openGraph: {
-      title: `${profile.name} Budget Upgrades - EDH on a Budget`,
-      description: `Transform your ${profile.name} precon into a powerful Commander deck without breaking the bank. Budget-friendly upgrades and swap suggestions.`,
+      title: showcase
+        ? showcase.metadata.openGraphTitle
+        : `${profile.name} Budget Upgrades - EDH on a Budget`,
+      description: showcase
+        ? showcase.metadata.openGraphDescription
+        : `Transform your ${profile.name} precon into a powerful Commander deck without breaking the bank. Budget-friendly upgrades and swap suggestions.`,
       type: "article",
     },
   };
@@ -85,11 +100,9 @@ export default async function BudgetUpgradesPage({ params }: Props) {
     getImagesForNamesCached([cleanName]),
     getCommanderAggregates(slug),
   ]);
-  function norm(s: string) {
-    return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-  }
   const cmdImg = imgMap.get(norm(cleanName));
   const commanderArt = cmdImg?.art_crop || cmdImg?.normal || cmdImg?.small;
+  const showcase = getCommanderShowcase(slug, "budget-upgrades");
 
   return (
     <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -122,6 +135,9 @@ export default async function BudgetUpgradesPage({ params }: Props) {
             { href: `/decks/browse?search=${encodeURIComponent(name)}`, label: "Browse Decks", description: `Explore public ${name} decks` },
           ]}
         />
+        {showcase && (
+          <CommanderLandingShowcase showcase={showcase} deckCount={aggregates?.deckCount ?? 0} />
+        )}
         <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-5 mb-8">
           <h2 className="text-xl font-semibold text-neutral-100 mb-3">Best places to spend first</h2>
           <p className="text-neutral-300 leading-relaxed">

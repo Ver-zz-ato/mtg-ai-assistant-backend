@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 
 type InternalLinkBlocksProps = {
   commanders: Array<{ slug: string; name: string }>;
@@ -26,9 +27,9 @@ export function InternalLinkBlocks({ commanders, cards, metaLinks }: InternalLin
         <ul className="flex flex-wrap gap-2">
           {cards.map(({ slug, name }) => (
             <li key={slug}>
-              <Link href={`/cards/${slug}`} className="text-cyan-400 hover:underline text-sm">
+              <CardDetailLink cardName={name} className="text-cyan-400 hover:underline text-sm">
                 {name}
-              </Link>
+              </CardDetailLink>
             </li>
           ))}
         </ul>

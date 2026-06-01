@@ -3,7 +3,7 @@
  * Hides percentages when decks_tracked < threshold to avoid "100% everywhere".
  */
 
-import Link from "next/link";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { shouldShowPercentInCoreStaples } from "@/lib/commander-data-confidence";
 
@@ -33,10 +33,11 @@ export async function CoreStaples({
 
   const names = cards.map((c) => c.cardName);
   const detailsMap = await getDetailsForNamesCached(names);
-  const imageMap = new Map<string, string>();
+  const imageMap = new Map<string, { small?: string; normal?: string }>();
   for (const [k, v] of detailsMap) {
-    const url = v?.image_uris?.small ?? v?.image_uris?.normal;
-    if (url) imageMap.set(norm(k), url);
+    const small = v?.image_uris?.small;
+    const normal = v?.image_uris?.normal;
+    if (small || normal) imageMap.set(norm(k), { small, normal });
   }
 
   const showPercent = shouldShowPercentInCoreStaples(deckCount);
@@ -53,16 +54,16 @@ export async function CoreStaples({
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {cards.map((c, i) => {
-          const imgUrl = imageMap.get(norm(c.cardName));
-          const slug = c.cardName
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, "");
+          const image = imageMap.get(norm(c.cardName));
+          const imgUrl = image?.small ?? image?.normal;
           return (
-            <Link
+            <CardDetailLink
               key={c.cardName}
-              href={`/cards/${slug}`}
-              className="flex items-center gap-3 p-2.5 rounded-lg bg-neutral-900/50 hover:bg-neutral-800/80 border border-transparent hover:border-neutral-600 transition-colors"
+              cardName={c.cardName}
+              imageSmall={image?.small}
+              imageNormal={image?.normal}
+              title={c.cardName}
+              className="flex w-full items-center gap-3 p-2.5 rounded-lg bg-neutral-900/50 hover:bg-neutral-800/80 border border-transparent hover:border-neutral-600 transition-colors text-left"
             >
               <span className="shrink-0 w-6 text-center text-neutral-500 text-sm font-medium tabular-nums">
                 {i + 1}
@@ -88,7 +89,7 @@ export async function CoreStaples({
                   Seen
                 </span>
               )}
-            </Link>
+            </CardDetailLink>
           );
         })}
       </div>

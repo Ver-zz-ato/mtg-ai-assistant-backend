@@ -1,20 +1,10 @@
 import Link from "next/link";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 import { CTAPanel } from "./CTAPanel";
 import { ExploreLinks } from "./ExploreLinks";
 import { CostLandingCalculator } from "./CostLandingCalculator";
 import type { CostLandingData } from "@/lib/seo/cost-landing-data";
 import type { GlobalMetaCommanderEntity } from "@/lib/meta/global-meta-entities";
-
-function cardNameToSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[''`]/g, "'")
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/^-+|-+$/g, "");
-}
 
 type Props = {
   commanderSlug: string;
@@ -25,7 +15,7 @@ type Props = {
   metaFacts?: GlobalMetaCommanderEntity | null;
 };
 
-export function CommanderCostLanding({ commanderSlug, commanderName, query, slug, costData, metaFacts }: Props) {
+export function CommanderCostLanding({ commanderSlug, commanderName, slug, costData, metaFacts }: Props) {
   const { costSnapshot, costDrivers } = costData;
 
   const metaLine = metaFacts?.mostPlayedRank
@@ -89,12 +79,9 @@ The ${commanderName} Commander Hub on ManaTap shows typical deck cost ranges for
           <ul className="space-y-2">
             {costDrivers.map(({ cardName, usdPrice }) => (
               <li key={cardName} className="flex justify-between items-center text-sm">
-                <Link
-                  href={`/cards/${cardNameToSlug(cardName)}`}
-                  className="text-cyan-400 hover:underline"
-                >
+                <CardDetailLink cardName={cardName} className="text-cyan-400 hover:underline text-left">
                   {cardName}
-                </Link>
+                </CardDetailLink>
                 <span className="tabular-nums text-neutral-300">~${usdPrice.toLocaleString()}</span>
               </li>
             ))}

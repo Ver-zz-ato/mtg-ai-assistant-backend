@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 import { CTAPanel } from "./CTAPanel";
 import { ExploreLinks } from "./ExploreLinks";
 import type { GlobalMetaCardEntity } from "@/lib/meta/global-meta-entities";
@@ -11,7 +12,7 @@ type Props = {
   metaFacts?: GlobalMetaCardEntity | null;
 };
 
-export function CardDecksLanding({ cardName, cardSlug, query, slug, metaFacts }: Props) {
+export function CardDecksLanding({ cardName, cardSlug, slug, metaFacts }: Props) {
   const rankLine = metaFacts?.mostPlayedRank
     ? `${cardName} is one of the most-played cards in the current Commander meta, with a global rank near #${metaFacts.mostPlayedRank}.`
     : `${cardName} appears in many Commander decks.`;
@@ -35,9 +36,9 @@ Whether you're building around ${cardName} or just curious where it fits, ManaTa
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">More for {cardName}</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href={`/cards/${cardSlug}`} className="text-cyan-400 hover:underline">
+          <CardDetailLink cardName={cardName} className="text-cyan-400 hover:underline">
             {cardName} Card Page
-          </Link>
+          </CardDetailLink>
           <Link href={`/decks/browse?search=${encodeURIComponent(cardName)}`} className="text-cyan-400 hover:underline">
             Decks with {cardName}
           </Link>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 import { CTAPanel } from "./CTAPanel";
 import { ExploreLinks } from "./ExploreLinks";
 import type { GlobalMetaCardEntity } from "@/lib/meta/global-meta-entities";
@@ -11,7 +12,7 @@ type Props = {
   metaFacts?: GlobalMetaCardEntity | null;
 };
 
-export function CardPriceLanding({ cardName, cardSlug, query, slug, metaFacts }: Props) {
+export function CardPriceLanding({ cardName, cardSlug, slug, metaFacts }: Props) {
   const rankLine = metaFacts?.mostPlayedRank
     ? `${cardName} is currently one of the most-played Commander cards in ManaTap's global meta view, sitting around rank #${metaFacts.mostPlayedRank}.`
     : `${cardName} price fluctuates with demand, reprints, and format changes.`;
@@ -35,9 +36,9 @@ Use the Budget Swap tool to find cheaper alternatives if ${cardName} is outside 
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">More for {cardName}</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href={`/cards/${cardSlug}`} className="text-cyan-400 hover:underline">
+          <CardDetailLink cardName={cardName} className="text-cyan-400 hover:underline">
             {cardName} Card Page
-          </Link>
+          </CardDetailLink>
           <Link href="/price-tracker" className="text-cyan-400 hover:underline">
             Price Tracker
           </Link>

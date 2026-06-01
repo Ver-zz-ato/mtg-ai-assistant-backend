@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import WebsiteCardDetailModal from "@/components/cards/WebsiteCardDetailModal";
 
 type CardDetailLinkProps = {
@@ -48,13 +49,18 @@ export default function CardDetailLink({
       >
         {children ?? cardName}
       </button>
-      <WebsiteCardDetailModal
-        open={open}
-        cardName={cardName}
-        imageSmall={imageSmall}
-        imageNormal={imageNormal}
-        onClose={() => setOpen(false)}
-      />
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <WebsiteCardDetailModal
+              open={open}
+              cardName={cardName}
+              imageSmall={imageSmall}
+              imageNormal={imageNormal}
+              onClose={() => setOpen(false)}
+            />,
+            document.body,
+          )
+        : null}
     </>
   );
 }

@@ -4,14 +4,7 @@
  * SSR-compatible.
  */
 
-import Link from "next/link";
-
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import CardDetailLink from "@/components/cards/CardDetailLink";
 
 export type CardMetaItem = {
   name: string;
@@ -25,12 +18,13 @@ type Props = {
 };
 
 export function CardMetaCard({ item, imageUrl }: Props) {
-  const slug = toSlug(item.name);
-
   return (
-    <Link
-      href={`/cards/${slug}`}
-      className="group block rounded-xl bg-neutral-800/90 border border-neutral-700 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-200 overflow-hidden"
+    <CardDetailLink
+      cardName={item.name}
+      imageSmall={imageUrl ?? undefined}
+      imageNormal={imageUrl ?? undefined}
+      title={item.name}
+      className="group block w-full rounded-xl bg-neutral-800/90 border border-neutral-700 hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-200 overflow-hidden text-left"
     >
       <div className="aspect-[488/680] relative bg-neutral-800 overflow-hidden">
         {imageUrl ? (
@@ -58,6 +52,6 @@ export function CardMetaCard({ item, imageUrl }: Props) {
           {item.count.toLocaleString()} deck{item.count !== 1 ? "s" : ""}
         </p>
       </div>
-    </Link>
+    </CardDetailLink>
   );
 }
