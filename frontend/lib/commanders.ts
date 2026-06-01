@@ -5,6 +5,7 @@
 
 import commanderProfiles from "@/lib/data/commander_profiles.json";
 import { EXTRA_COMMANDER_PROFILES } from "@/lib/data/commander-extra-profiles";
+import { HAND_BUILT_FLAGSHIP_BY_NAME } from "@/lib/data/commander-handbuilt-guides";
 
 /** Soft cap for bundled catalog size (profiles JSON + extra list). Easy to raise without code churn elsewhere. */
 export const MAX_COMMANDERS = 100;
@@ -84,7 +85,7 @@ const COLOR_MAP: Record<string, string[]> = {
   "sythisharvestshand": ["G", "W"],
   "osgirthereconstructor": ["W", "R"],
   "esixfractalbloom": ["U", "G"],
-  "wilhelttherotcleaver": ["W", "B"],
+  "wilhelttherotcleaver": ["U", "B"],
   "korvoldfaecursedking": ["B", "R", "G"],
   "chulanetelleroftales": ["W", "U", "G"],
   "krenkotinstreetkingpin": ["R"],
@@ -104,7 +105,7 @@ const COLOR_MAP: Record<string, string[]> = {
   "xenagosgodofrevels": ["R", "G"],
   "omnathlocusofcreation": ["W", "U", "R", "G"],
   "omnathlocusofrage": ["R", "G"],
-  "aragorntheunifier": ["W", "U", "B", "R", "G"],
+  "aragorntheunifier": ["W", "U", "R", "G"],
   "roccocabaretticaterer": ["W", "R", "G"],
   "myrathemagnificent": ["U", "R"],
 };
@@ -127,23 +128,9 @@ function buildCommanders(): CommanderProfile[] {
       flagship?: FlagshipGuideContent;
     }
   >;
-  const fromProfiles = Object.entries(profiles).map(([name, p]) => ({
-    slug: toSlug(name),
-    name,
-    colors: COLOR_MAP[norm(name)] ?? undefined,
-    tags: p.preferTags ?? undefined,
-    blurb: p.plan ?? undefined,
-    coachNotes: typeof p.notes === "string" && p.notes.trim() ? p.notes.trim() : undefined,
-    avoid: Array.isArray(p.avoid) && p.avoid.length ? p.avoid : undefined,
-    ...(p.guideTier ? { guideTier: p.guideTier } : {}),
-    ...(p.featuredGuide === true ? { featuredGuide: true } : {}),
-    ...(p.flagship && typeof p.flagship === "object" ? { flagship: p.flagship } : {}),
-  }));
-
-  // Additional commanders not yet present in commander_profiles.json.
-  const extraProfiles: CommanderProfile[] = Object.entries(EXTRA_COMMANDER_PROFILES)
-    .filter(([name]) => !profiles[name])
-    .map(([name, p]) => ({
+  const fromProfiles = Object.entries(profiles).map(([name, p]) => {
+    const handBuiltFlagship = HAND_BUILT_FLAGSHIP_BY_NAME[name];
+    return {
       slug: toSlug(name),
       name,
       colors: COLOR_MAP[norm(name)] ?? undefined,
@@ -151,10 +138,34 @@ function buildCommanders(): CommanderProfile[] {
       blurb: p.plan ?? undefined,
       coachNotes: typeof p.notes === "string" && p.notes.trim() ? p.notes.trim() : undefined,
       avoid: Array.isArray(p.avoid) && p.avoid.length ? p.avoid : undefined,
-      ...(p.guideTier ? { guideTier: p.guideTier } : {}),
-      ...(p.featuredGuide === true ? { featuredGuide: true } : {}),
-      ...(p.flagship && typeof p.flagship === "object" ? { flagship: p.flagship } : {}),
-    }));
+      ...(handBuiltFlagship || p.guideTier ? { guideTier: handBuiltFlagship ? "flagship" : p.guideTier } : {}),
+      ...(handBuiltFlagship || p.featuredGuide === true ? { featuredGuide: true } : {}),
+      ...(handBuiltFlagship || (p.flagship && typeof p.flagship === "object")
+        ? { flagship: handBuiltFlagship ?? p.flagship }
+        : {}),
+    };
+  });
+
+  // Additional commanders not yet present in commander_profiles.json.
+  const extraProfiles: CommanderProfile[] = Object.entries(EXTRA_COMMANDER_PROFILES)
+    .filter(([name]) => !profiles[name])
+    .map(([name, p]) => {
+      const handBuiltFlagship = HAND_BUILT_FLAGSHIP_BY_NAME[name];
+      return {
+        slug: toSlug(name),
+        name,
+        colors: COLOR_MAP[norm(name)] ?? undefined,
+        tags: p.preferTags ?? undefined,
+        blurb: p.plan ?? undefined,
+        coachNotes: typeof p.notes === "string" && p.notes.trim() ? p.notes.trim() : undefined,
+        avoid: Array.isArray(p.avoid) && p.avoid.length ? p.avoid : undefined,
+        ...(handBuiltFlagship || p.guideTier ? { guideTier: handBuiltFlagship ? "flagship" : p.guideTier } : {}),
+        ...(handBuiltFlagship || p.featuredGuide === true ? { featuredGuide: true } : {}),
+        ...(handBuiltFlagship || (p.flagship && typeof p.flagship === "object")
+          ? { flagship: handBuiltFlagship ?? p.flagship }
+          : {}),
+      };
+    });
 
   return [...fromProfiles, ...extraProfiles].slice(0, MAX_COMMANDERS);
 }

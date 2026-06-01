@@ -29,6 +29,7 @@
     "prove:printed-name-cache": "tsx scripts/prove-printed-name-scryfall-cache.ts",
     "cleanup:garbage-commanders": "tsx scripts/cleanup-garbage-commanders.ts",
     "triple-check:commanders": "tsx scripts/triple-check-commanders.ts",
+    "validate:commander-guides": "tsx scripts/validate-handbuilt-commanders.ts",
     "test:unit:openai": "tsx tests/unit/openai-params.test.ts",
     "test:assistant": "tsx tests/unit/build_assistant.test.ts",
     "seo:check": "node scripts/seo-check.mjs",

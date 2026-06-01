@@ -1,3 +1,5 @@
+import { HAND_BUILT_COMMANDER_GUIDES, type HandBuiltCommanderGuide } from "@/lib/data/commander-handbuilt-guides";
+
 export type CommanderShowcasePageType = "best-cards" | "budget-upgrades";
 
 export type CommanderShowcaseMetadata = {
@@ -56,6 +58,111 @@ export type CommanderLandingShowcaseContent = {
 function key(slug: string, pageType: CommanderShowcasePageType) {
   return `${slug}:${pageType}`;
 }
+
+function cardRefs(cards: string[]) {
+  return cards.slice(0, 2).map((card) => `[[${card}]]`).join(" and ");
+}
+
+function packageBody(guide: HandBuiltCommanderGuide, title: string, pageType: CommanderShowcasePageType) {
+  if (pageType === "budget-upgrades") {
+    return `${title} is the spend-first lane for ${guide.shortName}: it improves the deck's normal games before you chase luxury singles.`;
+  }
+  return `${title} is one of the packages that makes ${guide.shortName}'s ${guide.archetype} plan feel intentional instead of generic Commander goodstuff.`;
+}
+
+function buildGeneratedShowcase(
+  guide: HandBuiltCommanderGuide,
+  pageType: CommanderShowcasePageType,
+): CommanderLandingShowcaseContent {
+  const isBudget = pageType === "budget-upgrades";
+  const lanes = isBudget ? guide.budgetLanes : guide.bestLanes;
+  const pageLabel = isBudget ? "Budget Upgrades" : "Best Cards";
+  const firstRule = isBudget
+    ? {
+        label: "Spend first",
+        value: guide.budgetFirstUpgrade,
+        body: `Start with the cards that make ${guide.shortName} function every game. The luxury cards are better once the shell already curves and protects itself.`,
+      }
+    : {
+        label: "Primary plan",
+        value: guide.pills[0] ?? guide.archetype,
+        body: `${guide.shortName} is strongest when every include supports ${guide.archetype}. Start with role players that make the commander reliable.`,
+      };
+
+  return {
+    slug: guide.slug,
+    pageType,
+    metadata: {
+      title: `${guide.name} ${pageLabel}: Hand-Built EDH Guide 2026`,
+      description: isBudget
+        ? `Budget upgrades for ${guide.name} Commander: ${guide.budgetFirstUpgrade}, key packages, traps to avoid, and premium cards to save for later.`
+        : `Best cards for ${guide.name} Commander: ${guide.firstUpgrade}, key packages, deckbuilding rules, and traps to avoid.`,
+      openGraphTitle: `${guide.name} ${pageLabel} - ManaTap Commander Guide`,
+      openGraphDescription: isBudget
+        ? `A hand-built ${guide.name} budget upgrade guide for ${guide.archetype}.`
+        : `A hand-built ${guide.name} best cards guide for ${guide.archetype}.`,
+    },
+    kicker: guide.archetype,
+    headline: isBudget
+      ? `Upgrade ${guide.name} by making the core plan reliable before buying the flashy finishers.`
+      : `The best ${guide.name} cards make ${guide.archetype} happen on time and with protection.`,
+    intro: isBudget
+      ? `${guide.name} does not need random cheap cards. It needs budget upgrades that protect the commander plan, smooth the first three turns, and turn ${guide.shortName}'s natural payoffs into repeatable pressure.`
+      : `${guide.loveReason} The right list is built from role packages: setup, engine, payoff, and protection all pulling toward the same game plan.`,
+    pills: guide.pills,
+    communitySignal: {
+      value: isBudget ? "Budget tune-up" : "Commander staple map",
+      body: "Curated with EDHREC-style role signals, Scryfall card data, and ManaTap commander research.",
+      useDeckCount: true,
+    },
+    firstUpgrade: {
+      title: isBudget ? guide.budgetFirstUpgrade : guide.firstUpgrade,
+      body: isBudget
+        ? `Fix this lane first. It shows up in more games than a single expensive finisher.`
+        : `This is the card package that most directly improves how ${guide.shortName} plays at real tables.`,
+    },
+    rules: [
+      firstRule,
+      {
+        label: isBudget ? "Do not dilute" : "Avoid the trap",
+        value: guide.traps[0] ?? "Keep the plan focused",
+        body: `${guide.shortName} loses percentage points when the list drifts into cards that look powerful but do not support the commander turn.`,
+      },
+      {
+        label: isBudget ? "Save for later" : "Close cleanly",
+        value: isBudget ? lanes[3]?.title ?? "Premium finishers" : guide.winPaths[0] ?? "Convert advantage into a win",
+        body: isBudget
+          ? `Premium upgrades are best after mana, card flow, and protection are solved.`
+          : `The best cards do not just create value; they turn ${guide.shortName}'s advantage into a real endgame.`,
+      },
+    ],
+    packagesTitle: isBudget ? `Budget Upgrade Packages for ${guide.name}` : `Best Card Packages for ${guide.name}`,
+    packagesSubtitle: isBudget
+      ? "Use these as staged upgrades: consistency first, splash later."
+      : "Use these as deckbuilding lanes, not just a shopping list.",
+    ctaHref: isBudget ? "/collections/cost-to-finish" : "/mtg-commander-ai-deck-builder",
+    ctaLabel: isBudget ? `Price-check your ${guide.shortName} upgrades` : `Analyze your ${guide.shortName} list`,
+    packages: lanes.map((lane) => ({
+      title: lane.title,
+      kicker: lane.kicker,
+      body: packageBody(guide, lane.title, pageType),
+      cards: lane.cards,
+    })),
+    priorityTitle: isBudget ? "Budget Upgrade Priority" : "Upgrade Priority",
+    priorities: lanes.map((lane, index) => ({
+      step: String(index + 1),
+      title: lane.title,
+      body: `${cardRefs(lane.cards)} are the first cards to compare when tuning this lane for ${guide.shortName}.`,
+    })),
+  };
+}
+
+const GENERATED_SHOWCASES: Record<string, CommanderLandingShowcaseContent> = Object.fromEntries(
+  Object.values(HAND_BUILT_COMMANDER_GUIDES).flatMap((guide) => [
+    [key(guide.slug, "best-cards"), buildGeneratedShowcase(guide, "best-cards")],
+    [key(guide.slug, "budget-upgrades"), buildGeneratedShowcase(guide, "budget-upgrades")],
+  ]),
+);
 
 const SHOWCASES: Record<string, CommanderLandingShowcaseContent> = {
   [key("y-shtola-night-s-blessed", "best-cards")]: {
@@ -599,7 +706,7 @@ const SHOWCASES: Record<string, CommanderLandingShowcaseContent> = {
         title: "Cheap Answers",
         kicker: "Interaction",
         body: "Kaalia cannot spend whole turns answering one problem. Efficient removal keeps the attack plan live.",
-        cards: ["Swords to Plowshares", "Path to Exile", "Anguished Unmaking", "Chaos Warp", "Wear // Tear"],
+        cards: ["Swords to Plowshares", "Path to Exile", "Anguished Unmaking", "Chaos Warp", "Disenchant"],
       },
       {
         title: "Keep Hands Castable",
@@ -621,5 +728,5 @@ export function getCommanderShowcase(
   slug: string,
   pageType: CommanderShowcasePageType
 ): CommanderLandingShowcaseContent | null {
-  return SHOWCASES[key(slug, pageType)] ?? null;
+  return SHOWCASES[key(slug, pageType)] ?? GENERATED_SHOWCASES[key(slug, pageType)] ?? null;
 }
