@@ -303,12 +303,10 @@ function isAiTestUsageRow(row: { source?: string | null; eval_run_id?: string | 
 
 function isBillableAiUsageRow(row: {
   model?: string | null;
-  cost_usd?: number | null;
-  planner_cost_usd?: number | null;
 }): boolean {
   const model = row.model != null ? String(row.model).trim().toLowerCase() : "";
   if (!model || model === "none") return false;
-  return rowCostUsd(row) > 0;
+  return true;
 }
 
 function summarizeAiUsageWindow(rows: Array<{
@@ -395,8 +393,10 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
   const now = new Date();
   const windowEnd = now.toISOString();
   const windowStart = new Date(now.getTime() - DAILY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+  const windowStartEpoch = Math.floor(new Date(windowStart).getTime() / 1000);
+  const windowEndEpoch = Math.floor(now.getTime() / 1000);
 
-  const [overview, ai, users, analytics, revenue, errors, security, feedback, ops, websitePosthog, signupCounts, aiUsageWindow, websiteFeedbackCount, openAiCostAdjuster, openAiLiveSpend, openAiMonthToDate] =
+  const [overview, ai, users, analytics, revenue, errors, security, feedback, ops, websitePosthog, signupCounts, aiUsageWindow, websiteFeedbackCount, openAiCostAdjuster, openAiLiveSpend, openAiLatestCompletedSpend, openAiMonthToDate] =
     await Promise.all([
       getMobileCommandCenterOverview(1),
       getMobileCommandCenterAi(1),
@@ -417,10 +417,11 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         .limit(AI_WINDOW_LIMIT),
       admin.from("feedback").select("id", { count: "exact", head: true }).gte("created_at", windowStart),
       getOpenAiModelCostAdjuster(windowStart, windowEnd),
-      fetchOpenAiOrgSpendSnapshot({ days: 3, endTime: Math.floor(now.getTime() / 1000) }).catch(() => null),
+      fetchOpenAiOrgSpendSnapshot({ startTime: windowStartEpoch, endTime: windowEndEpoch }).catch(() => null),
+      fetchOpenAiOrgSpendSnapshot({ days: 3, endTime: windowEndEpoch }).catch(() => null),
       fetchOpenAiOrgSpendSnapshot({
         startTime: getMonthStartUtcEpoch(now),
-        endTime: Math.floor(now.getTime() / 1000),
+        endTime: windowEndEpoch,
       }).catch(() => null),
     ]);
 
@@ -515,8 +516,10 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       revenue: {
         stripe_subs: asNumber(getMetric(revenue, "stripe")?.value),
         stripe_webhooks_24h: asNumber(getMetric(revenue, "stripe_webhooks")?.value),
-        openai_actual_latest_day_usd: Number(openAiLiveSpend?.latest_completed_day?.cost_usd || 0),
-        openai_actual_latest_day_date_utc: openAiLiveSpend?.latest_completed_day?.date || null,
+        openai_actual_24h_usd: Number(openAiLiveSpend?.totals?.cost_usd || 0),
+        openai_actual_24h_cost_source: openAiLiveSpend?.cost_source || null,
+        openai_actual_latest_day_usd: Number(openAiLatestCompletedSpend?.latest_completed_day?.cost_usd || 0),
+        openai_actual_latest_day_date_utc: openAiLatestCompletedSpend?.latest_completed_day?.date || null,
         openai_actual_mtd_usd: Number(openAiMonthToDate?.totals?.cost_usd || 0),
         openai_actual_cost_source: openAiLiveSpend?.cost_source || null,
         openai_actual_project_names: (openAiLiveSpend?.projects || []).map((project) => project.project_name).filter(Boolean),
@@ -562,10 +565,10 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
     },
     notes: [
       openAiCostAdjuster.source === "openai_cached_input_usage"
-        ? "AI cost uses ai_usage billable rows, excludes ai_test/eval runs, includes planner_cost_usd, and applies OpenAI cached-input usage discounts by model."
-        : "AI cost uses ai_usage billable rows (model != none, cost > 0), excludes ai_test/eval runs, and includes planner_cost_usd.",
-      openAiLiveSpend?.latest_completed_day?.date
-        ? `OpenAI live costs use UTC day buckets. Latest completed bucket: ${openAiLiveSpend.latest_completed_day.date}.`
+        ? "AI cost uses ai_usage LLM-call rows (model != none), excludes ai_test/eval runs, includes planner_cost_usd, and applies OpenAI cached-input usage discounts by model."
+        : "AI cost uses ai_usage LLM-call rows (model != none), excludes ai_test/eval runs, and includes planner_cost_usd.",
+      openAiLatestCompletedSpend?.latest_completed_day?.date
+        ? `OpenAI live costs use UTC day buckets. Latest completed bucket: ${openAiLatestCompletedSpend.latest_completed_day.date}.`
         : null,
       "OpenAI billing may still differ slightly from this estimate because org costs are bucketed separately from per-route ai_usage rows.",
       websitePosthog.error ? `Website PostHog warning: ${websitePosthog.error}` : null,
@@ -762,8 +765,8 @@ async function buildWeeklyDigestDetails(admin: NonNullable<ReturnType<typeof get
     },
     notes: [
       openAiCostAdjuster.source === "openai_cached_input_usage"
-        ? "AI route cost uses ai_usage billable rows, excludes ai_test/eval runs, includes planner_cost_usd, and applies cached-input usage discounts by model."
-        : "AI route cost uses ai_usage billable rows (model != none, cost > 0), excludes ai_test/eval runs, and includes planner_cost_usd.",
+        ? "AI route cost uses ai_usage LLM-call rows (model != none), excludes ai_test/eval runs, includes planner_cost_usd, and applies cached-input usage discounts by model."
+        : "AI route cost uses ai_usage LLM-call rows (model != none), excludes ai_test/eval runs, and includes planner_cost_usd.",
       openAiWeekSpend?.latest_completed_day?.date
         ? `OpenAI live costs use UTC day buckets. Latest completed bucket: ${openAiWeekSpend.latest_completed_day.date}.`
         : null,
