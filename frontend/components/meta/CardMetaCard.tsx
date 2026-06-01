@@ -8,8 +8,9 @@ import CardDetailLink from "@/components/cards/CardDetailLink";
 
 export type CardMetaItem = {
   name: string;
-  count: number;
+  count?: number;
   rank?: number;
+  metaLabel?: string;
 };
 
 type Props = {
@@ -48,9 +49,13 @@ export function CardMetaCard({ item, imageUrl }: Props) {
         <h3 className="font-semibold text-white truncate group-hover:text-blue-300 transition-colors">
           {item.name}
         </h3>
-        <p className="text-neutral-400 text-sm mt-1">
-          {item.count.toLocaleString()} deck{item.count !== 1 ? "s" : ""}
-        </p>
+        {item.metaLabel ? (
+          <p className="text-neutral-400 text-sm mt-1">{item.metaLabel}</p>
+        ) : item.count != null ? (
+          <p className="text-neutral-400 text-sm mt-1">
+            {item.count.toLocaleString()} deck{item.count !== 1 ? "s" : ""}
+          </p>
+        ) : null}
       </div>
     </CardDetailLink>
   );

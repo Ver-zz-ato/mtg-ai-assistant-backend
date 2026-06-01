@@ -77,6 +77,14 @@ const now = new Date("2026-05-24T12:00:00Z").getTime();
 assert.strictEqual(shouldSendDiscordAlert(alert, null, now), true);
 assert.strictEqual(
   shouldSendDiscordAlert(
+    { key: "config_freshness", title: "App settings update", detail: "stale (8d ago)", severity: "warn", source: "overview" },
+    null,
+    now,
+  ),
+  false,
+);
+assert.strictEqual(
+  shouldSendDiscordAlert(
     alert,
     { severity: "warn", detail: "failing", status: "open", discord_sent_at: "2026-05-24T10:00:00Z" },
     now,

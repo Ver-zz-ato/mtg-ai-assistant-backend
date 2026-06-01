@@ -13,6 +13,7 @@ export type CommanderCardItem = {
   medianCost?: number;
   rank?: number;
   delta?: number;
+  metaLabel?: string;
 };
 
 type Props = {
@@ -49,7 +50,11 @@ export function CommanderCard({ item, imageUrl }: Props) {
         <h3 className="font-semibold text-white truncate group-hover:text-blue-300 transition-colors">
           {item.name}
         </h3>
-        {item.medianCost != null && item.medianCost > 0 ? (
+        {item.metaLabel ? (
+          <p className="text-neutral-400 text-sm mt-1">
+            {item.metaLabel}
+          </p>
+        ) : item.medianCost != null && item.medianCost > 0 ? (
           <p className="text-neutral-400 text-sm mt-1">
             ~${Math.round(item.medianCost).toLocaleString()} median
           </p>

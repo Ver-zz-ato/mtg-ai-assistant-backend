@@ -184,6 +184,7 @@ export function shouldSendDiscordAlert(
   nowMs = Date.now(),
 ): boolean {
   if (alert.severity !== "critical" && alert.severity !== "warn") return false;
+  if (alert.key === "config_freshness") return false;
   if (existing?.status === "muted") return false;
   if (!existing) return true;
   if (severityRank(alert.severity) > severityRank(existing.severity)) return true;

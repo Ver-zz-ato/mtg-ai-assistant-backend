@@ -7,15 +7,17 @@ import { MetaSectionHeader } from "@/components/meta/MetaSectionHeader";
 import { MetaStatStrip } from "@/components/meta/MetaStatStrip";
 import { CommanderCard } from "@/components/meta/CommanderCard";
 import { CardMetaCard } from "@/components/meta/CardMetaCard";
-import { getTrendingCommanders } from "@/lib/meta/getTrendingCommanders";
-import { getMostPlayedCommanders } from "@/lib/meta/getMostPlayedCommanders";
 import { getBudgetCommanders } from "@/lib/meta/getBudgetCommanders";
-import { getTrendingCards } from "@/lib/meta/getTrendingCards";
-import { getMostPlayedCards } from "@/lib/meta/getMostPlayedCards";
 import { formatRelative } from "@/lib/meta/getMetaSnapshot";
 import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
 import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
 import { META_DESCRIPTIONS } from "@/lib/seo/metadata";
+import {
+  getExternalMostPlayedCards,
+  getExternalMostPlayedCommanders,
+  getExternalTrendingCards,
+  getExternalTrendingCommanders,
+} from "@/lib/meta/externalDailyMeta";
 
 const BASE = "https://www.manatap.ai";
 
@@ -61,21 +63,21 @@ export default async function MetaPage({ params }: Props) {
   let items: unknown[] = [];
   let imageMap = new Map<string, string>();
   let updatedAt: string | null = null;
-  let description = "Based on blended ManaTap public deck activity and global Commander signals. Updated daily.";
+  let description = "Based on external EDHREC-order global Commander signals. Updated daily.";
   const sourceSummary = await getMetaSourceSummary();
 
   if (slug === "trending-commanders") {
-    const data = await getTrendingCommanders();
+    const data = await getExternalTrendingCommanders();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Commanders rising through ManaTap deck activity, recent-set momentum, and global EDHREC-order signals.";
+    description = "Commanders climbing in external EDHREC-order daily rank snapshots.";
   } else if (slug === "most-played-commanders") {
-    const data = await getMostPlayedCommanders();
+    const data = await getExternalMostPlayedCommanders();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Top commanders from a blend of ManaTap public Commander decks and global popularity signals.";
+    description = "Top commanders by external EDHREC-order global popularity.";
   } else if (slug === "budget-commanders") {
     const data = await getBudgetCommanders();
     items = data.items;
@@ -83,17 +85,17 @@ export default async function MetaPage({ params }: Props) {
     updatedAt = data.updatedAt;
     description = "Budget-friendly cards and commander-adjacent staples from ManaTap deck counts and low-cost global signals.";
   } else if (slug === "trending-cards") {
-    const data = await getTrendingCards();
+    const data = await getExternalTrendingCards();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Cards gaining momentum in recent ManaTap decks, backed by global Commander popularity signals.";
+    description = "Cards climbing in external EDHREC-order daily rank snapshots.";
   } else if (slug === "most-played-cards") {
-    const data = await getMostPlayedCards();
+    const data = await getExternalMostPlayedCards();
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Most-played Commander cards from ManaTap deck activity and global EDHREC-order card signals.";
+    description = "Most-played Commander cards by external EDHREC-order global popularity.";
   }
 
   const statStripStats = [
@@ -108,7 +110,7 @@ export default async function MetaPage({ params }: Props) {
           },
         ]
       : []),
-    { label: "Data source", value: "Blended public + global" },
+    { label: "Data source", value: slug === "budget-commanders" ? "Blended public + global" : "External EDHREC-order signals" },
   ];
 
   return (
@@ -137,7 +139,7 @@ export default async function MetaPage({ params }: Props) {
         />
 
         <div className="mb-8">
-          <MetaSourceCallout summary={sourceSummary} compact />
+          <MetaSourceCallout summary={sourceSummary} compact scope={slug === "budget-commanders" ? "blended" : "external"} />
         </div>
 
         {items.length > 0 ? (
@@ -150,6 +152,7 @@ export default async function MetaPage({ params }: Props) {
                   count?: number;
                   medianCost?: number;
                   rank?: number;
+                  metaLabel?: string;
                 }>).map((item) => (
                   <CommanderCard
                     key={item.slug}
@@ -159,6 +162,7 @@ export default async function MetaPage({ params }: Props) {
                       count: item.count,
                       medianCost: item.medianCost,
                       rank: item.rank,
+                      metaLabel: item.metaLabel,
                     }}
                     imageUrl={imageMap.get(norm(item.name))}
                   />
@@ -166,7 +170,7 @@ export default async function MetaPage({ params }: Props) {
               </div>
             ) : (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {(items as Array<{ name: string; count: number; rank?: number }>).map(
+                {(items as Array<{ name: string; count?: number; rank?: number; metaLabel?: string }>).map(
                   (item) => (
                     <CardMetaCard
                       key={item.name}
@@ -174,6 +178,7 @@ export default async function MetaPage({ params }: Props) {
                         name: item.name,
                         count: item.count,
                         rank: item.rank,
+                        metaLabel: item.metaLabel,
                       }}
                       imageUrl={imageMap.get(norm(item.name))}
                     />

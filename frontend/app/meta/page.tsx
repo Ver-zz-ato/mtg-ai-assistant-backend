@@ -11,10 +11,11 @@ import { MetaLayout } from "@/components/meta/MetaLayout";
 import { MetaHero } from "@/components/meta/MetaHero";
 import { MetaStatStrip } from "@/components/meta/MetaStatStrip";
 import { MetaTileGrid } from "@/components/meta/MetaTileGrid";
-import { getMetaSnapshot, formatRelative } from "@/lib/meta/getMetaSnapshot";
+import { formatRelative } from "@/lib/meta/getMetaSnapshot";
 import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
 import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
 import { META_DESCRIPTIONS } from "@/lib/seo/metadata";
+import { getExternalTrendingCommanders } from "@/lib/meta/externalDailyMeta";
 
 export const metadata: Metadata = {
   title: "Meta | Trending Commanders & Cards | ManaTap",
@@ -25,18 +26,27 @@ export const metadata: Metadata = {
 // Revalidate every hour - meta data refreshed daily by cron
 export const revalidate = 3600;
 
+function norm(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const TILES = [
   {
     href: "/meta/trending-commanders",
     title: "Trending Commanders",
-    description: "Commanders with the most new decks in the last 30 days.",
+    description: "Commanders climbing in external EDHREC-order rank snapshots.",
     statHint: "Rising in popularity",
     icon: TrendingUp,
   },
   {
     href: "/meta/most-played-commanders",
     title: "Most Played Commanders",
-    description: "Top commanders by total public deck count.",
+    description: "Top commanders by external EDHREC-order popularity.",
     statHint: "Community favorites",
     icon: Users,
   },
@@ -50,29 +60,28 @@ const TILES = [
   {
     href: "/meta/trending-cards",
     title: "Trending Cards",
-    description: "Cards appearing most in recently created decks.",
+    description: "Cards climbing in external EDHREC-order rank snapshots.",
     statHint: "Hot picks",
     icon: Zap,
   },
   {
     href: "/meta/most-played-cards",
     title: "Most Played Cards",
-    description: "Most included cards across all public Commander decks.",
+    description: "Most-played Commander cards by external EDHREC-order popularity.",
     statHint: "Staples & staples",
     icon: BarChart3,
   },
 ];
 
 export default async function MetaIndexPage() {
-  const [snapshot, sourceSummary] = await Promise.all([
-    getMetaSnapshot(),
+  const [topTrending, sourceSummary] = await Promise.all([
+    getExternalTrendingCommanders(1),
     getMetaSourceSummary(),
   ]);
+  const topCommander = topTrending.items[0] ?? null;
+  const topCommanderImage = topCommander ? topTrending.imageMap.get(norm(topCommander.name)) : null;
 
   const stats = [
-    ...(sourceSummary.publicCommanderDecks != null
-      ? [{ label: "ManaTap decks", value: sourceSummary.publicCommanderDecks.toLocaleString() }]
-      : []),
     ...(sourceSummary.globalCommanderRows != null || sourceSummary.globalCardRows != null
       ? [
           {
@@ -81,15 +90,15 @@ export default async function MetaIndexPage() {
           },
         ]
       : []),
-    ...((sourceSummary.lastUpdated ?? snapshot.lastUpdated)
+    ...(sourceSummary.lastUpdated
       ? [
           {
             label: "Last updated",
-            value: formatRelative(sourceSummary.lastUpdated ?? snapshot.lastUpdated!),
+            value: formatRelative(sourceSummary.lastUpdated),
           },
         ]
       : []),
-    { label: "Data source", value: "Blended public + global" },
+    { label: "Data source", value: "External EDHREC-order signals" },
   ];
 
   return (
@@ -105,30 +114,30 @@ export default async function MetaIndexPage() {
 
         <MetaHero
           headline="Stay Ahead of the Commander Meta"
-          subtext="Updated daily from ManaTap deck activity, Scryfall card data, and EDHREC-order global popularity signals."
+          subtext="Updated daily from Scryfall card data and EDHREC-order global Commander popularity signals."
         >
           <MetaStatStrip stats={stats} />
         </MetaHero>
 
         <div className="mb-10">
-          <MetaSourceCallout summary={sourceSummary} />
+          <MetaSourceCallout summary={sourceSummary} scope="external" />
         </div>
 
         {/* Feature panel: Top Trending Commander */}
-        {snapshot.topCommander && (
+        {topCommander && (
           <section className="mb-10 rounded-xl border border-neutral-700 bg-neutral-800/90 p-6 hover:border-blue-500/40 transition-colors">
             <h2 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-3">
               Top Trending Commander
             </h2>
             <Link
-              href={`/commanders/${snapshot.topCommander.slug}`}
+              href={`/commanders/${topCommander.slug}`}
               className="flex flex-col sm:flex-row items-start sm:items-center gap-4 group"
             >
               <div className="relative w-32 aspect-[488/680] rounded-lg overflow-hidden bg-neutral-700 shrink-0">
-                {snapshot.topCommander.imageUrl ? (
+                {topCommanderImage ? (
                   <img
-                    src={snapshot.topCommander.imageUrl}
-                    alt={snapshot.topCommander.name}
+                    src={topCommanderImage}
+                    alt={topCommander.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 ) : (
@@ -137,16 +146,15 @@ export default async function MetaIndexPage() {
                   </div>
                 )}
                 <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/70 text-white text-xs font-bold">
-                  #1 this week
+                  #1 mover
                 </span>
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-white group-hover:text-blue-300 transition-colors">
-                  {snapshot.topCommander.name}
+                  {topCommander.name}
                 </h3>
                 <p className="text-neutral-400 text-sm mt-1">
-                  {snapshot.topCommander.count} new deck
-                  {snapshot.topCommander.count !== 1 ? "s" : ""} in last 30 days
+                  {topCommander.metaLabel}
                 </p>
               </div>
             </Link>

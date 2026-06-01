@@ -9,9 +9,10 @@ function formatNumber(value: number | null | undefined): string {
 type Props = {
   summary: MetaSourceSummary;
   compact?: boolean;
+  scope?: "blended" | "external";
 };
 
-export function MetaSourceCallout({ summary, compact = false }: Props) {
+export function MetaSourceCallout({ summary, compact = false, scope = "blended" }: Props) {
   const refreshed = summary.lastUpdated ? formatRelative(summary.lastUpdated) : null;
   const externalRows =
     (summary.globalCommanderRows ?? 0) +
@@ -19,11 +20,15 @@ export function MetaSourceCallout({ summary, compact = false }: Props) {
     (summary.budgetCardRows ?? 0);
 
   const items = [
-    {
-      icon: Database,
-      label: "ManaTap deck sample",
-      value: `${formatNumber(summary.publicCommanderDecks)} public Commander decks`,
-    },
+    ...(scope === "blended"
+      ? [
+          {
+            icon: Database,
+            label: "ManaTap deck sample",
+            value: `${formatNumber(summary.publicCommanderDecks)} public Commander decks`,
+          },
+        ]
+      : []),
     {
       icon: Globe2,
       label: "Global commander signal",
@@ -47,9 +52,13 @@ export function MetaSourceCallout({ summary, compact = false }: Props) {
     <section className={`rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] ${compact ? "p-4" : "p-5"}`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Blended meta sources</h2>
+          <h2 className="text-lg font-semibold text-white">
+            {scope === "external" ? "External meta sources" : "Blended meta sources"}
+          </h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-neutral-300">
-            ManaTap blends public Commander deck activity with Scryfall&apos;s EDHREC-ordered global rankings, price data, and recent-set signals.
+            {scope === "external"
+              ? "These rankings use Scryfall's EDHREC-ordered global Commander and card signals from daily snapshots. ManaTap deck activity is not used for these meta rankings."
+              : "ManaTap blends public Commander deck activity with Scryfall's EDHREC-ordered global rankings, price data, and recent-set signals."}
           </p>
         </div>
         {externalRows > 0 ? (
