@@ -191,14 +191,14 @@ Caching: `Cache-Control: public, s-maxage=60, stale-while-revalidate=120`.
       "generateConstructedPerDay": 5
     },
     "pro": {
-      "chatPerDay": -1,
+      "chatPerDay": 500,
       "deckAnalysisPerDay": 200,
       "roastPerDay": 25,
-      "voicePerDay": -1,
-      "mulliganAdvicePerDay": 50,
-      "cardExplainPerDay": -1,
-      "deckComparePerDay": -1,
-      "generateFromCollectionPerDay": -1,
+      "voicePerDay": 999999,
+      "mulliganAdvicePerDay": 999999,
+      "cardExplainPerDay": 999999,
+      "deckComparePerDay": 999999,
+      "generateFromCollectionPerDay": 999999,
       "generateConstructedPerDay": 30
     }
   },
@@ -224,6 +224,12 @@ Assembly logic is centralized in `lib/mobile/bootstrap.ts` (`buildMobileBootstra
 3. intentional route/platform exceptions where product rules differ
 
 The mobile app should display the resolved bootstrap values and should not hardcode separate entitlement truth when bootstrap is available.
+
+Important:
+
+- App-facing bootstrap values should be concrete positive numbers only.
+- For genuinely uncapped Pro surfaces, use the large client-safe placeholder `999999` instead of `-1`.
+- For truly capped surfaces, use the real enforced cap in bootstrap so client hints and pre-gates stay aligned.
 
 ## Mobile support dependency note
 

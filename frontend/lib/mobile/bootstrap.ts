@@ -7,10 +7,10 @@ import {
   type TierLimitsOverride,
 } from "@/lib/mobile/validation";
 import { versionInRange } from "@/lib/mobile/semver-compare";
+import { PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 import {
   CARD_EXPLAIN_FREE,
   CARD_EXPLAIN_GUEST,
-  CARD_EXPLAIN_PRO,
   DECK_ANALYZE_FREE,
   DECK_ANALYZE_GUEST,
   DECK_ANALYZE_PRO,
@@ -22,13 +22,13 @@ import {
   GENERATE_CONSTRUCTED_GUEST,
   GENERATE_CONSTRUCTED_PRO,
   GENERATE_FROM_COLLECTION_FREE,
-  GENERATE_FROM_COLLECTION_PRO,
   MULLIGAN_ADVICE_FREE,
   MULLIGAN_ADVICE_GUEST,
-  MULLIGAN_ADVICE_PRO,
   VOICE_ASSISTANT_FREE,
   VOICE_ASSISTANT_GUEST,
 } from "@/lib/feature-limits";
+
+const APP_SAFE_UNCAPPED_LIMIT = 999999;
 
 function shouldIncludeByVersion(
   version: string | null | undefined,
@@ -113,14 +113,14 @@ const DEFAULT_TIERS: TierLimits = {
     generateConstructedPerDay: GENERATE_CONSTRUCTED_FREE,
   },
   pro: {
-    chatPerDay: -1,
+    chatPerDay: PRO_DAILY_MESSAGE_LIMIT,
     deckAnalysisPerDay: DECK_ANALYZE_PRO,
     roastPerDay: DECK_ROAST_PRO,
-    voicePerDay: -1,
-    mulliganAdvicePerDay: MULLIGAN_ADVICE_PRO,
-    cardExplainPerDay: CARD_EXPLAIN_PRO,
-    deckComparePerDay: -1,
-    generateFromCollectionPerDay: GENERATE_FROM_COLLECTION_PRO,
+    voicePerDay: APP_SAFE_UNCAPPED_LIMIT,
+    mulliganAdvicePerDay: APP_SAFE_UNCAPPED_LIMIT,
+    cardExplainPerDay: APP_SAFE_UNCAPPED_LIMIT,
+    deckComparePerDay: APP_SAFE_UNCAPPED_LIMIT,
+    generateFromCollectionPerDay: APP_SAFE_UNCAPPED_LIMIT,
     generateConstructedPerDay: GENERATE_CONSTRUCTED_PRO,
   },
 };
