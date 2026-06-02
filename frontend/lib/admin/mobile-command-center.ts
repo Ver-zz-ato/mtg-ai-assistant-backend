@@ -20,6 +20,7 @@ export type MetricCard = {
   label: string;
   value: number | string | null;
   sub?: string;
+  alertDetail?: string;
   severity?: Severity;
   href?: string;
 };
@@ -135,6 +136,24 @@ function round(value: number, digits = 4): number {
   return Math.round((Number(value) || 0) * factor) / factor;
 }
 
+function summarizeTopValues<T>(
+  rows: T[],
+  getValue: (row: T) => unknown,
+  options: { limit?: number; fallback?: string } = {},
+): string {
+  const counts = new Map<string, number>();
+  const fallback = options.fallback || "unknown";
+  for (const row of rows) {
+    const value = String(getValue(row) || fallback).trim() || fallback;
+    counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, options.limit || 3)
+    .map(([value, count]) => `${value} x${count}`)
+    .join(", ");
+}
+
 function alertDedupeKey(alert: LaunchAlert): string {
   return `${alert.source}:${alert.key}`;
 }
@@ -147,29 +166,27 @@ function severityRank(severity: Severity | string | null | undefined): number {
 }
 
 export function shouldCreateLaunchAlert(metric: MetricCard): metric is MetricCard & { severity: "critical" | "warn" } {
-  if (metric.key === "advisor_warnings") return false;
-  return metric.severity === "critical" || metric.severity === "warn";
+  return metric.severity === "critical";
 }
 
-/** Hourly Discord: Tier-1 pipeline jobs + critical Sentry/error spikes only. */
+/** Hourly Discord: only failures that need immediate attention. */
 export function shouldSendHourlyDiscordAlert(alert: LaunchAlert): boolean {
-  if (alert.severity !== "critical" && alert.severity !== "warn") return false;
+  if (alert.severity !== "critical") return false;
   if (alert.key === "tier1_pipeline_jobs") return true;
   if (alert.key === "sentry_unresolved" || alert.key === "local_errors") {
-    return alert.severity === "critical";
+    return true;
   }
   if (alert.key === "supabase_admin" || alert.key === "missing_supabase_admin") {
-    return alert.severity === "critical";
+    return true;
   }
   return false;
 }
 
-/** Daily digest status/watch list: broader than hourly, excludes hourly-only noise. */
+/** Daily digest status/watch list: only serious launch alerts, not routine watch metrics. */
 export function shouldCountForDailyDigestStatus(alert: LaunchAlert): boolean {
-  if (alert.severity !== "critical" && alert.severity !== "warn") return false;
+  if (alert.severity !== "critical") return false;
   if (alert.key === "discord_missing") return false;
   if (alert.key === "config_freshness") return false;
-  if (shouldSendHourlyDiscordAlert(alert)) return false;
   return true;
 }
 
@@ -183,7 +200,7 @@ export function shouldSendDiscordAlert(
   } | null,
   nowMs = Date.now(),
 ): boolean {
-  if (alert.severity !== "critical" && alert.severity !== "warn") return false;
+  if (alert.severity !== "critical") return false;
   if (alert.key === "config_freshness") return false;
   if (existing?.status === "muted") return false;
   if (!existing) return true;
@@ -496,8 +513,21 @@ export async function getMobileCommandCenterAi(days: number): Promise<CommandCen
         sub: summary.totals.requests ? undefined : "No app AI requests seen in this window yet.",
         severity: summary.totals.requests ? "ok" : "info",
       },
-      { key: "cost", label: "AI cost", value: `$${summary.totals.cost_usd.toFixed(2)}`, severity: severityForThreshold(summary.totals.cost_usd, 25, 75) },
-      { key: "errors", label: "AI errors", value: summary.totals.errors, sub: `${round(summary.totals.error_rate * 100, 2)}%`, severity: severityForThreshold(summary.totals.error_rate, 0.03, 0.1) },
+      {
+        key: "cost",
+        label: "AI cost",
+        value: `$${summary.totals.cost_usd.toFixed(2)}`,
+        alertDetail: `App AI spend is $${summary.totals.cost_usd.toFixed(2)} in this window. ELI5: users or bots are burning AI money faster than expected; check the AI tab for the expensive routes/features first.`,
+        severity: severityForThreshold(summary.totals.cost_usd, 25, 75),
+      },
+      {
+        key: "errors",
+        label: "AI errors",
+        value: summary.totals.errors,
+        sub: `${round(summary.totals.error_rate * 100, 2)}%`,
+        alertDetail: `${summary.totals.errors} app AI request(s) failed (${round(summary.totals.error_rate * 100, 2)}%). ELI5: people may be asking the app for AI help and getting broken responses; check AI routes, then Sentry/local errors.`,
+        severity: severityForThreshold(summary.totals.error_rate, 0.03, 0.1),
+      },
       cacheMetric,
       {
         key: "all_ai_rows",
@@ -851,8 +881,20 @@ export async function getMobileCommandCenterErrors(days: number): Promise<Comman
         sub: sentry.error,
         severity: sentry.configured ? (sentry.error ? "warn" : "ok") : "warn",
       },
-      { key: "sentry_unresolved", label: "Sentry unresolved", value: sentry.rows.length, severity: severityForThreshold(sentry.rows.length, 5, 15) },
-      { key: "local_errors", label: "Local error logs", value: localErrors.rows.length, severity: severityForThreshold(localErrors.rows.length, 10, 50) },
+      {
+        key: "sentry_unresolved",
+        label: "Sentry unresolved",
+        value: sentry.rows.length,
+        alertDetail: `${sentry.rows.length} unresolved Sentry issue(s). ELI5: the app/backend is throwing real errors; open Sentry and fix the newest user-facing crash first.`,
+        severity: severityForThreshold(sentry.rows.length, 5, 15),
+      },
+      {
+        key: "local_errors",
+        label: "Local error logs",
+        value: localErrors.rows.length,
+        alertDetail: `${localErrors.rows.length} backend error log row(s) in this window. ELI5: the server is repeatedly failing somewhere; check the Errors tab for the same path/message repeating.`,
+        severity: severityForThreshold(localErrors.rows.length, 10, 50),
+      },
     ],
     tables: {
       "Sentry unresolved issues": sentry.rows,
@@ -908,6 +950,14 @@ export async function getMobileCommandCenterSecurity(days: number, hours = 24): 
     .filter((row) => row.env !== "development");
   const distinctLimitKeys = new Set(recentLimitHits.map((row) => String(row.key_prefix || "unknown")));
   const distinctLimitRoutes = new Set(recentLimitHits.map((row) => String(row.route || "unknown")));
+  const rateLimitAlertDetail = recentLimitHits.length
+    ? [
+        `${distinctLimitKeys.size} masked visitor/user key(s) produced ${recentLimitHits.length} limit-hit row(s) across ${distinctLimitRoutes.size} route(s) in the last ${hours}h.`,
+        `Top routes: ${summarizeTopValues(recentLimitHits, (row) => row.route, { limit: 3 }) || "unknown"}.`,
+        `Reasons: ${summarizeTopValues(recentLimitHits, (row) => row.reason, { limit: 2 }) || "unknown"}.`,
+        "Meaning: throttling is working; investigate only if a mobile-critical route appears here or real testers say they are blocked.",
+      ].join(" ")
+    : undefined;
   const knownAdvisorWarnings = [
     { level: "warn", area: "RLS policies", detail: "Several public tables have RLS enabled but no policy or overly permissive policies.", href: "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy" },
     { level: "warn", area: "Function search_path", detail: "Some functions have mutable search_path warnings.", href: "https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable" },
@@ -927,6 +977,7 @@ export async function getMobileCommandCenterSecurity(days: number, hours = 24): 
         sub: recentLimitHits.length
           ? `${recentLimitHits.length} hit row(s) across ${distinctLimitRoutes.size} route(s) in the last ${hours}h`
           : `No production limit hits in the last ${hours}h`,
+        alertDetail: rateLimitAlertDetail,
         severity: distinctLimitKeys.size >= 5 ? "warn" : recentLimitHits.length ? "info" : "ok",
       },
       { key: "admin_audit", label: "Admin audit rows", value: auditRows.rows.length, severity: auditRows.error ? "info" : "ok" },
@@ -1151,6 +1202,7 @@ export async function getMobileCommandCenterOps(days: number): Promise<CommandCe
         label: "Daily price jobs",
         value: tier1Failing ? "needs attention" : tier1Warning ? "mostly okay" : "all okay",
         sub: `${tier1Jobs.healthy}/${tier1Jobs.rows.length} healthy, latest run ${tier1Jobs.latestAt ? ageShort(new Date(tier1Jobs.latestAt).toISOString()) : "not yet"}`,
+        alertDetail: `Daily price jobs have ${tier1Failing} failed critical job(s). ELI5: card/deck prices may stop refreshing correctly; open /admin/ops and fix the failed price job first.`,
         severity: tier1Failing ? "critical" : tier1Warning ? "warn" : "ok",
         href: "/admin/ops",
       },
@@ -1159,6 +1211,7 @@ export async function getMobileCommandCenterOps(days: number): Promise<CommandCe
         label: "Pipeline jobs",
         value: failingJobs ? "needs attention" : warningJobs ? "mostly okay" : "all okay",
         sub: `${importantJobs.healthy}/${importantJobs.rows.length} healthy, latest run ${latestJobSeen}`,
+        alertDetail: `Pipeline jobs have ${failingJobs} failed critical job(s). ELI5: a background updater is broken; open /admin/ops and look for jobs marked failed.`,
         severity: failingJobs ? "critical" : warningJobs ? "warn" : "ok",
         href: "/admin/ops",
       },
@@ -1193,7 +1246,7 @@ export async function getMobileCommandCenterOps(days: number): Promise<CommandCe
       "Recent admin actions": opsAudit.rows,
     },
     notes: [
-      "Hourly Discord alerts only cover daily price jobs (import, snapshot, deck costs) and critical Sentry/error spikes.",
+      "Hourly Discord launch alerts only fire for critical failures: failed daily price jobs, critical Sentry/error spikes, or missing Supabase admin config.",
       "The 22:30 UTC daily digest covers analytics, revenue, Discover jobs, and the full pipeline table.",
       "Weekly jobs (Scryfall bulk, legality, budget swaps) are summarized in the Sunday ops digest.",
       "Use /admin/ops when a job says late, failed, or partly worked.",
@@ -1223,7 +1276,7 @@ export async function getMobileCommandCenterOverview(days: number): Promise<Comm
       alerts.push({
         key: metric.key,
         title: metric.label,
-        detail: `${metric.value ?? "unknown"}${metric.sub ? ` - ${metric.sub}` : ""}`,
+        detail: metric.alertDetail || `${metric.value ?? "unknown"}${metric.sub ? ` - ${metric.sub}` : ""}`,
         severity: metric.severity,
         source: "overview",
         href: metric.href,
@@ -1357,7 +1410,9 @@ async function sendDiscordAlerts(
 ) {
   const webhook = getDiscordAdminWebhook();
   if (!webhook) return { attempted: false, sent: 0 };
-  const urgent = alerts.filter((alert) => alert.severity === "critical" || alert.severity === "warn");
+  const urgent = options.force
+    ? alerts.filter((alert) => alert.severity === "critical" || alert.severity === "warn")
+    : alerts.filter((alert) => alert.severity === "critical");
   let sendable = options.hourlyOnly ? urgent.filter(shouldSendHourlyDiscordAlert) : urgent;
   if (!options.force && options.db) {
     const existing = await loadExistingAlerts(options.db, urgent);

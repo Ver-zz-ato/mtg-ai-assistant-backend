@@ -30,6 +30,11 @@ type ProfileEntitlementState = {
   pro_until?: string | null;
   stripe_subscription_id?: string | null;
 };
+type StripeProfileLookup = {
+  id: string;
+  is_pro?: boolean | null;
+  stripe_subscription_id?: string | null;
+};
 
 function shortId(value: string | number | null | undefined): string {
   const s = String(value || '').trim();
@@ -56,7 +61,11 @@ async function getStripeCustomerEmail(customerId: string | null | undefined): Pr
 }
 
 async function notifyDiscordProUpgrade(details: {
-  source: 'checkout.session.completed' | 'customer.subscription.updated';
+  source:
+    | 'checkout.session.completed'
+    | 'customer.subscription.updated'
+    | 'invoice.payment_succeeded'
+    | 'invoice.paid';
   userId: string;
   email?: string | null;
   plan?: string | null;
@@ -240,7 +249,7 @@ export async function POST(req: NextRequest) {
         break;
       
       case 'invoice.payment_succeeded':
-        await handleInvoicePaymentSucceeded(event);
+        await handleInvoicePaymentSucceeded(event, 'invoice.payment_succeeded');
         break;
       
       case 'customer.subscription.updated':
@@ -252,8 +261,7 @@ export async function POST(req: NextRequest) {
         break;
       
       case 'invoice.paid':
-        console.info('Invoice paid', { invoiceId: event.data.object.id });
-        // Just log for now - could track payment history
+        await handleInvoicePaymentSucceeded(event, 'invoice.paid');
         break;
       
       case 'invoice.payment_failed':
@@ -348,13 +356,13 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   // CRITICAL: Use service role - webhooks have no cookies, so anon client would be blocked by RLS.
   const supabase = getWebhookSupabase();
   
-  let profile: { id: string } | null = null;
+  let profile: StripeProfileLookup | null = null;
   let findError: any = null;
   
   // 1) Try lookup by stripe_customer_id
   const { data: profileByCustomer, error: err1 } = await supabase
     .from('profiles')
-    .select('id')
+    .select('id, is_pro, stripe_subscription_id')
     .eq('stripe_customer_id', session.customer)
     .maybeSingle();
   findError = err1;
@@ -367,7 +375,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     if (userId) {
       const { data: profileById, error: err2 } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, is_pro, stripe_subscription_id')
         .eq('id', userId)
         .maybeSingle();
       findError = err2;
@@ -384,7 +392,12 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     if (customerEmail) {
       const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: customerEmail });
       if (userId) {
-        profile = { id: userId };
+        const { data: profileByEmailId } = await supabase
+          .from('profiles')
+          .select('id, is_pro, stripe_subscription_id')
+          .eq('id', userId)
+          .maybeSingle();
+        profile = profileByEmailId || { id: userId };
         console.info('Found user by Stripe customer email (auth.users)', { email: customerEmail, customerId: session.customer });
       }
     }
@@ -463,6 +476,9 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     subscriptionId: subscription.id,
   });
 
+  const alreadyNotifiedByInvoiceFallback =
+    profile.is_pro === true && profile.stripe_subscription_id === subscription.id;
+
   // Fire pro_upgrade_completed server-side so we count conversions even if thank-you page never loads
   try {
     await captureServer(
@@ -481,15 +497,17 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     console.error('Failed to track pro_upgrade_completed (non-fatal):', e);
   }
 
-  await notifyDiscordProUpgrade({
-    source: 'checkout.session.completed',
-    userId: profile.id,
-    email: customerEmail,
-    plan,
-    subscriptionId: subscription.id,
-    customerId: String(session.customer),
-    livemode: subscription.livemode,
-  });
+  if (!alreadyNotifiedByInvoiceFallback) {
+    await notifyDiscordProUpgrade({
+      source: 'checkout.session.completed',
+      userId: profile.id,
+      email: customerEmail,
+      plan,
+      subscriptionId: subscription.id,
+      customerId: String(session.customer),
+      livemode: subscription.livemode,
+    });
+  }
 }
 
 async function handleSubscriptionUpdated(event: Stripe.Event) {
@@ -782,7 +800,10 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
   // This is mainly for logging and analytics
 }
 
-async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
+async function handleInvoicePaymentSucceeded(
+  event: Stripe.Event,
+  source: 'invoice.payment_succeeded' | 'invoice.paid'
+) {
   const invoice = event.data.object as Stripe.Invoice;
   
   // Access subscription through the invoice object (using any to work around type issues)
@@ -790,18 +811,23 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   const subscriptionId = typeof invoiceData.subscription === 'string' 
     ? invoiceData.subscription 
     : invoiceData.subscription?.id;
+  const invoiceCustomerId =
+    typeof invoice.customer === 'string'
+      ? invoice.customer
+      : invoice.customer?.id ?? null;
   
   console.info('Processing invoice payment succeeded', {
+    source,
     invoiceId: invoice.id,
     subscriptionId,
-    customerId: invoice.customer,
+    customerId: invoiceCustomerId,
     amountPaid: invoice.amount_paid,
     currency: invoice.currency,
   });
 
   // Invoice paid successfully - subscription is active
   // For recurring subscriptions, this fires after the initial checkout
-  if (!subscriptionId || !invoice.customer) {
+  if (!subscriptionId || !invoiceCustomerId) {
     console.info('Invoice not associated with subscription, skipping');
     return;
   }
@@ -813,14 +839,14 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   const { data: profileByCustomer, error: findError } = await supabase
     .from('profiles')
     .select('id, is_pro')
-    .eq('stripe_customer_id', invoice.customer)
+    .eq('stripe_customer_id', invoiceCustomerId)
     .maybeSingle();
 
   if (profileByCustomer) {
     profile = profileByCustomer;
   } else {
     try {
-      const customer = await stripe.customers.retrieve(invoice.customer as string);
+      const customer = await stripe.customers.retrieve(invoiceCustomerId);
       if (customer && !customer.deleted && (customer as any).email) {
         const email = ((customer as any).email as string).trim();
         const { data: userId } = await supabase.rpc('get_user_id_by_email', { p_email: email });
@@ -835,16 +861,40 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   }
 
   if (!profile) {
-    console.error('Failed to find user profile for customer:', invoice.customer, findError);
+    console.error('Failed to find user profile for customer:', invoiceCustomerId, findError);
     return;
   }
 
   // Ensure user is marked as Pro (in case webhook ordering issues)
   if (!profile.is_pro) {
+    let plan: 'monthly' | 'yearly' | null = null;
+    let livemode = Boolean(invoice.livemode);
+
+    try {
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      const subscriptionItem = subscription.items.data[0];
+      const productId = subscriptionItem?.price?.product as string | undefined;
+      plan = productId ? PRODUCT_TO_PLAN[productId] ?? null : null;
+      livemode = subscription.livemode;
+
+      if (!plan && productId) {
+        console.error('Unknown product ID in invoice subscription:', productId, {
+          availableProducts: Object.keys(PRODUCT_TO_PLAN),
+          subscriptionId,
+          customerId: invoiceCustomerId,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to retrieve subscription for invoice payment (non-fatal):', e);
+    }
+
     const { error: updateError } = await supabase
       .from('profiles')
       .update({
         is_pro: true,
+        pro_plan: plan,
+        stripe_subscription_id: subscriptionId,
+        stripe_customer_id: invoiceCustomerId,
         pro_until: null, // Clear any end date
       })
       .eq('id', profile.id);
@@ -855,6 +905,17 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
     }
 
     console.info('User Pro status confirmed via invoice payment', { userId: profile.id });
+
+    const customerEmail = await getStripeCustomerEmail(invoiceCustomerId);
+    await notifyDiscordProUpgrade({
+      source,
+      userId: profile.id,
+      email: customerEmail,
+      plan,
+      subscriptionId,
+      customerId: invoiceCustomerId,
+      livemode,
+    });
   } else {
     console.info('User already Pro, invoice payment logged', { userId: profile.id });
   }

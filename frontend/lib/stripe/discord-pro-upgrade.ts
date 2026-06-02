@@ -1,7 +1,12 @@
 const DISCORD_CONTENT_MAX = 1900;
 
 export type StripeProUpgradeDiscordDetails = {
-  source: 'checkout.session.completed' | 'customer.subscription.updated' | 'admin_test';
+  source:
+    | 'checkout.session.completed'
+    | 'customer.subscription.updated'
+    | 'invoice.payment_succeeded'
+    | 'invoice.paid'
+    | 'admin_test';
   userId: string;
   email?: string | null;
   plan?: string | null;
@@ -9,6 +14,15 @@ export type StripeProUpgradeDiscordDetails = {
   customerId?: string | null;
   livemode?: boolean;
 };
+
+function normalizeWebhookUrl(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  // Vercel env values are sometimes pasted with quotes or angle brackets.
+  const normalized = trimmed.replace(/^['"`<]+|['"`>]+$/g, '').trim();
+  return normalized || null;
+}
 
 export function getDiscordProUpgradeWebhook(): string | null {
   const url =
@@ -18,8 +32,7 @@ export function getDiscordProUpgradeWebhook(): string | null {
     process.env.DISCORD_APPSUB_WEBHOOK ||
     process.env.DISCORD_APP_SUBS_WEBHOOK ||
     process.env.DISCORD_WEBHOOK_URL;
-  const trimmed = url?.trim();
-  return trimmed || null;
+  return normalizeWebhookUrl(url);
 }
 
 function shortId(value: string | number | null | undefined): string {

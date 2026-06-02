@@ -177,7 +177,7 @@ Read first:
 
 | Integration | Entry route | Notes |
 |---|---|---|
-| Stripe | `/api/stripe/webhook` | Billing/subscription events; Discord on `checkout.session.completed` and subscription reactivation (`DISCORD_PRO_UPGRADE_WEBHOOK`, with admin/appsub/webhook URL fallbacks) |
+| Stripe | `/api/stripe/webhook` | Billing/subscription events; Discord on checkout completion, first successful subscription invoice fallback, and subscription reactivation (`DISCORD_PRO_UPGRADE_WEBHOOK`, with admin/appsub/webhook URL fallbacks) |
 | RevenueCat | `/api/revenuecat/webhook` | Mobile subscription/entitlement source of truth |
 | PostHog | Query API via `lib/server/posthog-hogql.ts` | Used by admin scanner + mobile command center |
 | Sentry | `lib/admin/mobile-command-center.ts` | Read-only issues API for launch cockpit |

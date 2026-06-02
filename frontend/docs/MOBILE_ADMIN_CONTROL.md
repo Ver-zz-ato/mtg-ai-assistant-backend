@@ -70,10 +70,35 @@ Discord send policy:
 - Normal page loads and `Refresh` do not send Discord messages.
 - `Rollups` refreshes cached snapshots and alert rows, but stays quiet.
 - `Test Discord` sends one explicit manual test message.
-- **Hourly cron** posts only Tier-1 pipeline alerts (`bulk_price_import`, `price_snapshot_bulk`, `deck-costs`) plus **critical** Sentry/error spikes. Warning-level Sentry, full pipeline summaries, analytics, and revenue stay out of hourly pings.
-- **Daily digest (22:30 UTC)** via `/api/cron/ops-report/daily` covers analytics, revenue, Discover job freshness (`meta-signals`, `commander-aggregates`, `top-cards`), and the broader pipeline watch list.
+- **Hourly cron** posts only critical launch alerts: failed Tier-1 price jobs (`bulk_price_import`, `price_snapshot_bulk`, `deck-costs`), critical Sentry/error spikes, or missing Supabase admin config.
+- **Daily digest (22:30 UTC)** via `/api/cron/ops-report/daily` covers analytics, revenue, Discover job freshness (`meta-signals`, `commander-aggregates`, `top-cards`), rate-limit counts, and dashboard watch metrics. Only critical items are promoted into the digest watch list as launch alerts.
 - **Weekly digest (Sundays 07:00 UTC)** via `/api/cron/ops-report/weekly` covers Scryfall bulk import, legality refresh, and budget swaps freshness.
-- Hourly reminders: critical alerts can repeat after about 1 hour; warning alerts after about 6 hours.
+- Hourly reminders: critical alerts can repeat after about 1 hour if they are still open or the detail changes.
+
+Daily launch alert ELI5:
+
+Discord launch alerts should mean "something is seriously wrong," not "something is mildly worth watching." Yellow dashboard metrics still appear in the cockpit and daily report, but they no longer become launch alerts by themselves.
+
+| Alert title | What it means | What to do |
+|-------------|---------------|------------|
+| `Supabase admin client is not configured` | The cockpit cannot read private launch data. | Fix server-only Supabase admin env before trusting launch health. |
+| `AI cost` | App AI spend hit the critical threshold. | Check AI tab for expensive routes/features/users; look for bots or runaway loops. |
+| `AI errors` | More than 10% of app AI requests failed. | Check AI tab by route/model, then Sentry/local errors. |
+| `Sentry unresolved` | Sentry has a critical number of unresolved issues. | Open Sentry and fix the newest user-facing crash first. |
+| `Local error logs` | Backend/API errors hit the critical threshold. | Check repeated paths/messages in the Errors tab. |
+| `Daily price jobs` | A required price job failed. | Open `/admin/ops`; prices/deck costs may stop refreshing. |
+| `Pipeline jobs` | A monitored background job failed. | Open `/admin/ops` and fix jobs marked failed. |
+
+These are watch metrics, not launch alerts unless they become critical in code later:
+
+- rate-limit hits
+- no signups
+- signup spikes
+- optional RevenueCat API missing
+- warning-level Sentry counts
+- stale Scryfall/config freshness
+- low AI cache reuse
+- feedback submission warning counts
 
 Analytics note:
 

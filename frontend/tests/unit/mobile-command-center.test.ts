@@ -35,6 +35,10 @@ assert.strictEqual(
 );
 assert.strictEqual(
   shouldCreateLaunchAlert({ key: "sentry", label: "Sentry", value: "failing", severity: "warn" }),
+  false,
+);
+assert.strictEqual(
+  shouldCreateLaunchAlert({ key: "sentry_unresolved", label: "Sentry unresolved", value: 20, severity: "critical" }),
   true,
 );
 assert.strictEqual(
@@ -47,6 +51,10 @@ assert.strictEqual(
 );
 assert.strictEqual(
   shouldSendHourlyDiscordAlert({ key: "tier1_pipeline_jobs", title: "Daily price jobs", detail: "mostly okay", severity: "warn", source: "overview" }),
+  false,
+);
+assert.strictEqual(
+  shouldSendHourlyDiscordAlert({ key: "tier1_pipeline_jobs", title: "Daily price jobs", detail: "failed", severity: "critical", source: "overview" }),
   true,
 );
 assert.strictEqual(
@@ -54,7 +62,19 @@ assert.strictEqual(
   false,
 );
 assert.strictEqual(
+  shouldSendHourlyDiscordAlert({ key: "rate_limit_hits", title: "People/guests hitting limits", detail: "5 users", severity: "warn", source: "overview" }),
+  false,
+);
+assert.strictEqual(
   shouldCountForDailyDigestStatus({ key: "important_jobs", title: "Pipeline jobs", detail: "mostly okay", severity: "warn", source: "overview" }),
+  false,
+);
+assert.strictEqual(
+  shouldCountForDailyDigestStatus({ key: "rate_limit_hits", title: "People/guests hitting limits", detail: "5 users", severity: "warn", source: "overview" }),
+  false,
+);
+assert.strictEqual(
+  shouldCountForDailyDigestStatus({ key: "important_jobs", title: "Pipeline jobs", detail: "failed", severity: "critical", source: "overview" }),
   true,
 );
 assert.strictEqual(
@@ -70,11 +90,15 @@ const alert = {
   key: "sentry",
   title: "Sentry",
   detail: "failing",
-  severity: "warn" as const,
+  severity: "critical" as const,
   source: "overview",
 };
 const now = new Date("2026-05-24T12:00:00Z").getTime();
 assert.strictEqual(shouldSendDiscordAlert(alert, null, now), true);
+assert.strictEqual(
+  shouldSendDiscordAlert({ ...alert, severity: "warn" }, null, now),
+  false,
+);
 assert.strictEqual(
   shouldSendDiscordAlert(
     { key: "config_freshness", title: "App settings update", detail: "stale (8d ago)", severity: "warn", source: "overview" },
@@ -86,7 +110,7 @@ assert.strictEqual(
 assert.strictEqual(
   shouldSendDiscordAlert(
     alert,
-    { severity: "warn", detail: "failing", status: "open", discord_sent_at: "2026-05-24T10:00:00Z" },
+    { severity: "critical", detail: "failing", status: "open", discord_sent_at: "2026-05-24T11:30:00Z" },
     now,
   ),
   false,
@@ -94,15 +118,15 @@ assert.strictEqual(
 assert.strictEqual(
   shouldSendDiscordAlert(
     alert,
-    { severity: "warn", detail: "still failing", status: "open", discord_sent_at: "2026-05-24T10:00:00Z" },
+    { severity: "critical", detail: "still failing", status: "open", discord_sent_at: "2026-05-24T11:30:00Z" },
     now,
   ),
   true,
 );
 assert.strictEqual(
   shouldSendDiscordAlert(
-    { ...alert, severity: "critical" },
-    { severity: "warn", detail: "failing", status: "open", discord_sent_at: "2026-05-24T11:30:00Z" },
+    alert,
+    { severity: "critical", detail: "failing", status: "open", discord_sent_at: "2026-05-24T10:30:00Z" },
     now,
   ),
   true,

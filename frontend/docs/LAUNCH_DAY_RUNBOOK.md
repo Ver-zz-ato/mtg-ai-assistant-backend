@@ -124,6 +124,30 @@ Use this shortcut:
 - upgrade starts without completions
 - rate-limit hits
 
+### Launch alerts, ELI5
+
+Discord launch alerts should mean "something is seriously wrong."
+
+Yellow dashboard metrics still show in the cockpit/daily digest, but they should not ping as launch alerts by themselves.
+
+| Alert | Simple meaning | First check |
+|-------|----------------|-------------|
+| `Supabase admin client is not configured` | The cockpit cannot read private launch data. | Fix server-only Supabase admin env. |
+| `AI cost` | AI spend is critically high. | AI tab -> expensive users/features/routes. |
+| `AI errors` | More than 10% of app AI calls failed. | AI tab, then Sentry/local errors. |
+| `Sentry unresolved` | Sentry has a critical number of unresolved issues. | Newest user-facing issue first. |
+| `Local error logs` | Backend/API errors hit the critical threshold. | Repeated same route/message first. |
+| `Daily price jobs` | A required price job failed. | `/admin/ops`. |
+| `Pipeline jobs` | A monitored background job failed. | `/admin/ops`. |
+
+For the old screenshot-style rate-limit message:
+
+- It meant rate limits blocked some requests.
+- `5` meant five masked user/guest keys hit a limit.
+- `7 hit row(s)` meant seven logged limit events.
+- `3 route(s)` meant those events were spread across three API paths.
+- That is now a dashboard/report watch metric, not a Discord launch alert.
+
 ### Things that are not automatically scary
 
 - Quiet scanner usage if few people reached it
