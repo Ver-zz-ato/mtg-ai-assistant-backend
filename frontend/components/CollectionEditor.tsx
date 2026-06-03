@@ -20,6 +20,7 @@ import {
 } from "@/lib/collection/deckCardUsage";
 import { useAuth } from "@/lib/auth-context";
 import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
+import { toast, toastError } from "@/lib/toast-client";
 
 function BarList({ data, total, colors, onClick }: { data: Array<{ label:string; value:number }>; total?: number; colors?: string[]; onClick?: (label:string)=>void }){
   const sum = (total ?? data.reduce((s,d)=>s+d.value,0)) || 1;
@@ -259,6 +260,7 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
           // When making public, the generated slug should always be available
           setSlugOk(true);
         }
+        toast(Boolean(meta?.is_public) ? "Collection is public." : "Collection is private.", "success");
       } else {
         // Handle error response
         const errorMsg = j?.error || 'Failed to update';
@@ -273,10 +275,17 @@ function ExportShareCard({ collectionId }: { collectionId: string }){
             setIsPublic(Boolean(m?.is_public));
             setSlug(String(m?.public_slug||''));
             setSlugOk(true);
+            toast("Collection is public.", "success");
           }
+        } else if (String(errorMsg).toLowerCase().includes('please wait')) {
+          toast(errorMsg, 'warning');
+        } else {
+          toastError(errorMsg);
         }
       }
-    }catch{}
+    }catch(e: any){
+      toastError(e?.message || 'Failed to update collection visibility');
+    }
     finally{ setBusy(false); }
   }
 

@@ -4,6 +4,7 @@ import { trackDeckShared } from "@/lib/analytics-enhanced";
 import { validatePublicText } from "@/lib/profanity";
 import { PUBLIC_DECK_TITLE_QUALITY_ERROR, isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 import ShareButton from "@/components/ShareButton";
+import { toast, toastError } from "@/lib/toast-client";
 
 type Props = {
   deckId: string;
@@ -60,6 +61,7 @@ export default function DeckPublicToggle({
         throw new Error(json?.error || "Request failed");
       }
       setIsPublic(nextVal);
+      toast(nextVal ? "Deck is public." : "Deck is private.", "success");
       if (nextVal && typeof nextDeckAim === "string") {
         setDeckAim(nextDeckAim);
       }
@@ -72,7 +74,13 @@ export default function DeckPublicToggle({
         window.dispatchEvent(new CustomEvent("deck:visibility", { detail: { isPublic: nextVal } }));
       } catch {}
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      const message = e instanceof Error ? e.message : "Something went wrong";
+      setError(message);
+      if (message.toLowerCase().includes("please wait")) {
+        toast(message, "warning");
+      } else {
+        toastError(message);
+      }
       throw e;
     } finally {
       setBusy(false);

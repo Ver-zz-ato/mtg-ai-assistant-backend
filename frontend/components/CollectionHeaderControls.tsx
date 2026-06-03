@@ -3,6 +3,7 @@
 import React from "react";
 import { useProStatus } from "@/hooks/useProStatus";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
+import { toast, toastError } from "@/lib/toast-client";
 
 export default function CollectionHeaderControls({ collectionId }: { collectionId: string }){
   const [isPublic, setIsPublic] = React.useState(false);
@@ -68,6 +69,7 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           // Small delay to ensure state updates, then mark as available
           setTimeout(() => setSlugOk(true), 100);
         }
+        toast(Boolean(m?.is_public) ? "Collection is public." : "Collection is private.", "success");
       } else {
         // Handle error response
         const errorMsg = j?.error || 'Failed to update';
@@ -82,10 +84,17 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
             setIsPublic(Boolean(m?.is_public));
             setSlug(String(m?.public_slug||''));
             setSlugOk(true);
+            toast("Collection is public.", "success");
           }
+        } else if (String(errorMsg).toLowerCase().includes('please wait')) {
+          toast(errorMsg, 'warning');
+        } else {
+          toastError(errorMsg);
         }
       }
-    }catch{}
+    }catch(e: any){
+      toastError(e?.message || 'Failed to update collection visibility');
+    }
     finally{ setBusy(false); }
   }
 

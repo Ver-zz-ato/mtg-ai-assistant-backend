@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import DeckPublicToggle from '@/components/DeckPublicToggle';
 
 export default function DeckRowActions(props: {
   id: string;
@@ -9,28 +10,6 @@ export default function DeckRowActions(props: {
 }) {
   const router = useRouter();
   const { id, title, is_public } = props;
-
-  async function togglePublic() {
-    if (!is_public) {
-      const res = await fetch('/api/decks/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, is_public: true }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || j?.error) {
-        alert(j?.error || 'Failed to update');
-        return;
-      }
-    } else {
-      await fetch('/api/decks/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, is_public: false }),
-      });
-    }
-    router.refresh();
-  }
 
   async function copyLink() {
     try {
@@ -66,13 +45,7 @@ export default function DeckRowActions(props: {
 
   return (
     <div className="flex gap-2">
-      <button
-        onClick={togglePublic}
-        className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5"
-        title="Toggle public/private"
-      >
-        {is_public ? 'Make Private' : 'Make Public'}
-      </button>
+      <DeckPublicToggle deckId={id} initialIsPublic={Boolean(is_public)} deckTitle={title} compact />
 
       <button
         onClick={copyLink}
