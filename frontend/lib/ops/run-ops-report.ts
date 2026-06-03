@@ -523,6 +523,8 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         openai_actual_mtd_usd: Number(openAiMonthToDate?.totals?.cost_usd || 0),
         openai_actual_cost_source: openAiLiveSpend?.cost_source || null,
         openai_actual_project_names: (openAiLiveSpend?.projects || []).map((project) => project.project_name).filter(Boolean),
+        openai_actual_project_ids: openAiLiveSpend?.filters?.project_ids || [],
+        openai_actual_api_key_ids: openAiLiveSpend?.filters?.api_key_ids || [],
       },
       reliability: {
         sentry_status: asString(getMetric(errors, "sentry")?.value),
@@ -564,13 +566,13 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       warning_alerts: warnAlerts.length,
     },
     notes: [
-      openAiCostAdjuster.source === "openai_cached_input_usage"
-        ? "AI cost uses ai_usage LLM-call rows (model != none), excludes ai_test/eval runs, includes planner_cost_usd, and applies OpenAI cached-input usage discounts by model."
-        : "AI cost uses ai_usage LLM-call rows (model != none), excludes ai_test/eval runs, and includes planner_cost_usd.",
+      "App/Website LLM counts are route-attributed from ai_usage. OpenAI actual spend is pulled directly from the OpenAI Costs API.",
       openAiLatestCompletedSpend?.latest_completed_day?.date
         ? `OpenAI live costs use UTC day buckets. Latest completed bucket: ${openAiLatestCompletedSpend.latest_completed_day.date}.`
         : null,
-      "OpenAI billing may still differ slightly from this estimate because org costs are bucketed separately from per-route ai_usage rows.",
+      (openAiLiveSpend?.filters?.api_key_ids || []).length > 0
+        ? `OpenAI actual spend is filtered to API key IDs: ${(openAiLiveSpend?.filters?.api_key_ids || []).join(", ")}.`
+        : null,
       websitePosthog.error ? `Website PostHog warning: ${websitePosthog.error}` : null,
       asString(getMetric(analytics, "scanner_events_seen")?.sub || ""),
       asString(getMetric(overview, "launch_health")?.sub || ""),
@@ -735,6 +737,8 @@ async function buildWeeklyDigestDetails(admin: NonNullable<ReturnType<typeof get
         openai_actual_mtd_usd: Number(openAiMonthToDate?.totals?.cost_usd || 0),
         openai_actual_cost_source: openAiWeekSpend?.cost_source || null,
         openai_actual_project_names: (openAiWeekSpend?.projects || []).map((project) => project.project_name).filter(Boolean),
+        openai_actual_project_ids: openAiWeekSpend?.filters?.project_ids || [],
+        openai_actual_api_key_ids: openAiWeekSpend?.filters?.api_key_ids || [],
       },
       reliability: {
         sentry_status: asString(getMetric(errors, "sentry")?.value),
@@ -764,11 +768,12 @@ async function buildWeeklyDigestDetails(admin: NonNullable<ReturnType<typeof get
       late_weekly_jobs: lateJobs.length,
     },
     notes: [
-      openAiCostAdjuster.source === "openai_cached_input_usage"
-        ? "AI route cost uses ai_usage LLM-call rows (model != none), excludes ai_test/eval runs, includes planner_cost_usd, and applies cached-input usage discounts by model."
-        : "AI route cost uses ai_usage LLM-call rows (model != none), excludes ai_test/eval runs, and includes planner_cost_usd.",
+      "App/Website LLM counts are route-attributed from ai_usage. OpenAI actual spend is pulled directly from the OpenAI Costs API.",
       openAiWeekSpend?.latest_completed_day?.date
         ? `OpenAI live costs use UTC day buckets. Latest completed bucket: ${openAiWeekSpend.latest_completed_day.date}.`
+        : null,
+      (openAiWeekSpend?.filters?.api_key_ids || []).length > 0
+        ? `OpenAI actual spend is filtered to API key IDs: ${(openAiWeekSpend?.filters?.api_key_ids || []).join(", ")}.`
         : null,
       websitePosthog.error ? `Website PostHog warning: ${websitePosthog.error}` : null,
       asString(getMetric(analytics, "missing_families")?.sub || ""),

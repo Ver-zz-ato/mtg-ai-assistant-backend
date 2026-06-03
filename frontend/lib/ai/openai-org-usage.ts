@@ -50,7 +50,6 @@ export type OpenAiOrgSpendSnapshot = {
     input_tokens: number;
     output_tokens: number;
     cached_input_tokens: number;
-    naive_uncached_cost_usd: number;
     requests: number;
   };
   projects: Array<{
@@ -304,8 +303,6 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
     });
   }
 
-  let costSource: OpenAiOrgSpendSnapshot["cost_source"] = "openai_api";
-
   const latestCompletedCutoff = getStartOfTodayUtcEpoch();
   const latestCompletedDay = dailyCosts
     .filter((bucket, index) => {
@@ -316,7 +313,7 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
 
   return {
     source: "openai_api",
-    cost_source: costSource,
+    cost_source: "openai_api",
     window: {
       start_time: startTime,
       end_time: endTime,
@@ -332,9 +329,6 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
       input_tokens: totalInput,
       output_tokens: totalOutput,
       cached_input_tokens: totalCachedInput,
-      naive_uncached_cost_usd: round(Array.from(byModel.entries()).reduce((sum, [model, value]) => (
-        sum + costUSDWithCachedInput(model, value.input_tokens, value.output_tokens, 0)
-      ), 0)),
       requests: totalRequests,
     },
     projects: Array.from(projectCostMap.values())

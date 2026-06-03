@@ -369,9 +369,9 @@ export default function AdminAIUsagePage() {
         </header>
 
         <ELI5 heading="AI Usage" items={[
-          'Our estimate: from our ai_usage table (we log each request). OpenAI actual: live from the OpenAI Costs API.',
-          'OpenAI actual is project-level spend, not website-vs-app route attribution. Route splits still come from our ai_usage logs.',
-          'If OpenAI actual shows $0, we fall back to estimating from token usage. Check OPENAI_ADMIN_API_KEY.',
+          'Logged usage: from our ai_usage table (we log each request). OpenAI actual: live from the OpenAI Costs API.',
+          'OpenAI actual is project/API-key spend, not website-vs-app route attribution. Route splits still come from our ai_usage logs.',
+          'If OpenAI actual shows $0, it is the value returned by OpenAI. Check OPENAI_ADMIN_API_KEY and optional OPENAI_USAGE_API_KEY_IDS / OPENAI_USAGE_PROJECT_IDS filters.',
           'Use for: cost tracking, spotting expensive routes, debugging model usage.'
         ]} />
 
@@ -474,16 +474,9 @@ export default function AdminAIUsagePage() {
                 )}
                 {!openaiLoading && openaiData?.totals && (
                   <div className="space-y-3">
-                    {openaiData.cost_source === 'estimated_from_tokens' && (
-                      <div className="text-xs text-amber-400/90 bg-amber-950/30 rounded px-2 py-1">
-                        OpenAI Costs API returned $0 (common: delayed billing). Showing estimated cost from token usage.
-                      </div>
-                    )}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <div className="text-[11px] uppercase text-neutral-500">
-                          Cost {openaiData.cost_source === 'estimated_from_tokens' ? '(est. from tokens)' : '(actual)'}
-                        </div>
+                        <div className="text-[11px] uppercase text-neutral-500">Cost (actual)</div>
                         <div className="text-lg font-semibold text-emerald-300">${openaiData.totals.cost_usd?.toFixed(4) ?? "0"}</div>
                       </div>
                       <div>
@@ -518,9 +511,14 @@ export default function AdminAIUsagePage() {
                         Projects in this OpenAI view: {openaiData.projects.map((project: any) => project.project_name || project.project_id || "unknown").join(", ")}
                       </div>
                     )}
+                    {(openaiData.api_keys?.length ?? 0) > 0 && (
+                      <div className="text-xs text-neutral-400">
+                        API keys in this OpenAI view: {openaiData.api_keys.map((apiKey: any) => apiKey.api_key_id || "unknown").join(", ")}
+                      </div>
+                    )}
                     {overview?.totals?.total_cost_usd != null && (
                       <div className="text-xs text-neutral-400">
-                        Our estimate: ${overview.totals.total_cost_usd?.toFixed(4)} vs OpenAI actual: ${openaiData.totals.cost_usd?.toFixed(4)}
+                        Logged route cost: ${overview.totals.total_cost_usd?.toFixed(4)} vs OpenAI actual: ${openaiData.totals.cost_usd?.toFixed(4)}
                         {Math.abs((overview.totals.total_cost_usd ?? 0) - (openaiData.totals.cost_usd ?? 0)) > 0.01 && (
                           <span className="text-amber-400 ml-1">(diff: ${((overview.totals.total_cost_usd ?? 0) - (openaiData.totals.cost_usd ?? 0)).toFixed(4)})</span>
                         )}
