@@ -676,11 +676,13 @@ CREATE TABLE public.collection_meta (
   visibility text NOT NULL DEFAULT 'private'::text,
   data jsonb,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  public_toggled_at timestamp with time zone,
   CONSTRAINT collection_meta_pkey PRIMARY KEY (collection_id),
   CONSTRAINT collection_meta_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id)
 );
 -- `collection_meta.data` currently carries lightweight collection UI metadata such as
 -- `hero_card_name`, which lets app + website collection tiles respect a user-picked hero card.
+-- `collection_meta.public_toggled_at` backs the 5-minute public/private toggle cooldown.
 CREATE TABLE public.collections (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -828,6 +830,7 @@ CREATE TABLE public.decks (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   public boolean NOT NULL DEFAULT false,
   deck_aim text,
+  public_toggled_at timestamp with time zone,
   CONSTRAINT decks_pkey PRIMARY KEY (id),
   CONSTRAINT decks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
@@ -835,6 +838,7 @@ CREATE TABLE public.decks (
 -- The current API requires clean public text, `deck_aim`, format-compliant mainboard
 -- size, and a non-placeholder title; browse/discovery also hides existing public decks
 -- with low-quality titles until they are renamed. No schema constraint is used.
+-- `decks.public_toggled_at` backs the 5-minute public/private toggle cooldown.
 -- `decks.meta` includes optional UI hero-cover keys:
 -- `deck_cover_card_name` (chosen card name) and `deck_cover_force_override`
 -- (`true` when a manual hero pick should override commander art on list/detail surfaces).
