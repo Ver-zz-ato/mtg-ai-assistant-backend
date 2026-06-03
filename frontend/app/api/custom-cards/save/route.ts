@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getUserAndSupabase } from '@/lib/api/get-user-from-request';
 
 function slugify(n: string){ return (n||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,48) || 'card'; }
 
 export async function POST(req: NextRequest){
   try{
-    const sb = await createClient();
-    const { data: ures } = await sb.auth.getUser();
-    const user = ures?.user;
+    const { supabase: sb, user } = await getUserAndSupabase(req);
     if (!user) return NextResponse.json({ ok:false, error:'auth_required' }, { status: 401 });
 
     const body = await req.json();

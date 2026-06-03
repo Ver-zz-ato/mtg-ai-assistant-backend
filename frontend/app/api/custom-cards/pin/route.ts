@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getUserAndSupabase } from '@/lib/api/get-user-from-request';
 
 export async function POST(req: NextRequest){
   try{
-    const sb = await createClient();
-    const { data: ures } = await sb.auth.getUser();
-    const user = ures?.user; if (!user) return NextResponse.json({ ok:false, error:'auth_required' }, { status: 401 });
+    const { supabase: sb, user } = await getUserAndSupabase(req);
+    if (!user) return NextResponse.json({ ok:false, error:'auth_required' }, { status: 401 });
     const { id } = await req.json().catch(()=>({}));
     if (!id) return NextResponse.json({ ok:false, error:'missing_id' }, { status: 400 });
 
