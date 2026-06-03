@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
+import { PUBLIC_DECK_TITLE_QUALITY_ERROR, isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 
 export async function POST(req: Request) {
   try {
@@ -26,6 +27,12 @@ export async function POST(req: Request) {
     if (vis && (vis as { is_public?: boolean }).is_public === true && next && containsProfanity(next)) {
       return NextResponse.json(
         { ok: false, error: "Please remove offensive language before making this public." },
+        { status: 400 }
+      );
+    }
+    if (vis && (vis as { is_public?: boolean }).is_public === true && isLowQualityPublicDeckTitle(next)) {
+      return NextResponse.json(
+        { ok: false, error: PUBLIC_DECK_TITLE_QUALITY_ERROR },
         { status: 400 }
       );
     }

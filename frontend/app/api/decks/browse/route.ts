@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { CachePresets } from "@/lib/api/cache";
 import { logger } from "@/lib/logger";
 import { isPublicBrowseDeckCompliant } from "@/lib/deck/formatCompliance";
+import { isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 
 // Use service role client to bypass RLS for public deck browsing
 // This is safe because we only query decks with is_public = true
@@ -181,6 +182,10 @@ export async function GET(req: Request) {
         : Math.max(fromDeckCards, fromDeckText);
     };
     const filteredDecks = (data || []).filter(d => {
+      if (isLowQualityPublicDeckTitle(d.title)) {
+        logger.debug(`[Browse Decks] Filtered out deck "${d.title}" - low-quality public title`);
+        return false;
+      }
       const cardCount = getCardCount(d);
       const format = d.format;
       if (!isPublicBrowseDeckCompliant(format, cardCount)) {
@@ -244,7 +249,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 }
-
 
 
 

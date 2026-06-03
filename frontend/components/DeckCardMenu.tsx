@@ -56,8 +56,8 @@ export default function DeckCardMenu({ id, title, is_public }: { id: string; tit
           body: JSON.stringify({ id, is_public: true }),
         });
         const j = await res.json().catch(() => ({}));
-        if (!res.ok && j?.error) {
-          alert(j.error);
+        if (!res.ok || j?.error) {
+          alert(j?.error || "Failed to update");
           setOpen(false);
           return;
         }

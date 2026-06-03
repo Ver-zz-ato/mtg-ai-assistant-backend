@@ -18,8 +18,8 @@ export default function DeckRowActions(props: {
         body: JSON.stringify({ id, is_public: true }),
       });
       const j = await res.json().catch(() => ({}));
-      if (!res.ok && j?.error) {
-        alert(j.error);
+      if (!res.ok || j?.error) {
+        alert(j?.error || 'Failed to update');
         return;
       }
     } else {

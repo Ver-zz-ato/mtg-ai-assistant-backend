@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
+import { isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 
 type Row = {
   id: string;
@@ -32,9 +33,11 @@ const getRecent = unstable_cache(
       .eq("is_public", true)
       .gte("updated_at", oneYearAgoISO) // Show decks updated in the last year
       .order("updated_at", { ascending: false })
-      .limit(Math.min(Math.max(limit || 5, 1), 5)); // Max 5 decks
+      .limit(Math.min(Math.max(limit || 5, 1), 5) * 3); // Overfetch in case public-title filtering removes rows.
     if (error) throw new Error(error.message);
-    return (data ?? []) as Row[];
+    return ((data ?? []) as Row[])
+      .filter((deck) => !isLowQualityPublicDeckTitle(deck.title))
+      .slice(0, Math.min(Math.max(limit || 5, 1), 5));
   },
   ["recent_public_decks"],
   { revalidate: 30 }

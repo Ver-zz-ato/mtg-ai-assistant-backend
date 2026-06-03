@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { loadProfilesPublicBySlug } from "@/lib/server/publicProfile";
 import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
+import { isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -160,7 +161,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     let rows: any[] = [];
     try {
       const { data } = await supabase.from('decks').select('id, title').in('id', ids).eq('user_id', userId).eq('is_public', true);
-      rows = Array.isArray(data) ? data : [];
+      rows = Array.isArray(data) ? data.filter((deck) => !isLowQualityPublicDeckTitle(deck.title)) : [];
     } catch {}
     if (!rows.length) return null as any;
     return (
@@ -201,7 +202,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       .eq('is_public', true)
       .order('updated_at', { ascending: false })
       .limit(12);
-    decks = Array.isArray(data) ? data : [];
+    decks = Array.isArray(data) ? data.filter((deck) => !isLowQualityPublicDeckTitle(deck.title)) : [];
   } catch {}
 
   // Prefetch art using same logic as homepage

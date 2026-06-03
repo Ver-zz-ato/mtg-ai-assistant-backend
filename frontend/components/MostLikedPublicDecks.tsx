@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
+import { isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -64,6 +65,7 @@ const getMostLiked = unstable_cache(
       
       // Add to pairs only if the public deck is format-complete.
       for (const deck of batch) {
+        if (isLowQualityPublicDeckTitle(deck.title)) continue;
         const mainCount =
           getMainboardCardCount(rowsPerDeck.get(deck.id) ?? []) ||
           mainDeckTextCardCount(String((deck as { deck_text?: string | null }).deck_text ?? ""), (deck as { format?: string | null }).format ?? null);

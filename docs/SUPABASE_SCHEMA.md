@@ -831,6 +831,10 @@ CREATE TABLE public.decks (
   CONSTRAINT decks_pkey PRIMARY KEY (id),
   CONSTRAINT decks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
+-- Public deck behavior: setting `is_public = true` is guarded by API validation.
+-- The current API requires clean public text, `deck_aim`, format-compliant mainboard
+-- size, and a non-placeholder title; browse/discovery also hides existing public decks
+-- with low-quality titles until they are renamed. No schema constraint is used.
 -- `decks.meta` includes optional UI hero-cover keys:
 -- `deck_cover_card_name` (chosen card name) and `deck_cover_force_override`
 -- (`true` when a manual hero pick should override commander art on list/detail surfaces).

@@ -8,12 +8,79 @@ type PublicDeckValidationInput = {
   deckAim?: string | null | undefined;
 };
 
+export const PUBLIC_DECK_TITLE_QUALITY_ERROR =
+  "Public decks need a more specific title before sharing. Try using the commander, archetype, colors, or theme.";
+
+const PLACEHOLDER_TITLES = new Set([
+  "untitled",
+  "untitled deck",
+  "new deck",
+  "my deck",
+  "deck",
+  "test",
+  "commander name",
+  "commander name ai",
+  "deck from collection ai",
+  "deck frfom collection ai",
+  "ai deck",
+]);
+
+const GENERIC_TITLE_WORDS = new Set([
+  "ai",
+  "commander",
+  "deck",
+  "edh",
+  "mtg",
+  "pauper",
+  "pioneer",
+  "standard",
+  "modern",
+]);
+
+function normalizePublicDeckTitle(title: string): string {
+  return String(title || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function isLowQualityPublicDeckTitle(title: string | null | undefined): boolean {
+  const normalized = normalizePublicDeckTitle(String(title ?? ""));
+  if (!normalized) return true;
+  if (PLACEHOLDER_TITLES.has(normalized)) return true;
+
+  const compact = normalized.replace(/\s+/g, "");
+  if (compact.length < 3) return true;
+
+  const meaningfulChars = compact.replace(/[^a-z]/g, "");
+  if (meaningfulChars.length < 3) return true;
+
+  const alphaNumericChars = compact.replace(/[^a-z0-9]/g, "");
+  if (alphaNumericChars.length < 3) return true;
+
+  const alphaChars = compact.replace(/[^a-z]/g, "");
+  const digitChars = compact.replace(/[^0-9]/g, "");
+  if (digitChars.length > alphaChars.length) return true;
+
+  const remainingWords = normalized
+    .split(" ")
+    .filter((word) => word.length > 0 && !GENERIC_TITLE_WORDS.has(word));
+  const remainingMeaningful = remainingWords.join("").replace(/[^a-z]/g, "");
+  return remainingMeaningful.length < 3;
+}
+
 /**
  * Central publish guard for decks.
  * A deck can only be public when the title is clean and the main deck size is exact for the format.
  */
 export function getPublicDeckValidationError(input: PublicDeckValidationInput): string | null {
   const title = String(input.title ?? "").trim();
+  if (isLowQualityPublicDeckTitle(title)) {
+    return PUBLIC_DECK_TITLE_QUALITY_ERROR;
+  }
   if (title && containsProfanity(title)) {
     return "Please remove offensive language before making this public.";
   }

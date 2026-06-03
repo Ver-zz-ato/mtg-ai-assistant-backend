@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { trackDeckShared } from "@/lib/analytics-enhanced";
 import { validatePublicText } from "@/lib/profanity";
+import { PUBLIC_DECK_TITLE_QUALITY_ERROR, isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 import ShareButton from "@/components/ShareButton";
 
 type Props = {
@@ -32,6 +33,11 @@ export default function DeckPublicToggle({
     setError(null);
     try {
       if (nextVal === true) {
+        if (isLowQualityPublicDeckTitle(deckTitle)) {
+          setError(PUBLIC_DECK_TITLE_QUALITY_ERROR);
+          setBusy(false);
+          return;
+        }
         const titleCheck = validatePublicText(String(deckTitle ?? ""), "Deck name");
         if (!titleCheck.ok) {
           setError(titleCheck.message);
@@ -99,6 +105,10 @@ export default function DeckPublicToggle({
             disabled={busy || isPublic === true}
             onClick={() => {
               setError(null);
+              if (isLowQualityPublicDeckTitle(deckTitle)) {
+                setError(PUBLIC_DECK_TITLE_QUALITY_ERROR);
+                return;
+              }
               setAimDraft(deckAim);
               setShowPublishModal(true);
             }}

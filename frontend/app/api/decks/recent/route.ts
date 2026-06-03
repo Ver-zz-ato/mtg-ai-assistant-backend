@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { withMetrics } from "@/lib/observability/withMetrics";
+import { isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 
 export const runtime = 'edge';
 export const revalidate = 60; // 1 minute
@@ -23,10 +24,11 @@ async function getHandler(request: NextRequest) {
     .select("id, user_id, title, commander, created_at, updated_at")
     .eq("is_public", true)
     .order("updated_at", { ascending: false })
-    .limit(limit);
+    .limit(limit * 3);
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, decks: data ?? [] }, {
+  const decks = (data ?? []).filter((deck) => !isLowQualityPublicDeckTitle(deck.title)).slice(0, limit);
+  return NextResponse.json({ ok: true, decks }, {
     headers: {
       'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
     }

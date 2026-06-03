@@ -3,6 +3,7 @@ import { createClient, getServiceRoleClient } from "@/lib/supabase/server";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderSlugByName } from "@/lib/commanders";
 import { syncUserBadgeState } from "@/lib/badges/canonical";
+import { isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 
 function fallbackCommanderSlug(name: string): string {
   return String(name || "")
@@ -131,7 +132,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
         .eq("is_public", true)
         .order("updated_at", { ascending: false })
         .limit(12);
-      decks = Array.isArray(data) ? data : [];
+      decks = Array.isArray(data) ? data.filter((deck) => !isLowQualityPublicDeckTitle(deck.title)) : [];
     } catch {}
 
     // Public clients: no user-uploaded banner/avatar URLs (privacy; moderation).
@@ -260,10 +261,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
           .in("id", pinIds)
           .eq("user_id", userId)
           .eq("is_public", true);
-        const map = new Map((Array.isArray(pinRows) ? pinRows : []).map((r: any) => [r.id, r.title as string]));
+        const safePinRows = (Array.isArray(pinRows) ? pinRows : []).filter((r: any) => !isLowQualityPublicDeckTitle(r.title));
+        const map = new Map(safePinRows.map((r: any) => [r.id, r.title as string]));
         pinnedDecks = pinIds
           .map((id) => ({ id, title: String(map.get(id) || "Untitled") }))
-          .filter((p) => p.id);
+          .filter((p) => p.id && map.has(p.id));
       } catch {}
     }
 
