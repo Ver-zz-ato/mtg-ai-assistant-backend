@@ -1,6 +1,8 @@
 /**
  * Fetches live usage and spend from OpenAI's org Usage + Costs APIs.
  * Requires OPENAI_ADMIN_API_KEY.
+ * Optional filters: OPENAI_USAGE_PROJECT_IDS and OPENAI_USAGE_API_KEY_IDS,
+ * or query params project_id / api_key_id for admin inspection.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
@@ -20,11 +22,12 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams;
     const days = Math.min(90, Math.max(1, parseInt(sp.get("days") || "7", 10) || 7));
     const projectIds = sp.getAll("project_id");
+    const apiKeyIds = sp.getAll("api_key_id");
     const endTime = Math.floor(Date.now() / 1000);
 
     const [rangeSnapshot, monthToDateSnapshot] = await Promise.all([
-      fetchOpenAiOrgSpendSnapshot({ days, endTime, projectIds }),
-      fetchOpenAiOrgSpendSnapshot({ startTime: getMonthStartUtcEpoch(), endTime, projectIds }),
+      fetchOpenAiOrgSpendSnapshot({ days, endTime, projectIds, apiKeyIds }),
+      fetchOpenAiOrgSpendSnapshot({ startTime: getMonthStartUtcEpoch(), endTime, projectIds, apiKeyIds }),
     ]);
 
     return NextResponse.json({

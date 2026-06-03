@@ -1,5 +1,3 @@
-import { costUSDWithCachedInput } from "@/lib/ai/pricing";
-
 const USAGE_URL = "https://api.openai.com/v1/organization/usage/completions";
 const COSTS_URL = "https://api.openai.com/v1/organization/costs";
 
@@ -28,6 +26,7 @@ type OpenAiCostsBucket = {
   end_time_iso?: string;
   results?: Array<{
     amount?: { value?: number | string; currency?: string };
+    api_key_id?: string | null;
     project_id?: string | null;
     project_name?: string | null;
   }>;
@@ -35,7 +34,7 @@ type OpenAiCostsBucket = {
 
 export type OpenAiOrgSpendSnapshot = {
   source: "openai_api";
-  cost_source: "openai_api" | "estimated_from_tokens";
+  cost_source: "openai_api";
   window: {
     start_time: number;
     end_time: number;
@@ -44,6 +43,7 @@ export type OpenAiOrgSpendSnapshot = {
   };
   filters: {
     project_ids: string[];
+    api_key_ids: string[];
   };
   totals: {
     cost_usd: number;
@@ -56,6 +56,10 @@ export type OpenAiOrgSpendSnapshot = {
   projects: Array<{
     project_id: string | null;
     project_name: string | null;
+    cost_usd: number;
+  }>;
+  api_keys: Array<{
+    api_key_id: string | null;
     cost_usd: number;
   }>;
   by_model: Array<{
@@ -111,6 +115,14 @@ function getConfiguredProjectIds(): string[] {
     process.env.OPENAI_USAGE_PROJECT_IDS ||
     process.env.OPENAI_PROJECT_IDS ||
     process.env.OPENAI_PROJECT_ID,
+  );
+}
+
+function getConfiguredApiKeyIds(): string[] {
+  return normalizeProjectIds(
+    process.env.OPENAI_USAGE_API_KEY_IDS ||
+    process.env.OPENAI_API_KEY_IDS ||
+    process.env.OPENAI_API_KEY_ID,
   );
 }
 
@@ -170,6 +182,7 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
   startTime?: number;
   endTime?: number;
   projectIds?: string[];
+  apiKeyIds?: string[];
 }): Promise<OpenAiOrgSpendSnapshot> {
   const adminKey = process.env.OPENAI_ADMIN_API_KEY;
   if (!adminKey) {
@@ -181,6 +194,9 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
   const projectIds = normalizeProjectIds(options?.projectIds).length > 0
     ? normalizeProjectIds(options?.projectIds)
     : getConfiguredProjectIds();
+  const apiKeyIds = normalizeProjectIds(options?.apiKeyIds).length > 0
+    ? normalizeProjectIds(options?.apiKeyIds)
+    : getConfiguredApiKeyIds();
   const bucketDays = Math.max(1, Math.min(180, Math.ceil((endTime - startTime) / (24 * 60 * 60))));
 
   const usageParams: Record<string, ParamValue> = {
@@ -195,11 +211,15 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
     end_time: endTime,
     bucket_width: "1d",
     limit: bucketDays,
-    group_by: "project_id",
+    group_by: apiKeyIds.length > 0 ? "api_key_id" : "project_id",
   };
   if (projectIds.length > 0) {
     usageParams.project_ids = projectIds;
     costsParams.project_ids = projectIds;
+  }
+  if (apiKeyIds.length > 0) {
+    usageParams.api_key_ids = apiKeyIds;
+    costsParams.api_key_ids = apiKeyIds;
   }
 
   const [usageBuckets, costsBuckets] = await Promise.all([
@@ -209,6 +229,7 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
 
   const byModel = new Map<string, { input_tokens: number; output_tokens: number; cached_input_tokens: number; requests: number }>();
   const projectCostMap = new Map<string, { project_id: string | null; project_name: string | null; cost_usd: number }>();
+  const apiKeyCostMap = new Map<string, { api_key_id: string | null; cost_usd: number }>();
   const dailyUsage: OpenAiOrgSpendSnapshot["daily_usage"] = [];
   const dailyCosts: OpenAiOrgSpendSnapshot["daily_costs"] = [];
 
@@ -263,6 +284,13 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
       const projectEntry = projectCostMap.get(projectKey) || { project_id: projectId, project_name: projectName, cost_usd: 0 };
       projectEntry.cost_usd += amount;
       projectCostMap.set(projectKey, projectEntry);
+      const apiKeyId = result.api_key_id ?? null;
+      if (apiKeyId || apiKeyIds.length > 0) {
+        const apiKey = apiKeyId || "unknown";
+        const apiKeyEntry = apiKeyCostMap.get(apiKey) || { api_key_id: apiKeyId, cost_usd: 0 };
+        apiKeyEntry.cost_usd += amount;
+        apiKeyCostMap.set(apiKey, apiKeyEntry);
+      }
       bucketProjects.push({
         project_id: projectId,
         project_name: projectName,
@@ -277,13 +305,6 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
   }
 
   let costSource: OpenAiOrgSpendSnapshot["cost_source"] = "openai_api";
-  if (totalCostUsd === 0 && (totalInput + totalOutput) > 0) {
-    totalCostUsd = 0;
-    for (const [model, value] of byModel.entries()) {
-      totalCostUsd += costUSDWithCachedInput(model, value.input_tokens, value.output_tokens, value.cached_input_tokens);
-    }
-    costSource = "estimated_from_tokens";
-  }
 
   const latestCompletedCutoff = getStartOfTodayUtcEpoch();
   const latestCompletedDay = dailyCosts
@@ -304,6 +325,7 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
     },
     filters: {
       project_ids: projectIds,
+      api_key_ids: apiKeyIds,
     },
     totals: {
       cost_usd: round(totalCostUsd),
@@ -317,6 +339,9 @@ export async function fetchOpenAiOrgSpendSnapshot(options?: {
     },
     projects: Array.from(projectCostMap.values())
       .map((project) => ({ ...project, cost_usd: round(project.cost_usd) }))
+      .sort((a, b) => b.cost_usd - a.cost_usd),
+    api_keys: Array.from(apiKeyCostMap.values())
+      .map((apiKey) => ({ ...apiKey, cost_usd: round(apiKey.cost_usd) }))
       .sort((a, b) => b.cost_usd - a.cost_usd),
     by_model: Array.from(byModel.entries())
       .map(([model, value]) => ({ model, ...value }))

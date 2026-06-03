@@ -1,5 +1,12 @@
 # Frontend changelog
 
+## 2026-06-03
+
+### Website changelog - mobile app Android/iOS progress
+
+- **Migration `127_changelog_mobile_app_android_ios_may_2026.sql`:** Adds a public `/changelog` entry for May 2026 highlighting how far the ManaTap app has come across Android and iOS: scanner improvements, build-from-collection, voice-ready Life Counter, collection/wishlist management, guest deck building, deck chat apply/undo, and broader app polish.
+- **Docs checked:** `docs/HOW_TO_ADD_BLOGS_AND_CHANGELOGS.md`, `docs/CHANGELOG_SQL_GUIDE.md`, and `docs/MOBILE_ADMIN_CONTROL.md`.
+
 ## 2026-05-30
 
 ### Ops - daily digest website AI cost estimate
