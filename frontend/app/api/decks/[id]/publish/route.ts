@@ -2,22 +2,42 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
+import { getPublicVisibilityCooldown } from "@/lib/server/publicVisibilityCooldown";
 
 type Params = { id: string };
 
-export async function POST(_req: Request, ctx: { params: Promise<Params> }) {
-  const { id } = await ctx.params;
-  const supabase = await createClient();
+async function getRequestUser(req: Request) {
+  let supabase = await createClient();
+  let { data: ures } = await supabase.auth.getUser();
+  let user = ures?.user;
 
-  const { data: ures } = await supabase.auth.getUser();
-  const user = ures?.user;
+  if (!user) {
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (bearerToken) {
+      const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+      const bearerSupabase = createClientWithBearerToken(bearerToken);
+      const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+      if (bearerUser) {
+        user = bearerUser;
+        supabase = bearerSupabase;
+      }
+    }
+  }
+
+  return { supabase, user };
+}
+
+export async function POST(req: Request, ctx: { params: Promise<Params> }) {
+  const { id } = await ctx.params;
+  const { supabase, user } = await getRequestUser(req);
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
   const { data: deck, error: readErr } = await supabase
     .from("decks")
-    .select("id, user_id, is_public, title, format, deck_text, deck_aim")
+    .select("id, user_id, is_public, title, format, deck_text, deck_aim, public_toggled_at")
     .eq("id", id)
     .single();
 
@@ -26,6 +46,17 @@ export async function POST(_req: Request, ctx: { params: Promise<Params> }) {
   }
   if (deck.user_id !== user.id) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
+  if (deck.is_public === true) {
+    return NextResponse.json({ ok: true, is_public: true });
+  }
+
+  const cooldown = getPublicVisibilityCooldown((deck as { public_toggled_at?: string | null }).public_toggled_at);
+  if (!cooldown.ok) {
+    return NextResponse.json(
+      { ok: false, error: cooldown.message, retryAfterSeconds: cooldown.retryAfterSeconds },
+      { status: 429 },
+    );
   }
 
   const publicError = getPublicDeckValidationError({
@@ -40,7 +71,7 @@ export async function POST(_req: Request, ctx: { params: Promise<Params> }) {
 
   const { error: upErr } = await supabase
     .from("decks")
-    .update({ is_public: true, updated_at: new Date().toISOString() })
+    .update({ is_public: true, public_toggled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (upErr) {
@@ -53,19 +84,16 @@ export async function POST(_req: Request, ctx: { params: Promise<Params> }) {
   return NextResponse.json({ ok: true, is_public: true });
 }
 
-export async function DELETE(_req: Request, ctx: { params: Promise<Params> }) {
+export async function DELETE(req: Request, ctx: { params: Promise<Params> }) {
   const { id } = await ctx.params;
-  const supabase = await createClient();
-
-  const { data: ures } = await supabase.auth.getUser();
-  const user = ures?.user;
+  const { supabase, user } = await getRequestUser(req);
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
   const { data: deck, error: readErr } = await supabase
     .from("decks")
-    .select("id, user_id, is_public")
+    .select("id, user_id, is_public, public_toggled_at")
     .eq("id", id)
     .single();
 
@@ -75,10 +103,21 @@ export async function DELETE(_req: Request, ctx: { params: Promise<Params> }) {
   if (deck.user_id !== user.id) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
+  if (deck.is_public !== true) {
+    return NextResponse.json({ ok: true, is_public: false });
+  }
+
+  const cooldown = getPublicVisibilityCooldown((deck as { public_toggled_at?: string | null }).public_toggled_at);
+  if (!cooldown.ok) {
+    return NextResponse.json(
+      { ok: false, error: cooldown.message, retryAfterSeconds: cooldown.retryAfterSeconds },
+      { status: 429 },
+    );
+  }
 
   const { error: upErr } = await supabase
     .from("decks")
-    .update({ is_public: false, updated_at: new Date().toISOString() })
+    .update({ is_public: false, public_toggled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (upErr) {

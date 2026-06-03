@@ -4,6 +4,7 @@ import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow"
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
+import { getPublicVisibilityCooldown } from "@/lib/server/publicVisibilityCooldown";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
 
     const { data: existing, error: existErr } = await supabase
       .from("decks")
-      .select("title, is_public, deck_aim, deck_text, format")
+      .select("title, is_public, deck_aim, deck_text, format, public_toggled_at")
       .eq("id", b.id)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -121,6 +122,18 @@ export async function POST(req: Request) {
       });
       if (publicError) {
         return NextResponse.json({ error: publicError }, { status: 400 });
+      }
+    }
+
+    const existingPublic = (existing as { is_public?: boolean }).is_public === true;
+    const publicToggleRequested = typeof b.is_public === "boolean" && b.is_public !== existingPublic;
+    if (publicToggleRequested) {
+      const cooldown = getPublicVisibilityCooldown((existing as { public_toggled_at?: string | null }).public_toggled_at);
+      if (!cooldown.ok) {
+        return NextResponse.json(
+          { error: cooldown.message, retryAfterSeconds: cooldown.retryAfterSeconds },
+          { status: 429 },
+        );
       }
     }
 
@@ -168,6 +181,9 @@ export async function POST(req: Request) {
     }
     if (typeof b.is_public === "boolean") {
       update.is_public = b.is_public;
+      if (publicToggleRequested) {
+        update.public_toggled_at = new Date().toISOString();
+      }
     }
 
     if (Object.keys(update).length === 0) {
