@@ -163,7 +163,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
   const [recentDecks, setRecentDecks] = useState<Array<{ id:string; title:string; commander?: string|null; deck_text?: string|null; format?: string|null }>>([]);
   const [pinnedDeckIds, setPinnedDeckIds] = useState<string[]>([]);
   const [deckBg, setDeckBg] = useState<Record<string, string>>({});
-  const [likes, setLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
   const [topCards, setTopCards] = useState<Record<string, string[]>>({});
 
   const [newPassword, setNewPassword] = useState<string>("");
@@ -259,20 +258,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
             const { data: prof } = await sb.from('profiles_public').select('pinned_deck_ids').eq('id', u.id).maybeSingle();
             const pins = Array.isArray((prof as any)?.pinned_deck_ids) ? (prof as any).pinned_deck_ids as string[] : [];
             setPinnedDeckIds(pins.slice(0,3));
-          } catch {}
-          // Load likes in one request to avoid one API call per deck.
-          try {
-            const map: Record<string, {count:number; liked:boolean}> = {} as any;
-            const ids = list.map(d => d.id).filter(Boolean);
-            if (ids.length) {
-              const r = await fetch(`/api/decks/likes?ids=${encodeURIComponent(ids.join(','))}`, { cache: 'no-store' });
-              const j = await r.json().catch(()=>({}));
-              for (const id of ids) {
-                const v = j?.likes?.[id];
-                map[id] = j?.ok && v ? { count: Number(v.count || 0), liked: !!v.liked } : { count: 0, liked: false };
-              }
-            }
-            setLikes(map);
           } catch {}
           try {
             // Build a set of candidate names across all decks
@@ -583,7 +568,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     ? mergeDisplayBadges(canonicalEarnedBadges, legacyBadges)
     : legacyBadges;
 
-  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'wishlist'|'watchlist'|'security'|'billing'>('profile');
+  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'security'|'billing'>('profile');
 
   // Extra analytical badges derived from recent decks: On-Curve 90, Mana Maestro, Combomancer
   // Deferred and gated so we don't run heavy /api/deck/analyze on every profile load (causes 12s spikes if user navigates away).
@@ -670,7 +655,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         {/* Left menu */}
         <aside className="col-span-12 xl:col-span-3">
           <nav className="rounded-xl border border-neutral-800 p-3 space-y-2 sticky top-4">
-            {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['savings','Budget Savings'],['wishlist','Wishlist'],['watchlist','Price Watchlist'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
+            {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['savings','Budget Savings'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
               <button key={k} onClick={()=>setTab(k as any)} className={`w-full text-left px-3 py-2 rounded border ${tab===k?'border-emerald-500 bg-emerald-600/10':'border-neutral-800 hover:bg-neutral-900'}`}>{label}</button>
             ))}
           </nav>
@@ -790,38 +775,42 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 </div>
                 <label className="text-xs flex items-center gap-2"><input type="checkbox" checked={!!customCard?.show_on_banner} onChange={async(e)=>{ try{ const r = await fetch('/api/profile/custom-card', { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify({ show_on_banner: e.target.checked }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setCustomCard(j.custom_card||{...(customCard||{}), show_on_banner: e.target.checked}); else throw new Error(j?.error||'Failed to update'); } catch{} }} /> Show custom card on my banner</label>
 
-                {/* Avatars, formats, color alignment reuse existing blocks below */}
-                {/* Commander avatars */}
-                <div className="text-sm space-y-2">
-                  <div className="opacity-70">Commander avatars</div>
-                  <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                    {popularCommanderAvatars.length === 0 && (
-                      <>
-                        {Array.from({ length: 10 }).map((_, i) => (
-                          <div key={`sk-${i}`} className="border rounded overflow-hidden border-neutral-700">
-                            <div className="w-full h-16 animate-pulse bg-neutral-900" />
-                          </div>
+                <details className="rounded border border-neutral-800 bg-neutral-950/30 p-3">
+                  <summary className="cursor-pointer select-none text-sm font-semibold text-neutral-100">
+                    Avatar picker
+                  </summary>
+                  <div className="mt-3 space-y-4">
+                    <div className="text-sm space-y-2">
+                      <div className="opacity-70">Commander avatars</div>
+                      <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                        {popularCommanderAvatars.length === 0 && (
+                          <>
+                            {Array.from({ length: 10 }).map((_, i) => (
+                              <div key={`sk-${i}`} className="border rounded overflow-hidden border-neutral-700">
+                                <div className="w-full h-16 animate-pulse bg-neutral-900" />
+                              </div>
+                            ))}
+                          </>
+                        )}
+                        {popularCommanderAvatars.map((src, i) => (
+                          <button key={`pc-${i}`} className={`border rounded overflow-hidden ${avatar===src?'border-emerald-500':'border-neutral-700'}`} onClick={()=>{ setAvatar(src); try{ capture('profile_avatar_change', { src, type:'commander' }); } catch{} }}>
+                            <img src={src} alt="avatar" className="w-full h-16 object-cover" />
+                          </button>
                         ))}
-                      </>
-                    )}
-                    {popularCommanderAvatars.map((src, i) => (
-                      <button key={`pc-${i}`} className={`border rounded overflow-hidden ${avatar===src?'border-emerald-500':'border-neutral-700'}`} onClick={()=>{ setAvatar(src); try{ capture('profile_avatar_change', { src, type:'commander' }); } catch{} }}>
-                        <img src={src} alt="avatar" className="w-full h-16 object-cover" />
-                      </button>
-                    ))}
+                      </div>
+                    </div>
+                    <div className="text-sm">
+                      <div className="opacity-70 mb-1">Color avatars</div>
+                      <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                        {AVATAR_FILES.map((src) => (
+                          <button key={src} className={`border rounded overflow-hidden ${avatar===src?'border-emerald-500':'border-neutral-700'}`} onClick={()=>{ setAvatar(src); try{ capture('profile_avatar_change', { src, type:'color' }); } catch{} }}>
+                            <img src={src} alt="avatar" className="w-full h-16 object-cover" onError={(e:any)=>{e.currentTarget.src='/next.svg';}} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                {/* Color avatars */}
-                <div className="text-sm">
-                  <div className="opacity-70 mb-1">Color avatars</div>
-                  <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                    {AVATAR_FILES.map((src) => (
-                      <button key={src} className={`border rounded overflow-hidden ${avatar===src?'border-emerald-500':'border-neutral-700'}`} onClick={()=>{ setAvatar(src); try{ capture('profile_avatar_change', { src, type:'color' }); } catch{} }}>
-                        <img src={src} alt="avatar" className="w-full h-16 object-cover" onError={(e:any)=>{e.currentTarget.src='/next.svg';}} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                </details>
                 {/* Favorite formats */}
                 <div className="text-sm">
                   <div className="opacity-70 mb-1">Favorite formats</div>
@@ -853,10 +842,11 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 </div>
 
                 {/* Compact pinned decks editor inside Identity */}
-                <section className="rounded border border-neutral-800 p-3 space-y-2">
-                  <div className="text-sm font-semibold">
+                <details className="rounded border border-neutral-800 bg-neutral-950/30 p-3">
+                  <summary className="cursor-pointer select-none text-sm font-semibold text-neutral-100">
                     Pinned decks
-                  </div>
+                  </summary>
+                  <div className="mt-3 space-y-2">
                   <div className="text-xs opacity-80">Pick up to 3 decks to show on your public profile.</div>
                   {pinnedDeckIds.length > 0 && recentDecks.length > 0 && pinnedDeckIds.every(id => !recentDecks.find(d => d.id === id)) && (
                     <div className="text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-700 rounded p-2">
@@ -926,7 +916,8 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       Save pins ({pinnedDeckIds.length})
                     </button>
                   </div>
-                </section>
+                  </div>
+                </details>
 
                 <div className="text-right mt-4">
                   <button onClick={save} disabled={saving} className={`px-3 py-2 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving? 'Saving…':'Save profile'}</button>
@@ -951,7 +942,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     collectionCount={collectionCount}
                     pinnedCount={pinnedDeckIds.length}
                     signatureSet={!!signatureDeckId}
-                    likesMap={likes}
                   />
                   <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
                     <div className="text-lg font-semibold flex items-center gap-2"><span>🏆</span> Achievement Progress</div>
@@ -1007,7 +997,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                           <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-1 flex items-center justify-between">
                             <a href={`/my-decks/${d.id}`} className="truncate hover:underline">{d.title}</a>
                             <div className="flex items-center gap-2">
-                              <button onClick={async (e)=>{ e.preventDefault(); try { const r = await fetch(`/api/decks/${d.id}/likes`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'toggle' }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setLikes(prev=>({ ...prev, [d.id]: { count: j.count||0, liked: !!j.liked } })); } catch {} }} className="text-xs px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">❤ <span className={likes[d.id]?.liked ? 'text-red-400' : 'text-neutral-200'}>{likes[d.id]?.count ?? 0}</span></button>
                               <a href={`/decks/${d.id}`} className="text-xs opacity-90 hover:underline">View</a>
                             </div>
                           </div>
@@ -1039,41 +1028,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 }
               })()}
             </>
-          )}
-          {tab==='wishlist' && (
-            <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-semibold">Wishlist</div>
-                  <div className="text-sm opacity-80">Track cards you want to acquire. Use the editor below to add items, adjust quantities, and see prices.</div>
-                </div>
-              </div>
-              <WishlistEditor pro={pro} />
-              <details className="mt-2 text-xs opacity-70">
-                <summary>Legacy textarea (optional)</summary>
-                <div className="mt-2 space-y-2">
-                  <div>For quick paste or backups, you can still edit your legacy wishlist text:</div>
-                  <textarea value={wishlist} onChange={(e)=>setWishlist(e.target.value)} className="w-full min-h-40 bg-neutral-950 border border-neutral-700 rounded px-2 py-1" placeholder={"1 Sol Ring\n1 Lightning Greaves"}></textarea>
-                  <div className="text-right">
-                    <button onClick={save} disabled={saving} className={`${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'} px-3 py-2 rounded`}>{saving? 'Saving…':'Save wishlist (legacy)'}</button>
-                  </div>
-                </div>
-              </details>
-            </section>
-          )}
-          {tab==='watchlist' && (
-            <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-semibold flex items-center gap-2">
-                    Price Watchlist
-                    <ProTagLink />
-                  </div>
-                  <div className="text-sm opacity-80">Track price movements and set target prices for cards you're watching.</div>
-                </div>
-              </div>
-              <MiniWatchlistPanel pro={pro} />
-            </section>
           )}
           {tab==='security' && (
             <div className="space-y-6">
@@ -1356,10 +1310,9 @@ type BadgesAndProgressSectionProps = {
   collectionCount: number;
   pinnedCount: number;
   signatureSet: boolean;
-  likesMap: Record<string, {count:number; liked:boolean}>;
 };
 function BadgesAndProgressSection(props: BadgesAndProgressSectionProps){
-  const { badges, extraBadges, username, deckCount, collectionCount, pinnedCount, signatureSet, likesMap } = props;
+  const { badges, extraBadges, username, deckCount, collectionCount, pinnedCount, signatureSet } = props;
   const [collapsed, setCollapsed] = React.useState(false);
   return (
     <section className="rounded-xl border border-neutral-800 overflow-hidden">
@@ -1394,7 +1347,7 @@ function BadgesAndProgressSection(props: BadgesAndProgressSectionProps){
               </ul>
             </div>
           )}
-          <NextBadgesProgress deckCount={deckCount} collectionCount={collectionCount} pinnedCount={pinnedCount} signatureSet={signatureSet} likesMap={likesMap} />
+          <NextBadgesProgress deckCount={deckCount} collectionCount={collectionCount} pinnedCount={pinnedCount} signatureSet={signatureSet} />
         </div>
       </div>
     </section>
@@ -1486,19 +1439,15 @@ function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: B
   );
 }
 
-type NextBadgesProgressProps = { deckCount:number; collectionCount:number; pinnedCount:number; signatureSet:boolean; likesMap: Record<string, {count:number; liked:boolean}> };
+type NextBadgesProgressProps = { deckCount:number; collectionCount:number; pinnedCount:number; signatureSet:boolean };
 function NextBadgesProgress(props: NextBadgesProgressProps){
-  const { deckCount, collectionCount, pinnedCount, signatureSet, likesMap } = props;
+  const { deckCount, collectionCount, pinnedCount, signatureSet } = props;
   function nextTarget(thresholds:number[], val:number){ for (const t of thresholds){ if (val < t) return t; } return null; }
   const items: Array<{ key:string; label:string; current:number; target:number; emoji:string }> = [];
   const tBrewer = nextTarget([5,15,30], deckCount); if (tBrewer!=null) items.push({ key:'brewer_next', label:`Brewer ${tBrewer===5?'I':tBrewer===15?'II':'III'}`, current: deckCount, target: tBrewer, emoji:'⚗️' });
   const tCurator = nextTarget([3,10,25], collectionCount); if (tCurator!=null) items.push({ key:'curator_next', label:`Curator ${tCurator===3?'I':tCurator===10?'II':'III'}`, current: collectionCount, target: tCurator, emoji:'📚' });
   if (!signatureSet) items.push({ key:'signature', label:'Signature Commander', current: 0, target: 1, emoji:'👑' });
   if (pinnedCount < 3) items.push({ key:'showcase', label:'Showcase (pin 3 decks)', current: pinnedCount, target: 3, emoji:'📌' });
-  // Likes-based progress (approx using recent decks only)
-  const maxLikes = Object.values(likesMap||{}).reduce((m,v)=> Math.max(m, Number(v?.count||0)), 0);
-  if (maxLikes < 10) items.push({ key:'apprentice_teacher', label:'Apprentice Teacher (10 likes on a deck)', current: maxLikes, target: 10, emoji:'🥇' });
-  else if (maxLikes < 25) items.push({ key:'master_teacher', label:'Master Teacher (25 likes on a deck)', current: maxLikes, target: 25, emoji:'🎖️' });
 
   if (items.length === 0) return null;
   return (
@@ -1512,8 +1461,6 @@ function NextBadgesProgress(props: NextBadgesProgressProps){
             curator_next: 'Maintain more collections to reach the next Curator tier.',
             signature: 'Pick a signature deck to unlock this badge.',
             showcase: 'Pin 3 decks on your public profile.',
-            apprentice_teacher: 'Reach 10 likes on any single deck.',
-            master_teacher: 'Reach 25 likes on any single deck.',
           };
           const title = reqMap[it.key] || `${it.current}/${it.target} progress`;
           return (

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSwipeable } from 'react-swipeable';
 import DeckArtLoader from './DeckArtLoader';
-import LikeButton from './likes/LikeButton';
 import { aiMemory } from '@/lib/ai-memory';
 import { capture } from '@/lib/ph';
 import { EmptyDecksState } from './EmptyStates';
@@ -236,7 +235,6 @@ function MyDeckGridCard({
               </div>
 
               <div className="flex items-center gap-3 mt-auto pt-3 pb-1 border-t border-neutral-800">
-                <LikeButton deckId={r.id} />
                 {(() => {
                   try {
                     const Pin = require('@/components/PinDeckButton').default;

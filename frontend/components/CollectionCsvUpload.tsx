@@ -380,6 +380,20 @@ export default function CollectionCsvUpload({
           {busy && statusText && (
             <span className="text-xs text-gray-400 animate-pulse">{statusText}</span>
           )}
+          {!busy && (
+            <span className="group relative inline-flex">
+              <button
+                type="button"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-xs font-bold text-neutral-300 hover:border-neutral-500 hover:text-white"
+                aria-label="Supported import formats"
+              >
+                ?
+              </button>
+              <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-950 p-3 text-left text-xs leading-5 text-neutral-300 shadow-xl group-hover:block group-focus-within:block">
+                TCGPlayer, CardKingdom, Moxfield, Archidekt, generic CSV with name/quantity columns, or plain text like "2 Lightning Bolt".
+              </span>
+            </span>
+          )}
         </div>
         
         {/* Progress bar */}
@@ -398,19 +412,6 @@ export default function CollectionCsvUpload({
             ✓ Detected {report.parser.detectedFormat.replace(/-/g, ' ')} format
           </div>
         )}
-        
-        {/* Supported formats info */}
-        <details className="text-xs text-gray-500">
-          <summary className="cursor-pointer hover:text-gray-300">Supported formats</summary>
-          <div className="mt-1 space-y-1 pl-4">
-            <div>• TCGPlayer exports</div>
-            <div>• CardKingdom exports</div>
-            <div>• Moxfield exports</div>
-            <div>• Archidekt exports</div>
-            <div>• Generic CSV (name, quantity columns)</div>
-            <div>• Plain text (e.g., "2 Lightning Bolt")</div>
-          </div>
-        </details>
       </div>
 
       {/* Preview Modal */}

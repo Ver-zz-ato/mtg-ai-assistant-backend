@@ -207,6 +207,8 @@ function Chat(props: ChatProps = {}) {
   const lastOptimisticUserMsgRef = useRef<{ content: string; threadId: string } | null>(null);
   const cardImagesRef = useRef<Map<string, ImageInfo>>(new Map());
   const cardExtractDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const newChatRef = useRef<() => void>(() => {});
 
   const COLOR_LABEL: Record<'W'|'U'|'B'|'R'|'G', string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
   
@@ -619,19 +621,59 @@ function Chat(props: ChatProps = {}) {
     setIsStreaming(false);
     setBusy(false);
     setStreamInFlight(false);
+    setLinkedDeckId(null);
     activeStreamingRef.current = null;
     isExecutingRef.current = false;
     streamingMessageIdRef.current = null;
+    lastOptimisticUserMsgRef.current = null;
     currentlyAddingTypingMessage = false;
     if (streamAbort) {
       streamAbort.abort();
       setStreamAbort(null);
     }
     try { 
-      if (typeof window !== 'undefined') window.localStorage.removeItem('chat:last_thread'); 
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('chat:last_thread');
+        window.localStorage.removeItem('guest_chat_messages');
+        window.localStorage.removeItem('guest_chat_thread_id');
+      }
     } catch {}
     setHistKey(k => k + 1);
   }
+  newChatRef.current = newChat;
+
+  useEffect(() => {
+    const applyDraftPrompt = (message: string) => {
+      if (!message.trim()) return;
+      newChatRef.current();
+      setText(message);
+      window.setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 0);
+    };
+    const handleDraftPrompt = (e: CustomEvent) => {
+      const message = e.detail?.message;
+      if (typeof message !== "string") return;
+      try { window.localStorage.removeItem("manatap_pending_chat_draft"); } catch {}
+      applyDraftPrompt(message);
+    };
+    const pendingDraft = window.localStorage.getItem("manatap_pending_chat_draft");
+    if (pendingDraft) {
+      window.localStorage.removeItem("manatap_pending_chat_draft");
+      applyDraftPrompt(pendingDraft);
+    } else {
+      const pendingQueryDraft = new URLSearchParams(window.location.search).get("chatDraft");
+      if (pendingQueryDraft) {
+        applyDraftPrompt(pendingQueryDraft);
+        const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+        window.history.replaceState(null, "", cleanUrl);
+      }
+    }
+    window.addEventListener("manatap-chat-draft", handleDraftPrompt as EventListener);
+    return () => {
+      window.removeEventListener("manatap-chat-draft", handleDraftPrompt as EventListener);
+    };
+  }, []);
 
   function stopStreaming() {
     if (!streamAbort) return;
@@ -2050,6 +2092,7 @@ function Chat(props: ChatProps = {}) {
           <div className="flex gap-2 flex-col sm:flex-row min-w-0">
             <div className="relative flex-1 min-w-0">
               <textarea
+              ref={chatInputRef}
               data-testid="chat-textarea"
               value={text}
               onChange={(e) => setText(e.target.value)}

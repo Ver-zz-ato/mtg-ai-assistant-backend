@@ -52,7 +52,7 @@ export default function FirstCurrencyPreferenceModal() {
             Choose your card currency
           </h2>
           <p className="mt-2 text-sm leading-6 text-neutral-300">
-            We will use this for deck values, collection prices, watchlists, and price tools.
+            We will use this for deck values, collection prices, wishlists, and price tools.
           </p>
         </div>
 

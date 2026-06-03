@@ -2,11 +2,12 @@
 
 import React from "react";
 import Link from "next/link";
-import { BarChart3, Bot, ExternalLink, FolderPlus, GitBranch, Lock, PiggyBank, Sparkles, X } from "lucide-react";
+import { BarChart3, Bot, ExternalLink, FolderPlus, GitBranch, Library, Lock, PiggyBank, Sparkles, X } from "lucide-react";
 import { normalizeCurrency, usePrefs, type CurrencyPref } from "@/components/PrefsContext";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast-client";
 import WebsiteAddCardDestinationModal from "@/components/cards/WebsiteAddCardDestinationModal";
+import type { DeckUsageItem } from "@/lib/collection/deckCardUsage";
 
 type CardMetadata = {
   name: string;
@@ -29,6 +30,7 @@ type WebsiteCardDetailModalProps = {
   cardName: string;
   imageSmall?: string;
   imageNormal?: string;
+  deckUsages?: DeckUsageItem[];
   onClose: () => void;
 };
 
@@ -161,9 +163,9 @@ function friendlyExplainError(result: Extract<ExplainResult, { ok: false }>): st
 
 function openChatPrompt(prompt: string) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem("manatap_pending_chat_prompt", prompt);
+  window.localStorage.setItem("manatap_pending_chat_draft", prompt);
   if (window.location.pathname === "/") {
-    window.dispatchEvent(new CustomEvent("manatap-chat-submit", { detail: { message: prompt } }));
+    window.dispatchEvent(new CustomEvent("manatap-chat-draft", { detail: { message: prompt } }));
     return;
   }
   window.location.href = "/";
@@ -205,23 +207,58 @@ function ActionButton({
   title,
   subtitle,
   onClick,
+  tone = "amber",
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   onClick: () => void;
+  tone?: "emerald" | "sky" | "violet" | "rose" | "amber" | "cyan";
 }) {
+  const toneClass = {
+    emerald: {
+      button: "border-emerald-300/15 bg-emerald-950/15 hover:border-emerald-300/50 hover:bg-emerald-950/30 focus:ring-emerald-300/60",
+      icon: "border-emerald-300/25 bg-emerald-400/10 text-emerald-200",
+      title: "group-hover:text-emerald-100",
+    },
+    sky: {
+      button: "border-sky-300/15 bg-sky-950/15 hover:border-sky-300/50 hover:bg-sky-950/30 focus:ring-sky-300/60",
+      icon: "border-sky-300/25 bg-sky-400/10 text-sky-200",
+      title: "group-hover:text-sky-100",
+    },
+    violet: {
+      button: "border-violet-300/15 bg-violet-950/15 hover:border-violet-300/50 hover:bg-violet-950/30 focus:ring-violet-300/60",
+      icon: "border-violet-300/25 bg-violet-400/10 text-violet-200",
+      title: "group-hover:text-violet-100",
+    },
+    rose: {
+      button: "border-rose-300/15 bg-rose-950/15 hover:border-rose-300/50 hover:bg-rose-950/30 focus:ring-rose-300/60",
+      icon: "border-rose-300/25 bg-rose-400/10 text-rose-200",
+      title: "group-hover:text-rose-100",
+    },
+    amber: {
+      button: "border-amber-300/15 bg-amber-950/15 hover:border-amber-300/50 hover:bg-amber-950/30 focus:ring-amber-300/60",
+      icon: "border-amber-300/25 bg-amber-400/10 text-amber-200",
+      title: "group-hover:text-amber-100",
+    },
+    cyan: {
+      button: "border-cyan-300/15 bg-cyan-950/15 hover:border-cyan-300/50 hover:bg-cyan-950/30 focus:ring-cyan-300/60",
+      icon: "border-cyan-300/25 bg-cyan-400/10 text-cyan-200",
+      title: "group-hover:text-cyan-100",
+    },
+  }[tone];
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center gap-3 rounded-lg border border-white/10 bg-neutral-950/70 p-3 text-left transition hover:border-amber-300/40 hover:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+      className={`group flex w-full items-center gap-3 rounded-lg border p-3 text-left transition focus:outline-none focus:ring-2 ${toneClass.button}`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-amber-300/20 bg-amber-400/10 text-amber-200">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${toneClass.icon}`}>
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-neutral-100">{title}</span>
+        <span className={`block text-sm font-semibold text-neutral-100 transition-colors ${toneClass.title}`}>{title}</span>
         <span className="mt-0.5 block text-xs leading-4 text-neutral-400">{subtitle}</span>
       </span>
     </button>
@@ -233,6 +270,7 @@ export default function WebsiteCardDetailModal({
   cardName,
   imageSmall,
   imageNormal,
+  deckUsages = [],
   onClose,
 }: WebsiteCardDetailModalProps) {
   const { user } = useAuth();
@@ -420,6 +458,29 @@ export default function WebsiteCardDetailModal({
               {loading ? "Loading card..." : "No image available"}
             </div>
           )}
+          {deckUsages.length > 0 ? (
+            <div className="mx-auto mt-3 w-full max-w-[320px] rounded-lg border border-indigo-300/20 bg-indigo-950/20 p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-100">
+                <Library size={16} />
+                <span>In your decks</span>
+              </div>
+              <div className="max-h-36 overflow-y-auto divide-y divide-indigo-200/10">
+                {deckUsages.map((usage) => (
+                  <Link
+                    key={usage.deckId}
+                    href={`/my-decks/${usage.deckId}`}
+                    onClick={onClose}
+                    className="flex items-center justify-between gap-2 py-1.5 text-sm hover:text-indigo-100"
+                  >
+                    <span className="truncate text-neutral-200" title={usage.deckTitle}>
+                      {usage.deckTitle}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-neutral-400">x{usage.qty}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="min-w-0">
@@ -530,6 +591,7 @@ export default function WebsiteCardDetailModal({
                 title="Add to..."
                 subtitle={user ? "Save this card to a collection, deck, or wishlist." : "Sign in to save this card to your account."}
                 onClick={handleAddTo}
+                tone="emerald"
               />
               <ActionButton
                 icon={<BarChart3 size={18} />}
@@ -539,6 +601,7 @@ export default function WebsiteCardDetailModal({
                   onClose();
                   window.location.href = `/price-tracker?card=${encodeURIComponent(displayName)}`;
                 }}
+                tone="sky"
               />
               <ActionButton
                 icon={<Sparkles size={18} />}
@@ -548,6 +611,7 @@ export default function WebsiteCardDetailModal({
                   onClose();
                   openChatPrompt(`Find cards similar to ${displayName}. Explain the role match and cheaper options if any.`);
                 }}
+                tone="violet"
               />
               <ActionButton
                 icon={<GitBranch size={18} />}
@@ -557,6 +621,7 @@ export default function WebsiteCardDetailModal({
                   onClose();
                   openChatPrompt(`What cards combo or synergize with ${displayName}? Separate fair synergies from true combo lines.`);
                 }}
+                tone="cyan"
               />
               <ActionButton
                 icon={<PiggyBank size={18} />}
@@ -566,12 +631,14 @@ export default function WebsiteCardDetailModal({
                   onClose();
                   openChatPrompt(`Find budget alternatives for ${displayName}. Prioritize cards that fill the same role, and say what gets weaker.`);
                 }}
+                tone="rose"
               />
               <ActionButton
                 icon={<ExternalLink size={18} />}
                 title="Open in Scryfall"
                 subtitle="Leave ManaTap for Scryfall details."
                 onClick={() => window.open(scryfallUrl, "_blank", "noopener,noreferrer")}
+                tone="amber"
               />
             </div>
 

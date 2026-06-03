@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { trackDeckShared } from "@/lib/analytics-enhanced";
 import { validatePublicText } from "@/lib/profanity";
+import ShareButton from "@/components/ShareButton";
 
 type Props = {
   deckId: string;
@@ -118,6 +119,25 @@ export default function DeckPublicToggle({
           >
             Private
           </button>
+          {isPublic === true && (
+            <ShareButton
+              url={(() => {
+                const baseUrl =
+                  typeof window !== "undefined" && window.location.hostname === "localhost"
+                    ? "https://manatap.ai"
+                    : typeof window !== "undefined"
+                      ? window.location.origin
+                      : "https://manatap.ai";
+                return `${baseUrl}/decks/${deckId}`;
+              })()}
+              type="deck"
+              title="Check out this MTG deck!"
+              description="Built with ManaTap AI - MTG Deck Builder"
+              isPublic
+              compact
+              className="text-xs border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 rounded px-2.5 py-1.5 transition-colors font-medium text-neutral-300"
+            />
+          )}
           {busy && <span className="text-xs opacity-70">Saving...</span>}
         </div>
         {isPublic === true && (

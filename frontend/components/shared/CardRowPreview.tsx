@@ -3,6 +3,7 @@ import React from "react";
 import { useHoverPreview } from "@/components/shared/HoverPreview";
 import { SetIcon, RarityPill } from "@/components/shared/SetRarity";
 import CardDetailLink from "@/components/cards/CardDetailLink";
+import type { DeckUsageItem } from "@/lib/collection/deckCardUsage";
 
 export default function CardRowPreviewLeft({
   name,
@@ -10,12 +11,16 @@ export default function CardRowPreviewLeft({
   imageLarge,
   setCode,
   rarity,
+  deckUsages,
+  showPrintTags = true,
 }: {
   name: string;
   imageSmall?: string;
   imageLarge?: string;
   setCode?: string;
   rarity?: string;
+  deckUsages?: DeckUsageItem[];
+  showPrintTags?: boolean;
 }){
   const { preview, bind } = useHoverPreview();
   const hoverBind = imageLarge || imageSmall ? bind(imageLarge || imageSmall || "") : {};
@@ -28,12 +33,13 @@ export default function CardRowPreviewLeft({
         cardName={name}
         imageSmall={imageSmall}
         imageNormal={imageLarge || imageSmall}
+        deckUsages={deckUsages}
         className="hover:underline truncate min-w-0 flex-1 text-left"
         title={name}
       >
         {name}
       </CardDetailLink>
-      {(setCode || rarity) && (
+      {showPrintTags && (setCode || rarity) && (
         <span className="inline-flex items-center gap-1 flex-shrink-0">
           {setCode ? <SetIcon code={setCode} /> : null}
           {rarity ? <RarityPill rarity={rarity as any} /> : null}

@@ -127,9 +127,9 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
         </div>
       )}
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
         {/* Import */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs opacity-70">Import:</span>
           {/* CSV import is free */}
           <CollectionCsvUpload collectionId={collectionId} />
@@ -139,7 +139,7 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           )}
         </div>
         {/* Export */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs opacity-70">Export:</span>
           <button onClick={()=>doExport('csv')} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">CSV</button>
           {isPro ? (

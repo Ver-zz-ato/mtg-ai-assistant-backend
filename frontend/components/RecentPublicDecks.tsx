@@ -40,8 +40,6 @@ const getRecent = unstable_cache(
   { revalidate: 30 }
 );
 
-import LikeButton from "./likes/LikeButton";
-
 export default async function RecentPublicDecks({ limit = 5 }: { limit?: number }) {
   let decks: Row[] = [];
   try {
@@ -166,11 +164,8 @@ export default async function RecentPublicDecks({ limit = 5 }: { limit?: number 
               {!art && (<div className="absolute inset-0 bg-neutral-900 skeleton-shimmer" />)}
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
               <Link href={`/decks/${d.id}`} prefetch className="block relative p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-base font-semibold line-clamp-1">
-                    {d.title ?? "Untitled deck"}
-                  </div>
-                  <LikeButton deckId={d.id} />
+                <div className="text-base font-semibold line-clamp-1">
+                  {d.title ?? "Untitled deck"}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {new Date(d.updated_at ?? Date.now()).toLocaleString()}

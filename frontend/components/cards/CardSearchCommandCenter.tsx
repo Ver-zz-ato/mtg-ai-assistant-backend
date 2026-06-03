@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { BarChart3, BookmarkPlus, ExternalLink, Loader2, Search, ShieldPlus, Sparkles } from "lucide-react";
+import { BarChart3, BookmarkPlus, ExternalLink, Loader2, Search, Sparkles } from "lucide-react";
 import WebsiteCardDetailModal, { scryfallCardSearchUrl } from "@/components/cards/WebsiteCardDetailModal";
 
 type CardSearchResult = {
@@ -90,31 +90,6 @@ export default function CardSearchCommandCenter() {
     }
   }
 
-  async function addToWatchlist(name: string) {
-    try {
-      const response = await fetch("/api/watchlist/add", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok || json?.ok === false) {
-        if (response.status === 401) {
-          await toast("Sign in to track price targets.", "info");
-          return;
-        }
-        if (response.status === 403 || json?.error === "pro_required") {
-          await toast("Price watchlist is a Pro feature.", "info");
-          return;
-        }
-        throw new Error(json?.error || "Watchlist add failed");
-      }
-      await toast(`${name} added to watchlist.`, "success");
-    } catch (err) {
-      await toast(err instanceof Error ? err.message : "Watchlist add failed", "error");
-    }
-  }
-
   return (
     <section className="rounded-xl border border-amber-300/20 bg-neutral-950/80 p-4 shadow-xl shadow-black/20 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -122,7 +97,7 @@ export default function CardSearchCommandCenter() {
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-amber-300">Card command center</p>
           <h2 className="mt-2 text-2xl font-bold text-white">Search cards, then act on them</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
-            Find cards by name or plain-English filters, open the ManaTap detail modal, track prices, or add cards to your wishlist.
+            Find cards by name or plain-English filters, open the ManaTap detail modal, check prices, or add cards to your wishlist.
           </p>
         </div>
         <div className="inline-flex rounded-lg border border-white/10 bg-black/30 p-1">
@@ -226,14 +201,6 @@ export default function CardSearchCommandCenter() {
                   Wishlist
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => addToWatchlist(result.name)}
-                className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300/20 bg-emerald-300/10 px-2 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/20"
-              >
-                <ShieldPlus size={14} aria-hidden="true" />
-                Add to Pro watchlist
-              </button>
             </article>
           );
         })}

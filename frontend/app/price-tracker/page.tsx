@@ -5,7 +5,6 @@ import { useProStatus } from "@/hooks/useProStatus";
 import ProBadge, { ProTagLink } from "@/components/ProBadge";
 import { showProToast } from "@/lib/pro-ux";
 import CardAutocomplete from "@/components/CardAutocomplete";
-import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { usePageAnalytics } from "@/hooks/usePageAnalytics";
@@ -19,11 +18,9 @@ const TICK_FILL = "#94a3b8";
 const GRID_STROKE = "#334155";
 
 export default function PriceTrackerPage(){
-  const { user, loading: authLoading } = useAuth();
-  const { isPro } = useProStatus();
+  const { loading: authLoading } = useAuth();
   const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
   const currency = normalizeCurrency(prefCurrency) || "USD";
-  const watchlistRef = React.useRef<WatchlistPanelRef>(null);
   
   // Track comprehensive page analytics
   usePageAnalytics({
@@ -39,7 +36,6 @@ export default function PriceTrackerPage(){
   const [series, setSeries] = React.useState<Array<{ name:string; points: { date:string; unit:number }[] }>>([]);
   const [ma7, setMa7] = React.useState(false);
   const [ma30, setMa30] = React.useState(false);
-  const [watchlist, setWatchlist] = React.useState<string[]>([]);
   const [deckId, setDeckId] = React.useState<string>("");
   const [deckSeries, setDeckSeries] = React.useState<Array<{ date:string; total:number }>>([]);
   const [moversRows, setMoversRows] = React.useState<Array<{ name:string; prior:number; latest:number; delta:number; pct:number }>>([]);
@@ -205,7 +201,7 @@ export default function PriceTrackerPage(){
             </h1>
           </div>
           <p className="text-base text-neutral-300 max-w-3xl leading-relaxed">
-            Track real-time card prices with historical charts. Watch your favorite cards, compare trends across formats, and export data for analysis. Updated daily with Scryfall pricing.
+            Track real-time card prices with historical charts. Compare trends across formats and export data for analysis. Updated daily with Scryfall pricing.
           </p>
           <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
             <motion.div
@@ -240,13 +236,8 @@ export default function PriceTrackerPage(){
       </motion.header>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        {/* LEFT: Watchlist (Pro) */}
-        <aside className="md:col-span-3 space-y-3">
-          <WatchlistPanel ref={watchlistRef} names={names} setNames={setNames} currency={currency} />
-        </aside>
-
         {/* CENTER: Controls + Chart + Summary + Movers */}
-        <section className="md:col-span-6 space-y-3">
+        <section className="md:col-span-8 lg:col-span-9 space-y-3">
           <section className="rounded border border-neutral-800 p-3">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
           <label className="md:col-span-3 text-sm">
@@ -272,38 +263,6 @@ export default function PriceTrackerPage(){
         <div className="mt-2 flex flex-wrap gap-2 items-center">
           <button onClick={load} disabled={loading} className="text-xs border rounded px-2 py-1">{loading? 'Loading…' : 'Refresh'}</button>
           <button onClick={exportCsv} disabled={series.length===0} className="text-xs border rounded px-2 py-1">Export CSV</button>
-          <button onClick={async()=>{ 
-            if (!user) { try { await showAuthToast(AUTH_MESSAGES.SIGN_IN_REQUIRED); } catch {} return; }
-            if (!isPro) { try { showProToast(); } catch {} return; }
-            if (!names.trim()) { 
-              try { const { toast } = await import('@/lib/toast-client'); toast('Enter card names first', 'error'); } catch {} 
-              return; 
-            }
-            try{ 
-              const cardNames = names.split('\n').map(n => n.trim()).filter(Boolean);
-              let added = 0;
-              for (const name of cardNames) {
-                const res = await fetch('/api/watchlist/add', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name })
-                });
-                const data = await res.json();
-                if (data.ok) added++;
-              }
-              // Refresh the mini watchlist panel
-              await watchlistRef.current?.refresh();
-              try { 
-                const { toast } = await import('@/lib/toast-client'); 
-                toast(`Added ${added} card${added !== 1 ? 's' : ''} to watchlist`, 'success'); 
-              } catch {} 
-            } catch(e:any){ 
-              try { 
-                const { toast } = await import('@/lib/toast-client'); 
-                toast(e?.message || 'Save failed', 'error'); 
-              } catch {} 
-            } 
-          }} className="text-xs border rounded px-2 py-1">Save to my watchlist</button>
         </div>
         <div className="mt-2 flex flex-wrap gap-4 items-center text-xs">
           <label className="inline-flex items-center gap-2"><input type="checkbox" checked={ma7} onChange={e=>setMa7(e.target.checked)} /> Moving Average 7D</label>
@@ -401,7 +360,7 @@ export default function PriceTrackerPage(){
         </section>
 
         {/* RIGHT: Deck value (Pro) */}
-        <aside className="md:col-span-3 space-y-3">
+        <aside className="md:col-span-4 lg:col-span-3 space-y-3">
           <DeckValuePanel deckId={deckId} currency={currency} setDeckId={setDeckId} />
         </aside>
 

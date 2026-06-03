@@ -27,11 +27,12 @@ export function CommanderHero({
   artUrl,
   statsData,
   winPlanBullets,
-  mulliganUrl,
-  costUrl,
   browseUrl,
   swapsUrl,
 }: Props) {
+  const builderUrl = `/build-a-deck?commander=${encodeURIComponent(commanderName)}#builder`;
+  const chatUrl = `/?chatDraft=${encodeURIComponent(`Tell me about the ${commanderName} commander?`)}`;
+
   return (
     <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
       {/* Left column: art + stats */}
@@ -62,16 +63,16 @@ export function CommanderHero({
 
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Link
-            href={mulliganUrl}
+            href={chatUrl}
             className="inline-flex items-center justify-center px-5 py-3 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-500 border-2 border-blue-500/50 shadow-lg shadow-blue-500/20 transition-all"
           >
-            Simulate Mulligans
+            Ask the AI about this card
           </Link>
           <Link
-            href={costUrl}
+            href={builderUrl}
             className="inline-flex items-center justify-center px-5 py-3 rounded-lg font-medium text-white bg-neutral-700 hover:bg-neutral-600 border border-neutral-600 transition-colors"
           >
-            Estimate Cost to Finish
+            Build a deck with this
           </Link>
         </div>
 

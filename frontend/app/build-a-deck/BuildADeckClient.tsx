@@ -18,7 +18,7 @@ import {
   Wand2,
   Zap,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 
 type BuildFormat = AnalyzeFormat;
@@ -107,6 +107,16 @@ export default function BuildADeckClient() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GeneratedDeck | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const commanderParam = new URLSearchParams(window.location.search).get("commander")?.trim();
+    if (!commanderParam) return;
+    setFormat("Commander");
+    setCommander(commanderParam);
+    setIdea(`Build a Commander deck around ${commanderParam}. Prioritize the commander's core synergies, interaction, ramp, draw, and a clear win plan.`);
+    setResult(null);
+    setError(null);
+  }, []);
 
   const isCommander = format === "Commander";
   const canGenerate = isCommander ? commander.trim().length > 1 || idea.trim().length > 3 : idea.trim().length > 3;

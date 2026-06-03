@@ -282,23 +282,23 @@ function BrowseDecksContent() {
     <main className="mx-auto max-w-[1600px] px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2">
       {/* Tab switcher + header */}
       <div className="mb-4 flex flex-col gap-3">
-        <div className="flex gap-2 border-b border-neutral-800 pb-2">
+        <div className="flex gap-3 border-b border-neutral-800 pb-2">
           <button
             onClick={() => { setTab('community'); setPage(1); setDecks([]); }}
-            className={`px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
+            className={`px-5 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
               tab === 'community'
-                ? 'bg-neutral-800 text-white border border-neutral-700 border-b-neutral-800 -mb-0.5'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white border-cyan-300 shadow-lg shadow-cyan-500/25 -mb-0.5'
+                : 'bg-cyan-500/10 text-cyan-200 border-cyan-500/35 hover:bg-cyan-500/20 hover:text-white hover:border-cyan-300/70'
             }`}
           >
             Community Decks
           </button>
           <button
             onClick={() => { setTab('precons'); setPage(1); setDecks([]); }}
-            className={`px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
+            className={`px-5 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
               tab === 'precons'
-                ? 'bg-neutral-800 text-white border border-neutral-700 border-b-neutral-800 -mb-0.5'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-gradient-to-r from-fuchsia-500 to-amber-500 text-white border-fuchsia-300 shadow-lg shadow-fuchsia-500/25 -mb-0.5'
+                : 'bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-500/35 hover:bg-fuchsia-500/20 hover:text-white hover:border-fuchsia-300/70'
             }`}
           >
             Precons

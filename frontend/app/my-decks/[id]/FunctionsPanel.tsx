@@ -5,7 +5,6 @@ import ExportDropdown from "@/components/ExportDropdown";
 import DeckCsvUpload from "@/components/DeckCsvUpload";
 import RecomputeButton from "./RecomputeButton";
 import FixNamesModal from "./FixNamesModal";
-import ShareButton from "@/components/ShareButton";
 import DeckVersionHistory from "@/components/DeckVersionHistory";
 
 export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: string; isPublic: boolean; isPro: boolean }) {
@@ -19,12 +18,6 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
     window.addEventListener('deck:visibility', h);
     return () => window.removeEventListener('deck:visibility', h);
   }, []);
-  const handleMakePublic = async () => {
-    // This would trigger the deck visibility change
-    // The actual implementation depends on your deck visibility toggle logic
-    window.dispatchEvent(new CustomEvent('deck:visibility', { detail: { isPublic: true } }));
-  };
-  
   const toggleAllPanels = () => {
     const currentState = allPanelsHidden;
     const newState = !currentState;
@@ -87,19 +80,6 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
             <DeckCsvUpload deckId={deckId} onFixNames={() => setFixOpen(true)} />
             <RecomputeButton />
             {pub && (<a href={`/decks/${deckId}`} className="text-xs border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 rounded px-2.5 py-1.5 transition-colors font-medium text-neutral-300" title="View public page" target="_blank" rel="noreferrer">Public preview</a>)}
-            <ShareButton
-              url={(() => {
-                const baseUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'https://manatap.ai' : (typeof window !== 'undefined' ? window.location.origin : 'https://manatap.ai');
-                return `${baseUrl}/decks/${deckId}`;
-              })()} 
-              type="deck"
-              title="Check out this MTG deck!"
-              description="Built with ManaTap AI - MTG Deck Builder"
-              isPublic={pub}
-              onMakePublic={handleMakePublic}
-              compact
-              className="text-xs border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 rounded px-2.5 py-1.5 transition-colors font-medium text-neutral-300"
-            />
             <button onClick={()=>setFixOpen(true)} className="text-xs border border-orange-600/50 bg-gradient-to-r from-orange-600/20 to-red-600/20 hover:from-orange-600/30 hover:to-red-600/30 rounded px-2.5 py-1.5 transition-colors font-medium text-orange-300 hover:text-orange-200">✏️ Fix card names</button>
           </div>
           

@@ -1,20 +1,17 @@
 "use client";
 
 import React from "react";
+import { Library } from "lucide-react";
 import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
-import Sparkline from "@/components/Sparkline";
 import CollectionPriceHistory from "@/components/CollectionPriceHistory";
 import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
 import FixCollectionNamesModal from "@/components/FixCollectionNamesModal";
 import { useProStatus } from "@/hooks/useProStatus";
 import { DualRange } from "@/components/shared/DualRange";
 import { trackProGateViewed, trackProGateClicked, trackProFeatureUsed } from '@/lib/analytics-pro';
-import PriceChip from "@/components/shared/PriceChip";
-import { SetIcon, RarityPill } from "@/components/shared/SetRarity";
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import CardAutocomplete from "@/components/CardAutocomplete";
-import CollectionCardDetailModal from "@/components/CollectionCardDetailModal";
 import QRShareModal from "@/components/share/QRShareModal";
 import {
   getDeckUsageForCard,
@@ -406,14 +403,12 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
     loadHint?: string;
   }>({ status: "idle", usageByKey: {}, deckCount: 0 });
   const [deckPresenceFilter, setDeckPresenceFilter] = React.useState<"all" | "in_decks" | "unused">("all");
-  const [detailItem, setDetailItem] = React.useState<Item | null>(null);
   /** When false (e.g. partial API failure), do not apply In decks/Unused or show badges — would mislead. */
   const deckUsageTrustworthy =
     deckUsageState.status === "ready" && deckUsageState.loadHint === undefined;
 
   React.useEffect(() => {
     setDeckPresenceFilter("all");
-    setDetailItem(null);
   }, [collectionId, authUser?.id]);
 
   React.useEffect(() => {
@@ -1049,21 +1044,21 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
         />
         
         {/* Sticky Save/Cancel + Search */}
-        <div className="sticky top-0 z-10 bg-neutral-950/95 backdrop-blur px-0 pt-0 pb-2 border-b border-neutral-900">
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="text-sm font-medium">🔍 Search<input ref={searchRef} value={filterText} onChange={e=>setFilterText(e.target.value)} className="ml-2 w-64 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"/></label>
-            <button type="button" onClick={()=> setSearchModalOpen(true)} className="px-3 py-1.5 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">Filter to card…</button>
+        <div className="sticky top-0 z-10 bg-neutral-950/95 backdrop-blur px-0 pt-0 pb-3 border-b border-neutral-900">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-800 bg-black/20 p-3">
+            <label className="flex min-w-[240px] flex-1 items-center gap-2 text-sm font-medium">Search<input ref={searchRef} value={filterText} onChange={e=>setFilterText(e.target.value)} className="min-w-0 flex-1 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"/></label>
+            <button type="button" onClick={()=> setSearchModalOpen(true)} className="px-3 py-1.5 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">Filter to card...</button>
             {filterText.trim() && (
               <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-neutral-800 border border-neutral-700 text-xs">
                 <span className="text-neutral-400">Filtering to:</span>
                 <span className="font-medium text-neutral-200 truncate max-w-[120px]" title={filterText}>{filterText}</span>
-                <button type="button" onClick={()=> setFilterText('')} className="text-neutral-500 hover:text-neutral-200" aria-label="Clear filter">✕</button>
+                <button type="button" onClick={()=> setFilterText('')} className="text-neutral-500 hover:text-neutral-200" aria-label="Clear filter">x</button>
               </span>
             )}
             {/* Fix names (PRO) */}
             <FixNamesButton collectionId={collectionId} onOpenModal={() => setFixModalOpen(true)} />
-            <label className="text-sm font-medium">🔤 Sort<select value={sortKey} onChange={e=>setSortKey(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"><option value="name">Name</option><option value="qty">Qty</option><option value="set">Set</option><option value="color">Color</option><option value="price">Price</option></select></label>
-            <label className="text-sm font-medium">📊 Dir<select value={sortDir} onChange={e=>setSortDir(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"><option value="asc">Asc</option><option value="desc">Desc</option></select></label>
+            <label className="text-sm font-medium">Sort<select value={sortKey} onChange={e=>setSortKey(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"><option value="name">Name</option><option value="qty">Qty</option><option value="set">Set</option><option value="color">Color</option><option value="price">Price</option></select></label>
+            <label className="text-sm font-medium">Dir<select value={sortDir} onChange={e=>setSortDir(e.target.value as any)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"><option value="asc">Asc</option><option value="desc">Desc</option></select></label>
             <label className="text-sm font-medium">Deck use<select value={deckPresenceFilter} onChange={e=>setDeckPresenceFilter(e.target.value as "all"|"in_decks"|"unused")} disabled={deckUsageState.status==="loading"} title={deckUsageState.status==="loading"?"Loading deck usage…": deckUsageState.loadHint?"Deck usage could not be loaded — filters limited to All.": deckUsageState.deckCount===0? "No decks yet — Unused lists your whole collection" : undefined} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all disabled:opacity-50"><option value="all">All</option><option value="in_decks" disabled={!deckUsageTrustworthy}>In decks</option><option value="unused" disabled={!deckUsageTrustworthy}>Unused</option></select></label>
             {deckUsageState.status==="ready" && deckUsageState.deckCount===0 ? (
               <span className="text-[11px] text-neutral-500 whitespace-nowrap">No decks — &quot;Unused&quot; is all cards.</span>
@@ -1071,9 +1066,9 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             {deckUsageState.loadHint ? (
               <span className="text-[11px] text-amber-500/90" title={deckUsageState.loadHint}>Deck usage unavailable</span>
             ) : null}
-            <div className="ml-auto flex items-center gap-2">
-              <label className="text-sm font-medium">💰 Currency<select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
-              <button onClick={saveAll} disabled={!changed||busySave} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">{busySave?'Saving…':'💾 Save'}</button>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <label className="text-sm font-medium">Currency<select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="ml-2 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+              <button onClick={saveAll} disabled={!changed||busySave} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">{busySave?'Saving...':'Save'}</button>
               <button onClick={()=>{ setPending(new Map()); reload(); }} disabled={busySave} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
             </div>
           </div>
@@ -1239,16 +1234,27 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               {windowed.map((it, idx) => {
                 const key = it.id||it.name; const staged = pending.has(key)? pending.get(key)! : it.qty;
                 const k2 = n(it.name); const unit = (()=>{ const nn=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); return priceMap[nn(it.name)]||0; })();
+                const deckUsages = deckUsageByItemKey.get(key) || [];
                 return (
                   <div key={`${key}-${startIndex+idx}`} className="flex items-center justify-between border-b border-neutral-900 px-3 hover:bg-neutral-900/30 transition-colors" style={{ height: rowH }}>
                     <span className="text-sm inline-flex items-center gap-2 min-w-0">
                       <input type="checkbox" checked={selected.has(key)} onChange={(e)=>{ const n = new Set(selected); e.target.checked? n.add(key): n.delete(key); setSelected(n); }} className="w-4 h-4 rounded border-neutral-600 bg-neutral-950 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0 cursor-pointer"/>
                       <input type="number" min={0} step={1} value={staged} className="w-14 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-center" onChange={(e)=>{ const v = Math.max(0, parseInt(e.target.value||'0',10)); setQtyStaged(it, v); }} />
-                      <CardRowPreviewLeft name={it.name} imageSmall={imagesRef.current[k2]?.small} imageLarge={imagesRef.current[k2]?.normal} setCode={(metaRef.current.get(n(it.name))?.set)||''} rarity={(metaRef.current.get(n(it.name))?.rarity)||''} />
-                      {deckUsageTrustworthy && (deckUsageByItemKey.get(key)?.length ?? 0) > 0 ? (
-                        <button type="button" className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-500/40 hover:bg-indigo-500/30 tabular-nums shrink-0" title={`Used in ${(deckUsageByItemKey.get(key)?.length ?? 0)} deck(s)`} onClick={()=> setDetailItem(it)}>{(deckUsageByItemKey.get(key)?.length ?? 0)}</button>
+                      <CardRowPreviewLeft
+                        name={it.name}
+                        imageSmall={imagesRef.current[k2]?.small}
+                        imageLarge={imagesRef.current[k2]?.normal}
+                        setCode={(metaRef.current.get(n(it.name))?.set)||''}
+                        rarity={(metaRef.current.get(n(it.name))?.rarity)||''}
+                        deckUsages={deckUsageTrustworthy ? deckUsages : []}
+                        showPrintTags={false}
+                      />
+                      {deckUsageTrustworthy && deckUsages.length > 0 ? (
+                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-indigo-400/40 bg-indigo-500/15 text-indigo-200" title={`In ${deckUsages.length} deck${deckUsages.length === 1 ? "" : "s"}`}>
+                          <Library size={13} aria-hidden="true" />
+                          <span className="sr-only">In your decks</span>
+                        </span>
                       ) : null}
-                      <button type="button" className="text-[11px] text-neutral-500 hover:text-neutral-300 px-1.5 py-0.5 rounded border border-neutral-800 hover:border-neutral-600 shrink-0" title="Card details" aria-label="Card details" onClick={()=> setDetailItem(it)}>⋯</button>
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs opacity-80 tabular-nums w-32 text-right" title={priceLoading ? 'Loading prices...' : unit>0 ? `${new Intl.NumberFormat(undefined,{ style:'currency', currency }).format(unit)} each` : 'Price unavailable'}>
@@ -1287,8 +1293,10 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             <div className="text-base font-semibold flex flex-wrap items-center gap-2 min-w-0">
               <span className="min-w-0">Value: <b className="font-mono text-cyan-400">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD): '—'}</b></span>
               <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="shrink-0 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
+              {priceLoading ? <span className="text-xs text-neutral-400">Loading prices...</span> : null}
+              {priceError ? <span className="text-xs text-amber-400" title={priceError}>Some prices unavailable</span> : null}
             </div>
-            <button onClick={refreshValue} className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-semibold transition-all shadow-lg hover:shadow-xl">Refresh now</button>
+            <button onClick={refreshValue} disabled={priceLoading} className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-wait">{priceLoading ? 'Refreshing...' : 'Refresh now'}</button>
           </div>
         </div>
         {/* Wishlist compare - Moved up below Overview */}
@@ -1460,18 +1468,6 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
           </div>
         </div>
       )}
-
-      {/* Pre-add validation modal */}
-      <CollectionCardDetailModal
-        open={!!detailItem}
-        onClose={()=> setDetailItem(null)}
-        cardName={detailItem?.name ?? ""}
-        detailsResetKey={detailItem ? (detailItem.id || detailItem.name) : undefined}
-        collectionQty={detailItem ? (pending.has(detailItem.id || detailItem.name) ? pending.get(detailItem.id || detailItem.name)! : detailItem.qty) : undefined}
-        imageSmall={detailItem ? imagesRef.current[n(detailItem.name)]?.small : undefined}
-        imageNormal={detailItem ? imagesRef.current[n(detailItem.name)]?.normal : undefined}
-        deckUsages={detailItem && deckUsageTrustworthy ? getDeckUsageForCard(detailItem.name, deckUsageState.usageByKey) : []}
-      />
 
       {showAddValidation && (
         <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }}>

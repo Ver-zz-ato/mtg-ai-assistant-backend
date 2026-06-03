@@ -3,11 +3,13 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import WebsiteCardDetailModal from "@/components/cards/WebsiteCardDetailModal";
+import type { DeckUsageItem } from "@/lib/collection/deckCardUsage";
 
 type CardDetailLinkProps = {
   cardName: string;
   imageSmall?: string;
   imageNormal?: string;
+  deckUsages?: DeckUsageItem[];
   className?: string;
   title?: string;
   children?: React.ReactNode;
@@ -19,6 +21,7 @@ export default function CardDetailLink({
   cardName,
   imageSmall,
   imageNormal,
+  deckUsages,
   className,
   title,
   children,
@@ -56,6 +59,7 @@ export default function CardDetailLink({
               cardName={cardName}
               imageSmall={imageSmall}
               imageNormal={imageNormal}
+              deckUsages={deckUsages}
               onClose={() => setOpen(false)}
             />,
             document.body,

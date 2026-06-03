@@ -5,7 +5,6 @@ import { getCommanderSlugByName, getCommanderBySlug } from "@/lib/commanders";
 import ExportDeckCSV from "@/components/ExportDeckCSV";
 import CopyDecklistButton from "@/components/CopyDecklistButton";
 import PublicDeckCardList from "@/components/PublicDeckCardList";
-import LikeButton from "@/components/likes/LikeButton";
 import DeckComments from "@/components/DeckComments";
 import ExportToMoxfield from "@/components/ExportToMoxfield";
 import ExportToTCGPlayer from "@/components/ExportToTCGPlayer";
@@ -15,7 +14,6 @@ import HandTestingSection from "./HandTestingSection";
 import type { Metadata } from "next";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { isMaybeFlexBucketEnabledForFormat, normalizeMaybeFlexCards } from "@/lib/deck/maybeFlexCards";
-import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
 
 type Params = { id: string };
 export const revalidate = 120; // short ISR window for public decks
@@ -306,15 +304,12 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     cards = [];
   }
 
-  const publicMainCount =
-    getMainboardCardCount((cards || []).map((c) => ({ qty: c.qty, zone: c.zone }))) ||
-    mainDeckTextCardCount(String((deckRow as { deck_text?: string | null })?.deck_text ?? ""), format);
-  if (!isPublicBrowseDeckCompliant(format, publicMainCount)) {
+  if (deckRow?.is_public !== true) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-8">
         <div className="text-center py-16">
           <h1 className="text-2xl font-bold text-white mb-4">Deck not found</h1>
-          <p className="text-neutral-400 mb-4">This deck is private or no longer meets public deck requirements.</p>
+          <p className="text-neutral-400 mb-4">This deck is private or no longer available.</p>
           <a href="/decks/browse" className="text-cyan-400 hover:underline">Browse public decks</a>
         </div>
       </main>
@@ -641,7 +636,6 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             {/* Action buttons */}
             <div className="mt-4 flex flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <LikeButton deckId={id} />
                 <ShareButton
                   url={`https://www.manatap.ai/decks/${id}`}
                   title={title}

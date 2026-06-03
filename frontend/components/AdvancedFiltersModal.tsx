@@ -9,7 +9,6 @@ import React, { useState } from 'react';
  * - Average Mana Value range
  * - Has specific card types (Artifacts, Enchantments, Planeswalkers, etc.)
  * - Deck age (Last updated)
- * - Popularity (likes/views)
  * - Budget range (estimated deck value)
  */
 
@@ -178,24 +177,6 @@ export function AdvancedFiltersModal({
               <option value="month">Last 30 days</option>
               <option value="year">Last year</option>
             </select>
-          </div>
-
-          {/* Popularity */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">
-              Minimum Likes
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={localFilters.popularityMin || ''}
-              onChange={(e) =>
-                setLocalFilters({ ...localFilters, popularityMin: e.target.value ? Number(e.target.value) : null })
-              }
-              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="0"
-            />
-            <p className="text-xs text-gray-500 mt-1">Show only decks with at least this many likes</p>
           </div>
 
           {/* Budget Range */}

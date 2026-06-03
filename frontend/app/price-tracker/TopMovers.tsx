@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 import { useProStatus } from "@/hooks/useProStatus";
-import { showProToast } from "@/lib/pro-ux";
 import { motion, AnimatePresence } from "framer-motion";
 import { getImagesForNames } from "@/lib/scryfall-cache";
 
@@ -41,8 +40,6 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
   const loading = controlled ? (loadingProp ?? false) : loadingInternal;
   const windowDays = controlled ? (windowDaysProp ?? 7) : windowDaysInternal;
   const [minPrice, setMinPrice] = React.useState(2);
-  const [watchOnly, setWatchOnly] = React.useState(false);
-  const [watch, setWatch] = React.useState<string[]>([]);
   const [isExpanded, setIsExpanded] = React.useState(true);
   const [sortField, setSortField] = React.useState<SortField>("pct");
   const [sortDir, setSortDir] = React.useState<SortDirection>("desc");
@@ -54,22 +51,8 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
   const [loadingInsight, setLoadingInsight] = React.useState<Record<string, boolean>>({});
   const [formatFilter, setFormatFilter] = React.useState<string>("");
   const [comparePeriod, setComparePeriod] = React.useState<boolean>(false);
-  const [selectedForWatchlist, setSelectedForWatchlist] = React.useState<Set<string>>(new Set());
 
   const currSym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
-
-  // Load watchlist
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const { createBrowserSupabaseClient } = await import('@/lib/supabase/client');
-        const sb = createBrowserSupabaseClient();
-        const { data: u } = await sb.auth.getUser();
-        const arr = (u?.user?.user_metadata?.watchlist_cards || []) as any[];
-        setWatch(Array.isArray(arr) ? arr.map(String) : []);
-      } catch {}
-    })();
-  }, []);
 
   const fetchError = controlled ? (fetchErrorProp ?? null) : fetchErrorInternal;
   const setWindowDays = controlled ? (onWindowDaysChange ?? (() => {})) : setWindowDaysInternal;
@@ -143,10 +126,8 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
 
   const filtered = React.useMemo(() => {
     if (!Array.isArray(rows)) return [];
-    let result = rows.filter(r => r.latest >= (minPrice || 0));
-    if (watchOnly) result = result.filter(r => watch.includes(r.name));
-    return result;
-  }, [rows, minPrice, watchOnly, watch]);
+    return rows.filter(r => r.latest >= (minPrice || 0));
+  }, [rows, minPrice]);
 
   const sorted = React.useMemo(() => {
     const sorted = [...filtered];
@@ -200,33 +181,6 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
     a.download = `top-movers-${windowDays}d-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
-  };
-
-  const addToWatchlist = async (name: string) => {
-    if (!isPro) {
-      try { showProToast(); } catch {}
-      return;
-    }
-    try {
-      const res = await fetch('/api/watchlist/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setSelectedForWatchlist(prev => new Set(prev).add(name));
-        try {
-          const { toast } = await import('@/lib/toast-client');
-          toast(`Added ${name} to watchlist`, 'success');
-        } catch {}
-      }
-    } catch (e: any) {
-      try {
-        const { toastError } = await import('@/lib/toast-client');
-        toastError(e?.message || 'Failed to add to watchlist');
-      } catch {}
-    }
   };
 
   const getAIInsight = async (name: string) => {
@@ -294,9 +248,6 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
               Min price
               <input type="number" min={0} step="0.5" value={minPrice} onChange={e => setMinPrice(Math.max(0, Number(e.target.value) || 0))} className="w-20 bg-neutral-950 border border-neutral-700 rounded px-1 py-0.5 text-right" />
             </label>
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={watchOnly} onChange={e => setWatchOnly(e.target.checked)} /> Watchlist only
-            </label>
             {isPro && (
               <label className="inline-flex items-center gap-1">
                 Format
@@ -322,7 +273,7 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
               ) : (
                 <>
                   <div>No movers for the selected filters.</div>
-                  <div className="text-[10px] opacity-60">Try a longer window (30d), lower min price, or turn off &quot;Watchlist only&quot;. If the price snapshot cron hasn&apos;t run for 2+ days, data won&apos;t be available yet.</div>
+                  <div className="text-[10px] opacity-60">Try a longer window (30d) or lower min price. If the price snapshot cron hasn&apos;t run for 2+ days, data won&apos;t be available yet.</div>
                 </>
               )}
             </div>
@@ -370,7 +321,6 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
                       const thumbSrc = r.small || r.normal || r.art_crop || img?.small || img?.normal || img?.art_crop;
                       const previewSrc = r.normal || r.small || r.art_crop || img?.normal || img?.small || img?.art_crop;
                       const trend = priceTrends[r.name] || priceTrends[key];
-                      const inWatchlist = watch.includes(r.name) || selectedForWatchlist.has(r.name);
                       return (
                         <React.Fragment key={r.name}>
                           <tr className="border-b border-neutral-900 hover:bg-neutral-900/50 transition-colors">
@@ -419,16 +369,6 @@ export default function TopMovers({ currency, onAddToChart, rows: rowsProp, load
                             </td>
                             <td className="py-2 px-3">
                               <div className="flex items-center justify-center gap-1">
-                                {isPro && (
-                                  <button
-                                    onClick={() => addToWatchlist(r.name)}
-                                    disabled={inWatchlist}
-                                    className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    title={inWatchlist ? "Already in watchlist" : "Add to watchlist"}
-                                  >
-                                    {inWatchlist ? '✓' : '★'}
-                                  </button>
-                                )}
                                 <button
                                   onClick={() => getAIInsight(r.name)}
                                   className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800 transition-colors"

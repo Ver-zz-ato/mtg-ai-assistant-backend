@@ -162,11 +162,11 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
       <RegisterToastApi showToast={showToast} showError={showError} showPanel={showPanel} removeToast={removeToast} />
 
       {/* Standard toasts (top-right) — large type/padding (~3×) for visibility */}
-      <div className="fixed top-4 right-4 z-[10001] space-y-6 max-w-[min(92vw,56rem)]">
+      <div className="fixed top-4 right-4 z-[10001] space-y-3 max-w-[min(92vw,28rem)]">
         {toasts.filter(t=>!t.large && !t.anchor).map(toast => (
           <div
             key={toast.id}
-            className={`px-[3.75rem] py-12 rounded-2xl shadow-2xl border-[6px] cursor-pointer transition-all duration-300 ${
+            className={`px-8 py-6 rounded-xl shadow-2xl border-[3px] cursor-pointer transition-all duration-300 ${
               toast.type === "error" 
                 ? "bg-red-900 border-red-700 text-red-100"
                 : toast.type === "success"
@@ -177,12 +177,12 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
             }`}
             onClick={() => removeToast(toast.id)}
           >
-            <div className="flex items-start justify-between gap-9">
-              <p className="text-5xl font-medium leading-snug break-words">{toast.message}</p>
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-2xl font-medium leading-snug break-words">{toast.message}</p>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); removeToast(toast.id); }}
-                className="text-5xl leading-none opacity-70 hover:opacity-100 flex-shrink-0 pt-2 min-w-[2.5rem]"
+                className="text-3xl leading-none opacity-70 hover:opacity-100 flex-shrink-0 pt-0.5 min-w-7"
                 title="Dismiss"
               >✕</button>
             </div>

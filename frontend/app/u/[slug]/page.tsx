@@ -10,7 +10,6 @@ export const runtime = "nodejs";
 
 type Params = { slug: string };
 
-import LikeButton from "@/components/likes/LikeButton";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 
 type PublicProfileApiShape = {
@@ -150,32 +149,6 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               </li>
             );
           })}
-        </ul>
-      </section>
-    ) as any;
-  }
-
-  async function MostLikedDecks({ userId }: { userId: string }) {
-    let decks: any[] = [];
-    try {
-      const { data } = await supabase.from('decks').select('id, title').eq('user_id', userId).eq('is_public', true).limit(12);
-      decks = Array.isArray(data) ? data : [];
-    } catch {}
-    const pairs: { id: string; title: string; count: number }[] = [];
-    for (const d of decks) {
-      try {
-        const { count } = await supabase.from('deck_likes').select('deck_id', { count: 'exact', head: true }).eq('deck_id', d.id);
-        pairs.push({ id: d.id, title: d.title || 'Untitled', count: count || 0 });
-      } catch { pairs.push({ id: d.id, title: d.title || 'Untitled', count: 0 }); }
-    }
-    pairs.sort((a,b)=>b.count-a.count);
-    const top = pairs.slice(0,3);
-    if (!top.length) return null as any;
-    return (
-      <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
-        <div className="text-lg font-semibold">Most liked decks</div>
-        <ul className="space-y-1 text-sm">
-          {top.map(p => (<li key={p.id} className="flex items-center justify-between"><a href={`/decks/${p.id}`} className="hover:underline truncate">{p.title}</a><span className="opacity-80">❤ {p.count}</span></li>))}
         </ul>
       </section>
     ) as any;
@@ -537,7 +510,6 @@ export default async function Page({ params }: { params: Promise<Params> }) {
               </section>
             );
           })() : null}
-          <MostLikedDecks userId={prof.id} />
           {/* Deck trends section with enhanced styling */}
           <section className="rounded-xl border-2 border-neutral-800 bg-gradient-to-br from-neutral-900/50 to-neutral-950/50 p-6 hover:border-blue-500/30 transition-colors shadow-xl">
             <div className="flex items-center gap-2 mb-4">
@@ -649,7 +621,6 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                             <div className="text-xs text-neutral-400 mt-1 line-clamp-1">Commander: {d.commander}</div>
                           )}
                         </a>
-                        <LikeButton deckId={d.id} />
                       </div>
                     </li>
                   );
@@ -687,8 +658,8 @@ export default async function Page({ params }: { params: Promise<Params> }) {
                     'On-Curve 90': {emoji: '📈', desc: '≥90% to hit land drops T1–T4', color: 'from-amber-500/20 to-amber-600/10'},
                     'Mana Maestro': {emoji: '💧', desc: 'High color odds by T3', color: 'from-sky-500/20 to-sky-600/10'},
                     'Combomancer': {emoji: '✨', desc: 'Includes at least one detected combo', color: 'from-violet-500/20 to-violet-600/10'},
-                    'Apprentice Teacher': {emoji: '🥇', desc: '10 likes on a deck', color: 'from-yellow-500/20 to-yellow-600/10'},
-                    'Master Teacher': {emoji: '🎖️', desc: '25 likes on a deck', color: 'from-orange-500/20 to-orange-600/10'}
+                    'Apprentice Teacher': {emoji: '🥇', desc: 'Achievement unlocked', color: 'from-yellow-500/20 to-yellow-600/10'},
+                    'Master Teacher': {emoji: '🎖️', desc: 'Achievement unlocked', color: 'from-orange-500/20 to-orange-600/10'}
                   };
                   const badge = badgeDescriptions[b] || {emoji: '🏆', desc: 'Achievement unlocked', color: 'from-neutral-700/20 to-neutral-800/10'};
                   return (
