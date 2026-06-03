@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { BarChart3, Bot, ExternalLink, FolderPlus, GitBranch, Library, Lock, PiggyBank, Sparkles, X } from "lucide-react";
+import { BarChart3, Bot, ExternalLink, FolderPlus, GitBranch, Layers, Lock, PiggyBank, Sparkles, X } from "lucide-react";
 import { normalizeCurrency, usePrefs, type CurrencyPref } from "@/components/PrefsContext";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast-client";
@@ -461,7 +461,7 @@ export default function WebsiteCardDetailModal({
           {deckUsages.length > 0 ? (
             <div className="mx-auto mt-3 w-full max-w-[320px] rounded-lg border border-indigo-300/20 bg-indigo-950/20 p-3">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-100">
-                <Library size={16} />
+                <Layers size={16} />
                 <span>In your decks</span>
               </div>
               <div className="max-h-36 overflow-y-auto divide-y divide-indigo-200/10">
