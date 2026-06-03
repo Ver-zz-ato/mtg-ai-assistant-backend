@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appID": "TEAM_ID_PLACEHOLDER.com.manatap.app",
+        "appID": "7AMBB8P8C5.com.manatap.app",
         "paths": [
           "/auth/callback",
           "/auth/*",
