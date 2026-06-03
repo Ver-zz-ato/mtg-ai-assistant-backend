@@ -1,11 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Apple } from "lucide-react";
 
 const IOS_STORE_URL = "https://apps.apple.com/app/id6774626559";
 const ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=com.manatap.app";
 
 type PlatformTarget = "ios" | "android" | "unknown";
+
+function GooglePlayIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
+      <path fill="#34A853" d="M4.4 2.4c-.3.2-.4.6-.4 1.1v17c0 .5.2.9.5 1.1l9-9.6-9.1-9.6Z" />
+      <path fill="#FBBC04" d="m16.5 9.1-3-1.7L4.7 2.3l8.8 9.7 3-2.9Z" />
+      <path fill="#4285F4" d="m4.7 21.7 8.8-9.7-3-2.9-6 12.6h.2Z" />
+      <path fill="#EA4335" d="M20 10.3 16.5 9l-3 3 3 3 3.5-1.9c1.3-.8 1.3-2.1 0-2.8Z" />
+    </svg>
+  );
+}
 
 function detectPlatform(userAgent: string): PlatformTarget {
   const ua = userAgent.toLowerCase();
@@ -46,7 +58,7 @@ export default function GetAppClient() {
   const detectedLabel = useMemo(() => {
     if (platform === "ios") return "iPhone or iPad detected";
     if (platform === "android") return "Android detected";
-    return "Choose your store";
+    return "Choose your device";
   }, [platform]);
 
   const statusCopy =
@@ -77,14 +89,16 @@ export default function GetAppClient() {
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <a
                 href={IOS_STORE_URL}
-                className="rounded-2xl border border-white/10 bg-white px-5 py-4 text-center text-sm font-black text-neutral-950 transition hover:bg-amber-100"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-5 py-4 text-center text-sm font-black text-neutral-950 transition hover:bg-amber-100"
               >
+                <Apple aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={2.5} />
                 Download on App Store
               </a>
               <a
                 href={ANDROID_STORE_URL}
-                className="rounded-2xl border border-cyan-300/25 bg-cyan-300/12 px-5 py-4 text-center text-sm font-black text-cyan-100 transition hover:bg-cyan-300/18"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-300/12 px-5 py-4 text-center text-sm font-black text-cyan-100 transition hover:bg-cyan-300/18"
               >
+                <GooglePlayIcon />
                 Get it on Google Play
               </a>
             </div>
