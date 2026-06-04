@@ -6,15 +6,33 @@ import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 
 export const runtime = "nodejs";
 
-function hasEmailPasswordIdentity(user: { identities?: { provider: string }[] } | null): boolean {
-  return (user?.identities ?? []).some((i) => i.provider === "email");
+type DeleteAccountUser = {
+  identities?: { provider?: string }[];
+  app_metadata?: { provider?: unknown; providers?: unknown };
+} | null;
+
+function getAuthProviders(user: DeleteAccountUser): string[] {
+  const fromIdentities = (user?.identities ?? [])
+    .map((i) => i.provider)
+    .filter((provider): provider is string => typeof provider === "string");
+  const metadata = user?.app_metadata;
+  const fromProvider = typeof metadata?.provider === "string" ? [metadata.provider] : [];
+  const fromProviders = Array.isArray(metadata?.providers)
+    ? metadata.providers.filter((provider): provider is string => typeof provider === "string")
+    : [];
+  return Array.from(new Set([...fromIdentities, ...fromProvider, ...fromProviders].filter(Boolean)));
+}
+
+function requiresPasswordForDeletion(user: DeleteAccountUser): boolean {
+  const providers = getAuthProviders(user);
+  return providers.includes("email") && !providers.some((provider) => provider !== "email");
 }
 
 /**
  * POST /api/profile/delete-account
  * Self-service account deletion. Requires authenticated user (session cookie or Bearer token).
- * Email/password users must send `{ "password": "..." }`; verified via anon `signInWithPassword` before delete.
- * OAuth-only users (no `email` identity): deletion allowed with session only (no password on file).
+ * Email/password-only users must send `{ "password": "..." }`; verified via anon `signInWithPassword` before delete.
+ * OAuth-capable users: deletion allowed with session only (no reliable password re-entry flow).
  * Deletes all user data then auth user (service role required).
  */
 export async function POST(req: Request) {
@@ -50,7 +68,7 @@ export async function POST(req: Request) {
       body = {};
     }
 
-    if (hasEmailPasswordIdentity(user)) {
+    if (requiresPasswordForDeletion(user)) {
       const pwd = typeof body.password === "string" ? body.password : "";
       if (!pwd.trim()) {
         return NextResponse.json(
