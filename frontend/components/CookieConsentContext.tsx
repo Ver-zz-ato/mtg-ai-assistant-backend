@@ -24,6 +24,10 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
 
   // Check on mount if consent is unknown
   React.useEffect(() => {
+    if (window.location.pathname === "/get") {
+      return;
+    }
+
     const status = getConsentStatus();
     if (status === "unknown") {
       setIsOpen(true);

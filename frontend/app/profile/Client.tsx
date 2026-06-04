@@ -39,6 +39,18 @@ function cleanName(s: string): string {
     .trim();
 }
 
+function requiresPasswordForDeletion(user: any): boolean {
+  const identityProviders = Array.isArray(user?.identities)
+    ? user.identities.map((identity: any) => identity?.provider).filter((provider: unknown): provider is string => typeof provider === 'string')
+    : [];
+  const appProvider = typeof user?.app_metadata?.provider === 'string' ? [user.app_metadata.provider] : [];
+  const appProviders = Array.isArray(user?.app_metadata?.providers)
+    ? user.app_metadata.providers.filter((provider: unknown): provider is string => typeof provider === 'string')
+    : [];
+  const providers = Array.from(new Set([...identityProviders, ...appProvider, ...appProviders]));
+  return providers.includes('email') && !providers.some((provider) => provider !== 'email');
+}
+
 function mapCanonicalEarnedBadges(rows: BadgeProgressItem[]): DisplayBadge[] {
   return rows
     .filter((row) => row.unlocked)
@@ -1099,6 +1111,12 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="text-xs text-neutral-400">
                     This action cannot be undone. All your decks, collections, and data will be permanently deleted.
                   </div>
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100 space-y-2">
+                    <div className="font-semibold text-amber-300">Active subscriptions</div>
+                    <p>Deleting your ManaTap account does not automatically cancel active subscriptions.</p>
+                    <p>If you subscribed through Apple or Google Play, manage or cancel your subscription in your App Store or Google Play account.</p>
+                    <p>If you subscribed on the ManaTap website through Stripe, cancel from the billing portal before deleting your account, or contact support@manatap.ai.</p>
+                  </div>
                   <button 
                     onClick={async () => {
                       const confirmation = prompt('Type "DELETE" to confirm account deletion:');
@@ -1107,9 +1125,8 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                         return;
                       }
                       if (!confirm('Are you absolutely sure? This action is irreversible.')) return;
-                      const hasEmailIdentity = (authUser?.identities ?? []).some((i) => i.provider === 'email');
                       let password: string | undefined;
-                      if (hasEmailIdentity) {
+                      if (requiresPasswordForDeletion(authUser)) {
                         const pwd = prompt('Enter your account password to permanently delete your account:');
                         if (pwd === null) return;
                         if (!String(pwd).trim()) {

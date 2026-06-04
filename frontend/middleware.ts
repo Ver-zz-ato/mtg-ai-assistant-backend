@@ -43,6 +43,16 @@ import {
 const MAINTENANCE_OFF_SKIP_MS = 12_000;
 let maintenanceOffSkipUntil = 0;
 
+const GET_APP_IOS_STORE_URL = "https://apps.apple.com/app/id6774626559";
+const GET_APP_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=com.manatap.app";
+
+function getStoreUrlForUserAgent(userAgent: string): string | null {
+  const ua = userAgent.toLowerCase();
+  if (/\bandroid\b/.test(ua)) return GET_APP_ANDROID_STORE_URL;
+  if (/\b(iphone|ipad|ipod)\b/.test(ua)) return GET_APP_IOS_STORE_URL;
+  return null;
+}
+
 // Validate environment variables at startup (fail fast)
 try {
   validateEnv();
@@ -106,6 +116,16 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = "/admin/JustForDavy";
     return NextResponse.rewrite(url);
+  }
+
+  if (path === "/get") {
+    const storeUrl = getStoreUrlForUserAgent(req.headers.get("user-agent") || "");
+    if (storeUrl) {
+      const response = NextResponse.redirect(storeUrl, 302);
+      response.headers.set("Cache-Control", "private, no-store");
+      response.headers.set("Vary", "User-Agent");
+      return response;
+    }
   }
 
   // WWW redirect: Ensure bare domain (manatap.ai) redirects to www.manatap.ai (single hop)

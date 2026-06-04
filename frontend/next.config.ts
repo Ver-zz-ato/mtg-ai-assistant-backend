@@ -2,6 +2,9 @@ import {withSentryConfig} from "@sentry/nextjs";
 import path from "path";
 import type { NextConfig } from "next";
 
+const IOS_STORE_URL = "https://apps.apple.com/app/id6774626559";
+const ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=com.manatap.app";
+
 // Full Next.js config
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -39,6 +42,18 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
+      {
+        source: "/get",
+        has: [{ type: "header", key: "user-agent", value: ".*Android.*" }],
+        destination: ANDROID_STORE_URL,
+        permanent: false,
+      },
+      {
+        source: "/get",
+        has: [{ type: "header", key: "user-agent", value: ".*(iPhone|iPad|iPod).*" }],
+        destination: IOS_STORE_URL,
+        permanent: false,
+      },
       { source: "/mtg-deck-check", destination: "/mtg-deck-checker", permanent: true },
       { source: "/deck-checker-mtg", destination: "/mtg-deck-checker", permanent: true },
       { source: "/mtg-deck-rater", destination: "/mtg-deck-checker", permanent: true },

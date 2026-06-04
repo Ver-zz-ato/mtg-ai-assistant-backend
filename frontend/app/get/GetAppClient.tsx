@@ -48,11 +48,7 @@ export default function GetAppClient() {
     const target = storeUrlFor(detected);
     if (!target) return;
 
-    const redirectTimer = window.setTimeout(() => {
-      window.location.assign(target);
-    }, 650);
-
-    return () => window.clearTimeout(redirectTimer);
+    window.location.replace(target);
   }, []);
 
   const detectedLabel = useMemo(() => {
