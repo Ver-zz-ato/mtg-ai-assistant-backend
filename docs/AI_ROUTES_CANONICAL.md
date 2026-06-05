@@ -176,8 +176,8 @@ Validation:
 
 Response shape:
 
-- `decks[]` contains estimated total value, top expensive cards, deterministic stats, strengths, weaknesses, and `power.level`.
-- `overview` identifies strongest/weakest deck and gives matchup bullets.
+- `decks[]` contains estimated total value, top expensive cards, deterministic stats, strengths, weaknesses, `tableRole`, `whyItWins`, `swingCards`, `watchOutFor`, absolute/pod-relative power fields, and `power.level`.
+- `overview` identifies strongest/weakest deck and gives verdict bullets, winner reason, pod balance note, and pairwise matchup rows for the app's compact Overview / Decks / Matchups result screen.
 - AI may adjust the deterministic 1-10 power level, but the deterministic score is returned for debugging.
 
 Risk notes:

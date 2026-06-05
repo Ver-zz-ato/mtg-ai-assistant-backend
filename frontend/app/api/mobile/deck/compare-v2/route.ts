@@ -94,6 +94,13 @@ type CompareV2DeckCard = {
   strengths: string[];
   weaknesses: string[];
   summary: string;
+  tableRole: string;
+  whyItWins: string;
+  watchOutFor: string[];
+  swingCards: string[];
+  absolutePowerLevel: number;
+  podRank: number | null;
+  podRelativePower: "top" | "upper" | "middle" | "lower" | "bottom";
 };
 
 type CompareV2Success = {
@@ -107,6 +114,16 @@ type CompareV2Success = {
     bestLongGameDeckId: string | null;
     verdict: string;
     bullets: string[];
+    winnerReason: string;
+    podBalance: "balanced" | "slightly_mismatched" | "mismatched";
+    podBalanceNote: string;
+    pairwiseMatchups: Array<{
+      deckAId: string;
+      deckBId: string;
+      favoredDeckId: string | null;
+      confidence: number;
+      note: string;
+    }>;
   };
   meta: {
     version: 1;
@@ -165,6 +182,29 @@ function deterministicWeaknesses(deck: CompareDeckGrounding): string[] {
   ].filter(Boolean).slice(0, 3);
 }
 
+function deterministicTableRole(deck: CompareDeckGrounding): string {
+  const i = deck.intelligence;
+  const best = [
+    ["Tempo threat", i.tempoScore],
+    ["Control seat", i.interactionScore],
+    ["Value grinder", i.resilienceScore + i.consistencyScore],
+    ["Closer", i.closingScore],
+    ["Synergy engine", i.synergyScore],
+  ].sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0];
+  return String(best || "Midrange deck");
+}
+
+function deterministicWatchOutFor(deck: CompareDeckGrounding): string[] {
+  const i = deck.intelligence;
+  return [
+    i.tempoScore >= 65 ? "Do not let its early pressure go unanswered." : "",
+    i.interactionScore >= 65 ? "Expect it to stop key setup turns." : "",
+    i.closingScore >= 65 ? "Hold answers for the finishing turn." : "",
+    i.resilienceScore >= 65 ? "One board wipe may not be enough." : "",
+    i.synergyScore >= 65 ? "Break up the engine pieces before they compound." : "",
+  ].filter(Boolean).slice(0, 3);
+}
+
 function deckCardFromGrounding(
   inputDeck: CompareV2InputDeck,
   grounded: CompareDeckGrounding,
@@ -199,6 +239,13 @@ function deckCardFromGrounding(
     strengths: deterministicStrengths(grounded),
     weaknesses: deterministicWeaknesses(grounded),
     summary: grounded.summary,
+    tableRole: deterministicTableRole(grounded),
+    whyItWins: grounded.intelligence.matchupRead,
+    watchOutFor: deterministicWatchOutFor(grounded),
+    swingCards: grounded.intelligence.keyCards.slice(0, 5),
+    absolutePowerLevel: deterministicLevel,
+    podRank: null,
+    podRelativePower: "middle",
   };
 }
 
@@ -210,18 +257,132 @@ function pickDeckId(decks: CompareV2DeckCard[], score: (deck: CompareV2DeckCard)
   return sorted[0]?.id ?? null;
 }
 
+function medianNumber(values: number[]): number | null {
+  const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+function clampStatScore(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function relativeMetricScore(value: number, median: number | null): number {
+  if (median == null) return clampStatScore(value);
+  const nudge = Math.max(-5, Math.min(5, (value - median) * 0.15));
+  return clampStatScore(value + nudge);
+}
+
+function podBalanceFor(cards: CompareV2DeckCard[]): CompareV2Success["overview"]["podBalance"] {
+  const levels = cards.map((deck) => deck.power.level).filter((n) => Number.isFinite(n));
+  if (levels.length < 2) return "balanced";
+  const spread = Math.max(...levels) - Math.min(...levels);
+  if (spread >= 4) return "mismatched";
+  if (spread >= 2) return "slightly_mismatched";
+  return "balanced";
+}
+
+function withPodRanks(cards: CompareV2DeckCard[]): CompareV2DeckCard[] {
+  const sorted = [...cards].sort((a, b) => b.power.level - a.power.level || b.stats.synergy - a.stats.synergy || a.title.localeCompare(b.title));
+  const rankById = new Map(sorted.map((deck, index) => [deck.id, index + 1]));
+  return cards.map((deck) => {
+    const rank = rankById.get(deck.id) ?? null;
+    const relative =
+      rank === 1 ? "top" :
+      rank === cards.length ? "bottom" :
+      rank != null && rank <= Math.ceil(cards.length / 3) ? "upper" :
+      rank != null && rank > Math.floor(cards.length * 2 / 3) ? "lower" :
+      "middle";
+    return { ...deck, podRank: rank, podRelativePower: relative };
+  });
+}
+
+function buildPairwiseMatchups(cards: CompareV2DeckCard[]): CompareV2Success["overview"]["pairwiseMatchups"] {
+  const out: CompareV2Success["overview"]["pairwiseMatchups"] = [];
+  for (let i = 0; i < cards.length; i += 1) {
+    for (let j = i + 1; j < cards.length; j += 1) {
+      const a = cards[i];
+      const b = cards[j];
+      const scoreA = a.power.level * 12 + a.stats.interaction * 0.18 + a.stats.consistency * 0.14 + a.stats.closing * 0.12;
+      const scoreB = b.power.level * 12 + b.stats.interaction * 0.18 + b.stats.consistency * 0.14 + b.stats.closing * 0.12;
+      const diff = Math.abs(scoreA - scoreB);
+      const favored = diff < 4 ? null : scoreA > scoreB ? a : b;
+      const confidence = Math.max(50, Math.min(75, Math.round(50 + diff)));
+      out.push({
+        deckAId: a.id,
+        deckBId: b.id,
+        favoredDeckId: favored?.id ?? null,
+        confidence,
+        note: favored
+          ? `${favored.title} is favored by power, interaction, and consistency profile.`
+          : `${a.title} and ${b.title} look close on paper.`,
+      });
+    }
+  }
+  return out.slice(0, 15);
+}
+
 function buildDeterministicResult(inputDecks: CompareV2InputDeck[], grounded: Awaited<ReturnType<typeof buildDeckCompareGrounding>>, model: string): CompareV2Success {
   const emptyAiMap = new Map<string, number>();
   const cards = grounded.decks.map((deck, index) => deckCardFromGrounding(inputDecks[index], deck, emptyAiMap));
-  const strongestDeckId = pickDeckId(cards, (deck) => deck.power.level, "max");
-  const weakestDeckId = pickDeckId(cards, (deck) => deck.power.level, "min");
-  const fastestDeckId = pickDeckId(cards, (deck) => deck.stats.tempo, "max");
-  const bestLongGameDeckId = pickDeckId(cards, (deck) => deck.stats.resilience + deck.stats.consistency + deck.stats.closing, "max");
+  const pricedValues = cards
+    .map((deck) => deck.estimatedValueUsd)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0)
+    .sort((a, b) => a - b);
+  const medianValue = pricedValues.length ? pricedValues[Math.floor(pricedValues.length / 2)] : null;
+  const adjustedCards = medianValue && medianValue > 0
+    ? cards.map((deck) => {
+        const value = deck.estimatedValueUsd;
+        if (!value || !Number.isFinite(value)) return deck;
+        const ratio = value / medianValue;
+        const valueAdjustment = ratio >= 2.25 ? 1 : ratio >= 1.55 ? 0.5 : ratio <= 0.45 ? -1 : ratio <= 0.65 ? -0.5 : 0;
+        if (valueAdjustment === 0) return deck;
+        const nextLevel = clampPowerScore(deck.power.level + valueAdjustment, deck.power.level);
+        return {
+          ...deck,
+          power: {
+            ...deck.power,
+            deterministicScore: nextLevel,
+            aiAdjustedScore: nextLevel,
+            level: nextLevel,
+          },
+        };
+      })
+    : cards;
+  const metricMedians = {
+    tempo: medianNumber(adjustedCards.map((deck) => deck.stats.tempo)),
+    consistency: medianNumber(adjustedCards.map((deck) => deck.stats.consistency)),
+    interaction: medianNumber(adjustedCards.map((deck) => deck.stats.interaction)),
+    resilience: medianNumber(adjustedCards.map((deck) => deck.stats.resilience)),
+    closing: medianNumber(adjustedCards.map((deck) => deck.stats.closing)),
+    mana: medianNumber(adjustedCards.map((deck) => deck.stats.mana)),
+    synergy: medianNumber(adjustedCards.map((deck) => deck.stats.synergy)),
+  };
+  const relativeCardsBase = adjustedCards.map((deck) => ({
+    ...deck,
+    stats: {
+      tempo: relativeMetricScore(deck.stats.tempo, metricMedians.tempo),
+      consistency: relativeMetricScore(deck.stats.consistency, metricMedians.consistency),
+      interaction: relativeMetricScore(deck.stats.interaction, metricMedians.interaction),
+      resilience: relativeMetricScore(deck.stats.resilience, metricMedians.resilience),
+      closing: relativeMetricScore(deck.stats.closing, metricMedians.closing),
+      mana: relativeMetricScore(deck.stats.mana, metricMedians.mana),
+      synergy: relativeMetricScore(deck.stats.synergy, metricMedians.synergy),
+    },
+  }));
+  const relativeCards = withPodRanks(relativeCardsBase);
+  const strongestDeckId = pickDeckId(relativeCards, (deck) => deck.power.level, "max");
+  const weakestDeckId = pickDeckId(relativeCards, (deck) => deck.power.level, "min");
+  const fastestDeckId = pickDeckId(relativeCards, (deck) => deck.stats.tempo, "max");
+  const bestLongGameDeckId = pickDeckId(relativeCards, (deck) => deck.stats.resilience + deck.stats.consistency + deck.stats.closing, "max");
+  const balance = podBalanceFor(relativeCards);
+  const strongest = strongestDeckId ? relativeCards.find((deck) => deck.id === strongestDeckId) : null;
 
   return {
     ok: true,
     format: inputDecks[0]?.format ?? "Commander",
-    decks: cards,
+    decks: relativeCards,
     overview: {
       strongestDeckId,
       weakestDeckId,
@@ -229,10 +390,17 @@ function buildDeterministicResult(inputDecks: CompareV2InputDeck[], grounded: Aw
       bestLongGameDeckId,
       verdict: grounded.matrix.verdict,
       bullets: [
-        strongestDeckId ? `${cards.find((deck) => deck.id === strongestDeckId)?.title ?? "Top deck"} has the best overall power read.` : "",
-        fastestDeckId ? `${cards.find((deck) => deck.id === fastestDeckId)?.title ?? "Fastest deck"} has the strongest tempo score.` : "",
-        bestLongGameDeckId ? `${cards.find((deck) => deck.id === bestLongGameDeckId)?.title ?? "Long-game deck"} has the best long-game profile.` : "",
+        strongestDeckId ? `${relativeCards.find((deck) => deck.id === strongestDeckId)?.title ?? "Top deck"} has the best overall power read.` : "",
+        fastestDeckId ? `${relativeCards.find((deck) => deck.id === fastestDeckId)?.title ?? "Fastest deck"} has the strongest tempo score.` : "",
+        bestLongGameDeckId ? `${relativeCards.find((deck) => deck.id === bestLongGameDeckId)?.title ?? "Long-game deck"} has the best long-game profile.` : "",
       ].filter(Boolean),
+      winnerReason: strongest ? `${strongest.title} leads because its power, ${strongest.tableRole.toLowerCase()}, and matchup stats are strongest in this pod.` : "No single deck clearly separates from the pod.",
+      podBalance: balance,
+      podBalanceNote:
+        balance === "balanced" ? "The pod looks close enough for normal games." :
+        balance === "slightly_mismatched" ? "There is a noticeable spread, but the table is not wildly uneven." :
+        "The pod looks mismatched; one or more decks may overpower the others.",
+      pairwiseMatchups: buildPairwiseMatchups(relativeCards),
     },
     meta: {
       version: 1,
@@ -266,11 +434,21 @@ function normalizeAiAdjustedResult(
     const weaknesses = Array.isArray(strengthsRaw?.weaknesses)
       ? strengthsRaw!.weaknesses.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 3)
       : deck.weaknesses;
+    const watchOutFor = Array.isArray(strengthsRaw?.watchOutFor)
+      ? strengthsRaw!.watchOutFor.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 3)
+      : deck.watchOutFor;
+    const swingCards = Array.isArray(strengthsRaw?.swingCards)
+      ? strengthsRaw!.swingCards.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 5)
+      : deck.swingCards;
     return {
       ...deck,
       power: { ...deck.power, aiAdjustedScore, level: aiAdjustedScore },
       strengths,
       weaknesses,
+      tableRole: typeof strengthsRaw?.tableRole === "string" && strengthsRaw.tableRole.trim() ? strengthsRaw.tableRole.trim().slice(0, 80) : deck.tableRole,
+      whyItWins: typeof strengthsRaw?.whyItWins === "string" && strengthsRaw.whyItWins.trim() ? strengthsRaw.whyItWins.trim().slice(0, 240) : deck.whyItWins,
+      watchOutFor,
+      swingCards,
       summary: typeof strengthsRaw?.summary === "string" && strengthsRaw.summary.trim() ? strengthsRaw.summary.trim().slice(0, 220) : deck.summary,
     };
   });
@@ -287,6 +465,8 @@ function normalizeAiAdjustedResult(
       bullets: Array.isArray(obj.bullets)
         ? obj.bullets.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 4)
         : current.overview.bullets,
+      winnerReason: typeof obj.winnerReason === "string" && obj.winnerReason.trim() ? obj.winnerReason.trim().slice(0, 260) : current.overview.winnerReason,
+      podBalanceNote: typeof obj.podBalanceNote === "string" && obj.podBalanceNote.trim() ? obj.podBalanceNote.trim().slice(0, 260) : current.overview.podBalanceNote,
     },
     meta: { ...current.meta, usedAi: true },
   };
@@ -518,7 +698,8 @@ export async function POST(req: NextRequest) {
               "You are an expert Magic: The Gathering deck power evaluator.",
               "Return only JSON. Do not invent cards. Use the ground truth numbers and deck titles.",
               "You may adjust each deck's final powerLevel from 1 to 10 if the deterministic score misses synergy, combo density, premium card impact, or format context.",
-              "Do not let price alone decide power. Price is only one supporting signal.",
+              "Evaluate power relative to this exact group of decks. If one deck is much more expensive than the others, treat that as a supporting signal for stronger staples, mana, tutors, or interaction, but do not let price alone decide power.",
+              "Also compare tempo, interaction, consistency, resilience, closing, mana, and synergy relative to the other decks in this request when writing strengths and weaknesses.",
             ].join(" "),
           },
           {
@@ -527,7 +708,7 @@ export async function POST(req: NextRequest) {
               groundingPacket,
               "",
               "Return JSON with this shape:",
-              '{"decks":[{"title":"exact title","powerLevel":1-10,"summary":"short","strengths":["max 3"],"weaknesses":["max 3"]}],"verdict":"short overview","bullets":["max 4"]}',
+              '{"decks":[{"title":"exact title","powerLevel":1-10,"tableRole":"short role","whyItWins":"short reason","watchOutFor":["max 3"],"swingCards":["max 5 card names"],"summary":"short","strengths":["max 3"],"weaknesses":["max 3"]}],"verdict":"short overview","winnerReason":"why top deck leads","podBalanceNote":"short balance/fairness note","bullets":["max 4"]}',
               "",
               `Current deterministic result:\n${JSON.stringify(deterministic)}`,
             ].join("\n"),

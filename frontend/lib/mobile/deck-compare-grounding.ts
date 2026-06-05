@@ -99,9 +99,40 @@ function normalizePriceName(raw: string): string {
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[''`]/g, "'")
+    .replace(/[\u2019'`]/g, "'")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function cleanPriceCardName(raw: string): string {
+  return String(raw || "")
+    .replace(/\s*\[[^\]]+\]\s*$/g, "")
+    .replace(/\s*\([^)]+\)\s*$/g, "")
+    .trim();
+}
+
+function priceLookupKeys(rawName: string): string[] {
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  const push = (value: string) => {
+    const key = normalizePriceName(value);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    keys.push(key);
+  };
+  const raw = String(rawName || "").trim();
+  if (raw) push(raw);
+  const splitNormalized = raw.replace(/\s*\/\/\s*/g, " // ");
+  if (splitNormalized && splitNormalized !== raw) push(splitNormalized);
+  const splitCompact = raw.replace(/\s*\/\/\s*/g, "//");
+  if (splitCompact && splitCompact !== raw) push(splitCompact);
+  const cleaned = cleanPriceCardName(raw);
+  if (cleaned) push(cleaned);
+  if (splitNormalized.includes("//")) {
+    const frontFace = splitNormalized.split("//")[0]?.trim();
+    if (frontFace) push(frontFace);
+  }
+  return keys;
 }
 
 function fallbackDeckEntries(raw: string): Array<{ name: string; qty: number }> {
@@ -203,7 +234,7 @@ async function loadPriceMap(entries: Array<{ name: string; qty: number }>): Prom
   const out = new Map<string, number>();
   const admin = getServiceRoleClient();
   if (!admin || entries.length === 0) return out;
-  const keys = [...new Set(entries.map((entry) => normalizePriceName(entry.name)).filter(Boolean))];
+  const keys = [...new Set(entries.flatMap((entry) => priceLookupKeys(entry.name)).filter(Boolean))];
   for (let i = 0; i < keys.length; i += 100) {
     const slice = keys.slice(i, i + 100);
     const { data } = await admin.from("price_cache").select("card_name, usd_price").in("card_name", slice);
@@ -446,7 +477,7 @@ function topPricedCardDetails(
   return entries
     .map((entry) => ({
       name: entry.name,
-      estimatedPriceUsd: priceByKey.get(normalizePriceName(entry.name)) ?? 0,
+      estimatedPriceUsd: priceLookupKeys(entry.name).map((key) => priceByKey.get(key) ?? 0).find((price) => price > 0) ?? 0,
     }))
     .filter((entry) => entry.estimatedPriceUsd >= 15)
     .sort((a, b) => b.estimatedPriceUsd - a.estimatedPriceUsd || a.name.localeCompare(b.name))
@@ -486,11 +517,11 @@ function buildIntelligenceProfile(args: {
   const highCurveCards = facts.curve_histogram[4] ?? 0;
 
   const totalPrice = entries.reduce((sum, entry) => {
-    const price = priceByKey.get(normalizePriceName(entry.name));
+    const price = priceLookupKeys(entry.name).map((key) => priceByKey.get(key) ?? 0).find((value) => value > 0);
     return price != null ? sum + price * (entry.qty || 1) : sum;
   }, 0);
-  const pricedCount = entries.filter((entry) => priceByKey.has(normalizePriceName(entry.name))).length;
-  const estimatedPriceUsd = pricedCount >= Math.max(10, entries.length * 0.35) ? Number(totalPrice.toFixed(2)) : null;
+  const pricedCount = entries.filter((entry) => priceLookupKeys(entry.name).some((key) => priceByKey.has(key))).length;
+  const estimatedPriceUsd = pricedCount > 0 ? Number(totalPrice.toFixed(2)) : null;
 
   const tempoScore = clampScore(
     30 +
