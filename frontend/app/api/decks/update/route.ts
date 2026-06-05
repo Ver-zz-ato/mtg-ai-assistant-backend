@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     // Bearer fallback for mobile
-    if (!user && !userErr) {
+    if (!user) {
       const authHeader = req.headers.get("Authorization");
       const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
       if (bearerToken) {
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       }
     }
 
-    if (userErr || !user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
