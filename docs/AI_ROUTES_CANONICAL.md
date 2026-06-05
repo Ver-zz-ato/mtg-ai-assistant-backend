@@ -152,6 +152,39 @@ Why this exists:
 - The mobile app repeatedly asks for the same report while users revisit deck screens.
 - Deck hash caching saves OpenAI usage and avoids duplicate report cost when the saved list has not changed.
 
+### `POST /api/mobile/deck/compare-v2`
+
+File: `frontend/app/api/mobile/deck/compare-v2/route.ts`
+
+Purpose: Dev-only mobile Deck Compare V2 endpoint. Compares one authenticated user's own deck against up to five scanned public decks, then returns deterministic deck cards with an AI-adjusted 1-10 power ranking and overview.
+
+Format support: Commander, Modern, Pioneer, Standard, Pauper.
+
+Auth and access:
+
+- Bearer token or website cookie auth required.
+- Server-side dev-login email gate required (`MANATAP_DEV_LOGIN_EMAIL` or `DEV_LOGIN_EMAIL`).
+- No daily rate cap for the first dev-only version.
+
+Validation:
+
+- Max six total decks, where the user's own saved/pasted deck counts as one.
+- Saved own decks must be scoped to the authenticated owner.
+- Scanned decks are accepted only when `decks.is_public = true`.
+- All decks must normalize to the same format.
+- Decks below the halfway threshold for their format are rejected.
+
+Response shape:
+
+- `decks[]` contains estimated total value, top expensive cards, deterministic stats, strengths, weaknesses, and `power.level`.
+- `overview` identifies strongest/weakest deck and gives matchup bullets.
+- AI may adjust the deterministic 1-10 power level, but the deterministic score is returned for debugging.
+
+Risk notes:
+
+- Keep this route dev-gated until rate limits, product gating, and public UX are explicitly approved.
+- Do not trust client-provided ownership, public status, format, value, or power rating; recompute server-side.
+
 ### `POST /api/deck/transform`
 
 File: `frontend/app/api/deck/transform/route.ts`

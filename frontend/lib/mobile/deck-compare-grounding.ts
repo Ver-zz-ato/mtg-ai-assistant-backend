@@ -32,6 +32,7 @@ export type CompareDeckIntelligenceProfile = {
   engineCards: string[];
   payoffCards: string[];
   premiumCards: string[];
+  premiumCardDetails: Array<{ name: string; estimatedPriceUsd: number }>;
   weakSignals: string[];
   matchupRead: string;
 };
@@ -70,11 +71,15 @@ function cleanLine(line: string): string {
   return line.replace(/\r/g, "").trim();
 }
 
+function deckSlotLabel(index: number): string {
+  return `Deck ${String.fromCharCode(65 + index)}`;
+}
+
 function displayLabelFromHeader(header: string, index: number): string {
-  const fallback = `Deck ${String.fromCharCode(65 + index)}`;
+  const fallback = deckSlotLabel(index);
   const clean = cleanLine(header)
     .replace(/:$/, "")
-    .replace(/^Deck [A-C]\s*[-:]\s*/i, "")
+    .replace(/^Deck [A-F]\s*[-:]\s*/i, "")
     .trim();
   if (!clean) return fallback;
   const titleWithCommander = clean.match(/^(.+?)\s+\([^)]+\)$/);
@@ -214,7 +219,7 @@ async function loadPriceMap(entries: Array<{ name: string; qty: number }>): Prom
 export function splitComparedDeckBlocks(raw: string): ComparedDeckBlock[] {
   const text = String(raw || "").trim();
   if (!text) return [];
-  const sections = text.split(/(?=^Deck [A-C][^\n]*:)/gim).map((chunk) => chunk.trim()).filter(Boolean);
+  const sections = text.split(/(?=^Deck [A-F][^\n]*:)/gim).map((chunk) => chunk.trim()).filter(Boolean);
   if (sections.length >= 2) {
     return sections.map((section, index) => {
       const lines = section.split(/\n/);
@@ -431,15 +436,21 @@ function topPricedCards(
   entries: Array<{ name: string; qty: number }>,
   priceByKey: Map<string, number>,
 ): string[] {
+  return topPricedCardDetails(entries, priceByKey).map((entry) => `${entry.name} ($${entry.estimatedPriceUsd.toFixed(0)})`);
+}
+
+function topPricedCardDetails(
+  entries: Array<{ name: string; qty: number }>,
+  priceByKey: Map<string, number>,
+): Array<{ name: string; estimatedPriceUsd: number }> {
   return entries
     .map((entry) => ({
       name: entry.name,
-      price: priceByKey.get(normalizePriceName(entry.name)) ?? 0,
+      estimatedPriceUsd: priceByKey.get(normalizePriceName(entry.name)) ?? 0,
     }))
-    .filter((entry) => entry.price >= 15)
-    .sort((a, b) => b.price - a.price || a.name.localeCompare(b.name))
-    .slice(0, 5)
-    .map((entry) => `${entry.name} ($${entry.price.toFixed(0)})`);
+    .filter((entry) => entry.estimatedPriceUsd >= 15)
+    .sort((a, b) => b.estimatedPriceUsd - a.estimatedPriceUsd || a.name.localeCompare(b.name))
+    .slice(0, 5);
 }
 
 function buildIntelligenceProfile(args: {
@@ -591,6 +602,7 @@ function buildIntelligenceProfile(args: {
     engineCards: uniqueNames([...synergy.primary_engine_cards, ...signalRampCards, ...signalDrawCards], 5),
     payoffCards: uniqueNames([...synergy.primary_payoff_cards, ...signalFinisherCards], 5),
     premiumCards: topPricedCards(entries, priceByKey),
+    premiumCardDetails: topPricedCardDetails(entries, priceByKey),
     weakSignals,
     matchupRead: `${intent} ${powerBand(powerScore)} shell: tempo ${tempoScore}, consistency ${consistencyScore}, interaction ${interactionScore}, closing ${closingScore}.`,
   };
@@ -599,8 +611,10 @@ function buildIntelligenceProfile(args: {
 export async function buildDeckCompareGrounding(
   decksRaw: string,
   formatLabel: string,
+  opts?: { maxDecks?: number },
 ): Promise<{ decks: CompareDeckGrounding[]; matrix: DeterministicComparisonMatrix }> {
-  const blocks = splitComparedDeckBlocks(decksRaw).slice(0, 3);
+  const maxDecks = Math.max(2, Math.min(6, Math.floor(Number(opts?.maxDecks ?? 3) || 3)));
+  const blocks = splitComparedDeckBlocks(decksRaw).slice(0, maxDecks);
   const decks: CompareDeckGrounding[] = [];
 
   for (const [index, block] of blocks.entries()) {
@@ -649,7 +663,7 @@ export async function buildDeckCompareGrounding(
       ? facts.archetype_candidates.slice(0, 2).map((entry) => entry.name)
       : inferArchetypesFromTags(tagged);
     const intelligence = buildIntelligenceProfile({
-      label: block.label || `Deck ${String.fromCharCode(65 + index)}`,
+      label: block.label || deckSlotLabel(index),
       commander,
       entries: entryRows,
       tagged,
@@ -658,7 +672,7 @@ export async function buildDeckCompareGrounding(
     });
 
     decks.push({
-      label: block.label || `Deck ${String.fromCharCode(65 + index)}`,
+      label: block.label || deckSlotLabel(index),
       commander,
       format: formatLabel,
       cardCount: totalCards,

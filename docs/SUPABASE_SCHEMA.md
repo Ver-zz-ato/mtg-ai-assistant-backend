@@ -106,6 +106,28 @@ Expected behavior:
 
 ---
 
+### Mobile Life Counter live sync (2026-06-05)
+
+Additive live-game support for the mobile Life Counter:
+
+- `live_game_sessions`
+  - one active shared Life Counter state row per QR-hosted game
+  - stores `state` JSON, `version`, `edit_mode` (`host_only` or `everyone`), `status` (`active`, `ended`, `revoked`), and a 24-hour `expires_at`
+- `live_game_participants`
+  - host and joined Supabase users, including anonymous Supabase auth users
+- `live_game_invites`
+  - service-role-only QR invite tokens stored as SHA-256 hashes with 24-hour expiry and revocation support
+
+RLS / API expectations:
+
+- clients can `SELECT` live sessions they host or have joined, so Supabase Realtime can deliver state updates
+- clients do not write live-game tables directly; `/api/mobile/live-games*` performs server-side auth, validation, ownership, edit-mode, revoke, and end-game checks
+- anonymous Supabase users may join but cannot host
+- invite revocation sets `live_game_sessions.status = 'revoked'` immediately and also marks active invite rows revoked
+- `live_game_sessions` is added to the `supabase_realtime` publication
+
+---
+
 ### Deck size enforcement (2026-05-19)
 
 - `public.deck_cards` now has a trigger-level hard cap of **200 total cards per deck across all zones**.
@@ -931,6 +953,44 @@ CREATE TABLE public.likes_audit (
   CONSTRAINT likes_audit_pkey PRIMARY KEY (id),
   CONSTRAINT likes_audit_deck_id_fkey FOREIGN KEY (deck_id) REFERENCES public.decks(id),
   CONSTRAINT likes_audit_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.live_game_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  host_user_id uuid NOT NULL,
+  state jsonb NOT NULL,
+  version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
+  edit_mode text NOT NULL DEFAULT 'host_only'::text CHECK (edit_mode = ANY (ARRAY['host_only'::text, 'everyone'::text])),
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'ended'::text, 'revoked'::text])),
+  invite_revoked_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  ended_at timestamp with time zone,
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '24:00:00'::interval),
+  CONSTRAINT live_game_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT live_game_sessions_host_user_id_fkey FOREIGN KEY (host_user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.live_game_participants (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  live_game_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  role text NOT NULL DEFAULT 'participant'::text CHECK (role = ANY (ARRAY['host'::text, 'participant'::text])),
+  joined_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT live_game_participants_pkey PRIMARY KEY (id),
+  CONSTRAINT live_game_participants_live_game_id_user_id_key UNIQUE (live_game_id, user_id),
+  CONSTRAINT live_game_participants_live_game_id_fkey FOREIGN KEY (live_game_id) REFERENCES public.live_game_sessions(id),
+  CONSTRAINT live_game_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.live_game_invites (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  live_game_id uuid NOT NULL,
+  token_hash text NOT NULL UNIQUE,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '24:00:00'::interval),
+  revoked_at timestamp with time zone,
+  CONSTRAINT live_game_invites_pkey PRIMARY KEY (id),
+  CONSTRAINT live_game_invites_live_game_id_fkey FOREIGN KEY (live_game_id) REFERENCES public.live_game_sessions(id),
+  CONSTRAINT live_game_invites_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.message_embeddings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
