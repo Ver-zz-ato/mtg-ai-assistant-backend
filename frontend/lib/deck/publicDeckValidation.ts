@@ -6,6 +6,7 @@ type PublicDeckValidationInput = {
   format: string | null | undefined;
   deckText: string | null | undefined;
   deckAim?: string | null | undefined;
+  mainDeckCardCount?: number | null | undefined;
 };
 
 export const PUBLIC_DECK_TITLE_QUALITY_ERROR =
@@ -130,6 +131,9 @@ export function getPublicDeckValidationError(input: PublicDeckValidationInput): 
     return "Please remove offensive language before making this public.";
   }
 
-  const cardCount = mainDeckTextCardCount(String(input.deckText ?? ""), input.format);
+  const cardCount =
+    typeof input.mainDeckCardCount === "number"
+      ? input.mainDeckCardCount
+      : mainDeckTextCardCount(String(input.deckText ?? ""), input.format);
   return getFormatComplianceMessage(input.format, cardCount);
 }

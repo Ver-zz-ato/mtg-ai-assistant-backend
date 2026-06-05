@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 import { getPublicVisibilityCooldown } from "@/lib/server/publicVisibilityCooldown";
+import { getMainboardCardCount } from "@/lib/deck/formatCompliance";
 
 type Params = { id: string };
 
@@ -59,11 +60,21 @@ export async function POST(req: Request, ctx: { params: Promise<Params> }) {
     );
   }
 
+  const { data: cardRows } = await supabase
+    .from("deck_cards")
+    .select("qty, zone")
+    .eq("deck_id", id);
+  const mainDeckCardCount =
+    Array.isArray(cardRows) && cardRows.length > 0
+      ? getMainboardCardCount(cardRows as Array<{ qty: number; zone?: string | null }>)
+      : null;
+
   const publicError = getPublicDeckValidationError({
     title: deck.title,
     format: deck.format,
     deckText: deck.deck_text,
     deckAim: deck.deck_aim,
+    mainDeckCardCount,
   });
   if (publicError) {
     return NextResponse.json({ ok: false, error: publicError }, { status: 400 });

@@ -5,6 +5,7 @@ import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 import { getPublicVisibilityCooldown } from "@/lib/server/publicVisibilityCooldown";
+import { getMainboardCardCount } from "@/lib/deck/formatCompliance";
 
 export const dynamic = "force-dynamic";
 
@@ -113,12 +114,24 @@ export async function POST(req: Request) {
       mergedDeckAim = normalizeDeckAimInput(existingRow.deck_aim);
     }
 
+    let mainDeckCardCount: number | null = null;
+    if (mergedPublic && typeof b.deck_text !== "string") {
+      const { data: cardRows } = await supabase
+        .from("deck_cards")
+        .select("qty, zone")
+        .eq("deck_id", b.id);
+      if (Array.isArray(cardRows) && cardRows.length > 0) {
+        mainDeckCardCount = getMainboardCardCount(cardRows as Array<{ qty: number; zone?: string | null }>);
+      }
+    }
+
     if (mergedPublic) {
       const publicError = getPublicDeckValidationError({
         title: mergedTitle,
         format: mergedFormat,
         deckText: mergedDeckText,
         deckAim: mergedDeckAim,
+        mainDeckCardCount,
       });
       if (publicError) {
         return NextResponse.json({ error: publicError }, { status: 400 });
