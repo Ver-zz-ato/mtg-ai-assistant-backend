@@ -156,7 +156,7 @@ Why this exists:
 
 File: `frontend/app/api/mobile/deck/compare-v2/route.ts`
 
-Purpose: Dev-only mobile Deck Compare V2 endpoint. Compares one authenticated user's own deck against up to five scanned public decks, then returns deterministic deck cards with an AI-adjusted 1-10 power ranking and overview.
+Purpose: Dev-only mobile Deck Compare V2 endpoint. Compares one authenticated user's own deck against up to five same-format saved or scanned public decks, then returns deterministic deck cards with an AI-adjusted 1-10 power ranking and overview.
 
 Format support: Commander, Modern, Pioneer, Standard, Pauper.
 
@@ -170,7 +170,7 @@ Validation:
 
 - Max six total decks, where the user's own saved/pasted deck counts as one.
 - Saved own decks must be scoped to the authenticated owner.
-- Scanned decks are accepted only when `decks.is_public = true`.
+- Comparison decks may be owner-scoped saved decks or scanned public decks; saved decks must be scoped to the authenticated owner, and public decks are accepted only when `decks.is_public = true`.
 - All decks must normalize to the same format.
 - Decks below the halfway threshold for their format are rejected.
 
@@ -178,6 +178,7 @@ Response shape:
 
 - `decks[]` contains estimated total value, top expensive cards, deterministic stats, strengths, weaknesses, `tableRole`, `whyItWins`, `swingCards`, `watchOutFor`, absolute/pod-relative power fields, and `power.level`.
 - `overview` identifies strongest/weakest deck and gives verdict bullets, winner reason, pod balance note, and pairwise matchup rows for the app's compact Overview / Decks / Matchups result screen.
+- `aiMatchup` provides the app's AI Matchup tab with deck-id based verdict cards, scenario cards, per-deck notes, and full-analysis copy.
 - AI may adjust the deterministic 1-10 power level, but the deterministic score is returned for debugging.
 
 Risk notes:

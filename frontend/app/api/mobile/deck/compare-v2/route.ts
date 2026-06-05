@@ -45,9 +45,21 @@ const deckInputSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+const comparisonDeckSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("saved"),
+    deckId: z.string().regex(UUID_RE),
+  }),
+  z.object({
+    type: z.literal("public"),
+    deckId: z.string().regex(UUID_RE),
+  }),
+]);
+
 const requestSchema = z.object({
   ownDeck: deckInputSchema,
-  publicDeckIds: z.array(z.string().regex(UUID_RE)).min(1).max(MAX_DECKS - 1),
+  comparisonDecks: z.array(comparisonDeckSchema).max(MAX_DECKS - 1).optional(),
+  publicDeckIds: z.array(z.string().regex(UUID_RE)).max(MAX_DECKS - 1).optional(),
   sourcePage: z.string().trim().max(80).optional(),
   source_page: z.string().trim().max(80).optional(),
   usageSource: z.string().trim().max(80).optional(),
@@ -65,6 +77,34 @@ type CompareV2InputDeck = {
   canonicalFormat: string;
   cardCount: number;
   deckText: string;
+};
+
+type CompareV2AiMatchup = {
+  summary: {
+    better_for_fast_tables: string;
+    better_for_slower_pods: string;
+    more_consistent: string;
+    highest_ceiling: string;
+    one_line_verdict: string;
+  };
+  sections: {
+    key_differences: string[];
+    strategy: string[];
+    strengths_weaknesses: string[];
+    recommended_scenarios: string[];
+  };
+  full_analysis: {
+    key_differences: string;
+    strategy: string;
+    strengths_and_weaknesses: string;
+    recommendations: string;
+    best_in_different_scenarios: string;
+  };
+  ui: {
+    verdict_cards: Array<{ label: string; winnerDeckId: string | null; winner: string }>;
+    deck_strengths: Record<string, string[]>;
+    scenario_cards: Array<{ label: string; winnerDeckId: string | null; winner: string; reason: string }>;
+  };
 };
 
 type CompareV2DeckCard = {
@@ -131,6 +171,7 @@ type CompareV2Success = {
     usedAi: boolean;
     generated_at: string;
   };
+  aiMatchup: CompareV2AiMatchup;
 };
 
 function titleCaseFormat(format: string | null | undefined): string {
@@ -323,6 +364,103 @@ function buildPairwiseMatchups(cards: CompareV2DeckCard[]): CompareV2Success["ov
   return out.slice(0, 15);
 }
 
+function deckLabel(deck: CompareV2DeckCard | null | undefined): string {
+  return deck?.title || "Contested";
+}
+
+function matchupWinnerCard(label: string, deck: CompareV2DeckCard | null | undefined): { label: string; winnerDeckId: string | null; winner: string } {
+  return { label, winnerDeckId: deck?.id ?? null, winner: deckLabel(deck) };
+}
+
+function buildAiMatchup(cards: CompareV2DeckCard[], overview: CompareV2Success["overview"]): CompareV2AiMatchup {
+  const strongest = overview.strongestDeckId ? cards.find((deck) => deck.id === overview.strongestDeckId) : null;
+  const fastest = overview.fastestDeckId ? cards.find((deck) => deck.id === overview.fastestDeckId) : null;
+  const longGame = overview.bestLongGameDeckId ? cards.find((deck) => deck.id === overview.bestLongGameDeckId) : null;
+  const consistent = [...cards].sort((a, b) => b.stats.consistency - a.stats.consistency || a.title.localeCompare(b.title))[0] ?? null;
+  const interaction = [...cards].sort((a, b) => b.stats.interaction - a.stats.interaction || a.title.localeCompare(b.title))[0] ?? null;
+
+  const verdictCards = [
+    matchupWinnerCard("Fast tables", fastest),
+    matchupWinnerCard("Slower pods", longGame),
+    matchupWinnerCard("Most consistent", consistent),
+    matchupWinnerCard("Highest ceiling", strongest),
+    matchupWinnerCard("Interaction fight", interaction),
+  ];
+
+  const deckStrengths = Object.fromEntries(
+    cards.map((deck) => [
+      deck.id,
+      [
+        `${deck.title} plays as a ${deck.tableRole.toLowerCase()} with power ${deck.power.level}/10 in this pod.`,
+        ...deck.strengths.slice(0, 2),
+        deck.watchOutFor[0] ? `Watch-out: ${deck.watchOutFor[0]}` : "",
+      ].filter(Boolean).slice(0, 4),
+    ]),
+  );
+
+  const scenarioCards = [
+    {
+      label: "Fast start",
+      winnerDeckId: fastest?.id ?? null,
+      winner: deckLabel(fastest),
+      reason: fastest ? `${fastest.title} has the strongest tempo read and should pressure slower setup turns.` : "No deck has a clean fast-start edge.",
+    },
+    {
+      label: "Long game",
+      winnerDeckId: longGame?.id ?? null,
+      winner: deckLabel(longGame),
+      reason: longGame ? `${longGame.title} has the best blend of resilience, consistency, and closing score.` : "Long-game strength is close across the pod.",
+    },
+    {
+      label: "Stack/answer fight",
+      winnerDeckId: interaction?.id ?? null,
+      winner: deckLabel(interaction),
+      reason: interaction ? `${interaction.title} has the strongest interaction profile in the group.` : "Interaction is too close to force one winner.",
+    },
+    {
+      label: "Highest ceiling",
+      winnerDeckId: strongest?.id ?? null,
+      winner: deckLabel(strongest),
+      reason: strongest ? `${strongest.title} has the best overall power read once value, stats, and synergy are compared.` : "No single deck clearly separates on ceiling.",
+    },
+  ];
+
+  return {
+    summary: {
+      better_for_fast_tables: deckLabel(fastest),
+      better_for_slower_pods: deckLabel(longGame),
+      more_consistent: deckLabel(consistent),
+      highest_ceiling: deckLabel(strongest),
+      one_line_verdict: overview.verdict,
+    },
+    sections: {
+      key_differences: cards.map((deck) => `${deck.title}: ${deck.summary}`),
+      strategy: [
+        fastest ? `${fastest.title} is the cleanest pick when the table is quick.` : "Fast starts are contested.",
+        interaction ? `${interaction.title} is best positioned to fight over key turns.` : "Interaction is close across the group.",
+        longGame ? `${longGame.title} should scale best into longer games.` : "Long-game scaling is contested.",
+      ],
+      strengths_weaknesses: cards.map((deck) => {
+        const weakness = deck.weaknesses[0] ? ` Main risk: ${deck.weaknesses[0]}` : "";
+        return `${deck.title}: ${deck.tableRole}, power ${deck.power.level}/10, tempo ${deck.stats.tempo}, interaction ${deck.stats.interaction}.${weakness}`;
+      }),
+      recommended_scenarios: scenarioCards.map((card) => `${card.label}: ${card.winner}. ${card.reason}`),
+    },
+    full_analysis: {
+      key_differences: cards.map((deck) => `${deck.title} is a ${deck.tableRole.toLowerCase()} with ${deck.summary}`).join(" "),
+      strategy: overview.winnerReason,
+      strengths_and_weaknesses: cards.map((deck) => `${deck.title}: strengths ${deck.strengths.join("; ") || "unclear"}; weaknesses ${deck.weaknesses.join("; ") || "unclear"}.`).join(" "),
+      recommendations: "Pick the deck whose speed and interaction line up with the table, then mulligan around the matchup role rather than raw power alone.",
+      best_in_different_scenarios: scenarioCards.map((card) => `${card.label}: ${card.winner}. ${card.reason}`).join(" "),
+    },
+    ui: {
+      verdict_cards: verdictCards,
+      deck_strengths: deckStrengths,
+      scenario_cards: scenarioCards,
+    },
+  };
+}
+
 function buildDeterministicResult(inputDecks: CompareV2InputDeck[], grounded: Awaited<ReturnType<typeof buildDeckCompareGrounding>>, model: string): CompareV2Success {
   const emptyAiMap = new Map<string, number>();
   const cards = grounded.decks.map((deck, index) => deckCardFromGrounding(inputDecks[index], deck, emptyAiMap));
@@ -379,35 +517,38 @@ function buildDeterministicResult(inputDecks: CompareV2InputDeck[], grounded: Aw
   const balance = podBalanceFor(relativeCards);
   const strongest = strongestDeckId ? relativeCards.find((deck) => deck.id === strongestDeckId) : null;
 
+  const overview: CompareV2Success["overview"] = {
+    strongestDeckId,
+    weakestDeckId,
+    fastestDeckId,
+    bestLongGameDeckId,
+    verdict: grounded.matrix.verdict,
+    bullets: [
+      strongestDeckId ? `${relativeCards.find((deck) => deck.id === strongestDeckId)?.title ?? "Top deck"} has the best overall power read.` : "",
+      fastestDeckId ? `${relativeCards.find((deck) => deck.id === fastestDeckId)?.title ?? "Fastest deck"} has the strongest tempo score.` : "",
+      bestLongGameDeckId ? `${relativeCards.find((deck) => deck.id === bestLongGameDeckId)?.title ?? "Long-game deck"} has the best long-game profile.` : "",
+    ].filter(Boolean),
+    winnerReason: strongest ? `${strongest.title} leads because its power, ${strongest.tableRole.toLowerCase()}, and matchup stats are strongest in this pod.` : "No single deck clearly separates from the pod.",
+    podBalance: balance,
+    podBalanceNote:
+      balance === "balanced" ? "The pod looks close enough for normal games." :
+      balance === "slightly_mismatched" ? "There is a noticeable spread, but the table is not wildly uneven." :
+      "The pod looks mismatched; one or more decks may overpower the others.",
+    pairwiseMatchups: buildPairwiseMatchups(relativeCards),
+  };
+
   return {
     ok: true,
     format: inputDecks[0]?.format ?? "Commander",
     decks: relativeCards,
-    overview: {
-      strongestDeckId,
-      weakestDeckId,
-      fastestDeckId,
-      bestLongGameDeckId,
-      verdict: grounded.matrix.verdict,
-      bullets: [
-        strongestDeckId ? `${relativeCards.find((deck) => deck.id === strongestDeckId)?.title ?? "Top deck"} has the best overall power read.` : "",
-        fastestDeckId ? `${relativeCards.find((deck) => deck.id === fastestDeckId)?.title ?? "Fastest deck"} has the strongest tempo score.` : "",
-        bestLongGameDeckId ? `${relativeCards.find((deck) => deck.id === bestLongGameDeckId)?.title ?? "Long-game deck"} has the best long-game profile.` : "",
-      ].filter(Boolean),
-      winnerReason: strongest ? `${strongest.title} leads because its power, ${strongest.tableRole.toLowerCase()}, and matchup stats are strongest in this pod.` : "No single deck clearly separates from the pod.",
-      podBalance: balance,
-      podBalanceNote:
-        balance === "balanced" ? "The pod looks close enough for normal games." :
-        balance === "slightly_mismatched" ? "There is a noticeable spread, but the table is not wildly uneven." :
-        "The pod looks mismatched; one or more decks may overpower the others.",
-      pairwiseMatchups: buildPairwiseMatchups(relativeCards),
-    },
+    overview,
     meta: {
       version: 1,
       model,
       usedAi: false,
       generated_at: new Date().toISOString(),
     },
+    aiMatchup: buildAiMatchup(relativeCards, overview),
   };
 }
 
@@ -469,6 +610,11 @@ function normalizeAiAdjustedResult(
       podBalanceNote: typeof obj.podBalanceNote === "string" && obj.podBalanceNote.trim() ? obj.podBalanceNote.trim().slice(0, 260) : current.overview.podBalanceNote,
     },
     meta: { ...current.meta, usedAi: true },
+    aiMatchup: buildAiMatchup(decks, {
+      ...current.overview,
+      strongestDeckId,
+      weakestDeckId,
+    }),
   };
 }
 
@@ -556,6 +702,7 @@ function loadPastedDeck(input: z.infer<typeof requestSchema>["ownDeck"]): Compar
 }
 
 async function loadPublicDecks(deckIds: string[]): Promise<CompareV2InputDeck[] | { error: string; status: number; code?: string; details?: unknown }> {
+  if (deckIds.length === 0) return [];
   const admin = getServiceRoleSupabase();
   if (!admin) return { error: "Server deck access is unavailable.", status: 500 };
   const { data: deckRows, error } = await admin
@@ -619,8 +766,12 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ ok: false, code: "INVALID_INPUT", error: "Invalid compare request." }, { status: 400 });
     }
-    const uniquePublicIds = [...new Set(parsed.data.publicDeckIds)];
-    if (uniquePublicIds.length !== parsed.data.publicDeckIds.length) {
+    const comparisonDecks = parsed.data.comparisonDecks ?? (parsed.data.publicDeckIds ?? []).map((deckId) => ({ type: "public" as const, deckId }));
+    if (comparisonDecks.length < 1 || comparisonDecks.length > MAX_DECKS - 1) {
+      return NextResponse.json({ ok: false, code: "DECK_COUNT_INVALID", error: "Compare between 2 and 6 decks." }, { status: 400 });
+    }
+    const duplicateKeys = comparisonDecks.map((deck) => `${deck.type}:${deck.deckId}`);
+    if (new Set(duplicateKeys).size !== duplicateKeys.length) {
       return NextResponse.json({ ok: false, code: "DUPLICATE_DECK", error: "That deck has already been added." }, { status: 400 });
     }
 
@@ -630,10 +781,32 @@ export async function POST(req: NextRequest) {
         : loadPastedDeck(parsed.data.ownDeck);
     if ("error" in ownDeck) return NextResponse.json({ ok: false, code: ownDeck.code, error: ownDeck.error }, { status: ownDeck.status });
 
-    const publicDecks = await loadPublicDecks(uniquePublicIds);
-    if ("error" in publicDecks) return NextResponse.json({ ok: false, code: publicDecks.code, error: publicDecks.error }, { status: publicDecks.status });
+    const savedComparisonIds = comparisonDecks.filter((deck) => deck.type === "saved").map((deck) => deck.deckId);
+    const publicComparisonIds = comparisonDecks.filter((deck) => deck.type === "public").map((deck) => deck.deckId);
+    if (parsed.data.ownDeck.type === "saved" && savedComparisonIds.includes(parsed.data.ownDeck.deckId)) {
+      return NextResponse.json({ ok: false, code: "DUPLICATE_DECK", error: "Your primary deck has already been added." }, { status: 400 });
+    }
+    const duplicateAnyDeckIds = comparisonDecks.map((deck) => deck.deckId);
+    if (new Set(duplicateAnyDeckIds).size !== duplicateAnyDeckIds.length) {
+      return NextResponse.json({ ok: false, code: "DUPLICATE_DECK", error: "That deck has already been added." }, { status: 400 });
+    }
 
-    const decks = [ownDeck, ...publicDecks];
+    const savedComparisonDecks: CompareV2InputDeck[] = [];
+    for (const deckId of savedComparisonIds) {
+      const loaded = await loadSavedDeck(supabase, user.id, deckId);
+      if ("error" in loaded) return NextResponse.json({ ok: false, code: loaded.code, error: loaded.error }, { status: loaded.status });
+      savedComparisonDecks.push(loaded);
+    }
+
+    const publicDecks = await loadPublicDecks(publicComparisonIds);
+    if ("error" in publicDecks) return NextResponse.json({ ok: false, code: publicDecks.code, error: publicDecks.error }, { status: publicDecks.status });
+    const publicById = new Map(publicDecks.map((deck) => [deck.id, deck]));
+    const savedById = new Map(savedComparisonDecks.map((deck) => [deck.id, deck]));
+    const orderedComparisonDecks = comparisonDecks
+      .map((deck) => deck.type === "saved" ? savedById.get(deck.deckId) : publicById.get(deck.deckId))
+      .filter((deck): deck is CompareV2InputDeck => !!deck);
+
+    const decks = [ownDeck, ...orderedComparisonDecks];
     if (decks.length < 2 || decks.length > MAX_DECKS) {
       return NextResponse.json({ ok: false, code: "DECK_COUNT_INVALID", error: "Compare between 2 and 6 decks." }, { status: 400 });
     }
