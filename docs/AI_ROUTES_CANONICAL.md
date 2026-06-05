@@ -217,6 +217,14 @@ Response shape:
   - `key_swing_cards`
   - `upset_paths`
   - `confidence_label`
+  - `deep_report`, used only by the Pro AI tab after generation:
+    - `headline`
+    - `table_plan`
+    - `highlighted_cards`
+    - `combos`
+    - `synergy`
+    - `tactics`
+    - `threat_assessment`
 
 Model and latency:
 
@@ -227,6 +235,7 @@ Risk notes:
 
 - Keep this Pro-only; free users should see the app-side example output and upgrade CTA instead of calling the route.
 - Keep output JSON compact and deck-id grounded. Unknown deck IDs/titles should fall back to deterministic rows.
+- `deep_report` must stay card-aware but must not invent cards; if a true combo is not evident, describe it as a conversion line or tactical relationship.
 
 ### `POST /api/deck/transform`
 
