@@ -54,10 +54,18 @@ const comparisonDeckSchema = z.discriminatedUnion("type", [
     type: z.literal("public"),
     deckId: z.string().regex(UUID_RE),
   }),
+  z.object({
+    type: z.literal("pasted"),
+    title: z.string().trim().min(1).max(120).optional(),
+    deckText: z.string().trim().min(20).max(40000),
+    format: z.string().trim().min(1).max(40),
+    commander: z.string().trim().max(120).optional().nullable(),
+  }),
 ]);
 
 const requestSchema = z.object({
-  ownDeck: deckInputSchema,
+  ownDeck: deckInputSchema.optional(),
+  decks: z.array(comparisonDeckSchema).min(2).max(MAX_DECKS).optional(),
   comparisonDecks: z.array(comparisonDeckSchema).max(MAX_DECKS - 1).optional(),
   publicDeckIds: z.array(z.string().regex(UUID_RE)).max(MAX_DECKS - 1).optional(),
   sourcePage: z.string().trim().max(80).optional(),
@@ -680,7 +688,7 @@ async function loadSavedDeck(supabase: Awaited<ReturnType<typeof createClient>>,
   };
 }
 
-function loadPastedDeck(input: z.infer<typeof requestSchema>["ownDeck"]): CompareV2InputDeck | { error: string; status: number; code?: string } {
+function loadPastedDeck(input: z.infer<typeof deckInputSchema>): CompareV2InputDeck | { error: string; status: number; code?: string } {
   if (input.type !== "pasted") return { error: "Invalid pasted deck.", status: 400 };
   const format = titleCaseFormat(input.format);
   const canonicalFormat = normalizeDeckFormat(format);
@@ -753,6 +761,42 @@ async function loadPublicDecks(deckIds: string[]): Promise<CompareV2InputDeck[] 
   return byInputOrder;
 }
 
+async function loadUnifiedDecks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  inputs: z.infer<typeof comparisonDeckSchema>[],
+): Promise<CompareV2InputDeck[] | { error: string; status: number; code?: string }> {
+  const savedIds = inputs.filter((deck) => deck.type === "saved").map((deck) => deck.deckId);
+  const publicIds = inputs.filter((deck) => deck.type === "public").map((deck) => deck.deckId);
+  const savedDecks: CompareV2InputDeck[] = [];
+  for (const deckId of savedIds) {
+    const loaded = await loadSavedDeck(supabase, userId, deckId);
+    if ("error" in loaded) return loaded;
+    savedDecks.push(loaded);
+  }
+  const publicDecks = await loadPublicDecks(publicIds);
+  if ("error" in publicDecks) return publicDecks;
+  const savedById = new Map(savedDecks.map((deck) => [deck.id, deck]));
+  const publicById = new Map(publicDecks.map((deck) => [deck.id, deck]));
+  const pastedByIndex = new Map<number, CompareV2InputDeck>();
+  inputs.forEach((input, index) => {
+    if (input.type !== "pasted") return;
+    const loaded = loadPastedDeck(input);
+    if (!("error" in loaded)) pastedByIndex.set(index, { ...loaded, id: `pasted-${index + 1}` });
+  });
+  for (const [index, input] of inputs.entries()) {
+    if (input.type !== "pasted") continue;
+    if (!pastedByIndex.has(index)) return loadPastedDeck(input) as { error: string; status: number; code?: string };
+  }
+  return inputs
+    .map((input, index) => {
+      if (input.type === "saved") return savedById.get(input.deckId);
+      if (input.type === "public") return publicById.get(input.deckId);
+      return pastedByIndex.get(index);
+    })
+    .filter((deck): deck is CompareV2InputDeck => !!deck);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await getRequestUser(req);
@@ -766,65 +810,50 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ ok: false, code: "INVALID_INPUT", error: "Invalid compare request." }, { status: 400 });
     }
-    const comparisonDecks = parsed.data.comparisonDecks ?? (parsed.data.publicDeckIds ?? []).map((deckId) => ({ type: "public" as const, deckId }));
-    if (comparisonDecks.length < 1 || comparisonDecks.length > MAX_DECKS - 1) {
-      return NextResponse.json({ ok: false, code: "DECK_COUNT_INVALID", error: "Compare between 2 and 6 decks." }, { status: 400 });
-    }
-    const duplicateKeys = comparisonDecks.map((deck) => `${deck.type}:${deck.deckId}`);
-    if (new Set(duplicateKeys).size !== duplicateKeys.length) {
-      return NextResponse.json({ ok: false, code: "DUPLICATE_DECK", error: "That deck has already been added." }, { status: 400 });
-    }
-
-    const ownDeck =
-      parsed.data.ownDeck.type === "saved"
-        ? await loadSavedDeck(supabase, user.id, parsed.data.ownDeck.deckId)
-        : loadPastedDeck(parsed.data.ownDeck);
-    if ("error" in ownDeck) return NextResponse.json({ ok: false, code: ownDeck.code, error: ownDeck.error }, { status: ownDeck.status });
-
-    const savedComparisonIds = comparisonDecks.filter((deck) => deck.type === "saved").map((deck) => deck.deckId);
-    const publicComparisonIds = comparisonDecks.filter((deck) => deck.type === "public").map((deck) => deck.deckId);
-    if (parsed.data.ownDeck.type === "saved" && savedComparisonIds.includes(parsed.data.ownDeck.deckId)) {
-      return NextResponse.json({ ok: false, code: "DUPLICATE_DECK", error: "Your primary deck has already been added." }, { status: 400 });
-    }
-    const duplicateAnyDeckIds = comparisonDecks.map((deck) => deck.deckId);
-    if (new Set(duplicateAnyDeckIds).size !== duplicateAnyDeckIds.length) {
-      return NextResponse.json({ ok: false, code: "DUPLICATE_DECK", error: "That deck has already been added." }, { status: 400 });
-    }
-
-    const savedComparisonDecks: CompareV2InputDeck[] = [];
-    for (const deckId of savedComparisonIds) {
-      const loaded = await loadSavedDeck(supabase, user.id, deckId);
+    let decks: CompareV2InputDeck[];
+    if (parsed.data.decks?.length) {
+      const keyed = parsed.data.decks
+        .filter((deck) => deck.type !== "pasted")
+        .map((deck) => `${deck.type}:${deck.deckId}`);
+      if (new Set(keyed).size !== keyed.length) {
+        return NextResponse.json({ ok: false, code: "DUPLICATE_DECK", error: "That deck has already been added." }, { status: 400 });
+      }
+      const loaded = await loadUnifiedDecks(supabase, user.id, parsed.data.decks);
       if ("error" in loaded) return NextResponse.json({ ok: false, code: loaded.code, error: loaded.error }, { status: loaded.status });
-      savedComparisonDecks.push(loaded);
+      decks = loaded;
+    } else {
+      if (!parsed.data.ownDeck) {
+        return NextResponse.json({ ok: false, code: "INVALID_INPUT", error: "Add between 2 and 6 decks." }, { status: 400 });
+      }
+      const comparisonDecks = parsed.data.comparisonDecks ?? (parsed.data.publicDeckIds ?? []).map((deckId) => ({ type: "public" as const, deckId }));
+      const ownDeck =
+        parsed.data.ownDeck.type === "saved"
+          ? await loadSavedDeck(supabase, user.id, parsed.data.ownDeck.deckId)
+          : loadPastedDeck(parsed.data.ownDeck);
+      if ("error" in ownDeck) return NextResponse.json({ ok: false, code: ownDeck.code, error: ownDeck.error }, { status: ownDeck.status });
+      const loaded = await loadUnifiedDecks(supabase, user.id, comparisonDecks);
+      if ("error" in loaded) return NextResponse.json({ ok: false, code: loaded.code, error: loaded.error }, { status: loaded.status });
+      decks = [ownDeck, ...loaded];
     }
-
-    const publicDecks = await loadPublicDecks(publicComparisonIds);
-    if ("error" in publicDecks) return NextResponse.json({ ok: false, code: publicDecks.code, error: publicDecks.error }, { status: publicDecks.status });
-    const publicById = new Map(publicDecks.map((deck) => [deck.id, deck]));
-    const savedById = new Map(savedComparisonDecks.map((deck) => [deck.id, deck]));
-    const orderedComparisonDecks = comparisonDecks
-      .map((deck) => deck.type === "saved" ? savedById.get(deck.deckId) : publicById.get(deck.deckId))
-      .filter((deck): deck is CompareV2InputDeck => !!deck);
-
-    const decks = [ownDeck, ...orderedComparisonDecks];
     if (decks.length < 2 || decks.length > MAX_DECKS) {
       return NextResponse.json({ ok: false, code: "DECK_COUNT_INVALID", error: "Compare between 2 and 6 decks." }, { status: 400 });
     }
-    const format = ownDeck.canonicalFormat;
+    const anchorDeck = decks[0];
+    const format = anchorDeck.canonicalFormat;
     const mismatch = decks.find((deck) => deck.canonicalFormat !== format);
     if (mismatch) {
       return NextResponse.json(
         {
           ok: false,
           code: "FORMAT_MISMATCH",
-          error: `${mismatch.title} is ${mismatch.format}. Deck Compare V2 currently needs all decks to use ${ownDeck.format}.`,
+          error: `${mismatch.title} is ${mismatch.format}. Deck Compare V2 currently needs all decks to use ${anchorDeck.format}.`,
         },
         { status: 400 },
       );
     }
 
     const decksRaw = decks.map(formatDeckBlock).join("\n\n---\n\n");
-    const grounded = await buildDeckCompareGrounding(decksRaw, ownDeck.format, { maxDecks: MAX_DECKS });
+    const grounded = await buildDeckCompareGrounding(decksRaw, anchorDeck.format, { maxDecks: MAX_DECKS });
     const model = process.env.MODEL_DECK_COMPARE_V2 || process.env.MODEL_DECK_COMPARE_MOBILE_PRO || DEFAULT_FREE_MODEL;
     const deterministic = buildDeterministicResult(decks, grounded, model);
 
@@ -848,7 +877,7 @@ export async function POST(req: NextRequest) {
 
     const groundingPacket = buildCompactGroundingPacket({
       title: "GROUND TRUTH",
-      format: ownDeck.format,
+      format: anchorDeck.format,
       lines: grounded.decks.map((deck) => {
         const i = deck.intelligence;
         return `${deck.label}: title=${deck.label}; power=${i.powerScore}/100; tempo=${i.tempoScore}; consistency=${i.consistencyScore}; interaction=${i.interactionScore}; resilience=${i.resilienceScore}; closing=${i.closingScore}; mana=${i.manaQualityScore}; synergy=${i.synergyScore}; price=${i.estimatedPriceUsd ?? "unknown"}; top_cards=${i.premiumCards.join(", ")}; risks=${i.weakSignals.join("; ")}.`;

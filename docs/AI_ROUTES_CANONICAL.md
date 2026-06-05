@@ -156,7 +156,7 @@ Why this exists:
 
 File: `frontend/app/api/mobile/deck/compare-v2/route.ts`
 
-Purpose: Dev-only mobile Deck Compare V2 endpoint. Compares one authenticated user's own deck against up to five same-format saved or scanned public decks, then returns deterministic deck cards with an AI-adjusted 1-10 power ranking and overview.
+Purpose: Dev-only mobile Deck Compare V2 endpoint. Compares 2-6 same-format decks from saved decks, scanned public decks, or pasted decklists, then returns deterministic deck cards with an AI-adjusted 1-10 power ranking and overview.
 
 Format support: Commander, Modern, Pioneer, Standard, Pauper.
 
@@ -168,9 +168,10 @@ Auth and access:
 
 Validation:
 
-- Max six total decks, where the user's own saved/pasted deck counts as one.
-- Saved own decks must be scoped to the authenticated owner.
-- Comparison decks may be owner-scoped saved decks or scanned public decks; saved decks must be scoped to the authenticated owner, and public decks are accepted only when `decks.is_public = true`.
+- Min two and max six total decks.
+- Saved decks must be scoped to the authenticated owner.
+- Public decks are accepted only when `decks.is_public = true`.
+- Pasted decks are accepted with explicit deck text, format, optional title, and optional commander.
 - All decks must normalize to the same format.
 - Decks below the halfway threshold for their format are rejected.
 
