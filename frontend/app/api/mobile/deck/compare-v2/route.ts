@@ -112,6 +112,20 @@ type CompareV2AiMatchup = {
     verdict_cards: Array<{ label: string; winnerDeckId: string | null; winner: string }>;
     deck_strengths: Record<string, string[]>;
     scenario_cards: Array<{ label: string; winnerDeckId: string | null; winner: string; reason: string }>;
+    rating_reasons?: Array<{
+      deckId: string;
+      summary: string;
+      drivers: string[];
+      confidence: "low" | "medium" | "high";
+    }>;
+    game_pattern?: {
+      early: { favoredDeckId: string | null; winner: string; reason: string };
+      mid: { favoredDeckId: string | null; winner: string; reason: string };
+      late: { favoredDeckId: string | null; winner: string; reason: string };
+    };
+    key_swing_cards?: Array<{ deckId: string; cards: string[]; why: string }>;
+    upset_paths?: Array<{ deckId: string; targetDeckId: string | null; path: string; keyCards: string[] }>;
+    confidence_label?: "close" | "favored" | "dominant";
   };
 };
 
@@ -384,6 +398,197 @@ function matchupWinnerCard(label: string, deck: CompareV2DeckCard | null | undef
   return { label, winnerDeckId: deck?.id ?? null, winner: deckLabel(deck) };
 }
 
+function confidenceLabelFor(cards: CompareV2DeckCard[], overview: CompareV2Success["overview"]): "close" | "favored" | "dominant" {
+  const levels = cards.map((deck) => deck.power.level).filter((level) => Number.isFinite(level));
+  const spread = levels.length ? Math.max(...levels) - Math.min(...levels) : 0;
+  const topTwo = [...cards].sort((a, b) => b.power.level - a.power.level).slice(0, 2);
+  const topGap = topTwo.length === 2 ? Math.abs(topTwo[0].power.level - topTwo[1].power.level) : 0;
+  const lowestPairConfidence = Math.min(...(overview.pairwiseMatchups.map((row) => row.confidence).filter(Number.isFinite)), 100);
+  if (topGap <= 1 || lowestPairConfidence < 58 || overview.podBalance === "balanced") return "close";
+  if (spread >= 4 || overview.podBalance === "mismatched") return "dominant";
+  return "favored";
+}
+
+function ratingConfidence(deck: CompareV2DeckCard): "low" | "medium" | "high" {
+  const topStats = [
+    deck.stats.tempo,
+    deck.stats.interaction,
+    deck.stats.consistency,
+    deck.stats.closing,
+    deck.stats.synergy,
+  ].filter((score) => score >= 65).length;
+  if (topStats >= 3 || deck.podRelativePower === "top" || deck.podRelativePower === "bottom") return "high";
+  if (topStats >= 1 || deck.power.level >= 6) return "medium";
+  return "low";
+}
+
+function ratingDrivers(deck: CompareV2DeckCard): string[] {
+  const valueDriver = deck.estimatedValueUsd && deck.estimatedValueUsd > 0
+    ? `Value signal: about $${Math.round(deck.estimatedValueUsd)} in priced cards`
+    : "Value signal: price data is incomplete";
+  return [
+    valueDriver,
+    `Speed: tempo ${deck.stats.tempo}/100`,
+    `Interaction: ${deck.stats.interaction}/100`,
+    `Consistency: ${deck.stats.consistency}/100`,
+    `Win lines: ${deck.stats.closing}/100 closing, ${deck.stats.synergy}/100 synergy`,
+  ];
+}
+
+function buildRatingReasons(cards: CompareV2DeckCard[]): NonNullable<CompareV2AiMatchup["ui"]["rating_reasons"]> {
+  return cards.map((deck) => ({
+    deckId: deck.id,
+    summary: `${deck.title} lands at ${deck.power.level}/10 because it profiles as a ${deck.tableRole.toLowerCase()} with ${deck.podRelativePower} pod pressure.`,
+    drivers: ratingDrivers(deck),
+    confidence: ratingConfidence(deck),
+  }));
+}
+
+function patternRow(deck: CompareV2DeckCard | null | undefined, reason: string): { favoredDeckId: string | null; winner: string; reason: string } {
+  return {
+    favoredDeckId: deck?.id ?? null,
+    winner: deckLabel(deck),
+    reason,
+  };
+}
+
+function buildGamePattern(cards: CompareV2DeckCard[], overview: CompareV2Success["overview"]): NonNullable<CompareV2AiMatchup["ui"]["game_pattern"]> {
+  const fastest = overview.fastestDeckId ? cards.find((deck) => deck.id === overview.fastestDeckId) : null;
+  const midgame = [...cards].sort((a, b) => (b.stats.interaction + b.stats.consistency + b.stats.synergy) - (a.stats.interaction + a.stats.consistency + a.stats.synergy) || a.title.localeCompare(b.title))[0] ?? null;
+  const late = overview.bestLongGameDeckId ? cards.find((deck) => deck.id === overview.bestLongGameDeckId) : null;
+  return {
+    early: patternRow(fastest, fastest ? `${fastest.title} has the best early pressure and setup speed.` : "Early pressure is contested."),
+    mid: patternRow(midgame, midgame ? `${midgame.title} should navigate turns 4-6 best through interaction, consistency, and engine density.` : "Midgame positioning is close."),
+    late: patternRow(late, late ? `${late.title} has the strongest long-game blend of resilience, consistency, and closing power.` : "Late-game advantage is contested."),
+  };
+}
+
+function buildKeySwingCards(cards: CompareV2DeckCard[]): NonNullable<CompareV2AiMatchup["ui"]["key_swing_cards"]> {
+  return cards
+    .map((deck) => ({
+      deckId: deck.id,
+      cards: (deck.swingCards?.length ? deck.swingCards : deck.topExpensiveCards.map((card) => card.name)).slice(0, 5),
+      why: `${deck.title}'s swing cards matter because they support its ${deck.tableRole.toLowerCase()} plan and can change the pod's threat order.`,
+    }))
+    .filter((row) => row.cards.length > 0);
+}
+
+function buildUpsetPaths(cards: CompareV2DeckCard[], overview: CompareV2Success["overview"]): NonNullable<CompareV2AiMatchup["ui"]["upset_paths"]> {
+  const target = overview.strongestDeckId ? cards.find((deck) => deck.id === overview.strongestDeckId) : null;
+  if (!target) return [];
+  return cards
+    .filter((deck) => deck.id !== target.id)
+    .map((deck) => ({
+      deckId: deck.id,
+      targetDeckId: target.id,
+      path:
+        deck.stats.tempo >= target.stats.tempo
+          ? `${deck.title} can upset ${target.title} by forcing early pressure before ${target.title}'s stronger plan stabilizes.`
+          : deck.stats.interaction >= target.stats.interaction
+            ? `${deck.title} can upset ${target.title} by saving interaction for the first real engine or closing attempt.`
+            : `${deck.title} needs the table to slow ${target.title} down, then convert its best swing cards into a narrow win window.`,
+      keyCards: (deck.swingCards?.length ? deck.swingCards : deck.topExpensiveCards.map((card) => card.name)).slice(0, 4),
+    }));
+}
+
+function stringList(value: unknown, max: number): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0).map((entry) => entry.trim()).slice(0, max)
+    : [];
+}
+
+function normalizeDeckId(raw: unknown, cards: CompareV2DeckCard[]): string | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const value = raw.trim();
+  if (cards.some((deck) => deck.id === value)) return value;
+  const byTitle = cards.find((deck) => deck.title.toLowerCase() === value.toLowerCase());
+  return byTitle?.id ?? null;
+}
+
+function normalizeAiUiOverrides(raw: unknown, base: CompareV2AiMatchup["ui"], cards: CompareV2DeckCard[]): Partial<CompareV2AiMatchup["ui"]> {
+  const obj = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  const out: Partial<CompareV2AiMatchup["ui"]> = {};
+  const ratingReasons = Array.isArray(obj.rating_reasons ?? obj.ratingReasons) ? (obj.rating_reasons ?? obj.ratingReasons) as unknown[] : [];
+  if (ratingReasons.length) {
+    const rows = ratingReasons.map((entry) => {
+      const row = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
+      const deckId = normalizeDeckId(row.deckId ?? row.deck_id ?? row.title, cards);
+      if (!deckId) return null;
+      const fallback = base.rating_reasons?.find((item) => item.deckId === deckId);
+      const confidence = row.confidence === "low" || row.confidence === "medium" || row.confidence === "high" ? row.confidence : fallback?.confidence ?? "medium";
+      return {
+        deckId,
+        summary: typeof row.summary === "string" && row.summary.trim() ? row.summary.trim().slice(0, 180) : fallback?.summary ?? "",
+        drivers: stringList(row.drivers, 5).length ? stringList(row.drivers, 5) : fallback?.drivers ?? [],
+        confidence,
+      };
+    }).filter((entry): entry is NonNullable<typeof entry> => !!entry);
+    if (rows.length) out.rating_reasons = rows;
+  }
+
+  const gamePatternRaw = obj.game_pattern ?? obj.gamePattern;
+  if (gamePatternRaw && typeof gamePatternRaw === "object" && !Array.isArray(gamePatternRaw) && base.game_pattern) {
+    const source = gamePatternRaw as Record<string, unknown>;
+    const normalizePattern = (key: "early" | "mid" | "late") => {
+      const row = source[key] && typeof source[key] === "object" ? source[key] as Record<string, unknown> : {};
+      const favoredDeckId = normalizeDeckId(row.favoredDeckId ?? row.favored_deck_id ?? row.winnerDeckId ?? row.winner, cards) ?? base.game_pattern?.[key].favoredDeckId ?? null;
+      const winner = favoredDeckId ? cards.find((deck) => deck.id === favoredDeckId)?.title ?? base.game_pattern![key].winner : base.game_pattern![key].winner;
+      return {
+        favoredDeckId,
+        winner,
+        reason: typeof row.reason === "string" && row.reason.trim() ? row.reason.trim().slice(0, 220) : base.game_pattern![key].reason,
+      };
+    };
+    out.game_pattern = {
+      early: normalizePattern("early"),
+      mid: normalizePattern("mid"),
+      late: normalizePattern("late"),
+    };
+  }
+
+  const swingCards = Array.isArray(obj.key_swing_cards ?? obj.keySwingCards) ? (obj.key_swing_cards ?? obj.keySwingCards) as unknown[] : [];
+  if (swingCards.length) {
+    const rows = swingCards.map((entry) => {
+      const row = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
+      const deckId = normalizeDeckId(row.deckId ?? row.deck_id ?? row.title, cards);
+      if (!deckId) return null;
+      const fallback = base.key_swing_cards?.find((item) => item.deckId === deckId);
+      return {
+        deckId,
+        cards: stringList(row.cards, 5).length ? stringList(row.cards, 5) : fallback?.cards ?? [],
+        why: typeof row.why === "string" && row.why.trim() ? row.why.trim().slice(0, 220) : fallback?.why ?? "",
+      };
+    }).filter((entry): entry is NonNullable<typeof entry> => !!entry && entry.cards.length > 0);
+    if (rows.length) out.key_swing_cards = rows;
+  }
+
+  const upsetPaths = Array.isArray(obj.upset_paths ?? obj.upsetPaths) ? (obj.upset_paths ?? obj.upsetPaths) as unknown[] : [];
+  if (upsetPaths.length) {
+    const rows = upsetPaths.map((entry) => {
+      const row = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
+      const deckId = normalizeDeckId(row.deckId ?? row.deck_id ?? row.title, cards);
+      if (!deckId) return null;
+      const targetDeckId = normalizeDeckId(row.targetDeckId ?? row.target_deck_id ?? row.target, cards);
+      const fallback = base.upset_paths?.find((item) => item.deckId === deckId);
+      return {
+        deckId,
+        targetDeckId: targetDeckId ?? fallback?.targetDeckId ?? null,
+        path: typeof row.path === "string" && row.path.trim() ? row.path.trim().slice(0, 240) : fallback?.path ?? "",
+        keyCards: stringList(row.keyCards ?? row.key_cards, 4).length ? stringList(row.keyCards ?? row.key_cards, 4) : fallback?.keyCards ?? [],
+      };
+    }).filter((entry): entry is NonNullable<typeof entry> => !!entry && !!entry.path);
+    if (rows.length) out.upset_paths = rows;
+  }
+
+  if (obj.confidence_label === "close" || obj.confidence_label === "favored" || obj.confidence_label === "dominant") {
+    out.confidence_label = obj.confidence_label;
+  } else if (obj.confidenceLabel === "close" || obj.confidenceLabel === "favored" || obj.confidenceLabel === "dominant") {
+    out.confidence_label = obj.confidenceLabel;
+  }
+
+  return out;
+}
+
 function buildAiMatchup(cards: CompareV2DeckCard[], overview: CompareV2Success["overview"]): CompareV2AiMatchup {
   const strongest = overview.strongestDeckId ? cards.find((deck) => deck.id === overview.strongestDeckId) : null;
   const fastest = overview.fastestDeckId ? cards.find((deck) => deck.id === overview.fastestDeckId) : null;
@@ -469,6 +674,11 @@ function buildAiMatchup(cards: CompareV2DeckCard[], overview: CompareV2Success["
       verdict_cards: verdictCards,
       deck_strengths: deckStrengths,
       scenario_cards: scenarioCards,
+      rating_reasons: buildRatingReasons(cards),
+      game_pattern: buildGamePattern(cards, overview),
+      key_swing_cards: buildKeySwingCards(cards),
+      upset_paths: buildUpsetPaths(cards, overview),
+      confidence_label: confidenceLabelFor(cards, overview),
     },
   };
 }
@@ -607,26 +817,31 @@ function normalizeAiAdjustedResult(
   });
   const strongestDeckId = pickDeckId(decks, (deck) => deck.power.level, "max");
   const weakestDeckId = pickDeckId(decks, (deck) => deck.power.level, "min");
+  const overview = {
+    ...current.overview,
+    strongestDeckId,
+    weakestDeckId,
+    verdict: typeof obj.verdict === "string" && obj.verdict.trim() ? obj.verdict.trim().slice(0, 420) : current.overview.verdict,
+    bullets: Array.isArray(obj.bullets)
+      ? obj.bullets.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 4)
+      : current.overview.bullets,
+    winnerReason: typeof obj.winnerReason === "string" && obj.winnerReason.trim() ? obj.winnerReason.trim().slice(0, 260) : current.overview.winnerReason,
+    podBalanceNote: typeof obj.podBalanceNote === "string" && obj.podBalanceNote.trim() ? obj.podBalanceNote.trim().slice(0, 260) : current.overview.podBalanceNote,
+  };
+  const baseAiMatchup = buildAiMatchup(decks, overview);
+  const aiUiOverrides = normalizeAiUiOverrides(obj.aiMatchupUi ?? obj.ai_matchup_ui ?? obj.ui ?? obj, baseAiMatchup.ui, decks);
   return {
     ...current,
     decks,
-    overview: {
-      ...current.overview,
-      strongestDeckId,
-      weakestDeckId,
-      verdict: typeof obj.verdict === "string" && obj.verdict.trim() ? obj.verdict.trim().slice(0, 420) : current.overview.verdict,
-      bullets: Array.isArray(obj.bullets)
-        ? obj.bullets.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 4)
-        : current.overview.bullets,
-      winnerReason: typeof obj.winnerReason === "string" && obj.winnerReason.trim() ? obj.winnerReason.trim().slice(0, 260) : current.overview.winnerReason,
-      podBalanceNote: typeof obj.podBalanceNote === "string" && obj.podBalanceNote.trim() ? obj.podBalanceNote.trim().slice(0, 260) : current.overview.podBalanceNote,
-    },
+    overview,
     meta: { ...current.meta, usedAi: true },
-    aiMatchup: buildAiMatchup(decks, {
-      ...current.overview,
-      strongestDeckId,
-      weakestDeckId,
-    }),
+    aiMatchup: {
+      ...baseAiMatchup,
+      ui: {
+        ...baseAiMatchup.ui,
+        ...aiUiOverrides,
+      },
+    },
   };
 }
 
@@ -913,6 +1128,8 @@ export async function POST(req: NextRequest) {
               "You may adjust each deck's final powerLevel from 1 to 10 if the deterministic score misses synergy, combo density, premium card impact, or format context.",
               "Evaluate power relative to this exact group of decks. If one deck is much more expensive than the others, treat that as a supporting signal for stronger staples, mana, tutors, or interaction, but do not let price alone decide power.",
               "Also compare tempo, interaction, consistency, resilience, closing, mana, and synergy relative to the other decks in this request when writing strengths and weaknesses.",
+              "Make the Pro analysis feel like matchup coaching: explain why ratings changed, game timeline, swing cards, upset paths, and whether the result is close/favored/dominant.",
+              "Use exact deck titles. Card names in swing/upset fields must be real names from the provided deck data, not invented cards.",
             ].join(" "),
           },
           {
@@ -921,7 +1138,7 @@ export async function POST(req: NextRequest) {
               groundingPacket,
               "",
               "Return JSON with this shape:",
-              '{"decks":[{"title":"exact title","powerLevel":1-10,"tableRole":"short role","whyItWins":"short reason","watchOutFor":["max 3"],"swingCards":["max 5 card names"],"summary":"short","strengths":["max 3"],"weaknesses":["max 3"]}],"verdict":"short overview","winnerReason":"why top deck leads","podBalanceNote":"short balance/fairness note","bullets":["max 4"]}',
+              '{"decks":[{"title":"exact title","powerLevel":1-10,"tableRole":"short role","whyItWins":"short reason","watchOutFor":["max 3"],"swingCards":["max 5 card names"],"summary":"short","strengths":["max 3"],"weaknesses":["max 3"]}],"verdict":"short overview","winnerReason":"why top deck leads","podBalanceNote":"short balance/fairness note","bullets":["max 4"],"confidence_label":"close|favored|dominant","rating_reasons":[{"title":"exact deck title","summary":"max 1 sentence","drivers":["value","speed","interaction","consistency","win lines"],"confidence":"low|medium|high"}],"game_pattern":{"early":{"winner":"exact title or Contested","reason":"1 sentence"},"mid":{"winner":"exact title or Contested","reason":"1 sentence"},"late":{"winner":"exact title or Contested","reason":"1 sentence"}},"key_swing_cards":[{"title":"exact deck title","cards":["max 5 real card names"],"why":"1 sentence"}],"upset_paths":[{"title":"exact non-top deck title","target":"exact top deck title","path":"1 sentence","keyCards":["max 4 real card names"]}]}',
               "",
               `Current deterministic result:\n${JSON.stringify(deterministic)}`,
             ].join("\n"),
