@@ -9,12 +9,22 @@ import { getModerationStatus, isBanActive } from "@/lib/admin/moderation";
 export const runtime = "nodejs";
 
 type SubjectType = "public_profile" | "shared_item" | "shared_comment";
-type ResourceType = "public_profile" | "collection" | "roast" | "health_report" | "analysis_report" | "custom_card";
+type ResourceType =
+  | "public_profile"
+  | "deck"
+  | "collection"
+  | "wishlist"
+  | "roast"
+  | "health_report"
+  | "analysis_report"
+  | "custom_card";
 
 const VALID_SUBJECT_TYPES = new Set<SubjectType>(["public_profile", "shared_item", "shared_comment"]);
 const VALID_RESOURCE_TYPES = new Set<ResourceType>([
   "public_profile",
+  "deck",
   "collection",
+  "wishlist",
   "roast",
   "health_report",
   "analysis_report",
@@ -23,7 +33,10 @@ const VALID_RESOURCE_TYPES = new Set<ResourceType>([
 
 export async function POST(req: NextRequest) {
   try {
-    if (!sameOriginOrBearerPresent(req)) {
+    const isMobileClient = req.headers.get("x-manatap-client") === "mobile_app";
+    const authHeader = req.headers.get("authorization") ?? "";
+    const hasBearer = authHeader.toLowerCase().startsWith("bearer ");
+    if (!isMobileClient && !sameOriginOrBearerPresent(req)) {
       return NextResponse.json({ ok: false, error: "Bad origin" }, { status: 403 });
     }
     const burst = checkRateLimit(req, {
@@ -35,8 +48,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "rate_limited", retryAfter: burst.retryAfter }, { status: 429 });
     }
 
-    const { supabase, user, authError } = await getUserAndSupabase(req);
-    if (authError || !user) {
+    const { user, authError } = await getUserAndSupabase(req);
+    if (authError && hasBearer) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
@@ -44,9 +57,11 @@ export async function POST(req: NextRequest) {
     if (!admin) {
       return NextResponse.json({ ok: false, error: "missing_service_role_key" }, { status: 500 });
     }
-    const moderation = await getModerationStatus(admin, user.id);
-    if (isBanActive(moderation)) {
-      return NextResponse.json({ ok: false, error: "account_banned_from_public_actions" }, { status: 403 });
+    if (user) {
+      const moderation = await getModerationStatus(admin, user.id);
+      if (isBanActive(moderation)) {
+        return NextResponse.json({ ok: false, error: "account_banned_from_public_actions" }, { status: 403 });
+      }
     }
 
     const body = await req.json().catch(() => ({}));
@@ -86,11 +101,12 @@ export async function POST(req: NextRequest) {
     const context = {
       ip: extractIP(req),
       user_agent: req.headers.get("user-agent") || null,
-      source: "mobile_app",
+      source: isMobileClient ? "mobile_app" : "web",
+      authenticated: Boolean(user),
     };
 
-    const { error } = await supabase.from("user_content_reports").insert({
-      reporter_user_id: user.id,
+    const { error } = await admin.from("user_content_reports").insert({
+      reporter_user_id: user?.id ?? null,
       subject_type: subjectType,
       subject_id: subjectId,
       target_user_id: targetUserId,

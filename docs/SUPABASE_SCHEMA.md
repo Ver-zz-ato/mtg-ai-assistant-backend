@@ -83,7 +83,7 @@ Additive moderation support for public mobile/web share surfaces:
   - one row per `blocker_user_id + blocked_user_id`
   - used to hide blocked users’ public profiles/comments in the app
 - `user_content_reports`
-  - first-pass moderation queue for `public_profile`, `shared_item`, and `shared_comment`
+  - first-pass moderation queue for `public_profile`, `shared_item`, and `shared_comment`; guest reports may have `reporter_user_id` set to `NULL`; shared-item reports include `deck`, `collection`, `wishlist`, `roast`, `health_report`, `analysis_report`, and `custom_card` resource types
 - `user_moderation_status`
   - latest server-owned state for warnings and bans on a given user
 - `user_moderation_actions`
@@ -99,9 +99,9 @@ Route surface:
 Expected behavior:
 
 - authenticated users manage their own block list
-- authenticated users submit moderation reports
+- authenticated users and rate-limited guests can submit moderation reports for public surfaces
 - `/api/share/comments` filters out authors the current viewer has blocked when Bearer auth is present
-- banned users are blocked from posting new public share comments or new moderation reports
+- banned authenticated users are blocked from posting new public share comments or new moderation reports
 - admin support/moderation pages operate through service-role routes rather than direct client DB access
 
 ---

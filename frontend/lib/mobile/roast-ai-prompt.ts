@@ -12,7 +12,7 @@ import {
 import type { MobileRoastHeat } from "./roast-ai-types";
 
 /** Bump when instructions or expected JSON shape changes (keep in sync with normalizer). */
-export const MOBILE_ROAST_AI_PROMPT_VERSION = "2026-04-21.v1";
+export const MOBILE_ROAST_AI_PROMPT_VERSION = "2026-06-05.v1";
 
 const HEAT_GUIDANCE: Record<MobileRoastHeat, string> = {
   mild: `HEAT — MILD (warm / playful / charming)
@@ -98,6 +98,8 @@ VARIETY (exactly once)
 
 REPLAYABILITY
 - Spotlight specific cards and numbers so this roast feels bespoke — someone could screenshot share_line without it feeling generic.
+- In free-text fields, wrap every Magic card name you mention as [[Card Name]] so the mobile app can render inline card links.
+- Use **bold** only for non-card emphasis. Do not use **Card Name** for cards.
 
 JSON shape (exact keys):
 {
@@ -111,7 +113,7 @@ JSON shape (exact keys):
 }
 
 Omit "heat" and "prompt_version" — the server sets them.
-Plain card names (no [[ ]]). Never cite cards not in the list.
+Use plain card names only in card_callouts.card_name and biggest_issues.cards. Never cite cards not in the list.
 
 FORMAT LINE (for metadata only): ${fmtDisplay}${commanderLine}${hintLine}
 
