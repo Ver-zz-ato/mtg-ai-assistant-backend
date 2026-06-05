@@ -128,6 +128,35 @@ RLS / API expectations:
 
 ---
 
+### Tournament Manager V1 (dev beta, 2026-06-05)
+
+Additive mobile tournament support for private link/code/QR events:
+
+- `tournament_venues`
+  - host-owned venue profiles for pubs, stores, and social clubs
+- `tournaments`
+  - host-owned events with private invite metadata, settings JSON, Swiss/top-cut structure, status, current round, and expiry
+- `tournament_participants`
+  - signed-in and guest-device participants with display name, selected Scryfall art metadata, optional deck link/name, seed, and drop state
+- `tournament_rounds`
+  - Swiss and top-cut rounds with active/completed status
+- `tournament_matches`
+  - table pairings, score JSON, reporter/confirmer, dispute state, winner, and timestamps
+- `tournament_invites`
+  - service-role-only invite rows with SHA-256 token hashes, expiry, and revocation
+- `tournament_events`
+  - service-role-only audit trail for joins, pairings, reports, confirmations, disputes, overrides, drops, and event lifecycle actions
+
+RLS / API expectations:
+
+- all tournament writes go through `/api/mobile/tournaments*` using service-role Supabase clients with route-level auth/guest decisions, Zod validation, rate limits, and ownership checks
+- invite tokens are never stored raw; guest device identities are stored as server-side hashes of `X-Guest-Session-Token`
+- signed-in hosts and signed-in joined participants can `SELECT` tournament rows, participants, rounds, and matches for Supabase Realtime reads
+- guest participants read and act through backend API routes because guest device tokens are not Supabase JWT identities
+- `tournaments`, `tournament_participants`, `tournament_rounds`, and `tournament_matches` are added to the `supabase_realtime` publication
+
+---
+
 ### Deck size enforcement (2026-05-19)
 
 - `public.deck_cards` now has a trigger-level hard cap of **200 total cards per deck across all zones**.

@@ -135,6 +135,71 @@ function priceLookupKeys(rawName: string): string[] {
   return keys;
 }
 
+function pickScryfallUsdPrice(card: any): number {
+  const prices = card?.prices ?? {};
+  const usd = Number(prices.usd ?? 0);
+  if (Number.isFinite(usd) && usd > 0) return usd;
+  const usdFoil = Number(prices.usd_foil ?? 0);
+  if (Number.isFinite(usdFoil) && usdFoil > 0) return usdFoil;
+  const usdEtched = Number(prices.usd_etched ?? 0);
+  if (Number.isFinite(usdEtched) && usdEtched > 0) return usdEtched;
+  return 0;
+}
+
+async function fillMissingPricesFromScryfall(
+  entries: Array<{ name: string; qty: number }>,
+  priceByKey: Map<string, number>,
+): Promise<void> {
+  const admin = getServiceRoleClient();
+  const missingNames = [...new Set(
+    entries
+      .filter((entry) => !priceLookupKeys(entry.name).some((key) => (priceByKey.get(key) ?? 0) > 0))
+      .map((entry) => cleanPriceCardName(entry.name))
+      .filter(Boolean),
+  )];
+  if (!missingNames.length) return;
+
+  const rowsToCache: Array<{ card_name: string; usd_price: number; eur_price: number | null }> = [];
+  for (let i = 0; i < missingNames.length; i += 75) {
+    const batch = missingNames.slice(i, i + 75);
+    try {
+      const response = await fetch("https://api.scryfall.com/cards/collection", {
+        method: "POST",
+        headers: { "content-type": "application/json", "user-agent": "ManaTap/DeckCompareV2" },
+        body: JSON.stringify({ identifiers: batch.map((name) => ({ name })) }),
+      });
+      if (!response.ok) continue;
+      const body = await response.json().catch(() => null);
+      const cards = Array.isArray(body?.data) ? body.data : [];
+      for (const card of cards) {
+        const name = String(card?.name || "");
+        const usd = pickScryfallUsdPrice(card);
+        if (!name || usd <= 0) continue;
+        for (const key of priceLookupKeys(name)) priceByKey.set(key, usd);
+        const cacheKey = priceLookupKeys(name)[0];
+        if (cacheKey) {
+          rowsToCache.push({
+            card_name: cacheKey,
+            usd_price: usd,
+            eur_price: Number(card?.prices?.eur ?? 0) > 0 ? Number(card.prices.eur) : null,
+          });
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  if (admin && rowsToCache.length) {
+    const dedupedRows = [...new Map(rowsToCache.map((row) => [row.card_name, row])).values()];
+    try {
+      await admin.from("price_cache").upsert(dedupedRows, { onConflict: "card_name" });
+    } catch {
+      // Price fallback should improve estimates, not block the comparison.
+    }
+  }
+}
+
 function fallbackDeckEntries(raw: string): Array<{ name: string; qty: number }> {
   return String(raw || "")
     .split(/\r?\n/)
@@ -241,9 +306,12 @@ async function loadPriceMap(entries: Array<{ name: string; qty: number }>): Prom
     for (const row of data ?? []) {
       const name = String((row as { card_name?: string }).card_name || "");
       const usd = Number((row as { usd_price?: number | string | null }).usd_price ?? 0);
-      if (name && Number.isFinite(usd) && usd > 0) out.set(name, usd);
+      if (!name || !Number.isFinite(usd) || usd <= 0) continue;
+      out.set(name, usd);
+      for (const key of priceLookupKeys(name)) out.set(key, usd);
     }
   }
+  await fillMissingPricesFromScryfall(entries, out);
   return out;
 }
 
