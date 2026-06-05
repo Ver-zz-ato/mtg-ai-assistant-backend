@@ -5,6 +5,7 @@ import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 import { syncUserBadgeState } from "@/lib/badges/canonical";
 import { addRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
 import { extractIP } from "@/lib/guest-tracking";
+import { getPublicVisibilityCooldown } from "@/lib/server/publicVisibilityCooldown";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,33 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(()=>({}));
     const is_public = body?.is_public !== false; // default true
+
+    const { data: existingPublicProfile, error: existingPublicProfileError } = await supabase
+      .from("profiles_public")
+      .select("is_public, public_toggled_at")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (existingPublicProfileError) {
+      console.error("profile_share_existing", existingPublicProfileError);
+      return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    }
+
+    const existingPublic = (existingPublicProfile as { is_public?: boolean } | null)?.is_public !== false;
+    const publishCooldownApplies = is_public === true && existingPublic === false;
+    if (publishCooldownApplies) {
+      const cooldown = getPublicVisibilityCooldown(
+        (existingPublicProfile as { public_toggled_at?: string | null } | null)?.public_toggled_at,
+      );
+      if (!cooldown.ok) {
+        return addRateLimitHeaders(
+          NextResponse.json(
+            { ok: false, error: cooldown.message, retryAfterSeconds: cooldown.retryAfterSeconds },
+            { status: 429 },
+          ),
+          burst,
+        );
+      }
+    }
 
     // upsert row in profiles_public from user metadata + computed stats
     const md = (user.user_metadata || {}) as Record<string, unknown>;
@@ -106,6 +134,9 @@ export async function POST(req: NextRequest) {
       messages_30d,
       badges,
     } as Record<string, unknown>;
+    if (publishCooldownApplies) {
+      row.public_toggled_at = new Date().toISOString();
+    }
 
     const { error } = await supabase.from('profiles_public').upsert(row, { onConflict: 'id' });
     if (error) {

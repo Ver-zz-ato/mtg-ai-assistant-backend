@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { sameOriginOk } from "@/lib/api/csrf";
+import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
+import { getPublicVisibilityCooldown } from "@/lib/server/publicVisibilityCooldown";
 
 export async function POST(
   request: NextRequest,
@@ -8,14 +9,28 @@ export async function POST(
 ) {
   try {
     const { id: wishlistId } = await params;
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let supabase = await createClient();
+    let { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      const authHeader = request.headers.get("Authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (bearerToken) {
+        const { createClientWithBearerToken } = await import("@/lib/server-supabase");
+        const bearerSupabase = createClientWithBearerToken(bearerToken);
+        const { data: { user: bearerUser } } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+          supabase = bearerSupabase;
+        }
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!sameOriginOk(request)) {
+    if (!sameOriginOrBearerPresent(request)) {
       return NextResponse.json({ ok: false, error: "bad_origin" }, { status: 403 });
     }
 
@@ -25,7 +40,7 @@ export async function POST(
     // Verify ownership
     const { data: wishlist, error: fetchError } = await supabase
       .from("wishlists")
-      .select("id, user_id, name")
+      .select("id, user_id, name, is_public, public_toggled_at")
       .eq("id", wishlistId)
       .eq("user_id", user.id)
       .single();
@@ -37,10 +52,27 @@ export async function POST(
       );
     }
 
+    const existingPublic = (wishlist as { is_public?: boolean }).is_public === true;
+    const publicToggleRequested = is_public !== existingPublic;
+    const publishCooldownApplies = publicToggleRequested && is_public === true;
+    if (publishCooldownApplies) {
+      const cooldown = getPublicVisibilityCooldown((wishlist as { public_toggled_at?: string | null }).public_toggled_at);
+      if (!cooldown.ok) {
+        return NextResponse.json(
+          { ok: false, error: cooldown.message, retryAfterSeconds: cooldown.retryAfterSeconds },
+          { status: 429 },
+        );
+      }
+    }
+
     // Update is_public status
+    const patch: Record<string, unknown> = { is_public };
+    if (publishCooldownApplies) {
+      patch.public_toggled_at = new Date().toISOString();
+    }
     const { error: updateError } = await supabase
       .from("wishlists")
-      .update({ is_public: is_public })
+      .update(patch)
       .eq("id", wishlistId)
       .eq("user_id", user.id);
 

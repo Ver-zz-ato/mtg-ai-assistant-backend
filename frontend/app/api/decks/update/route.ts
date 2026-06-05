@@ -127,7 +127,8 @@ export async function POST(req: Request) {
 
     const existingPublic = (existing as { is_public?: boolean }).is_public === true;
     const publicToggleRequested = typeof b.is_public === "boolean" && b.is_public !== existingPublic;
-    if (publicToggleRequested) {
+    const publishCooldownApplies = publicToggleRequested && b.is_public === true;
+    if (publishCooldownApplies) {
       const cooldown = getPublicVisibilityCooldown((existing as { public_toggled_at?: string | null }).public_toggled_at);
       if (!cooldown.ok) {
         return NextResponse.json(
@@ -181,7 +182,7 @@ export async function POST(req: Request) {
     }
     if (typeof b.is_public === "boolean") {
       update.is_public = b.is_public;
-      if (publicToggleRequested) {
+      if (publishCooldownApplies) {
         update.public_toggled_at = new Date().toISOString();
       }
     }

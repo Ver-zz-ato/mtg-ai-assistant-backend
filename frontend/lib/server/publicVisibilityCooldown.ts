@@ -14,6 +14,6 @@ export function getPublicVisibilityCooldown(
   return {
     ok: false,
     retryAfterSeconds,
-    message: `Please wait ${minutes} minute${minutes === 1 ? "" : "s"} before changing public/private again.`,
+    message: `Please wait ${minutes} minute${minutes === 1 ? "" : "s"} before making this public again.`,
   };
 }

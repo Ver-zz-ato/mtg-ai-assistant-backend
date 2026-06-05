@@ -87,7 +87,8 @@ export async function PUT(req: Request, ctx: { params: Promise<Params> }) {
 
   const existingPublic = (existingMeta as { is_public?: boolean } | null)?.is_public === true;
   const publicToggleRequested = typeof is_public === 'boolean' && is_public !== existingPublic;
-  if (publicToggleRequested) {
+  const publishCooldownApplies = publicToggleRequested && is_public === true;
+  if (publishCooldownApplies) {
     const cooldown = getPublicVisibilityCooldown((existingMeta as { public_toggled_at?: string | null } | null)?.public_toggled_at);
     if (!cooldown.ok) {
       return new Response(
@@ -128,7 +129,7 @@ export async function PUT(req: Request, ctx: { params: Promise<Params> }) {
   const patch: any = {};
   if (typeof is_public === 'boolean') {
     patch.is_public = is_public;
-    if (publicToggleRequested) {
+    if (publishCooldownApplies) {
       patch.public_toggled_at = new Date().toISOString();
     }
     // When making private, clear the slug

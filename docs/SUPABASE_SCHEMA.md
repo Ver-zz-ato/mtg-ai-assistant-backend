@@ -682,7 +682,7 @@ CREATE TABLE public.collection_meta (
 );
 -- `collection_meta.data` currently carries lightweight collection UI metadata such as
 -- `hero_card_name`, which lets app + website collection tiles respect a user-picked hero card.
--- `collection_meta.public_toggled_at` backs the 5-minute public/private toggle cooldown.
+-- `collection_meta.public_toggled_at` backs the 5-minute private-to-public cooldown; public-to-private is always allowed.
 -- Public mobile collection reads use `GET /api/collections/public/[slug]`, which verifies
 -- `collection_meta.is_public` server-side before returning collection rows.
 CREATE TABLE public.collections (
@@ -840,7 +840,7 @@ CREATE TABLE public.decks (
 -- The current API requires clean public text, `deck_aim`, format-compliant mainboard
 -- size, and a non-placeholder title; browse/discovery also hides existing public decks
 -- with low-quality titles until they are renamed. No schema constraint is used.
--- `decks.public_toggled_at` backs the 5-minute public/private toggle cooldown.
+-- `decks.public_toggled_at` backs the 5-minute private-to-public cooldown; public-to-private is always allowed.
 -- `decks.meta` includes optional UI hero-cover keys:
 -- `deck_cover_card_name` (chosen card name) and `deck_cover_force_override`
 -- (`true` when a manual hero pick should override commander art on list/detail surfaces).
@@ -1096,6 +1096,7 @@ CREATE TABLE public.profiles_public (
   deck_count integer,
   collection_count integer,
   messages_30d integer,
+  public_toggled_at timestamp with time zone,
   pinned_deck_ids ARRAY,
   banner_art_url text,
   custom_card jsonb,
@@ -1103,6 +1104,7 @@ CREATE TABLE public.profiles_public (
   CONSTRAINT profiles_public_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_public_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
+-- `profiles_public.public_toggled_at` backs the 5-minute private-to-public cooldown; public-to-private is always allowed.
 CREATE TABLE public.prompt_ab_tests (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   variant_a_id uuid NOT NULL,
@@ -1478,9 +1480,11 @@ CREATE TABLE public.wishlists (
   name text NOT NULL,
   is_public boolean NOT NULL DEFAULT false,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  public_toggled_at timestamp with time zone,
   CONSTRAINT wishlists_pkey PRIMARY KEY (id),
   CONSTRAINT wishlists_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
+-- `wishlists.public_toggled_at` backs the 5-minute private-to-public cooldown; public-to-private is always allowed.
 -- Public mobile wishlist reads use `GET /api/wishlists/[id]/public`, which validates
 -- the UUID and verifies `wishlists.is_public` server-side before returning wishlist rows.
 ```

@@ -93,7 +93,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<Params> }) {
 
   const { data: deck, error: readErr } = await supabase
     .from("decks")
-    .select("id, user_id, is_public, public_toggled_at")
+    .select("id, user_id, is_public")
     .eq("id", id)
     .single();
 
@@ -107,17 +107,9 @@ export async function DELETE(req: Request, ctx: { params: Promise<Params> }) {
     return NextResponse.json({ ok: true, is_public: false });
   }
 
-  const cooldown = getPublicVisibilityCooldown((deck as { public_toggled_at?: string | null }).public_toggled_at);
-  if (!cooldown.ok) {
-    return NextResponse.json(
-      { ok: false, error: cooldown.message, retryAfterSeconds: cooldown.retryAfterSeconds },
-      { status: 429 },
-    );
-  }
-
   const { error: upErr } = await supabase
     .from("decks")
-    .update({ is_public: false, public_toggled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({ is_public: false, updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (upErr) {
