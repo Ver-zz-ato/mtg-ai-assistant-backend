@@ -10,7 +10,6 @@
           "/decks/*",
           "/binder/*",
           "/wishlist/*",
-          "/cards/*",
           "/roast/*",
           "/share/*",
           "/u/*"
