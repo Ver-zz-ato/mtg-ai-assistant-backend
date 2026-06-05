@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import AuthenticMTGCard from "@/components/AuthenticMTGCard";
 import { getCardBySlug } from "@/lib/top-cards";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
-import { createClient, createClientForStatic } from "@/lib/supabase/server";
+import { createClient, createClientForStatic, getServiceRoleClient } from "@/lib/supabase/server";
 import { getDisplayCardName } from "@/lib/cards/displayName";
 import { getCommanderBySlug } from "@/lib/commanders";
 import { buildCardDescription } from "@/lib/seo/metadata";
@@ -26,8 +26,28 @@ export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 
 type Props = { params: Promise<{ slug: string }> };
+type CustomCardRow = { id: string; title: string | null; data?: Record<string, unknown> | null; public_slug: string | null };
 
 const BASE = "https://www.manatap.ai";
+
+async function loadPublicCustomCard(slug: string, select = "id, title, data, public_slug") {
+  const admin = getServiceRoleClient();
+  if (!admin) return null;
+  const { data: bySlug } = await admin
+    .from("custom_cards")
+    .select(select)
+    .eq("public_slug", slug)
+    .maybeSingle();
+  if (bySlug) return bySlug as unknown as CustomCardRow;
+
+  const { data: byPublicId } = await admin
+    .from("custom_cards")
+    .select(select)
+    .eq("id", slug)
+    .not("public_slug", "is", null)
+    .maybeSingle();
+  return (byPublicId as unknown as CustomCardRow | null) ?? null;
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -46,12 +66,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates: { canonical: `${BASE}/cards/${slug}` },
     };
   }
-  const sb = createClientForStatic();
-  let { data: custom } = await sb.from("custom_cards").select("title").eq("public_slug", slug).maybeSingle();
-  if (!custom) {
-    const byId = await sb.from("custom_cards").select("title").eq("id", slug).maybeSingle();
-    custom = byId.data;
-  }
+  const custom = await loadPublicCustomCard(slug, "id, title, data, public_slug");
   if (custom) {
     const title = (custom as { title?: string }).title || "Custom Card";
     return {
@@ -74,17 +89,8 @@ export default async function CardPage({ params }: Props) {
     return <GlobalCardContent card={globalCard ?? topCard!} topCard={topCard} slug={slug} />;
   }
 
-  // Fall back to custom_cards (user-created cards). Public slugs use anon; private UUID preview needs session.
-  const staticSb = createClientForStatic();
-  let { data: customData } = await staticSb
-    .from("custom_cards")
-    .select("id, title, data, public_slug")
-    .eq("public_slug", slug)
-    .maybeSingle();
-  if (!customData) {
-    const byId = await staticSb.from("custom_cards").select("id, title, data, public_slug").eq("id", slug).maybeSingle();
-    customData = byId.data;
-  }
+  // Fall back to custom_cards (user-created cards). Public rows are gated by public_slug.
+  let customData = await loadPublicCustomCard(slug);
   if (!customData) {
     const sessionSb = await createClient();
     const ownerById = await sessionSb.from("custom_cards").select("id, title, data, public_slug").eq("id", slug).maybeSingle();

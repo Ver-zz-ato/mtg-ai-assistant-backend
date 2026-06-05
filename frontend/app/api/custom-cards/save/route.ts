@@ -16,7 +16,7 @@ export async function POST(req: NextRequest){
     // Determine Pro flag - use standardized check that checks both database and metadata
     const { checkProStatus } = await import('@/lib/server-pro-check');
     const isPro = await checkProStatus(user.id);
-    const max = isPro ? 20 : 5;
+    const max = isPro ? 50 : 5;
 
     // Enforce quota
     const { count, error: cntErr } = await sb.from('custom_cards').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
