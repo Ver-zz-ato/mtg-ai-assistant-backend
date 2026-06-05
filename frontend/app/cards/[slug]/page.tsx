@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import AuthenticMTGCard from "@/components/AuthenticMTGCard";
 import { getCardBySlug } from "@/lib/top-cards";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
-import { createClient, createClientForStatic, getServiceRoleClient } from "@/lib/supabase/server";
+import { createClient, createClientForStatic } from "@/lib/supabase/server";
+import { loadPublicCustomCard } from "@/lib/server/publicCustomCards";
 import { getDisplayCardName } from "@/lib/cards/displayName";
 import { getCommanderBySlug } from "@/lib/commanders";
 import { buildCardDescription } from "@/lib/seo/metadata";
@@ -26,28 +27,8 @@ export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 
 type Props = { params: Promise<{ slug: string }> };
-type CustomCardRow = { id: string; title: string | null; data?: Record<string, unknown> | null; public_slug: string | null };
 
 const BASE = "https://www.manatap.ai";
-
-async function loadPublicCustomCard(slug: string, select = "id, title, data, public_slug") {
-  const admin = getServiceRoleClient();
-  if (!admin) return null;
-  const { data: bySlug } = await admin
-    .from("custom_cards")
-    .select(select)
-    .eq("public_slug", slug)
-    .maybeSingle();
-  if (bySlug) return bySlug as unknown as CustomCardRow;
-
-  const { data: byPublicId } = await admin
-    .from("custom_cards")
-    .select(select)
-    .eq("id", slug)
-    .not("public_slug", "is", null)
-    .maybeSingle();
-  return (byPublicId as unknown as CustomCardRow | null) ?? null;
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
