@@ -683,6 +683,8 @@ CREATE TABLE public.collection_meta (
 -- `collection_meta.data` currently carries lightweight collection UI metadata such as
 -- `hero_card_name`, which lets app + website collection tiles respect a user-picked hero card.
 -- `collection_meta.public_toggled_at` backs the 5-minute public/private toggle cooldown.
+-- Public mobile collection reads use `GET /api/collections/public/[slug]`, which verifies
+-- `collection_meta.is_public` server-side before returning collection rows.
 CREATE TABLE public.collections (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -1479,4 +1481,6 @@ CREATE TABLE public.wishlists (
   CONSTRAINT wishlists_pkey PRIMARY KEY (id),
   CONSTRAINT wishlists_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
+-- Public mobile wishlist reads use `GET /api/wishlists/[id]/public`, which validates
+-- the UUID and verifies `wishlists.is_public` server-side before returning wishlist rows.
 ```
