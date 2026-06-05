@@ -191,6 +191,10 @@ function minCardsForFormat(format: string): number {
   return normalizeDeckFormat(format) === "commander" ? 50 : 30;
 }
 
+function maxPastedCardsForFormat(format: string): number | null {
+  return normalizeDeckFormat(format) === "commander" ? null : 75;
+}
+
 function totalRows(rows: DeckCardRow[]): number {
   return rows.reduce((sum, row) => {
     const zone = String(row.zone || "mainboard").toLowerCase();
@@ -696,6 +700,13 @@ function loadPastedDeck(input: z.infer<typeof deckInputSchema>): CompareV2InputD
   const cardCount = mainDeckTextCardCount(input.deckText, format);
   if (cardCount < minCardsForFormat(format)) {
     return { error: `This ${format} deck needs at least ${minCardsForFormat(format)} cards before comparison.`, status: 400, code: "DECK_TOO_SMALL" };
+  }
+  const maxCards = maxPastedCardsForFormat(format);
+  if (maxCards != null && cardCount > maxCards) {
+    return { error: `Pasted ${format} decklists can be ${maxCards} cards max.`, status: 400, code: "DECK_TOO_LARGE" };
+  }
+  if (canonicalFormat === "commander" && !input.commander?.trim()) {
+    return { error: "Pick the commander for this pasted Commander deck before comparison.", status: 400, code: "COMMANDER_REQUIRED" };
   }
   return {
     id: "own-pasted",

@@ -174,6 +174,8 @@ Validation:
 - Pasted decks are accepted with explicit deck text, format, optional title, and optional commander.
 - All decks must normalize to the same format.
 - Decks below the halfway threshold for their format are rejected.
+- Pasted non-Commander decks over 75 cards are rejected.
+- Pasted Commander decks require a commander.
 
 Response shape:
 
