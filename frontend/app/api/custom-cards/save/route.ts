@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserAndSupabase } from '@/lib/api/get-user-from-request';
 import { getServiceRoleClient } from '@/lib/supabase/server';
+import { containsProfanity } from '@/lib/profanity';
 
 function slugify(n: string){ return (n||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,48) || 'card'; }
+
+function cardTextFields(value: any, title: string): string[] {
+  const fields = [title];
+  if (Array.isArray(value?.nameParts)) fields.push(...value.nameParts.map((v: unknown) => String(v ?? '')));
+  fields.push(String(value?.typeLine ?? ''));
+  fields.push(String(value?.subtext ?? value?.sub ?? ''));
+  return fields;
+}
 
 const SNAPSHOT_BUCKET = 'custom-card-snapshots';
 const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
@@ -53,6 +62,9 @@ export async function POST(req: NextRequest){
     const value = body?.value || body; // expected to be the card object
     const title = String(body?.title || (Array.isArray(value?.nameParts)? value.nameParts.join(' ') : 'Custom Card'));
     const makePublic = String(req.nextUrl.searchParams.get('public')||'') === '1';
+    if (cardTextFields(value, title).some((field) => containsProfanity(field))) {
+      return NextResponse.json({ ok:false, error:'profanity' }, { status: 400 });
+    }
 
     // Determine Pro flag - use standardized check that checks both database and metadata
     const { checkProStatus } = await import('@/lib/server-pro-check');

@@ -7,7 +7,20 @@ const WORDS = [
   "cock","dickhead","bellend","shithead","motherfucker",
   "fuck","shit","bitch","cunt","twat","wanker","prick","dick","pussy",
   "nigger","faggot","slut","whore","bastard","asshole","douche","bollocks",
-  "retard","foxtard","fag"
+  "retard","foxtard","fag",
+  "boob","boobie","boobies","boobs","tits","titties","tit",
+  "penis","vagina","clit","cum","jizz","semen","porn","porno"
+];
+
+const EVASIVE_PATTERNS = [
+  /f+(?:u|oo|v|ü|ū)+c*k+/i,
+  /f+c+u+k+/i,
+  /f+u+q+/i,
+  /f+u+k+/i,
+  /s+h+i+t+/i,
+  /b+i+t+c*h+/i,
+  /c+u+n+t+/i,
+  /p+u+s+s+y+/i,
 ];
 
 function escapeRe(s: string) {
@@ -30,6 +43,10 @@ function normalizeLoose(input: string): string {
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[@4]/g, "a")
+    .replace(/[!|]/g, "i")
+    .replace(/\$/g, "s")
+    .replace(/\+/g, "t")
+    .replace(/8/g, "b")
     .replace(/[013]/g, (m) => (m === "0" ? "o" : m === "3" ? "e" : "i"))
     .replace(/5/g, "s")
     .replace(/7/g, "t")
@@ -41,7 +58,8 @@ export function containsProfanity(input: string): boolean {
   const raw = String(input);
   if (rx.test(raw)) return true;
   const compact = normalizeLoose(raw);
-  return compactWords.some((word) => compact.includes(word));
+  if (compactWords.some((word) => compact.includes(word))) return true;
+  return EVASIVE_PATTERNS.some((pattern) => pattern.test(compact));
 }
 
 export function sanitizeName(input: string, max = 120): string {

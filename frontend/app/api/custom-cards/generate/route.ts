@@ -5,6 +5,7 @@ import { getGuestToken } from '@/lib/api/get-guest-token';
 import { CUSTOM_CARD_GENERATE_FREE, CUSTOM_CARD_GENERATE_GUEST } from '@/lib/feature-limits';
 import { extractIP, hashGuestToken, hashString } from '@/lib/guest-tracking';
 import { checkProStatus } from '@/lib/server-pro-check';
+import { containsProfanity } from '@/lib/profanity';
 
 type StyleChip = 'Aggro' | 'Control' | 'Tribal' | 'Meme' | 'Commander' | 'Broken';
 type ColorHint = 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
@@ -230,6 +231,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const prompt = String(body?.prompt ?? '').trim().slice(0, 240);
+    if (containsProfanity(prompt)) {
+      return NextResponse.json({ ok: false, error: 'profanity' }, { status: 400 });
+    }
     const styleIn = String(body?.style ?? '');
     const style = (VALID_STYLES.includes(styleIn as StyleChip) ? styleIn : 'Commander') as StyleChip;
     const power = clamp(Number(body?.power ?? 0.4), 0, 1);
