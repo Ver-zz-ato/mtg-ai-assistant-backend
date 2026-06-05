@@ -18,7 +18,7 @@ Use this doc when you need to answer:
 | Area | Main routes |
 |---|---|
 | Bootstrap/config | `/api/mobile/bootstrap` |
-| Mobile AI tools | `/api/mobile/deck/analyze`, `/api/mobile/deck/compare-ai`, `/api/mobile/deck/roast-ai`, `/api/mobile/card/explain`, `/api/mobile/commander-recommendations` |
+| Mobile AI tools | `/api/mobile/deck/analyze`, `/api/mobile/deck/compare-ai`, `/api/mobile/deck/compare-v2`, `/api/mobile/deck/compare-v2/ai`, `/api/mobile/deck/roast-ai`, `/api/mobile/card/explain`, `/api/mobile/commander-recommendations` |
 | Scanner support | `/api/cards/fuzzy`, `/api/cards/recognize-image`, `/api/cards/batch-images`, `/api/cards/batch-metadata` |
 | Revenue / entitlements | `/api/revenuecat/webhook`, `/api/user/pro-status` |
 | Website billing | `/api/billing/create-checkout-session`, `/api/billing/portal`, `/api/stripe/webhook` |

@@ -189,6 +189,45 @@ Risk notes:
 - Keep this route dev-gated until rate limits, product gating, and public UX are explicitly approved.
 - Do not trust client-provided ownership, public status, format, value, or power rating; recompute server-side.
 
+### `POST /api/mobile/deck/compare-v2/ai`
+
+File: `frontend/app/api/mobile/deck/compare-v2/ai/route.ts`
+
+Purpose: Pro-only deep AI pass for the Deck Compare V2 result screen. The base `/compare-v2` route returns a fast comparison; this route is called only when the Pro user presses **Generate AI analysis** in the AI tab.
+
+Auth and access:
+
+- Bearer token or website cookie auth required.
+- Server-side Pro entitlement required; non-Pro returns `PRO_REQUIRED`.
+- Intended to remain behind the Deck Compare V2 dev surface until the merged public compare flow is approved.
+
+Request shape:
+
+- `{ comparison: <successful /api/mobile/deck/compare-v2 response> }`
+- The server validates the result-sized payload and caps decks at six.
+- The route does not trust client-provided ownership or deck visibility because it does not load deck data; it only deepens an already returned compare result.
+
+Response shape:
+
+- Returns the same Compare V2 success shape.
+- Sets `meta.deepAi: true`.
+- Replaces/enriches `aiMatchup.ui` with:
+  - `rating_reasons`
+  - `game_pattern`
+  - `key_swing_cards`
+  - `upset_paths`
+  - `confidence_label`
+
+Model and latency:
+
+- Uses `MODEL_DECK_COMPARE_V2_DEEP`, then `MODEL_ADMIN_DEEP`, then `DEFAULT_ADMIN_DEEP_MODEL` (`gpt-5.5`) as the default chain.
+- Uses the existing structured AI pipeline with a longer latency budget so the app can show `AiGenerationLoadingModal`.
+
+Risk notes:
+
+- Keep this Pro-only; free users should see the app-side example output and upgrade CTA instead of calling the route.
+- Keep output JSON compact and deck-id grounded. Unknown deck IDs/titles should fall back to deterministic rows.
+
 ### `POST /api/deck/transform`
 
 File: `frontend/app/api/deck/transform/route.ts`
