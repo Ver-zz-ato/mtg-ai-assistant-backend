@@ -1,7 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserAndSupabase } from '@/lib/api/get-user-from-request';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 
 function slugify(n: string){ return (n||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,48) || 'card'; }
+
+const SNAPSHOT_BUCKET = 'custom-card-snapshots';
+const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
+
+function parseSnapshot(input: unknown, mimeInput: unknown): { bytes: Buffer; mime: string; ext: string } | null {
+  if (typeof input !== 'string' || !input.trim()) return null;
+  let raw = input.trim();
+  let mime = typeof mimeInput === 'string' && mimeInput.trim() ? mimeInput.trim().toLowerCase() : 'image/png';
+  const dataUrl = raw.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/i);
+  if (dataUrl) {
+    mime = dataUrl[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : dataUrl[1].toLowerCase();
+    raw = dataUrl[2];
+  }
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(mime)) return null;
+  if (!/^[a-zA-Z0-9+/=\r\n]+$/.test(raw)) return null;
+  const bytes = Buffer.from(raw.replace(/\s+/g, ''), 'base64');
+  if (!bytes.length || bytes.length > MAX_SNAPSHOT_BYTES) return null;
+  const ext = mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png';
+  return { bytes, mime, ext };
+}
+
+async function uploadSnapshot(userId: string, cardId: string, body: any): Promise<string | null> {
+  const parsed = parseSnapshot(body?.snapshotBase64 ?? body?.snapshot_image_base64, body?.snapshotMimeType ?? body?.snapshot_mime_type);
+  if (!parsed) return null;
+  const admin = getServiceRoleClient();
+  if (!admin) return null;
+  await admin.storage.createBucket(SNAPSHOT_BUCKET, {
+    public: true,
+    fileSizeLimit: `${MAX_SNAPSHOT_BYTES}`,
+    allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+  }).catch(() => null);
+  const path = `${userId}/${cardId}.${parsed.ext}`;
+  const { error } = await admin.storage.from(SNAPSHOT_BUCKET).upload(path, parsed.bytes, {
+    contentType: parsed.mime,
+    upsert: true,
+  });
+  if (error) return null;
+  const { data } = admin.storage.from(SNAPSHOT_BUCKET).getPublicUrl(path);
+  return data.publicUrl || null;
+}
 
 export async function POST(req: NextRequest){
   try{
@@ -38,6 +79,14 @@ export async function POST(req: NextRequest){
 
     const id = ins?.id;
     const slug = ins?.public_slug || id;
+    let snapshotImageUrl: string | null = null;
+    if (id) {
+      snapshotImageUrl = await uploadSnapshot(user.id, id, body);
+      if (snapshotImageUrl) {
+        const nextData = { ...(value && typeof value === 'object' ? value : {}), snapshotImageUrl };
+        await sb.from('custom_cards').update({ data: nextData }).eq('id', id).eq('user_id', user.id);
+      }
+    }
     
     // Log activity for live presence banner (server-side direct cache update)
     try {
@@ -57,7 +106,7 @@ export async function POST(req: NextRequest){
     const envBase = (process.env.NEXT_PUBLIC_BASE_URL || '').trim();
     const base = /^https?:\/\//i.test(envBase) ? envBase.replace(/\/$/, '') : (req.nextUrl?.origin || '');
     const url = slug ? `${base}/cards/${encodeURIComponent(slug)}` : null;
-    return NextResponse.json({ ok:true, id, slug, url, max });
+    return NextResponse.json({ ok:true, id, slug, url, max, snapshotImageUrl });
   } catch(e: any){
     return NextResponse.json({ ok:false, error: e?.message||'server_error' }, { status: 500 });
   }

@@ -99,6 +99,7 @@ export default async function CardPage({ params }: Props) {
   if (customData) {
     const val = ((customData as { data?: Record<string, unknown> }).data || {}) as Record<string, unknown>;
     const title = (customData as { title?: string }).title || (Array.isArray(val?.nameParts) ? (val.nameParts as string[]).join(" ") : "Custom Card");
+    const snapshotImageUrl = typeof val.snapshotImageUrl === "string" ? val.snapshotImageUrl.trim() : "";
     const cardValue = {
       nameParts: (Array.isArray(val?.nameParts) ? val.nameParts : ["", "", title]).slice(0, 3) as [string, string, string],
       subtext: String(val?.subtext ?? val?.sub ?? ""),
@@ -118,9 +119,17 @@ export default async function CardPage({ params }: Props) {
     return (
       <main className="max-w-4xl mx-auto p-4">
         <h1 className="text-lg font-semibold mb-2">{title}</h1>
-        <div className="inline-block">
-          <AuthenticMTGCard value={cardValue} mode="view" />
-        </div>
+        {snapshotImageUrl ? (
+          <img
+            src={snapshotImageUrl}
+            alt={`${title} custom card`}
+            className="w-full max-w-[360px] rounded-xl border border-white/15 bg-neutral-950"
+          />
+        ) : (
+          <div className="inline-block">
+            <AuthenticMTGCard value={cardValue} mode="view" />
+          </div>
+        )}
       </main>
     );
   }
