@@ -23,6 +23,7 @@ import {
   buildGenerationUserPrompt,
 } from "@/lib/deck/generation-input";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
+import { canonicalizeGeneratedDeckRows } from "@/lib/deck/canonicalize-generated-deck-names";
 import { recordUserFeatureUsage } from "@/lib/badges/feature-usage";
 import {
   aggregateCollectionQtyRows,
@@ -579,6 +580,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    const canonicalized = await canonicalizeGeneratedDeckRows(cards);
+    cards = canonicalized.rows;
 
     const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
     const colors = allowedColors;

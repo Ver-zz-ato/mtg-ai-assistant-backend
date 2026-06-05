@@ -24,6 +24,7 @@ import {
 } from "@/lib/deck/generate-constructed-post";
 import { stripMarkdownJsonFences } from "@/lib/deck/collectionConstructedIdeasParse";
 import { filterDecklistQtyRowsForFormat } from "@/lib/deck/recommendation-legality";
+import { canonicalizeGeneratedDeckRows } from "@/lib/deck/canonicalize-generated-deck-names";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import {
@@ -1068,6 +1069,11 @@ Mainboard quantities must sum to 60; sideboard to 15.`;
         sideQtyAfterPad: sideQty,
       });
     }
+
+    mainRows = (await canonicalizeGeneratedDeckRows(mainRows)).rows;
+    sideRows = (await canonicalizeGeneratedDeckRows(sideRows)).rows;
+    mainQty = totalDeckQty(mainRows);
+    sideQty = totalDeckQty(sideRows);
 
     const deckText = [`Mainboard`, ...mainRows.map((c) => `${c.qty} ${c.name}`), ``, `Sideboard`, ...sideRows.map((c) => `${c.qty} ${c.name}`)].join("\n");
 
