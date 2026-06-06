@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     const [{ data: hosted }, { data: participantRows }] = await Promise.all([
       admin
         .from("tournaments")
-        .select("id, title, format, status, current_round, created_at, updated_at")
+        .select("id, title, format, mode, status, current_round, created_at, updated_at")
         .eq("host_user_id", auth.user.id)
         .order("updated_at", { ascending: false })
         .limit(30),
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
       joinedIds.length > 0
         ? await admin
             .from("tournaments")
-            .select("id, host_user_id, title, format, status, current_round, created_at, updated_at")
+            .select("id, host_user_id, title, format, mode, status, current_round, created_at, updated_at")
             .in("id", joinedIds)
         : { data: [] };
     const joined = (joinedRows ?? []).filter((row: any) => row.host_user_id !== auth.user.id);
@@ -122,10 +122,14 @@ export async function POST(req: NextRequest) {
         host_user_id: auth.user.id,
         title: parsed.data.title,
         format: parsed.data.format,
+        mode: parsed.data.mode,
         settings: {
+          tournamentMode: parsed.data.mode,
           playerCap: parsed.data.playerCap,
           swissRounds: parsed.data.swissRounds,
           topCut: parsed.data.topCut,
+          podRounds: parsed.data.podRounds,
+          roundRobinDrawsEnabled: parsed.data.roundRobinDrawsEnabled,
           decklistsEnabled: parsed.data.deckSubmissionMode ? parsed.data.deckSubmissionMode !== "off" : parsed.data.decklistsEnabled,
           deckSubmissionMode: parsed.data.deckSubmissionMode ?? (parsed.data.decklistsEnabled ? "optional" : "off"),
           deckVisibility: parsed.data.deckVisibility,

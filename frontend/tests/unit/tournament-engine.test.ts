@@ -1,6 +1,10 @@
 import assert from "assert";
 import {
   calculateStandings,
+  createCommanderPodsRound,
+  createDoubleEliminationPairings,
+  createRoundRobinPairings,
+  createSingleEliminationPairings,
   createSwissPairings,
   createTopCutPairings,
   type TournamentMatchForStandings,
@@ -82,5 +86,64 @@ for (const pairing of round2) {
 const topCut = createTopCutPairings(players, matches, 4);
 assert.equal(topCut.length, 2, "top 4 creates semifinals");
 assert.ok(topCut.every((p) => p.playerAId && p.playerBId), "top cut pairs all seats");
+
+const singleElim = createSingleEliminationPairings(players.slice(0, 3), 1);
+assert.equal(singleElim.length, 2, "single elimination pads odd bracket with a bye");
+assert.equal(singleElim.filter((p) => p.status === "bye").length, 1, "single elimination bye is explicit");
+
+const roundRobin = createRoundRobinPairings(players.slice(0, 4), 1);
+assert.equal(roundRobin.length, 2, "round robin pairs every player in an even round");
+const roundRobinOdd = createRoundRobinPairings(players.slice(0, 5), 1);
+assert.equal(roundRobinOdd.length, 3, "round robin odd count includes a bye pairing");
+assert.equal(roundRobinOdd.filter((p) => p.status === "bye").length, 1, "round robin odd count creates one bye");
+
+const commanderPods = createCommanderPodsRound({ participants: players.concat([
+  { id: "p6", seed: 6, display_name: "F" },
+  { id: "p7", seed: 7, display_name: "G" },
+  { id: "p8", seed: 8, display_name: "H" },
+  { id: "p9", seed: 9, display_name: "I" },
+  { id: "p10", seed: 10, display_name: "J" },
+]), previousMatches: [], roundNumber: 1 });
+assert.deepEqual(commanderPods.map((pod) => pod.participantIds.length), [4, 3, 3], "10 commander players split into 4/3/3 pods");
+
+const doubleStart = createDoubleEliminationPairings({ participants: players.slice(0, 4), previousMatches: [], roundNumber: 1 });
+assert.equal(doubleStart.phase, "double_elimination_winners", "double elimination starts in winners bracket");
+assert.equal(doubleStart.pairings.length, 2, "double elimination starts with winners bracket pairings");
+
+const grandFinalReset = createDoubleEliminationPairings({
+  participants: players.slice(0, 2),
+  roundNumber: 3,
+  previousMatches: [
+    {
+      id: "gf1",
+      round_id: "r-gf",
+      round_number: 2,
+      phase: "double_elimination_grand_final",
+      player_a_id: "p1",
+      player_b_id: "p2",
+      winner_participant_id: "p2",
+      result: "b_win",
+      status: "confirmed",
+      player_a_game_wins: 0,
+      player_b_game_wins: 2,
+      draws: 0,
+    },
+    {
+      id: "loss1",
+      round_id: "r-l",
+      round_number: 1,
+      phase: "double_elimination_winners",
+      player_a_id: "p2",
+      player_b_id: "p1",
+      winner_participant_id: "p1",
+      result: "b_win",
+      status: "confirmed",
+      player_a_game_wins: 0,
+      player_b_game_wins: 2,
+      draws: 0,
+    },
+  ],
+});
+assert.equal(grandFinalReset.phase, "double_elimination_grand_final", "double elimination reset stays in grand final phase");
 
 console.log("tournament-engine tests passed");

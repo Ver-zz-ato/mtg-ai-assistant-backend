@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
     const { data: tournament } = await admin
       .from("tournaments")
-      .select("id, title, format, status, settings, venue_id")
+      .select("id, title, format, mode, status, settings, venue_id")
       .eq("id", invite.tournament_id)
       .maybeSingle();
     if (!tournament) return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Tournament not found" }, { status: 404 }), rateLimit.rateLimit);
@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
           id: tournament.id,
           title: tournament.title,
           format: tournament.format,
+          mode: tournament.mode ?? tournament.settings?.tournamentMode ?? "swiss",
           status: tournament.status,
           settings: tournament.settings ?? {},
           venue: venue ?? null,

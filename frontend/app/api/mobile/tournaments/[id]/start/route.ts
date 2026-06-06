@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   checkTournamentBurstLimit,
-  createRoundAndMatches,
+  createInitialRoundForMode,
   getTournamentAccess,
   getTournamentActor,
   loadTournamentSnapshot,
   requireTournamentAdmin,
+  tournamentMode,
   tournamentDeckSubmissionMode,
   withTournamentRateLimitHeaders,
 } from "@/lib/mobile/tournaments";
@@ -29,8 +30,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Tournament already started" }, { status: 409 }), rateLimit.rateLimit);
     }
     const { count } = await admin.from("tournament_participants").select("id", { count: "exact", head: true }).eq("tournament_id", id);
-    if ((count ?? 0) < 2) {
-      return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "At least two players are needed" }, { status: 400 }), rateLimit.rateLimit);
+    const mode = tournamentMode(access.tournament);
+    const minimumPlayers = mode === "commander_pods" ? 3 : 2;
+    if ((count ?? 0) < minimumPlayers) {
+      return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: mode === "commander_pods" ? "Commander pods need at least three players" : "At least two players are needed" }, { status: 400 }), rateLimit.rateLimit);
+    }
+    if (mode === "round_robin" && (count ?? 0) > 16) {
+      return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Round Robin is capped at 16 players" }, { status: 400 }), rateLimit.rateLimit);
     }
     if (tournamentDeckSubmissionMode(access.tournament) === "required") {
       const { count: missingDecks } = await admin
@@ -43,7 +49,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "All active players need decklists before starting" }, { status: 409 }), rateLimit.rateLimit);
       }
     }
-    const created = await createRoundAndMatches(admin, access.tournament, "swiss", 1);
+    const created = await createInitialRoundForMode(admin, access.tournament);
     if (!created.ok) return withTournamentRateLimitHeaders(created.response, rateLimit.rateLimit);
     const { data: fresh } = await admin.from("tournaments").select("*").eq("id", id).single();
     const snapshot = await loadTournamentSnapshot(admin, fresh as any, actor.actor);

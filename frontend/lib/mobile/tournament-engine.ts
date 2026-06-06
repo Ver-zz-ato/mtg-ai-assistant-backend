@@ -1,4 +1,13 @@
-export type TournamentPhase = "swiss" | "top_cut";
+export type TournamentMode = "swiss" | "single_elimination" | "double_elimination" | "round_robin" | "commander_pods";
+export type TournamentPhase =
+  | "swiss"
+  | "top_cut"
+  | "single_elimination"
+  | "double_elimination_winners"
+  | "double_elimination_losers"
+  | "double_elimination_grand_final"
+  | "round_robin"
+  | "commander_pods";
 export type TournamentMatchStatus = "pending" | "reported" | "confirmed" | "disputed" | "bye";
 export type TournamentResult = "a_win" | "b_win" | "draw";
 
@@ -56,6 +65,18 @@ export type PairingRow = {
   playerBId: string | null;
   status: TournamentMatchStatus;
   result: TournamentResult | null;
+  winnerParticipantId: string | null;
+  bracketSlot?: string | null;
+  sourceLabel?: string | null;
+  nextMatchHint?: string | null;
+  loserNextMatchHint?: string | null;
+  resultPayload?: Record<string, unknown>;
+};
+
+export type PodPairingRow = {
+  tableNumber: number;
+  participantIds: string[];
+  status: "pending" | "confirmed";
   winnerParticipantId: string | null;
 };
 
@@ -177,6 +198,272 @@ function hasPlayed(a: string, b: string, matches: TournamentMatchForStandings[])
       (match.player_a_id === a && match.player_b_id === b) ||
       (match.player_a_id === b && match.player_b_id === a),
   );
+}
+
+function activeParticipants(participants: TournamentParticipantForPairing[]): TournamentParticipantForPairing[] {
+  return participants.filter((p) => !p.dropped).sort((a, b) => a.seed - b.seed);
+}
+
+function powerOfTwoAtLeast(value: number): number {
+  let out = 1;
+  while (out < value) out *= 2;
+  return out;
+}
+
+function seedPairs(ids: string[]): Array<[string, string | null]> {
+  const pairs: Array<[string, string | null]> = [];
+  for (let i = 0; i < Math.ceil(ids.length / 2); i += 1) {
+    pairs.push([ids[i], ids[ids.length - 1 - i] ?? null]);
+  }
+  return pairs.filter(([a, b]) => a && a !== b);
+}
+
+function pairIds(ids: string[]): PairingRow[] {
+  const rows: PairingRow[] = [];
+  for (let i = 0; i < ids.length; i += 2) {
+    const a = ids[i];
+    const b = ids[i + 1] ?? null;
+    rows.push({
+      tableNumber: rows.length + 1,
+      playerAId: a,
+      playerBId: b,
+      status: b ? "pending" : "bye",
+      result: b ? null : "a_win",
+      winnerParticipantId: b ? null : a,
+    });
+  }
+  return rows;
+}
+
+export function createSingleEliminationPairings(
+  participants: TournamentParticipantForPairing[],
+  roundNumber: number,
+  winnerIds?: string[],
+): PairingRow[] {
+  const ids =
+    roundNumber <= 1
+      ? activeParticipants(participants).map((p) => p.id)
+      : (winnerIds ?? []).filter(Boolean);
+  if (ids.length < 2) return [];
+
+  if (roundNumber <= 1) {
+    const size = powerOfTwoAtLeast(ids.length);
+    const slots = [...ids, ...Array.from<string | null>({ length: size - ids.length }).fill(null)];
+    return seedPairs(slots.map((id) => id ?? "")).map(([a, b], index) => ({
+      tableNumber: index + 1,
+      playerAId: a,
+      playerBId: b || null,
+      status: b ? "pending" : "bye",
+      result: b ? null : "a_win",
+      winnerParticipantId: b ? null : a,
+      bracketSlot: `SE-R${roundNumber}-M${index + 1}`,
+    }));
+  }
+
+  return pairIds(ids).map((row, index) => ({
+    ...row,
+    bracketSlot: `SE-R${roundNumber}-M${index + 1}`,
+  }));
+}
+
+export function createRoundRobinPairings(
+  participants: TournamentParticipantForPairing[],
+  roundNumber: number,
+): PairingRow[] {
+  const active = activeParticipants(participants);
+  if (active.length < 2 || active.length > 16) return [];
+  const slots: Array<TournamentParticipantForPairing | null> = [...active];
+  if (slots.length % 2 === 1) slots.push(null);
+  const totalRounds = slots.length - 1;
+  const roundIndex = ((roundNumber - 1) % totalRounds + totalRounds) % totalRounds;
+  const fixed = slots[0];
+  const rotating = slots.slice(1);
+  const rotated = [
+    ...rotating.slice(rotating.length - roundIndex),
+    ...rotating.slice(0, rotating.length - roundIndex),
+  ];
+  const arranged = [fixed, ...rotated];
+  const rows: PairingRow[] = [];
+  for (let i = 0; i < arranged.length / 2; i += 1) {
+    const left = arranged[i];
+    const right = arranged[arranged.length - 1 - i];
+    const a = roundNumber % 2 === 0 ? right : left;
+    const b = roundNumber % 2 === 0 ? left : right;
+    if (!a && !b) continue;
+    if (a && !b) {
+      rows.push({
+        tableNumber: rows.length + 1,
+        playerAId: a.id,
+        playerBId: null,
+        status: "bye",
+        result: "a_win",
+        winnerParticipantId: a.id,
+        bracketSlot: `RR-R${roundNumber}-M${rows.length + 1}`,
+      });
+      continue;
+    }
+    if (!a && b) {
+      rows.push({
+        tableNumber: rows.length + 1,
+        playerAId: b.id,
+        playerBId: null,
+        status: "bye",
+        result: "a_win",
+        winnerParticipantId: b.id,
+        bracketSlot: `RR-R${roundNumber}-M${rows.length + 1}`,
+      });
+      continue;
+    }
+    if (a && b) {
+      rows.push({
+        tableNumber: rows.length + 1,
+        playerAId: a.id,
+        playerBId: b.id,
+        status: "pending",
+        result: null,
+        winnerParticipantId: null,
+        bracketSlot: `RR-R${roundNumber}-M${rows.length + 1}`,
+      });
+    }
+  }
+  return rows;
+}
+
+export function participantLossCounts(matches: TournamentMatchForStandings[]): Map<string, number> {
+  const losses = new Map<string, number>();
+  for (const match of confirmedMatches(matches)) {
+    if (!match.player_a_id) continue;
+    if (!losses.has(match.player_a_id)) losses.set(match.player_a_id, 0);
+    if (match.player_b_id && !losses.has(match.player_b_id)) losses.set(match.player_b_id, 0);
+    if (match.status === "bye" || !match.player_b_id || !match.winner_participant_id) continue;
+    if (match.player_a_id !== match.winner_participant_id) losses.set(match.player_a_id, (losses.get(match.player_a_id) ?? 0) + 1);
+    if (match.player_b_id !== match.winner_participant_id) losses.set(match.player_b_id, (losses.get(match.player_b_id) ?? 0) + 1);
+  }
+  return losses;
+}
+
+export function createDoubleEliminationPairings(input: {
+  participants: TournamentParticipantForPairing[];
+  previousMatches: TournamentMatchForStandings[];
+  roundNumber: number;
+}): { phase: TournamentPhase; pairings: PairingRow[]; complete?: boolean; resetFinal?: boolean } {
+  const active = activeParticipants(input.participants);
+  if (active.length < 2) return { phase: "double_elimination_winners", pairings: [], complete: true };
+  if (input.roundNumber <= 1 || input.previousMatches.length === 0) {
+    return {
+      phase: "double_elimination_winners",
+      pairings: createSingleEliminationPairings(active, 1).map((row, index) => ({
+        ...row,
+        bracketSlot: `DE-W1-M${index + 1}`,
+      })),
+    };
+  }
+
+  const losses = participantLossCounts(input.previousMatches);
+  for (const p of active) if (!losses.has(p.id)) losses.set(p.id, 0);
+  const zeroLoss = active.filter((p) => (losses.get(p.id) ?? 0) === 0).map((p) => p.id);
+  const oneLoss = active.filter((p) => (losses.get(p.id) ?? 0) === 1).map((p) => p.id);
+  const grandFinals = confirmedMatches(input.previousMatches).filter((m) => m.phase === "double_elimination_grand_final");
+  const latestGrandFinal = grandFinals[grandFinals.length - 1];
+
+  if (latestGrandFinal?.winner_participant_id) {
+    const loserSideWinner = oneLoss.includes(latestGrandFinal.winner_participant_id);
+    if (grandFinals.length === 1 && loserSideWinner) {
+      const finalistIds = [latestGrandFinal.player_a_id, latestGrandFinal.player_b_id].filter(Boolean) as string[];
+      return {
+        phase: "double_elimination_grand_final",
+        resetFinal: true,
+        pairings: pairIds(finalistIds).map((row) => ({
+          ...row,
+          bracketSlot: "DE-GF-RESET",
+          sourceLabel: "Grand final reset",
+        })),
+      };
+    }
+    return { phase: "double_elimination_grand_final", pairings: [], complete: true };
+  }
+
+  if (zeroLoss.length > 1) {
+    return {
+      phase: "double_elimination_winners",
+      pairings: pairIds(zeroLoss).map((row, index) => ({
+        ...row,
+        bracketSlot: `DE-W${input.roundNumber}-M${index + 1}`,
+      })),
+    };
+  }
+  if (zeroLoss.length === 1 && oneLoss.length > 1) {
+    return {
+      phase: "double_elimination_losers",
+      pairings: pairIds(oneLoss).map((row, index) => ({
+        ...row,
+        bracketSlot: `DE-L${input.roundNumber}-M${index + 1}`,
+      })),
+    };
+  }
+  if (zeroLoss.length === 1 && oneLoss.length === 1) {
+    return {
+      phase: "double_elimination_grand_final",
+      pairings: pairIds([zeroLoss[0], oneLoss[0]]).map((row) => ({
+        ...row,
+        bracketSlot: "DE-GF",
+        sourceLabel: "Grand final",
+      })),
+    };
+  }
+  return { phase: "double_elimination_winners", pairings: [], complete: true };
+}
+
+export function createCommanderPodsRound(input: {
+  participants: TournamentParticipantForPairing[];
+  previousMatches: TournamentMatchForStandings[];
+  roundNumber: number;
+  standingsOrder?: string[];
+}): PodPairingRow[] {
+  const active = activeParticipants(input.participants);
+  if (active.length < 3) return [];
+  const standings = calculateStandings(active, input.previousMatches);
+  const activeById = new Map(active.map((p) => [p.id, p]));
+  const ordered =
+    input.roundNumber <= 1
+      ? active
+      : input.standingsOrder?.length
+        ? (input.standingsOrder.map((id) => activeById.get(id)).filter(Boolean) as TournamentParticipantForPairing[])
+        : (standings.map((s) => activeById.get(s.participantId)).filter(Boolean) as TournamentParticipantForPairing[]);
+  const sizes: number[] = [];
+  let remaining = ordered.length;
+  while (remaining > 0) {
+    if (remaining === 6) {
+      sizes.push(3, 3);
+      break;
+    }
+    if (remaining === 7) {
+      sizes.push(4, 3);
+      break;
+    }
+    if (remaining === 5) return [];
+    if (remaining >= 4) {
+      sizes.push(4);
+      remaining -= 4;
+    } else if (remaining === 3) {
+      sizes.push(3);
+      remaining -= 3;
+    } else {
+      return [];
+    }
+  }
+  const rows: PodPairingRow[] = [];
+  let cursor = 0;
+  for (const size of sizes) {
+    rows.push({
+      tableNumber: rows.length + 1,
+      participantIds: ordered.slice(cursor, cursor + size).map((p) => p.id),
+      status: "pending",
+      winnerParticipantId: null,
+    });
+    cursor += size;
+  }
+  return rows;
 }
 
 export function createSwissPairings(input: PairingInput): PairingRow[] {

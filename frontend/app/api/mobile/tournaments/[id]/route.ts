@@ -110,8 +110,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const settings = {
       ...(access.tournament.settings ?? {}),
       ...(typeof parsed.data.playerCap === "number" ? { playerCap: parsed.data.playerCap } : {}),
+      ...(parsed.data.mode ? { tournamentMode: parsed.data.mode } : {}),
       ...(typeof parsed.data.swissRounds === "number" ? { swissRounds: parsed.data.swissRounds } : {}),
       ...(parsed.data.topCut ? { topCut: parsed.data.topCut } : {}),
+      ...(typeof parsed.data.podRounds === "number" ? { podRounds: parsed.data.podRounds } : {}),
+      ...(typeof parsed.data.roundRobinDrawsEnabled === "boolean" ? { roundRobinDrawsEnabled: parsed.data.roundRobinDrawsEnabled } : {}),
       ...(typeof parsed.data.decklistsEnabled === "boolean" ? { decklistsEnabled: parsed.data.decklistsEnabled } : {}),
       ...(parsed.data.deckSubmissionMode
         ? { deckSubmissionMode: parsed.data.deckSubmissionMode, decklistsEnabled: parsed.data.deckSubmissionMode !== "off" }
@@ -127,6 +130,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     };
     if (typeof parsed.data.title === "string") update.title = parsed.data.title;
     if (parsed.data.format) update.format = parsed.data.format;
+    if (parsed.data.mode) update.mode = parsed.data.mode;
     if (Object.prototype.hasOwnProperty.call(parsed.data, "venueId")) update.venue_id = parsed.data.venueId ?? null;
     const { data: fresh, error } = await admin
       .from("tournaments")

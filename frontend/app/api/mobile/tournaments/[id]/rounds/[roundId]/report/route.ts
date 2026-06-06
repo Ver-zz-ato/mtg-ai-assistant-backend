@@ -8,6 +8,7 @@ import {
   markRoundCompleteIfResolved,
   reportResultBodySchema,
   requireTournamentAdmin,
+  tournamentPhaseAllowsDraw,
   winnerFromResult,
   withTournamentRateLimitHeaders,
 } from "@/lib/mobile/tournaments";
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       .eq("tournament_id", id)
       .maybeSingle();
     if (!match) return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Match not found" }, { status: 404 }), rateLimit.rateLimit);
+    const { data: round } = await admin.from("tournament_rounds").select("phase").eq("id", roundId).eq("tournament_id", id).maybeSingle();
+    if (parsed.data.result === "draw" && round && !tournamentPhaseAllowsDraw((round as any).phase)) {
+      return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "This tournament stage needs a winner" }, { status: 400 }), rateLimit.rateLimit);
+    }
     const participantId = access.participant?.id;
     if (!access.isHost && participantId !== match.player_a_id && participantId !== match.player_b_id) {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Only match players can report" }, { status: 403 }), rateLimit.rateLimit);

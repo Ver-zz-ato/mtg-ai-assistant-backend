@@ -135,14 +135,18 @@ Additive mobile tournament support for private link/code/QR MTG events where a h
 - `tournament_venues`
   - host-owned venue profiles for pubs, stores, and social clubs
 - `tournaments`
-  - host-owned event row with settings, status, invite metadata, and optional `overall_winner_participant_id` after the host declares the final winner
-  - host-owned events with private invite metadata, settings JSON, Swiss/top-cut structure, status, current round, and expiry
+  - host-owned event row with settings, status, invite metadata, `mode` (`swiss`, `single_elimination`, `double_elimination`, `round_robin`, `commander_pods`), and optional `overall_winner_participant_id` after the host declares the final winner
+  - host-owned events with private invite metadata, settings JSON, mode-aware structure, status, current round, and expiry
 - `tournament_participants`
   - signed-in and guest-device participants with display name, selected Scryfall art metadata, optional deck link/name, tournament-specific decklist snapshot, seed, and drop state
 - `tournament_rounds`
-  - Swiss and top-cut rounds with active/completed status
+  - mode-aware rounds/stages with active/completed status and `stage_order` for phases whose round number can reset
 - `tournament_matches`
-  - table pairings, score JSON, reporter/confirmer, dispute state, winner, and timestamps
+  - 1v1 table pairings for Swiss, top cut, single elimination, double elimination, and round robin, with reporter/confirmer, dispute state, bracket metadata, winner, and timestamps
+- `tournament_pods`
+  - Commander pod tables for 3-4 player multiplayer rounds with host-entered winner-only results
+- `tournament_pod_entries`
+  - pod seat rows with participant id, seat number, winner-only points, and placement metadata
 - `tournament_invites`
   - service-role-only invite rows with SHA-256 token hashes, expiry, and revocation
 - `tournament_events`
@@ -156,19 +160,20 @@ RLS / API expectations:
 - `POST /api/mobile/tournaments/join` doubles as a rejoin path: an existing non-dropped signed-in or same-device guest participant may scan/paste the invite again during an active tournament and receive the snapshot without creating a duplicate participant
 - host deletion uses `DELETE /api/mobile/tournaments/[id]`, with `POST /api/mobile/tournaments/[id]/delete` as a client/proxy-safe fallback; deleting the parent tournament relies on existing `ON DELETE CASCADE` child rows for participants, rounds, matches, invites, and events
 - host venue deletion uses `DELETE /api/mobile/tournaments/venues?id=...`; existing tournaments keep working because `tournaments.venue_id` is `ON DELETE SET NULL`
-- hosts may update venue/title/format/player cap/Swiss rounds/top cut/deck settings with `PATCH /api/mobile/tournaments/[id]` while the tournament is still in `registration`; setup locks once round one starts
+- hosts may update venue/title/Magic format/tournament mode/player cap/Swiss rounds/top cut/pod rounds/round-robin draw setting/deck settings with `PATCH /api/mobile/tournaments/[id]` while the tournament is still in `registration`; setup locks once round one starts
 - leave/kick uses `POST /api/mobile/tournaments/[id]/drop`; active current-round unresolved matches are confirmed as a loss for the dropped player, and `tournament_events` records host-visible leave/kick notifications
 - joined players can call `POST /api/mobile/tournaments/[id]/issue`, which writes a host-visible `participant_issue` event
 - hosts can call `POST /api/mobile/tournaments/[id]/winner` after completion to set `tournaments.overall_winner_participant_id`; the tournament row realtime update lets open host/player screens show the winner announcement
 - beta hosts can call `POST /api/mobile/tournaments/[id]/test-participants` during registration to insert synthetic guest participants for bracket testing; rows use generated guest hashes, random MTG-style names, cached commander art where available, and respect the event player cap
 - result confirmation and dispute writes create host-visible `match_confirmed` / `match_disputed` events with table number, player A/B display names, result, and winner display name where applicable
+- Commander pod results use `POST /api/mobile/tournaments/[id]/pods/[podId]/result`; the host chooses a pod winner, winner-only points are saved to `tournament_pod_entries`, and `pod_result` is written to `tournament_events`
 - invite preview returns the venue summary used by the mobile join confirmation step, and server validation rejects profanity in venue/title/player/deck-name/issue-message fields
 - decklist submission policy lives in `tournaments.settings` as `deckSubmissionMode` (`off`, `optional`, `required`), `deckVisibility` (`host_only`, `players`), and optional `deckLegalityCheckEnabled`
 - submitted saved decks and pasted decklists are copied into `tournament_participants.deck_source`, `decklist_text`, `deck_cards`, and deck timestamp columns; they are not normal saved decks
 - invite tokens are never stored raw; guest device identities are stored as server-side hashes of `X-Guest-Session-Token`
-- signed-in hosts and signed-in joined participants can `SELECT` tournament rows, participants, rounds, and matches for Supabase Realtime reads; signed-in hosts can also `SELECT` `tournament_events`
+- signed-in hosts and signed-in joined participants can `SELECT` tournament rows, participants, rounds, matches, pods, and pod entries for Supabase Realtime reads; signed-in hosts can also `SELECT` `tournament_events`
 - guest participants read and act through backend API routes because guest device tokens are not Supabase JWT identities
-- `tournaments`, `tournament_participants`, `tournament_rounds`, `tournament_matches`, and `tournament_events` are added to the `supabase_realtime` publication
+- `tournaments`, `tournament_participants`, `tournament_rounds`, `tournament_matches`, `tournament_pods`, `tournament_pod_entries`, and `tournament_events` are added to the `supabase_realtime` publication
 
 ---
 

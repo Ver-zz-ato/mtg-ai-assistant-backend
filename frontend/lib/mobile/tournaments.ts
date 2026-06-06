@@ -14,10 +14,17 @@ import {
 import {
   allRoundMatchesResolved,
   calculateStandings,
+  createCommanderPodsRound,
+  createDoubleEliminationPairings,
+  createRoundRobinPairings,
+  createSingleEliminationPairings,
   createSwissPairings,
   createTopCutPairings,
+  type PairingRow,
   type TournamentMatchForStandings,
+  type TournamentMode,
   type TournamentParticipantForPairing,
+  type TournamentPhase,
 } from "@/lib/mobile/tournament-engine";
 import { containsProfanity } from "@/lib/profanity";
 
@@ -26,6 +33,7 @@ export const TOURNAMENT_GUEST_HEADER = "X-Guest-Session-Token";
 export const TOURNAMENT_MAX_PLAYERS = 128;
 
 export const tournamentFormatSchema = z.enum(["Commander", "Standard", "Pioneer", "Modern", "Pauper", "Custom"]);
+export const tournamentModeSchema = z.enum(["swiss", "single_elimination", "double_elimination", "round_robin", "commander_pods"]);
 export const topCutSchema = z.enum(["none", "top4", "top8"]);
 export const deckSubmissionModeSchema = z.enum(["off", "optional", "required"]);
 export const deckVisibilitySchema = z.enum(["host_only", "players"]);
@@ -53,9 +61,12 @@ export const createTournamentBodySchema = z.object({
   venueId: z.string().uuid().nullable().optional(),
   title: z.string().trim().min(2).max(140).refine((value) => !containsProfanity(value), "profanity_not_allowed"),
   format: tournamentFormatSchema.default("Commander"),
+  mode: tournamentModeSchema.default("swiss"),
   playerCap: z.number().int().min(2).max(TOURNAMENT_MAX_PLAYERS).default(32),
   swissRounds: z.number().int().min(1).max(12).default(3),
   topCut: topCutSchema.default("none"),
+  podRounds: z.number().int().min(1).max(8).default(3),
+  roundRobinDrawsEnabled: z.boolean().default(true),
   decklistsEnabled: z.boolean().default(true),
   deckSubmissionMode: deckSubmissionModeSchema.optional(),
   deckVisibility: deckVisibilitySchema.default("host_only"),
@@ -118,6 +129,11 @@ export const participantIssueBodySchema = z.object({
   message: z.string().trim().max(500).optional().refine((value) => !containsProfanity(value ?? ""), "profanity_not_allowed"),
 });
 
+export const podResultBodySchema = z.object({
+  winnerParticipantId: z.string().uuid(),
+  note: z.string().trim().max(500).optional().refine((value) => !containsProfanity(value ?? ""), "profanity_not_allowed"),
+});
+
 export const declareOverallWinnerBodySchema = z.object({
   participantId: z.string().uuid(),
 });
@@ -137,8 +153,9 @@ export type TournamentRow = {
   host_user_id: string;
   title: string;
   format: string;
+  mode: TournamentMode;
   status: "registration" | "active" | "completed" | "cancelled";
-  structure: "swiss_top_cut";
+  structure: "swiss_top_cut" | string;
   current_round: number;
   settings: Record<string, unknown>;
   overall_winner_participant_id: string | null;
@@ -171,7 +188,8 @@ export type TournamentRoundRow = {
   id: string;
   tournament_id: string;
   round_number: number;
-  phase: "swiss" | "top_cut";
+  phase: TournamentPhase;
+  stage_order: number | null;
   status: "pairing" | "active" | "completed";
   created_at: string;
   completed_at: string | null;
@@ -194,6 +212,37 @@ export type TournamentMatchRow = {
   confirmed_by_participant_id: string | null;
   disputed_by_participant_id: string | null;
   host_override_by: string | null;
+  bracket_slot: string | null;
+  source_label: string | null;
+  next_match_hint: string | null;
+  loser_next_match_hint: string | null;
+  result_payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TournamentPodRow = {
+  id: string;
+  tournament_id: string;
+  round_id: string;
+  table_number: number;
+  status: "pending" | "confirmed";
+  winner_participant_id: string | null;
+  result_payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TournamentPodEntryRow = {
+  id: string;
+  pod_id: string;
+  tournament_id: string;
+  round_id: string;
+  participant_id: string;
+  seat_number: number;
+  points: number;
+  placement: number | null;
+  dropped: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -327,6 +376,54 @@ export function tournamentDeckVisibility(tournament: Pick<TournamentRow, "settin
 
 export function tournamentDeckLegalityCheckEnabled(tournament: Pick<TournamentRow, "settings">): boolean {
   return tournament.settings?.deckLegalityCheckEnabled === true;
+}
+
+export function tournamentMode(tournament: Pick<TournamentRow, "mode" | "settings">): TournamentMode {
+  const raw = tournament.mode ?? tournament.settings?.tournamentMode;
+  if (
+    raw === "single_elimination" ||
+    raw === "double_elimination" ||
+    raw === "round_robin" ||
+    raw === "commander_pods" ||
+    raw === "swiss"
+  ) {
+    return raw;
+  }
+  return "swiss";
+}
+
+function phaseLabel(phase: TournamentPhase): string {
+  switch (phase) {
+    case "top_cut":
+      return "Top Cut";
+    case "single_elimination":
+      return "Single Elimination";
+    case "double_elimination_winners":
+      return "Double Elim Winners";
+    case "double_elimination_losers":
+      return "Double Elim Second Chance";
+    case "double_elimination_grand_final":
+      return "Grand Final";
+    case "round_robin":
+      return "Round Robin";
+    case "commander_pods":
+      return "Commander Pods";
+    default:
+      return "Swiss";
+  }
+}
+
+export function tournamentPhaseAllowsDraw(phase: TournamentPhase): boolean {
+  return phase === "swiss" || phase === "round_robin";
+}
+
+function pairWinnerIds(ids: string[]): Array<{ a: string; b: string | null }> {
+  const out: Array<{ a: string; b: string | null }> = [];
+  for (let i = 0; i < ids.length; i += 2) {
+    if (!ids[i]) continue;
+    out.push({ a: ids[i], b: ids[i + 1] ?? null });
+  }
+  return out;
 }
 
 function isCommanderFormat(format: string): boolean {
@@ -705,16 +802,69 @@ function asMatchForStandings(match: TournamentMatchRow, round: TournamentRoundRo
   };
 }
 
+function calculatePodStandings(participants: TournamentParticipantRow[], pods: TournamentPodRow[], entries: TournamentPodEntryRow[]) {
+  const confirmedPodIds = new Set(pods.filter((pod) => pod.status === "confirmed").map((pod) => pod.id));
+  const stats = new Map<string, { participantId: string; seed: number; matchPoints: number; wins: number; losses: number; draws: number }>();
+  for (const participant of participants) {
+    stats.set(participant.id, {
+      participantId: participant.id,
+      seed: participant.seed,
+      matchPoints: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+    });
+  }
+  for (const entry of entries) {
+    if (!confirmedPodIds.has(entry.pod_id)) continue;
+    const current = stats.get(entry.participant_id);
+    if (!current || entry.dropped) continue;
+    current.matchPoints += Number(entry.points ?? 0);
+    if (Number(entry.points ?? 0) > 0 || entry.placement === 1) current.wins += 1;
+    else current.losses += 1;
+  }
+  return [...stats.values()]
+    .sort((a, b) => b.matchPoints - a.matchPoints || b.wins - a.wins || a.seed - b.seed)
+    .map((standing, index) => ({
+      participantId: standing.participantId,
+      rank: index + 1,
+      seed: standing.seed,
+      matchPoints: standing.matchPoints,
+      matchesPlayed: standing.wins + standing.losses + standing.draws,
+      wins: standing.wins,
+      losses: standing.losses,
+      draws: standing.draws,
+      byes: 0,
+      gameWins: standing.wins,
+      gameLosses: standing.losses,
+      gameDraws: 0,
+      opponentMatchWinPct: 0.333333,
+      gameWinPct: standing.wins + standing.losses > 0 ? standing.wins / (standing.wins + standing.losses) : 0.333333,
+      opponentGameWinPct: 0.333333,
+    }));
+}
+
 export async function loadTournamentSnapshot(admin: AdminClient, tournament: TournamentRow, actor: TournamentActor) {
   const isHost = actor.kind === "user" && tournament.host_user_id === actor.user.id;
-  const [{ data: venue }, { data: participants }, { data: rounds }, { data: matches }, { data: invites }, { data: hostEvents }] =
+  const [
+    { data: venue },
+    { data: participants },
+    { data: rounds },
+    { data: matches },
+    { data: pods },
+    { data: podEntries },
+    { data: invites },
+    { data: hostEvents },
+  ] =
     await Promise.all([
       tournament.venue_id
         ? admin.from("tournament_venues").select("id, name, location").eq("id", tournament.venue_id).maybeSingle()
         : Promise.resolve({ data: null }),
       admin.from("tournament_participants").select("*").eq("tournament_id", tournament.id).order("seed", { ascending: true }),
-      admin.from("tournament_rounds").select("*").eq("tournament_id", tournament.id).order("round_number", { ascending: true }),
+      admin.from("tournament_rounds").select("*").eq("tournament_id", tournament.id).order("stage_order", { ascending: true }).order("round_number", { ascending: true }),
       admin.from("tournament_matches").select("*").eq("tournament_id", tournament.id).order("table_number", { ascending: true }),
+      admin.from("tournament_pods").select("*").eq("tournament_id", tournament.id).order("table_number", { ascending: true }),
+      admin.from("tournament_pod_entries").select("*").eq("tournament_id", tournament.id).order("seat_number", { ascending: true }),
       isHost
         ? admin
             .from("tournament_invites")
@@ -729,7 +879,7 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
             .from("tournament_events")
             .select("*")
             .eq("tournament_id", tournament.id)
-            .in("event_type", ["participant_left", "participant_kicked", "participant_issue", "match_confirmed", "match_disputed", "match_override"])
+            .in("event_type", ["participant_left", "participant_kicked", "participant_issue", "match_confirmed", "match_disputed", "match_override", "pod_result"])
             .order("created_at", { ascending: false })
             .limit(30)
         : Promise.resolve({ data: [] }),
@@ -738,6 +888,8 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
   const participantRows = (participants ?? []) as TournamentParticipantRow[];
   const roundRows = (rounds ?? []) as TournamentRoundRow[];
   const matchRows = (matches ?? []) as TournamentMatchRow[];
+  const podRows = (pods ?? []) as TournamentPodRow[];
+  const podEntryRows = (podEntries ?? []) as TournamentPodEntryRow[];
   const roundById = new Map(roundRows.map((r) => [r.id, r]));
   const standingMatches = matchRows
     .map((m) => {
@@ -745,15 +897,19 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
       return round ? asMatchForStandings(m, round) : null;
     })
     .filter((m): m is TournamentMatchForStandings => Boolean(m));
-  const standings = calculateStandings(
-    participantRows.map(toPairingParticipant),
-    standingMatches,
-  );
+  const standings =
+    tournamentMode(tournament) === "commander_pods"
+      ? calculatePodStandings(participantRows, podRows, podEntryRows)
+      : calculateStandings(
+          participantRows.map(toPairingParticipant),
+          standingMatches,
+        );
 
   return {
     id: tournament.id,
     title: tournament.title,
     format: tournament.format,
+    mode: tournamentMode(tournament),
     status: tournament.status,
     structure: tournament.structure,
     currentRound: tournament.current_round,
@@ -795,6 +951,8 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
       roundNumber: r.round_number,
       phase: r.phase,
       status: r.status,
+      stageOrder: r.stage_order ?? r.round_number,
+      label: phaseLabel(r.phase),
       completedAt: r.completed_at,
     })),
     matches: matchRows.map((m) => ({
@@ -812,6 +970,29 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
       reportedByParticipantId: m.reported_by_participant_id,
       confirmedByParticipantId: m.confirmed_by_participant_id,
       disputedByParticipantId: m.disputed_by_participant_id,
+      bracketSlot: m.bracket_slot,
+      sourceLabel: m.source_label,
+      nextMatchHint: m.next_match_hint,
+      loserNextMatchHint: m.loser_next_match_hint,
+      resultPayload: m.result_payload ?? {},
+    })),
+    pods: podRows.map((p) => ({
+      id: p.id,
+      roundId: p.round_id,
+      tableNumber: p.table_number,
+      status: p.status,
+      winnerParticipantId: p.winner_participant_id,
+      resultPayload: p.result_payload ?? {},
+    })),
+    podEntries: podEntryRows.map((entry) => ({
+      id: entry.id,
+      podId: entry.pod_id,
+      roundId: entry.round_id,
+      participantId: entry.participant_id,
+      seatNumber: entry.seat_number,
+      points: entry.points,
+      placement: entry.placement,
+      dropped: entry.dropped,
     })),
     hostEvents: isHost
       ? ((hostEvents ?? []) as TournamentEventRow[]).map((event) => ({
@@ -840,8 +1021,9 @@ export function toPairingParticipant(row: TournamentParticipantRow): TournamentP
 export async function createRoundAndMatches(
   admin: AdminClient,
   tournament: TournamentRow,
-  phase: "swiss" | "top_cut",
+  phase: TournamentPhase,
   roundNumber: number,
+  forcedPairings?: PairingRow[],
 ): Promise<{ ok: true; round: TournamentRoundRow } | { ok: false; response: NextResponse }> {
   const [{ data: participants }, { data: rounds }, { data: matches }] = await Promise.all([
     admin.from("tournament_participants").select("*").eq("tournament_id", tournament.id).order("seed", { ascending: true }),
@@ -861,14 +1043,19 @@ export async function createRoundAndMatches(
   const topCut = String(tournament.settings?.topCut ?? "none");
   const topCutSize = topCut === "top8" ? 8 : topCut === "top4" ? 4 : 0;
   const pairings =
-    phase === "top_cut"
+    forcedPairings ??
+    (phase === "top_cut"
       ? createTopCutPairings(participantRows.map(toPairingParticipant), previousMatches, topCutSize)
-      : createSwissPairings({
-          participants: participantRows.map(toPairingParticipant),
-          previousMatches,
-          roundNumber,
-          phase,
-        });
+      : phase === "single_elimination"
+        ? createSingleEliminationPairings(participantRows.map(toPairingParticipant), roundNumber, previousMatches.filter((m) => m.phase === "single_elimination").map((m) => m.winner_participant_id).filter(Boolean) as string[])
+        : phase === "round_robin"
+          ? createRoundRobinPairings(participantRows.map(toPairingParticipant), roundNumber)
+          : createSwissPairings({
+              participants: participantRows.map(toPairingParticipant),
+              previousMatches,
+              roundNumber,
+              phase,
+            }));
 
   if (pairings.length === 0) {
     return { ok: false, response: NextResponse.json({ ok: false, error: "Not enough players to pair" }, { status: 400 }) };
@@ -876,7 +1063,7 @@ export async function createRoundAndMatches(
 
   const { data: round, error: roundError } = await admin
     .from("tournament_rounds")
-    .insert({ tournament_id: tournament.id, round_number: roundNumber, phase, status: "active" })
+    .insert({ tournament_id: tournament.id, round_number: roundNumber, phase, status: "active", stage_order: nextStageOrder(roundRows) })
     .select("*")
     .single();
   if (roundError || !round) {
@@ -897,6 +1084,11 @@ export async function createRoundAndMatches(
     player_a_game_wins: p.status === "bye" ? 2 : 0,
     player_b_game_wins: 0,
     draws: 0,
+    bracket_slot: p.bracketSlot ?? null,
+    source_label: p.sourceLabel ?? null,
+    next_match_hint: p.nextMatchHint ?? null,
+    loser_next_match_hint: p.loserNextMatchHint ?? null,
+    result_payload: p.resultPayload ?? {},
   }));
   const { error: matchError } = await admin.from("tournament_matches").insert(rows);
   if (matchError) {
@@ -915,6 +1107,246 @@ export async function createRoundAndMatches(
     .eq("id", tournament.id);
 
   return { ok: true, round: typedRound };
+}
+
+function nextStageOrder(roundRows: TournamentRoundRow[]): number {
+  return Math.max(0, ...roundRows.map((round) => Number(round.stage_order ?? round.round_number ?? 0))) + 1;
+}
+
+async function loadPairingContext(admin: AdminClient, tournamentId: string) {
+  const [{ data: participants }, { data: rounds }, { data: matches }, { data: pods }, { data: podEntries }] = await Promise.all([
+    admin.from("tournament_participants").select("*").eq("tournament_id", tournamentId).order("seed", { ascending: true }),
+    admin.from("tournament_rounds").select("*").eq("tournament_id", tournamentId),
+    admin.from("tournament_matches").select("*").eq("tournament_id", tournamentId),
+    admin.from("tournament_pods").select("*").eq("tournament_id", tournamentId),
+    admin.from("tournament_pod_entries").select("*").eq("tournament_id", tournamentId),
+  ]);
+  const participantRows = (participants ?? []) as TournamentParticipantRow[];
+  const roundRows = (rounds ?? []) as TournamentRoundRow[];
+  const matchRows = (matches ?? []) as TournamentMatchRow[];
+  const podRows = (pods ?? []) as TournamentPodRow[];
+  const podEntryRows = (podEntries ?? []) as TournamentPodEntryRow[];
+  const roundById = new Map(roundRows.map((r) => [r.id, r]));
+  const previousMatches = matchRows
+    .map((m) => {
+      const round = roundById.get(m.round_id);
+      return round ? asMatchForStandings(m, round) : null;
+    })
+    .filter((m): m is TournamentMatchForStandings => Boolean(m));
+  return { participantRows, roundRows, matchRows, podRows, podEntryRows, previousMatches };
+}
+
+export async function createCommanderPodRound(
+  admin: AdminClient,
+  tournament: TournamentRow,
+  roundNumber: number,
+): Promise<{ ok: true; round: TournamentRoundRow } | { ok: false; response: NextResponse }> {
+  const { participantRows, roundRows, previousMatches, podRows, podEntryRows } = await loadPairingContext(admin, tournament.id);
+  const standingsOrder = calculatePodStandings(participantRows, podRows, podEntryRows).map((standing) => standing.participantId);
+  const pods = createCommanderPodsRound({
+    participants: participantRows.map(toPairingParticipant),
+    previousMatches,
+    roundNumber,
+    standingsOrder,
+  });
+  if (pods.length === 0) {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: "Commander pods need 3+ active players and cannot make a 2-player pod" }, { status: 400 }),
+    };
+  }
+  const { data: round, error: roundError } = await admin
+    .from("tournament_rounds")
+    .insert({
+      tournament_id: tournament.id,
+      round_number: roundNumber,
+      phase: "commander_pods",
+      status: "active",
+      stage_order: nextStageOrder(roundRows),
+    })
+    .select("*")
+    .single();
+  if (roundError || !round) {
+    console.error("[tournaments] create pod round failed", roundError);
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Failed to create pod round" }, { status: 500 }) };
+  }
+  const typedRound = round as TournamentRoundRow;
+  for (const pod of pods) {
+    const { data: podRow, error: podError } = await admin
+      .from("tournament_pods")
+      .insert({
+        tournament_id: tournament.id,
+        round_id: typedRound.id,
+        table_number: pod.tableNumber,
+        status: pod.status,
+        winner_participant_id: pod.winnerParticipantId,
+        result_payload: {},
+      })
+      .select("*")
+      .single();
+    if (podError || !podRow) {
+      console.error("[tournaments] create pod failed", podError);
+      await admin.from("tournament_rounds").delete().eq("id", typedRound.id);
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Failed to create pods" }, { status: 500 }) };
+    }
+    const entryRows = pod.participantIds.map((participantId, index) => ({
+      pod_id: podRow.id,
+      tournament_id: tournament.id,
+      round_id: typedRound.id,
+      participant_id: participantId,
+      seat_number: index + 1,
+      points: 0,
+      placement: null,
+      dropped: false,
+    }));
+    const { error: entryError } = await admin.from("tournament_pod_entries").insert(entryRows);
+    if (entryError) {
+      console.error("[tournaments] create pod entries failed", entryError);
+      await admin.from("tournament_rounds").delete().eq("id", typedRound.id);
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Failed to create pod seats" }, { status: 500 }) };
+    }
+  }
+  await admin
+    .from("tournaments")
+    .update({ status: "active", current_round: roundNumber, updated_at: new Date().toISOString() })
+    .eq("id", tournament.id);
+  return { ok: true, round: typedRound };
+}
+
+export async function createInitialRoundForMode(
+  admin: AdminClient,
+  tournament: TournamentRow,
+): Promise<{ ok: true; round: TournamentRoundRow } | { ok: false; response: NextResponse }> {
+  const mode = tournamentMode(tournament);
+  if (mode === "single_elimination") return createRoundAndMatches(admin, tournament, "single_elimination", 1);
+  if (mode === "double_elimination") {
+    const { participantRows, previousMatches } = await loadPairingContext(admin, tournament.id);
+    const next = createDoubleEliminationPairings({
+      participants: participantRows.map(toPairingParticipant),
+      previousMatches,
+      roundNumber: 1,
+    });
+    return createRoundAndMatches(admin, tournament, next.phase, 1, next.pairings);
+  }
+  if (mode === "round_robin") return createRoundAndMatches(admin, tournament, "round_robin", 1);
+  if (mode === "commander_pods") return createCommanderPodRound(admin, tournament, 1);
+  return createRoundAndMatches(admin, tournament, "swiss", 1);
+}
+
+async function completeTournament(admin: AdminClient, tournamentId: string) {
+  await admin
+    .from("tournaments")
+    .update({ status: "completed", ended_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", tournamentId);
+}
+
+export async function createNextRoundForMode(
+  admin: AdminClient,
+  tournament: TournamentRow,
+): Promise<{ ok: true; completed?: boolean; round?: TournamentRoundRow } | { ok: false; response: NextResponse }> {
+  const mode = tournamentMode(tournament);
+  const { participantRows, roundRows, matchRows, previousMatches } = await loadPairingContext(admin, tournament.id);
+  const current = Number(tournament.current_round ?? 0);
+
+  if (mode === "single_elimination") {
+    const latestRound = roundRows
+      .filter((round) => round.phase === "single_elimination")
+      .sort((a, b) => Number(b.stage_order ?? b.round_number) - Number(a.stage_order ?? a.round_number))[0];
+    const winners = matchRows
+      .filter((match) => match.round_id === latestRound?.id)
+      .map((match) => match.winner_participant_id)
+      .filter(Boolean) as string[];
+    if (winners.length <= 1) {
+      await completeTournament(admin, tournament.id);
+      return { ok: true, completed: true };
+    }
+    const nextRoundNumber = current + 1;
+    const pairings = createSingleEliminationPairings(participantRows.map(toPairingParticipant), nextRoundNumber, winners);
+    return createRoundAndMatches(admin, tournament, "single_elimination", nextRoundNumber, pairings);
+  }
+
+  if (mode === "double_elimination") {
+    const nextRoundNumber = current + 1;
+    const next = createDoubleEliminationPairings({
+      participants: participantRows.map(toPairingParticipant),
+      previousMatches,
+      roundNumber: nextRoundNumber,
+    });
+    if (next.complete || next.pairings.length === 0) {
+      await completeTournament(admin, tournament.id);
+      return { ok: true, completed: true };
+    }
+    return createRoundAndMatches(admin, tournament, next.phase, nextRoundNumber, next.pairings);
+  }
+
+  if (mode === "round_robin") {
+    const activeCount = participantRows.filter((p) => !p.dropped_at).length;
+    const totalRounds = activeCount % 2 === 0 ? activeCount - 1 : activeCount;
+    if (activeCount > 16) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin is capped at 16 players" }, { status: 400 }) };
+    }
+    if (current >= totalRounds) {
+      await completeTournament(admin, tournament.id);
+      return { ok: true, completed: true };
+    }
+    return createRoundAndMatches(admin, tournament, "round_robin", current + 1);
+  }
+
+  if (mode === "commander_pods") {
+    const podRounds = Math.max(1, Math.min(8, Number(tournament.settings?.podRounds ?? 3) || 3));
+    if (current >= podRounds) {
+      await completeTournament(admin, tournament.id);
+      return { ok: true, completed: true };
+    }
+    return createCommanderPodRound(admin, tournament, current + 1);
+  }
+
+  const topCutRounds = roundRows
+    .filter((round) => round.phase === "top_cut")
+    .sort((a, b) => Number(b.stage_order ?? b.round_number) - Number(a.stage_order ?? a.round_number));
+  if (topCutRounds.length > 0) {
+    const latestTopCut = topCutRounds[0];
+    const winners = matchRows
+      .filter((match) => match.round_id === latestTopCut.id)
+      .map((match) => match.winner_participant_id)
+      .filter(Boolean) as string[];
+    if (winners.length <= 1) {
+      await completeTournament(admin, tournament.id);
+      return { ok: true, completed: true };
+    }
+    const rows: PairingRow[] = pairWinnerIds(winners).map(({ a, b }, index) => ({
+      tableNumber: index + 1,
+      playerAId: a,
+      playerBId: b,
+      status: b ? "pending" : "bye",
+      result: b ? null : "a_win",
+      winnerParticipantId: b ? null : a,
+      bracketSlot: `TC-R${Number(latestTopCut.round_number ?? 1) + 1}-M${index + 1}`,
+    }));
+    return createRoundAndMatches(admin, tournament, "top_cut", Number(latestTopCut.round_number ?? 1) + 1, rows);
+  }
+
+  const swissRounds = Number(tournament.settings?.swissRounds ?? 3);
+  const topCut = String(tournament.settings?.topCut ?? "none");
+  const nextPhase = current >= swissRounds && topCut !== "none" ? "top_cut" : "swiss";
+  const nextRound = nextPhase === "top_cut" ? 1 : current + 1;
+  if (current >= swissRounds && topCut === "none") {
+    await completeTournament(admin, tournament.id);
+    return { ok: true, completed: true };
+  }
+  const created = await createRoundAndMatches(admin, tournament, nextPhase, nextRound);
+  return created.ok ? { ok: true, round: created.round } : created;
+}
+
+export async function markPodRoundCompleteIfResolved(admin: AdminClient, tournamentId: string, roundId: string) {
+  const { data } = await admin.from("tournament_pods").select("id, status").eq("round_id", roundId);
+  const pods = (data ?? []) as Array<{ id: string; status: string }>;
+  if (!pods.length || pods.some((pod) => pod.status !== "confirmed")) return;
+  await admin
+    .from("tournament_rounds")
+    .update({ status: "completed", completed_at: new Date().toISOString() })
+    .eq("id", roundId)
+    .eq("tournament_id", tournamentId);
 }
 
 export async function markRoundCompleteIfResolved(admin: AdminClient, tournamentId: string, roundId: string) {
