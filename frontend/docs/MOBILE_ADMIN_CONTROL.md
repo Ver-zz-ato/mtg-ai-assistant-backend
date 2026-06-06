@@ -273,6 +273,20 @@ If these tables are empty, stale, or misconfigured, the mobile app still runs, b
 2. Set `key` (e.g. `mobile.enable_roast`), `enabled`, optional JSON `value`, `platform`.
 3. Save. The flag appears in the next bootstrap response for matching platforms.
 
+### Tournament Manager beta allowlist
+
+Use `feature_flags` key `tournament_manager_beta` to surface the mobile Tournament Manager host/join entry outside dev builds while the rollout is controlled.
+
+Recommended value:
+
+```json
+{
+  "emails": ["tester@example.com"]
+}
+```
+
+Set `enabled = true` and `platform = all` unless testing only one platform. The app lowercases signed-in user emails before comparing. Use `"*"` only for a broad public beta.
+
 ## Adding remote config
 
 1. Open `/admin/remote-config`.

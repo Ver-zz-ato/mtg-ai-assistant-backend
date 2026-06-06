@@ -108,7 +108,7 @@ Expected behavior:
 
 ### Mobile Life Counter live sync (2026-06-05)
 
-Additive live-game support for the mobile Life Counter:
+Additive live-game support for the mobile Life Counter, allowing a host device to sync life totals and game state live to joined devices:
 
 - `live_game_sessions`
   - one active shared Life Counter state row per QR-hosted game
@@ -128,16 +128,16 @@ RLS / API expectations:
 
 ---
 
-### Tournament Manager V1 (dev beta, 2026-06-05)
+### Tournament Manager V1 (2026-06-05)
 
-Additive mobile tournament support for private link/code/QR events:
+Additive mobile tournament support for private link/code/QR MTG events where a host can create an event and players can join:
 
 - `tournament_venues`
   - host-owned venue profiles for pubs, stores, and social clubs
 - `tournaments`
   - host-owned events with private invite metadata, settings JSON, Swiss/top-cut structure, status, current round, and expiry
 - `tournament_participants`
-  - signed-in and guest-device participants with display name, selected Scryfall art metadata, optional deck link/name, seed, and drop state
+  - signed-in and guest-device participants with display name, selected Scryfall art metadata, optional deck link/name, tournament-specific decklist snapshot, seed, and drop state
 - `tournament_rounds`
   - Swiss and top-cut rounds with active/completed status
 - `tournament_matches`
@@ -150,10 +150,16 @@ Additive mobile tournament support for private link/code/QR events:
 RLS / API expectations:
 
 - all tournament writes go through `/api/mobile/tournaments*` using service-role Supabase clients with route-level auth/guest decisions, Zod validation, rate limits, and ownership checks
+- invite preview uses `/api/mobile/tournaments/preview` to return invite-gated event basics and deck submission settings before a player joins
+- host deletion uses `DELETE /api/mobile/tournaments/[id]`; deleting the parent tournament relies on existing `ON DELETE CASCADE` child rows for participants, rounds, matches, invites, and events
+- leave/kick uses `POST /api/mobile/tournaments/[id]/drop`; active current-round unresolved matches are confirmed as a loss for the dropped player, and `tournament_events` records host-visible leave/kick notifications
+- joined players can call `POST /api/mobile/tournaments/[id]/issue`, which writes a host-visible `participant_issue` event
+- decklist submission policy lives in `tournaments.settings` as `deckSubmissionMode` (`off`, `optional`, `required`), `deckVisibility` (`host_only`, `players`), and optional `deckLegalityCheckEnabled`
+- submitted saved decks and pasted decklists are copied into `tournament_participants.deck_source`, `decklist_text`, `deck_cards`, and deck timestamp columns; they are not normal saved decks
 - invite tokens are never stored raw; guest device identities are stored as server-side hashes of `X-Guest-Session-Token`
-- signed-in hosts and signed-in joined participants can `SELECT` tournament rows, participants, rounds, and matches for Supabase Realtime reads
+- signed-in hosts and signed-in joined participants can `SELECT` tournament rows, participants, rounds, and matches for Supabase Realtime reads; signed-in hosts can also `SELECT` `tournament_events`
 - guest participants read and act through backend API routes because guest device tokens are not Supabase JWT identities
-- `tournaments`, `tournament_participants`, `tournament_rounds`, and `tournament_matches` are added to the `supabase_realtime` publication
+- `tournaments`, `tournament_participants`, `tournament_rounds`, `tournament_matches`, and `tournament_events` are added to the `supabase_realtime` publication
 
 ---
 

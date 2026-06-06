@@ -6,6 +6,7 @@ import {
   getTournamentAccess,
   getTournamentActor,
   loadTournamentSnapshot,
+  logTournamentEvent,
   markRoundCompleteIfResolved,
   requireTournamentAdmin,
   withTournamentRateLimitHeaders,
@@ -63,6 +64,20 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (error) {
       console.error("[mobile/tournaments/confirm] update failed", error);
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Failed to update result" }, { status: 500 }), rateLimit.rateLimit);
+    }
+    if (parsed.data.action === "confirm") {
+      await logTournamentEvent(admin, {
+        tournamentId: id,
+        eventType: "match_confirmed",
+        actor: actor.actor,
+        actorParticipantId: participantId ?? null,
+        payload: {
+          matchId: match.id,
+          roundId,
+          winnerParticipantId: match.winner_participant_id,
+          result: match.result,
+        },
+      });
     }
     await markRoundCompleteIfResolved(admin, id, roundId);
     const snapshot = await loadTournamentSnapshot(admin, access.tournament, actor.actor);

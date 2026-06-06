@@ -867,12 +867,6 @@ async function getRequestUser(req: Request) {
   return { supabase, user };
 }
 
-function devEmailAllowed(userEmail: string | null | undefined): boolean {
-  const expected = (process.env.MANATAP_DEV_LOGIN_EMAIL || process.env.DEV_LOGIN_EMAIL || "").trim().toLowerCase();
-  if (!expected) return false;
-  return String(userEmail || "").trim().toLowerCase() === expected;
-}
-
 async function loadSavedDeck(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, deckId: string): Promise<CompareV2InputDeck | { error: string; status: number; code?: string }> {
   const { data: deck, error } = await supabase
     .from("decks")
@@ -1027,9 +1021,8 @@ export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await getRequestUser(req);
     if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    if (!devEmailAllowed(user.email)) {
-      return NextResponse.json({ ok: false, code: "DEV_ONLY", error: "This tool is only enabled for the developer account." }, { status: 403 });
-    }
+    const { checkProStatus } = await import("@/lib/server-pro-check");
+    const isPro = await checkProStatus(user.id).catch(() => false);
 
     const body = await req.json().catch(() => ({}));
     const parsed = requestSchema.safeParse(body);
@@ -1090,7 +1083,7 @@ export async function POST(req: NextRequest) {
       ...buildAiRouteExecutionContext({
         userId: user.id,
         isGuest: false,
-        isPro: true,
+        isPro,
         source: usageSource ?? null,
         sourcePage,
         featureKey: FEATURE_KEY,

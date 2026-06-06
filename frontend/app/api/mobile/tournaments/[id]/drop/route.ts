@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   checkTournamentBurstLimit,
   dropParticipantBodySchema,
+  forfeitCurrentMatchForParticipant,
   getTournamentAccess,
   getTournamentActor,
   loadTournamentSnapshot,
+  logTournamentEvent,
   requireTournamentAdmin,
   withTournamentRateLimitHeaders,
 } from "@/lib/mobile/tournaments";
@@ -28,8 +30,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (!participantId) {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Participant required" }, { status: 400 }), rateLimit.rateLimit);
     }
+    const reason = access.isHost ? "kick" : "leave";
     if (!access.isHost && participantId !== access.participant?.id) {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 }), rateLimit.rateLimit);
+    }
+    const { data: participant } = await admin
+      .from("tournament_participants")
+      .select("*")
+      .eq("id", participantId)
+      .eq("tournament_id", id)
+      .maybeSingle();
+    if (!participant) {
+      return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Player not found" }, { status: 404 }), rateLimit.rateLimit);
     }
     const { error } = await admin
       .from("tournament_participants")
@@ -40,6 +52,21 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       console.error("[mobile/tournaments/drop] update failed", error);
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Failed to drop player" }, { status: 500 }), rateLimit.rateLimit);
     }
+    const forfeit =
+      access.tournament.status === "active"
+        ? await forfeitCurrentMatchForParticipant(admin, id, participantId)
+        : null;
+    await logTournamentEvent(admin, {
+      tournamentId: id,
+      eventType: reason === "kick" ? "participant_kicked" : "participant_left",
+      actor: actor.actor,
+      actorParticipantId: access.participant?.id ?? (reason === "leave" ? participantId : null),
+      payload: {
+        participantId,
+        displayName: (participant as any).display_name ?? "Player",
+        forfeit,
+      },
+    });
     const snapshot = await loadTournamentSnapshot(admin, access.tournament, actor.actor);
     return withTournamentRateLimitHeaders(NextResponse.json({ ok: true, tournament: snapshot }), rateLimit.rateLimit);
   } catch (error) {

@@ -1,6 +1,6 @@
 # Canonical AI Routes Reference
 
-Last updated: 2026-05-14
+Last updated: 2026-06-06
 
 This is the source-of-truth handover for ManaTap AI routes across the website backend and the mobile app. Future Codex work should start here before changing prompts, validators, cache keys, usage logging, or format support.
 
@@ -156,15 +156,15 @@ Why this exists:
 
 File: `frontend/app/api/mobile/deck/compare-v2/route.ts`
 
-Purpose: Dev-only mobile Deck Compare V2 endpoint. Compares 2-6 same-format decks from saved decks, scanned public decks, or pasted decklists, then returns deterministic deck cards with an AI-adjusted 1-10 power ranking and overview.
+Purpose: Current mobile Deck Compare endpoint. Compares 2-6 same-format decks from the user's saved decks, scanned public ManaTap decks, shared-link decks, or pasted decklists, then returns deck cards, AI-adjusted 1-10 power ranking, pod power, table-balance, and matchup overview data.
 
 Format support: Commander, Modern, Pioneer, Standard, Pauper.
 
 Auth and access:
 
 - Bearer token or website cookie auth required.
-- Server-side dev-login email gate required (`MANATAP_DEV_LOGIN_EMAIL` or `DEV_LOGIN_EMAIL`).
-- No daily rate cap for the first dev-only version.
+- No dev-login email gate should be required for the public Tools flow.
+- Keep product/rate-limit policy aligned with `frontend/lib/feature-limits.ts` and the mobile docs before launch changes.
 
 Validation:
 
@@ -180,13 +180,13 @@ Validation:
 Response shape:
 
 - `decks[]` contains estimated total value, top expensive cards, deterministic stats, strengths, weaknesses, `tableRole`, `whyItWins`, `swingCards`, `watchOutFor`, absolute/pod-relative power fields, and `power.level`.
-- `overview` identifies strongest/weakest deck and gives verdict bullets, winner reason, pod balance note, and pairwise matchup rows for the app's compact Overview / Decks / Matchups result screen.
+- `overview` identifies strongest/weakest deck and gives verdict bullets, winner reason, pod balance note, pairwise matchup rows, and pod power/table-balance context for the app's compact Overview / Decks / Matchups / Table Read result screen.
 - `aiMatchup` provides the app's AI Matchup tab with deck-id based verdict cards, scenario cards, per-deck notes, and full-analysis copy.
 - AI may adjust the deterministic 1-10 power level, but the deterministic score is returned for debugging.
 
 Risk notes:
 
-- Keep this route dev-gated until rate limits, product gating, and public UX are explicitly approved.
+- Keep auth, ownership, public visibility, same-format validation, request size limits, and product rate-limit policy in place; this route accepts decks from outside the user's account only when the source deck is public.
 - Do not trust client-provided ownership, public status, format, value, or power rating; recompute server-side.
 
 ### `POST /api/mobile/deck/compare-v2/ai`
@@ -199,7 +199,7 @@ Auth and access:
 
 - Bearer token or website cookie auth required.
 - Server-side Pro entitlement required; non-Pro returns `PRO_REQUIRED`.
-- Intended to remain behind the Deck Compare V2 dev surface until the merged public compare flow is approved.
+- Intended for the public Deck Compare AI tab after the base comparison has returned; this remains Pro-only.
 
 Request shape:
 

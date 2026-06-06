@@ -8,6 +8,7 @@ import {
   joinTournamentBodySchema,
   loadTournamentSnapshot,
   requireTournamentAdmin,
+  resolveTournamentDeckSubmission,
   withTournamentRateLimitHeaders,
 } from "@/lib/mobile/tournaments";
 
@@ -67,14 +68,15 @@ export async function POST(req: NextRequest) {
         ? admin.from("tournament_participants").select("*").eq("tournament_id", tournament.id).eq("user_id", actor.actor.user.id)
         : admin.from("tournament_participants").select("*").eq("tournament_id", tournament.id).eq("guest_key_hash", actor.actor.guestKeyHash);
     const { data: existing } = await existingFilter.maybeSingle();
+    const deckSubmission = await resolveTournamentDeckSubmission(admin, tournament as any, actor.actor, parsed.data);
+    if (!deckSubmission.ok) return withTournamentRateLimitHeaders(deckSubmission.response, rateLimit.rateLimit);
     const payload = {
       tournament_id: tournament.id,
       user_id: actor.actor.kind === "user" ? actor.actor.user.id : null,
       guest_key_hash: actor.actor.kind === "guest" ? actor.actor.guestKeyHash : null,
       display_name: parsed.data.displayName,
       art: parsed.data.art,
-      deck_id: parsed.data.deckId ?? null,
-      deck_name: parsed.data.deckName ?? null,
+      ...deckSubmission.deck,
       seed: existing?.seed ?? (count ?? 0) + 1,
     };
     const query = existing

@@ -37,6 +37,35 @@ export async function GET(req: NextRequest) {
         .order("joined_at", { ascending: false })
         .limit(30),
     ]);
+    const hostedIds = (hosted ?? []).map((row: any) => row.id).filter(Boolean);
+    const { data: hostedParticipantRows } =
+      hostedIds.length > 0
+        ? await admin
+            .from("tournament_participants")
+            .select("tournament_id, display_name, joined_at, dropped_at")
+            .in("tournament_id", hostedIds)
+            .order("joined_at", { ascending: true })
+        : { data: [] };
+    const participantsByTournament = new Map<string, any[]>();
+    for (const row of hostedParticipantRows ?? []) {
+      const tournamentId = String((row as any).tournament_id);
+      const rows = participantsByTournament.get(tournamentId) ?? [];
+      rows.push(row);
+      participantsByTournament.set(tournamentId, rows);
+    }
+    const hostedWithParticipants = (hosted ?? []).map((row: any) => {
+      const participants = participantsByTournament.get(String(row.id)) ?? [];
+      return {
+        ...row,
+        participant_count: participants.length,
+        active_participant_count: participants.filter((participant) => !participant.dropped_at).length,
+        participants_preview: participants.slice(0, 8).map((participant) => ({
+          display_name: participant.display_name,
+          joined_at: participant.joined_at,
+          dropped: Boolean(participant.dropped_at),
+        })),
+      };
+    });
     const joinedIds = Array.from(new Set((participantRows ?? []).map((row: any) => row.tournament_id).filter(Boolean)));
     const { data: joinedRows } =
       joinedIds.length > 0
@@ -47,7 +76,7 @@ export async function GET(req: NextRequest) {
         : { data: [] };
     const joined = (joinedRows ?? []).filter((row: any) => row.host_user_id !== auth.user.id);
     return withTournamentRateLimitHeaders(
-      NextResponse.json({ ok: true, hosted: hosted ?? [], joined }),
+      NextResponse.json({ ok: true, hosted: hostedWithParticipants, joined }),
       rateLimit.rateLimit,
     );
   } catch (error) {
@@ -97,7 +126,10 @@ export async function POST(req: NextRequest) {
           playerCap: parsed.data.playerCap,
           swissRounds: parsed.data.swissRounds,
           topCut: parsed.data.topCut,
-          decklistsEnabled: parsed.data.decklistsEnabled,
+          decklistsEnabled: parsed.data.deckSubmissionMode ? parsed.data.deckSubmissionMode !== "off" : parsed.data.decklistsEnabled,
+          deckSubmissionMode: parsed.data.deckSubmissionMode ?? (parsed.data.decklistsEnabled ? "optional" : "off"),
+          deckVisibility: parsed.data.deckVisibility,
+          deckLegalityCheckEnabled: parsed.data.deckLegalityCheckEnabled,
         },
         expires_at: expiresAt,
       })

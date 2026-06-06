@@ -19,11 +19,16 @@ Use this doc when you need to answer:
 |---|---|
 | Bootstrap/config | `/api/mobile/bootstrap` |
 | Mobile AI tools | `/api/mobile/deck/analyze`, `/api/mobile/deck/compare-ai`, `/api/mobile/deck/compare-v2`, `/api/mobile/deck/compare-v2/ai`, `/api/mobile/deck/roast-ai`, `/api/mobile/card/explain`, `/api/mobile/commander-recommendations` |
+| Mobile live play | `/api/mobile/live-games*`, `/api/mobile/tournaments*` |
 | Scanner support | `/api/cards/fuzzy`, `/api/cards/recognize-image`, `/api/cards/batch-images`, `/api/cards/batch-metadata` |
 | Revenue / entitlements | `/api/revenuecat/webhook`, `/api/user/pro-status` |
 | Website billing | `/api/billing/create-checkout-session`, `/api/billing/portal`, `/api/stripe/webhook` |
 | Feedback/reporting | `/api/feedback`, `/api/chat/report` |
 | Push / inbox | `/api/users/me/push-token`, `/api/users/me/inbox-comments` |
+
+Deck Compare public route note: `/api/mobile/deck/compare-v2` is the signed-in app endpoint for the public Tools compare flow. It compares the user's saved decks, public ManaTap QR/shared-link decks, and pasted lists, then returns pod power / table-balance context. It must keep Bearer auth, saved-deck ownership checks, public-only scanned deck loading, input validation, request-size limits, and same-format enforcement. The deeper `/api/mobile/deck/compare-v2/ai` route remains Pro-only.
+
+Live play route notes: `/api/mobile/live-games*` backs synced Life Counter QR/link sessions. `/api/mobile/tournaments*` backs Tournament Manager host/join events, invite tokens, deck submission snapshots, pairings, results, disputes, drops, and event completion.
 
 ### Core product APIs
 

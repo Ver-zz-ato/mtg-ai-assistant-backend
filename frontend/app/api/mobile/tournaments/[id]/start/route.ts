@@ -7,6 +7,7 @@ import {
   getTournamentActor,
   loadTournamentSnapshot,
   requireTournamentAdmin,
+  tournamentDeckSubmissionMode,
   withTournamentRateLimitHeaders,
 } from "@/lib/mobile/tournaments";
 
@@ -30,6 +31,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const { count } = await admin.from("tournament_participants").select("id", { count: "exact", head: true }).eq("tournament_id", id);
     if ((count ?? 0) < 2) {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "At least two players are needed" }, { status: 400 }), rateLimit.rateLimit);
+    }
+    if (tournamentDeckSubmissionMode(access.tournament) === "required") {
+      const { count: missingDecks } = await admin
+        .from("tournament_participants")
+        .select("id", { count: "exact", head: true })
+        .eq("tournament_id", id)
+        .is("dropped_at", null)
+        .eq("deck_source", "none");
+      if ((missingDecks ?? 0) > 0) {
+        return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "All active players need decklists before starting" }, { status: 409 }), rateLimit.rateLimit);
+      }
     }
     const created = await createRoundAndMatches(admin, access.tournament, "swiss", 1);
     if (!created.ok) return withTournamentRateLimitHeaders(created.response, rateLimit.rateLimit);
