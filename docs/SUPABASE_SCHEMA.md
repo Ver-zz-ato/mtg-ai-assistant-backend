@@ -145,9 +145,11 @@ Additive mobile tournament support for private link/code/QR MTG events where a h
   - 1v1 table pairings for Swiss, top cut, single elimination, double elimination, and round robin, with reporter/confirmer, dispute state, bracket metadata, winner, and timestamps
   - bracket-style phases expose deterministic visual slots for mobile Bracket v2: Single Elimination uses `SE-R{round}-M{match}` and Top Cut uses `TC-R{round}-M{match}`; `next_match_hint` points to the next visual slot and is `NULL` for finals
 - `tournament_pods`
-  - Commander pod tables for 3-4 player multiplayer rounds with host-entered winner-only results
+  - Commander pod tables for 3-4 player multiplayer rounds with winner-only results; pod players can report a winner, podmates confirm/dispute, and hosts can override/resolve
 - `tournament_pod_entries`
   - pod seat rows with participant id, seat number, winner-only points, and placement metadata
+- `tournament_pod_confirmations`
+  - podmate confirmation/dispute rows keyed by pod/player so Commander pod results can be agreed by the table before points are awarded
 - `tournament_invites`
   - service-role-only invite rows with SHA-256 token hashes, expiry, and revocation
 - `tournament_events`
@@ -167,14 +169,16 @@ RLS / API expectations:
 - hosts can call `POST /api/mobile/tournaments/[id]/winner` after completion to set `tournaments.overall_winner_participant_id`; the tournament row realtime update lets open host/player screens show the winner announcement
 - beta hosts can call `POST /api/mobile/tournaments/[id]/test-participants` during registration to insert synthetic guest participants for bracket testing; rows use generated guest hashes, random MTG-style names, cached commander art where available, and respect the event player cap
 - result confirmation and dispute writes create host-visible `match_confirmed` / `match_disputed` events with table number, player A/B display names, result, and winner display name where applicable
-- Commander pod results use `POST /api/mobile/tournaments/[id]/pods/[podId]/result`; the host chooses a pod winner, winner-only points are saved to `tournament_pod_entries`, and `pod_result` is written to `tournament_events`
+- Commander pod results use `POST /api/mobile/tournaments/[id]/pods/[podId]/result`; host submissions directly confirm/override a pod winner, while player submissions create a reported winner. Podmates use `POST /api/mobile/tournaments/[id]/pods/[podId]/confirm` to confirm or dispute; unanimous required confirmations award winner-only points to `tournament_pod_entries`, disputes write `pod_result_disputed`, and hosts resolve by overriding the pod result.
+- Tournament snapshots include sanitized `activityEvents` built from public-safe `tournament_events` rows. Host-only issue reports remain in host-only `hostEvents` and are not exposed to players or guests.
+- Tournament advance blocks unresolved Commander pods in `pending`, `reported`, or `disputed` status so reported/disputed pod results cannot be skipped.
 - invite preview returns the venue summary used by the mobile join confirmation step, and server validation rejects profanity in venue/title/player/deck-name/issue-message fields
 - decklist submission policy lives in `tournaments.settings` as `deckSubmissionMode` (`off`, `optional`, `required`), `deckVisibility` (`host_only`, `players`), and optional `deckLegalityCheckEnabled`
 - submitted saved decks and pasted decklists are copied into `tournament_participants.deck_source`, `decklist_text`, `deck_cards`, and deck timestamp columns; they are not normal saved decks
 - invite tokens are never stored raw; guest device identities are stored as server-side hashes of `X-Guest-Session-Token`
-- signed-in hosts and signed-in joined participants can `SELECT` tournament rows, participants, rounds, matches, pods, and pod entries for Supabase Realtime reads; signed-in hosts can also `SELECT` `tournament_events`
+- signed-in hosts and signed-in joined participants can `SELECT` tournament rows, participants, rounds, matches, pods, pod entries, and pod confirmations for Supabase Realtime reads; signed-in hosts can also `SELECT` `tournament_events`
 - guest participants read and act through backend API routes because guest device tokens are not Supabase JWT identities
-- `tournaments`, `tournament_participants`, `tournament_rounds`, `tournament_matches`, `tournament_pods`, `tournament_pod_entries`, and `tournament_events` are added to the `supabase_realtime` publication
+- `tournaments`, `tournament_participants`, `tournament_rounds`, `tournament_matches`, `tournament_pods`, `tournament_pod_entries`, `tournament_pod_confirmations`, and `tournament_events` are added to the `supabase_realtime` publication
 
 ---
 

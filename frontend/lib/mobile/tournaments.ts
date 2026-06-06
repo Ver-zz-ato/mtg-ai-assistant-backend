@@ -134,6 +134,10 @@ export const podResultBodySchema = z.object({
   note: z.string().trim().max(500).optional().refine((value) => !containsProfanity(value ?? ""), "profanity_not_allowed"),
 });
 
+export const podConfirmBodySchema = z.object({
+  action: z.enum(["confirm", "dispute"]),
+});
+
 export const declareOverallWinnerBodySchema = z.object({
   participantId: z.string().uuid(),
 });
@@ -226,8 +230,13 @@ export type TournamentPodRow = {
   tournament_id: string;
   round_id: string;
   table_number: number;
-  status: "pending" | "confirmed";
+  status: "pending" | "reported" | "confirmed" | "disputed";
   winner_participant_id: string | null;
+  reported_winner_participant_id: string | null;
+  reported_by_participant_id: string | null;
+  disputed_by_participant_id: string | null;
+  reported_at: string | null;
+  confirmed_at: string | null;
   result_payload: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -247,6 +256,17 @@ export type TournamentPodEntryRow = {
   updated_at: string;
 };
 
+export type TournamentPodConfirmationRow = {
+  id: string;
+  pod_id: string;
+  tournament_id: string;
+  round_id: string;
+  participant_id: string;
+  action: "confirm" | "dispute";
+  created_at: string;
+  updated_at: string;
+};
+
 export type TournamentEventRow = {
   id: string;
   tournament_id: string;
@@ -256,6 +276,21 @@ export type TournamentEventRow = {
   payload: Record<string, unknown>;
   created_at: string;
 };
+
+const PUBLIC_ACTIVITY_EVENT_TYPES = [
+  "tournament_started",
+  "round_advanced",
+  "match_confirmed",
+  "match_disputed",
+  "match_override",
+  "pod_result",
+  "pod_result_reported",
+  "pod_result_disputed",
+  "participant_left",
+  "participant_kicked",
+  "overall_winner_declared",
+  "test_participants_added",
+];
 
 export function requireTournamentAdmin(): AdminClient | NextResponse {
   const admin = getServiceRoleClient();
@@ -735,6 +770,53 @@ export async function logTournamentEvent(
   if (error) console.error("[tournaments] event insert failed", error);
 }
 
+function payloadText(payload: Record<string, unknown>, key: string): string | null {
+  const value = payload[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function activityMessageForEvent(event: TournamentEventRow, participantNameById: Map<string, string>): string | null {
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const table = typeof payload.tableNumber === "number" ? `Table ${payload.tableNumber}` : "A match";
+  const pod = typeof payload.tableNumber === "number" ? `Pod ${payload.tableNumber}` : "A pod";
+  const participantId = payloadText(payload, "participantId");
+  const winnerId = payloadText(payload, "winnerParticipantId");
+  const displayName = payloadText(payload, "displayName") ?? (participantId ? participantNameById.get(participantId) ?? null : null);
+  const winnerName = payloadText(payload, "winnerDisplayName") ?? (winnerId ? participantNameById.get(winnerId) ?? null : null);
+  const playerA = payloadText(payload, "playerADisplayName");
+  const playerB = payloadText(payload, "playerBDisplayName");
+  const matchup = playerA && playerB ? `${playerA} vs ${playerB}` : table;
+
+  switch (event.event_type) {
+    case "tournament_started":
+      return "Tournament started. Round 1 is ready.";
+    case "round_advanced":
+      return "Tournament advanced. New pairings are ready.";
+    case "match_confirmed":
+      return winnerName ? `${table} confirmed: ${winnerName} won (${matchup}).` : `${table} confirmed as a draw (${matchup}).`;
+    case "match_disputed":
+      return `${table} was disputed (${matchup}). Host review needed.`;
+    case "match_override":
+      return "Host updated a match result.";
+    case "pod_result_reported":
+      return `${pod} reported winner: ${winnerName ?? "a player"}. Waiting for podmate confirmations.`;
+    case "pod_result_disputed":
+      return `${pod} result was disputed. Host review needed.`;
+    case "pod_result":
+      return `${pod} confirmed${winnerName ? `: ${winnerName} won.` : "."}`;
+    case "participant_left":
+      return `${displayName ?? "A player"} left the tournament.`;
+    case "participant_kicked":
+      return `${displayName ?? "A player"} was removed by the host.`;
+    case "overall_winner_declared":
+      return `${displayName ?? "A player"} was announced as the tournament winner.`;
+    case "test_participants_added":
+      return `${Number(payload.count ?? 0) || "Test"} test players were added.`;
+    default:
+      return null;
+  }
+}
+
 export async function forfeitCurrentMatchForParticipant(
   admin: AdminClient,
   tournamentId: string,
@@ -853,8 +935,10 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
     { data: matches },
     { data: pods },
     { data: podEntries },
+    { data: podConfirmations },
     { data: invites },
     { data: hostEvents },
+    { data: activityEvents },
   ] =
     await Promise.all([
       tournament.venue_id
@@ -865,6 +949,7 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
       admin.from("tournament_matches").select("*").eq("tournament_id", tournament.id).order("table_number", { ascending: true }),
       admin.from("tournament_pods").select("*").eq("tournament_id", tournament.id).order("table_number", { ascending: true }),
       admin.from("tournament_pod_entries").select("*").eq("tournament_id", tournament.id).order("seat_number", { ascending: true }),
+      admin.from("tournament_pod_confirmations").select("*").eq("tournament_id", tournament.id).order("created_at", { ascending: true }),
       isHost
         ? admin
             .from("tournament_invites")
@@ -879,10 +964,17 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
             .from("tournament_events")
             .select("*")
             .eq("tournament_id", tournament.id)
-            .in("event_type", ["participant_left", "participant_kicked", "participant_issue", "match_confirmed", "match_disputed", "match_override", "pod_result"])
+            .in("event_type", [...PUBLIC_ACTIVITY_EVENT_TYPES, "participant_issue"])
             .order("created_at", { ascending: false })
             .limit(30)
         : Promise.resolve({ data: [] }),
+      admin
+        .from("tournament_events")
+        .select("*")
+        .eq("tournament_id", tournament.id)
+        .in("event_type", PUBLIC_ACTIVITY_EVENT_TYPES)
+        .order("created_at", { ascending: false })
+        .limit(40),
     ]);
 
   const participantRows = (participants ?? []) as TournamentParticipantRow[];
@@ -890,6 +982,9 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
   const matchRows = (matches ?? []) as TournamentMatchRow[];
   const podRows = (pods ?? []) as TournamentPodRow[];
   const podEntryRows = (podEntries ?? []) as TournamentPodEntryRow[];
+  const podConfirmationRows = (podConfirmations ?? []) as TournamentPodConfirmationRow[];
+  const activityEventRows = (activityEvents ?? []) as TournamentEventRow[];
+  const participantNameById = new Map(participantRows.map((participant) => [participant.id, participant.display_name]));
   const roundById = new Map(roundRows.map((r) => [r.id, r]));
   const standingMatches = matchRows
     .map((m) => {
@@ -982,6 +1077,11 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
       tableNumber: p.table_number,
       status: p.status,
       winnerParticipantId: p.winner_participant_id,
+      reportedWinnerParticipantId: p.reported_winner_participant_id,
+      reportedByParticipantId: p.reported_by_participant_id,
+      disputedByParticipantId: p.disputed_by_participant_id,
+      reportedAt: p.reported_at,
+      confirmedAt: p.confirmed_at,
       resultPayload: p.result_payload ?? {},
     })),
     podEntries: podEntryRows.map((entry) => ({
@@ -994,6 +1094,15 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
       placement: entry.placement,
       dropped: entry.dropped,
     })),
+    podConfirmations: podConfirmationRows.map((confirmation) => ({
+      id: confirmation.id,
+      podId: confirmation.pod_id,
+      roundId: confirmation.round_id,
+      participantId: confirmation.participant_id,
+      action: confirmation.action,
+      createdAt: confirmation.created_at,
+      updatedAt: confirmation.updated_at,
+    })),
     hostEvents: isHost
       ? ((hostEvents ?? []) as TournamentEventRow[]).map((event) => ({
           id: event.id,
@@ -1003,6 +1112,23 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
           createdAt: event.created_at,
         }))
       : [],
+    activityEvents: activityEventRows
+      .map((event) => {
+        const message = activityMessageForEvent(event, participantNameById);
+        if (!message) return null;
+        const payload = (event.payload ?? {}) as Record<string, unknown>;
+        return {
+          id: event.id,
+          type: event.event_type,
+          message,
+          createdAt: event.created_at,
+          roundId: payloadText(payload, "roundId"),
+          matchId: payloadText(payload, "matchId"),
+          podId: payloadText(payload, "podId"),
+          participantId: payloadText(payload, "participantId") ?? payloadText(payload, "winnerParticipantId"),
+        };
+      })
+      .filter(Boolean),
     standings,
     updatedAt: tournament.updated_at,
     endedAt: tournament.ended_at,

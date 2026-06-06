@@ -6,6 +6,7 @@ import {
   getTournamentAccess,
   getTournamentActor,
   loadTournamentSnapshot,
+  logTournamentEvent,
   requireTournamentAdmin,
   tournamentMode,
   tournamentDeckSubmissionMode,
@@ -51,6 +52,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
     const created = await createInitialRoundForMode(admin, access.tournament);
     if (!created.ok) return withTournamentRateLimitHeaders(created.response, rateLimit.rateLimit);
+    await logTournamentEvent(admin, {
+      tournamentId: id,
+      eventType: "tournament_started",
+      actor: actor.actor,
+      payload: { mode },
+    });
     const { data: fresh } = await admin.from("tournaments").select("*").eq("id", id).single();
     const snapshot = await loadTournamentSnapshot(admin, fresh as any, actor.actor);
     return withTournamentRateLimitHeaders(NextResponse.json({ ok: true, tournament: snapshot }), rateLimit.rateLimit);

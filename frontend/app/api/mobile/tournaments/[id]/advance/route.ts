@@ -6,6 +6,7 @@ import {
   getTournamentAccess,
   getTournamentActor,
   loadTournamentSnapshot,
+  logTournamentEvent,
   requireTournamentAdmin,
   withTournamentRateLimitHeaders,
 } from "@/lib/mobile/tournaments";
@@ -36,12 +37,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       .from("tournament_pods")
       .select("id")
       .eq("tournament_id", id)
-      .eq("status", "pending");
+      .in("status", ["pending", "reported", "disputed"]);
     if ((openPods ?? []).length > 0) {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Resolve all pods first" }, { status: 409 }), rateLimit.rateLimit);
     }
     const advanced = await createNextRoundForMode(admin, access.tournament);
     if (!advanced.ok) return withTournamentRateLimitHeaders(advanced.response, rateLimit.rateLimit);
+    await logTournamentEvent(admin, {
+      tournamentId: id,
+      eventType: "round_advanced",
+      actor: actor.actor,
+    });
     const { data: fresh } = await admin.from("tournaments").select("*").eq("id", id).single();
     const snapshot = await loadTournamentSnapshot(admin, fresh as any, actor.actor);
     return withTournamentRateLimitHeaders(NextResponse.json({ ok: true, tournament: snapshot }), rateLimit.rateLimit);
