@@ -137,7 +137,13 @@ export default withSentryConfig(nextConfig, {
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
 
-  // Do not let a Sentry release/source-map permission issue block production deploys.
+  // Do not upload source maps from Vercel until the Sentry token permissions are fixed.
+  // Runtime error capture still works via the SDK DSN configured in sentry.*.config.ts.
+  sourcemaps: {
+    disable: true,
+  },
+
+  // Do not let a Sentry release/source-map permission issue block local/preview builds.
   // Runtime error capture still works via the SDK DSN configured in sentry.*.config.ts.
   errorHandler: (err) => {
     console.warn("[sentry] release/source-map upload failed; continuing build:", err.message);
