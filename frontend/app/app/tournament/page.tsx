@@ -1,11 +1,12 @@
 import Link from "next/link";
 
-export default function TournamentInvitePage({
+export default async function TournamentInvitePage({
   searchParams,
 }: {
-  searchParams?: { tournamentToken?: string; token?: string };
+  searchParams?: Promise<{ tournamentToken?: string; token?: string }>;
 }) {
-  const token = searchParams?.tournamentToken ?? searchParams?.token ?? "";
+  const params = await searchParams;
+  const token = params?.tournamentToken ?? params?.token ?? "";
   const appUrl = token ? `manatap://app/tournament?tournamentToken=${encodeURIComponent(token)}` : "manatap://";
 
   return (
