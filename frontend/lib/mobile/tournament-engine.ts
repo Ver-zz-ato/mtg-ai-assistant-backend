@@ -235,6 +235,11 @@ function pairIds(ids: string[]): PairingRow[] {
   return rows;
 }
 
+function nextEliminationSlot(prefix: "SE" | "TC", roundNumber: number, matchIndex: number, currentRoundMatchCount: number): string | null {
+  if (currentRoundMatchCount <= 1) return null;
+  return `${prefix}-R${roundNumber + 1}-M${Math.ceil(matchIndex / 2)}`;
+}
+
 export function createSingleEliminationPairings(
   participants: TournamentParticipantForPairing[],
   roundNumber: number,
@@ -249,7 +254,8 @@ export function createSingleEliminationPairings(
   if (roundNumber <= 1) {
     const size = powerOfTwoAtLeast(ids.length);
     const slots = [...ids, ...Array.from<string | null>({ length: size - ids.length }).fill(null)];
-    return seedPairs(slots.map((id) => id ?? "")).map(([a, b], index) => ({
+    const pairs = seedPairs(slots.map((id) => id ?? ""));
+    return pairs.map(([a, b], index) => ({
       tableNumber: index + 1,
       playerAId: a,
       playerBId: b || null,
@@ -257,12 +263,15 @@ export function createSingleEliminationPairings(
       result: b ? null : "a_win",
       winnerParticipantId: b ? null : a,
       bracketSlot: `SE-R${roundNumber}-M${index + 1}`,
+      nextMatchHint: nextEliminationSlot("SE", roundNumber, index + 1, pairs.length),
     }));
   }
 
-  return pairIds(ids).map((row, index) => ({
+  const rows = pairIds(ids);
+  return rows.map((row, index) => ({
     ...row,
     bracketSlot: `SE-R${roundNumber}-M${index + 1}`,
+    nextMatchHint: nextEliminationSlot("SE", roundNumber, index + 1, rows.length),
   }));
 }
 
@@ -517,15 +526,19 @@ export function createTopCutPairings(
   const cut = calculateStandings(participants.filter((p) => !p.dropped), matches).slice(0, size);
   const seeds = cut.map((s) => s.participantId);
   const pairs = size === 8 ? [[0, 7], [3, 4], [1, 6], [2, 5]] : [[0, 3], [1, 2]];
-  return pairs
+  const validPairs = pairs
     .filter(([a, b]) => seeds[a] && seeds[b])
+    .map(([a, b]) => [seeds[a], seeds[b]] as const);
+  return validPairs
     .map(([a, b], index) => ({
       tableNumber: index + 1,
-      playerAId: seeds[a],
-      playerBId: seeds[b],
+      playerAId: a,
+      playerBId: b,
       status: "pending" as const,
       result: null,
       winnerParticipantId: null,
+      bracketSlot: `TC-R1-M${index + 1}`,
+      nextMatchHint: nextEliminationSlot("TC", 1, index + 1, validPairs.length),
     }));
 }
 

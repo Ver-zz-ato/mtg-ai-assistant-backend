@@ -86,10 +86,24 @@ for (const pairing of round2) {
 const topCut = createTopCutPairings(players, matches, 4);
 assert.equal(topCut.length, 2, "top 4 creates semifinals");
 assert.ok(topCut.every((p) => p.playerAId && p.playerBId), "top cut pairs all seats");
+assert.deepEqual(topCut.map((p) => p.bracketSlot), ["TC-R1-M1", "TC-R1-M2"], "top cut gets stable bracket slots");
+assert.deepEqual(topCut.map((p) => p.nextMatchHint), ["TC-R2-M1", "TC-R2-M1"], "top cut semifinals point to final");
+
+const top8 = createTopCutPairings(players.concat([
+  { id: "p6", seed: 6, display_name: "F" },
+  { id: "p7", seed: 7, display_name: "G" },
+  { id: "p8", seed: 8, display_name: "H" },
+]), matches, 8);
+assert.equal(top8.length, 4, "top 8 creates quarterfinals");
+assert.deepEqual(top8.map((p) => p.nextMatchHint), ["TC-R2-M1", "TC-R2-M1", "TC-R2-M2", "TC-R2-M2"], "top 8 quarters point to semifinals");
 
 const singleElim = createSingleEliminationPairings(players.slice(0, 3), 1);
 assert.equal(singleElim.length, 2, "single elimination pads odd bracket with a bye");
 assert.equal(singleElim.filter((p) => p.status === "bye").length, 1, "single elimination bye is explicit");
+assert.deepEqual(singleElim.map((p) => p.bracketSlot), ["SE-R1-M1", "SE-R1-M2"], "single elimination gets stable bracket slots");
+assert.deepEqual(singleElim.map((p) => p.nextMatchHint), ["SE-R2-M1", "SE-R2-M1"], "single elimination byes still point to the final");
+const singleElimFinal = createSingleEliminationPairings(players.slice(0, 2), 2, ["p1", "p2"]);
+assert.equal(singleElimFinal[0]?.nextMatchHint, null, "single elimination final has no next slot");
 
 const roundRobin = createRoundRobinPairings(players.slice(0, 4), 1);
 assert.equal(roundRobin.length, 2, "round robin pairs every player in an even round");

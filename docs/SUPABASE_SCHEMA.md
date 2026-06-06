@@ -143,6 +143,7 @@ Additive mobile tournament support for private link/code/QR MTG events where a h
   - mode-aware rounds/stages with active/completed status and `stage_order` for phases whose round number can reset
 - `tournament_matches`
   - 1v1 table pairings for Swiss, top cut, single elimination, double elimination, and round robin, with reporter/confirmer, dispute state, bracket metadata, winner, and timestamps
+  - bracket-style phases expose deterministic visual slots for mobile Bracket v2: Single Elimination uses `SE-R{round}-M{match}` and Top Cut uses `TC-R{round}-M{match}`; `next_match_hint` points to the next visual slot and is `NULL` for finals
 - `tournament_pods`
   - Commander pod tables for 3-4 player multiplayer rounds with host-entered winner-only results
 - `tournament_pod_entries`

@@ -1314,16 +1314,19 @@ export async function createNextRoundForMode(
       await completeTournament(admin, tournament.id);
       return { ok: true, completed: true };
     }
-    const rows: PairingRow[] = pairWinnerIds(winners).map(({ a, b }, index) => ({
+    const nextTopCutRoundNumber = Number(latestTopCut.round_number ?? 1) + 1;
+    const topCutPairs = pairWinnerIds(winners);
+    const rows: PairingRow[] = topCutPairs.map(({ a, b }, index) => ({
       tableNumber: index + 1,
       playerAId: a,
       playerBId: b,
       status: b ? "pending" : "bye",
       result: b ? null : "a_win",
       winnerParticipantId: b ? null : a,
-      bracketSlot: `TC-R${Number(latestTopCut.round_number ?? 1) + 1}-M${index + 1}`,
+      bracketSlot: `TC-R${nextTopCutRoundNumber}-M${index + 1}`,
+      nextMatchHint: topCutPairs.length > 1 ? `TC-R${nextTopCutRoundNumber + 1}-M${Math.ceil((index + 1) / 2)}` : null,
     }));
-    return createRoundAndMatches(admin, tournament, "top_cut", Number(latestTopCut.round_number ?? 1) + 1, rows);
+    return createRoundAndMatches(admin, tournament, "top_cut", nextTopCutRoundNumber, rows);
   }
 
   const swissRounds = Number(tournament.settings?.swissRounds ?? 3);
