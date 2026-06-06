@@ -52,6 +52,18 @@ export async function POST(req: NextRequest) {
     }
     const { data: tournament } = await admin.from("tournaments").select("*").eq("id", invite.tournament_id).maybeSingle();
     if (!tournament) return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Tournament not found" }, { status: 404 }), rateLimit.rateLimit);
+    const existingFilter =
+      actor.actor.kind === "user"
+        ? admin.from("tournament_participants").select("*").eq("tournament_id", tournament.id).eq("user_id", actor.actor.user.id)
+        : admin.from("tournament_participants").select("*").eq("tournament_id", tournament.id).eq("guest_key_hash", actor.actor.guestKeyHash);
+    const { data: existing } = await existingFilter.maybeSingle();
+    if (existing?.dropped_at) {
+      return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "You have left or been removed from this tournament" }, { status: 403 }), rateLimit.rateLimit);
+    }
+    if (existing && tournament.status !== "registration") {
+      const snapshot = await loadTournamentSnapshot(admin, tournament as any, actor.actor);
+      return withTournamentRateLimitHeaders(NextResponse.json({ ok: true, tournament: snapshot, rejoined: true }), rateLimit.rateLimit);
+    }
     if (tournament.status !== "registration") {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Registration is closed" }, { status: 409 }), rateLimit.rateLimit);
     }
@@ -60,14 +72,9 @@ export async function POST(req: NextRequest) {
       .from("tournament_participants")
       .select("id", { count: "exact", head: true })
       .eq("tournament_id", tournament.id);
-    if ((count ?? 0) >= playerCap) {
+    if (!existing && (count ?? 0) >= playerCap) {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Tournament is full" }, { status: 409 }), rateLimit.rateLimit);
     }
-    const existingFilter =
-      actor.actor.kind === "user"
-        ? admin.from("tournament_participants").select("*").eq("tournament_id", tournament.id).eq("user_id", actor.actor.user.id)
-        : admin.from("tournament_participants").select("*").eq("tournament_id", tournament.id).eq("guest_key_hash", actor.actor.guestKeyHash);
-    const { data: existing } = await existingFilter.maybeSingle();
     const deckSubmission = await resolveTournamentDeckSubmission(admin, tournament as any, actor.actor, parsed.data);
     if (!deckSubmission.ok) return withTournamentRateLimitHeaders(deckSubmission.response, rateLimit.rateLimit);
     const payload = {

@@ -152,6 +152,8 @@ RLS / API expectations:
 
 - all tournament writes go through `/api/mobile/tournaments*` using service-role Supabase clients with route-level auth/guest decisions, Zod validation, rate limits, and ownership checks
 - invite preview uses `/api/mobile/tournaments/preview` to return invite-gated event basics and deck submission settings before a player joins
+- host invite refresh uses `POST /api/mobile/tournaments/[id]/invite` to mint a fresh raw token/link/QR for registration or active tournaments; invite tokens remain stored only as SHA-256 hashes
+- `POST /api/mobile/tournaments/join` doubles as a rejoin path: an existing non-dropped signed-in or same-device guest participant may scan/paste the invite again during an active tournament and receive the snapshot without creating a duplicate participant
 - host deletion uses `DELETE /api/mobile/tournaments/[id]`, with `POST /api/mobile/tournaments/[id]/delete` as a client/proxy-safe fallback; deleting the parent tournament relies on existing `ON DELETE CASCADE` child rows for participants, rounds, matches, invites, and events
 - host venue deletion uses `DELETE /api/mobile/tournaments/venues?id=...`; existing tournaments keep working because `tournaments.venue_id` is `ON DELETE SET NULL`
 - hosts may update venue/title/format/player cap/Swiss rounds/top cut/deck settings with `PATCH /api/mobile/tournaments/[id]` while the tournament is still in `registration`; setup locks once round one starts
