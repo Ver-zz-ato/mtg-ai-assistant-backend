@@ -116,6 +116,14 @@ export const participantIssueBodySchema = z.object({
   message: z.string().trim().max(500).optional().refine((value) => !containsProfanity(value ?? ""), "profanity_not_allowed"),
 });
 
+export const declareOverallWinnerBodySchema = z.object({
+  participantId: z.string().uuid(),
+});
+
+export const addTestParticipantsBodySchema = z.object({
+  count: z.number().int().min(1).max(24).default(4),
+});
+
 export type AdminClient = SupabaseClient<any, "public", any>;
 export type TournamentActor =
   | { kind: "user"; user: User; actorKey: string; guestKeyHash: null }
@@ -131,6 +139,7 @@ export type TournamentRow = {
   structure: "swiss_top_cut";
   current_round: number;
   settings: Record<string, unknown>;
+  overall_winner_participant_id: string | null;
   created_at: string;
   updated_at: string;
   ended_at: string | null;
@@ -747,6 +756,7 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
     structure: tournament.structure,
     currentRound: tournament.current_round,
     settings: tournament.settings,
+    overallWinnerParticipantId: tournament.overall_winner_participant_id ?? null,
     venue: venue ?? null,
     isHost,
     me: await findParticipantForActor(admin, tournament.id, actor),

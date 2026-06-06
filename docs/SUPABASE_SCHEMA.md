@@ -135,6 +135,7 @@ Additive mobile tournament support for private link/code/QR MTG events where a h
 - `tournament_venues`
   - host-owned venue profiles for pubs, stores, and social clubs
 - `tournaments`
+  - host-owned event row with settings, status, invite metadata, and optional `overall_winner_participant_id` after the host declares the final winner
   - host-owned events with private invite metadata, settings JSON, Swiss/top-cut structure, status, current round, and expiry
 - `tournament_participants`
   - signed-in and guest-device participants with display name, selected Scryfall art metadata, optional deck link/name, tournament-specific decklist snapshot, seed, and drop state
@@ -154,6 +155,8 @@ RLS / API expectations:
 - host deletion uses `DELETE /api/mobile/tournaments/[id]`, with `POST /api/mobile/tournaments/[id]/delete` as a client/proxy-safe fallback; deleting the parent tournament relies on existing `ON DELETE CASCADE` child rows for participants, rounds, matches, invites, and events
 - leave/kick uses `POST /api/mobile/tournaments/[id]/drop`; active current-round unresolved matches are confirmed as a loss for the dropped player, and `tournament_events` records host-visible leave/kick notifications
 - joined players can call `POST /api/mobile/tournaments/[id]/issue`, which writes a host-visible `participant_issue` event
+- hosts can call `POST /api/mobile/tournaments/[id]/winner` after completion to set `tournaments.overall_winner_participant_id`; the tournament row realtime update lets open host/player screens show the winner announcement
+- beta hosts can call `POST /api/mobile/tournaments/[id]/test-participants` during registration to insert synthetic guest participants for bracket testing; rows use generated guest hashes, random MTG-style names, cached commander art where available, and respect the event player cap
 - result confirmation and dispute writes create host-visible `match_confirmed` / `match_disputed` events with table number, player A/B display names, result, and winner display name where applicable
 - invite preview returns the venue summary used by the mobile join confirmation step, and server validation rejects profanity in venue/title/player/deck-name/issue-message fields
 - decklist submission policy lives in `tournaments.settings` as `deckSubmissionMode` (`off`, `optional`, `required`), `deckVisibility` (`host_only`, `players`), and optional `deckLegalityCheckEnabled`
