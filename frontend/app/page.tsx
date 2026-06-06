@@ -86,10 +86,10 @@ export default function Page() {
       <ModeOptions />
       
       <div className="w-full relative">
-        <div className="max-w-[1600px] mx-auto px-4 pt-0">
+        <div className="max-w-[1600px] mx-auto px-4 -mt-2">
           <TopToolsStrip />
         </div>
-        <div className="max-w-[1600px] mx-auto px-4 pt-2">
+        <div className="max-w-[1600px] mx-auto px-4 pt-0">
           <LivePresenceBanner />
         </div>
         
