@@ -85,13 +85,13 @@ export default function TopToolsStrip() {
 
   return (
     <div className="w-full">
-      <div className="w-full flex gap-0.5 md:gap-1 mb-0 overflow-x-auto snap-x snap-mandatory scrollbar-hide opacity-95">
+      <div className="w-full grid grid-cols-5 items-start gap-0.5 md:gap-1 mb-0 overflow-hidden opacity-95">
         {tools.map((tool, idx) => (
           <a
             key={idx}
             href={tool.href}
             onClick={() => handleToolClick(tool)}
-            className="block w-[78vw] md:w-[360px] lg:w-[430px] xl:w-[480px] rounded-xl overflow-hidden snap-center flex-shrink-0 lg:transition-[transform,box-shadow] lg:duration-200 lg:hover:scale-[1.02] lg:hover:shadow-xl lg:hover:shadow-blue-500/20 lg:hover:ring-2 lg:hover:ring-blue-400/50"
+            className="block w-full aspect-[1250/450] rounded-xl overflow-hidden outline-none focus:outline-none focus-visible:outline-none"
           >
             {failedImgs.has(idx) ? (
               <div className="w-full aspect-[1250/450] flex items-center justify-center bg-neutral-800 text-neutral-500 text-sm rounded-xl">
@@ -103,7 +103,7 @@ export default function TopToolsStrip() {
                 alt={tool.alt}
                 width={1250}
                 height={450}
-                className="w-full h-auto aspect-[1250/450] object-cover"
+                className="block w-full h-full object-cover"
                 loading={idx < 2 ? "eager" : "lazy"}
                 decoding="async"
                 onError={() => setFailedImgs((s) => new Set(s).add(idx))}
