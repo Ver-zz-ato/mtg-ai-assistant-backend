@@ -236,9 +236,6 @@ export function TrendingCommandersStrip() {
                       {cmd.name}
                     </span>
                   )}
-                  <span className="mt-2 inline-flex text-xs text-neutral-300 bg-neutral-700/80 px-2 py-0.5 rounded">
-                    {cmd.count} new decks
-                  </span>
                 </div>
                 <div className="mt-auto flex gap-2">
                   <button
