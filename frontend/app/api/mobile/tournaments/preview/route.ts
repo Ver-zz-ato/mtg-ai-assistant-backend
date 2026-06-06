@@ -53,10 +53,13 @@ export async function POST(req: NextRequest) {
     }
     const { data: tournament } = await admin
       .from("tournaments")
-      .select("id, title, format, status, settings")
+      .select("id, title, format, status, settings, venue_id")
       .eq("id", invite.tournament_id)
       .maybeSingle();
     if (!tournament) return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Tournament not found" }, { status: 404 }), rateLimit.rateLimit);
+    const { data: venue } = tournament.venue_id
+      ? await admin.from("tournament_venues").select("id, name, location").eq("id", tournament.venue_id).maybeSingle()
+      : { data: null };
     const { count } = await admin
       .from("tournament_participants")
       .select("id", { count: "exact", head: true })
@@ -70,6 +73,7 @@ export async function POST(req: NextRequest) {
           format: tournament.format,
           status: tournament.status,
           settings: tournament.settings ?? {},
+          venue: venue ?? null,
           participantCount: count ?? 0,
         },
       }),

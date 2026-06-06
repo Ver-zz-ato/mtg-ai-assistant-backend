@@ -155,6 +155,7 @@ RLS / API expectations:
 - leave/kick uses `POST /api/mobile/tournaments/[id]/drop`; active current-round unresolved matches are confirmed as a loss for the dropped player, and `tournament_events` records host-visible leave/kick notifications
 - joined players can call `POST /api/mobile/tournaments/[id]/issue`, which writes a host-visible `participant_issue` event
 - result confirmation and dispute writes create host-visible `match_confirmed` / `match_disputed` events with table number, player A/B display names, result, and winner display name where applicable
+- invite preview returns the venue summary used by the mobile join confirmation step, and server validation rejects profanity in venue/title/player/deck-name/issue-message fields
 - decklist submission policy lives in `tournaments.settings` as `deckSubmissionMode` (`off`, `optional`, `required`), `deckVisibility` (`host_only`, `players`), and optional `deckLegalityCheckEnabled`
 - submitted saved decks and pasted decklists are copied into `tournament_participants.deck_source`, `decklist_text`, `deck_cards`, and deck timestamp columns; they are not normal saved decks
 - invite tokens are never stored raw; guest device identities are stored as server-side hashes of `X-Guest-Session-Token`

@@ -19,6 +19,7 @@ import {
   type TournamentMatchForStandings,
   type TournamentParticipantForPairing,
 } from "@/lib/mobile/tournament-engine";
+import { containsProfanity } from "@/lib/profanity";
 
 export const TOURNAMENT_INVITE_TTL_DAYS = 30;
 export const TOURNAMENT_GUEST_HEADER = "X-Guest-Session-Token";
@@ -44,13 +45,13 @@ export const playerArtSchema = z
 
 export const venueBodySchema = z.object({
   id: z.string().uuid().optional(),
-  name: z.string().trim().min(2).max(120),
-  location: z.string().trim().max(180).optional().default(""),
+  name: z.string().trim().min(2).max(120).refine((value) => !containsProfanity(value), "profanity_not_allowed"),
+  location: z.string().trim().max(180).optional().default("").refine((value) => !containsProfanity(value), "profanity_not_allowed"),
 });
 
 export const createTournamentBodySchema = z.object({
   venueId: z.string().uuid().nullable().optional(),
-  title: z.string().trim().min(2).max(140),
+  title: z.string().trim().min(2).max(140).refine((value) => !containsProfanity(value), "profanity_not_allowed"),
   format: tournamentFormatSchema.default("Commander"),
   playerCap: z.number().int().min(2).max(TOURNAMENT_MAX_PLAYERS).default(32),
   swissRounds: z.number().int().min(1).max(12).default(3),
@@ -69,7 +70,7 @@ export const tournamentDeckCardSchema = z.object({
 
 export const tournamentDeckSubmissionSchema = z.object({
   deckId: z.string().uuid().nullable().optional(),
-  deckName: z.string().trim().max(140).nullable().optional(),
+  deckName: z.string().trim().max(140).nullable().optional().refine((value) => !containsProfanity(value ?? ""), "profanity_not_allowed"),
   decklistText: z.string().trim().max(100_000).nullable().optional(),
   deckCards: z.array(tournamentDeckCardSchema).max(300).optional().default([]),
 });
@@ -79,7 +80,7 @@ export const joinTournamentBodySchema = z
     token: z.string().min(20).max(256).optional(),
     inviteToken: z.string().min(20).max(256).optional(),
     inviteUrl: z.string().min(1).max(2048).optional(),
-    displayName: z.string().trim().min(1).max(80),
+    displayName: z.string().trim().min(1).max(80).refine((value) => !containsProfanity(value), "profanity_not_allowed"),
     art: playerArtSchema.default({ source: "none" }),
   })
   .merge(tournamentDeckSubmissionSchema)
@@ -112,7 +113,7 @@ export const dropParticipantBodySchema = z.object({
 });
 
 export const participantIssueBodySchema = z.object({
-  message: z.string().trim().max(500).optional(),
+  message: z.string().trim().max(500).optional().refine((value) => !containsProfanity(value ?? ""), "profanity_not_allowed"),
 });
 
 export type AdminClient = SupabaseClient<any, "public", any>;
