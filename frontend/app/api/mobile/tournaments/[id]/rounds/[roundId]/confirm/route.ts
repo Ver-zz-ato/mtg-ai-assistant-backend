@@ -47,6 +47,28 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (!access.isHost && match.reported_by_participant_id === participantId) {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Opponent must confirm" }, { status: 403 }), rateLimit.rateLimit);
     }
+    const participantIds = [match.player_a_id, match.player_b_id, match.winner_participant_id, participantId].filter(Boolean) as string[];
+    const { data: eventParticipants } = participantIds.length
+      ? await admin
+          .from("tournament_participants")
+          .select("id, display_name")
+          .eq("tournament_id", id)
+          .in("id", participantIds)
+      : { data: [] };
+    const participantNameById = new Map((eventParticipants ?? []).map((p) => [p.id, p.display_name]));
+    const eventPayload = {
+      matchId: match.id,
+      roundId,
+      tableNumber: match.table_number,
+      playerAParticipantId: match.player_a_id,
+      playerBParticipantId: match.player_b_id,
+      playerADisplayName: match.player_a_id ? participantNameById.get(match.player_a_id) ?? null : null,
+      playerBDisplayName: match.player_b_id ? participantNameById.get(match.player_b_id) ?? null : null,
+      winnerParticipantId: match.winner_participant_id,
+      winnerDisplayName: match.winner_participant_id ? participantNameById.get(match.winner_participant_id) ?? null : null,
+      actorDisplayName: participantId ? participantNameById.get(participantId) ?? null : null,
+      result: match.result,
+    };
     const update =
       parsed.data.action === "confirm"
         ? {
@@ -71,12 +93,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         eventType: "match_confirmed",
         actor: actor.actor,
         actorParticipantId: participantId ?? null,
-        payload: {
-          matchId: match.id,
-          roundId,
-          winnerParticipantId: match.winner_participant_id,
-          result: match.result,
-        },
+        payload: eventPayload,
+      });
+    } else {
+      await logTournamentEvent(admin, {
+        tournamentId: id,
+        eventType: "match_disputed",
+        actor: actor.actor,
+        actorParticipantId: participantId ?? null,
+        payload: eventPayload,
       });
     }
     await markRoundCompleteIfResolved(admin, id, roundId);

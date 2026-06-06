@@ -151,9 +151,10 @@ RLS / API expectations:
 
 - all tournament writes go through `/api/mobile/tournaments*` using service-role Supabase clients with route-level auth/guest decisions, Zod validation, rate limits, and ownership checks
 - invite preview uses `/api/mobile/tournaments/preview` to return invite-gated event basics and deck submission settings before a player joins
-- host deletion uses `DELETE /api/mobile/tournaments/[id]`; deleting the parent tournament relies on existing `ON DELETE CASCADE` child rows for participants, rounds, matches, invites, and events
+- host deletion uses `DELETE /api/mobile/tournaments/[id]`, with `POST /api/mobile/tournaments/[id]/delete` as a client/proxy-safe fallback; deleting the parent tournament relies on existing `ON DELETE CASCADE` child rows for participants, rounds, matches, invites, and events
 - leave/kick uses `POST /api/mobile/tournaments/[id]/drop`; active current-round unresolved matches are confirmed as a loss for the dropped player, and `tournament_events` records host-visible leave/kick notifications
 - joined players can call `POST /api/mobile/tournaments/[id]/issue`, which writes a host-visible `participant_issue` event
+- result confirmation and dispute writes create host-visible `match_confirmed` / `match_disputed` events with table number, player A/B display names, result, and winner display name where applicable
 - decklist submission policy lives in `tournaments.settings` as `deckSubmissionMode` (`off`, `optional`, `required`), `deckVisibility` (`host_only`, `players`), and optional `deckLegalityCheckEnabled`
 - submitted saved decks and pasted decklists are copied into `tournament_participants.deck_source`, `decklist_text`, `deck_cards`, and deck timestamp columns; they are not normal saved decks
 - invite tokens are never stored raw; guest device identities are stored as server-side hashes of `X-Guest-Session-Token`

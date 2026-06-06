@@ -717,7 +717,7 @@ export async function loadTournamentSnapshot(admin: AdminClient, tournament: Tou
             .from("tournament_events")
             .select("*")
             .eq("tournament_id", tournament.id)
-            .in("event_type", ["participant_left", "participant_kicked", "participant_issue", "match_confirmed", "match_override"])
+            .in("event_type", ["participant_left", "participant_kicked", "participant_issue", "match_confirmed", "match_disputed", "match_override"])
             .order("created_at", { ascending: false })
             .limit(30)
         : Promise.resolve({ data: [] }),
