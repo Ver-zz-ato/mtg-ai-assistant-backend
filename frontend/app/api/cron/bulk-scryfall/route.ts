@@ -13,6 +13,10 @@ import {
 import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 const JOB_ID = "bulk_scryfall";
+const SCRYFALL_HEADERS = {
+  Accept: "application/json",
+  "User-Agent": "ManaTap/1.0 (https://www.manatap.ai; bulk-scryfall cron)",
+};
 
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
@@ -189,7 +193,9 @@ export async function POST(req: NextRequest) {
       
       // Get the bulk data URL
       console.log("📥 Getting Scryfall bulk data URL...");
-      const bulkResponse = await fetch("https://api.scryfall.com/bulk-data");
+      const bulkResponse = await fetch("https://api.scryfall.com/bulk-data", {
+        headers: SCRYFALL_HEADERS,
+      });
       if (!bulkResponse.ok) {
         throw new Error(`Failed to fetch bulk data: ${bulkResponse.status} ${bulkResponse.statusText}`);
       }
@@ -202,7 +208,9 @@ export async function POST(req: NextRequest) {
 
       console.log("🌊 Downloading all card data from Scryfall (streaming JSON array)...");
       
-      const streamResponse = await fetch(defaultCardsUrl);
+      const streamResponse = await fetch(defaultCardsUrl, {
+        headers: SCRYFALL_HEADERS,
+      });
       if (!streamResponse.ok) {
         throw new Error(`Failed to download cards: ${streamResponse.status} ${streamResponse.statusText}`);
       }
@@ -271,7 +279,9 @@ export async function POST(req: NextRequest) {
       // LEGACY: Chunked approach (fallback)
       console.log("🔄 Using legacy chunked mode");
       
-      const bulkResponse = await fetch("https://api.scryfall.com/bulk-data");
+      const bulkResponse = await fetch("https://api.scryfall.com/bulk-data", {
+        headers: SCRYFALL_HEADERS,
+      });
       if (!bulkResponse.ok) {
         throw new Error(`Failed to fetch bulk data: ${bulkResponse.status} ${bulkResponse.statusText}`);
       }
@@ -283,7 +293,9 @@ export async function POST(req: NextRequest) {
       }
 
       console.log("📰 Fetching card data from:", defaultCardsUrl);
-      const cardsResponse = await fetch(defaultCardsUrl);
+      const cardsResponse = await fetch(defaultCardsUrl, {
+        headers: SCRYFALL_HEADERS,
+      });
       if (!cardsResponse.ok) {
         throw new Error(`Failed to fetch cards: ${cardsResponse.status} ${cardsResponse.statusText}`);
       }

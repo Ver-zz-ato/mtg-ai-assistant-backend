@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
           topCut: parsed.data.topCut,
           podRounds: parsed.data.podRounds,
           roundRobinDrawsEnabled: parsed.data.roundRobinDrawsEnabled,
+          pairingMode: parsed.data.pairingMode,
           decklistsEnabled: parsed.data.deckSubmissionMode ? parsed.data.deckSubmissionMode !== "off" : parsed.data.decklistsEnabled,
           deckSubmissionMode: parsed.data.deckSubmissionMode ?? (parsed.data.decklistsEnabled ? "optional" : "off"),
           deckVisibility: parsed.data.deckVisibility,

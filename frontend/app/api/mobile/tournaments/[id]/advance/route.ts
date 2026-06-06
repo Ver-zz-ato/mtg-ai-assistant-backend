@@ -7,6 +7,7 @@ import {
   getTournamentActor,
   loadTournamentSnapshot,
   logTournamentEvent,
+  manualRoundBodySchema,
   requireTournamentAdmin,
   withTournamentRateLimitHeaders,
 } from "@/lib/mobile/tournaments";
@@ -41,8 +42,23 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if ((openPods ?? []).length > 0) {
       return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "Resolve all pods first" }, { status: 409 }), rateLimit.rateLimit);
     }
-    const advanced = await createNextRoundForMode(admin, access.tournament);
+    const parsedBody = manualRoundBodySchema.safeParse(await req.json().catch(() => ({})));
+    if (!parsedBody.success) {
+      return withTournamentRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "Invalid manual pairings", details: parsedBody.error.flatten() }, { status: 400 }),
+        rateLimit.rateLimit,
+      );
+    }
+    const advanced = await createNextRoundForMode(admin, access.tournament, parsedBody.data);
     if (!advanced.ok) return withTournamentRateLimitHeaders(advanced.response, rateLimit.rateLimit);
+    if (parsedBody.data.manualPairings?.length || parsedBody.data.manualPods?.length) {
+      await logTournamentEvent(admin, {
+        tournamentId: id,
+        eventType: parsedBody.data.manualPods?.length ? "manual_pods_created" : "manual_pairings_created",
+        actor: actor.actor,
+        payload: { roundNumber: advanced.round?.round_number },
+      });
+    }
     await logTournamentEvent(admin, {
       tournamentId: id,
       eventType: "round_advanced",

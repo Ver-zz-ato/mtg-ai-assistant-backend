@@ -21,6 +21,7 @@ import {
   createSwissPairings,
   createTopCutPairings,
   type PairingRow,
+  type PodPairingRow,
   type TournamentMatchForStandings,
   type TournamentMode,
   type TournamentParticipantForPairing,
@@ -37,6 +38,7 @@ export const tournamentModeSchema = z.enum(["swiss", "single_elimination", "doub
 export const topCutSchema = z.enum(["none", "top4", "top8"]);
 export const deckSubmissionModeSchema = z.enum(["off", "optional", "required"]);
 export const deckVisibilitySchema = z.enum(["host_only", "players"]);
+export const pairingModeSchema = z.enum(["auto", "manual"]);
 
 export const playerArtSchema = z
   .object({
@@ -67,6 +69,7 @@ export const createTournamentBodySchema = z.object({
   topCut: topCutSchema.default("none"),
   podRounds: z.number().int().min(1).max(8).default(3),
   roundRobinDrawsEnabled: z.boolean().default(true),
+  pairingMode: pairingModeSchema.default("auto"),
   decklistsEnabled: z.boolean().default(true),
   deckSubmissionMode: deckSubmissionModeSchema.optional(),
   deckVisibility: deckVisibilitySchema.default("host_only"),
@@ -136,6 +139,31 @@ export const podResultBodySchema = z.object({
 
 export const podConfirmBodySchema = z.object({
   action: z.enum(["confirm", "dispute"]),
+});
+
+export const reseatPodsBodySchema = z.object({
+  roundId: z.string().uuid(),
+  assignments: z.array(z.object({
+    participantId: z.string().uuid(),
+    podId: z.string().uuid(),
+  })).min(3).max(TOURNAMENT_MAX_PLAYERS),
+});
+
+export const manualPairingSchema = z.object({
+  tableNumber: z.number().int().min(1).max(TOURNAMENT_MAX_PLAYERS),
+  playerAId: z.string().uuid(),
+  playerBId: z.string().uuid().nullable().optional(),
+});
+
+export const manualPodSchema = z.object({
+  tableNumber: z.number().int().min(1).max(TOURNAMENT_MAX_PLAYERS),
+  participantIds: z.array(z.string().uuid()).min(3).max(4),
+});
+
+export const manualRoundBodySchema = z.object({
+  manualPairings: z.array(manualPairingSchema).max(TOURNAMENT_MAX_PLAYERS).optional(),
+  manualPods: z.array(manualPodSchema).max(TOURNAMENT_MAX_PLAYERS).optional(),
+  allowRematches: z.boolean().default(false),
 });
 
 export const declareOverallWinnerBodySchema = z.object({
@@ -280,12 +308,15 @@ export type TournamentEventRow = {
 const PUBLIC_ACTIVITY_EVENT_TYPES = [
   "tournament_started",
   "round_advanced",
+  "manual_pairings_created",
+  "manual_pods_created",
   "match_confirmed",
   "match_disputed",
   "match_override",
   "pod_result",
   "pod_result_reported",
   "pod_result_disputed",
+  "pod_seating_updated",
   "participant_left",
   "participant_kicked",
   "overall_winner_declared",
@@ -792,6 +823,10 @@ function activityMessageForEvent(event: TournamentEventRow, participantNameById:
       return "Tournament started. Round 1 is ready.";
     case "round_advanced":
       return "Tournament advanced. New pairings are ready.";
+    case "manual_pairings_created":
+      return "Host manually set the match pairings.";
+    case "manual_pods_created":
+      return "Host manually set Commander pods.";
     case "match_confirmed":
       return winnerName ? `${table} confirmed: ${winnerName} won (${matchup}).` : `${table} confirmed as a draw (${matchup}).`;
     case "match_disputed":
@@ -804,6 +839,8 @@ function activityMessageForEvent(event: TournamentEventRow, participantNameById:
       return `${pod} result was disputed. Host review needed.`;
     case "pod_result":
       return `${pod} confirmed${winnerName ? `: ${winnerName} won.` : "."}`;
+    case "pod_seating_updated":
+      return "Host updated Commander pod seating.";
     case "participant_left":
       return `${displayName ?? "A player"} left the tournament.`;
     case "participant_kicked":
@@ -1262,14 +1299,184 @@ async function loadPairingContext(admin: AdminClient, tournamentId: string) {
   return { participantRows, roundRows, matchRows, podRows, podEntryRows, previousMatches };
 }
 
+type ManualRoundInput = z.infer<typeof manualRoundBodySchema>;
+
+function activeParticipantIds(participants: TournamentParticipantRow[]): string[] {
+  return participants.filter((p) => !p.dropped_at).sort((a, b) => a.seed - b.seed).map((p) => p.id);
+}
+
+function manualNextEliminationSlot(prefix: "SE", roundNumber: number, matchIndex: number, currentRoundMatchCount: number): string | null {
+  if (currentRoundMatchCount <= 1) return null;
+  return `${prefix}-R${roundNumber + 1}-M${Math.ceil(matchIndex / 2)}`;
+}
+
+function confirmedPlayersHaveMet(a: string, b: string, matches: TournamentMatchForStandings[]): boolean {
+  return matches.some((match) => {
+    if (match.status !== "confirmed" && match.status !== "bye") return false;
+    return (
+      (match.player_a_id === a && match.player_b_id === b) ||
+      (match.player_a_id === b && match.player_b_id === a)
+    );
+  });
+}
+
+function validateManualPairings(input: {
+  phase: TournamentPhase;
+  roundNumber: number;
+  mode: TournamentMode;
+  participantRows: TournamentParticipantRow[];
+  previousMatches: TournamentMatchForStandings[];
+  body?: ManualRoundInput;
+}): { ok: true; pairings?: PairingRow[]; manual: boolean } | { ok: false; response: NextResponse } {
+  if (input.body?.manualPods?.length) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "This format uses 1v1 match pairings, not pods" }, { status: 400 }) };
+  }
+  const rows = input.body?.manualPairings;
+  if (!rows?.length) return { ok: true, manual: false };
+
+  if (input.mode === "round_robin") {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin pairings are automatic" }, { status: 400 }) };
+  }
+  if (input.phase === "top_cut") {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Top Cut bracket pairings are automatic" }, { status: 400 }) };
+  }
+  if ((input.mode === "single_elimination" || input.mode === "double_elimination") && input.roundNumber > 1) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Bracket rounds advance winners automatically" }, { status: 400 }) };
+  }
+  if (input.mode === "commander_pods") {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Commander Pods use pod assignments, not 1v1 pairings" }, { status: 400 }) };
+  }
+
+  const activeIds = activeParticipantIds(input.participantRows);
+  const active = new Set(activeIds);
+  const used = new Set<string>();
+  const tables = new Set<number>();
+  let byes = 0;
+  const sortedRows = [...rows].sort((a, b) => a.tableNumber - b.tableNumber);
+
+  for (const row of sortedRows) {
+    if (tables.has(row.tableNumber)) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Each table number can only be used once" }, { status: 400 }) };
+    }
+    tables.add(row.tableNumber);
+    if (!active.has(row.playerAId) || (row.playerBId && !active.has(row.playerBId))) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Manual pairings can only use active players" }, { status: 400 }) };
+    }
+    if (row.playerAId === row.playerBId) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "A player cannot play themselves" }, { status: 400 }) };
+    }
+    for (const playerId of [row.playerAId, row.playerBId].filter(Boolean) as string[]) {
+      if (used.has(playerId)) {
+        return { ok: false, response: NextResponse.json({ ok: false, error: "Each player can only appear once" }, { status: 400 }) };
+      }
+      used.add(playerId);
+    }
+    if (!row.playerBId) byes += 1;
+    if (
+      input.phase === "swiss" &&
+      row.playerBId &&
+      !input.body?.allowRematches &&
+      confirmedPlayersHaveMet(row.playerAId, row.playerBId, input.previousMatches)
+    ) {
+      return {
+        ok: false,
+        response: NextResponse.json({ ok: false, error: "Manual pairing includes a rematch. Confirm rematches to continue." }, { status: 409 }),
+      };
+    }
+  }
+
+  const missing = activeIds.filter((id) => !used.has(id));
+  if (missing.length) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Every active player must be assigned once" }, { status: 400 }) };
+  }
+  if (byes > 1 || (byes === 1 && activeIds.length % 2 === 0)) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Only one bye is allowed, and only with an odd player count" }, { status: 400 }) };
+  }
+
+  const pairings = sortedRows.map((row, index) => {
+    const tableNumber = index + 1;
+    const bracketSlot =
+      input.phase === "single_elimination"
+        ? `SE-R${input.roundNumber}-M${tableNumber}`
+        : input.phase === "double_elimination_winners"
+          ? `DE-W${input.roundNumber}-M${tableNumber}`
+          : null;
+    return {
+      tableNumber,
+      playerAId: row.playerAId,
+      playerBId: row.playerBId ?? null,
+      status: row.playerBId ? "pending" as const : "bye" as const,
+      result: row.playerBId ? null : "a_win" as const,
+      winnerParticipantId: row.playerBId ? null : row.playerAId,
+      bracketSlot,
+      nextMatchHint: input.phase === "single_elimination" ? manualNextEliminationSlot("SE", input.roundNumber, tableNumber, sortedRows.length) : null,
+      resultPayload: { pairingMode: "manual" },
+    };
+  });
+
+  return { ok: true, pairings, manual: true };
+}
+
+function validateManualPods(input: {
+  participantRows: TournamentParticipantRow[];
+  body?: ManualRoundInput;
+}): { ok: true; pods?: PodPairingRow[]; manual: boolean } | { ok: false; response: NextResponse } {
+  if (input.body?.manualPairings?.length) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Commander Pods use pod assignments, not 1v1 pairings" }, { status: 400 }) };
+  }
+  const rows = input.body?.manualPods;
+  if (!rows?.length) return { ok: true, manual: false };
+  const activeIds = activeParticipantIds(input.participantRows);
+  const active = new Set(activeIds);
+  const used = new Set<string>();
+  const tables = new Set<number>();
+  const sortedRows = [...rows].sort((a, b) => a.tableNumber - b.tableNumber);
+
+  for (const row of sortedRows) {
+    if (tables.has(row.tableNumber)) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Each pod number can only be used once" }, { status: 400 }) };
+    }
+    tables.add(row.tableNumber);
+    if (row.participantIds.length < 3 || row.participantIds.length > 4) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Commander pods must have three or four players" }, { status: 400 }) };
+    }
+    for (const participantId of row.participantIds) {
+      if (!active.has(participantId)) {
+        return { ok: false, response: NextResponse.json({ ok: false, error: "Manual pods can only use active players" }, { status: 400 }) };
+      }
+      if (used.has(participantId)) {
+        return { ok: false, response: NextResponse.json({ ok: false, error: "Each player can only appear in one pod" }, { status: 400 }) };
+      }
+      used.add(participantId);
+    }
+  }
+
+  const missing = activeIds.filter((id) => !used.has(id));
+  if (missing.length) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "Every active player must be assigned to a pod" }, { status: 400 }) };
+  }
+
+  return {
+    ok: true,
+    manual: true,
+    pods: sortedRows.map((row, index) => ({
+      tableNumber: index + 1,
+      participantIds: row.participantIds,
+      status: "pending",
+      winnerParticipantId: null,
+    })),
+  };
+}
+
 export async function createCommanderPodRound(
   admin: AdminClient,
   tournament: TournamentRow,
   roundNumber: number,
+  forcedPods?: PodPairingRow[],
 ): Promise<{ ok: true; round: TournamentRoundRow } | { ok: false; response: NextResponse }> {
   const { participantRows, roundRows, previousMatches, podRows, podEntryRows } = await loadPairingContext(admin, tournament.id);
   const standingsOrder = calculatePodStandings(participantRows, podRows, podEntryRows).map((standing) => standing.participantId);
-  const pods = createCommanderPodsRound({
+  const pods = forcedPods ?? createCommanderPodsRound({
     participants: participantRows.map(toPairingParticipant),
     previousMatches,
     roundNumber,
@@ -1342,11 +1549,34 @@ export async function createCommanderPodRound(
 export async function createInitialRoundForMode(
   admin: AdminClient,
   tournament: TournamentRow,
+  body?: ManualRoundInput,
 ): Promise<{ ok: true; round: TournamentRoundRow } | { ok: false; response: NextResponse }> {
   const mode = tournamentMode(tournament);
-  if (mode === "single_elimination") return createRoundAndMatches(admin, tournament, "single_elimination", 1);
+  if (mode === "single_elimination") {
+    const { participantRows, previousMatches } = await loadPairingContext(admin, tournament.id);
+    const manual = validateManualPairings({
+      phase: "single_elimination",
+      roundNumber: 1,
+      mode,
+      participantRows,
+      previousMatches,
+      body,
+    });
+    if (!manual.ok) return manual;
+    return createRoundAndMatches(admin, tournament, "single_elimination", 1, manual.pairings);
+  }
   if (mode === "double_elimination") {
     const { participantRows, previousMatches } = await loadPairingContext(admin, tournament.id);
+    const manual = validateManualPairings({
+      phase: "double_elimination_winners",
+      roundNumber: 1,
+      mode,
+      participantRows,
+      previousMatches,
+      body,
+    });
+    if (!manual.ok) return manual;
+    if (manual.pairings) return createRoundAndMatches(admin, tournament, "double_elimination_winners", 1, manual.pairings);
     const next = createDoubleEliminationPairings({
       participants: participantRows.map(toPairingParticipant),
       previousMatches,
@@ -1354,9 +1584,29 @@ export async function createInitialRoundForMode(
     });
     return createRoundAndMatches(admin, tournament, next.phase, 1, next.pairings);
   }
-  if (mode === "round_robin") return createRoundAndMatches(admin, tournament, "round_robin", 1);
-  if (mode === "commander_pods") return createCommanderPodRound(admin, tournament, 1);
-  return createRoundAndMatches(admin, tournament, "swiss", 1);
+  if (mode === "round_robin") {
+    if (body?.manualPairings?.length || body?.manualPods?.length) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin pairings are automatic" }, { status: 400 }) };
+    }
+    return createRoundAndMatches(admin, tournament, "round_robin", 1);
+  }
+  if (mode === "commander_pods") {
+    const { participantRows } = await loadPairingContext(admin, tournament.id);
+    const manual = validateManualPods({ participantRows, body });
+    if (!manual.ok) return manual;
+    return createCommanderPodRound(admin, tournament, 1, manual.pods);
+  }
+  const { participantRows, previousMatches } = await loadPairingContext(admin, tournament.id);
+  const manual = validateManualPairings({
+    phase: "swiss",
+    roundNumber: 1,
+    mode,
+    participantRows,
+    previousMatches,
+    body,
+  });
+  if (!manual.ok) return manual;
+  return createRoundAndMatches(admin, tournament, "swiss", 1, manual.pairings);
 }
 
 async function completeTournament(admin: AdminClient, tournamentId: string) {
@@ -1369,12 +1619,16 @@ async function completeTournament(admin: AdminClient, tournamentId: string) {
 export async function createNextRoundForMode(
   admin: AdminClient,
   tournament: TournamentRow,
+  body?: ManualRoundInput,
 ): Promise<{ ok: true; completed?: boolean; round?: TournamentRoundRow } | { ok: false; response: NextResponse }> {
   const mode = tournamentMode(tournament);
   const { participantRows, roundRows, matchRows, previousMatches } = await loadPairingContext(admin, tournament.id);
   const current = Number(tournament.current_round ?? 0);
 
   if (mode === "single_elimination") {
+    if (body?.manualPairings?.length || body?.manualPods?.length) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Bracket rounds advance winners automatically" }, { status: 400 }) };
+    }
     const latestRound = roundRows
       .filter((round) => round.phase === "single_elimination")
       .sort((a, b) => Number(b.stage_order ?? b.round_number) - Number(a.stage_order ?? a.round_number))[0];
@@ -1392,6 +1646,9 @@ export async function createNextRoundForMode(
   }
 
   if (mode === "double_elimination") {
+    if (body?.manualPairings?.length || body?.manualPods?.length) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Bracket rounds advance winners automatically" }, { status: 400 }) };
+    }
     const nextRoundNumber = current + 1;
     const next = createDoubleEliminationPairings({
       participants: participantRows.map(toPairingParticipant),
@@ -1406,6 +1663,9 @@ export async function createNextRoundForMode(
   }
 
   if (mode === "round_robin") {
+    if (body?.manualPairings?.length || body?.manualPods?.length) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin pairings are automatic" }, { status: 400 }) };
+    }
     const activeCount = participantRows.filter((p) => !p.dropped_at).length;
     const totalRounds = activeCount % 2 === 0 ? activeCount - 1 : activeCount;
     if (activeCount > 16) {
@@ -1424,13 +1684,18 @@ export async function createNextRoundForMode(
       await completeTournament(admin, tournament.id);
       return { ok: true, completed: true };
     }
-    return createCommanderPodRound(admin, tournament, current + 1);
+    const manual = validateManualPods({ participantRows, body });
+    if (!manual.ok) return manual;
+    return createCommanderPodRound(admin, tournament, current + 1, manual.pods);
   }
 
   const topCutRounds = roundRows
     .filter((round) => round.phase === "top_cut")
     .sort((a, b) => Number(b.stage_order ?? b.round_number) - Number(a.stage_order ?? a.round_number));
   if (topCutRounds.length > 0) {
+    if (body?.manualPairings?.length || body?.manualPods?.length) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Top Cut bracket pairings are automatic" }, { status: 400 }) };
+    }
     const latestTopCut = topCutRounds[0];
     const winners = matchRows
       .filter((match) => match.round_id === latestTopCut.id)
@@ -1460,10 +1725,22 @@ export async function createNextRoundForMode(
   const nextPhase = current >= swissRounds && topCut !== "none" ? "top_cut" : "swiss";
   const nextRound = nextPhase === "top_cut" ? 1 : current + 1;
   if (current >= swissRounds && topCut === "none") {
+    if (body?.manualPairings?.length || body?.manualPods?.length) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: "Swiss rounds are complete" }, { status: 400 }) };
+    }
     await completeTournament(admin, tournament.id);
     return { ok: true, completed: true };
   }
-  const created = await createRoundAndMatches(admin, tournament, nextPhase, nextRound);
+  const manual = validateManualPairings({
+    phase: nextPhase,
+    roundNumber: nextRound,
+    mode,
+    participantRows,
+    previousMatches,
+    body,
+  });
+  if (!manual.ok) return manual;
+  const created = await createRoundAndMatches(admin, tournament, nextPhase, nextRound, manual.pairings);
   return created.ok ? { ok: true, round: created.round } : created;
 }
 

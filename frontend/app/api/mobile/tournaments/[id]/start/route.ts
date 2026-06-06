@@ -7,6 +7,7 @@ import {
   getTournamentActor,
   loadTournamentSnapshot,
   logTournamentEvent,
+  manualRoundBodySchema,
   requireTournamentAdmin,
   tournamentMode,
   tournamentDeckSubmissionMode,
@@ -50,8 +51,23 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         return withTournamentRateLimitHeaders(NextResponse.json({ ok: false, error: "All active players need decklists before starting" }, { status: 409 }), rateLimit.rateLimit);
       }
     }
-    const created = await createInitialRoundForMode(admin, access.tournament);
+    const parsedBody = manualRoundBodySchema.safeParse(await req.json().catch(() => ({})));
+    if (!parsedBody.success) {
+      return withTournamentRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "Invalid manual pairings", details: parsedBody.error.flatten() }, { status: 400 }),
+        rateLimit.rateLimit,
+      );
+    }
+    const created = await createInitialRoundForMode(admin, access.tournament, parsedBody.data);
     if (!created.ok) return withTournamentRateLimitHeaders(created.response, rateLimit.rateLimit);
+    if (parsedBody.data.manualPairings?.length || parsedBody.data.manualPods?.length) {
+      await logTournamentEvent(admin, {
+        tournamentId: id,
+        eventType: parsedBody.data.manualPods?.length ? "manual_pods_created" : "manual_pairings_created",
+        actor: actor.actor,
+        payload: { roundNumber: 1, mode },
+      });
+    }
     await logTournamentEvent(admin, {
       tournamentId: id,
       eventType: "tournament_started",

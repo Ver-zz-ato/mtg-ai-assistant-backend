@@ -115,6 +115,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       ...(parsed.data.topCut ? { topCut: parsed.data.topCut } : {}),
       ...(typeof parsed.data.podRounds === "number" ? { podRounds: parsed.data.podRounds } : {}),
       ...(typeof parsed.data.roundRobinDrawsEnabled === "boolean" ? { roundRobinDrawsEnabled: parsed.data.roundRobinDrawsEnabled } : {}),
+      ...(parsed.data.pairingMode ? { pairingMode: parsed.data.pairingMode } : {}),
       ...(typeof parsed.data.decklistsEnabled === "boolean" ? { decklistsEnabled: parsed.data.decklistsEnabled } : {}),
       ...(parsed.data.deckSubmissionMode
         ? { deckSubmissionMode: parsed.data.deckSubmissionMode, decklistsEnabled: parsed.data.deckSubmissionMode !== "off" }
