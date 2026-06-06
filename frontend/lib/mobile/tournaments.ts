@@ -62,6 +62,8 @@ export const createTournamentBodySchema = z.object({
   deckLegalityCheckEnabled: z.boolean().default(false),
 });
 
+export const updateTournamentSetupBodySchema = createTournamentBodySchema.partial();
+
 export const tournamentDeckCardSchema = z.object({
   name: z.string().trim().min(1).max(180),
   qty: z.number().int().min(1).max(999).default(1),

@@ -153,6 +153,8 @@ RLS / API expectations:
 - all tournament writes go through `/api/mobile/tournaments*` using service-role Supabase clients with route-level auth/guest decisions, Zod validation, rate limits, and ownership checks
 - invite preview uses `/api/mobile/tournaments/preview` to return invite-gated event basics and deck submission settings before a player joins
 - host deletion uses `DELETE /api/mobile/tournaments/[id]`, with `POST /api/mobile/tournaments/[id]/delete` as a client/proxy-safe fallback; deleting the parent tournament relies on existing `ON DELETE CASCADE` child rows for participants, rounds, matches, invites, and events
+- host venue deletion uses `DELETE /api/mobile/tournaments/venues?id=...`; existing tournaments keep working because `tournaments.venue_id` is `ON DELETE SET NULL`
+- hosts may update venue/title/format/player cap/Swiss rounds/top cut/deck settings with `PATCH /api/mobile/tournaments/[id]` while the tournament is still in `registration`; setup locks once round one starts
 - leave/kick uses `POST /api/mobile/tournaments/[id]/drop`; active current-round unresolved matches are confirmed as a loss for the dropped player, and `tournament_events` records host-visible leave/kick notifications
 - joined players can call `POST /api/mobile/tournaments/[id]/issue`, which writes a host-visible `participant_issue` event
 - hosts can call `POST /api/mobile/tournaments/[id]/winner` after completion to set `tournaments.overall_winner_participant_id`; the tournament row realtime update lets open host/player screens show the winner announcement

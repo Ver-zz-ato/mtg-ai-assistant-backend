@@ -81,3 +81,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const auth = await requireTournamentUser(req);
+    if (!auth.ok) return auth.response;
+    const rateLimit = checkTournamentBurstLimit(req, "venue-delete", auth.user.id);
+    if (!rateLimit.allowed) return rateLimit.response;
+    const venueId = new URL(req.url).searchParams.get("id");
+    if (!venueId) {
+      return withTournamentRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "Venue id required" }, { status: 400 }),
+        rateLimit.rateLimit,
+      );
+    }
+    const admin = requireTournamentAdmin();
+    if (admin instanceof NextResponse) return admin;
+    const { error } = await admin
+      .from("tournament_venues")
+      .delete()
+      .eq("id", venueId)
+      .eq("owner_user_id", auth.user.id);
+    if (error) {
+      console.error("[mobile/tournaments/venues] delete failed", error);
+      return withTournamentRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "Failed to delete venue" }, { status: 500 }),
+        rateLimit.rateLimit,
+      );
+    }
+    return withTournamentRateLimitHeaders(NextResponse.json({ ok: true, deleted: true }), rateLimit.rateLimit);
+  } catch (error) {
+    console.error("[mobile/tournaments/venues] delete route error", error);
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+  }
+}
