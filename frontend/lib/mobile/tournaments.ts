@@ -1334,9 +1334,6 @@ function validateManualPairings(input: {
   const rows = input.body?.manualPairings;
   if (!rows?.length) return { ok: true, manual: false };
 
-  if (input.mode === "round_robin") {
-    return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin pairings are automatic" }, { status: 400 }) };
-  }
   if (input.phase === "top_cut") {
     return { ok: false, response: NextResponse.json({ ok: false, error: "Top Cut bracket pairings are automatic" }, { status: 400 }) };
   }
@@ -1585,10 +1582,17 @@ export async function createInitialRoundForMode(
     return createRoundAndMatches(admin, tournament, next.phase, 1, next.pairings);
   }
   if (mode === "round_robin") {
-    if (body?.manualPairings?.length || body?.manualPods?.length) {
-      return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin pairings are automatic" }, { status: 400 }) };
-    }
-    return createRoundAndMatches(admin, tournament, "round_robin", 1);
+    const { participantRows, previousMatches } = await loadPairingContext(admin, tournament.id);
+    const manual = validateManualPairings({
+      phase: "round_robin",
+      roundNumber: 1,
+      mode,
+      participantRows,
+      previousMatches,
+      body,
+    });
+    if (!manual.ok) return manual;
+    return createRoundAndMatches(admin, tournament, "round_robin", 1, manual.pairings);
   }
   if (mode === "commander_pods") {
     const { participantRows } = await loadPairingContext(admin, tournament.id);
@@ -1663,19 +1667,28 @@ export async function createNextRoundForMode(
   }
 
   if (mode === "round_robin") {
-    if (body?.manualPairings?.length || body?.manualPods?.length) {
-      return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin pairings are automatic" }, { status: 400 }) };
-    }
     const activeCount = participantRows.filter((p) => !p.dropped_at).length;
     const totalRounds = activeCount % 2 === 0 ? activeCount - 1 : activeCount;
     if (activeCount > 16) {
       return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin is capped at 16 players" }, { status: 400 }) };
     }
     if (current >= totalRounds) {
+      if (body?.manualPairings?.length || body?.manualPods?.length) {
+        return { ok: false, response: NextResponse.json({ ok: false, error: "Round Robin rounds are complete" }, { status: 400 }) };
+      }
       await completeTournament(admin, tournament.id);
       return { ok: true, completed: true };
     }
-    return createRoundAndMatches(admin, tournament, "round_robin", current + 1);
+    const manual = validateManualPairings({
+      phase: "round_robin",
+      roundNumber: current + 1,
+      mode,
+      participantRows,
+      previousMatches,
+      body,
+    });
+    if (!manual.ok) return manual;
+    return createRoundAndMatches(admin, tournament, "round_robin", current + 1, manual.pairings);
   }
 
   if (mode === "commander_pods") {
