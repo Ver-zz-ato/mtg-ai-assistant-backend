@@ -12,6 +12,7 @@ import CommunityDrawer from "../components/CommunityDrawer";
 import CommunityDrawerContent from "../components/CommunityDrawerContent";
 import MobileOnlyContent from "../components/MobileOnlyContent";
 import TopToolsStrip from "../components/TopToolsStrip";
+import AppComingSoonBanner from "../components/AppComingSoonBanner";
 import AIMemoryGreeting from "../components/AIMemoryGreeting";
 import EmailVerificationSuccessPopup from "../components/EmailVerificationSuccessPopup";
 import LivePresenceBanner from "../components/LivePresenceBanner";
@@ -89,6 +90,7 @@ export default function Page() {
         <div className="max-w-[1600px] mx-auto px-4 -mt-4">
           <TopToolsStrip />
         </div>
+        <AppComingSoonBanner />
         <div className="max-w-[1600px] mx-auto px-4 pt-0">
           <LivePresenceBanner />
         </div>

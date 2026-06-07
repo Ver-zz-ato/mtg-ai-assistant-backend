@@ -5,8 +5,8 @@ import MulliganDeckInput from "./mulligan/MulliganDeckInput";
 
 export default function RightSidebar() {
   const [debugSpace, setDebugSpace] = useState<boolean>(false);
-  const [isCardPanelCollapsed, setIsCardPanelCollapsed] = useState<boolean>(false);
-  const [handTestCollapsed, setHandTestCollapsed] = useState<boolean>(true);
+  const [isCardPanelCollapsed, setIsCardPanelCollapsed] = useState<boolean>(true);
+  const [handTestCollapsed, setHandTestCollapsed] = useState<boolean>(false);
 
   // capture ?dbg=space for spacing debug
   useEffect(() => {

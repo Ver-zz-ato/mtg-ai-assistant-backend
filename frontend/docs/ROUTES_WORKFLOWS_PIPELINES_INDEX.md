@@ -26,7 +26,7 @@ Use this doc when you need to answer:
 | Feedback/reporting | `/api/feedback`, `/api/chat/report` |
 | Push / inbox | `/api/users/me/push-token`, `/api/users/me/inbox-comments` |
 
-Deck Compare public route note: `/api/mobile/deck/compare-v2` is the signed-in app endpoint for the public Tools compare flow. It compares the user's saved decks, public ManaTap QR/shared-link decks, and pasted lists, then returns pod power / table-balance context. It must keep Bearer auth, saved-deck ownership checks, public-only scanned deck loading, input validation, request-size limits, and same-format enforcement. The deeper `/api/mobile/deck/compare-v2/ai` route remains Pro-only.
+Deck Compare public route note: `/api/mobile/deck/compare-v2` backs the signed-in app Tools flow and the website `/compare-decks` page. It compares the user's saved decks, public ManaTap QR/shared-link decks, and pasted lists, then returns pod power / table-balance context. It must keep auth, saved-deck ownership checks, public-only scanned deck loading, input validation, request-size limits, and same-format enforcement. The deeper `/api/mobile/deck/compare-v2/ai` route remains Pro-only.
 
 Live play route notes: `/api/mobile/live-games*` backs synced Life Counter QR/link sessions. `/api/mobile/tournaments*` backs Tournament Manager host/join events, invite tokens, deck submission snapshots, pairings, results, disputes, drops, and event completion.
 

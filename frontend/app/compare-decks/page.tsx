@@ -21,7 +21,7 @@ export default async function ComparePage() {
       {
         icon: '[=]',
         title: 'Side-by-Side Comparison',
-        description: 'Compare up to 3 decks simultaneously with detailed card-by-card analysis.',
+        description: 'Compare up to 6 saved, pasted, or public ManaTap decks in one pod read.',
       },
       {
         icon: '[*]',
@@ -35,9 +35,9 @@ export default async function ComparePage() {
         description: 'Compare mana curves, color distribution, card types, and total deck values.',
       },
       {
-        icon: '[PDF]',
-        title: 'Export to PDF',
-        description: 'Generate professional PDF reports of your deck comparisons to share or print.',
+        icon: '[AI]',
+        title: 'Pro Matchup Coach',
+        description: 'Generate deeper Pro matchup coaching with cards, tactics, and threat priorities.',
       },
     ];
 
@@ -83,7 +83,7 @@ export default async function ComparePage() {
   // Fetch user's decks
   const { data: decks, error } = await supabase
     .from("decks")
-    .select("id, title, commander, created_at, updated_at")
+    .select("id, title, commander, format, created_at, updated_at")
     .eq("user_id", u.user.id)
     .order("updated_at", { ascending: false });
 
@@ -101,7 +101,7 @@ export default async function ComparePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Compare Decks</h1>
         <p className="text-gray-400 text-sm">
-          Select 2-3 decks to compare side-by-side with detailed analysis
+          Add 2-6 same-format decks from saved decks, pasted lists, or public ManaTap deck links
         </p>
       </div>
 

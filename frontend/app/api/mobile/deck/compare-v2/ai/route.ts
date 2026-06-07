@@ -434,7 +434,7 @@ export async function POST(req: Request) {
       judge: {
         enabled: true,
         passName: "deep_judge",
-        maxTokens: 2600,
+        maxTokens: 7000,
         timeoutMs: 170000,
         buildMessages: () => [
           {

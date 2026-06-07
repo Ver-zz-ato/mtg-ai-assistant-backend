@@ -143,7 +143,7 @@ export default function HomepageSignupBanner() {
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">
-                <span>👥</span> Join 1,000+ MTG players
+                <span>👥</span> Join 10.000+ MTG players
               </span>
             </p>
           </div>

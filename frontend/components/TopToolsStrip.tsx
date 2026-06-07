@@ -85,16 +85,16 @@ export default function TopToolsStrip() {
 
   return (
     <div className="w-full">
-      <div className="w-full grid grid-cols-5 items-start gap-0.5 md:gap-1 mb-0 overflow-hidden opacity-95">
+      <div className="w-full flex md:grid md:grid-cols-5 items-start gap-1 mb-0 overflow-x-auto md:overflow-hidden scrollbar-hide opacity-95">
         {tools.map((tool, idx) => (
           <a
             key={idx}
             href={tool.href}
             onClick={() => handleToolClick(tool)}
-            className="block w-full aspect-[1250/450] rounded-xl overflow-hidden outline-none focus:outline-none focus-visible:outline-none"
+            className="block w-[142px] min-w-[142px] sm:w-[160px] sm:min-w-[160px] md:w-full md:min-w-0 aspect-[1250/320] rounded-xl overflow-hidden outline-none focus:outline-none focus-visible:outline-none"
           >
             {failedImgs.has(idx) ? (
-              <div className="w-full aspect-[1250/450] flex items-center justify-center bg-neutral-800 text-neutral-500 text-sm rounded-xl">
+              <div className="w-full aspect-[1250/320] flex items-center justify-center bg-neutral-800 text-neutral-500 text-sm rounded-xl">
                 {tool.alt}
               </div>
             ) : (
@@ -102,9 +102,9 @@ export default function TopToolsStrip() {
                 src={tool.img}
                 alt={tool.alt}
                 width={1250}
-                height={450}
+                height={320}
                 className="block w-full h-full object-cover"
-                loading={idx < 2 ? "eager" : "lazy"}
+                loading="eager"
                 decoding="async"
                 onError={() => setFailedImgs((s) => new Set(s).add(idx))}
               />
