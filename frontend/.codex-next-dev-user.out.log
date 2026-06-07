@@ -909,3 +909,6 @@
  GET /api/shout/history 200 in 91ms (compile: 6ms, proxy.ts: 5ms, render: 80ms)
  GET / 200 in 4.1s (compile: 139ms, proxy.ts: 6ms, render: 3.9s)
  POST /api/cards/collection 200 in 9.5s (proxy.ts: 138ms)
+ GET /api/stats/activity 200 in 32ms (compile: 14ms, proxy.ts: 14ms, render: 5ms)
+[CostAudit] {"ts":"2026-06-07T18:18:52.654Z","route":"/api/shout/history","method":"GET","reqId":"b1ee1898-d","event":"shout.history","durationMs":120,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 154ms (compile: 10ms, proxy.ts: 18ms, render: 125ms)
