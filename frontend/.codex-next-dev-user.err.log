@@ -7,3 +7,5 @@
 [Attribution] Failed to check existing record: Could not find the table 'public.user_attribution' in the schema cache
 [Attribution] Insert error: PGRST205 Could not find the table 'public.user_attribution' in the schema cache
 [CostAudit] db persist failed (further warnings suppressed): [object Object]
+[CostAudit] db persist failed (further warnings suppressed): [object Object]
+[CostAudit] db persist failed (further warnings suppressed): [object Object]
