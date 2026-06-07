@@ -85,7 +85,7 @@ export default function TopToolsStrip() {
 
   return (
     <div className="w-full">
-      <div className="w-full flex md:grid md:grid-cols-5 items-start gap-1 mb-0 overflow-x-auto md:overflow-hidden scrollbar-hide opacity-95">
+      <div className="w-full flex md:grid md:grid-cols-5 items-start gap-px mb-0 overflow-x-auto md:overflow-hidden scrollbar-hide opacity-95">
         {tools.map((tool, idx) => (
           <a
             key={idx}
