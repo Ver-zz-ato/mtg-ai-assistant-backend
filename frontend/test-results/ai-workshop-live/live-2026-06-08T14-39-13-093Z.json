@@ -1,0 +1,532 @@
+[
+  {
+    "case": {
+      "id": "fix_modern",
+      "pass": "fix_legality",
+      "format": "Modern",
+      "commander": null,
+      "deck": "4 Dragon's Rage Channeler\n4 Ragavan, Nimble Pilferer\n4 Murktide Regent\n4 Fury\n4 Mishra's Bauble\n4 Lightning Bolt\n4 Unholy Heat\n4 Counterspell\n4 Consider\n4 Preordain\n4 Expressive Iteration\n3 Island\n1 Mountain\n4 Steam Vents\n4 Spirebluff Canal\n4 Scalding Tarn\nSideboard\n3 Blood Moon\n2 Engineered Explosives\n2 Flusterstorm\n2 Dress Down\n2 Unlicensed Hearse\n2 Brotherhood's End\n2 Chalice of the Void",
+      "target": 60,
+      "expect": "No Fury, sideboard preserved, warning or repair if underfilled"
+    },
+    "status": "PASS",
+    "issues": [],
+    "cautions": [],
+    "http": 200,
+    "summary": "Legality issues repaired. Illegal, off-color, or extra-copy cards were removed to match current Modern rules. Review the updated deck size before saving.",
+    "why": "This legality pass only touched cards that broke Modern rules. It removed illegal, off-color, or extra-copy cards and did not invent optimization swaps.",
+    "warnings": [
+      "Source deck has 1 card line(s) not legal in Modern.",
+      "Source deck has 56 cards after validation; target is 60 for Modern."
+    ],
+    "beforeCount": 60,
+    "afterCount": 56,
+    "added": [],
+    "removed": [
+      {
+        "name": "Fury",
+        "qty": 4
+      }
+    ],
+    "deckText": "4 Dragon's Rage Channeler\n4 Ragavan, Nimble Pilferer\n4 Murktide Regent\n4 Mishra's Bauble\n4 Lightning Bolt\n4 Unholy Heat\n4 Counterspell\n4 Consider\n4 Preordain\n4 Expressive Iteration\n3 Island\n1 Mountain\n4 Steam Vents\n4 Spirebluff Canal\n4 Scalding Tarn\nSideboard\n3 Blood Moon\n2 Engineered Explosives\n2 Flusterstorm\n2 Dress Down\n2 Unlicensed Hearse\n2 Brotherhood's End\n2 Chalice of the Void"
+  },
+  {
+    "case": {
+      "id": "fix_korvold",
+      "pass": "fix_legality",
+      "format": "Commander",
+      "commander": "Korvold, Fae-Cursed King",
+      "deck": "1 Korvold, Fae-Cursed King\n1 Sol Ring\n1 Arcane Signet\n1 Command Tower\n1 Exotic Orchard\n12 Forest\n10 Swamp\n8 Mountain\n4 Plains\n4 Island\n1 Swords to Plowshares\n1 Counterspell\n1 Rhystic Study\n1 Demonic Tutor\n1 Vampiric Tutor\n1 Mana Crypt\n1 Jeweled Lotus\n1 Dockside Extortionist\n1 Mayhem Devil\n1 Pitiless Plunderer\n1 Skullclamp\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Viscera Seer\n1 Cauldron Familiar\n1 Witch's Oven\n1 Village Rites\n1 Deadly Dispute\n1 Claim the Firstborn\n1 Korvold, Fae-Cursed King\n1 Farseek\n1 Nature's Lore\n1 Cultivate\n1 Kodama's Reach\n1 Sakura-Tribe Elder\n1 Birds of Paradise\n1 Llanowar Elves\n1 Elvish Mystic\n1 Beast Within\n1 Chaos Warp\n1 Assassin's Trophy\n1 Abrade\n1 Terminate\n1 Putrefy\n1 Reclamation Sage\n1 Eternal Witness\n1 Victimize\n1 Living Death\n1 Grave Pact\n1 Dictate of Erebos\n1 Avenger of Zendikar\n1 Craterhoof Behemoth\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Ophiomancer\n1 Jadar, Ghoulcaller of Nephalia\n1 Chatterfang, Squirrel General\n1 Moldervine Reclamation\n1 Phyrexian Arena\n1 Harmonize",
+      "target": 100,
+      "expect": "Remove off-color W/U cards and duplicate commander; underfill warning acceptable"
+    },
+    "status": "FAIL",
+    "issues": [
+      "off-color cards remain: Mountain"
+    ],
+    "cautions": [],
+    "http": 200,
+    "summary": "Legality issues repaired. Illegal, off-color, or extra-copy cards were removed to match current Commander rules. Review the updated deck size before saving.",
+    "why": "This legality pass only touched cards that broke Commander rules. It removed illegal, off-color, or extra-copy cards and did not invent optimization swaps.",
+    "warnings": [
+      "Source deck lists 5 line(s) that appear outside Korvold, Fae-Cursed King's color identity (replacements may be needed).",
+      "Source deck has 5 card line(s) outside commander color identity.",
+      "Source deck has 3 card line(s) not legal in Commander.",
+      "Source deck has 1 copy-count violation(s) for Commander.",
+      "Extra copies were removed from 1 card line(s) to match Commander copy limits.",
+      "Source deck has 78 cards after validation; target is 100 for Commander."
+    ],
+    "beforeCount": 93,
+    "afterCount": 78,
+    "added": [],
+    "removed": [
+      {
+        "name": "Counterspell",
+        "qty": 1
+      },
+      {
+        "name": "Dockside Extortionist",
+        "qty": 1
+      },
+      {
+        "name": "Island",
+        "qty": 4
+      },
+      {
+        "name": "Jeweled Lotus",
+        "qty": 1
+      },
+      {
+        "name": "Korvold, Fae-Cursed King",
+        "qty": 1
+      },
+      {
+        "name": "Mana Crypt",
+        "qty": 1
+      },
+      {
+        "name": "Plains",
+        "qty": 4
+      },
+      {
+        "name": "Rhystic Study",
+        "qty": 1
+      },
+      {
+        "name": "Swords to Plowshares",
+        "qty": 1
+      }
+    ],
+    "deckText": "1 Korvold, Fae-Cursed King\n1 Sol Ring\n1 Arcane Signet\n1 Command Tower\n1 Exotic Orchard\n12 Forest\n10 Swamp\n8 Mountain\n1 Demonic Tutor\n1 Vampiric Tutor\n1 Mayhem Devil\n1 Pitiless Plunderer\n1 Skullclamp\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Viscera Seer\n1 Cauldron Familiar\n1 Witch's Oven\n1 Village Rites\n1 Deadly Dispute\n1 Claim the Firstborn\n1 Farseek\n1 Nature's Lore\n1 Cultivate\n1 Kodama's Reach\n1 Sakura-Tribe Elder\n1 Birds of Paradise\n1 Llanowar Elves\n1 Elvish Mystic\n1 Beast Within\n1 Chaos Warp\n1 Assassin's Trophy\n1 Abrade\n1 Terminate\n1 Putrefy\n1 Reclamation Sage\n1 Eternal Witness\n1 Victimize\n1 Living Death\n1 Grave Pact\n1 Dictate of Erebos\n1 Avenger of Zendikar\n1 Craterhoof Behemoth\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Ophiomancer\n1 Jadar, Ghoulcaller of Nephalia\n1 Chatterfang, Squirrel General\n1 Moldervine Reclamation\n1 Phyrexian Arena\n1 Harmonize"
+  },
+  {
+    "case": {
+      "id": "mana_chulane",
+      "pass": "improve_mana_base",
+      "format": "Commander",
+      "commander": "Chulane, Teller of Tales",
+      "deck": "1 Chulane, Teller of Tales\n9 Forest\n6 Island\n5 Plains\n1 Llanowar Elves\n1 Elvish Mystic\n1 Birds of Paradise\n1 Sakura-Tribe Elder\n1 Coiling Oracle\n1 Cloud of Faeries\n1 Whitemane Lion\n1 Shrieking Drake\n1 Eternal Witness\n1 Reclamation Sage\n1 Beast Whisperer\n1 Guardian Project\n1 Soul Warden\n1 Scute Swarm\n1 Avenger of Zendikar\n1 Craterhoof Behemoth\n1 Swords to Plowshares\n1 Beast Within\n1 Generous Gift\n1 Counterspell\n1 Arcane Signet\n1 Sol Ring\n1 Cultivate\n1 Kodama's Reach\n1 Farseek\n1 Nature's Lore\n1 Three Visits\n1 Command Tower\n1 Temple Garden\n1 Breeding Pool\n1 Hallowed Fountain\n1 Flooded Strand\n1 Windswept Heath\n1 Misty Rainforest\n1 Evolving Wilds\n1 Terramorphic Expanse\n1 Reliquary Tower\n1 Yavimaya Coast\n1 Prairie Stream\n1 Canopy Vista\n1 Sunpetal Grove\n1 Glacial Fortress\n1 Hinterland Harbor\n1 Seaside Citadel\n1 Risen Reef\n1 Luminous Broodmoth\n1 Aluren\n1 Intruder Alarm\n1 Shrieking Drake\n1 Eladamri's Call\n1 Finale of Devastation\n1 Chord of Calling\n1 Collected Company\n1 Ephemerate\n1 Ghostly Flicker\n1 Panharmonicon\n1 Conjurer's Closet\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Mystic Snake\n1 Aether Channeler\n1 Reflector Mage\n1 Deputy of Detention\n1 Skyclave Apparition\n1 Lavinia, Azorius Renegade\n1 Esper Sentinel\n1 Grand Abolisher\n1 Mother of Runes\n1 Gilded Goose\n1 Lotus Cobra\n1 Faeburrow Elder\n1 Bloom Tender\n1 Dryad Arbor\n1 Spara's Headquarters\n1 Bountiful Promenade\n1 Rejuvenating Springs\n1 Sea of Clouds\n1 Adarkar Wastes\n1 Brushland",
+      "target": 100,
+      "expect": "Only mana/ramp/fixing changes"
+    },
+    "status": "FAIL",
+    "issues": [
+      "mana pass added non-mana: Commander's Sphere",
+      "off-color cards remain: Counterspell, Island"
+    ],
+    "cautions": [],
+    "http": 200,
+    "summary": "Transformed: Mana base improvement. Power Casual, budget Moderate. Avg CMC ~2.68.",
+    "why": "This pass tightens the mana base by replacing basic-heavy slots with broader fixing and an extra ramp piece for [[Chulane, Teller of Tales]]. [[Exotic Orchard]], [[Fellwar Stone]], and [[Commander's Sphere]] improve color access and help cast multicolor spells more smoothly. Cutting excess [[Plains]] and the off-scope [[Shrieking Drake]] keeps the update focused on mana consistency.",
+    "warnings": [
+      "Mana base pass removed non-mana additions that fell outside the pass scope.",
+      "Commander-package guard restored the commander and core nonland engine cards from the source deck.",
+      "Final copy-count check adjusted 1 card line(s).",
+      "Final validation restored legal source cards to refill the deck."
+    ],
+    "beforeCount": 100,
+    "afterCount": 100,
+    "added": [
+      {
+        "name": "Commander's Sphere",
+        "qty": 1
+      },
+      {
+        "name": "Exotic Orchard",
+        "qty": 1
+      },
+      {
+        "name": "Fellwar Stone",
+        "qty": 1
+      }
+    ],
+    "removed": [
+      {
+        "name": "Plains",
+        "qty": 2
+      },
+      {
+        "name": "Shrieking Drake",
+        "qty": 1
+      }
+    ],
+    "deckText": "1 Adarkar Wastes\n1 Aether Channeler\n1 Aluren\n1 Arcane Signet\n1 Avenger of Zendikar\n1 Beast Whisperer\n1 Beast Within\n1 Birds of Paradise\n1 Bloom Tender\n1 Bountiful Promenade\n1 Breeding Pool\n1 Brushland\n1 Canopy Vista\n1 Chord of Calling\n1 Chulane, Teller of Tales\n1 Cloud of Faeries\n1 Coiling Oracle\n1 Collected Company\n1 Command Tower\n1 Commander's Sphere\n1 Conjurer's Closet\n1 Counterspell\n1 Craterhoof Behemoth\n1 Cultivate\n1 Deputy of Detention\n1 Dryad Arbor\n1 Eladamri's Call\n1 Elvish Mystic\n1 Ephemerate\n1 Esper Sentinel\n1 Eternal Witness\n1 Evolving Wilds\n1 Exotic Orchard\n1 Faeburrow Elder\n1 Farseek\n1 Fellwar Stone\n1 Finale of Devastation\n1 Flooded Strand\n9 Forest\n1 Generous Gift\n1 Ghostly Flicker\n1 Gilded Goose\n1 Glacial Fortress\n1 Grand Abolisher\n1 Guardian Project\n1 Hallowed Fountain\n1 Hinterland Harbor\n1 Intruder Alarm\n6 Island\n1 Kodama's Reach\n1 Lavinia, Azorius Renegade\n1 Llanowar Elves\n1 Lotus Cobra\n1 Luminous Broodmoth\n1 Misty Rainforest\n1 Mother of Runes\n1 Mystic Snake\n1 Nature's Lore\n1 Panharmonicon\n3 Plains\n1 Prairie Stream\n1 Reclamation Sage\n1 Reflector Mage\n1 Rejuvenating Springs\n1 Reliquary Tower\n1 Risen Reef\n1 Sakura-Tribe Elder\n1 Scute Swarm\n1 Sea of Clouds\n1 Seaside Citadel\n1 Shrieking Drake\n1 Skyclave Apparition\n1 Sol Ring\n1 Soul Warden\n1 Spara's Headquarters\n1 Sunpetal Grove\n1 Swords to Plowshares\n1 Temple Garden\n1 Terramorphic Expanse\n1 Three Visits\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Whitemane Lion\n1 Windswept Heath\n1 Yavimaya Coast"
+  },
+  {
+    "case": {
+      "id": "curve_gishath",
+      "pass": "tighten_curve",
+      "format": "Commander",
+      "commander": "Gishath, Sun's Avatar",
+      "deck": "1 Gishath, Sun's Avatar\n14 Forest\n8 Mountain\n8 Plains\n1 Command Tower\n1 Path of Ancestry\n1 Jungle Shrine\n1 Temple Garden\n1 Stomping Ground\n1 Sacred Foundry\n1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n1 Kodama's Reach\n1 Farseek\n1 Rampant Growth\n1 Explosive Vegetation\n1 Skyshroud Claim\n1 Ghalta, Stampede Tyrant\n1 Zacama, Primal Calamity\n1 Zetalpa, Primal Dawn\n1 Etali, Primal Storm\n1 Etali, Primal Conqueror\n1 Apex Altisaur\n1 Trapjaw Tyrant\n1 Regisaur Alpha\n1 Ripjaw Raptor\n1 Ranging Raptors\n1 Marauding Raptor\n1 Otepec Huntmaster\n1 Kinjalli's Caller\n1 Drover of the Mighty\n1 Forerunner of the Empire\n1 Quartzwood Crasher\n1 Silverclad Ferocidons\n1 Wakening Sun's Avatar\n1 Verdant Sun's Avatar\n1 Burning Sun's Avatar\n1 Sun-Crowned Hunters\n1 Swords to Plowshares\n1 Beast Within\n1 Generous Gift\n1 Boros Charm\n1 Heroic Intervention\n1 Return of the Wildspeaker\n1 Guardian Project\n1 The Great Henge\n1 Rhythm of the Wild\n1 Urza's Incubator\n1 Herald's Horn\n1 Vanquisher's Banner\n1 Temple Altisaur\n1 Bellowing Aegisaur\n1 Polyraptor\n1 Wayward Swordtooth\n1 Topiary Stomper\n1 Garruk's Uprising\n1 Elemental Bond\n1 Kindred Summons\n1 Akroma's Will\n1 Overwhelming Stampede\n1 Finale of Devastation\n1 Worldly Tutor\n1 Enlightened Tutor\n1 Growing Rites of Itlimoc",
+      "target": 100,
+      "expect": "Reduce clunk without cutting lands"
+    },
+    "status": "FAIL",
+    "issues": [
+      "off-color cards remain: Mountain"
+    ],
+    "cautions": [],
+    "http": 200,
+    "summary": "Transformed: Curve tightening. Power Casual, budget Moderate. Avg CMC ~4.25.",
+    "why": "This pass tightens the curve so [[Gishath, Sun's Avatar]] can be supported by more affordable plays before the top end takes over. The additions improve early deployment, add efficient Dinosaur bodies, and smooth creature-focused mana without changing the deck's broader game plan. Because this was a focused curve pass, no existing cards were cut in this final set of changes.",
+    "warnings": [
+      "Model output had 101 cards after color filter; list trimmed to 100.",
+      "Legality filter removed 1 card line(s) not legal in Commander.",
+      "Commander-package guard restored the commander and core nonland engine cards from the source deck.",
+      "Curve guard preserved the source land count because the mana base did not look broken.",
+      "Hard max-changes cap kept the pass within 8 swaps.",
+      "Final legality check removed 1 card line(s) not legal in Commander.",
+      "Final validation restored legal source cards to refill the deck."
+    ],
+    "beforeCount": 92,
+    "afterCount": 100,
+    "added": [
+      {
+        "name": "Knight of the Stampede",
+        "qty": 1
+      },
+      {
+        "name": "Marauding Brontodon",
+        "qty": 1
+      },
+      {
+        "name": "Palani's Hatcher",
+        "qty": 1
+      },
+      {
+        "name": "Runic Armasaur",
+        "qty": 1
+      },
+      {
+        "name": "Savage Stomp",
+        "qty": 1
+      },
+      {
+        "name": "Secluded Courtyard",
+        "qty": 1
+      },
+      {
+        "name": "Thrashing Brontodon",
+        "qty": 1
+      },
+      {
+        "name": "Unclaimed Territory",
+        "qty": 1
+      }
+    ],
+    "removed": [],
+    "deckText": "1 Gishath, Sun's Avatar\n14 Forest\n8 Mountain\n8 Plains\n1 Command Tower\n1 Path of Ancestry\n1 Jungle Shrine\n1 Temple Garden\n1 Stomping Ground\n1 Sacred Foundry\n1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n1 Kodama's Reach\n1 Farseek\n1 Rampant Growth\n1 Skyshroud Claim\n1 Ghalta, Stampede Tyrant\n1 Zacama, Primal Calamity\n1 Zetalpa, Primal Dawn\n1 Etali, Primal Storm\n1 Etali, Primal Conqueror\n1 Apex Altisaur\n1 Trapjaw Tyrant\n1 Regisaur Alpha\n1 Ripjaw Raptor\n1 Ranging Raptors\n1 Marauding Raptor\n1 Otepec Huntmaster\n1 Kinjalli's Caller\n1 Drover of the Mighty\n1 Forerunner of the Empire\n1 Quartzwood Crasher\n1 Silverclad Ferocidons\n1 Wakening Sun's Avatar\n1 Verdant Sun's Avatar\n1 Swords to Plowshares\n1 Beast Within\n1 Generous Gift\n1 Boros Charm\n1 Heroic Intervention\n1 Return of the Wildspeaker\n1 Guardian Project\n1 The Great Henge\n1 Rhythm of the Wild\n1 Urza's Incubator\n1 Herald's Horn\n1 Vanquisher's Banner\n1 Temple Altisaur\n1 Bellowing Aegisaur\n1 Polyraptor\n1 Wayward Swordtooth\n1 Topiary Stomper\n1 Garruk's Uprising\n1 Elemental Bond\n1 Kindred Summons\n1 Akroma's Will\n1 Overwhelming Stampede\n1 Finale of Devastation\n1 Worldly Tutor\n1 Enlightened Tutor\n1 Marauding Brontodon\n1 Runic Armasaur\n1 Thrashing Brontodon\n1 Knight of the Stampede\n1 Savage Stomp\n1 Palani's Hatcher\n1 Unclaimed Territory\n1 Secluded Courtyard\n1 Explosive Vegetation\n1 Burning Sun's Avatar\n1 Sun-Crowned Hunters\n1 Growing Rites of Itlimoc"
+  },
+  {
+    "case": {
+      "id": "interaction_red",
+      "pass": "add_interaction",
+      "format": "Commander",
+      "commander": "Torbran, Thane of Red Fell",
+      "deck": "1 Torbran, Thane of Red Fell\n37 Mountain\n1 Sol Ring\n1 Arcane Signet\n1 Lightning Greaves\n1 Swiftfoot Boots\n1 Impact Tremors\n1 Purphoros, God of the Forge\n1 Krenko, Mob Boss\n1 Krenko, Tin Street Kingpin\n1 Goblin Chieftain\n1 Goblin Warchief\n1 Goblin Instigator\n1 Mogg War Marshal\n1 Dragon Fodder\n1 Krenko's Command\n1 Hordeling Outburst\n1 Siege-Gang Commander\n1 Beetleback Chief\n1 Skirk Prospector\n1 Goblin Matron\n1 Goblin Ringleader\n1 Shared Animosity\n1 Coat of Arms\n1 Outpost Siege\n1 Faithless Looting\n1 Cathartic Reunion\n1 Reforge the Soul\n1 Wheel of Misfortune\n1 Tormenting Voice\n1 Valakut Exploration\n1 Experimental Frenzy\n1 Ruby Medallion\n1 Herald's Horn\n1 Vanquisher's Banner\n1 Skullclamp\n1 Basilisk Collar\n1 Mechanized Warfare\n1 Fiery Emancipation\n1 Dictate of the Twin Gods\n1 Gratuitous Violence\n1 Chandra, Torch of Defiance\n1 Chandra, Awakened Inferno\n1 Inferno Titan\n1 Terror of the Peaks\n1 Ancient Copper Dragon\n1 Balefire Dragon\n1 Etali, Primal Storm\n1 Combustible Gearhulk\n1 Warstorm Surge\n1 Where Ancients Tread\n1 Shared Animosity\n1 Goblin Bombardment\n1 Raid Bombardment\n1 Impact Tremors\n1 Purphoros, Bronze-Blooded\n1 Castle Embereth",
+      "target": 100,
+      "expect": "Add actual red interaction/protection, not random value"
+    },
+    "status": "FAIL",
+    "issues": [
+      "off-color cards remain: Mountain"
+    ],
+    "cautions": [],
+    "http": 200,
+    "summary": "Transformed: More interaction. Power Casual, budget Moderate. Avg CMC ~3.38.",
+    "why": "This pass shifts the [[Torbran, Thane of Red Fell]] deck toward cleaner interaction without pushing past a casual power level. [[Abrade]], [[Chaos Warp]], and [[Vandalblast]] give the deck more ways to answer opposing threats, while the creature swap keeps a board presence attached to damage output. The cuts trim more purely proactive payoff pieces to make room for answers.",
+    "warnings": [
+      "Commander-package guard restored the commander and core nonland engine cards from the source deck.",
+      "Interaction guard removed additions that were not clear answers or protection.",
+      "Final legality check removed 1 card line(s) not legal in Commander.",
+      "Final copy-count check adjusted 2 card line(s).",
+      "Final validation restored legal source cards to refill the deck.",
+      "List has 94 cards after validation; target is 100 for Commander."
+    ],
+    "beforeCount": 93,
+    "afterCount": 94,
+    "added": [
+      {
+        "name": "Abrade",
+        "qty": 1
+      },
+      {
+        "name": "Chaos Warp",
+        "qty": 1
+      },
+      {
+        "name": "Vandalblast",
+        "qty": 1
+      }
+    ],
+    "removed": [
+      {
+        "name": "Impact Tremors",
+        "qty": 1
+      },
+      {
+        "name": "Shared Animosity",
+        "qty": 1
+      }
+    ],
+    "deckText": "1 Torbran, Thane of Red Fell\n1 Sol Ring\n1 Arcane Signet\n1 Lightning Greaves\n1 Swiftfoot Boots\n1 Impact Tremors\n1 Purphoros, God of the Forge\n1 Krenko, Mob Boss\n1 Krenko, Tin Street Kingpin\n1 Goblin Chieftain\n1 Goblin Warchief\n1 Goblin Instigator\n1 Mogg War Marshal\n1 Dragon Fodder\n1 Krenko's Command\n1 Hordeling Outburst\n1 Siege-Gang Commander\n1 Beetleback Chief\n1 Skirk Prospector\n1 Goblin Matron\n1 Goblin Ringleader\n1 Shared Animosity\n1 Coat of Arms\n1 Outpost Siege\n1 Faithless Looting\n1 Cathartic Reunion\n1 Reforge the Soul\n1 Wheel of Misfortune\n1 Tormenting Voice\n1 Valakut Exploration\n1 Experimental Frenzy\n1 Ruby Medallion\n1 Herald's Horn\n1 Vanquisher's Banner\n1 Skullclamp\n1 Basilisk Collar\n1 Mechanized Warfare\n1 Fiery Emancipation\n1 Dictate of the Twin Gods\n1 Gratuitous Violence\n1 Chandra, Torch of Defiance\n1 Chandra, Awakened Inferno\n1 Inferno Titan\n1 Terror of the Peaks\n1 Ancient Copper Dragon\n1 Balefire Dragon\n1 Etali, Primal Storm\n1 Combustible Gearhulk\n1 Warstorm Surge\n1 Where Ancients Tread\n1 Goblin Bombardment\n1 Raid Bombardment\n1 Purphoros, Bronze-Blooded\n1 Castle Embereth\n1 Chaos Warp\n1 Abrade\n1 Vandalblast\n37 Mountain"
+  },
+  {
+    "case": {
+      "id": "casual_korvold",
+      "pass": "more_casual",
+      "format": "Commander",
+      "commander": "Korvold, Fae-Cursed King",
+      "deck": "1 Korvold, Fae-Cursed King\n1 Sol Ring\n1 Arcane Signet\n1 Command Tower\n1 Exotic Orchard\n12 Forest\n10 Swamp\n8 Mountain\n4 Plains\n4 Island\n1 Swords to Plowshares\n1 Counterspell\n1 Rhystic Study\n1 Demonic Tutor\n1 Vampiric Tutor\n1 Mana Crypt\n1 Jeweled Lotus\n1 Dockside Extortionist\n1 Mayhem Devil\n1 Pitiless Plunderer\n1 Skullclamp\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Viscera Seer\n1 Cauldron Familiar\n1 Witch's Oven\n1 Village Rites\n1 Deadly Dispute\n1 Claim the Firstborn\n1 Korvold, Fae-Cursed King\n1 Farseek\n1 Nature's Lore\n1 Cultivate\n1 Kodama's Reach\n1 Sakura-Tribe Elder\n1 Birds of Paradise\n1 Llanowar Elves\n1 Elvish Mystic\n1 Beast Within\n1 Chaos Warp\n1 Assassin's Trophy\n1 Abrade\n1 Terminate\n1 Putrefy\n1 Reclamation Sage\n1 Eternal Witness\n1 Victimize\n1 Living Death\n1 Grave Pact\n1 Dictate of Erebos\n1 Avenger of Zendikar\n1 Craterhoof Behemoth\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Ophiomancer\n1 Jadar, Ghoulcaller of Nephalia\n1 Chatterfang, Squirrel General\n1 Moldervine Reclamation\n1 Phyrexian Arena\n1 Harmonize",
+      "target": 100,
+      "expect": "Remove fast mana/tutors/combo/off-color; table-friendly replacements"
+    },
+    "status": "FAIL",
+    "issues": [
+      "off-color cards remain: Mirkwood Bats, Mortuary Mire, Mountain, Rakdos Signet, Ravenous Squirrel, Smoldering Marsh, Temple of Malady, Temple of Malice"
+    ],
+    "cautions": [],
+    "http": 200,
+    "summary": "Transformed: More casual. Power Casual, budget Moderate. Avg CMC ~2.67.",
+    "why": "This pass pushes [[Korvold, Fae-Cursed King]] toward a more casual Jund build by removing off-color and high-power staples while restoring smoother in-color mana and simple sacrifice payoffs. The additions improve color fixing and keep the deck functioning after validation cuts. The removals also trim cards that were outside color identity or too strong for the intended casual power band.",
+    "warnings": [
+      "Source deck lists 5 line(s) that appear outside Korvold, Fae-Cursed King's color identity (replacements may be needed).",
+      "Model output had 104 cards after color filter; list trimmed to 100.",
+      "Commander-package guard restored the commander and core nonland engine cards from the source deck.",
+      "Hard max-changes cap kept the pass within 8 swaps.",
+      "Commander row normalized to a single commander copy.",
+      "Final color identity check removed 5 card line(s).",
+      "Final legality check removed 2 card line(s) not legal in Commander.",
+      "List has 86 cards after validation; target is 100 for Commander."
+    ],
+    "beforeCount": 93,
+    "afterCount": 86,
+    "added": [
+      {
+        "name": "Mirkwood Bats",
+        "qty": 1
+      },
+      {
+        "name": "Mortuary Mire",
+        "qty": 1
+      },
+      {
+        "name": "Rakdos Signet",
+        "qty": 1
+      },
+      {
+        "name": "Ravenous Squirrel",
+        "qty": 1
+      },
+      {
+        "name": "Smoldering Marsh",
+        "qty": 1
+      },
+      {
+        "name": "Temple of Malady",
+        "qty": 1
+      },
+      {
+        "name": "Temple of Malice",
+        "qty": 1
+      },
+      {
+        "name": "Woodland Cemetery",
+        "qty": 1
+      }
+    ],
+    "removed": [
+      {
+        "name": "Counterspell",
+        "qty": 1
+      },
+      {
+        "name": "Dockside Extortionist",
+        "qty": 1
+      },
+      {
+        "name": "Island",
+        "qty": 4
+      },
+      {
+        "name": "Jeweled Lotus",
+        "qty": 1
+      },
+      {
+        "name": "Korvold, Fae-Cursed King",
+        "qty": 1
+      },
+      {
+        "name": "Mana Crypt",
+        "qty": 1
+      },
+      {
+        "name": "Plains",
+        "qty": 4
+      },
+      {
+        "name": "Rhystic Study",
+        "qty": 1
+      },
+      {
+        "name": "Swords to Plowshares",
+        "qty": 1
+      }
+    ],
+    "deckText": "1 Korvold, Fae-Cursed King\n1 Sol Ring\n1 Arcane Signet\n1 Command Tower\n1 Exotic Orchard\n12 Forest\n10 Swamp\n8 Mountain\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Viscera Seer\n1 Cauldron Familiar\n1 Witch's Oven\n1 Village Rites\n1 Deadly Dispute\n1 Claim the Firstborn\n1 Farseek\n1 Nature's Lore\n1 Cultivate\n1 Kodama's Reach\n1 Sakura-Tribe Elder\n1 Birds of Paradise\n1 Llanowar Elves\n1 Elvish Mystic\n1 Beast Within\n1 Chaos Warp\n1 Assassin's Trophy\n1 Abrade\n1 Terminate\n1 Putrefy\n1 Reclamation Sage\n1 Eternal Witness\n1 Victimize\n1 Living Death\n1 Grave Pact\n1 Dictate of Erebos\n1 Avenger of Zendikar\n1 Craterhoof Behemoth\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Ophiomancer\n1 Jadar, Ghoulcaller of Nephalia\n1 Chatterfang, Squirrel General\n1 Moldervine Reclamation\n1 Phyrexian Arena\n1 Harmonize\n1 Mayhem Devil\n1 Pitiless Plunderer\n1 Skullclamp\n1 Rakdos Signet\n1 Smoldering Marsh\n1 Woodland Cemetery\n1 Temple of Malady\n1 Temple of Malice\n1 Mortuary Mire\n1 Ravenous Squirrel\n1 Mirkwood Bats\n1 Demonic Tutor\n1 Vampiric Tutor"
+  },
+  {
+    "case": {
+      "id": "power_meren",
+      "pass": "more_optimized",
+      "format": "Commander",
+      "commander": "Meren of Clan Nel Toth",
+      "deck": "1 Meren of Clan Nel Toth\n18 Forest\n16 Swamp\n1 Command Tower\n1 Golgari Rot Farm\n1 Jungle Hollow\n1 Sol Ring\n1 Arcane Signet\n1 Sakura-Tribe Elder\n1 Yavimaya Elder\n1 Satyr Wayfinder\n1 Stitcher's Supplier\n1 Viscera Seer\n1 Carrion Feeder\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Plaguecrafter\n1 Fleshbag Marauder\n1 Merciless Executioner\n1 Spore Frog\n1 Solemn Simulacrum\n1 Reclamation Sage\n1 Eternal Witness\n1 Victimize\n1 Animate Dead\n1 Living Death\n1 Moldervine Reclamation\n1 Skullclamp\n1 Grave Pact\n1 Dictate of Erebos\n1 Beast Within\n1 Putrefy\n1 Krosan Grip\n1 Cultivate\n1 Kodama's Reach\n1 Farseek\n1 Rampant Growth\n1 Deadly Dispute\n1 Village Rites\n1 Mulch\n1 Grisly Salvage\n1 Nyx Weaver\n1 Mire Triton\n1 Glowspore Shaman\n1 Izoni, Thousand-Eyed\n1 Avenger of Zendikar\n1 End-Raze Forerunners\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Ophiomancer\n1 Jadar, Ghoulcaller of Nephalia\n1 Pawn of Ulamog\n1 Sifter of Skulls\n1 Pitiless Plunderer\n1 Ashnod's Altar\n1 Phyrexian Altar\n1 Bastion of Remembrance\n1 Evolutionary Leap\n1 Greater Good\n1 Birthing Pod\n1 Pattern of Rebirth\n1 Protean Hulk\n1 Yahenni, Undying Partisan\n1 Mazirek, Kraul Death Priest\n1 Poison-Tip Archer\n1 Casual Filler Beast",
+      "target": 100,
+      "expect": "No basic filler; stronger coherent Meren upgrades"
+    },
+    "status": "PASS",
+    "issues": [],
+    "cautions": [],
+    "http": 200,
+    "summary": "Transformed: More optimized. Power Casual, budget Moderate. Avg CMC ~3.02.",
+    "why": "These swaps tighten [[Meren of Clan Nel Toth]] around faster setup, cleaner tutoring, and stronger graveyard value without pushing beyond casual power. The additions improve ramp, recursion setup, and interaction flexibility, while the cuts trim excess basics and low-impact filler. Overall, the pass makes the deck more consistent at executing its core sacrifice-and-reanimate plan.",
+    "warnings": [
+      "Commander-package guard restored the commander and core nonland engine cards from the source deck."
+    ],
+    "beforeCount": 98,
+    "afterCount": 100,
+    "added": [
+      {
+        "name": "Bojuka Bog",
+        "qty": 1
+      },
+      {
+        "name": "Buried Alive",
+        "qty": 1
+      },
+      {
+        "name": "Diabolic Intent",
+        "qty": 1
+      },
+      {
+        "name": "Eldritch Evolution",
+        "qty": 1
+      },
+      {
+        "name": "Entomb",
+        "qty": 1
+      },
+      {
+        "name": "Golgari Signet",
+        "qty": 1
+      },
+      {
+        "name": "Malakir Rebirth",
+        "qty": 1
+      },
+      {
+        "name": "Wood Elves",
+        "qty": 1
+      }
+    ],
+    "removed": [
+      {
+        "name": "Casual Filler Beast",
+        "qty": 1
+      },
+      {
+        "name": "Mulch",
+        "qty": 1
+      },
+      {
+        "name": "Swamp",
+        "qty": 4
+      }
+    ],
+    "deckText": "1 Meren of Clan Nel Toth\n18 Forest\n12 Swamp\n1 Command Tower\n1 Golgari Rot Farm\n1 Jungle Hollow\n1 Sol Ring\n1 Arcane Signet\n1 Sakura-Tribe Elder\n1 Yavimaya Elder\n1 Satyr Wayfinder\n1 Stitcher's Supplier\n1 Viscera Seer\n1 Carrion Feeder\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Plaguecrafter\n1 Fleshbag Marauder\n1 Merciless Executioner\n1 Spore Frog\n1 Solemn Simulacrum\n1 Reclamation Sage\n1 Eternal Witness\n1 Victimize\n1 Animate Dead\n1 Living Death\n1 Moldervine Reclamation\n1 Skullclamp\n1 Grave Pact\n1 Dictate of Erebos\n1 Beast Within\n1 Putrefy\n1 Krosan Grip\n1 Cultivate\n1 Kodama's Reach\n1 Farseek\n1 Rampant Growth\n1 Deadly Dispute\n1 Village Rites\n1 Grisly Salvage\n1 Nyx Weaver\n1 Mire Triton\n1 Glowspore Shaman\n1 Izoni, Thousand-Eyed\n1 Avenger of Zendikar\n1 End-Raze Forerunners\n1 Tireless Provisioner\n1 Tireless Tracker\n1 Ophiomancer\n1 Jadar, Ghoulcaller of Nephalia\n1 Pawn of Ulamog\n1 Sifter of Skulls\n1 Pitiless Plunderer\n1 Ashnod's Altar\n1 Phyrexian Altar\n1 Bastion of Remembrance\n1 Evolutionary Leap\n1 Greater Good\n1 Birthing Pod\n1 Pattern of Rebirth\n1 Protean Hulk\n1 Yahenni, Undying Partisan\n1 Mazirek, Kraul Death Priest\n1 Poison-Tip Archer\n1 Diabolic Intent\n1 Buried Alive\n1 Entomb\n1 Eldritch Evolution\n1 Wood Elves\n1 Golgari Signet\n1 Bojuka Bog\n1 Malakir Rebirth"
+  },
+  {
+    "case": {
+      "id": "general_modern",
+      "pass": "general",
+      "format": "Modern",
+      "commander": null,
+      "deck": "4 Dragon's Rage Channeler\n4 Ragavan, Nimble Pilferer\n4 Murktide Regent\n4 Fury\n4 Mishra's Bauble\n4 Lightning Bolt\n4 Unholy Heat\n4 Counterspell\n4 Consider\n4 Preordain\n4 Expressive Iteration\n3 Island\n1 Mountain\n4 Steam Vents\n4 Spirebluff Canal\n4 Scalding Tarn\nSideboard\n3 Blood Moon\n2 Engineered Explosives\n2 Flusterstorm\n2 Dress Down\n2 Unlicensed Hearse\n2 Brotherhood's End\n2 Chalice of the Void",
+      "target": 60,
+      "expect": "Light touch; sideboard preserved; no land carnage"
+    },
+    "status": "PASS",
+    "issues": [],
+    "cautions": [],
+    "http": 200,
+    "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~1.68.",
+    "why": "This pass cleans up the manabase and interaction package while keeping the deck lean for Modern. [[Fiery Islet]], [[Thundering Falls]], [[Otawara, Soaring City]], and [[Hall of Storm Giants]] improve land quality and utility after the cleanup. [[Spell Pierce]] adds cheap stack interaction, and removing [[Fury]] aligns the list with Modern legality while trimming one basic [[Island]] to stabilize the updated land mix.",
+    "warnings": [
+      "Legality filter removed 1 card line(s) not legal in Modern.",
+      "General cleanup restored land count stability for this constructed deck."
+    ],
+    "beforeCount": 60,
+    "afterCount": 60,
+    "added": [
+      {
+        "name": "Fiery Islet",
+        "qty": 1
+      },
+      {
+        "name": "Hall of Storm Giants",
+        "qty": 1
+      },
+      {
+        "name": "Otawara, Soaring City",
+        "qty": 1
+      },
+      {
+        "name": "Spell Pierce",
+        "qty": 1
+      },
+      {
+        "name": "Thundering Falls",
+        "qty": 1
+      }
+    ],
+    "removed": [
+      {
+        "name": "Fury",
+        "qty": 4
+      },
+      {
+        "name": "Island",
+        "qty": 1
+      }
+    ],
+    "deckText": "4 Consider\n4 Counterspell\n4 Dragon's Rage Channeler\n4 Expressive Iteration\n1 Fiery Islet\n1 Hall of Storm Giants\n2 Island\n4 Lightning Bolt\n4 Mishra's Bauble\n1 Mountain\n4 Murktide Regent\n1 Otawara, Soaring City\n4 Preordain\n4 Ragavan, Nimble Pilferer\n4 Scalding Tarn\n1 Spell Pierce\n4 Spirebluff Canal\n4 Steam Vents\n1 Thundering Falls\n4 Unholy Heat\nSideboard\n3 Blood Moon\n2 Engineered Explosives\n2 Flusterstorm\n2 Dress Down\n2 Unlicensed Hearse\n2 Brotherhood's End\n2 Chalice of the Void"
+  },
+  {
+    "case": {
+      "id": "budget_atraxa",
+      "pass": "lower_budget",
+      "format": "Commander",
+      "commander": "Atraxa, Praetors' Voice",
+      "expect": "1-for-1 cheaper swaps, no basics"
+    },
+    "status": "WARN",
+    "issues": [],
+    "cautions": [
+      "no suggestions returned"
+    ],
+    "http": 200,
+    "summary": "0 suggestions",
+    "why": "",
+    "warnings": [],
+    "added": [],
+    "removed": [],
+    "raw": {
+      "ok": true,
+      "currency": "USD",
+      "budget": 10,
+      "suggestions": []
+    }
+  }
+]

@@ -88,6 +88,9 @@ export default function Page() {
       
       <div className="w-full relative">
         <div className="max-w-[1760px] mx-auto px-4 -mt-4">
+          <h1 className="mb-2 pt-1 text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
+            ManaTap AI — MTG Deck Builder &amp; Assistant
+          </h1>
           <TopToolsStrip />
         </div>
         <AppComingSoonBanner />
