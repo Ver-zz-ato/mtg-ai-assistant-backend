@@ -50,6 +50,27 @@ export function looksLikeManaSupportCard(name: string): boolean {
   return /signet|talisman|sol ring|arcane signet|fellwar stone|mind stone|coldsteel heart|commander's sphere|chromatic lantern|wayfarer's bauble|thought vessel|coalition relic|cultivate|kodama's reach|nature's lore|three visits|farseek|rampant growth|sakura-tribe elder|harrow|birds of paradise|llanowar elves|elvish mystic|arbor elf|utopia sprawl|wild growth|skyshroud claim|migration path|circuitous route|astral cornucopia/.test(lowerName);
 }
 
+function looksLikeBasicLandName(name: string): boolean {
+  return /^(plains|island|swamp|mountain|forest|wastes)$/i.test(name.trim());
+}
+
+function looksLikeInteractionCard(name: string): boolean {
+  const lowerName = name.trim().toLowerCase();
+  return /swords to plowshares|path to exile|beast within|generous gift|chaos warp|pongify|rapid hybridization|reality shift|counterspell|swan song|arcane denial|negate|spell pierce|dovin's veto|mana drain|force of will|fierce guardianship|deflecting swat|heroic intervention|teferi's protection|boros charm|wear \/\/ tear|abrade|feed the swarm|go for the throat|fatal push|infernal grasp|vindicate|anguished unmaking|assassin's trophy|decimate|vandalblast|austere command|toxic deluge|cyclonic rift|grave pact|plaguecrafter|haywire mite|caustic caterpillar|seal of primordium|rest in peace|grafdigger's cage|damping sphere|collector ouphe/.test(lowerName)
+    || /\b(counter|destroy|exile|remove|removal|protection|protect|hexproof|indestructible|ward|wipe|wrath|sweeper|hate|stax|silence)\b/.test(lowerName);
+}
+
+function looksLikeSpikyCasualProblemCard(name: string): boolean {
+  const lowerName = name.trim().toLowerCase();
+  return /mana crypt|jeweled lotus|mox diamond|chrome mox|lion's eye diamond|grim monolith|demonic tutor|vampiric tutor|imperial seal|enlightened tutor|mystical tutor|worldly tutor|thassa's oracle|demonic consultation|tainted pact|underworld breach|ad nauseam|dockside extortionist|winter orb|static orb|trinisphere|stasis|drannith magistrate|opposition agent|hullbreacher/.test(lowerName);
+}
+
+function sourceLandCountLooksBroken(sourceRows: QtyRow[], targetCount: number, isCommander: boolean): boolean {
+  const lands = sourceRows.reduce((sum, row) => sum + (looksLikeLandName(row.name) ? row.qty : 0), 0);
+  if (isCommander || targetCount >= 90) return lands < 30 || lands > 45;
+  return lands < 16 || lands > 30;
+}
+
 function rowMap(rows: QtyRow[]): Map<string, { name: string; qty: number }> {
   const out = new Map<string, { name: string; qty: number }>();
   for (const row of rows) {
@@ -399,6 +420,118 @@ function enforceBudgetRules(args: {
   return warnings;
 }
 
+function removeAddedRowsWhere(args: {
+  working: Array<{ key: string; name: string; qty: number; sourceIndex: number }>;
+  sourceRows: QtyRow[];
+  targetCount: number;
+  avoidKeys: Set<string>;
+  protectedKeys: Set<string>;
+  priceByName?: Map<string, number>;
+  predicate: (name: string) => boolean;
+}): boolean {
+  let changed = false;
+  const diff = diffRows(args.sourceRows, fromWorkingEntries(args.working));
+  for (const row of diff.added) {
+    if (!args.predicate(row.name)) continue;
+    const entry = findEntry(args.working, normName(row.name));
+    if (!entry || args.protectedKeys.has(entry.key)) continue;
+    entry.qty = Math.max(0, entry.qty - row.qty);
+    changed = true;
+  }
+  if (!changed) return false;
+  args.working.splice(0, args.working.length, ...args.working.filter((entry) => entry.qty > 0));
+  rebalanceToTarget({
+    working: args.working,
+    sourceRows: args.sourceRows,
+    targetCount: args.targetCount,
+    avoidKeys: args.avoidKeys,
+    protectedKeys: args.protectedKeys,
+    priceByName: args.priceByName,
+  });
+  return true;
+}
+
+function enforceIntentSpecificRules(args: {
+  working: Array<{ key: string; name: string; qty: number; sourceIndex: number }>;
+  sourceRows: QtyRow[];
+  targetCount: number;
+  avoidKeys: Set<string>;
+  protectedKeys: Set<string>;
+  priceByName?: Map<string, number>;
+  transformIntent: string;
+  isCommander: boolean;
+}): string[] {
+  const warnings: string[] = [];
+
+  if (args.transformIntent === "improve_mana_base") {
+    const warning = revertCategoryToSource({
+      working: args.working,
+      sourceRows: args.sourceRows,
+      targetCount: args.targetCount,
+      avoidKeys: args.avoidKeys,
+      predicate: (name) => !looksLikeManaSupportCard(name),
+      warning: "Mana-base guard reverted unrelated non-mana changes from this pass.",
+    });
+    if (warning) warnings.push(warning);
+  }
+
+  if (args.transformIntent === "tighten_curve") {
+    const landCountBroken = sourceLandCountLooksBroken(args.sourceRows, args.targetCount, args.isCommander);
+    if (!landCountBroken) {
+      const warning = revertCategoryToSource({
+        working: args.working,
+        sourceRows: args.sourceRows,
+        targetCount: args.targetCount,
+        avoidKeys: args.avoidKeys,
+        predicate: looksLikeLandName,
+        warning: "Curve guard preserved the source land count because the mana base did not look broken.",
+      });
+      if (warning) warnings.push(warning);
+    }
+  }
+
+  if (args.transformIntent === "add_interaction") {
+    const removedNonInteractionAdds = removeAddedRowsWhere({
+      ...args,
+      predicate: (name) => !looksLikeInteractionCard(name),
+    });
+    if (removedNonInteractionAdds) warnings.push("Interaction guard removed additions that were not clear answers or protection.");
+  }
+
+  if (args.transformIntent === "more_casual") {
+    const removedSpikyAdds = removeAddedRowsWhere({
+      ...args,
+      predicate: looksLikeSpikyCasualProblemCard,
+    });
+    if (removedSpikyAdds) warnings.push("Casual guard removed newly added fast mana, tutors, combo, or lock pieces.");
+  }
+
+  if (args.transformIntent === "more_optimized") {
+    const removedBasicAdds = removeAddedRowsWhere({
+      ...args,
+      predicate: looksLikeBasicLandName,
+    });
+    if (removedBasicAdds) warnings.push("Power guard removed basic-land additions that did not improve deck quality.");
+  }
+
+  if (args.transformIntent === "general") {
+    const landCountBroken = sourceLandCountLooksBroken(args.sourceRows, args.targetCount, args.isCommander);
+    if (!landCountBroken) {
+      const warning = revertCategoryToSource({
+        working: args.working,
+        sourceRows: args.sourceRows,
+        targetCount: args.targetCount,
+        avoidKeys: args.avoidKeys,
+        predicate: looksLikeLandName,
+        warning: "General cleanup guard preserved source lands because the mana base did not look broken.",
+      });
+      if (warning) warnings.push(warning);
+    }
+  }
+
+  return warnings;
+}
+
 function commanderPackageKeys(sourceRows: QtyRow[], commanderName: string | null): Set<string> {
   const protectedKeys = new Set<string>();
   if (commanderName?.trim()) protectedKeys.add(normName(commanderName));
@@ -491,6 +624,19 @@ export function enforceTransformRules(args: EnforcementArgs): EnforcementResult 
       warnings.push("Avoid-cards guard removed exact avoided card names from new changes.");
     }
   }
+
+  warnings.push(
+    ...enforceIntentSpecificRules({
+      working,
+      sourceRows: args.sourceRows,
+      targetCount: args.targetCount,
+      avoidKeys,
+      protectedKeys,
+      priceByName: args.priceByName,
+      transformIntent: args.transformIntent,
+      isCommander: args.isCommander,
+    }),
+  );
 
   if (args.rules.maxChanges != null) {
     const warning = limitMaxChanges({

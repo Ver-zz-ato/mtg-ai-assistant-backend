@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   diffRows,
   enforceTransformRules,
+  looksLikeLandName,
   type QtyRow,
   type TransformRules,
 } from "@/lib/deck/transform-enforcement";
@@ -24,6 +25,10 @@ function baseRules(overrides: Partial<TransformRules> = {}): TransformRules {
 
 function totalPrice(rows: QtyRow[], priceByName: Map<string, number>): number {
   return rows.reduce((sum, row) => sum + (priceByName.get(row.name.toLowerCase()) ?? 0) * row.qty, 0);
+}
+
+function landCount(rows: QtyRow[]): number {
+  return rows.reduce((sum, row) => sum + (looksLikeLandName(row.name) ? row.qty : 0), 0);
 }
 
 async function main() {
@@ -227,6 +232,157 @@ async function main() {
         row.name === "Upgrade One" || row.name === "Upgrade Two" || row.name === "Steady Card" || row.name === "Role Player",
       ),
     );
+  }
+
+  {
+    const source = rows([
+      ["Forest", 8],
+      ["Sol Ring", 1],
+      ["Cultivate", 1],
+      ["Bear Cub", 1],
+    ]);
+    const result = rows([
+      ["Forest", 7],
+      ["Command Tower", 1],
+      ["Sol Ring", 1],
+      ["Cultivate", 1],
+      ["Rhystic Study", 1],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 11,
+      rules: baseRules(),
+      isCommander: true,
+      commanderName: "Test Commander",
+      transformIntent: "improve_mana_base",
+      budget: "Moderate",
+    });
+    assert.equal(enforced.rows.some((row) => row.name === "Rhystic Study"), false);
+    assert.ok(enforced.rows.some((row) => row.name === "Command Tower"));
+    assert.ok(enforced.rows.some((row) => row.name === "Bear Cub"));
+  }
+
+  {
+    const source = rows([
+      ["Island", 24],
+      ["Opt", 4],
+      ["Big Draw Spell", 4],
+      ["Role Player", 28],
+    ]);
+    const result = rows([
+      ["Island", 20],
+      ["Opt", 4],
+      ["Cheap Cantrip", 4],
+      ["Role Player", 32],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 60,
+      rules: baseRules(),
+      isCommander: false,
+      commanderName: null,
+      transformIntent: "tighten_curve",
+      budget: "Moderate",
+    });
+    assert.equal(landCount(enforced.rows), 24);
+  }
+
+  {
+    const source = rows([
+      ["Island", 20],
+      ["Opt", 4],
+      ["Role Player", 36],
+    ]);
+    const result = rows([
+      ["Island", 20],
+      ["Swords to Plowshares", 4],
+      ["Rhystic Study", 4],
+      ["Role Player", 32],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 60,
+      rules: baseRules(),
+      isCommander: false,
+      commanderName: null,
+      transformIntent: "add_interaction",
+      budget: "Moderate",
+    });
+    assert.ok(enforced.rows.some((row) => row.name === "Swords to Plowshares"));
+    assert.equal(enforced.rows.some((row) => row.name === "Rhystic Study"), false);
+  }
+
+  {
+    const source = rows([
+      ["Forest", 36],
+      ["Friendly Theme Card", 1],
+      ["Role Player", 63],
+    ]);
+    const result = rows([
+      ["Forest", 36],
+      ["Mana Crypt", 1],
+      ["Role Player", 63],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 100,
+      rules: baseRules(),
+      isCommander: true,
+      commanderName: "Test Commander",
+      transformIntent: "more_casual",
+      budget: "Moderate",
+    });
+    assert.equal(enforced.rows.some((row) => row.name === "Mana Crypt"), false);
+    assert.ok(enforced.rows.some((row) => row.name === "Friendly Theme Card"));
+  }
+
+  {
+    const source = rows([
+      ["Island", 24],
+      ["Role Player", 36],
+    ]);
+    const result = rows([
+      ["Island", 28],
+      ["Role Player", 32],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 60,
+      rules: baseRules(),
+      isCommander: false,
+      commanderName: null,
+      transformIntent: "more_optimized",
+      budget: "Moderate",
+    });
+    assert.equal(landCount(enforced.rows), 24);
+  }
+
+  {
+    const source = rows([
+      ["Mountain", 22],
+      ["Role Player", 38],
+    ]);
+    const result = rows([
+      ["Mountain", 18],
+      ["Random Upgrade", 4],
+      ["Role Player", 38],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 60,
+      rules: baseRules(),
+      isCommander: false,
+      commanderName: null,
+      transformIntent: "general",
+      budget: "Moderate",
+    });
+    assert.equal(landCount(enforced.rows), 22);
   }
 
   console.log("transform-enforcement: ok");

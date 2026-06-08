@@ -113,6 +113,10 @@ function isCommanderLikeFormat(format: string): boolean {
   return format.toLowerCase().includes("commander") || format.toLowerCase().includes("edh");
 }
 
+function isBasicLandName(name: string): boolean {
+  return /^(plains|island|swamp|mountain|forest|wastes)$/i.test(name.trim());
+}
+
 function isValidBudgetSwap(input: {
   from: string;
   to: string;
@@ -129,6 +133,7 @@ function isValidBudgetSwap(input: {
   const fromKey = normalizedCardKey(input.from);
   const toKey = normalizedCardKey(input.to);
   if (!toKey || fromKey === toKey) return false;
+  if (isBasicLandName(input.from) || isBasicLandName(input.to)) return false;
   if (input.deckNameKeys.has(toKey)) return false;
 
   // These are acceptable Commander budget fetch substitutes, but they are usually traps in 60-card competitive mana bases.

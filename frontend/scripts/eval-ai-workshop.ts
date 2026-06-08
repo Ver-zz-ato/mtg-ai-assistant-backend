@@ -58,6 +58,23 @@ type RouteResponse = {
   } | null;
 };
 
+type BudgetSwapSuggestion = {
+  from: string;
+  to: string;
+  price_from: number;
+  price_to: number;
+  rationale: string;
+  confidence: number;
+};
+
+type BudgetSwapRouteResponse = {
+  ok?: boolean;
+  error?: string;
+  currency?: string;
+  budget?: number;
+  suggestions?: BudgetSwapSuggestion[];
+};
+
 type EvalResult = {
   deckId: string;
   deckName: string;
@@ -157,6 +174,8 @@ const SPIKY_WATCHLIST = new Set([
   "trinisphere",
   "winter orb",
 ]);
+
+const BASIC_LANDS = new Set(["plains", "island", "swamp", "mountain", "forest", "wastes"]);
 
 const MODERN_DECK = [
   "4 Monastery Swiftspear",
@@ -277,6 +296,25 @@ function diffDeckRows(
   added.sort((a, b) => a.name.localeCompare(b.name));
   removed.sort((a, b) => a.name.localeCompare(b.name));
   return { added, removed };
+}
+
+function applyBudgetSuggestionsToRows(
+  sourceRows: Array<{ name: string; qty: number }>,
+  suggestions: BudgetSwapSuggestion[],
+): Array<{ name: string; qty: number }> {
+  const map = mapRows(sourceRows);
+  for (const suggestion of suggestions) {
+    const fromKey = norm(suggestion.from);
+    const toKey = norm(suggestion.to);
+    const fromRow = map.get(fromKey);
+    if (!fromRow) continue;
+    fromRow.qty = Math.max(0, fromRow.qty - 1);
+    if (fromRow.qty <= 0) map.delete(fromKey);
+    const toRow = map.get(toKey);
+    if (toRow) toRow.qty += 1;
+    else map.set(toKey, { name: suggestion.to, qty: 1 });
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function compactWarningList(warnings: unknown): string[] {
@@ -523,6 +561,39 @@ async function postTransform(
   const elapsedMs = Date.now() - started;
   const raw = await res.text();
   let json: RouteResponse = {};
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    json = { ok: false, error: raw.slice(0, 500) };
+  }
+  return { status: res.status, elapsedMs, json };
+}
+
+async function postBudgetSwaps(
+  bearerToken: string,
+  deck: EvalDeck,
+): Promise<{ status: number; elapsedMs: number; json: BudgetSwapRouteResponse }> {
+  const body = {
+    deckText: deck.sourceDeckText,
+    format: deck.format,
+    commander: deck.commander,
+    currency: "USD",
+    budget: 10,
+    ai: true,
+  };
+  const started = Date.now();
+  const res = await fetch(`${baseUrl}/api/deck/swap-suggestions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${bearerToken}`,
+      "user-agent": "ai-workshop-eval/1.0",
+    },
+    body: JSON.stringify(body),
+  });
+  const elapsedMs = Date.now() - started;
+  const raw = await res.text();
+  let json: BudgetSwapRouteResponse = {};
   try {
     json = JSON.parse(raw);
   } catch {
@@ -818,6 +889,105 @@ async function main() {
       ).catch(() => undefined);
     }
     for (const pass of passes) {
+      if (pass === "lower_budget") {
+        const response = await postBudgetSwaps(bearerToken, deck);
+        const hardIssues: string[] = [];
+        const cautions: string[] = [];
+
+        if (response.status < 200 || response.status >= 300) {
+          hardIssues.push(`HTTP ${response.status}: ${response.json?.error || "unknown error"}`);
+        }
+        if (response.json?.ok === false) {
+          hardIssues.push(`Route returned ok=false: ${response.json.error || "unknown error"}`);
+        }
+
+        const suggestions = Array.isArray(response.json.suggestions) ? response.json.suggestions : [];
+        const sourceRows = rowsFromDeckText(deck.sourceDeckText);
+        const sourceMap = mapRows(sourceRows);
+        const resultRows = applyBudgetSuggestionsToRows(sourceRows, suggestions);
+        const diff = diffDeckRows(sourceRows, resultRows);
+        const formatRules = getFormatRules(deck.format);
+        const finalCount = totalDeckQty(resultRows);
+
+        if (!suggestions.length && hardIssues.length === 0) {
+          cautions.push("Budget route returned no one-for-one swaps.");
+        }
+        for (const suggestion of suggestions) {
+          const fromKey = norm(suggestion.from);
+          const toKey = norm(suggestion.to);
+          if (!suggestion.from?.trim() || !suggestion.to?.trim()) hardIssues.push("Budget suggestion returned a cut/add pair with a missing card name.");
+          if (fromKey === toKey) hardIssues.push(`Budget suggestion returned same-card swap: ${suggestion.from}.`);
+          if (!sourceMap.has(fromKey)) hardIssues.push(`Budget suggestion cut a card not in the source deck: ${suggestion.from}.`);
+          if (sourceMap.has(toKey)) hardIssues.push(`Budget suggestion added a card already in the source deck: ${suggestion.to}.`);
+          if (!(suggestion.price_to > 0 && suggestion.price_from > suggestion.price_to)) {
+            hardIssues.push(`Budget suggestion was not cheaper: ${suggestion.from} (${suggestion.price_from}) -> ${suggestion.to} (${suggestion.price_to}).`);
+          }
+          if (BASIC_LANDS.has(fromKey) || BASIC_LANDS.has(toKey)) {
+            hardIssues.push(`Budget suggestion involved a basic land: ${suggestion.from} -> ${suggestion.to}.`);
+          }
+          if (!suggestion.rationale?.trim()) cautions.push(`Budget suggestion lacked rationale: ${suggestion.from} -> ${suggestion.to}.`);
+        }
+
+        if (diff.added.reduce((sum, row) => sum + row.qty, 0) !== diff.removed.reduce((sum, row) => sum + row.qty, 0)) {
+          hardIssues.push("Budget suggestions did not apply as one-for-one swaps.");
+        }
+        if (finalCount !== totalDeckQty(sourceRows)) {
+          hardIssues.push(`Budget suggestions changed deck size from ${totalDeckQty(sourceRows)} to ${finalCount}.`);
+        }
+        const commanderIssue = await commanderColorIssue(deck, resultRows, diff.added);
+        if (commanderIssue) hardIssues.push(commanderIssue);
+
+        cautions.push(...evaluatePassHeuristics(pass, baselineFacts, undefined, diff.added, diff.removed));
+        const changeReasons = {
+          added: Object.fromEntries(suggestions.map((row) => [norm(row.to), row.rationale])),
+          removed: Object.fromEntries(suggestions.map((row) => [norm(row.from), `Replaced with ${row.to} to reduce budget.`])),
+        };
+        const why = suggestions.map((row) => `${row.from} -> ${row.to}: ${row.rationale}`).join("\n");
+        const whyEval = evaluateWhyQuality({
+          pass,
+          whyText: why,
+          added: diff.added,
+          removed: diff.removed,
+          changeReasons,
+        });
+        hardIssues.push(...whyEval.hardIssues);
+        cautions.push(...whyEval.cautions);
+
+        const status: EvalResult["status"] = hardIssues.length ? "fail" : cautions.length ? "warn" : "pass";
+        results.push({
+          deckId: deck.id,
+          deckName: deck.name,
+          format: deck.format,
+          pass,
+          status,
+          hardIssues,
+          cautions,
+          sourceLabel: deck.sourceLabel,
+          added: diff.added,
+          removed: diff.removed,
+          finalCount,
+          targetCount: formatRules.mainDeckTarget,
+          warnings: [],
+          summary: suggestions.length
+            ? `Budget swaps returned ${suggestions.length} cheaper one-for-one pair${suggestions.length === 1 ? "" : "s"}.`
+            : "Budget swaps returned no safe cheaper pairs.",
+          why,
+          elapsedMs: response.elapsedMs,
+          previewFactsBefore: baselineFacts,
+          previewFactsAfter: undefined,
+          raw: {
+            ok: response.json.ok,
+            error: response.json.error,
+            summary: suggestions.length
+              ? `Budget swaps returned ${suggestions.length} cheaper one-for-one pair${suggestions.length === 1 ? "" : "s"}.`
+              : "Budget swaps returned no safe cheaper pairs.",
+            why,
+            decklist: resultRows,
+            changeReasons,
+          },
+        });
+        continue;
+      }
       const response = await postTransform(bearerToken, deck, pass);
       const hardIssues: string[] = [];
       const cautions: string[] = [];
