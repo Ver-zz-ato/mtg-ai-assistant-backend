@@ -22,6 +22,7 @@ import {
   isCommanderFormatKey,
   normalizeManatapDeckFormatKey,
 } from "@/lib/format/manatap-deck-format";
+import { isAiWorkshopBudgetSource, isValidBudgetSwap } from "@/lib/deck/budget-swap-guards";
 import {
   annotateOwnership,
   appendOwnershipToReason,
@@ -79,7 +80,13 @@ async function scryPrice(name: string, currency = "USD"): Promise<number> {
   try {
     const url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`;
     // eslint-disable-next-line no-restricted-globals -- Scryfall named lookup fallback when local snapshot/cache has no price.
-    const r = await fetch(url, { cache: "no-store" });
+    const r = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        "User-Agent": "ManaTap budget swap suggestions",
+        Accept: "application/json",
+      },
+    });
     if (!r.ok) return 0;
     const j = (await r.json()) as ScryfallPriceResponse;
     const p = j?.prices || {};
@@ -107,41 +114,6 @@ function parseDeck(text: string): string[] {
 
 function normalizedCardKey(name: string): string {
   return normalizeScryfallCacheName(canonicalize(name).canonicalName || name);
-}
-
-function isCommanderLikeFormat(format: string): boolean {
-  return format.toLowerCase().includes("commander") || format.toLowerCase().includes("edh");
-}
-
-function isBasicLandName(name: string): boolean {
-  return /^(plains|island|swamp|mountain|forest|wastes)$/i.test(name.trim());
-}
-
-function isValidBudgetSwap(input: {
-  from: string;
-  to: string;
-  priceFrom: number;
-  priceTo: number;
-  budget: number;
-  deckNameKeys: Set<string>;
-  format: string;
-}): boolean {
-  if (!(input.priceFrom > 0 && input.priceTo > 0)) return false;
-  if (input.priceFrom <= input.budget) return false;
-  if (input.priceTo >= input.priceFrom) return false;
-  if (input.priceTo > input.budget) return false;
-  const fromKey = normalizedCardKey(input.from);
-  const toKey = normalizedCardKey(input.to);
-  if (!toKey || fromKey === toKey) return false;
-  if (isBasicLandName(input.from) || isBasicLandName(input.to)) return false;
-  if (input.deckNameKeys.has(toKey)) return false;
-
-  // These are acceptable Commander budget fetch substitutes, but they are usually traps in 60-card competitive mana bases.
-  if (!isCommanderLikeFormat(input.format) && /^(evolving wilds|terramorphic expanse|fabled passage)$/i.test(input.to.trim())) {
-    return false;
-  }
-
-  return true;
 }
 
 function roleGroupsForRoles(roles: CanonicalDeckRole[]): Set<RoleGroup> {
@@ -377,6 +349,8 @@ export async function POST(req: NextRequest) {
     const snapshotDate = String(body.snapshotDate || body.snapshot_date || new Date().toISOString().slice(0,10)).slice(0,10);
     const commander = String(body.commander || "").trim();
     const format = String(body.format || "Commander").trim();
+    const allowReplacementAboveBudget =
+      isAiWorkshopBudgetSource(sourcePage) || body.allowReplacementAboveBudget === true || body.allow_replacement_above_budget === true;
 
     let supabase = await createClient();
     let { data: { user } } = await supabase.auth.getUser();
@@ -534,7 +508,7 @@ export async function POST(req: NextRequest) {
         
         const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase);
         const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
-        if (!isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format })) continue;
+        if (!isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format, allowReplacementAboveBudget })) continue;
         const delta = pt - pf;
         const rationale = s.reason || `${toCanon} is a budget-friendly alternative to ${from}.`;
         const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
@@ -559,7 +533,7 @@ export async function POST(req: NextRequest) {
         for (const cand of cands) {
           const toCanon = canonicalize(cand).canonicalName || cand;
           const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
-          if (isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format })) {
+          if (isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format, allowReplacementAboveBudget })) {
             const delta = pt - pf;
             const rationale = `${toCanon} is a budget-friendly alternative to ${from}.`;
             const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
@@ -643,17 +617,23 @@ export async function POST(req: NextRequest) {
       console.warn("[swap-suggestions] Legality filter failed:", legErr);
     }
 
-    validatedSuggestions = await filterSuggestionsByRoleParity(validatedSuggestions);
+    const roleParitySuggestions = await filterSuggestionsByRoleParity(validatedSuggestions);
+    if (roleParitySuggestions.length > 0 || !isAiWorkshopBudgetSource(sourcePage)) {
+      validatedSuggestions = roleParitySuggestions;
+    }
 
     if (admin && deckProfile && validatedSuggestions.length > 0) {
       const groundedFromRows = await fetchTagGroundedRowsByNames(admin, validatedSuggestions.map((s) => s.from));
       const groundedToRows = await fetchTagGroundedRowsByNames(admin, validatedSuggestions.map((s) => s.to));
-      validatedSuggestions = filterSwapSuggestionsByTagSimilarity(
+      const tagFilteredSuggestions = filterSwapSuggestionsByTagSimilarity(
         validatedSuggestions,
         groundedFromRows,
         groundedToRows,
         deckProfile,
       );
+      if (tagFilteredSuggestions.length > 0 || !isAiWorkshopBudgetSource(sourcePage)) {
+        validatedSuggestions = tagFilteredSuggestions;
+      }
 
       const recommendationTier = resolveRecommendationTier({ isGuest: !user, userId: user?.id ?? null, isPro });
       const tierConfig = getRecommendationTierConfig(recommendationTier);

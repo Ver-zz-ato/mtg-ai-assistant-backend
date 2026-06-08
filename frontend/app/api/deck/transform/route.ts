@@ -23,7 +23,7 @@ import { summarizeTransformIntent } from "@/lib/deck/transform-intent";
 import { warnSourceOffColor } from "@/lib/deck/transform-warnings";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 import { precheckFixLegalitySourceDeck } from "@/lib/deck/transform-legality-check";
-import { enforceTransformRules } from "@/lib/deck/transform-enforcement";
+import { enforceTransformRules, looksLikeSpikyCasualProblemCard } from "@/lib/deck/transform-enforcement";
 import { finalizeTransformRows } from "@/lib/deck/transform-finalize";
 import { getCachedPrices } from "@/lib/ai/price-utils";
 
@@ -826,6 +826,9 @@ export async function POST(req: NextRequest) {
       commanderName,
       allowedColors,
       warnings,
+      avoidRefillCards: input.transformIntent === "more_casual"
+        ? sourceRows.filter((row) => looksLikeSpikyCasualProblemCard(row.name)).map((row) => row.name)
+        : undefined,
     });
     cards = finalized.rows;
     warnings.splice(0, warnings.length, ...finalized.warnings);

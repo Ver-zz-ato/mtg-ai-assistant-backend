@@ -22,6 +22,7 @@ export type FinalizeTransformRowsArgs = {
   commanderName: string | null;
   allowedColors: string[];
   warnings?: string[];
+  avoidRefillCards?: string[];
   getCardDetails?: (names: string[]) => Promise<Map<string, CardDetailsRow>>;
   filterRowsForFormat?: (
     rows: QtyRow[],
@@ -118,11 +119,14 @@ async function sourceRefillCandidates(args: {
   analyzeFormat: string;
   isCommander: boolean;
   allowedColors: string[];
+  avoidRefillCards?: string[];
   getCardDetails: (names: string[]) => Promise<Map<string, CardDetailsRow>>;
   filterRowsForFormat: FinalizeTransformRowsArgs["filterRowsForFormat"];
 }): Promise<QtyRow[]> {
   const currentQty = new Map(normalizeRows(args.currentRows).map((row) => [norm(row.name), row.qty]));
+  const avoidRefill = new Set((args.avoidRefillCards ?? []).map((name) => norm(name)).filter(Boolean));
   const missingFromSource = normalizeRows(args.sourceRows)
+    .filter((row) => !avoidRefill.has(norm(row.name)))
     .map((row) => {
       const missingQty = Math.max(0, row.qty - (currentQty.get(norm(row.name)) ?? 0));
       return missingQty > 0 ? { name: row.name, qty: missingQty } : null;
@@ -195,6 +199,7 @@ export async function finalizeTransformRows(args: FinalizeTransformRowsArgs): Pr
       analyzeFormat: args.analyzeFormat,
       isCommander: args.isCommander,
       allowedColors: args.allowedColors,
+      avoidRefillCards: args.avoidRefillCards,
       getCardDetails,
       filterRowsForFormat,
     });

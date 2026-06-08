@@ -60,9 +60,9 @@ function looksLikeInteractionCard(name: string): boolean {
     || /\b(counter|destroy|exile|remove|removal|protection|protect|hexproof|indestructible|ward|wipe|wrath|sweeper|hate|stax|silence)\b/.test(lowerName);
 }
 
-function looksLikeSpikyCasualProblemCard(name: string): boolean {
+export function looksLikeSpikyCasualProblemCard(name: string): boolean {
   const lowerName = name.trim().toLowerCase();
-  return /mana crypt|jeweled lotus|mox diamond|chrome mox|lion's eye diamond|grim monolith|demonic tutor|vampiric tutor|imperial seal|enlightened tutor|mystical tutor|worldly tutor|thassa's oracle|demonic consultation|tainted pact|underworld breach|ad nauseam|dockside extortionist|winter orb|static orb|trinisphere|stasis|drannith magistrate|opposition agent|hullbreacher/.test(lowerName);
+  return /mana crypt|jeweled lotus|mox diamond|chrome mox|lion's eye diamond|grim monolith|demonic tutor|vampiric tutor|imperial seal|enlightened tutor|mystical tutor|worldly tutor|diabolic intent|protean hulk|phyrexian altar|ashnod's altar|thassa's oracle|demonic consultation|tainted pact|underworld breach|ad nauseam|dockside extortionist|winter orb|static orb|trinisphere|stasis|drannith magistrate|opposition agent|hullbreacher/.test(lowerName);
 }
 
 function sourceLandCountLooksBroken(sourceRows: QtyRow[], targetCount: number, isCommander: boolean): boolean {
@@ -499,6 +499,26 @@ function enforceIntentSpecificRules(args: {
   }
 
   if (args.transformIntent === "more_casual") {
+    let removedSourcePowerOutliers = false;
+    for (const entry of [...args.working]) {
+      if (!looksLikeSpikyCasualProblemCard(entry.name)) continue;
+      args.avoidKeys.add(entry.key);
+      const index = args.working.indexOf(entry);
+      if (index >= 0) args.working.splice(index, 1);
+      removedSourcePowerOutliers = true;
+    }
+    if (removedSourcePowerOutliers) {
+      rebalanceToTarget({
+        working: args.working,
+        sourceRows: args.sourceRows,
+        targetCount: args.targetCount,
+        avoidKeys: args.avoidKeys,
+        protectedKeys: args.protectedKeys,
+        priceByName: args.priceByName,
+      });
+      warnings.push("Casual guard removed source fast mana, tutors, combo, or lock pieces before refilling.");
+    }
+
     const removedSpikyAdds = removeAddedRowsWhere({
       ...args,
       predicate: looksLikeSpikyCasualProblemCard,

@@ -16,6 +16,17 @@ const BUNDLED: BudgetSwapsMap = (() => {
   return out;
 })();
 
+export function mergeBudgetSwaps(base: BudgetSwapsMap, override: Record<string, string[]>): BudgetSwapsMap {
+  const out: BudgetSwapsMap = { ...base };
+  for (const [key, values] of Object.entries(override)) {
+    if (Array.isArray(values) && values.length > 0) {
+      const normalizedKey = key.toLowerCase();
+      out[normalizedKey] = [...new Set([...(out[normalizedKey] ?? []), ...values])];
+    }
+  }
+  return out;
+}
+
 export async function getBudgetSwaps(): Promise<BudgetSwapsMap> {
   try {
     const supabase = await createClient();
@@ -31,12 +42,7 @@ export async function getBudgetSwaps(): Promise<BudgetSwapsMap> {
     const entries = val?.swaps;
     if (!entries || typeof entries !== 'object') return BUNDLED;
 
-    const out: BudgetSwapsMap = {};
-    for (const [key, values] of Object.entries(entries)) {
-      if (Array.isArray(values) && values.length > 0) {
-        out[key.toLowerCase()] = values;
-      }
-    }
+    const out = mergeBudgetSwaps(BUNDLED, entries);
     return Object.keys(out).length > 0 ? out : BUNDLED;
   } catch {
     return BUNDLED;

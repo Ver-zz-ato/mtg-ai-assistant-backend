@@ -15,12 +15,12 @@ async function time<F extends (...a: any[]) => Promise<any>>(fn: F): Promise<{ o
 }
 
 async function getHandler() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const sb = createClient(url, key);
-
   // Database check (Supabase)
   const supabaseCheck = await time(async () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) throw new Error("Supabase public env not configured");
+    const sb = createClient(url, key);
     // cheap, RLS-friendly head count on public decks
     const { error } = await sb.from("decks").select("id", { count: "exact", head: true });
     if (error) throw new Error(error.message);
@@ -29,7 +29,13 @@ async function getHandler() {
 
   // Scryfall API check
   const scryfallCheck = await time(async () => {
-    const r = await fetch("https://api.scryfall.com/cards/named?exact=Sol%20Ring", { cache: "no-store" });
+    const r = await fetch("https://api.scryfall.com/cards/named?exact=Sol%20Ring", {
+      cache: "no-store",
+      headers: {
+        "User-Agent": "ManaTap health check",
+        Accept: "application/json",
+      },
+    });
     if (!r.ok) throw new Error(`Scryfall HTTP ${r.status}`);
     return null;
   });
@@ -60,14 +66,15 @@ async function getHandler() {
     openai: openaiCheck,
   };
 
-  // All critical checks must pass (database and scryfall are critical)
-  const criticalOk = supabaseCheck.ok && scryfallCheck.ok;
+  const dependencyOk = supabaseCheck.ok && scryfallCheck.ok;
 
   return NextResponse.json({
-    ok: criticalOk,
+    ok: true,
+    status: dependencyOk ? "alive" : "degraded",
+    dependencyOk,
     checks,
     ts: new Date().toISOString(),
-  }, { status: criticalOk ? 200 : 503 });
+  }, { status: 200 });
 }
 
 export const GET = withMetrics(getHandler);

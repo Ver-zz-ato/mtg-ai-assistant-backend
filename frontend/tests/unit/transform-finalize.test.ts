@@ -98,6 +98,39 @@ async function main() {
     assert.match(result.warnings.join("\n"), /Final color identity check removed/);
   }
 
+  {
+    const cardDetails = details({
+      "Demonic Tutor": { legalities: { commander: "legal" }, color_identity: ["B"] },
+      "Vampiric Tutor": { legalities: { commander: "legal" }, color_identity: ["B"] },
+      "Friendly Theme Card": { legalities: { commander: "legal" }, color_identity: ["B", "G"] },
+      Forest: { legalities: { commander: "legal" }, color_identity: [] },
+    });
+    const result = await finalizeTransformRows({
+      rows: [
+        { name: "Friendly Theme Card", qty: 1 },
+        { name: "Forest", qty: 97 },
+      ],
+      sourceRows: [
+        { name: "Demonic Tutor", qty: 1 },
+        { name: "Vampiric Tutor", qty: 1 },
+        { name: "Friendly Theme Card", qty: 1 },
+        { name: "Forest", qty: 97 },
+      ],
+      targetCount: 100,
+      analyzeFormat: "Commander",
+      isCommander: true,
+      commanderName: "Test Commander",
+      allowedColors: ["B", "G"],
+      avoidRefillCards: ["Demonic Tutor", "Vampiric Tutor"],
+      getCardDetails: async () => cardDetails,
+      filterRowsForFormat: filterRowsByLegalities,
+    });
+
+    assert.equal(result.rows.some((row) => row.name === "Demonic Tutor"), false);
+    assert.equal(result.rows.some((row) => row.name === "Vampiric Tutor"), false);
+    assert.match(result.warnings.join("\n"), /target is 100/);
+  }
+
   console.log("transform-finalize: ok");
 }
 

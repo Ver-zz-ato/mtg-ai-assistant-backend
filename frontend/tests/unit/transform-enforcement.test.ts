@@ -318,13 +318,19 @@ async function main() {
   {
     const source = rows([
       ["Forest", 36],
+      ["Demonic Tutor", 1],
+      ["Vampiric Tutor", 1],
+      ["Protean Hulk", 1],
       ["Friendly Theme Card", 1],
-      ["Role Player", 63],
+      ["Role Player", 60],
     ]);
     const result = rows([
       ["Forest", 36],
       ["Mana Crypt", 1],
-      ["Role Player", 63],
+      ["Demonic Tutor", 1],
+      ["Vampiric Tutor", 1],
+      ["Protean Hulk", 1],
+      ["Role Player", 60],
     ]);
     const enforced = enforceTransformRules({
       sourceRows: source,
@@ -337,6 +343,9 @@ async function main() {
       budget: "Moderate",
     });
     assert.equal(enforced.rows.some((row) => row.name === "Mana Crypt"), false);
+    assert.equal(enforced.rows.some((row) => row.name === "Demonic Tutor"), false);
+    assert.equal(enforced.rows.some((row) => row.name === "Vampiric Tutor"), false);
+    assert.equal(enforced.rows.some((row) => row.name === "Protean Hulk"), false);
     assert.ok(enforced.rows.some((row) => row.name === "Friendly Theme Card"));
   }
 
