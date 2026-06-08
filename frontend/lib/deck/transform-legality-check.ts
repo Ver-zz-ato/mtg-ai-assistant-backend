@@ -1,6 +1,6 @@
 import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
-import { aggregateCards, getCommanderColorIdentity, norm, totalDeckQty } from "@/lib/deck/generation-helpers";
+import { aggregateCards, getCommanderColorIdentity, norm, resolveCommanderNameFromRows, totalDeckQty } from "@/lib/deck/generation-helpers";
 import {
   getCopyCountViolations,
   getFormatRules,
@@ -74,7 +74,7 @@ export async function precheckFixLegalitySourceDeck(
   );
   if (sourceRows.length === 0) return null;
 
-  const commanderName = isCommander ? input.commander || sourceRows[0]?.name || "Unknown" : null;
+  const commanderName = isCommander ? resolveCommanderNameFromRows(input.commander, sourceRows) || "Unknown" : null;
   const getCommanderColors = deps.getCommanderColors ?? getCommanderColorIdentity;
   const getCardDetails = deps.getCardDetails ?? getDetailsForNamesCached;
   const filterRowsForFormat = deps.filterRowsForFormat ?? filterDecklistQtyRowsForFormat;
@@ -89,7 +89,7 @@ export async function precheckFixLegalitySourceDeck(
   let droppedCi = 0;
   let legalityRemoved = 0;
 
-  if (isCommander) {
+  if (isCommander && colors.length > 0) {
     const warnSrc = await warnOffColor(input.sourceDeckText, commanderName);
     if (warnSrc) warnings.push(warnSrc);
 

@@ -976,7 +976,7 @@ async function main() {
       return true;
     });
     if (!passes.length) continue;
-    if (passes.some((pass) => pass !== "fix_legality" && pass !== "lower_budget")) {
+    if (!useDbDecks && passes.some((pass) => pass !== "fix_legality" && pass !== "lower_budget")) {
       baselineFacts = await buildGenerationPreviewFacts(
         deck.sourceDeckText,
         deck.commander,

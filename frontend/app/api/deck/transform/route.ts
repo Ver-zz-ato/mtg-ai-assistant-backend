@@ -7,7 +7,7 @@ import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
 import type { SfCard } from "@/lib/deck/inference";
 import { DECK_TRANSFORM_FREE } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
-import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
+import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, resolveCommanderNameFromRows, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
 import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 import {
   getFormatRules,
@@ -711,7 +711,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const commanderName = isCommander ? input.commander || cards[0]?.name || "Unknown" : null;
+    const sourceRows = sourceMainRows.length ? sourceMainRows : aggregateCards(parseDeckText(input.sourceDeckText));
+    const commanderName = isCommander
+      ? resolveCommanderNameFromRows(input.commander, sourceRows.length ? sourceRows : cards) || cards[0]?.name || "Unknown"
+      : null;
     const allowedColors = isCommander && commanderName
       ? (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase())
       : [];
@@ -719,12 +722,12 @@ export async function POST(req: NextRequest) {
     const details = await getDetailsForNamesCached(allNames);
 
     const warnings: string[] = [];
-    if (isCommander) {
-      const warnSrc = await warnSourceOffColor(input.sourceDeckText, input.commander);
+    if (isCommander && allowedColors.length > 0) {
+      const warnSrc = await warnSourceOffColor(input.sourceDeckText, commanderName);
       if (warnSrc) warnings.push(warnSrc);
     }
 
-    if (isCommander) {
+    if (isCommander && allowedColors.length > 0) {
       const beforeCi = cards.length;
       const filtered = cards.filter((c) => {
         const entry = details.get(norm(c.name));
@@ -760,8 +763,6 @@ export async function POST(req: NextRequest) {
     } catch (legErr) {
       console.warn("[deck/transform] Legality filter failed:", legErr);
     }
-
-    const sourceRows = sourceMainRows.length ? sourceMainRows : aggregateCards(parseDeckText(input.sourceDeckText));
 
     if (input.transformIntent === "improve_mana_base") {
       const scopedCards = enforceManaBasePassScope({

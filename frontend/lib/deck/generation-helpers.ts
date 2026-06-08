@@ -143,6 +143,27 @@ export function parseAiDeckOutputLines(text: string): Array<{ name: string; qty:
   return out;
 }
 
+export function resolveCommanderNameFromRows(
+  commanderName: string | null | undefined,
+  rows: Array<{ name: string; qty: number }>,
+): string | null {
+  const raw = String(commanderName || "").trim();
+  if (!raw && rows[0]?.name) return rows[0].name;
+  if (!raw) return null;
+
+  const rawKey = norm(raw);
+  const exact = rows.find((row) => norm(row.name) === rawKey);
+  if (exact) return exact.name;
+
+  const candidates = rows.filter((row) => {
+    const rowKey = norm(row.name);
+    return rowKey.startsWith(rawKey) || rawKey.startsWith(rowKey);
+  });
+  if (candidates.length === 1) return candidates[0].name;
+
+  return raw;
+}
+
 /** WUBRG color identity for a commander name (handles Partner // Partner). */
 export async function getCommanderColorIdentity(commanderName: string): Promise<string[]> {
   if (!commanderName?.trim()) return [];
