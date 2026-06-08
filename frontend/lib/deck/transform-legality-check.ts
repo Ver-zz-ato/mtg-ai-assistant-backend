@@ -10,7 +10,7 @@ import {
   tryDeckFormatStringToAnalyzeFormat,
 } from "@/lib/deck/formatRules";
 import { warnSourceOffColor } from "@/lib/deck/transform-warnings";
-import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { filterDecklistQtyRowsForFormat } from "@/lib/deck/recommendation-legality";
 
@@ -63,11 +63,17 @@ export async function precheckFixLegalitySourceDeck(
   const analyzeFormat = tryDeckFormatStringToAnalyzeFormat(input.format);
   if (!analyzeFormat) return null;
 
-  const sourceRows = aggregateCards(parseDeckText(input.sourceDeckText));
-  if (sourceRows.length === 0) return null;
-
   const rules = getFormatRules(analyzeFormat);
   const isCommander = isCommanderFormatString(analyzeFormat);
+  const sourceRows = aggregateCards(
+    isCommander
+      ? parseDeckText(input.sourceDeckText)
+      : parseDeckTextWithZones(input.sourceDeckText, { isCommanderFormat: false })
+          .filter((row) => row.zone !== "sideboard")
+          .map((row) => ({ name: row.name, qty: row.qty }))
+  );
+  if (sourceRows.length === 0) return null;
+
   const commanderName = isCommander ? input.commander || sourceRows[0]?.name || "Unknown" : null;
   const getCommanderColors = deps.getCommanderColors ?? getCommanderColorIdentity;
   const getCardDetails = deps.getCardDetails ?? getDetailsForNamesCached;

@@ -1,5 +1,13 @@
 # Frontend changelog
 
+## 2026-06-08
+
+### AI Workshop transform output correctness
+
+- **`POST /api/deck/transform`:** Final validation now runs after Workshop enforcement/restoration so banned cards and Commander off-color cards cannot be reintroduced by max-change, budget, or commander-package guards.
+- **Constructed sideboards:** Transform responses preserve source sideboards by appending a `Sideboard` section to `deckText`; preview facts are computed from the mainboard only.
+- **Commander cleanup:** Duplicate commander rows are normalized to one copy.
+
 ## 2026-06-03
 
 ### Website changelog - mobile app Android/iOS progress

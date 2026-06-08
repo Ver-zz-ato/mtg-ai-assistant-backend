@@ -8,7 +8,7 @@ import type { SfCard } from "@/lib/deck/inference";
 import { DECK_TRANSFORM_FREE } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import { norm, aggregateCards, parseAiDeckOutputLines, getCommanderColorIdentity, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
-import { parseDeckText } from "@/lib/deck/parseDeckText";
+import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText";
 import {
   getFormatRules,
   isCommanderFormatString,
@@ -24,6 +24,7 @@ import { warnSourceOffColor } from "@/lib/deck/transform-warnings";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 import { precheckFixLegalitySourceDeck } from "@/lib/deck/transform-legality-check";
 import { enforceTransformRules } from "@/lib/deck/transform-enforcement";
+import { finalizeTransformRows } from "@/lib/deck/transform-finalize";
 import { getCachedPrices } from "@/lib/ai/price-utils";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -93,6 +94,13 @@ function diffRows(beforeRows: QtyRow[], afterRows: QtyRow[]) {
   added.sort((a, b) => b.qty - a.qty || a.name.localeCompare(b.name));
   removed.sort((a, b) => b.qty - a.qty || a.name.localeCompare(b.name));
   return { added, removed };
+}
+
+function buildDeckTextWithSideboard(mainRows: QtyRow[], sideRows: QtyRow[]): string {
+  const mainText = mainRows.map((c) => `${c.qty} ${c.name}`).join("\n");
+  if (!sideRows.length) return mainText;
+  const sideText = sideRows.map((c) => `${c.qty} ${c.name}`).join("\n");
+  return [mainText, "Sideboard", sideText].filter(Boolean).join("\n");
 }
 
 function normalizeRows(rows: QtyRow[]): QtyRow[] {
@@ -542,6 +550,19 @@ export async function POST(req: NextRequest) {
     }
     const rules = getFormatRules(analyzeFormat);
     const isCommander = isCommanderFormatString(analyzeFormat);
+    const sourceZoneRows = parseDeckTextWithZones(input.sourceDeckText, { isCommanderFormat: isCommander });
+    const sourceMainRows = aggregateCards(
+      sourceZoneRows
+        .filter((row) => isCommander || row.zone !== "sideboard")
+        .map((row) => ({ name: row.name, qty: row.qty }))
+    );
+    const sourceSideRows = isCommander
+      ? []
+      : aggregateCards(
+          sourceZoneRows
+            .filter((row) => row.zone === "sideboard")
+            .map((row) => ({ name: row.name, qty: row.qty }))
+        );
 
     if (input.transformIntent === "fix_legality") {
       const precheck = await precheckFixLegalitySourceDeck(input, {
@@ -553,14 +574,14 @@ export async function POST(req: NextRequest) {
       });
 
       if (precheck?.alreadyLegal || precheck?.needsDeckSizeOnlyReview || precheck?.needsDeterministicRepair) {
-        const deckText = precheck.validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n");
+        const mainDeckText = precheck.validatedRows.map((c) => `${c.qty} ${c.name}`).join("\n");
+        const deckText = buildDeckTextWithSideboard(precheck.validatedRows, sourceSideRows);
         const previewFacts = await buildGenerationPreviewFacts(
-          deckText,
+          mainDeckText,
           precheck.commanderName === "Unknown" ? null : precheck.commanderName,
           precheck.analyzeFormat as "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper",
         ).catch(() => undefined);
-        const sourceRows = aggregateCards(parseDeckText(input.sourceDeckText));
-        const diff = diffRows(sourceRows, precheck.validatedRows);
+        const diff = diffRows(sourceMainRows, precheck.validatedRows);
         const whyPayload = buildDeterministicLegalityWhy({
           analyzeFormat: precheck.analyzeFormat,
           summary: precheck.alreadyLegal
@@ -740,7 +761,7 @@ export async function POST(req: NextRequest) {
       console.warn("[deck/transform] Legality filter failed:", legErr);
     }
 
-    const sourceRows = aggregateCards(parseDeckText(input.sourceDeckText));
+    const sourceRows = sourceMainRows.length ? sourceMainRows : aggregateCards(parseDeckText(input.sourceDeckText));
 
     if (input.transformIntent === "improve_mana_base") {
       const scopedCards = enforceManaBasePassScope({
@@ -796,23 +817,27 @@ export async function POST(req: NextRequest) {
     if (enforced.warnings.length) warnings.push(...enforced.warnings);
     cards = enforced.rows;
 
-    const finalQty = totalDeckQty(cards);
-    if (finalQty > rules.mainDeckTarget) {
-      warnings.push(`List has ${finalQty} cards after validation; trimmed to ${rules.mainDeckTarget} for ${analyzeFormat}.`);
-      cards = trimDeckToMaxQty(cards, rules.mainDeckTarget);
-    }
-    const normalizedFinalQty = totalDeckQty(cards);
-    if (normalizedFinalQty < rules.mainDeckTarget) {
-      warnings.push(`List has ${normalizedFinalQty} cards after validation; target is ${rules.mainDeckTarget} for ${analyzeFormat}.`);
-    }
+    const finalized = await finalizeTransformRows({
+      rows: cards,
+      sourceRows,
+      targetCount: rules.mainDeckTarget,
+      analyzeFormat,
+      isCommander,
+      commanderName,
+      allowedColors,
+      warnings,
+    });
+    cards = finalized.rows;
+    warnings.splice(0, warnings.length, ...finalized.warnings);
 
-    const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
+    const mainDeckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
+    const deckText = buildDeckTextWithSideboard(cards, sourceSideRows);
     const colors = allowedColors;
 
     let previewFacts: Awaited<ReturnType<typeof buildGenerationPreviewFacts>> = undefined;
     try {
       previewFacts = await buildGenerationPreviewFacts(
-        deckText,
+        mainDeckText,
         commanderName === "Unknown" ? null : commanderName,
         analyzeFormat,
       );

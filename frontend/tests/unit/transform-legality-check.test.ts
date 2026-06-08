@@ -198,6 +198,30 @@ async function main() {
   }
 
   {
+    const main = Array.from({ length: 60 }, (_, i) => namedCard("Modern Main", i));
+    const side = Array.from({ length: 15 }, (_, i) => namedCard("Modern Side", i));
+    const details = makeDeckMap({
+      ...Object.fromEntries(main.map((name) => [name, { legalities: { modern: "legal" } }])),
+      ...Object.fromEntries(side.map((name) => [name, { legalities: { modern: "legal" } }])),
+    });
+    const deckText = [...main.map((name) => `1 ${name}`), "Sideboard", ...side.map((name) => `1 ${name}`)].join("\n");
+
+    const result = await precheckFixLegalitySourceDeck(
+      { sourceDeckText: deckText, format: "Modern" },
+      {
+        getCardDetails: async () => details,
+        filterRowsForFormat: filterRowsByLegalities,
+        warnOffColor: async () => null,
+      },
+    );
+
+    assert.ok(result);
+    assert.equal(result?.alreadyLegal, true, "legal Modern 60+15 should no-op based on mainboard count");
+    assert.equal(result?.validatedRows.reduce((sum, row) => sum + row.qty, 0), 60);
+    assert.equal(result?.validatedRows.some((row) => row.name.startsWith("Modern Side")), false);
+  }
+
+  {
     const commander = "Budget Commander";
     const cards = Array.from({ length: 98 }, (_, i) => namedCard("Budget Card", i));
     const details = makeDeckMap({
