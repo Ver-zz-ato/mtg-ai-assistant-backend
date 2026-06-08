@@ -16,6 +16,9 @@ import {
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
+import { AI_WORKSHOP_HANDOFF_KEY, type AiWorkshopHandoff } from "@/lib/deck/ai-workshop-actions";
+import { countAiWorkshopDeckCards } from "@/lib/deck/ai-workshop-deck-text";
+import { getAiDeckHalfwayMinimumCards } from "@/lib/deck/ai-workshop-rules";
 
 type Bands = Partial<Record<"curve" | "ramp" | "draw" | "removal" | "mana", number>>;
 type Counts = { lands: number; ramp: number; draw: number; removal: number };
@@ -398,12 +401,34 @@ export default function DeckCheckerClient() {
                   </ul>
                 </div>
 
-                <Link
-                  href="/my-decks"
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-sm font-bold text-amber-100 transition hover:bg-amber-300/15"
-                >
-                  Save deck for full AI analysis
-                </Link>
+                <div className="mt-4 flex flex-col gap-2">
+                  {countAiWorkshopDeckCards(deckText, format) >= getAiDeckHalfwayMinimumCards(format) ? (
+                    <Link
+                      href="/ai-workshop"
+                      onClick={() => {
+                        try {
+                          const handoff: AiWorkshopHandoff = {
+                            deckText: deckText.trim(),
+                            format,
+                            sourceLabel: "Deck Checker",
+                          };
+                          sessionStorage.setItem(AI_WORKSHOP_HANDOFF_KEY, JSON.stringify(handoff));
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-violet-400/40 bg-violet-500/15 px-4 py-2 text-sm font-bold text-violet-100 transition hover:bg-violet-500/25"
+                    >
+                      Refine in AI Workshop
+                    </Link>
+                  ) : null}
+                  <Link
+                    href="/my-decks"
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-sm font-bold text-amber-100 transition hover:bg-amber-300/15"
+                  >
+                    Save deck for full AI analysis
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

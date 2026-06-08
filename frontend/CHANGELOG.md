@@ -2,6 +2,15 @@
 
 ## 2026-06-08
 
+### AI Workshop (website)
+
+- **`/ai-workshop`:** New full-parity AI Workshop tool — load/paste a deck, run 8 refinement passes (general, mana, curve, interaction, budget, power, casual, legality), review selective adds/cuts or budget swaps, undo, and save refined deck. Sign-in required to run; free 5 passes/day; Pro unlimited + Big rebuild.
+- **Tools hub:** AI Workshop is the first card in **Improve Your Deck** on `/tools`.
+- **Entry points:** My Decks Build Assistant (`?deckId=`), Deck Checker handoff via sessionStorage, Budget Swaps related tools link.
+- **Redirect:** `/tools/ai-workshop` → `/ai-workshop`.
+- **Libs:** `lib/deck/ai-workshop-{deck-text,rules,actions,helpers}.ts`, `lib/deck/preview-facts-adapter.ts`, `components/ai-workshop/*`.
+- **Tests:** `tests/unit/ai-workshop-deck-text.test.ts`, `tests/unit/ai-workshop-rules.test.ts`; E2E route list includes `/ai-workshop`.
+
 ### AI Workshop transform output correctness
 
 - **`POST /api/deck/transform`:** Final validation now runs after Workshop enforcement/restoration so banned cards and Commander off-color cards cannot be reintroduced by max-change, budget, or commander-package guards.

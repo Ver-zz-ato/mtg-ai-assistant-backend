@@ -19,6 +19,8 @@ export const TOOL_DESCRIPTIONS = {
     "Track Magic: The Gathering card prices with ManaTap. Review price history, compare trends, watch deck value, and plan smarter card purchases.",
   compareDecks:
     "Compare Magic: The Gathering decks side by side with ManaTap. Review shared cards, unique upgrades, mana curves, colors, and deck value.",
+  aiWorkshop:
+    "Refine your MTG deck with ManaTap AI Workshop. Run focused passes on mana, curve, budget, power, interaction, or legality — then review and save.",
 } as const;
 
 export const META_DESCRIPTIONS = {

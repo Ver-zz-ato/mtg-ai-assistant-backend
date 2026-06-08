@@ -64,6 +64,7 @@ const nextConfig: NextConfig = {
       { source: "/mtg-commander-ai-deck-builder", destination: "/build-a-deck", permanent: true },
       { source: "/tools/probability", destination: "/tools/mulligan#probability", permanent: true },
       { source: "/budget-swaps", destination: "/deck/swap-suggestions", permanent: true },
+      { source: "/tools/ai-workshop", destination: "/ai-workshop", permanent: true },
       {
         source: "/commanders/yuriko-the-tigers-shadow",
         destination: "/commanders/yuriko-the-tiger-s-shadow",

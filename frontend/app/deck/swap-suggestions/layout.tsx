@@ -73,8 +73,9 @@ const IntroBlock = () => (
     </dl>
     <RelatedTools
       tools={[
+        { href: "/ai-workshop", label: "AI Workshop" },
         { href: "/tools/mulligan", label: "Commander Mulligan Simulator" },
-        { href: "/tools/probability", label: "MTG Probability Calculator" },
+        { href: "/compare-decks", label: "Deck Compare" },
         { href: "/collections/cost-to-finish", label: "Cost to Finish" },
       ]}
     />

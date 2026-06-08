@@ -14,6 +14,7 @@ import {
 } from "@/lib/deck/formatRules";
 import { encodeBase64Url, decodeBase64Url } from "@/lib/utils/base64url";
 import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
+import { getAiDeckHalfwayMinimumCards } from "@/lib/deck/ai-workshop-rules";
 
 function decodeIntentParam(i?: string | null): any {
   if (!i) return null;
@@ -82,6 +83,8 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
       ? String(intent.format)
       : intentFormatLabelFromDeck(format);
   const assistantFormatRules = getFormatRules(analyzeFormatLabel);
+  const workshopMinimumCards = getAiDeckHalfwayMinimumCards(analyzeFormatLabel);
+  const workshopReady = cardCount >= workshopMinimumCards;
   const [expanded, setExpanded] = React.useState(false); // Start collapsed
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -665,6 +668,17 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                   {assistantFormatRules.analyzeAs})
                 </div>
               </button>
+              {workshopReady ? (
+                <Link
+                  href={`/ai-workshop?deckId=${encodeURIComponent(deckId)}`}
+                  className="col-span-2 px-3 py-2 rounded-lg border border-violet-500/50 hover:bg-violet-900/30 bg-gradient-to-r from-violet-600/35 to-indigo-600/35 text-left transition-colors block"
+                >
+                  <div className="font-semibold text-xs">✨ AI Workshop</div>
+                  <div className="text-xs opacity-70">
+                    Run focused passes on mana, curve, budget, power, or legality
+                  </div>
+                </Link>
+              ) : null}
             </div>
           </div>
         </div>

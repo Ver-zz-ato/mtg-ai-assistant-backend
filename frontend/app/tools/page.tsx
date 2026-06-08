@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Sparkles,
   Wand2,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import ProFeatureCard from "@/components/ProFeatureCard";
@@ -86,6 +87,15 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
     icon: Sparkles,
     accent: "from-emerald-300/70 to-cyan-300/55",
     tools: [
+      {
+        href: "/ai-workshop",
+        title: "AI Workshop",
+        subtitle: "Run focused AI passes on mana, curve, budget, power, or legality.",
+        badge: "Limited",
+        icon: Wrench,
+        accent: "text-violet-200 border-violet-300/25 bg-violet-300/10",
+        priority: "recommended",
+      },
       {
         href: "/budget-swaps",
         title: "Budget Swaps",

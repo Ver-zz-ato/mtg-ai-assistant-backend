@@ -56,6 +56,7 @@ test.describe('Comprehensive Site Test', () => {
       '/support',
       '/changelog',
       '/tools',
+      '/ai-workshop',
       '/tools/mulligan',
       '/tools/probability',
       '/price-tracker',

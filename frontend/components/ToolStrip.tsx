@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 const TOOLS = [
+  { href: "/ai-workshop", label: "AI Workshop" },
   { href: "/mtg-deck-checker", label: "Deck Checker" },
   { href: "/build-a-deck", label: "Build a Deck" },
   { href: "/deck/swap-suggestions", label: "Budget Swaps" },
