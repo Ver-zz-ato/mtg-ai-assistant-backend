@@ -26,6 +26,19 @@ export function WorkshopDeckStrip({
   const [expanded, setExpanded] = useState(false);
   const chips = [format, `${cardCount} cards`, sourceLabel, colorIdentityLabel].filter(Boolean);
 
+  const chipClass = (chip: string) => {
+    if (/\d+\s*cards/i.test(chip)) {
+      return "border-sky-500/30 bg-sky-500/10 text-sky-200";
+    }
+    if (/loaded|saved|pasted|handoff/i.test(chip)) {
+      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+    }
+    if (/^commander$|^modern$|^pioneer$|^standard$|^pauper$|^edh$/i.test(chip.trim())) {
+      return "border-violet-500/30 bg-violet-500/10 text-violet-200";
+    }
+    return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+  };
+
   return (
     <div className="relative overflow-hidden rounded-xl border border-violet-500/25 bg-gradient-to-br from-violet-950/40 via-neutral-900/80 to-neutral-950 p-4">
       {commanderArt ? (
@@ -64,7 +77,7 @@ export function WorkshopDeckStrip({
           {chips.map((chip) => (
             <span
               key={String(chip)}
-              className="rounded-full border border-neutral-700 bg-black/30 px-2 py-0.5 text-xs text-neutral-300"
+              className={`rounded-full border px-2 py-0.5 text-xs font-medium ${chipClass(String(chip))}`}
             >
               {chip}
             </span>

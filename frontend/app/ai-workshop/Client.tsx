@@ -33,6 +33,8 @@ import {
   diffAiWorkshopDecklists,
 } from "@/lib/deck/ai-workshop-deck-text";
 import {
+  collectDeckArtCandidateNames,
+  deriveCommanderFromDeckText,
   detectCommander,
   filterSelectedChangeReasons,
   formatUsd,
@@ -41,6 +43,7 @@ import {
   normalizeChangeReasons,
   normalizeColorIdentity,
   normalizeSourceChip,
+  pickArtFromImageMap,
 } from "@/lib/deck/ai-workshop-helpers";
 import {
   AI_WORKSHOP_MAX_CHANGE_OPTIONS,
@@ -142,7 +145,7 @@ export default function AiWorkshopClient() {
   }, [format]);
   const workshopBlocked = currentCardCount > 0 && currentCardCount < workshopMinimumCards;
   const isCommanderDeck = isCommanderFormatString(format);
-  const commanderName = deckCommander.trim() || detectCommander(activeDeckText) || "";
+  const commanderName = deckCommander.trim() || deriveCommanderFromDeckText(activeDeckText, deckTitle);
 
   const preserveCards = useMemo(
     () =>
@@ -394,44 +397,68 @@ export default function AiWorkshopClient() {
   }, [selectedDeckId, user]);
 
   useEffect(() => {
-    const target = commanderName;
-    if (!target) {
+    if (!activeDeckText.trim() && !selectedDeckId) {
       setCommanderArt(null);
       return;
     }
     let cancelled = false;
     void (async () => {
-      try {
-        const r = await fetch(
-          `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(target)}`,
-        );
-        if (!r.ok) {
-          if (!cancelled) setCommanderArt(null);
-          return;
+      let art: string | null = null;
+
+      if (selectedDeckId && user) {
+        try {
+          const r = await fetch(
+            `/api/profile/banner-art?signatureDeckId=${encodeURIComponent(selectedDeckId)}`,
+            { cache: "no-store" },
+          );
+          const j = await r.json().catch(() => ({ ok: false }));
+          if (r.ok && j?.ok && j.art) art = String(j.art);
+        } catch {
+          /* ignore */
         }
-        const j = await r.json();
-        const art =
-          j?.image_uris?.art_crop || j?.card_faces?.[0]?.image_uris?.art_crop || null;
-        if (!cancelled) setCommanderArt(art);
-      } catch {
-        if (!cancelled) setCommanderArt(null);
       }
+
+      const candidates = collectDeckArtCandidateNames(activeDeckText, commanderName, deckTitle);
+      if (!art && candidates.length) {
+        try {
+          const { getImagesForNames } = await import("@/lib/scryfall-cache");
+          const imageMap = await getImagesForNames(candidates);
+          art = pickArtFromImageMap(candidates, imageMap);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      if (!art && commanderName && user) {
+        try {
+          const r = await fetch(
+            `/api/profile/banner-art?favCommander=${encodeURIComponent(commanderName)}`,
+            { cache: "no-store" },
+          );
+          const j = await r.json().catch(() => ({ ok: false }));
+          if (r.ok && j?.ok && j.art) art = String(j.art);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      if (!cancelled) setCommanderArt(art);
     })();
     return () => {
       cancelled = true;
     };
-  }, [commanderName]);
+  }, [activeDeckText, commanderName, deckTitle, selectedDeckId, user]);
 
   const syncWorkingFromPaste = useCallback(() => {
     const raw = deckText.trim();
     if (raw) {
       setWorkingDeckText(raw);
       if (!deckCommander.trim() && isCommanderFormatString(format)) {
-        const detected = detectCommander(raw);
-        if (detected) setDeckCommander(detected);
+        const derived = deriveCommanderFromDeckText(raw, deckTitle);
+        if (derived) setDeckCommander(derived);
       }
     }
-  }, [deckText, deckCommander, format]);
+  }, [deckText, deckCommander, deckTitle, format]);
 
   useEffect(() => {
     syncWorkingFromPaste();

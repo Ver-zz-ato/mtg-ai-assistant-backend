@@ -18,6 +18,53 @@ export function detectCommander(text: string): string | null {
   return null;
 }
 
+/** First deck line or explicit Commander section — matches budget-swaps / cost-to-finish. */
+export function deriveCommanderFromDeckText(text: string, title = ""): string {
+  const labeled = detectCommander(text);
+  if (labeled) return labeled;
+  const first = text.split(/\r?\n/).map((s) => s.trim()).find(Boolean) || title;
+  const match = first.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+  return (match ? match[2] : first).replace(/\s*\(.*?\)\s*$/, "").trim();
+}
+
+function cleanCardNameForArt(name: string): string {
+  return String(name || "").replace(/\s*\(.*?\)\s*$/, "").trim();
+}
+
+/** Candidate card names for deck banner art (commander, title, first lines). */
+export function collectDeckArtCandidateNames(text: string, commander: string, title = ""): string[] {
+  const list: string[] = [];
+  if (commander) list.push(cleanCardNameForArt(commander));
+  if (title && title !== "Untitled deck") list.push(cleanCardNameForArt(title));
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 5);
+  for (const line of lines) {
+    const match = line.match(/^(\d+)\s*[xX]?\s+(.+)$/);
+    list.push(cleanCardNameForArt(match ? match[2] : line));
+  }
+  return [...new Set(list.filter(Boolean))];
+}
+
+function normCardName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function pickArtFromImageMap(
+  candidates: string[],
+  imageMap: Map<string, { art_crop?: string; normal?: string; small?: string }>,
+): string | null {
+  for (const name of candidates) {
+    const img = imageMap.get(normCardName(name));
+    const url = img?.art_crop || img?.normal || img?.small;
+    if (url) return url;
+  }
+  return null;
+}
+
 export function filterSelectedChangeReasons(args: {
   reasons: CardChangeReasons | null | undefined;
   adds: AiWorkshopDiffRow[];
