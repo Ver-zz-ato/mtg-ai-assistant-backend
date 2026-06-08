@@ -474,10 +474,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If AI requested, try it first
-    if (useAI) {
-      const { data: { user } } = await supabase.auth.getUser();
-      isPro = user ? await checkProStatus(user.id) : false;
+    const addAiSuggestions = async () => {
       let anonId: string | null = null;
       if (user?.id) anonId = await hashString(user.id);
       else {
@@ -514,6 +511,12 @@ export async function POST(req: NextRequest) {
         const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
         suggestions.push({ from, to: toCanon, price_from: pf, price_to: pt, price_delta: delta, rationale, confidence });
       }
+    };
+
+    // Standalone Budget Swaps can use AI first. AI Workshop lower-budget needs the
+    // trusted deterministic swaps first so the modal never waits on a long LLM pass.
+    if (useAI && !isAiWorkshopBudgetSource(sourcePage)) {
+      await addAiSuggestions();
     }
 
     // Built-in fallbacks for common staples
@@ -667,6 +670,10 @@ export async function POST(req: NextRequest) {
           validatedSuggestions = nextSuggestions;
         }
       }
+    }
+
+    if (useAI && isAiWorkshopBudgetSource(sourcePage) && suggestions.length === 0) {
+      await addAiSuggestions();
     }
 
     const annotatedSuggestions = validatedSuggestions.map((s) => {
