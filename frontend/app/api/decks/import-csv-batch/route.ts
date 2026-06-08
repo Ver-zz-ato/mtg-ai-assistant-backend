@@ -9,6 +9,7 @@ import {
   parseCommanderDecklistForImport,
   sanitizeImportedCardEntries,
 } from "@/lib/deck/importHelpers";
+import { assertCanCreateDecks } from "@/lib/pro-storage-limits";
 
 // Simple CSV parser for deck format
 function parseCSV(csvContent: string): { headers: string[]; decks: any[] } {
@@ -166,6 +167,12 @@ export async function POST(req: Request) {
         
         if (existing) {
           results.push({ title, success: false, error: 'Already exists', deckId: existing.id });
+          continue;
+        }
+
+        const deckLimit = await assertCanCreateDecks(supabase, user.id);
+        if (deckLimit) {
+          results.push({ title, success: false, error: deckLimit.message });
           continue;
         }
         

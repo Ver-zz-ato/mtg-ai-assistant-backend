@@ -5,6 +5,7 @@ import { withLogging } from "@/lib/api/withLogging";
 import { parseCollectionCsvText } from "@/lib/csv/collection";
 import { buildResolvedCollectionBulkNameMap } from "@/lib/collections/buildResolvedCollectionBulkNameMap";
 import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
+import { assertCanGrowCollection } from "@/lib/pro-storage-limits";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,15 @@ export const POST = withLogging(async (req: Request) => {
     origin,
     items.map((it) => it.name),
   );
+
+  const addedQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
+  const collectionLimit = await assertCanGrowCollection(supabase, user.id, collectionId, addedQty);
+  if (collectionLimit) {
+    return NextResponse.json(
+      { ok: false, code: collectionLimit.code, error: collectionLimit.message, limit: collectionLimit.limit },
+      { status: 403 },
+    );
+  }
 
   let added = 0, updated = 0, skipped: string[] = [];
   for (const it of items) {

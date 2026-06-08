@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { containsProfanity } from '@/lib/profanity';
+import { assertCanCreateWishlists } from '@/lib/pro-storage-limits';
 
 export const runtime = 'nodejs';
 
@@ -43,6 +44,14 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     
     if (existing?.id) return NextResponse.json({ ok: false, error: 'wishlist name already exists' }, { status: 400 });
+
+    const wishlistLimit = await assertCanCreateWishlists(supabase as any, user.id);
+    if (wishlistLimit) {
+      return NextResponse.json(
+        { ok: false, code: wishlistLimit.code, error: wishlistLimit.message, limit: wishlistLimit.limit },
+        { status: 403 },
+      );
+    }
 
     // Create wishlist
     const { data: wishlist, error } = await (supabase as any)

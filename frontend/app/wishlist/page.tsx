@@ -15,6 +15,7 @@ import { EmptyWishlistState } from "@/components/EmptyStates";
 import WishlistSkeleton from "@/components/WishlistSkeleton";
 import { useProStatus } from "@/hooks/useProStatus";
 import QRShareModal from "@/components/share/QRShareModal";
+import { handleProStorageLimitPayload } from "@/lib/pro-storage-limit-ui";
 
 type CurrencyCode = 'USD' | 'EUR' | 'GBP';
 type WishlistOption = { id: string; name: string; is_public?: boolean };
@@ -140,6 +141,13 @@ function WishlistEditor() {
   // Single card validation state
   const [addValidationItems, setAddValidationItems] = React.useState<Array<{ originalName: string; suggestions: string[]; choice: string; qty: number }>>([]);
   const [showAddValidation, setShowAddValidation] = React.useState(false);
+
+  async function readWishlistMutation(res: Response, fallback: string): Promise<any> {
+    const json = await res.json().catch(() => ({}));
+    if (await handleProStorageLimitPayload(json)) throw new Error(`PRO_LIMIT:${json?.error || fallback}`);
+    if (!res.ok || json?.ok === false) throw new Error(json?.error || fallback);
+    return json;
+  }
 
   React.useEffect(()=>{ (async()=>{
     try{
@@ -358,17 +366,20 @@ function WishlistEditor() {
       const body: { names: string[]; qty: number; wishlist_id?: string } = { names:[name], qty: q };
       if (wishlistId) body.wishlist_id = wishlistId;
       const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-      const j = await r.json().catch(()=>({}));
-      
-      if (!r.ok || j?.ok===false) {
+      let j: any;
+      try {
+        j = await readWishlistMutation(r, 'Add failed');
+      } catch (err) {
         // Revert optimistic update
         setItems(prev => prev.filter(it => it !== tempItem));
         setAddName(name);
         setAddQty(q);
-        
-        const retry = confirm(`Failed to add ${name}. Retry?`);
-        if (retry) {
-          add();
+
+        if (!getErrorMessage(err, '').startsWith('PRO_LIMIT:')) {
+          const retry = confirm(`Failed to add ${name}. Retry?`);
+          if (retry) {
+            add();
+          }
         }
         return;
       }
@@ -434,11 +445,13 @@ function WishlistEditor() {
     try{
       const body = { wishlist_id: wishlistId, name, qty: Math.max(0, Number(next||0)) };
       const r = await fetch('/api/wishlists/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Update failed');
+      await readWishlistMutation(r, 'Update failed');
       setItems(prev => prev.map(it => it.name===name ? { ...it, qty: Math.max(0,next) } : it));
       setTotal(items.reduce((s,it)=> s + (it.name===name ? (it.unit||0)*Math.max(0,next) : (it.unit||0)*Math.max(0,it.qty||0)), 0));
-    } catch(e: unknown){ alert(getErrorMessage(e, 'Update failed')); }
+    } catch(e: unknown){
+      if (getErrorMessage(e, '').startsWith('PRO_LIMIT:')) return;
+      alert(getErrorMessage(e, 'Update failed'));
+    }
   }
   
   function focusAdd(){ try{ addWrapRef.current?.querySelector('input')?.focus(); } catch{} }
@@ -775,14 +788,14 @@ function WishlistEditor() {
                     for (const [k, names] of Object.entries(groups)){
                       const body: { names: string[]; qty: number; wishlist_id?: string } = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
                       const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-                      const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk add failed');
+                      const j = await readWishlistMutation(r, 'Bulk add failed');
                       const wid = String(j?.wishlist_id||wishlistId||''); if (wid && wid !== wishlistId) setWishlistId(wid);
                     }
                   } else {
                     for (const p of allNames){
                       const body = { wishlist_id: wishlistId, name: p.name, qty: Math.max(0, Number(p.qty||0)) };
                       const r = await fetch('/api/wishlists/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-                      const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk update failed');
+                      await readWishlistMutation(r, 'Bulk update failed');
                     }
                   }
                   // reload
@@ -796,6 +809,7 @@ function WishlistEditor() {
                   setShowBulk(false);
                   setBulkText('');
                 } catch(e: unknown) {
+                  if (getErrorMessage(e, '').startsWith('PRO_LIMIT:')) return;
                   alert(getErrorMessage(e, 'Bulk add failed'));
                 }
               }} className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg">
@@ -1088,6 +1102,7 @@ function WishlistEditor() {
                       toast(`Added ${parsed.length} card${parsed.length !== 1 ? 's' : ''} to wishlist`, 'success');
                     }
                   } catch(e: unknown) {
+                    if (getErrorMessage(e, '').startsWith('PRO_LIMIT:')) return;
                     console.error('Bulk add error:', e);
                     const { toastError } = await import('@/lib/toast-client');
                     toastError(getErrorMessage(e, 'Failed to add cards. Please try again.'));
@@ -1104,7 +1119,7 @@ function WishlistEditor() {
                         for (const [k, names] of Object.entries(groups)){
                           const body: { names: string[]; qty: number; wishlist_id?: string } = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
                           const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-                          const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk add failed');
+                          const j = await readWishlistMutation(r, 'Bulk add failed');
                           const wid = String(j?.wishlist_id||wishlistId||''); if (wid && wid !== wishlistId) setWishlistId(wid);
                         }
                       } else {
@@ -1112,7 +1127,7 @@ function WishlistEditor() {
                         for (const p of validated){
                           const body = { wishlist_id: wishlistId, name: p.name, qty: Math.max(0, Number(p.qty||0)) };
                           const r = await fetch('/api/wishlists/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-                          const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk update failed');
+                          await readWishlistMutation(r, 'Bulk update failed');
                         }
                       }
                       // reload
@@ -1173,17 +1188,16 @@ function WishlistEditor() {
                       headers: { 'content-type': 'application/json' },
                       body: JSON.stringify({ name }),
                     });
-                    const j = await r.json();
+                    const j = await readWishlistMutation(r, 'Failed to create wishlist');
                     if (j?.ok && j?.wishlist) {
                       setWishlists(prev => [...prev, j.wishlist]);
                       setWishlistId(j.wishlist.id);
                       setShowCreateWishlist(false);
                       setNewWishlistName('');
                       try { capture('wishlist_created', { wishlist_id: j.wishlist.id, name }); } catch {}
-                    } else {
-                      alert(j?.error || 'Failed to create wishlist');
                     }
                   } catch (e: unknown) {
+                    if (getErrorMessage(e, '').startsWith('PRO_LIMIT:')) return;
                     alert(getErrorMessage(e, 'Failed to create wishlist'));
                   }
                 }}

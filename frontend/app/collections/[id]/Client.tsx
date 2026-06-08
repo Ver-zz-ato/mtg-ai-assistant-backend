@@ -7,6 +7,7 @@ import ExportCollectionCSV from "@/components/ExportCollectionCSV";
 import CollectionCsvUpload from "@/components/CollectionCsvUpload";
 import CardDetailLink from "@/components/cards/CardDetailLink";
 import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
+import { handleProStorageLimitPayload } from "@/lib/pro-storage-limit-ui";
 
 type Item = { id: string; name: string; qty: number; created_at?: string };
 
@@ -69,6 +70,7 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
       body: JSON.stringify({ collectionId, name: safeName, qty }),
     });
     const json = await res.json();
+    if (await handleProStorageLimitPayload(json)) return;
     if (!res.ok || !json?.ok) {
       alert(json?.error || "Add failed");
       return;
@@ -86,6 +88,7 @@ export default function CollectionClient({ collectionId: idProp }: { collectionI
       body: JSON.stringify({ id: item.id, delta }),
     });
     const json = await res.json();
+    if (await handleProStorageLimitPayload(json)) return;
     if (!res.ok || !json?.ok) {
       alert(json?.error || "Update failed");
       return;

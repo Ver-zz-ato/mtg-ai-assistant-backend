@@ -10,6 +10,7 @@ import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText"
 import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 import { getDeckHardCapMessage } from "@/lib/deck/formatCompliance";
+import { assertCanCreateDecks } from "@/lib/pro-storage-limits";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -104,6 +105,9 @@ async function _POST(req: NextRequest) {
     const parsed = Req.safeParse(raw);
     if (!parsed.success) return err(parsed.error.issues[0].message, "bad_request", 400);
     const payload = parsed.data;
+    const deckLimit = await assertCanCreateDecks(supabase, user.id);
+    if (deckLimit) return err(deckLimit.message, deckLimit.code, 403, { limit: deckLimit.limit });
+
     const meta =
       payload.creation_source || payload.generation_intent
         ? {

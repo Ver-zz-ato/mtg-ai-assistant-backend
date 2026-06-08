@@ -2,6 +2,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import FormatPickerModal, { formatToApiString, type PickedDeckFormat } from "@/components/FormatPickerModal";
+import { handleProStorageLimitPayload } from "@/lib/pro-storage-limit-ui";
 
 export default function NewDeckClient() {
   const router = useRouter();
@@ -32,6 +33,10 @@ export default function NewDeckClient() {
       });
 
       const data = await response.json();
+      if (await handleProStorageLimitPayload(data)) {
+        router.push("/my-decks");
+        return;
+      }
 
       if (data.ok && data.id) {
         router.push(`/my-decks/${data.id}`);

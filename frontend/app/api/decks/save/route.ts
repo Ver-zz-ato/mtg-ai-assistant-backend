@@ -8,6 +8,7 @@ import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 import { getDeckHardCapMessage } from "@/lib/deck/formatCompliance";
+import { assertCanCreateDecks } from "@/lib/pro-storage-limits";
 
 type SaveBody = {
   title?: string;
@@ -90,6 +91,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json().catch(() => ({}))) as SaveBody;
+    const deckLimit = await assertCanCreateDecks(supabase, user.id);
+    if (deckLimit) {
+      return NextResponse.json(
+        { ok: false, code: deckLimit.code, error: deckLimit.message, limit: deckLimit.limit },
+        { status: 403 },
+      );
+    }
+
     const zonedParsed = parseDeckTextWithZones(body.deckText ?? "", {
       isCommanderFormat: !body.format || /^commander$/i.test(String(body.format).trim()),
     });

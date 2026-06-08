@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { parseDeckOrCollectionCSV } from '@/lib/csv/parse';
 import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
+import { assertCanCreateWishlists, assertCanGrowWishlist } from '@/lib/pro-storage-limits';
 
 export const runtime = 'nodejs';
 
@@ -22,6 +23,13 @@ export async function POST(req: Request){
       const { data: wl } = await (supabase as any).from('wishlists').select('id').eq('user_id', user.id).order('created_at',{ascending:true}).limit(1).maybeSingle();
       if (wl?.id) wishlistId = String(wl.id);
       else {
+        const wishlistLimit = await assertCanCreateWishlists(supabase as any, user.id);
+        if (wishlistLimit) {
+          return NextResponse.json(
+            { ok:false, code: wishlistLimit.code, error: wishlistLimit.message, limit: wishlistLimit.limit },
+            { status:403 },
+          );
+        }
         const { data: ins, error: insErr } = await (supabase as any).from('wishlists').insert({ user_id: user.id, name: 'My Wishlist', is_public:false }).select('id').maybeSingle();
         if (insErr) return NextResponse.json({ ok:false, error: insErr.message }, { status:500 });
         wishlistId = String((ins as any)?.id||'');
@@ -35,6 +43,14 @@ export async function POST(req: Request){
 
     const text = await (file as Blob).text();
     const items = parseDeckOrCollectionCSV(text);
+    const addedQty = items.reduce((sum, item) => sum + Math.max(1, Number(item.qty || 1)), 0);
+    const wishlistSizeLimit = await assertCanGrowWishlist(supabase as any, user.id, wishlistId, addedQty);
+    if (wishlistSizeLimit) {
+      return NextResponse.json(
+        { ok:false, code: wishlistSizeLimit.code, error: wishlistSizeLimit.message, limit: wishlistSizeLimit.limit },
+        { status:403 },
+      );
+    }
 
     let added=0, updated=0; const skipped:string[]=[];
     for (const it of items){

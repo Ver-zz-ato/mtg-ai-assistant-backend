@@ -190,6 +190,14 @@ RLS / API expectations:
 - This is enforced in the database so it applies to both the **website** and the **mobile app**, including direct Supabase writes.
 - Expected 60-card / 100-card format checks still exist separately in app code; this new rule is only the universal upper bound.
 
+### Pro storage limits (2026-06-08)
+
+- Free signed-in users are capped at **15 decks**, **10 collections**, **500 total card quantity per collection**, **10 wishlists**, and **100 total card quantity per wishlist**.
+- Pro is resolved from `profiles.is_pro` / active `profiles.pro_until` and is unlimited. Guests remain on local/demo behavior and are not gated by persisted-storage triggers.
+- Migration `frontend/db/migrations/133_pro_storage_limits.sql` adds a private helper plus triggers on `public.decks`, `public.collections`, `public.collection_cards`, `public.wishlists`, and `public.wishlist_items`.
+- The triggers block only new resources or quantity increases that exceed the Free caps. Existing over-limit Free users can still read, rename, delete, and reduce quantities.
+- API/UI code should treat these stable codes as Pro CTA signals: `PRO_LIMIT_DECKS`, `PRO_LIMIT_COLLECTIONS`, `PRO_LIMIT_COLLECTION_SIZE`, `PRO_LIMIT_WISHLISTS`, and `PRO_LIMIT_WISHLIST_SIZE`.
+
 ---
 
 <!-- WARNING: This schema is for context only and is not meant to be run. -->

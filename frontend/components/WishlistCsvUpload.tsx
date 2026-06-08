@@ -1,6 +1,7 @@
 // components/WishlistCsvUpload.tsx
 "use client";
 import { useRef, useState } from "react";
+import { handleProStorageLimitPayload } from "@/lib/pro-storage-limit-ui";
 
 export default function WishlistCsvUpload({ wishlistId, onDone }: { wishlistId: string; onDone?: ()=>void }){
   const [busy, setBusy] = useState(false);
@@ -18,6 +19,7 @@ export default function WishlistCsvUpload({ wishlistId, onDone }: { wishlistId: 
       fd.append('wishlistId', wishlistId);
       const r = await fetch('/api/wishlists/upload-csv', { method:'POST', body: fd });
       const j = await r.json().catch(()=>({}));
+      if (await handleProStorageLimitPayload(j)) return;
       if (!r.ok || j?.ok===false) throw new Error(j?.error||'Upload failed');
       setReport(j.report||null);
       onDone?.();

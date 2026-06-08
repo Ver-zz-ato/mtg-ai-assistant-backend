@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { buildGroundedScaffoldDeck } from '@/lib/deck/scaffold-builder';
+import { assertCanCreateDecks } from '@/lib/pro-storage-limits';
 
 export const runtime = 'nodejs';
 
@@ -73,6 +74,14 @@ export async function POST(req: NextRequest){
         format: scaffold.format,
         plan: scaffold.plan,
       });
+    }
+
+    const deckLimit = await assertCanCreateDecks(sb, user.id);
+    if (deckLimit) {
+      return NextResponse.json(
+        { ok: false, code: deckLimit.code, error: deckLimit.message, limit: deckLimit.limit },
+        { status: 403 },
+      );
     }
 
     // Insert deck

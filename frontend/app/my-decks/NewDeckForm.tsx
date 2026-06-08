@@ -1,6 +1,7 @@
 // app/my-decks/NewDeckForm.tsx
 "use client";
 import * as React from "react";
+import { handleProStorageLimitPayload } from "@/lib/pro-storage-limit-ui";
 
 export default function NewDeckForm() {
   const [title, setTitle] = React.useState("");
@@ -20,6 +21,7 @@ export default function NewDeckForm() {
         }),
       });
       const json = await res.json().catch(() => ({}));
+      if (await handleProStorageLimitPayload(json)) return;
       if (!res.ok || !json?.ok || !json?.id) throw new Error(json?.error || `HTTP ${res.status}`);
       window.location.href = `/my-decks/${encodeURIComponent(json.id)}`;
     } catch (e: unknown) {

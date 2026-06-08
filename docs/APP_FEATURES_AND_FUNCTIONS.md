@@ -280,7 +280,7 @@
 - **Playstyle Quiz:** Find your style, commander & archetype suggestions
 - **Discovery:** Commanders, archetypes, strategies, public decks
 - **Export:** TCGPlayer, Moxfield
-- **Pro:** Higher limits, deck compare AI, more daily uses
+- **Pro:** Higher limits, unlimited saved decks, unlimited collections, unlimited wishlists, deck compare AI, more daily uses
 
 ---
 
@@ -290,6 +290,9 @@
 |---------|-------|------|-----|
 | Chat messages | 10 | 50 | 500 |
 | Deck analyze | 5 | 20 | 200 |
+| Saved decks | N/A | 15 | Unlimited |
+| Collections | N/A | 10 collections; 500 total qty each | Unlimited |
+| Wishlists | N/A | 10 wishlists; 100 total qty each | Unlimited |
 | Health scan | — | 10 | 50 |
 | Budget swap AI | 5 | 5 | 50 |
 | Swap why | 5 | 10 | 100 |

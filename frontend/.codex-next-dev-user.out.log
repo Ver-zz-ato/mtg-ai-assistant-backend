@@ -912,3 +912,243 @@
  GET /api/stats/activity 200 in 32ms (compile: 14ms, proxy.ts: 14ms, render: 5ms)
 [CostAudit] {"ts":"2026-06-07T18:18:52.654Z","route":"/api/shout/history","method":"GET","reqId":"b1ee1898-d","event":"shout.history","durationMs":120,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
  GET /api/shout/history 200 in 154ms (compile: 10ms, proxy.ts: 18ms, render: 125ms)
+[CostAudit] {"ts":"2026-06-07T18:19:03.823Z","route":"/api/shout/history","method":"GET","reqId":"77699fa9-4","event":"shout.history","durationMs":122,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 146ms (compile: 9ms, proxy.ts: 6ms, render: 130ms)
+[CostAudit] {"ts":"2026-06-07T18:19:05.792Z","route":"/api/shout/history","method":"GET","reqId":"9ea41c9b-8","event":"shout.history","durationMs":73,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 93ms (compile: 8ms, proxy.ts: 6ms, render: 79ms)
+ GET /api/stats/activity 200 in 14ms (compile: 5ms, proxy.ts: 5ms, render: 4ms)
+ GET /api/stats/activity 200 in 523ms (compile: 6ms, proxy.ts: 14ms, render: 503ms)
+[memoCache] Auto-cleaned 1 expired entries
+ GET /api/stats/activity 200 in 415ms (compile: 6ms, proxy.ts: 4ms, render: 405ms)
+ GET /api/stats/activity 200 in 349ms (compile: 5ms, proxy.ts: 5ms, render: 339ms)
+ GET /api/stats/activity 200 in 318ms (compile: 5ms, proxy.ts: 6ms, render: 307ms)
+[CostAudit] {"ts":"2026-06-07T18:29:06.686Z","route":"/api/shout/history","method":"GET","reqId":"8633359d-3","event":"shout.history","durationMs":128,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 157ms (compile: 16ms, proxy.ts: 8ms, render: 133ms)
+ GET /api/stats/activity 200 in 339ms (compile: 17ms, proxy.ts: 9ms, render: 313ms)
+ GET /api/stats/activity 200 in 17ms (compile: 8ms, proxy.ts: 3ms, render: 6ms)
+ GET /api/stats/activity 200 in 368ms (compile: 3ms, proxy.ts: 3ms, render: 361ms)
+[CostAudit] {"ts":"2026-06-07T18:32:45.645Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+[CostAudit] {"ts":"2026-06-07T18:32:45.748Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+ GET / 200 in 427ms (compile: 234ms, proxy.ts: 4ms, render: 189ms)
+ GET / 200 in 567ms (compile: 109ms, proxy.ts: 4ms, render: 453ms)
+[memoCache] Auto-cleaned 1 expired entries
+ GET /api/stats/activity 200 in 335ms (compile: 3ms, proxy.ts: 3ms, render: 329ms)
+ GET /api/stats/activity 200 in 25ms (compile: 15ms, proxy.ts: 5ms, render: 5ms)
+[CostAudit] {"ts":"2026-06-07T18:33:29.500Z","route":"/api/shout/history","method":"GET","reqId":"56d487ce-3","event":"shout.history","durationMs":125,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 157ms (compile: 18ms, proxy.ts: 7ms, render: 132ms)
+[CostAudit] {"ts":"2026-06-07T18:33:30.313Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+{"method":"GET","path":"/api/chat/threads/list","status":401,"ms":13,"userId":null}
+ GET /api/chat/threads/list 401 in 69ms (compile: 35ms, proxy.ts: 17ms, render: 17ms)
+ GET /api/config?key=promo 200 in 191ms (compile: 28ms, proxy.ts: 16ms, render: 148ms)
+ GET /api/config?key=flags 200 in 189ms (compile: 31ms, proxy.ts: 16ms, render: 142ms)
+ GET /api/config?key=maintenance 200 in 196ms (compile: 17ms, proxy.ts: 16ms, render: 162ms)
+ GET /api/config?key=flags 200 in 192ms (compile: 38ms, proxy.ts: 18ms, render: 135ms)
+ GET /api/stats/activity 200 in 49ms (compile: 26ms, proxy.ts: 18ms, render: 4ms)
+{"method":"GET","path":"/api/chat/messages/list","status":401,"ms":3,"userId":null}
+ GET /api/chat/messages/list?threadId=cf238a7e-d1b1-4cd9-968e-b7bc51369af9 401 in 25ms (compile: 12ms, proxy.ts: 6ms, render: 7ms)
+ GET /_api/api/meta/trending?window=today 404 in 230ms (compile: 31ms, proxy.ts: 13ms, render: 186ms)
+ GET /api/config 200 in 127ms (compile: 42ms, proxy.ts: 13ms, render: 72ms)
+ GET /api/config?key=flags 200 in 129ms (compile: 21ms, proxy.ts: 16ms, render: 91ms)
+ GET /api/config?key=maintenance 200 in 101ms (compile: 11ms, proxy.ts: 11ms, render: 79ms)
+ GET /api/chat/threads/get 200 in 81ms (compile: 3ms, proxy.ts: 3ms, render: 75ms)
+ GET /api/admin/config?key=job:last:bulk_price_import 200 in 132ms (compile: 3ms, proxy.ts: 3ms, render: 126ms)
+ GET / 200 in 1522ms (compile: 14ms, proxy.ts: 5ms, render: 1503ms)
+ GET /_api/api/meta/trending 404 in 89ms (compile: 24ms, proxy.ts: 3ms, render: 62ms)
+[CostAudit] {"ts":"2026-06-07T18:33:32.663Z","route":"/api/shout/history","method":"GET","reqId":"49dd8d1a-b","event":"shout.history","durationMs":75,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 86ms (compile: 3ms, proxy.ts: 2ms, render: 80ms)
+ POST /api/cards/collection 200 in 9.3s (proxy.ts: 157ms)
+[CostAudit] {"ts":"2026-06-07T18:33:47.807Z","route":"/api/shout/history","method":"GET","reqId":"a15aed97-6","event":"shout.history","durationMs":118,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 138ms (compile: 10ms, proxy.ts: 3ms, render: 125ms)
+✓ Compiled in 575ms
+[CostAudit] {"ts":"2026-06-07T18:34:02.843Z","route":"/api/shout/history","method":"GET","reqId":"f681c654-b","event":"shout.history","durationMs":150,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 174ms (compile: 10ms, proxy.ts: 8ms, render: 156ms)
+[CostAudit] {"ts":"2026-06-07T18:34:09.269Z","route":"/api/shout/history","method":"GET","reqId":"d2abe390-7","event":"shout.history","durationMs":108,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 128ms (compile: 8ms, proxy.ts: 8ms, render: 112ms)
+[CostAudit] {"ts":"2026-06-07T18:34:15.342Z","route":"/api/shout/history","method":"GET","reqId":"8bba81fb-5","event":"shout.history","durationMs":136,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 164ms (compile: 11ms, proxy.ts: 11ms, render: 141ms)
+[CostAudit] {"ts":"2026-06-07T18:34:16.209Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+{"method":"GET","path":"/api/chat/threads/list","status":401,"ms":6,"userId":null}
+ GET /api/chat/threads/list 401 in 50ms (compile: 27ms, proxy.ts: 13ms, render: 10ms)
+ GET /api/config?key=maintenance 200 in 135ms (compile: 20ms, proxy.ts: 13ms, render: 102ms)
+ GET /api/config?key=promo 200 in 140ms (compile: 17ms, proxy.ts: 13ms, render: 110ms)
+ GET /api/config?key=flags 200 in 139ms (compile: 23ms, proxy.ts: 13ms, render: 102ms)
+ GET /api/config?key=flags 200 in 137ms (compile: 29ms, proxy.ts: 13ms, render: 95ms)
+ GET /_api/api/meta/trending?window=today 404 in 175ms (compile: 11ms, proxy.ts: 3ms, render: 160ms)
+{"method":"GET","path":"/api/chat/messages/list","status":401,"ms":9,"userId":null}
+ GET /api/chat/messages/list?threadId=cf238a7e-d1b1-4cd9-968e-b7bc51369af9 401 in 25ms (compile: 5ms, proxy.ts: 5ms, render: 14ms)
+ GET /api/config?key=flags 200 in 128ms (compile: 20ms, proxy.ts: 8ms, render: 99ms)
+ GET /api/config 200 in 136ms (compile: 31ms, proxy.ts: 8ms, render: 97ms)
+ GET /api/config?key=maintenance 200 in 91ms (compile: 8ms, proxy.ts: 12ms, render: 71ms)
+ GET /api/chat/threads/get 200 in 89ms (compile: 5ms, proxy.ts: 4ms, render: 80ms)
+ GET /api/config?key=maintenance 200 in 94ms (compile: 13ms, proxy.ts: 6ms, render: 75ms)
+[api] POST /api/cards/batch-images 200 2ms
+ POST /api/cards/batch-images 200 in 127ms (compile: 6ms, proxy.ts: 114ms, render: 6ms)
+ GET /api/stats/activity 200 in 259ms (compile: 35ms, proxy.ts: 10ms, render: 214ms)
+ GET /api/admin/config?key=job:last:bulk_price_import 200 in 89ms (compile: 9ms, proxy.ts: 4ms, render: 76ms)
+ GET /_api/api/meta/trending 404 in 70ms (compile: 8ms, proxy.ts: 2ms, render: 60ms)
+[CostAudit] {"ts":"2026-06-07T18:34:18.680Z","route":"/api/shout/history","method":"GET","reqId":"e4353938-3","event":"shout.history","durationMs":83,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 93ms (compile: 3ms, proxy.ts: 3ms, render: 88ms)
+ GET / 200 in 3.5s (compile: 170ms, proxy.ts: 9ms, render: 3.3s)
+[CostAudit] {"ts":"2026-06-07T18:34:21.446Z","route":"/api/shout/history","method":"GET","reqId":"d87ff019-c","event":"shout.history","durationMs":97,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 137ms (compile: 28ms, proxy.ts: 6ms, render: 103ms)
+ POST /api/cards/collection 200 in 7.5s (proxy.ts: 144ms)
+[CostAudit] {"ts":"2026-06-07T18:34:36.458Z","route":"/api/shout/history","method":"GET","reqId":"713536c1-f","event":"shout.history","durationMs":135,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 148ms (compile: 6ms, proxy.ts: 2ms, render: 140ms)
+[CostAudit] {"ts":"2026-06-07T18:34:39.984Z","route":"/api/shout/history","method":"GET","reqId":"1084ae85-7","event":"shout.history","durationMs":72,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 93ms (compile: 8ms, proxy.ts: 6ms, render: 79ms)
+[CostAudit] {"ts":"2026-06-07T18:34:40.944Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+{"method":"GET","path":"/api/chat/threads/list","status":401,"ms":12,"userId":null}
+ GET /api/chat/threads/list 401 in 58ms (compile: 30ms, proxy.ts: 11ms, render: 16ms)
+ GET /api/config?key=promo 200 in 136ms (compile: 26ms, proxy.ts: 9ms, render: 101ms)
+ GET /api/config?key=flags 200 in 138ms (compile: 25ms, proxy.ts: 10ms, render: 102ms)
+ GET /api/config?key=maintenance 200 in 144ms (compile: 17ms, proxy.ts: 10ms, render: 117ms)
+ GET /api/config?key=flags 200 in 144ms (compile: 37ms, proxy.ts: 13ms, render: 94ms)
+ GET /api/stats/activity 200 in 69ms (compile: 47ms, proxy.ts: 18ms, render: 5ms)
+{"method":"GET","path":"/api/chat/messages/list","status":401,"ms":5,"userId":null}
+ GET /api/chat/messages/list?threadId=cf238a7e-d1b1-4cd9-968e-b7bc51369af9 401 in 22ms (compile: 6ms, proxy.ts: 8ms, render: 7ms)
+ GET /_api/api/meta/trending?window=today 404 in 211ms (compile: 10ms, proxy.ts: 5ms, render: 196ms)
+ GET /api/config 200 in 174ms (compile: 37ms, proxy.ts: 18ms, render: 119ms)
+ GET /api/config?key=flags 200 in 175ms (compile: 42ms, proxy.ts: 18ms, render: 115ms)
+ GET /api/config?key=maintenance 200 in 140ms (compile: 9ms, proxy.ts: 17ms, render: 113ms)
+ GET /api/chat/threads/get 200 in 113ms (compile: 4ms, proxy.ts: 3ms, render: 106ms)
+ GET / 200 in 1064ms (compile: 7ms, proxy.ts: 4ms, render: 1053ms)
+ GET /api/admin/config?key=job:last:bulk_price_import 200 in 129ms (compile: 46ms, proxy.ts: 9ms, render: 74ms)
+ GET /api/config?key=maintenance 200 in 224ms (compile: 59ms, proxy.ts: 81ms, render: 84ms)
+[api] POST /api/cards/batch-images 200 1ms
+ POST /api/cards/batch-images 200 in 242ms (compile: 5ms, proxy.ts: 231ms, render: 6ms)
+ GET /_api/api/meta/trending 404 in 75ms (compile: 10ms, proxy.ts: 4ms, render: 60ms)
+[CostAudit] {"ts":"2026-06-07T18:34:42.791Z","route":"/api/shout/history","method":"GET","reqId":"93b538f9-5","event":"shout.history","durationMs":72,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 91ms (compile: 6ms, proxy.ts: 3ms, render: 82ms)
+[CostAudit] {"ts":"2026-06-07T18:34:42.876Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+ GET / 200 in 971ms (compile: 8ms, proxy.ts: 7ms, render: 957ms)
+{"method":"GET","path":"/api/chat/threads/list","status":401,"ms":11,"userId":null}
+ GET /api/chat/threads/list 401 in 82ms (compile: 46ms, proxy.ts: 19ms, render: 16ms)
+ GET /api/config?key=promo 200 in 129ms (compile: 40ms, proxy.ts: 8ms, render: 81ms)
+ GET /api/config?key=maintenance 200 in 202ms (compile: 45ms, proxy.ts: 14ms, render: 143ms)
+ GET /api/config?key=flags 200 in 198ms (compile: 49ms, proxy.ts: 14ms, render: 134ms)
+ GET /api/config?key=flags 200 in 184ms (compile: 48ms, proxy.ts: 15ms, render: 121ms)
+ GET /api/config 200 in 117ms (compile: 9ms, proxy.ts: 10ms, render: 98ms)
+ GET /api/stats/activity 200 in 34ms (compile: 24ms, proxy.ts: 6ms, render: 4ms)
+ GET /_api/api/meta/trending?window=today 404 in 238ms (compile: 81ms, proxy.ts: 24ms, render: 134ms)
+ GET /api/config?key=flags 200 in 153ms (compile: 29ms, proxy.ts: 48ms, render: 77ms)
+ GET /api/admin/config?key=job:last:bulk_price_import 200 in 74ms (compile: 6ms, proxy.ts: 5ms, render: 63ms)
+ GET /_api/api/meta/trending 404 in 97ms (compile: 11ms, proxy.ts: 5ms, render: 81ms)
+[CostAudit] {"ts":"2026-06-07T18:34:45.941Z","route":"/api/shout/history","method":"GET","reqId":"9127c68c-a","event":"shout.history","durationMs":79,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 94ms (compile: 5ms, proxy.ts: 3ms, render: 86ms)
+ POST /api/cards/collection 200 in 4.8s (proxy.ts: 222ms)
+ POST /api/cards/collection 200 in 9.6s (proxy.ts: 6ms)
+[CostAudit] {"ts":"2026-06-07T18:35:20.666Z","route":"/api/shout/history","method":"GET","reqId":"44260020-7","event":"shout.history","durationMs":202,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 232ms (compile: 16ms, proxy.ts: 6ms, render: 210ms)
+[CostAudit] {"ts":"2026-06-07T18:35:35.569Z","route":"/api/shout/history","method":"GET","reqId":"8f9147a1-9","event":"shout.history","durationMs":113,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 133ms (compile: 8ms, proxy.ts: 5ms, render: 120ms)
+[CostAudit] {"ts":"2026-06-07T18:35:35.969Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+{"method":"GET","path":"/api/chat/threads/list","status":401,"ms":4,"userId":null}
+ GET /api/chat/threads/list 401 in 69ms (compile: 43ms, proxy.ts: 17ms, render: 10ms)
+ GET /api/config?key=promo 200 in 165ms (compile: 28ms, proxy.ts: 17ms, render: 120ms)
+ GET /api/config?key=maintenance 200 in 165ms (compile: 32ms, proxy.ts: 18ms, render: 115ms)
+ GET /api/config?key=flags 200 in 163ms (compile: 34ms, proxy.ts: 18ms, render: 110ms)
+ GET /api/config?key=flags 200 in 147ms (compile: 47ms, proxy.ts: 8ms, render: 92ms)
+ GET /_api/api/meta/trending?window=today 404 in 162ms (compile: 13ms, proxy.ts: 5ms, render: 143ms)
+ GET /api/config 200 in 96ms (compile: 23ms, proxy.ts: 7ms, render: 66ms)
+ GET /api/config?key=flags 200 in 105ms (compile: 27ms, proxy.ts: 7ms, render: 71ms)
+ GET /api/config?key=maintenance 200 in 82ms (compile: 5ms, proxy.ts: 6ms, render: 71ms)
+ GET /api/admin/config?key=job:last:bulk_price_import 200 in 69ms (compile: 3ms, proxy.ts: 3ms, render: 64ms)
+ GET /api/stats/activity 200 in 261ms (compile: 27ms, proxy.ts: 14ms, render: 220ms)
+ GET / 200 in 1390ms (compile: 10ms, proxy.ts: 9ms, render: 1371ms)
+ POST /api/cards/collection 200 in 10.2s (proxy.ts: 122ms)
+[CostAudit] {"ts":"2026-06-07T18:35:50.575Z","route":"/api/shout/history","method":"GET","reqId":"894542a2-1","event":"shout.history","durationMs":125,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 135ms (compile: 3ms, proxy.ts: 2ms, render: 129ms)
+[CostAudit] {"ts":"2026-06-07T18:36:05.566Z","route":"/api/shout/history","method":"GET","reqId":"8c8643b5-0","event":"shout.history","durationMs":114,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 127ms (compile: 4ms, proxy.ts: 2ms, render: 121ms)
+[CostAudit] {"ts":"2026-06-07T18:36:20.585Z","route":"/api/shout/history","method":"GET","reqId":"d640eb34-8","event":"shout.history","durationMs":136,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 147ms (compile: 3ms, proxy.ts: 2ms, render: 142ms)
+[CostAudit] {"ts":"2026-06-07T18:36:29.400Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+✓ Compiled in 1123ms
+[CostAudit] {"ts":"2026-06-07T18:36:29.729Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+ GET / 200 in 570ms (compile: 23ms, proxy.ts: 93ms, render: 454ms)
+ GET / 200 in 1112ms (compile: 203ms, proxy.ts: 6ms, render: 903ms)
+[CostAudit] {"ts":"2026-06-07T18:36:35.566Z","route":"/api/shout/history","method":"GET","reqId":"fa478857-6","event":"shout.history","durationMs":115,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 127ms (compile: 4ms, proxy.ts: 3ms, render: 120ms)
+ GET /api/stats/activity 200 in 330ms (compile: 6ms, proxy.ts: 3ms, render: 321ms)
+[CostAudit] {"ts":"2026-06-07T18:36:50.571Z","route":"/api/shout/history","method":"GET","reqId":"49cfc96d-2","event":"shout.history","durationMs":123,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 137ms (compile: 5ms, proxy.ts: 3ms, render: 129ms)
+[CostAudit] {"ts":"2026-06-07T18:37:05.581Z","route":"/api/shout/history","method":"GET","reqId":"b4e2b1d3-f","event":"shout.history","durationMs":124,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 142ms (compile: 11ms, proxy.ts: 2ms, render: 129ms)
+[CostAudit] {"ts":"2026-06-07T18:37:20.586Z","route":"/api/shout/history","method":"GET","reqId":"b4c86751-6","event":"shout.history","durationMs":136,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 148ms (compile: 4ms, proxy.ts: 2ms, render: 142ms)
+✓ Compiled in 979ms
+[CostAudit] {"ts":"2026-06-07T18:37:35.580Z","route":"/api/shout/history","method":"GET","reqId":"f97cd0a9-b","event":"shout.history","durationMs":127,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 141ms (compile: 4ms, proxy.ts: 4ms, render: 133ms)
+ GET /api/stats/activity 200 in 14ms (compile: 5ms, proxy.ts: 5ms, render: 4ms)
+[CostAudit] {"ts":"2026-06-07T18:37:48.615Z","route":"/api/shout/history","method":"GET","reqId":"227de194-1","event":"shout.history","durationMs":115,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 140ms (compile: 11ms, proxy.ts: 7ms, render: 121ms)
+[CostAudit] {"ts":"2026-06-07T18:37:50.698Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+{"method":"GET","path":"/api/chat/threads/list","status":401,"ms":13,"userId":null}
+ GET /api/chat/threads/list 401 in 75ms (compile: 42ms, proxy.ts: 15ms, render: 18ms)
+ GET /api/config?key=maintenance 200 in 135ms (compile: 20ms, proxy.ts: 15ms, render: 100ms)
+ GET /api/config?key=flags 200 in 134ms (compile: 35ms, proxy.ts: 15ms, render: 84ms)
+ GET /api/config?key=promo 200 in 181ms (compile: 30ms, proxy.ts: 19ms, render: 133ms)
+ GET /api/config?key=flags 200 in 170ms (compile: 45ms, proxy.ts: 16ms, render: 108ms)
+ GET /_api/api/meta/trending?window=today 404 in 131ms (compile: 51ms, proxy.ts: 7ms, render: 73ms)
+{"method":"GET","path":"/api/chat/messages/list","status":401,"ms":19,"userId":null}
+ GET /api/chat/messages/list?threadId=cf238a7e-d1b1-4cd9-968e-b7bc51369af9 401 in 32ms (compile: 5ms, proxy.ts: 4ms, render: 23ms)
+ GET /api/config 200 in 119ms (compile: 19ms, proxy.ts: 34ms, render: 66ms)
+ GET /api/config?key=flags 200 in 104ms (compile: 21ms, proxy.ts: 18ms, render: 66ms)
+ GET /api/config?key=maintenance 200 in 73ms (compile: 2ms, proxy.ts: 3ms, render: 67ms)
+ GET /api/chat/threads/get 200 in 79ms (compile: 11ms, proxy.ts: 3ms, render: 65ms)
+ GET /api/admin/config?key=job:last:bulk_price_import 200 in 71ms (compile: 3ms, proxy.ts: 5ms, render: 63ms)
+ GET /api/stats/activity 200 in 209ms (compile: 16ms, proxy.ts: 6ms, render: 188ms)
+ GET /_api/api/meta/trending 404 in 93ms (compile: 15ms, proxy.ts: 2ms, render: 76ms)
+[CostAudit] {"ts":"2026-06-07T18:37:53.063Z","route":"/api/shout/history","method":"GET","reqId":"c58254a4-6","event":"shout.history","durationMs":105,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 119ms (compile: 5ms, proxy.ts: 3ms, render: 112ms)
+ GET / 200 in 3.2s (compile: 149ms, proxy.ts: 6ms, render: 3.1s)
+ POST /api/cards/collection 200 in 7.8s (proxy.ts: 97ms)
+[CostAudit] {"ts":"2026-06-07T18:38:09.835Z","route":"/api/shout/history","method":"GET","reqId":"1974c8ac-6","event":"shout.history","durationMs":127,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 153ms (compile: 11ms, proxy.ts: 7ms, render: 134ms)
+ GET /api/config?key=maintenance 200 in 84ms (compile: 3ms, proxy.ts: 3ms, render: 78ms)
+[api] POST /api/cards/batch-images 200 1ms
+ POST /api/cards/batch-images 200 in 101ms (compile: 4ms, proxy.ts: 92ms, render: 5ms)
+[CostAudit] {"ts":"2026-06-07T18:38:24.818Z","route":"/api/shout/history","method":"GET","reqId":"92485ad8-0","event":"shout.history","durationMs":122,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 132ms (compile: 4ms, proxy.ts: 2ms, render: 126ms)
+[CostAudit] {"ts":"2026-06-07T18:38:57.724Z","route":"/api/shout/history","method":"GET","reqId":"86f455af-d","event":"shout.history","durationMs":156,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 179ms (compile: 6ms, proxy.ts: 9ms, render: 164ms)
+[CostAudit] {"ts":"2026-06-07T18:38:58.899Z","route":"/","method":"RSC","event":"page.render","homeVariant":"A"}
+{"method":"GET","path":"/api/chat/threads/list","status":401,"ms":8,"userId":null}
+ GET /api/chat/threads/list 401 in 46ms (compile: 28ms, proxy.ts: 8ms, render: 10ms)
+ GET /api/config?key=flags 200 in 138ms (compile: 26ms, proxy.ts: 9ms, render: 103ms)
+ GET /api/config?key=maintenance 200 in 145ms (compile: 24ms, proxy.ts: 9ms, render: 111ms)
+ GET /api/config?key=promo 200 in 150ms (compile: 23ms, proxy.ts: 9ms, render: 118ms)
+{"ts":"2026-06-07T18:38:59.604Z","type":"api_request","request_id":"5c5fe6d6-127b-4cfd-b9d3-c79db4a6b0b7","route":"/api/config","method":"GET","status":200,"duration_ms":103,"runtime":"nodejs","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36","referer":"http://localhost:3000/","ip_prefix":"::1...","bot_flag":false,"caller_type":"user"}
+ GET /api/config?key=flags 200 in 153ms (compile: 29ms, proxy.ts: 13ms, render: 112ms)
+ GET /_api/api/meta/trending?window=today 404 in 208ms (compile: 11ms, proxy.ts: 2ms, render: 195ms)
+{"method":"GET","path":"/api/chat/messages/list","status":401,"ms":9,"userId":null}
+ GET /api/chat/messages/list?threadId=cf238a7e-d1b1-4cd9-968e-b7bc51369af9 401 in 22ms (compile: 5ms, proxy.ts: 4ms, render: 13ms)
+ GET /api/config?key=flags 200 in 137ms (compile: 37ms, proxy.ts: 22ms, render: 77ms)
+ GET /api/config 200 in 143ms (compile: 34ms, proxy.ts: 20ms, render: 89ms)
+ GET /api/config?key=maintenance 200 in 95ms (compile: 6ms, proxy.ts: 10ms, render: 79ms)
+ GET /api/chat/threads/get 200 in 95ms (compile: 5ms, proxy.ts: 3ms, render: 87ms)
+ GET /api/config?key=maintenance 200 in 87ms (compile: 7ms, proxy.ts: 6ms, render: 74ms)
+[api] POST /api/cards/batch-images 200 1ms
+ POST /api/cards/batch-images 200 in 105ms (compile: 3ms, proxy.ts: 96ms, render: 6ms)
+ GET /api/admin/config?key=job:last:bulk_price_import 200 in 72ms (compile: 3ms, proxy.ts: 3ms, render: 66ms)
+ GET /api/stats/activity 200 in 270ms (compile: 38ms, proxy.ts: 25ms, render: 207ms)
+ GET /_api/api/meta/trending 404 in 77ms (compile: 11ms, proxy.ts: 6ms, render: 59ms)
+[CostAudit] {"ts":"2026-06-07T18:39:00.737Z","route":"/api/shout/history","method":"GET","reqId":"fe4fa736-e","event":"shout.history","durationMs":73,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 85ms (compile: 4ms, proxy.ts: 3ms, render: 78ms)
+ GET / 200 in 2.9s (compile: 10ms, proxy.ts: 6ms, render: 2.9s)
+ POST /api/cards/collection 200 in 8.8s (proxy.ts: 157ms)
+[CostAudit] {"ts":"2026-06-07T18:39:32.508Z","route":"/api/shout/history","method":"GET","reqId":"e46a27e7-d","event":"shout.history","durationMs":147,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 166ms (compile: 6ms, proxy.ts: 7ms, render: 153ms)
+ GET /api/stats/activity 200 in 21ms (compile: 10ms, proxy.ts: 7ms, render: 5ms)
+ GET /api/stats/activity 200 in 14ms (compile: 5ms, proxy.ts: 4ms, render: 4ms)
+[CostAudit] {"ts":"2026-06-07T18:39:45.278Z","route":"/api/shout/history","method":"GET","reqId":"1cc00594-7","event":"shout.history","durationMs":125,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 145ms (compile: 8ms, proxy.ts: 6ms, render: 131ms)
+[memoCache] Auto-cleaned 1 expired entries
+[CostAudit] {"ts":"2026-06-07T18:45:17.324Z","route":"/api/shout/history","method":"GET","reqId":"7807d44d-8","event":"shout.history","durationMs":151,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 197ms (compile: 23ms, proxy.ts: 13ms, render: 161ms)
+ GET /api/stats/activity 200 in 381ms (compile: 14ms, proxy.ts: 12ms, render: 356ms)
+[CostAudit] {"ts":"2026-06-07T18:46:28.892Z","route":"/api/shout/history","method":"GET","reqId":"da7cdb06-7","event":"shout.history","durationMs":131,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 157ms (compile: 7ms, proxy.ts: 9ms, render: 141ms)
+[CostAudit] {"ts":"2026-06-07T18:46:30.945Z","route":"/api/shout/history","method":"GET","reqId":"7a3df678-4","event":"shout.history","durationMs":64,"messageCount":3,"cleanupRan":false,"cleanupDeleted":null,"ok":true}
+ GET /api/shout/history 200 in 89ms (compile: 10ms, proxy.ts: 7ms, render: 72ms)
+[memoCache] Auto-cleaned 1 expired entries

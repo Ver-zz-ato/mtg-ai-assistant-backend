@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { capture } from "@/lib/ph";
 import { trackCollectionImportWorkflow } from '@/lib/analytics-workflow';
 import CollectionImportPreview, { PreviewCard } from './CollectionImportPreview';
+import { handleProStorageLimitPayload } from "@/lib/pro-storage-limit-ui";
 
 type ImportMode = 'new' | 'existing';
 
@@ -65,6 +66,9 @@ export default function CollectionCsvUpload({
         });
         
         const createJson = await createRes.json();
+        if (await handleProStorageLimitPayload(createJson)) {
+          throw new Error(createJson?.error || 'Collection limit reached');
+        }
         if (!createRes.ok || !createJson?.ok) {
           throw new Error(createJson?.error || 'Failed to create collection');
         }
@@ -194,14 +198,17 @@ export default function CollectionCsvUpload({
                   qty: card.quantity,
                 }),
               });
-              
-              return res.ok ? 'added' : 'failed';
+
+              const json = await res.json().catch(() => ({}));
+              if (await handleProStorageLimitPayload(json)) return 'limit';
+              return res.ok && json?.ok !== false ? 'added' : 'failed';
             } catch {
               return 'failed';
             }
           })
         );
         
+        if (batchResults.includes('limit')) throw new Error('Collection size limit reached');
         added += batchResults.filter(r => r === 'added').length;
         failed += batchResults.filter(r => r === 'failed').length;
       }
@@ -294,10 +301,9 @@ export default function CollectionCsvUpload({
                 }),
               });
               
-              if (res.ok) {
-                const json = await res.json();
-                return json.added ? 'added' : 'updated';
-              }
+              const json = await res.json().catch(() => ({}));
+              if (await handleProStorageLimitPayload(json)) return 'limit';
+              if (res.ok && json?.ok !== false) return json.added ? 'added' : 'updated';
               return 'failed';
             } catch {
               return 'failed';
@@ -305,6 +311,7 @@ export default function CollectionCsvUpload({
           })
         );
         
+        if (batchResults.includes('limit')) throw new Error('Collection size limit reached');
         added += batchResults.filter(r => r === 'added').length;
         updated += batchResults.filter(r => r === 'updated').length;
         failed += batchResults.filter(r => r === 'failed').length;

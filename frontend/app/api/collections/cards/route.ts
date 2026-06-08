@@ -6,6 +6,7 @@ import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 import { costAuditRequestId, isCostAuditStorageEnabled } from "@/lib/observability/cost-audit";
 import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
 import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
+import { assertCanGrowCollection } from "@/lib/pro-storage-limits";
 
 export async function GET(req: NextRequest) {
   const t0 = Date.now();
@@ -177,6 +178,28 @@ export async function POST(req: NextRequest) {
   }
   
   const initialQty = Number.isFinite(qty) ? Math.max(1, parseInt(String(qty), 10)) : 1;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+
+  const { data: collectionOwner, error: ownerErr } = await supabase
+    .from("collections")
+    .select("id, user_id")
+    .eq("id", collectionId)
+    .maybeSingle();
+  if (ownerErr) return NextResponse.json({ ok: false, error: ownerErr.message }, { status: 500 });
+  if (!collectionOwner) return NextResponse.json({ ok: false, error: "Collection not found" }, { status: 404 });
+  if (collectionOwner.user_id !== user.id) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  const collectionLimit = await assertCanGrowCollection(supabase, user.id, collectionId, initialQty);
+  if (collectionLimit) {
+    return NextResponse.json(
+      { ok: false, code: collectionLimit.code, error: collectionLimit.message, limit: collectionLimit.limit },
+      { status: 403 },
+    );
+  }
 
   const { data: existing, error: selErr } = await supabase
     .from("collection_cards")

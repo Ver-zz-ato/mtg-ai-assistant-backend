@@ -2,6 +2,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildResolvedCollectionBulkNameMap } from "@/lib/collections/buildResolvedCollectionBulkNameMap";
 import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
+import {
+  FREE_COLLECTION_CARD_LIMIT,
+  buildProStorageLimitError,
+  getEffectiveProStatus,
+} from "@/lib/pro-storage-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,6 +114,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "No rows found" }, { status: 400 });
     }
 
+    const nextTotalQty = rowsResolved.reduce((sum, row) => sum + Math.max(0, Number(row.qty) || 0), 0);
+    if (!(await getEffectiveProStatus(user.id)) && nextTotalQty > FREE_COLLECTION_CARD_LIMIT) {
+      const limit = buildProStorageLimitError("PRO_LIMIT_COLLECTION_SIZE");
+      return NextResponse.json(
+        { ok: false, code: limit.code, error: limit.message, limit: limit.limit },
+        { status: 403 },
+      );
+    }
+
     // Replace contents
     const del = await supabase.from("collection_cards").delete().eq("collection_id", collection_id);
     if (del.error) return NextResponse.json({ ok: false, error: del.error.message }, { status: 200 });
@@ -137,4 +151,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: e.message || "Unexpected error" }, { status: 500 });
   }
 }
-

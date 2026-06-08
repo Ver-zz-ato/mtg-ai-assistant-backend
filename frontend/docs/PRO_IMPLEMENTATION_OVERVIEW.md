@@ -136,6 +136,13 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 ### 6.6 Wishlist
 
 - **Batch Fix Names modal / apply:** **FREE** feature (no longer Pro-gated).
+- **Persisted wishlist storage:** Free signed-in users can create up to **10** wishlists, with up to **100** total card quantity per wishlist. Pro users are unlimited. Existing over-limit Free users can read, rename, delete, and reduce quantities, but cannot grow further.
+
+### 6.6b Decks and collections
+
+- **Deck storage:** Free signed-in users can create up to **15** saved decks. Pro users are unlimited.
+- **Collection storage:** Free signed-in users can create up to **10** collections, with up to **500** total card quantity per collection. Pro users are unlimited.
+- **Enforcement:** Website APIs should return `PRO_LIMIT_DECKS`, `PRO_LIMIT_COLLECTIONS`, `PRO_LIMIT_COLLECTION_SIZE`, `PRO_LIMIT_WISHLISTS`, or `PRO_LIMIT_WISHLIST_SIZE` for these caps. Supabase triggers enforce the same limits for direct app writes.
 
 ### 6.7 Watchlist
 

@@ -13,6 +13,7 @@ import { capture } from "@/lib/ph";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
 import CollectionPageCoachBubbles from "./ClientWithCoach";
+import { handleProStorageLimitPayload } from "@/lib/pro-storage-limit-ui";
 
 // Basic shapes
 type Collection = { id: string; name: string; created_at: string | null; hero_card_name?: string | null };
@@ -224,6 +225,7 @@ function CollectionsPageClientBody() {
         body: JSON.stringify({ name }),
       });
       const json = await res.json().catch(() => ({}));
+      if (await handleProStorageLimitPayload(json)) return;
       if (!res.ok || json?.ok === false) { 
         const msg = (json?.error || "Create failed"); 
         setNameError(String(msg)); 

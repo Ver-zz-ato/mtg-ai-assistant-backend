@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
+import { assertCanCreateWishlists, assertCanGrowWishlist } from '@/lib/pro-storage-limits';
 
 export const runtime = 'nodejs';
 
@@ -60,6 +61,13 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       if (wl?.id) wishlist_id = wl.id as string;
       else {
+        const wishlistLimit = await assertCanCreateWishlists(supabase as any, user.id);
+        if (wishlistLimit) {
+          return NextResponse.json(
+            { ok:false, code: wishlistLimit.code, error: wishlistLimit.message, limit: wishlistLimit.limit },
+            { status:403 },
+          );
+        }
         const { data: ins, error: insErr } = await (supabase as any)
           .from('wishlists')
           .insert({ user_id: user.id, name: 'My Wishlist', is_public: false })
@@ -68,6 +76,24 @@ export async function POST(req: NextRequest) {
         if (insErr) return NextResponse.json({ ok:false, error: insErr.message }, { status:500 });
         wishlist_id = (ins as any)?.id as string;
       }
+    }
+
+    const { data: ownedWishlist, error: ownedErr } = await (supabase as any)
+      .from('wishlists')
+      .select('id,user_id')
+      .eq('id', wishlist_id)
+      .maybeSingle();
+    if (ownedErr) return NextResponse.json({ ok:false, error: ownedErr.message }, { status:500 });
+    if (!ownedWishlist?.id) return NextResponse.json({ ok:false, error:'wishlist not found' }, { status:404 });
+    if (ownedWishlist.user_id !== user.id) return NextResponse.json({ ok:false, error:'forbidden' }, { status:403 });
+
+    const addedQty = names.length * qty;
+    const wishlistSizeLimit = await assertCanGrowWishlist(supabase as any, user.id, wishlist_id, addedQty);
+    if (wishlistSizeLimit) {
+      return NextResponse.json(
+        { ok:false, code: wishlistSizeLimit.code, error: wishlistSizeLimit.message, limit: wishlistSizeLimit.limit },
+        { status:403 },
+      );
     }
 
     // Upsert items (increment qty if existing)

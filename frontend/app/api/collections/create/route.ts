@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
+import { assertCanCreateCollections } from "@/lib/pro-storage-limits";
 export const runtime = "nodejs";
 
 
@@ -27,6 +28,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing collection name" }, { status: 400 });
     }
 
+    const collectionLimit = await assertCanCreateCollections(supabase, user.id);
+    if (collectionLimit) {
+      return NextResponse.json(
+        { ok: false, code: collectionLimit.code, error: collectionLimit.message, limit: collectionLimit.limit },
+        { status: 403 },
+      );
+    }
+
     const { data, error } = await supabase
       .from("collections")
       .insert({ user_id: user.id, name: clean })
@@ -44,4 +53,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
-

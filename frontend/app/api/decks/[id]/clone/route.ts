@@ -1,6 +1,7 @@
 // app/api/decks/[id]/clone/route.ts
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { assertCanCreateDecks } from "@/lib/pro-storage-limits";
 
 type Params = { id: string };
 
@@ -46,6 +47,14 @@ export async function POST(req: NextRequest, context: { params: Promise<Params> 
     // Check if deck is public or owned by user
     if (!sourceDeck.is_public && sourceDeck.user_id !== user.id) {
       return NextResponse.json({ ok: false, error: "This deck is private" }, { status: 403 });
+    }
+
+    const deckLimit = await assertCanCreateDecks(supabase, user.id);
+    if (deckLimit) {
+      return NextResponse.json(
+        { ok: false, code: deckLimit.code, error: deckLimit.message, limit: deckLimit.limit },
+        { status: 403 },
+      );
     }
 
     // Fetch all cards from source deck
