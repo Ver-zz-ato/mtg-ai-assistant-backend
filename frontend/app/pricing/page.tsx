@@ -305,8 +305,13 @@ export default function PricingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen">
+        <div className="max-w-6xl mx-auto px-4 py-12">
+          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4 text-center">
+            Unlock Your MTG Potential
+          </h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300 text-center">Loading...</p>
+        </div>
       </div>
     );
   }

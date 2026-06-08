@@ -35,9 +35,9 @@ const IntroBlock = () => (
     className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5 text-neutral-200"
     aria-label="About Budget Swaps"
   >
-    <h1 className="text-xl md:text-2xl font-bold text-white mb-3">
+    <h2 className="text-xl md:text-2xl font-bold text-white mb-3">
       Budget Swaps
-    </h1>
+    </h2>
     <p className="text-neutral-300 mb-3 text-sm">
       Paste your decklist or select a deck to get cheaper alternatives for
       expensive cards. Quick Swaps uses a curated list of budget replacements

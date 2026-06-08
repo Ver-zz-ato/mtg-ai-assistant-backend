@@ -23,7 +23,7 @@ const POPULAR_COMMANDERS: CommanderGuide[] = [
   { slug: "kaalia-of-the-vast", name: "Kaalia of the Vast", colors: "WBR" },
   { slug: "muldrotha-the-gravetide", name: "Muldrotha, the Gravetide", colors: "UBG" },
   { slug: "korvold-fae-cursed-king", name: "Korvold, Fae-Cursed King", colors: "BRG" },
-  { slug: "yuriko-the-tigers-shadow", name: "Yuriko, the Tiger's Shadow", colors: "UB" },
+  { slug: "yuriko-the-tiger-s-shadow", name: "Yuriko, the Tiger's Shadow", colors: "UB" },
 ];
 
 const COLOR_STYLES: Record<string, string> = {

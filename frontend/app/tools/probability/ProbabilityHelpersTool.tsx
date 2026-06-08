@@ -199,6 +199,7 @@ export default function ProbabilityHelpersTool({ embedded = false }: { embedded?
 
   return (
     <div className={`${embedded ? "max-w-none p-0" : "max-w-3xl mx-auto p-4"} space-y-4`}>
+      {!embedded && (
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -257,6 +258,7 @@ export default function ProbabilityHelpersTool({ embedded = false }: { embedded?
           </div>
         </div>
       </motion.header>
+      )}
       {advanced && (
         <div className="sticky top-2 z-20 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded px-3 py-2 flex items-center justify-between">
           <div className="text-xs opacity-80">Advanced options open</div>

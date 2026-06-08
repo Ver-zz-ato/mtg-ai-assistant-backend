@@ -64,6 +64,16 @@ const nextConfig: NextConfig = {
       { source: "/mtg-commander-ai-deck-builder", destination: "/build-a-deck", permanent: true },
       { source: "/tools/probability", destination: "/tools/mulligan#probability", permanent: true },
       { source: "/budget-swaps", destination: "/deck/swap-suggestions", permanent: true },
+      {
+        source: "/commanders/yuriko-the-tigers-shadow",
+        destination: "/commanders/yuriko-the-tiger-s-shadow",
+        permanent: true,
+      },
+      {
+        source: "/commanders/yuriko-the-tigers-shadow/:page",
+        destination: "/commanders/yuriko-the-tiger-s-shadow/:page",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

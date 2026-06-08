@@ -172,8 +172,18 @@ function buildCommanders(): CommanderProfile[] {
 
 export const COMMANDERS: CommanderProfile[] = buildCommanders();
 
+/** Legacy or marketing slugs that differ from {@link toSlug} output (e.g. apostrophe handling). */
+const COMMANDER_SLUG_ALIASES: Record<string, string> = {
+  "yuriko-the-tigers-shadow": "yuriko-the-tiger-s-shadow",
+};
+
+export function resolveCommanderSlug(slug: string): string {
+  return COMMANDER_SLUG_ALIASES[slug] ?? slug;
+}
+
 export function getCommanderBySlug(slug: string): CommanderProfile | null {
-  return COMMANDERS.find((c) => c.slug === slug) ?? null;
+  const canonical = resolveCommanderSlug(slug);
+  return COMMANDERS.find((c) => c.slug === canonical) ?? null;
 }
 
 /** Get commander slug from display name (for deck→commander links). */

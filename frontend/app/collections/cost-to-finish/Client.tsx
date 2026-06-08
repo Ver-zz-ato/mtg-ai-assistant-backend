@@ -890,9 +890,9 @@ export default function CostToFinishClient() {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-4xl">💸</span>
-            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-cyan-400">
+            <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-cyan-400">
               Cost to Finish
-            </h1>
+            </h2>
           </div>
           <p className="text-base text-neutral-300 max-w-4xl leading-relaxed">
             Calculate the exact cost to complete your deck using live prices from Scryfall. Subtract cards you already own from your collection, track price trends, and discover budget-friendly alternatives.

@@ -64,6 +64,10 @@ export default function ChangelogPage() {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-black text-white min-h-screen">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">What&apos;s New</h1>
+          <p className="text-neutral-400">Stay up to date with the latest features, improvements, and fixes.</p>
+        </div>
         <div className="animate-pulse">
           <div className="h-8 bg-neutral-800 rounded w-1/3 mb-4"></div>
           <div className="space-y-6">

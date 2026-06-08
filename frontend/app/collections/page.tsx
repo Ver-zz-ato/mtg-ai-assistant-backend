@@ -162,9 +162,10 @@ function CollectionsPageClientBody() {
   // Show guest landing page if not logged in
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
+      <main className="mx-auto max-w-7xl p-6 space-y-4">
+        <h1 className="text-xl font-semibold">Collections</h1>
+        <div className="text-lg text-neutral-400">Loading...</div>
+      </main>
     );
   }
   
@@ -461,9 +462,10 @@ function CollectionsPageClientBody() {
 export default function CollectionsPageClient(){
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg text-white">Loading collections...</div>
-      </div>
+      <main className="mx-auto max-w-7xl p-6 space-y-4">
+        <h1 className="text-xl font-semibold">Collections</h1>
+        <div className="text-lg text-neutral-400">Loading collections...</div>
+      </main>
     }>
       <CollectionsPageClientBody />
     </Suspense>

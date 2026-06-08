@@ -28,7 +28,7 @@ const COMMANDERS = [
   "kaalia-of-the-vast",
   "pantlaza-sun-favored",
   "sauron-the-dark-lord",
-  "yuriko-the-tigers-shadow",
+  "yuriko-the-tiger-s-shadow",
   "lathril-blade-of-the-elves",
   "kenrith-the-returned-king",
   "giada-font-of-hope",

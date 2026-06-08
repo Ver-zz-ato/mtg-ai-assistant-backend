@@ -12,7 +12,7 @@ type Props = {
 export function MetaSectionHeader({ title, description, stats }: Props) {
   return (
     <div className="mb-6">
-      <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{title}</h2>
+      <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{title}</h1>
       {description && (
         <p className="text-neutral-400 text-base mb-3 max-w-2xl">{description}</p>
       )}
