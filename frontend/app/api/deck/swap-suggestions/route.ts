@@ -116,6 +116,16 @@ function normalizedCardKey(name: string): string {
   return normalizeScryfallCacheName(canonicalize(name).canonicalName || name);
 }
 
+function normalizePriceCacheName(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u2019'`]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function roleGroupsForRoles(roles: CanonicalDeckRole[]): Set<RoleGroup> {
   const groups = new Set<RoleGroup>();
   for (const role of roles) {
@@ -321,7 +331,25 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
   }
 }
 
-async function snapOrScryPrice(name: string, currency: string, useSnapshot: boolean, snapshotDate: string, supabase: SupabaseClient): Promise<number> {
+async function cachedPrice(name: string, currency: string, supabase: SupabaseClient): Promise<number> {
+  try {
+    const key = normalizePriceCacheName(canonicalize(name).canonicalName || name);
+    if (!key) return 0;
+    const { data } = await supabase
+      .from("price_cache")
+      .select("usd_price, eur_price")
+      .eq("card_name", key)
+      .maybeSingle();
+    const usd = Number((data as { usd_price?: unknown } | null)?.usd_price || 0);
+    const eur = Number((data as { eur_price?: unknown } | null)?.eur_price || 0);
+    if (currency === "EUR" && eur > 0) return eur;
+    if (usd > 0) return await convert(usd, "USD", currency);
+    if (eur > 0) return await convert(eur, "EUR", currency);
+  } catch {}
+  return 0;
+}
+
+async function snapOrScryPrice(name: string, currency: string, useSnapshot: boolean, snapshotDate: string, supabase: SupabaseClient, allowExternalFallback = true): Promise<number> {
   const proper = canonicalize(name).canonicalName || name;
   if (useSnapshot) {
     try {
@@ -331,6 +359,9 @@ async function snapOrScryPrice(name: string, currency: string, useSnapshot: bool
       if (unit > 0) return unit;
     } catch {}
   }
+  const cached = await cachedPrice(proper, currency, supabase);
+  if (cached > 0) return cached;
+  if (!allowExternalFallback) return 0;
   return await scryPrice(proper, currency);
 }
 
@@ -351,6 +382,7 @@ export async function POST(req: NextRequest) {
     const format = String(body.format || "Commander").trim();
     const allowReplacementAboveBudget =
       isAiWorkshopBudgetSource(sourcePage) || body.allowReplacementAboveBudget === true || body.allow_replacement_above_budget === true;
+    const workshopBudgetSource = isAiWorkshopBudgetSource(sourcePage);
 
     let supabase = await createClient();
     let { data: { user } } = await supabase.auth.getUser();
@@ -515,7 +547,7 @@ export async function POST(req: NextRequest) {
 
     // Standalone Budget Swaps can use AI first. AI Workshop lower-budget needs the
     // trusted deterministic swaps first so the modal never waits on a long LLM pass.
-    if (useAI && !isAiWorkshopBudgetSource(sourcePage)) {
+    if (useAI && !workshopBudgetSource) {
       await addAiSuggestions();
     }
 
@@ -528,14 +560,14 @@ export async function POST(req: NextRequest) {
         continue;
       }
       
-      const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase);
+      const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase, !workshopBudgetSource);
       const key = from.toLowerCase();
       const cands = builtinSwaps[key] || [];
       
       if (pf > budget) {
         for (const cand of cands) {
           const toCanon = canonicalize(cand).canonicalName || cand;
-          const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
+          const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase, !workshopBudgetSource);
           if (isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format, allowReplacementAboveBudget })) {
             const delta = pt - pf;
             const rationale = `${toCanon} is a budget-friendly alternative to ${from}.`;
@@ -672,7 +704,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (useAI && isAiWorkshopBudgetSource(sourcePage) && suggestions.length === 0) {
+    if (useAI && !workshopBudgetSource && suggestions.length === 0) {
       await addAiSuggestions();
     }
 

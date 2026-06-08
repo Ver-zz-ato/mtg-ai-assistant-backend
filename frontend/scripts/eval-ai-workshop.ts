@@ -105,6 +105,9 @@ const deckFilters = rawArgs
   .filter((arg) => arg.startsWith("--deck="))
   .map((arg) => arg.slice("--deck=".length).trim())
   .filter(Boolean);
+const useDbDecks = args.has("--db-decks");
+const dbDeckLimitArg = rawArgs.find((arg) => arg.startsWith("--db-deck-limit="));
+const dbDeckLimit = Math.max(1, Math.min(40, Number(dbDeckLimitArg?.slice("--db-deck-limit=".length) || 12) || 12));
 const passFilters = rawArgs
   .filter((arg) => arg.startsWith("--pass="))
   .map((arg) => arg.slice("--pass=".length).trim() as TransformIntent)
@@ -324,10 +327,51 @@ function compactWarningList(warnings: unknown): string[] {
 
 const scryfallCardCache = new Map<string, { color_identity: string[]; legalities?: Record<string, string> | null } | null>();
 const commanderColorCache = new Map<string, string[]>();
+let cachedAdminClient: ReturnType<typeof createClient> | null | undefined;
+
+function normalizeAnalyzeFormat(format: string | null | undefined): AnalyzeFormat | null {
+  const value = String(format || "").trim().toLowerCase();
+  if (value.includes("commander") || value.includes("edh")) return "Commander";
+  if (value.includes("modern")) return "Modern";
+  if (value.includes("pioneer")) return "Pioneer";
+  if (value.includes("standard")) return "Standard";
+  if (value.includes("pauper")) return "Pauper";
+  return null;
+}
+
+function getAdminClientForEval() {
+  if (cachedAdminClient !== undefined) return cachedAdminClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "";
+  cachedAdminClient = url && serviceRole ? createClient(url, serviceRole, { auth: { persistSession: false } }) : null;
+  return cachedAdminClient;
+}
+
+async function fetchCachedScryfallCard(name: string) {
+  const admin = getAdminClientForEval();
+  if (!admin) return null;
+  const key = norm(name);
+  const { data, error } = await admin
+    .from("scryfall_cache")
+    .select("name,color_identity,legalities")
+    .ilike("name", name)
+    .limit(1);
+  if (error || !Array.isArray(data) || data.length === 0) return null;
+  const exact = data.find((row: any) => norm(row?.name) === key) || data[0];
+  return {
+    color_identity: Array.isArray(exact?.color_identity) ? exact.color_identity.map((value: unknown) => String(value).toUpperCase()) : [],
+    legalities: exact?.legalities && typeof exact.legalities === "object" ? exact.legalities : null,
+  };
+}
 
 async function fetchScryfallCard(name: string) {
   const key = norm(name);
   if (scryfallCardCache.has(key)) return scryfallCardCache.get(key) ?? null;
+  const cached = await fetchCachedScryfallCard(name);
+  if (cached) {
+    scryfallCardCache.set(key, cached);
+    return cached;
+  }
   try {
     const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`, {
       headers: { "user-agent": "ai-workshop-eval/1.0" },
@@ -443,6 +487,52 @@ async function fetchPrecons(limit = 2): Promise<EvalDeck[]> {
   } catch {
     return [];
   }
+}
+
+async function fetchSupabaseDecks(limit = dbDeckLimit): Promise<EvalDeck[]> {
+  const admin = getAdminClientForEval();
+  if (!admin) {
+    throw new Error("Cannot use --db-decks without NEXT_PUBLIC_SUPABASE_URL/SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+  }
+
+  const { data, error } = await admin
+    .from("decks")
+    .select("id,title,format,commander,deck_text,updated_at")
+    .not("deck_text", "is", null)
+    .neq("deck_text", "")
+    .order("updated_at", { ascending: false })
+    .limit(limit * 6);
+
+  if (error) throw error;
+
+  const byFormat = new Map<AnalyzeFormat, EvalDeck[]>();
+  for (const row of data || []) {
+    const format = normalizeAnalyzeFormat((row as any).format);
+    if (!format) continue;
+    const sourceDeckText = cleanDeckText(String((row as any).deck_text || ""));
+    if (totalDeckQty(rowsFromDeckText(sourceDeckText)) < 40) continue;
+    const deck: EvalDeck = {
+      id: `db-${String((row as any).id).slice(0, 8)}`,
+      name: String((row as any).title || `Saved deck ${String((row as any).id).slice(0, 8)}`),
+      format,
+      commander: typeof (row as any).commander === "string" && (row as any).commander.trim() ? String((row as any).commander).trim() : null,
+      sourceDeckText,
+      sourceLabel: "supabase_saved_deck",
+      expectedLegality: "noop",
+    };
+    const bucket = byFormat.get(format) || [];
+    bucket.push(deck);
+    byFormat.set(format, bucket);
+  }
+
+  const orderedFormats: AnalyzeFormat[] = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"];
+  const selected: EvalDeck[] = [];
+  for (const format of orderedFormats) {
+    const decks = byFormat.get(format) || [];
+    selected.push(...decks.slice(0, format === "Commander" ? Math.ceil(limit / 2) : 2));
+  }
+
+  return selected.slice(0, limit);
 }
 
 function buildRepresentativeDecks(precons: EvalDeck[]): EvalDeck[] {
@@ -580,6 +670,7 @@ async function postBudgetSwaps(
     currency: "USD",
     budget: 10,
     ai: true,
+    sourcePage: "app_ai_workshop_budget",
   };
   const started = Date.now();
   const res = await fetch(`${baseUrl}/api/deck/swap-suggestions`, {
@@ -855,8 +946,12 @@ async function main() {
     process.exit(2);
   }
 
-  const precons = await fetchPrecons(2);
-  const allDecks = buildRepresentativeDecks(precons);
+  const precons = useDbDecks ? [] : await fetchPrecons(2);
+  const allDecks = useDbDecks ? await fetchSupabaseDecks(dbDeckLimit) : buildRepresentativeDecks(precons);
+  if (useDbDecks && allDecks.length === 0) {
+    console.error("No usable Supabase decks found for --db-decks.");
+    process.exit(2);
+  }
   const failedCases = loadFailedCasesFromReport(rerunFailedFrom);
   const allowedDeckIds = new Set([
     ...deckFilters,
@@ -874,14 +969,14 @@ async function main() {
 
   for (const deck of decks) {
     let baselineFacts: PreviewFacts | undefined;
-    const basePasses = CORE_FULL_PASS_IDS.has(deck.id) ? ALL_PASSES : (["fix_legality"] as TransformIntent[]);
+    const basePasses = useDbDecks || CORE_FULL_PASS_IDS.has(deck.id) ? ALL_PASSES : (["fix_legality"] as TransformIntent[]);
     const passes = basePasses.filter((pass) => {
       if (failedCaseSet.size > 0) return failedCaseSet.has(`${deck.id}::${pass}`);
       if (allowedPasses.size > 0) return allowedPasses.has(pass);
       return true;
     });
     if (!passes.length) continue;
-    if (passes.some((pass) => pass !== "fix_legality")) {
+    if (passes.some((pass) => pass !== "fix_legality" && pass !== "lower_budget")) {
       baselineFacts = await buildGenerationPreviewFacts(
         deck.sourceDeckText,
         deck.commander,
