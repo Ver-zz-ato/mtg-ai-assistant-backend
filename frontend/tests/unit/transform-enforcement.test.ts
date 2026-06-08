@@ -32,6 +32,9 @@ function landCount(rows: QtyRow[]): number {
 }
 
 async function main() {
+  assert.equal(looksLikeLandName("Evolving Wilds"), true);
+  assert.equal(looksLikeLandName("Terramorphic Expanse"), true);
+
   {
     const source = rows([
       ["Command Tower", 1],
@@ -392,6 +395,100 @@ async function main() {
       budget: "Moderate",
     });
     assert.equal(landCount(enforced.rows), 22);
+  }
+
+  {
+    const source = rows([
+      ["Island", 20],
+      ["Archetype Engine", 4],
+      ["Payoff Threat", 4],
+      ["Tempo Spell", 4],
+      ["Role Player", 28],
+    ]);
+    const result = rows([
+      ["Island", 20],
+      ["Generic Upgrade A", 4],
+      ["Generic Upgrade B", 4],
+      ["Generic Upgrade C", 4],
+      ["Generic Upgrade D", 4],
+      ["Role Player", 24],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 60,
+      rules: baseRules(),
+      isCommander: false,
+      commanderName: null,
+      transformIntent: "general",
+      budget: "Moderate",
+    });
+    const diff = diffRows(source, enforced.rows);
+    assert.ok(diff.added.reduce((sum, row) => sum + row.qty, 0) <= 8);
+    assert.ok(diff.removed.reduce((sum, row) => sum + row.qty, 0) <= 8);
+  }
+
+  {
+    const source = rows([
+      ["Forest", 22],
+      ["Scurry Oak", 4],
+      ["Rosie Cotton of South Lane", 4],
+      ["Collected Company", 4],
+      ["Role Player", 26],
+    ]);
+    const result = rows([
+      ["Forest", 22],
+      ["Random Midrange Threat", 4],
+      ["Generic Removal", 4],
+      ["Generic Draw Spell", 4],
+      ["Role Player", 26],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 60,
+      rules: baseRules(),
+      isCommander: false,
+      commanderName: null,
+      transformIntent: "general",
+      budget: "Moderate",
+    });
+    assert.ok(enforced.rows.some((row) => row.name === "Scurry Oak" && row.qty > 0));
+    assert.ok(enforced.rows.some((row) => row.name === "Rosie Cotton of South Lane" && row.qty > 0));
+    assert.ok(enforced.rows.some((row) => row.name === "Collected Company" && row.qty > 0));
+  }
+
+  {
+    const source = rows([
+      ["Forest", 31],
+      ["Core Threat", 4],
+      ["Core Spell", 4],
+      ["Role Player", 21],
+    ]);
+    const result = rows([
+      ["Forest", 29],
+      ["New Singleton A", 1],
+      ["New Singleton B", 1],
+      ["New Singleton C", 1],
+      ["New Singleton D", 1],
+      ["New Singleton E", 1],
+      ["Core Threat", 4],
+      ["Core Spell", 4],
+      ["Role Player", 17],
+    ]);
+    const enforced = enforceTransformRules({
+      sourceRows: source,
+      resultRows: result,
+      targetCount: 60,
+      rules: baseRules(),
+      isCommander: false,
+      commanderName: null,
+      transformIntent: "general",
+      budget: "Moderate",
+    });
+    const diff = diffRows(source, enforced.rows);
+    assert.equal(landCount(enforced.rows), 31);
+    assert.ok(diff.added.length <= 2);
   }
 
   console.log("transform-enforcement: ok");

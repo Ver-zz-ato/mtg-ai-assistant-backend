@@ -41,7 +41,7 @@ function normName(name: string): string {
 export function looksLikeLandName(name: string): boolean {
   const lowerName = name.trim().toLowerCase();
   return /\b(plains|island|swamp|mountain|forest)\b/.test(lowerName)
-    || /triome|catacomb|sanctuary|fetch|passage|tower|garden|grave|marsh|coast|vista|pathway|citadel|palace|quarters|headquarters|ruins|mesa|delta|strand|heath|foothills|foundry|crypt|harbor|sanctum|temple|panorama|orchard|citadel|vantage|canyon|garrison|sanctuary/.test(lowerName);
+    || /triome|catacomb|sanctuary|fetch|passage|expanse|wilds|tower|garden|grave|marsh|coast|vista|pathway|citadel|palace|quarters|headquarters|ruins|mesa|delta|strand|heath|foothills|foundry|crypt|harbor|sanctum|temple|panorama|orchard|citadel|vantage|canyon|garrison|sanctuary/.test(lowerName);
 }
 
 export function looksLikeManaSupportCard(name: string): boolean {
@@ -69,6 +69,11 @@ function sourceLandCountLooksBroken(sourceRows: QtyRow[], targetCount: number, i
   const lands = sourceRows.reduce((sum, row) => sum + (looksLikeLandName(row.name) ? row.qty : 0), 0);
   if (isCommander || targetCount >= 90) return lands < 30 || lands > 45;
   return lands < 16 || lands > 30;
+}
+
+function constructedGeneralLandCountLooksSeverelyBroken(sourceRows: QtyRow[]): boolean {
+  const lands = sourceRows.reduce((sum, row) => sum + (looksLikeLandName(row.name) ? row.qty : 0), 0);
+  return lands < 14 || lands > 34;
 }
 
 function rowMap(rows: QtyRow[]): Map<string, { name: string; qty: number }> {
@@ -451,6 +456,95 @@ function removeAddedRowsWhere(args: {
   return true;
 }
 
+function preserveConstructedGeneralIdentity(args: {
+  working: Array<{ key: string; name: string; qty: number; sourceIndex: number }>;
+  sourceRows: QtyRow[];
+  targetCount: number;
+  avoidKeys: Set<string>;
+  protectedKeys: Set<string>;
+  priceByName?: Map<string, number>;
+  isCommander: boolean;
+}): string | null {
+  if (args.isCommander) return null;
+
+  const sourceOrder = sourceOrderMap(args.sourceRows);
+  const identityRows = args.sourceRows.filter((row) => {
+    if (row.qty < 2) return false;
+    if (looksLikeLandName(row.name) || looksLikeManaSupportCard(row.name)) return false;
+    return !args.avoidKeys.has(normName(row.name));
+  });
+
+  let changed = false;
+  for (const sourceRow of identityRows) {
+    const key = normName(sourceRow.name);
+    args.protectedKeys.add(key);
+    const existing = findEntry(args.working, key);
+    if ((existing?.qty ?? 0) > 0) continue;
+    args.working.push({
+      key,
+      name: sourceRow.name,
+      qty: 1,
+      sourceIndex: sourceOrder.get(key) ?? Number.MAX_SAFE_INTEGER,
+    });
+    changed = true;
+  }
+
+  if (!changed) return null;
+  rebalanceToTarget({
+    working: args.working,
+    sourceRows: args.sourceRows,
+    targetCount: args.targetCount,
+    avoidKeys: args.avoidKeys,
+    protectedKeys: args.protectedKeys,
+    priceByName: args.priceByName,
+  });
+  return "General cleanup guard preserved core multi-copy cards to avoid an archetype pivot.";
+}
+
+function limitConstructedGeneralUniqueAdds(args: {
+  working: Array<{ key: string; name: string; qty: number; sourceIndex: number }>;
+  sourceRows: QtyRow[];
+  targetCount: number;
+  avoidKeys: Set<string>;
+  protectedKeys: Set<string>;
+  priceByName?: Map<string, number>;
+  isCommander: boolean;
+  maxUniqueAdds: number;
+}): string | null {
+  if (args.isCommander) return null;
+  const diff = diffRows(args.sourceRows, fromWorkingEntries(args.working));
+  if (diff.added.length <= args.maxUniqueAdds) return null;
+
+  const keepKeys = new Set(
+    diff.added
+      .map((row) => ({ key: normName(row.name), qty: row.qty, price: priceFor(row.name, args.priceByName), name: row.name }))
+      .sort((a, b) => b.qty - a.qty || b.price - a.price || a.name.localeCompare(b.name))
+      .slice(0, args.maxUniqueAdds)
+      .map((row) => row.key),
+  );
+
+  let changed = false;
+  for (const row of diff.added) {
+    const key = normName(row.name);
+    if (keepKeys.has(key) || args.protectedKeys.has(key)) continue;
+    const entry = findEntry(args.working, key);
+    if (!entry) continue;
+    entry.qty = Math.max(0, entry.qty - row.qty);
+    changed = true;
+  }
+  if (!changed) return null;
+  args.working.splice(0, args.working.length, ...args.working.filter((entry) => entry.qty > 0));
+  rebalanceToTarget({
+    working: args.working,
+    sourceRows: args.sourceRows,
+    targetCount: args.targetCount,
+    avoidKeys: args.avoidKeys,
+    protectedKeys: args.protectedKeys,
+    priceByName: args.priceByName,
+  });
+  return `General cleanup guard limited constructed cleanup to ${args.maxUniqueAdds} new card names.`;
+}
+
 function enforceIntentSpecificRules(args: {
   working: Array<{ key: string; name: string; qty: number; sourceIndex: number }>;
   sourceRows: QtyRow[];
@@ -535,7 +629,9 @@ function enforceIntentSpecificRules(args: {
   }
 
   if (args.transformIntent === "general") {
-    const landCountBroken = sourceLandCountLooksBroken(args.sourceRows, args.targetCount, args.isCommander);
+    const landCountBroken = args.isCommander
+      ? sourceLandCountLooksBroken(args.sourceRows, args.targetCount, args.isCommander)
+      : constructedGeneralLandCountLooksSeverelyBroken(args.sourceRows);
     if (!landCountBroken) {
       const warning = revertCategoryToSource({
         working: args.working,
@@ -547,6 +643,27 @@ function enforceIntentSpecificRules(args: {
       });
       if (warning) warnings.push(warning);
     }
+
+    const identityWarning = preserveConstructedGeneralIdentity(args);
+    if (identityWarning) warnings.push(identityWarning);
+
+    const uniqueAddsWarning = limitConstructedGeneralUniqueAdds({
+      ...args,
+      maxUniqueAdds: 2,
+    });
+    if (uniqueAddsWarning) warnings.push(uniqueAddsWarning);
+
+    const cleanupMaxChanges = args.isCommander ? 12 : 8;
+    const maxWarning = limitMaxChanges({
+      working: args.working,
+      sourceRows: args.sourceRows,
+      maxChanges: cleanupMaxChanges,
+      targetCount: args.targetCount,
+      avoidKeys: args.avoidKeys,
+      protectedKeys: args.protectedKeys,
+      priceByName: args.priceByName,
+    });
+    if (maxWarning) warnings.push(`General cleanup guard limited this pass to ${cleanupMaxChanges} small swaps.`);
   }
 
   return warnings;

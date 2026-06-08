@@ -1,0 +1,5336 @@
+{
+  "generatedAt": "2026-06-08T16:15:26.527Z",
+  "baseUrl": "https://www.manatap.ai",
+  "decks": [
+    {
+      "id": "db-919ef8f6",
+      "name": "Untitled Deck",
+      "format": "Commander",
+      "sourceLabel": "supabase_saved_deck"
+    },
+    {
+      "id": "db-0ffa8ecf",
+      "name": "Stuff",
+      "format": "Modern",
+      "sourceLabel": "supabase_saved_deck"
+    }
+  ],
+  "summary": {
+    "total": 16,
+    "pass": 12,
+    "warn": 3,
+    "fail": 1
+  },
+  "results": [
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "fix_legality",
+      "status": "fail",
+      "hardIssues": [
+        "Expected no-op legality check, but got 0 additions and 55 removals."
+      ],
+      "cautions": [
+        "Expected explicit no-op legality summary but did not see it."
+      ],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [
+        {
+          "name": "Accumulate Wisdom",
+          "qty": 1
+        },
+        {
+          "name": "Aetherize",
+          "qty": 1
+        },
+        {
+          "name": "Alandra, Sky Dreamer",
+          "qty": 1
+        },
+        {
+          "name": "An Offer You Can't Refuse",
+          "qty": 1
+        },
+        {
+          "name": "Arcane Denial",
+          "qty": 1
+        },
+        {
+          "name": "Archaeomancer",
+          "qty": 1
+        },
+        {
+          "name": "Archmage Emeritus",
+          "qty": 1
+        },
+        {
+          "name": "Archmage's Charm",
+          "qty": 1
+        },
+        {
+          "name": "Banishing Knack",
+          "qty": 1
+        },
+        {
+          "name": "Blue Sun's Zenith",
+          "qty": 1
+        },
+        {
+          "name": "Body of Knowledge",
+          "qty": 1
+        },
+        {
+          "name": "Brainstorm",
+          "qty": 1
+        },
+        {
+          "name": "Chasm Skulker",
+          "qty": 1
+        },
+        {
+          "name": "Commandeer",
+          "qty": 1
+        },
+        {
+          "name": "Consider",
+          "qty": 1
+        },
+        {
+          "name": "Counterspell",
+          "qty": 1
+        },
+        {
+          "name": "Dig Through Time",
+          "qty": 1
+        },
+        {
+          "name": "Flow of Knowledge",
+          "qty": 1
+        },
+        {
+          "name": "Frantic Search",
+          "qty": 1
+        },
+        {
+          "name": "Harbinger of the Seas",
+          "qty": 1
+        },
+        {
+          "name": "High Tide",
+          "qty": 1
+        },
+        {
+          "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+          "qty": 1
+        },
+        {
+          "name": "Imprisoned in the Moon",
+          "qty": 1
+        },
+        {
+          "name": "Island",
+          "qty": 32
+        },
+        {
+          "name": "Jace, Wielder of Mysteries",
+          "qty": 1
+        },
+        {
+          "name": "Laboratory Maniac",
+          "qty": 1
+        },
+        {
+          "name": "Minn, Wily Illusionist",
+          "qty": 1
+        },
+        {
+          "name": "Muddle the Mixture",
+          "qty": 1
+        },
+        {
+          "name": "Mystic Sanctuary",
+          "qty": 1
+        },
+        {
+          "name": "Narset, Parter of Veils",
+          "qty": 1
+        },
+        {
+          "name": "Negate",
+          "qty": 1
+        },
+        {
+          "name": "Nexus Mentality",
+          "qty": 1
+        },
+        {
+          "name": "Ominous Seas",
+          "qty": 1
+        },
+        {
+          "name": "Opt",
+          "qty": 1
+        },
+        {
+          "name": "Ponder",
+          "qty": 1
+        },
+        {
+          "name": "Preordain",
+          "qty": 1
+        },
+        {
+          "name": "Proft's Eidetic Memory",
+          "qty": 1
+        },
+        {
+          "name": "Propaganda",
+          "qty": 1
+        },
+        {
+          "name": "Pull from Tomorrow",
+          "qty": 1
+        },
+        {
+          "name": "Retraction Helix",
+          "qty": 1
+        },
+        {
+          "name": "Snap",
+          "qty": 1
+        },
+        {
+          "name": "Talrand, Sky Summoner",
+          "qty": 1
+        },
+        {
+          "name": "Teferi, Temporal Pilgrim",
+          "qty": 1
+        },
+        {
+          "name": "Teferi's Ageless Insight",
+          "qty": 1
+        },
+        {
+          "name": "The Unagi of Kyoshi Island",
+          "qty": 1
+        },
+        {
+          "name": "Thought Lash",
+          "qty": 1
+        },
+        {
+          "name": "Tidespout Tyrant",
+          "qty": 1
+        },
+        {
+          "name": "Trinket Mage",
+          "qty": 1
+        },
+        {
+          "name": "Triskaidekaphile",
+          "qty": 1
+        },
+        {
+          "name": "Twenty-Toed Toad",
+          "qty": 1
+        },
+        {
+          "name": "Valley Floodcaller",
+          "qty": 1
+        },
+        {
+          "name": "Wan Shi Tong, Librarian",
+          "qty": 1
+        },
+        {
+          "name": "Waterbending Scroll",
+          "qty": 1
+        },
+        {
+          "name": "Windfall",
+          "qty": 1
+        },
+        {
+          "name": "Wizard Class",
+          "qty": 1
+        }
+      ],
+      "finalCount": 14,
+      "targetCount": 100,
+      "warnings": [
+        "Source deck has 55 card line(s) outside commander color identity.",
+        "Source deck has 14 cards after validation; target is 100 for Commander."
+      ],
+      "summary": "Legality issues repaired. Illegal, off-color, or extra-copy cards were removed to match current Commander rules. Review the updated deck size before saving.",
+      "why": "This legality pass only touched cards that broke Commander rules. It removed illegal, off-color, or extra-copy cards and did not invent optimization swaps.",
+      "elapsedMs": 1307,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 2,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 3,
+        "ramp_count": 5,
+        "draw_count": 3,
+        "interaction_count": 2,
+        "avg_cmc": 3,
+        "curve_histogram": [
+          1,
+          6,
+          0,
+          1,
+          3
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "deck_too_small",
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          }
+        ],
+        "commander": "Wan Shi Tong",
+        "colors": [],
+        "deckText": "1 Arcane Signet\n1 Field of Ruin\n1 Leveler\n1 Lightning Greaves\n1 Mind Stone\n1 Myriad Landscape\n1 Planetarium of Wan Shi Tong\n1 Psychosis Crawler\n1 Reliquary Tower\n1 Sapphire Medallion\n1 Sol Ring\n1 Solemn Simulacrum\n1 Swiftfoot Boots\n1 Thought Vessel",
+        "format": "Commander",
+        "summary": "Legality issues repaired. Illegal, off-color, or extra-copy cards were removed to match current Commander rules. Review the updated deck size before saving.",
+        "why": "This legality pass only touched cards that broke Commander rules. It removed illegal, off-color, or extra-copy cards and did not invent optimization swaps.",
+        "changeReasons": {
+          "removed": {
+            "accumulate wisdom": "Removed [[Accumulate Wisdom]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "aetherize": "Removed [[Aetherize]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "alandra, sky dreamer": "Removed [[Alandra, Sky Dreamer]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "an offer you can't refuse": "Removed [[An Offer You Can't Refuse]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "arcane denial": "Removed [[Arcane Denial]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "archaeomancer": "Removed [[Archaeomancer]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "archmage emeritus": "Removed [[Archmage Emeritus]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "archmage's charm": "Removed [[Archmage's Charm]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "banishing knack": "Removed [[Banishing Knack]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "blue sun's zenith": "Removed [[Blue Sun's Zenith]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "body of knowledge": "Removed [[Body of Knowledge]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "brainstorm": "Removed [[Brainstorm]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "chasm skulker": "Removed [[Chasm Skulker]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "commandeer": "Removed [[Commandeer]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "consider": "Removed [[Consider]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "counterspell": "Removed [[Counterspell]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "dig through time": "Removed [[Dig Through Time]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "flow of knowledge": "Removed [[Flow of Knowledge]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "frantic search": "Removed [[Frantic Search]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "harbinger of the seas": "Removed [[Harbinger of the Seas]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "high tide": "Removed [[High Tide]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "hydroelectric specimen // hydroelectric laboratory": "Removed [[Hydroelectric Specimen // Hydroelectric Laboratory]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "imprisoned in the moon": "Removed [[Imprisoned in the Moon]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "island": "Removed [[Island]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "jace, wielder of mysteries": "Removed [[Jace, Wielder of Mysteries]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "laboratory maniac": "Removed [[Laboratory Maniac]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "minn, wily illusionist": "Removed [[Minn, Wily Illusionist]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "muddle the mixture": "Removed [[Muddle the Mixture]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "mystic sanctuary": "Removed [[Mystic Sanctuary]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "narset, parter of veils": "Removed [[Narset, Parter of Veils]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "negate": "Removed [[Negate]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "nexus mentality": "Removed [[Nexus Mentality]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "ominous seas": "Removed [[Ominous Seas]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "opt": "Removed [[Opt]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "ponder": "Removed [[Ponder]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "preordain": "Removed [[Preordain]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "proft's eidetic memory": "Removed [[Proft's Eidetic Memory]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "propaganda": "Removed [[Propaganda]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "pull from tomorrow": "Removed [[Pull from Tomorrow]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "retraction helix": "Removed [[Retraction Helix]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "snap": "Removed [[Snap]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "talrand, sky summoner": "Removed [[Talrand, Sky Summoner]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "teferi, temporal pilgrim": "Removed [[Teferi, Temporal Pilgrim]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "teferi's ageless insight": "Removed [[Teferi's Ageless Insight]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "the unagi of kyoshi island": "Removed [[The Unagi of Kyoshi Island]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "thought lash": "Removed [[Thought Lash]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "tidespout tyrant": "Removed [[Tidespout Tyrant]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "trinket mage": "Removed [[Trinket Mage]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "triskaidekaphile": "Removed [[Triskaidekaphile]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "twenty-toed toad": "Removed [[Twenty-Toed Toad]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "valley floodcaller": "Removed [[Valley Floodcaller]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "wan shi tong, librarian": "Removed [[Wan Shi Tong, Librarian]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "waterbending scroll": "Removed [[Waterbending Scroll]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "windfall": "Removed [[Windfall]] because it falls outside [[Wan Shi Tong]]'s color identity.",
+            "wizard class": "Removed [[Wizard Class]] because it falls outside [[Wan Shi Tong]]'s color identity."
+          }
+        },
+        "warnings": [
+          "Source deck has 55 card line(s) outside commander color identity.",
+          "Source deck has 14 cards after validation; target is 100 for Commander."
+        ],
+        "transformIntent": "fix_legality",
+        "previewFacts": {
+          "land_count": 3,
+          "ramp_count": 5,
+          "draw_count": 3,
+          "interaction_count": 2,
+          "avg_cmc": 3,
+          "curve_histogram": [
+            1,
+            6,
+            0,
+            1,
+            3
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "deck_too_small",
+            "mana_low",
+            "ramp_low",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "general",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [
+        {
+          "name": "Caged Sun",
+          "qty": 1
+        },
+        {
+          "name": "Emergence Zone",
+          "qty": 1
+        },
+        {
+          "name": "Everflowing Chalice",
+          "qty": 1
+        },
+        {
+          "name": "War Room",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Wan Shi Tong, Librarian",
+          "qty": 1
+        },
+        {
+          "name": "Waterbending Scroll",
+          "qty": 1
+        },
+        {
+          "name": "Windfall",
+          "qty": 1
+        },
+        {
+          "name": "Wizard Class",
+          "qty": 1
+        }
+      ],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Color identity validation removed 79 card line(s) from the model output (off-color or unknown).",
+        "General cleanup guard preserved source lands because the mana base did not look broken."
+      ],
+      "summary": "Transformed: General refinement. Power Casual, budget Moderate. Avg CMC ~3.07.",
+      "why": "This pass is a general refinement for [[Wan Shi Tong]], tightening utility and mono-color support after validation removed problematic entries. [[Caged Sun]] and [[Everflowing Chalice]] improve scalable mana, while [[Emergence Zone]] and [[War Room]] add flexible utility without stressing the budget. The cuts trim narrower or less reliable pieces to keep the list smoother at a casual power level.",
+      "elapsedMs": 15909,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 2,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 39,
+        "ramp_count": 8,
+        "draw_count": 26,
+        "interaction_count": 8,
+        "avg_cmc": 3.07,
+        "curve_histogram": [
+          11,
+          16,
+          12,
+          11,
+          11
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Caged Sun",
+            "qty": 1
+          },
+          {
+            "name": "War Room",
+            "qty": 1
+          },
+          {
+            "name": "Emergence Zone",
+            "qty": 1
+          },
+          {
+            "name": "Everflowing Chalice",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 32
+          },
+          {
+            "name": "Mystic Sanctuary",
+            "qty": 1
+          },
+          {
+            "name": "The Unagi of Kyoshi Island",
+            "qty": 1
+          },
+          {
+            "name": "Accumulate Wisdom",
+            "qty": 1
+          },
+          {
+            "name": "Aetherize",
+            "qty": 1
+          },
+          {
+            "name": "Alandra, Sky Dreamer",
+            "qty": 1
+          },
+          {
+            "name": "An Offer You Can't Refuse",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Archaeomancer",
+            "qty": 1
+          },
+          {
+            "name": "Archmage Emeritus",
+            "qty": 1
+          },
+          {
+            "name": "Archmage's Charm",
+            "qty": 1
+          },
+          {
+            "name": "Banishing Knack",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Body of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Chasm Skulker",
+            "qty": 1
+          },
+          {
+            "name": "Commandeer",
+            "qty": 1
+          },
+          {
+            "name": "Consider",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Flow of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Frantic Search",
+            "qty": 1
+          },
+          {
+            "name": "Harbinger of the Seas",
+            "qty": 1
+          },
+          {
+            "name": "High Tide",
+            "qty": 1
+          },
+          {
+            "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+            "qty": 1
+          },
+          {
+            "name": "Imprisoned in the Moon",
+            "qty": 1
+          },
+          {
+            "name": "Jace, Wielder of Mysteries",
+            "qty": 1
+          },
+          {
+            "name": "Laboratory Maniac",
+            "qty": 1
+          },
+          {
+            "name": "Minn, Wily Illusionist",
+            "qty": 1
+          },
+          {
+            "name": "Muddle the Mixture",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Nexus Mentality",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Seas",
+            "qty": 1
+          },
+          {
+            "name": "Opt",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Proft's Eidetic Memory",
+            "qty": 1
+          },
+          {
+            "name": "Propaganda",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Retraction Helix",
+            "qty": 1
+          },
+          {
+            "name": "Snap",
+            "qty": 1
+          },
+          {
+            "name": "Talrand, Sky Summoner",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Temporal Pilgrim",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "Thought Lash",
+            "qty": 1
+          },
+          {
+            "name": "Tidespout Tyrant",
+            "qty": 1
+          },
+          {
+            "name": "Trinket Mage",
+            "qty": 1
+          },
+          {
+            "name": "Triskaidekaphile",
+            "qty": 1
+          },
+          {
+            "name": "Twenty-Toed Toad",
+            "qty": 1
+          },
+          {
+            "name": "Valley Floodcaller",
+            "qty": 1
+          }
+        ],
+        "commander": "Wan Shi Tong",
+        "colors": [],
+        "deckText": "1 Arcane Signet\n1 Field of Ruin\n1 Leveler\n1 Lightning Greaves\n1 Mind Stone\n1 Myriad Landscape\n1 Planetarium of Wan Shi Tong\n1 Psychosis Crawler\n1 Reliquary Tower\n1 Sapphire Medallion\n1 Sol Ring\n1 Solemn Simulacrum\n1 Swiftfoot Boots\n1 Thought Vessel\n1 Caged Sun\n1 War Room\n1 Emergence Zone\n1 Everflowing Chalice\n32 Island\n1 Mystic Sanctuary\n1 The Unagi of Kyoshi Island\n1 Accumulate Wisdom\n1 Aetherize\n1 Alandra, Sky Dreamer\n1 An Offer You Can't Refuse\n1 Arcane Denial\n1 Archaeomancer\n1 Archmage Emeritus\n1 Archmage's Charm\n1 Banishing Knack\n1 Blue Sun's Zenith\n1 Body of Knowledge\n1 Brainstorm\n1 Chasm Skulker\n1 Commandeer\n1 Consider\n1 Counterspell\n1 Dig Through Time\n1 Flow of Knowledge\n1 Frantic Search\n1 Harbinger of the Seas\n1 High Tide\n1 Hydroelectric Specimen // Hydroelectric Laboratory\n1 Imprisoned in the Moon\n1 Jace, Wielder of Mysteries\n1 Laboratory Maniac\n1 Minn, Wily Illusionist\n1 Muddle the Mixture\n1 Narset, Parter of Veils\n1 Negate\n1 Nexus Mentality\n1 Ominous Seas\n1 Opt\n1 Ponder\n1 Preordain\n1 Proft's Eidetic Memory\n1 Propaganda\n1 Pull from Tomorrow\n1 Retraction Helix\n1 Snap\n1 Talrand, Sky Summoner\n1 Teferi, Temporal Pilgrim\n1 Teferi's Ageless Insight\n1 Thought Lash\n1 Tidespout Tyrant\n1 Trinket Mage\n1 Triskaidekaphile\n1 Twenty-Toed Toad\n1 Valley Floodcaller",
+        "format": "Commander",
+        "summary": "Transformed: General refinement. Power Casual, budget Moderate. Avg CMC ~3.07.",
+        "plan": "This pass is a general refinement for [[Wan Shi Tong]], tightening utility and mono-color support after validation removed problematic entries. [[Caged Sun]] and [[Everflowing Chalice]] improve scalable mana, while [[Emergence Zone]] and [[War Room]] add flexible utility without stressing the budget. The cuts trim narrower or less reliable pieces to keep the list smoother at a casual power level.",
+        "why": "This pass is a general refinement for [[Wan Shi Tong]], tightening utility and mono-color support after validation removed problematic entries. [[Caged Sun]] and [[Everflowing Chalice]] improve scalable mana, while [[Emergence Zone]] and [[War Room]] add flexible utility without stressing the budget. The cuts trim narrower or less reliable pieces to keep the list smoother at a casual power level.",
+        "changeReasons": {
+          "added": {
+            "caged sun": "[[Caged Sun]] boosts a mono-color deck by doubling mana and increasing creature pressure.",
+            "emergence zone": "[[Emergence Zone]] gives the deck a low-cost way to play key spells at instant speed.",
+            "everflowing chalice": "[[Everflowing Chalice]] is flexible ramp that scales well through the game.",
+            "war room": "[[War Room]] turns excess mana into steady card draw from a land slot."
+          },
+          "removed": {
+            "wan shi tong, librarian": "[[Wan Shi Tong, Librarian]] was removed because the commander slot is already [[Wan Shi Tong]].",
+            "waterbending scroll": "[[Waterbending Scroll]] was cut as a lower-impact support piece in this refinement pass.",
+            "windfall": "[[Windfall]] was removed for being a less consistent fit for the deck’s smoother general plan.",
+            "wizard class": "[[Wizard Class]] was cut to make room for stronger standalone utility cards."
+          }
+        },
+        "warnings": [
+          "Color identity validation removed 79 card line(s) from the model output (off-color or unknown).",
+          "General cleanup guard preserved source lands because the mana base did not look broken."
+        ],
+        "transformIntent": "general",
+        "previewFacts": {
+          "land_count": 39,
+          "ramp_count": 8,
+          "draw_count": 26,
+          "interaction_count": 8,
+          "avg_cmc": 3.07,
+          "curve_histogram": [
+            11,
+            16,
+            12,
+            11,
+            11
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "improve_mana_base",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Color identity validation removed 63 card line(s) from the model output (off-color or unknown).",
+        "Mana base pass removed non-mana additions that fell outside the pass scope.",
+        "Mana-base guard reverted unrelated non-mana changes from this pass."
+      ],
+      "summary": "Transformed: Mana base improvement. Power Casual, budget Moderate. Avg CMC ~3.",
+      "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+      "elapsedMs": 8498,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 2,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 37,
+        "ramp_count": 7,
+        "draw_count": 28,
+        "interaction_count": 8,
+        "avg_cmc": 3,
+        "curve_histogram": [
+          11,
+          18,
+          13,
+          11,
+          10
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "ramp_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 32
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Sanctuary",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "The Unagi of Kyoshi Island",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Accumulate Wisdom",
+            "qty": 1
+          },
+          {
+            "name": "Aetherize",
+            "qty": 1
+          },
+          {
+            "name": "Alandra, Sky Dreamer",
+            "qty": 1
+          },
+          {
+            "name": "An Offer You Can't Refuse",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Archaeomancer",
+            "qty": 1
+          },
+          {
+            "name": "Archmage Emeritus",
+            "qty": 1
+          },
+          {
+            "name": "Archmage's Charm",
+            "qty": 1
+          },
+          {
+            "name": "Banishing Knack",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Body of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Chasm Skulker",
+            "qty": 1
+          },
+          {
+            "name": "Commandeer",
+            "qty": 1
+          },
+          {
+            "name": "Consider",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Flow of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Frantic Search",
+            "qty": 1
+          },
+          {
+            "name": "Harbinger of the Seas",
+            "qty": 1
+          },
+          {
+            "name": "High Tide",
+            "qty": 1
+          },
+          {
+            "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+            "qty": 1
+          },
+          {
+            "name": "Imprisoned in the Moon",
+            "qty": 1
+          },
+          {
+            "name": "Jace, Wielder of Mysteries",
+            "qty": 1
+          },
+          {
+            "name": "Laboratory Maniac",
+            "qty": 1
+          },
+          {
+            "name": "Minn, Wily Illusionist",
+            "qty": 1
+          },
+          {
+            "name": "Muddle the Mixture",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Nexus Mentality",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Seas",
+            "qty": 1
+          },
+          {
+            "name": "Opt",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Proft's Eidetic Memory",
+            "qty": 1
+          },
+          {
+            "name": "Propaganda",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Retraction Helix",
+            "qty": 1
+          },
+          {
+            "name": "Snap",
+            "qty": 1
+          },
+          {
+            "name": "Talrand, Sky Summoner",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Temporal Pilgrim",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "Thought Lash",
+            "qty": 1
+          },
+          {
+            "name": "Tidespout Tyrant",
+            "qty": 1
+          },
+          {
+            "name": "Trinket Mage",
+            "qty": 1
+          },
+          {
+            "name": "Triskaidekaphile",
+            "qty": 1
+          },
+          {
+            "name": "Twenty-Toed Toad",
+            "qty": 1
+          },
+          {
+            "name": "Valley Floodcaller",
+            "qty": 1
+          },
+          {
+            "name": "Wan Shi Tong, Librarian",
+            "qty": 1
+          },
+          {
+            "name": "Waterbending Scroll",
+            "qty": 1
+          },
+          {
+            "name": "Windfall",
+            "qty": 1
+          },
+          {
+            "name": "Wizard Class",
+            "qty": 1
+          }
+        ],
+        "commander": "Wan Shi Tong",
+        "colors": [],
+        "deckText": "1 Arcane Signet\n1 Field of Ruin\n32 Island\n1 Leveler\n1 Lightning Greaves\n1 Mind Stone\n1 Myriad Landscape\n1 Mystic Sanctuary\n1 Planetarium of Wan Shi Tong\n1 Psychosis Crawler\n1 Reliquary Tower\n1 Sapphire Medallion\n1 Sol Ring\n1 Solemn Simulacrum\n1 Swiftfoot Boots\n1 The Unagi of Kyoshi Island\n1 Thought Vessel\n1 Accumulate Wisdom\n1 Aetherize\n1 Alandra, Sky Dreamer\n1 An Offer You Can't Refuse\n1 Arcane Denial\n1 Archaeomancer\n1 Archmage Emeritus\n1 Archmage's Charm\n1 Banishing Knack\n1 Blue Sun's Zenith\n1 Body of Knowledge\n1 Brainstorm\n1 Chasm Skulker\n1 Commandeer\n1 Consider\n1 Counterspell\n1 Dig Through Time\n1 Flow of Knowledge\n1 Frantic Search\n1 Harbinger of the Seas\n1 High Tide\n1 Hydroelectric Specimen // Hydroelectric Laboratory\n1 Imprisoned in the Moon\n1 Jace, Wielder of Mysteries\n1 Laboratory Maniac\n1 Minn, Wily Illusionist\n1 Muddle the Mixture\n1 Narset, Parter of Veils\n1 Negate\n1 Nexus Mentality\n1 Ominous Seas\n1 Opt\n1 Ponder\n1 Preordain\n1 Proft's Eidetic Memory\n1 Propaganda\n1 Pull from Tomorrow\n1 Retraction Helix\n1 Snap\n1 Talrand, Sky Summoner\n1 Teferi, Temporal Pilgrim\n1 Teferi's Ageless Insight\n1 Thought Lash\n1 Tidespout Tyrant\n1 Trinket Mage\n1 Triskaidekaphile\n1 Twenty-Toed Toad\n1 Valley Floodcaller\n1 Wan Shi Tong, Librarian\n1 Waterbending Scroll\n1 Windfall\n1 Wizard Class",
+        "format": "Commander",
+        "summary": "Transformed: Mana base improvement. Power Casual, budget Moderate. Avg CMC ~3.",
+        "plan": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "changeReasons": null,
+        "warnings": [
+          "Color identity validation removed 63 card line(s) from the model output (off-color or unknown).",
+          "Mana base pass removed non-mana additions that fell outside the pass scope.",
+          "Mana-base guard reverted unrelated non-mana changes from this pass."
+        ],
+        "transformIntent": "improve_mana_base",
+        "previewFacts": {
+          "land_count": 37,
+          "ramp_count": 7,
+          "draw_count": 28,
+          "interaction_count": 8,
+          "avg_cmc": 3,
+          "curve_histogram": [
+            11,
+            18,
+            13,
+            11,
+            10
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "ramp_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "tighten_curve",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Color identity validation removed 61 card line(s) from the model output (off-color or unknown).",
+        "Curve guard preserved the source land count because the mana base did not look broken."
+      ],
+      "summary": "Transformed: Curve tightening. Power Casual, budget Moderate. Avg CMC ~3.",
+      "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+      "elapsedMs": 9407,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 2,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 37,
+        "ramp_count": 7,
+        "draw_count": 28,
+        "interaction_count": 8,
+        "avg_cmc": 3,
+        "curve_histogram": [
+          11,
+          18,
+          13,
+          11,
+          10
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "ramp_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 32
+          },
+          {
+            "name": "Mystic Sanctuary",
+            "qty": 1
+          },
+          {
+            "name": "The Unagi of Kyoshi Island",
+            "qty": 1
+          },
+          {
+            "name": "Accumulate Wisdom",
+            "qty": 1
+          },
+          {
+            "name": "Aetherize",
+            "qty": 1
+          },
+          {
+            "name": "Alandra, Sky Dreamer",
+            "qty": 1
+          },
+          {
+            "name": "An Offer You Can't Refuse",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Archaeomancer",
+            "qty": 1
+          },
+          {
+            "name": "Archmage Emeritus",
+            "qty": 1
+          },
+          {
+            "name": "Archmage's Charm",
+            "qty": 1
+          },
+          {
+            "name": "Banishing Knack",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Body of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Chasm Skulker",
+            "qty": 1
+          },
+          {
+            "name": "Commandeer",
+            "qty": 1
+          },
+          {
+            "name": "Consider",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Flow of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Frantic Search",
+            "qty": 1
+          },
+          {
+            "name": "Harbinger of the Seas",
+            "qty": 1
+          },
+          {
+            "name": "High Tide",
+            "qty": 1
+          },
+          {
+            "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+            "qty": 1
+          },
+          {
+            "name": "Imprisoned in the Moon",
+            "qty": 1
+          },
+          {
+            "name": "Jace, Wielder of Mysteries",
+            "qty": 1
+          },
+          {
+            "name": "Laboratory Maniac",
+            "qty": 1
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Minn, Wily Illusionist",
+            "qty": 1
+          },
+          {
+            "name": "Muddle the Mixture",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Nexus Mentality",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Seas",
+            "qty": 1
+          },
+          {
+            "name": "Opt",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Proft's Eidetic Memory",
+            "qty": 1
+          },
+          {
+            "name": "Propaganda",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Retraction Helix",
+            "qty": 1
+          },
+          {
+            "name": "Snap",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Talrand, Sky Summoner",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Temporal Pilgrim",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "Thought Lash",
+            "qty": 1
+          },
+          {
+            "name": "Tidespout Tyrant",
+            "qty": 1
+          },
+          {
+            "name": "Trinket Mage",
+            "qty": 1
+          },
+          {
+            "name": "Triskaidekaphile",
+            "qty": 1
+          },
+          {
+            "name": "Twenty-Toed Toad",
+            "qty": 1
+          },
+          {
+            "name": "Valley Floodcaller",
+            "qty": 1
+          },
+          {
+            "name": "Wan Shi Tong, Librarian",
+            "qty": 1
+          },
+          {
+            "name": "Waterbending Scroll",
+            "qty": 1
+          },
+          {
+            "name": "Windfall",
+            "qty": 1
+          },
+          {
+            "name": "Wizard Class",
+            "qty": 1
+          }
+        ],
+        "commander": "Wan Shi Tong",
+        "colors": [],
+        "deckText": "1 Arcane Signet\n1 Field of Ruin\n1 Lightning Greaves\n1 Mind Stone\n1 Myriad Landscape\n1 Planetarium of Wan Shi Tong\n1 Psychosis Crawler\n1 Reliquary Tower\n1 Sapphire Medallion\n1 Sol Ring\n1 Swiftfoot Boots\n1 Thought Vessel\n32 Island\n1 Mystic Sanctuary\n1 The Unagi of Kyoshi Island\n1 Accumulate Wisdom\n1 Aetherize\n1 Alandra, Sky Dreamer\n1 An Offer You Can't Refuse\n1 Arcane Denial\n1 Archaeomancer\n1 Archmage Emeritus\n1 Archmage's Charm\n1 Banishing Knack\n1 Blue Sun's Zenith\n1 Body of Knowledge\n1 Brainstorm\n1 Chasm Skulker\n1 Commandeer\n1 Consider\n1 Counterspell\n1 Dig Through Time\n1 Flow of Knowledge\n1 Frantic Search\n1 Harbinger of the Seas\n1 High Tide\n1 Hydroelectric Specimen // Hydroelectric Laboratory\n1 Imprisoned in the Moon\n1 Jace, Wielder of Mysteries\n1 Laboratory Maniac\n1 Leveler\n1 Minn, Wily Illusionist\n1 Muddle the Mixture\n1 Narset, Parter of Veils\n1 Negate\n1 Nexus Mentality\n1 Ominous Seas\n1 Opt\n1 Ponder\n1 Preordain\n1 Proft's Eidetic Memory\n1 Propaganda\n1 Pull from Tomorrow\n1 Retraction Helix\n1 Snap\n1 Solemn Simulacrum\n1 Talrand, Sky Summoner\n1 Teferi, Temporal Pilgrim\n1 Teferi's Ageless Insight\n1 Thought Lash\n1 Tidespout Tyrant\n1 Trinket Mage\n1 Triskaidekaphile\n1 Twenty-Toed Toad\n1 Valley Floodcaller\n1 Wan Shi Tong, Librarian\n1 Waterbending Scroll\n1 Windfall\n1 Wizard Class",
+        "format": "Commander",
+        "summary": "Transformed: Curve tightening. Power Casual, budget Moderate. Avg CMC ~3.",
+        "plan": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "changeReasons": null,
+        "warnings": [
+          "Color identity validation removed 61 card line(s) from the model output (off-color or unknown).",
+          "Curve guard preserved the source land count because the mana base did not look broken."
+        ],
+        "transformIntent": "tighten_curve",
+        "previewFacts": {
+          "land_count": 37,
+          "ramp_count": 7,
+          "draw_count": 28,
+          "interaction_count": 8,
+          "avg_cmc": 3,
+          "curve_histogram": [
+            11,
+            18,
+            13,
+            11,
+            10
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "ramp_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "add_interaction",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Color identity validation removed 58 card line(s) from the model output (off-color or unknown)."
+      ],
+      "summary": "Transformed: More interaction. Power Casual, budget Moderate. Avg CMC ~3.",
+      "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+      "elapsedMs": 9563,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 2,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 37,
+        "ramp_count": 7,
+        "draw_count": 28,
+        "interaction_count": 8,
+        "avg_cmc": 3,
+        "curve_histogram": [
+          11,
+          18,
+          13,
+          11,
+          10
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "ramp_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Accumulate Wisdom",
+            "qty": 1
+          },
+          {
+            "name": "Aetherize",
+            "qty": 1
+          },
+          {
+            "name": "Alandra, Sky Dreamer",
+            "qty": 1
+          },
+          {
+            "name": "An Offer You Can't Refuse",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Archaeomancer",
+            "qty": 1
+          },
+          {
+            "name": "Archmage Emeritus",
+            "qty": 1
+          },
+          {
+            "name": "Archmage's Charm",
+            "qty": 1
+          },
+          {
+            "name": "Banishing Knack",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Body of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Chasm Skulker",
+            "qty": 1
+          },
+          {
+            "name": "Commandeer",
+            "qty": 1
+          },
+          {
+            "name": "Consider",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Flow of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Frantic Search",
+            "qty": 1
+          },
+          {
+            "name": "Harbinger of the Seas",
+            "qty": 1
+          },
+          {
+            "name": "High Tide",
+            "qty": 1
+          },
+          {
+            "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+            "qty": 1
+          },
+          {
+            "name": "Imprisoned in the Moon",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 32
+          },
+          {
+            "name": "Jace, Wielder of Mysteries",
+            "qty": 1
+          },
+          {
+            "name": "Laboratory Maniac",
+            "qty": 1
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Minn, Wily Illusionist",
+            "qty": 1
+          },
+          {
+            "name": "Muddle the Mixture",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Sanctuary",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Nexus Mentality",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Seas",
+            "qty": 1
+          },
+          {
+            "name": "Opt",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Proft's Eidetic Memory",
+            "qty": 1
+          },
+          {
+            "name": "Propaganda",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Retraction Helix",
+            "qty": 1
+          },
+          {
+            "name": "Snap",
+            "qty": 1
+          },
+          {
+            "name": "Talrand, Sky Summoner",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Temporal Pilgrim",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "The Unagi of Kyoshi Island",
+            "qty": 1
+          },
+          {
+            "name": "Thought Lash",
+            "qty": 1
+          },
+          {
+            "name": "Tidespout Tyrant",
+            "qty": 1
+          },
+          {
+            "name": "Trinket Mage",
+            "qty": 1
+          },
+          {
+            "name": "Triskaidekaphile",
+            "qty": 1
+          },
+          {
+            "name": "Twenty-Toed Toad",
+            "qty": 1
+          },
+          {
+            "name": "Valley Floodcaller",
+            "qty": 1
+          },
+          {
+            "name": "Wan Shi Tong, Librarian",
+            "qty": 1
+          },
+          {
+            "name": "Waterbending Scroll",
+            "qty": 1
+          },
+          {
+            "name": "Windfall",
+            "qty": 1
+          },
+          {
+            "name": "Wizard Class",
+            "qty": 1
+          }
+        ],
+        "commander": "Wan Shi Tong",
+        "colors": [],
+        "deckText": "1 Arcane Signet\n1 Field of Ruin\n1 Lightning Greaves\n1 Mind Stone\n1 Myriad Landscape\n1 Planetarium of Wan Shi Tong\n1 Psychosis Crawler\n1 Reliquary Tower\n1 Sapphire Medallion\n1 Sol Ring\n1 Solemn Simulacrum\n1 Swiftfoot Boots\n1 Thought Vessel\n1 Accumulate Wisdom\n1 Aetherize\n1 Alandra, Sky Dreamer\n1 An Offer You Can't Refuse\n1 Arcane Denial\n1 Archaeomancer\n1 Archmage Emeritus\n1 Archmage's Charm\n1 Banishing Knack\n1 Blue Sun's Zenith\n1 Body of Knowledge\n1 Brainstorm\n1 Chasm Skulker\n1 Commandeer\n1 Consider\n1 Counterspell\n1 Dig Through Time\n1 Flow of Knowledge\n1 Frantic Search\n1 Harbinger of the Seas\n1 High Tide\n1 Hydroelectric Specimen // Hydroelectric Laboratory\n1 Imprisoned in the Moon\n32 Island\n1 Jace, Wielder of Mysteries\n1 Laboratory Maniac\n1 Leveler\n1 Minn, Wily Illusionist\n1 Muddle the Mixture\n1 Mystic Sanctuary\n1 Narset, Parter of Veils\n1 Negate\n1 Nexus Mentality\n1 Ominous Seas\n1 Opt\n1 Ponder\n1 Preordain\n1 Proft's Eidetic Memory\n1 Propaganda\n1 Pull from Tomorrow\n1 Retraction Helix\n1 Snap\n1 Talrand, Sky Summoner\n1 Teferi, Temporal Pilgrim\n1 Teferi's Ageless Insight\n1 The Unagi of Kyoshi Island\n1 Thought Lash\n1 Tidespout Tyrant\n1 Trinket Mage\n1 Triskaidekaphile\n1 Twenty-Toed Toad\n1 Valley Floodcaller\n1 Wan Shi Tong, Librarian\n1 Waterbending Scroll\n1 Windfall\n1 Wizard Class",
+        "format": "Commander",
+        "summary": "Transformed: More interaction. Power Casual, budget Moderate. Avg CMC ~3.",
+        "plan": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "changeReasons": null,
+        "warnings": [
+          "Color identity validation removed 58 card line(s) from the model output (off-color or unknown)."
+        ],
+        "transformIntent": "add_interaction",
+        "previewFacts": {
+          "land_count": 37,
+          "ramp_count": 7,
+          "draw_count": 28,
+          "interaction_count": 8,
+          "avg_cmc": 3,
+          "curve_histogram": [
+            11,
+            18,
+            13,
+            11,
+            10
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "ramp_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "lower_budget",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Budget route returned no one-for-one swaps."
+      ],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [],
+      "summary": "Budget swaps returned no safe cheaper pairs.",
+      "why": "",
+      "elapsedMs": 4973,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 2,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "summary": "Budget swaps returned no safe cheaper pairs.",
+        "why": "",
+        "decklist": [
+          {
+            "name": "Accumulate Wisdom",
+            "qty": 1
+          },
+          {
+            "name": "Aetherize",
+            "qty": 1
+          },
+          {
+            "name": "Alandra, Sky Dreamer",
+            "qty": 1
+          },
+          {
+            "name": "An Offer You Can't Refuse",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Archaeomancer",
+            "qty": 1
+          },
+          {
+            "name": "Archmage Emeritus",
+            "qty": 1
+          },
+          {
+            "name": "Archmage's Charm",
+            "qty": 1
+          },
+          {
+            "name": "Banishing Knack",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Body of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Chasm Skulker",
+            "qty": 1
+          },
+          {
+            "name": "Commandeer",
+            "qty": 1
+          },
+          {
+            "name": "Consider",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Flow of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Frantic Search",
+            "qty": 1
+          },
+          {
+            "name": "Harbinger of the Seas",
+            "qty": 1
+          },
+          {
+            "name": "High Tide",
+            "qty": 1
+          },
+          {
+            "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+            "qty": 1
+          },
+          {
+            "name": "Imprisoned in the Moon",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 32
+          },
+          {
+            "name": "Jace, Wielder of Mysteries",
+            "qty": 1
+          },
+          {
+            "name": "Laboratory Maniac",
+            "qty": 1
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Minn, Wily Illusionist",
+            "qty": 1
+          },
+          {
+            "name": "Muddle the Mixture",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Sanctuary",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Nexus Mentality",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Seas",
+            "qty": 1
+          },
+          {
+            "name": "Opt",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Proft's Eidetic Memory",
+            "qty": 1
+          },
+          {
+            "name": "Propaganda",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Retraction Helix",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Snap",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Talrand, Sky Summoner",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Temporal Pilgrim",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "The Unagi of Kyoshi Island",
+            "qty": 1
+          },
+          {
+            "name": "Thought Lash",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Tidespout Tyrant",
+            "qty": 1
+          },
+          {
+            "name": "Trinket Mage",
+            "qty": 1
+          },
+          {
+            "name": "Triskaidekaphile",
+            "qty": 1
+          },
+          {
+            "name": "Twenty-Toed Toad",
+            "qty": 1
+          },
+          {
+            "name": "Valley Floodcaller",
+            "qty": 1
+          },
+          {
+            "name": "Wan Shi Tong, Librarian",
+            "qty": 1
+          },
+          {
+            "name": "Waterbending Scroll",
+            "qty": 1
+          },
+          {
+            "name": "Windfall",
+            "qty": 1
+          },
+          {
+            "name": "Wizard Class",
+            "qty": 1
+          }
+        ],
+        "changeReasons": {
+          "added": {},
+          "removed": {}
+        }
+      }
+    },
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "more_casual",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [
+        {
+          "name": "Bonders' Enclave",
+          "qty": 1
+        },
+        {
+          "name": "Buried Ruin",
+          "qty": 1
+        },
+        {
+          "name": "Command Beacon",
+          "qty": 1
+        },
+        {
+          "name": "Emergence Zone",
+          "qty": 1
+        },
+        {
+          "name": "Temple of the False God",
+          "qty": 1
+        },
+        {
+          "name": "Terrain Generator",
+          "qty": 1
+        },
+        {
+          "name": "War Room",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Triskaidekaphile",
+          "qty": 1
+        },
+        {
+          "name": "Twenty-Toed Toad",
+          "qty": 1
+        },
+        {
+          "name": "Valley Floodcaller",
+          "qty": 1
+        },
+        {
+          "name": "Wan Shi Tong, Librarian",
+          "qty": 1
+        },
+        {
+          "name": "Waterbending Scroll",
+          "qty": 1
+        },
+        {
+          "name": "Windfall",
+          "qty": 1
+        },
+        {
+          "name": "Wizard Class",
+          "qty": 1
+        }
+      ],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Color identity validation removed 78 card line(s) from the model output (off-color or unknown)."
+      ],
+      "summary": "Transformed: More casual. Power Casual, budget Moderate. Avg CMC ~3.07.",
+      "why": "This pass makes the deck more casual by trimming niche spell-package cards and replacing them with simple utility lands. The added lands improve card access, recovery, and flexibility without raising combo density or rules complexity. It also shifts some value into the mana base so the deck plays more smoothly at a relaxed table.",
+      "elapsedMs": 20294,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 2,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 44,
+        "ramp_count": 7,
+        "draw_count": 25,
+        "interaction_count": 8,
+        "avg_cmc": 3.07,
+        "curve_histogram": [
+          10,
+          15,
+          11,
+          10,
+          10
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "ramp_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Bonders' Enclave",
+            "qty": 1
+          },
+          {
+            "name": "War Room",
+            "qty": 1
+          },
+          {
+            "name": "Terrain Generator",
+            "qty": 1
+          },
+          {
+            "name": "Temple of the False God",
+            "qty": 1
+          },
+          {
+            "name": "Emergence Zone",
+            "qty": 1
+          },
+          {
+            "name": "Buried Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Command Beacon",
+            "qty": 1
+          },
+          {
+            "name": "Accumulate Wisdom",
+            "qty": 1
+          },
+          {
+            "name": "Aetherize",
+            "qty": 1
+          },
+          {
+            "name": "Alandra, Sky Dreamer",
+            "qty": 1
+          },
+          {
+            "name": "An Offer You Can't Refuse",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Archaeomancer",
+            "qty": 1
+          },
+          {
+            "name": "Archmage Emeritus",
+            "qty": 1
+          },
+          {
+            "name": "Archmage's Charm",
+            "qty": 1
+          },
+          {
+            "name": "Banishing Knack",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Body of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Chasm Skulker",
+            "qty": 1
+          },
+          {
+            "name": "Commandeer",
+            "qty": 1
+          },
+          {
+            "name": "Consider",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Flow of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Frantic Search",
+            "qty": 1
+          },
+          {
+            "name": "Harbinger of the Seas",
+            "qty": 1
+          },
+          {
+            "name": "High Tide",
+            "qty": 1
+          },
+          {
+            "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+            "qty": 1
+          },
+          {
+            "name": "Imprisoned in the Moon",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 32
+          },
+          {
+            "name": "Jace, Wielder of Mysteries",
+            "qty": 1
+          },
+          {
+            "name": "Laboratory Maniac",
+            "qty": 1
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Minn, Wily Illusionist",
+            "qty": 1
+          },
+          {
+            "name": "Muddle the Mixture",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Sanctuary",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Nexus Mentality",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Seas",
+            "qty": 1
+          },
+          {
+            "name": "Opt",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Proft's Eidetic Memory",
+            "qty": 1
+          },
+          {
+            "name": "Propaganda",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Retraction Helix",
+            "qty": 1
+          },
+          {
+            "name": "Snap",
+            "qty": 1
+          },
+          {
+            "name": "Talrand, Sky Summoner",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Temporal Pilgrim",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "The Unagi of Kyoshi Island",
+            "qty": 1
+          },
+          {
+            "name": "Thought Lash",
+            "qty": 1
+          },
+          {
+            "name": "Tidespout Tyrant",
+            "qty": 1
+          },
+          {
+            "name": "Trinket Mage",
+            "qty": 1
+          }
+        ],
+        "commander": "Wan Shi Tong",
+        "colors": [],
+        "deckText": "1 Arcane Signet\n1 Field of Ruin\n1 Lightning Greaves\n1 Mind Stone\n1 Myriad Landscape\n1 Planetarium of Wan Shi Tong\n1 Psychosis Crawler\n1 Reliquary Tower\n1 Sapphire Medallion\n1 Sol Ring\n1 Solemn Simulacrum\n1 Swiftfoot Boots\n1 Thought Vessel\n1 Bonders' Enclave\n1 War Room\n1 Terrain Generator\n1 Temple of the False God\n1 Emergence Zone\n1 Buried Ruin\n1 Command Beacon\n1 Accumulate Wisdom\n1 Aetherize\n1 Alandra, Sky Dreamer\n1 An Offer You Can't Refuse\n1 Arcane Denial\n1 Archaeomancer\n1 Archmage Emeritus\n1 Archmage's Charm\n1 Banishing Knack\n1 Blue Sun's Zenith\n1 Body of Knowledge\n1 Brainstorm\n1 Chasm Skulker\n1 Commandeer\n1 Consider\n1 Counterspell\n1 Dig Through Time\n1 Flow of Knowledge\n1 Frantic Search\n1 Harbinger of the Seas\n1 High Tide\n1 Hydroelectric Specimen // Hydroelectric Laboratory\n1 Imprisoned in the Moon\n32 Island\n1 Jace, Wielder of Mysteries\n1 Laboratory Maniac\n1 Leveler\n1 Minn, Wily Illusionist\n1 Muddle the Mixture\n1 Mystic Sanctuary\n1 Narset, Parter of Veils\n1 Negate\n1 Nexus Mentality\n1 Ominous Seas\n1 Opt\n1 Ponder\n1 Preordain\n1 Proft's Eidetic Memory\n1 Propaganda\n1 Pull from Tomorrow\n1 Retraction Helix\n1 Snap\n1 Talrand, Sky Summoner\n1 Teferi, Temporal Pilgrim\n1 Teferi's Ageless Insight\n1 The Unagi of Kyoshi Island\n1 Thought Lash\n1 Tidespout Tyrant\n1 Trinket Mage",
+        "format": "Commander",
+        "summary": "Transformed: More casual. Power Casual, budget Moderate. Avg CMC ~3.07.",
+        "plan": "This pass makes the deck more casual by trimming niche spell-package cards and replacing them with simple utility lands. The added lands improve card access, recovery, and flexibility without raising combo density or rules complexity. It also shifts some value into the mana base so the deck plays more smoothly at a relaxed table.",
+        "why": "This pass makes the deck more casual by trimming niche spell-package cards and replacing them with simple utility lands. The added lands improve card access, recovery, and flexibility without raising combo density or rules complexity. It also shifts some value into the mana base so the deck plays more smoothly at a relaxed table.",
+        "changeReasons": {
+          "added": {
+            "bonders' enclave": "[[Bonders' Enclave]] adds straightforward repeatable card draw from a land slot.",
+            "buried ruin": "[[Buried Ruin]] gives the deck an easy way to recover an important artifact.",
+            "command beacon": "[[Command Beacon]] helps recast the commander more casually through commander tax.",
+            "emergence zone": "[[Emergence Zone]] offers a simple burst of flexibility without dedicating spell slots.",
+            "temple of the false god": "[[Temple of the False God]] adds extra mana production for bigger casual turns.",
+            "terrain generator": "[[Terrain Generator]] provides slow, fair ramp from the mana base.",
+            "war room": "[[War Room]] turns excess mana into cards in a clean, low-maintenance way."
+          },
+          "removed": {
+            "triskaidekaphile": "[[Triskaidekaphile]] is a narrower alternate-payoff card that is less needed in a casual smoothing pass.",
+            "twenty-toed toad": "[[Twenty-Toed Toad]] is a more specialized win-condition piece than this pass wants.",
+            "valley floodcaller": "[[Valley Floodcaller]] supports a tighter spell-focused package that this version tones down.",
+            "wan shi tong, librarian": "[[Wan Shi Tong, Librarian]] was removed as part of the validation cleanup and simplification.",
+            "waterbending scroll": "[[Waterbending Scroll]] is a narrower synergy card than the utility lands replacing it.",
+            "windfall": "[[Windfall]] creates swingier play patterns that this more casual build reduces.",
+            "wizard class": "[[Wizard Class]] is a slower payoff piece that was cut for broader utility."
+          }
+        },
+        "warnings": [
+          "Color identity validation removed 78 card line(s) from the model output (off-color or unknown)."
+        ],
+        "transformIntent": "more_casual",
+        "previewFacts": {
+          "land_count": 44,
+          "ramp_count": 7,
+          "draw_count": 25,
+          "interaction_count": 8,
+          "avg_cmc": 3.07,
+          "curve_histogram": [
+            10,
+            15,
+            11,
+            10,
+            10
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "ramp_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "more_optimized",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Color identity validation removed 61 card line(s) from the model output (off-color or unknown)."
+      ],
+      "summary": "Transformed: More optimized. Power Casual, budget Moderate. Avg CMC ~3.",
+      "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+      "elapsedMs": 8481,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 2,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 37,
+        "ramp_count": 7,
+        "draw_count": 28,
+        "interaction_count": 8,
+        "avg_cmc": 3,
+        "curve_histogram": [
+          11,
+          18,
+          13,
+          11,
+          10
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "ramp_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Accumulate Wisdom",
+            "qty": 1
+          },
+          {
+            "name": "Aetherize",
+            "qty": 1
+          },
+          {
+            "name": "Alandra, Sky Dreamer",
+            "qty": 1
+          },
+          {
+            "name": "An Offer You Can't Refuse",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Archaeomancer",
+            "qty": 1
+          },
+          {
+            "name": "Archmage Emeritus",
+            "qty": 1
+          },
+          {
+            "name": "Archmage's Charm",
+            "qty": 1
+          },
+          {
+            "name": "Banishing Knack",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Body of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Chasm Skulker",
+            "qty": 1
+          },
+          {
+            "name": "Commandeer",
+            "qty": 1
+          },
+          {
+            "name": "Consider",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Flow of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Frantic Search",
+            "qty": 1
+          },
+          {
+            "name": "Harbinger of the Seas",
+            "qty": 1
+          },
+          {
+            "name": "High Tide",
+            "qty": 1
+          },
+          {
+            "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+            "qty": 1
+          },
+          {
+            "name": "Imprisoned in the Moon",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 32
+          },
+          {
+            "name": "Jace, Wielder of Mysteries",
+            "qty": 1
+          },
+          {
+            "name": "Laboratory Maniac",
+            "qty": 1
+          },
+          {
+            "name": "Minn, Wily Illusionist",
+            "qty": 1
+          },
+          {
+            "name": "Muddle the Mixture",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Sanctuary",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Nexus Mentality",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Seas",
+            "qty": 1
+          },
+          {
+            "name": "Opt",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Proft's Eidetic Memory",
+            "qty": 1
+          },
+          {
+            "name": "Propaganda",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Retraction Helix",
+            "qty": 1
+          },
+          {
+            "name": "Snap",
+            "qty": 1
+          },
+          {
+            "name": "Talrand, Sky Summoner",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Temporal Pilgrim",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "The Unagi of Kyoshi Island",
+            "qty": 1
+          },
+          {
+            "name": "Thought Lash",
+            "qty": 1
+          },
+          {
+            "name": "Tidespout Tyrant",
+            "qty": 1
+          },
+          {
+            "name": "Trinket Mage",
+            "qty": 1
+          },
+          {
+            "name": "Triskaidekaphile",
+            "qty": 1
+          },
+          {
+            "name": "Twenty-Toed Toad",
+            "qty": 1
+          },
+          {
+            "name": "Valley Floodcaller",
+            "qty": 1
+          },
+          {
+            "name": "Wan Shi Tong, Librarian",
+            "qty": 1
+          },
+          {
+            "name": "Waterbending Scroll",
+            "qty": 1
+          },
+          {
+            "name": "Windfall",
+            "qty": 1
+          },
+          {
+            "name": "Wizard Class",
+            "qty": 1
+          }
+        ],
+        "commander": "Wan Shi Tong",
+        "colors": [],
+        "deckText": "1 Arcane Signet\n1 Field of Ruin\n1 Leveler\n1 Lightning Greaves\n1 Mind Stone\n1 Myriad Landscape\n1 Planetarium of Wan Shi Tong\n1 Psychosis Crawler\n1 Reliquary Tower\n1 Sapphire Medallion\n1 Sol Ring\n1 Solemn Simulacrum\n1 Swiftfoot Boots\n1 Thought Vessel\n1 Accumulate Wisdom\n1 Aetherize\n1 Alandra, Sky Dreamer\n1 An Offer You Can't Refuse\n1 Arcane Denial\n1 Archaeomancer\n1 Archmage Emeritus\n1 Archmage's Charm\n1 Banishing Knack\n1 Blue Sun's Zenith\n1 Body of Knowledge\n1 Brainstorm\n1 Chasm Skulker\n1 Commandeer\n1 Consider\n1 Counterspell\n1 Dig Through Time\n1 Flow of Knowledge\n1 Frantic Search\n1 Harbinger of the Seas\n1 High Tide\n1 Hydroelectric Specimen // Hydroelectric Laboratory\n1 Imprisoned in the Moon\n32 Island\n1 Jace, Wielder of Mysteries\n1 Laboratory Maniac\n1 Minn, Wily Illusionist\n1 Muddle the Mixture\n1 Mystic Sanctuary\n1 Narset, Parter of Veils\n1 Negate\n1 Nexus Mentality\n1 Ominous Seas\n1 Opt\n1 Ponder\n1 Preordain\n1 Proft's Eidetic Memory\n1 Propaganda\n1 Pull from Tomorrow\n1 Retraction Helix\n1 Snap\n1 Talrand, Sky Summoner\n1 Teferi, Temporal Pilgrim\n1 Teferi's Ageless Insight\n1 The Unagi of Kyoshi Island\n1 Thought Lash\n1 Tidespout Tyrant\n1 Trinket Mage\n1 Triskaidekaphile\n1 Twenty-Toed Toad\n1 Valley Floodcaller\n1 Wan Shi Tong, Librarian\n1 Waterbending Scroll\n1 Windfall\n1 Wizard Class",
+        "format": "Commander",
+        "summary": "Transformed: More optimized. Power Casual, budget Moderate. Avg CMC ~3.",
+        "plan": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "changeReasons": null,
+        "warnings": [
+          "Color identity validation removed 61 card line(s) from the model output (off-color or unknown)."
+        ],
+        "transformIntent": "more_optimized",
+        "previewFacts": {
+          "land_count": 37,
+          "ramp_count": 7,
+          "draw_count": 28,
+          "interaction_count": 8,
+          "avg_cmc": 3,
+          "curve_histogram": [
+            11,
+            18,
+            13,
+            11,
+            10
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "ramp_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "fix_legality",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "No legality changes needed. This deck already passes current Modern legality and color identity checks.",
+      "why": "No swaps were suggested because this deck already passes current Modern legality, ban-list, and copy-count checks.",
+      "elapsedMs": 409,
+      "previewFactsBefore": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Rat King, Verminister",
+            "qty": 2
+          },
+          {
+            "name": "Forest",
+            "qty": 7
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 3
+          },
+          {
+            "name": "Michelangelo, Weirdness to 11",
+            "qty": 2
+          },
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Mutable Explorer",
+            "qty": 3
+          },
+          {
+            "name": "Mimeoplasm, Revered One",
+            "qty": 2
+          },
+          {
+            "name": "Plains",
+            "qty": 1
+          },
+          {
+            "name": "Starting Town",
+            "qty": 1
+          },
+          {
+            "name": "Zimone, All-Questioning",
+            "qty": 2
+          },
+          {
+            "name": "Island",
+            "qty": 1
+          },
+          {
+            "name": "Swamp",
+            "qty": 1
+          },
+          {
+            "name": "Avishkar Raceway",
+            "qty": 1
+          },
+          {
+            "name": "Otterball Antics",
+            "qty": 3
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 1
+          },
+          {
+            "name": "Dismal Backwater",
+            "qty": 2
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Tragic Trajectory",
+            "qty": 3
+          },
+          {
+            "name": "Jungle Hollow",
+            "qty": 2
+          },
+          {
+            "name": "Crossroads Village",
+            "qty": 1
+          },
+          {
+            "name": "Mirage Mesa",
+            "qty": 2
+          },
+          {
+            "name": "Tolls of War",
+            "qty": 3
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 3
+          },
+          {
+            "name": "Eusocial Engineering",
+            "qty": 3
+          },
+          {
+            "name": "Night Market",
+            "qty": 1
+          },
+          {
+            "name": "Unfortunate Accident",
+            "qty": 3
+          },
+          {
+            "name": "Captivating Cave",
+            "qty": 1
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "2 Rat King, Verminister\n7 Forest\n3 Innkeeper's Talent\n2 Michelangelo, Weirdness to 11\n4 Tender Wildguide\n3 Mutable Explorer\n2 Mimeoplasm, Revered One\n1 Plains\n1 Starting Town\n2 Zimone, All-Questioning\n1 Island\n1 Swamp\n1 Avishkar Raceway\n3 Otterball Antics\n1 Godless Shrine\n1 Overgrown Tomb\n2 Dismal Backwater\n1 Rogue's Passage\n3 Tragic Trajectory\n2 Jungle Hollow\n1 Crossroads Village\n2 Mirage Mesa\n3 Tolls of War\n3 Stocking the Pantry\n3 Eusocial Engineering\n1 Night Market\n3 Unfortunate Accident\n1 Captivating Cave",
+        "format": "Modern",
+        "summary": "No legality changes needed. This deck already passes current Modern legality and color identity checks.",
+        "why": "No swaps were suggested because this deck already passes current Modern legality, ban-list, and copy-count checks.",
+        "changeReasons": null,
+        "transformIntent": "fix_legality",
+        "previewFacts": {
+          "land_count": 24,
+          "ramp_count": 7,
+          "draw_count": 8,
+          "interaction_count": 3,
+          "avg_cmc": 2.19,
+          "curve_histogram": [
+            9,
+            17,
+            7,
+            0,
+            3
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "general",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "General cleanup changed more than 24 cards; that feels aggressive for a cleanup pass."
+      ],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [
+        {
+          "name": "Boseiju, Who Endures",
+          "qty": 2
+        },
+        {
+          "name": "Chord of Calling",
+          "qty": 2
+        },
+        {
+          "name": "Collected Company",
+          "qty": 4
+        },
+        {
+          "name": "Gilded Goose",
+          "qty": 4
+        },
+        {
+          "name": "Innkeeper's Talent",
+          "qty": 1
+        },
+        {
+          "name": "Overgrown Tomb",
+          "qty": 3
+        },
+        {
+          "name": "Plains",
+          "qty": 1
+        },
+        {
+          "name": "Prosperous Innkeeper",
+          "qty": 4
+        },
+        {
+          "name": "Rosie Cotton of South Lane",
+          "qty": 4
+        },
+        {
+          "name": "Scurry Oak",
+          "qty": 4
+        },
+        {
+          "name": "Stocking the Pantry",
+          "qty": 1
+        },
+        {
+          "name": "Swamp",
+          "qty": 1
+        },
+        {
+          "name": "Woe Strider",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Avishkar Raceway",
+          "qty": 1
+        },
+        {
+          "name": "Captivating Cave",
+          "qty": 1
+        },
+        {
+          "name": "Crossroads Village",
+          "qty": 1
+        },
+        {
+          "name": "Dismal Backwater",
+          "qty": 2
+        },
+        {
+          "name": "Eusocial Engineering",
+          "qty": 3
+        },
+        {
+          "name": "Godless Shrine",
+          "qty": 1
+        },
+        {
+          "name": "Island",
+          "qty": 1
+        },
+        {
+          "name": "Jungle Hollow",
+          "qty": 2
+        },
+        {
+          "name": "Mimeoplasm, Revered One",
+          "qty": 2
+        },
+        {
+          "name": "Mirage Mesa",
+          "qty": 2
+        },
+        {
+          "name": "Mutable Explorer",
+          "qty": 2
+        },
+        {
+          "name": "Night Market",
+          "qty": 1
+        },
+        {
+          "name": "Otterball Antics",
+          "qty": 3
+        },
+        {
+          "name": "Rogue's Passage",
+          "qty": 1
+        },
+        {
+          "name": "Starting Town",
+          "qty": 1
+        },
+        {
+          "name": "Tolls of War",
+          "qty": 3
+        },
+        {
+          "name": "Tragic Trajectory",
+          "qty": 3
+        },
+        {
+          "name": "Unfortunate Accident",
+          "qty": 3
+        },
+        {
+          "name": "Zimone, All-Questioning",
+          "qty": 2
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "General cleanup restored land count stability for this constructed deck.",
+        "Budget guard kept estimated deck price around Moderate expectations."
+      ],
+      "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~2.35.",
+      "why": "This pass tightens the deck into a focused Abzan creature-combo shell built around efficient creature hits and token life-gain synergies. [[Collected Company]] and [[Chord of Calling]] improve consistency, while [[Gilded Goose]], [[Prosperous Innkeeper]], [[Rosie Cotton of South Lane]], [[Scurry Oak]], and [[Woe Strider]] give the deck a clearer proactive plan. The land swaps also stabilize the mana base for the new color requirements while keeping the list within a moderate budget.",
+      "elapsedMs": 20731,
+      "previewFactsBefore": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 17,
+        "ramp_count": 13,
+        "draw_count": 4,
+        "interaction_count": 2,
+        "avg_cmc": 2.35,
+        "curve_histogram": [
+          8,
+          16,
+          15,
+          4,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "mana_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Boseiju, Who Endures",
+            "qty": 2
+          },
+          {
+            "name": "Chord of Calling",
+            "qty": 2
+          },
+          {
+            "name": "Collected Company",
+            "qty": 4
+          },
+          {
+            "name": "Forest",
+            "qty": 7
+          },
+          {
+            "name": "Gilded Goose",
+            "qty": 4
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 4
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 4
+          },
+          {
+            "name": "Plains",
+            "qty": 2
+          },
+          {
+            "name": "Prosperous Innkeeper",
+            "qty": 4
+          },
+          {
+            "name": "Rosie Cotton of South Lane",
+            "qty": 4
+          },
+          {
+            "name": "Scurry Oak",
+            "qty": 4
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 4
+          },
+          {
+            "name": "Swamp",
+            "qty": 2
+          },
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Woe Strider",
+            "qty": 4
+          },
+          {
+            "name": "Rat King, Verminister",
+            "qty": 2
+          },
+          {
+            "name": "Michelangelo, Weirdness to 11",
+            "qty": 2
+          },
+          {
+            "name": "Mutable Explorer",
+            "qty": 1
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "2 Boseiju, Who Endures\n2 Chord of Calling\n4 Collected Company\n7 Forest\n4 Gilded Goose\n4 Innkeeper's Talent\n4 Overgrown Tomb\n2 Plains\n4 Prosperous Innkeeper\n4 Rosie Cotton of South Lane\n4 Scurry Oak\n4 Stocking the Pantry\n2 Swamp\n4 Tender Wildguide\n4 Woe Strider\n2 Rat King, Verminister\n2 Michelangelo, Weirdness to 11\n1 Mutable Explorer",
+        "format": "Modern",
+        "summary": "Transformed: General refinement. Power Focused, budget Moderate. Avg CMC ~2.35.",
+        "plan": "This pass tightens the deck into a focused Abzan creature-combo shell built around efficient creature hits and token life-gain synergies. [[Collected Company]] and [[Chord of Calling]] improve consistency, while [[Gilded Goose]], [[Prosperous Innkeeper]], [[Rosie Cotton of South Lane]], [[Scurry Oak]], and [[Woe Strider]] give the deck a clearer proactive plan. The land swaps also stabilize the mana base for the new color requirements while keeping the list within a moderate budget.",
+        "why": "This pass tightens the deck into a focused Abzan creature-combo shell built around efficient creature hits and token life-gain synergies. [[Collected Company]] and [[Chord of Calling]] improve consistency, while [[Gilded Goose]], [[Prosperous Innkeeper]], [[Rosie Cotton of South Lane]], [[Scurry Oak]], and [[Woe Strider]] give the deck a clearer proactive plan. The land swaps also stabilize the mana base for the new color requirements while keeping the list within a moderate budget.",
+        "changeReasons": {
+          "added": {
+            "collected company": "[[Collected Company]] adds efficient instant-speed card advantage by finding key low-cost creatures.",
+            "gilded goose": "[[Gilded Goose]] provides early ramp, fixing, and Food support for the creature engine.",
+            "prosperous innkeeper": "[[Prosperous Innkeeper]] ramps while rewarding token-heavy creature sequences with life gain.",
+            "rosie cotton of south lane": "[[Rosie Cotton of South Lane]] converts token and life-gain play patterns into growing board pressure.",
+            "scurry oak": "[[Scurry Oak]] is a compact combo piece that works well with the deck's counter support.",
+            "woe strider": "[[Woe Strider]] adds a free sacrifice outlet that supports combo lines and board resilience.",
+            "overgrown tomb": "[[Overgrown Tomb]] improves black and green access for the deck's core spells.",
+            "boseiju, who endures": "[[Boseiju, Who Endures]] strengthens the mana base while adding flexible interaction.",
+            "chord of calling": "[[Chord of Calling]] tutors directly for the creature pieces needed in specific board states.",
+            "innkeeper's talent": "[[Innkeeper's Talent]] supports the deck's value plan with an efficient synergy piece.",
+            "plains": "[[Plains]] helps stabilize white access for the updated manabase.",
+            "stocking the pantry": "[[Stocking the Pantry]] adds a cheap support spell that fits the deck's Food-adjacent game plan.",
+            "swamp": "[[Swamp]] improves basic black access and supports overall land count stability."
+          },
+          "removed": {
+            "eusocial engineering": "[[Eusocial Engineering]] was cut for being less central to the deck's cleaner creature-focused plan.",
+            "otterball antics": "[[Otterball Antics]] was removed because it does not advance the refined primary synergy efficiently.",
+            "tolls of war": "[[Tolls of War]] was cut to lower clunky noncreature slots and streamline the deck.",
+            "tragic trajectory": "[[Tragic Trajectory]] was removed to make room for more synergistic proactive cards.",
+            "unfortunate accident": "[[Unfortunate Accident]] was cut as the deck shifted away from scattered reactive effects.",
+            "dismal backwater": "[[Dismal Backwater]] was removed for faster and better-aligned mana sources.",
+            "jungle hollow": "[[Jungle Hollow]] was cut to improve untapped color access.",
+            "mimeoplasm, revered one": "[[Mimeoplasm, Revered One]] did not match the deck's streamlined low-curve creature plan.",
+            "mirage mesa": "[[Mirage Mesa]] was removed as part of the mana-base cleanup for steadier fixing.",
+            "mutable explorer": "[[Mutable Explorer]] was cut for stronger synergy pieces with higher payoff.",
+            "zimone, all-questioning": "[[Zimone, All-Questioning]] was removed because the deck no longer supports its blue-leaning value plan.",
+            "avishkar raceway": "[[Avishkar Raceway]] was cut to improve overall mana consistency.",
+            "captivating cave": "[[Captivating Cave]] was removed because cleaner color production mattered more than utility here.",
+            "crossroads village": "[[Crossroads Village]] was cut during the land-base stabilization pass.",
+            "godless shrine": "[[Godless Shrine]] was removed as the mana base was rebalanced around the new configuration.",
+            "island": "[[Island]] was cut because blue was no longer part of the refined plan.",
+            "night market": "[[Night Market]] was removed for more reliable mana options.",
+            "rogue's passage": "[[Rogue's Passage]] was cut because utility colorless land was less important than color stability.",
+            "starting town": "[[Starting Town]] was removed as part of the general land-base cleanup."
+          }
+        },
+        "warnings": [
+          "General cleanup restored land count stability for this constructed deck.",
+          "Budget guard kept estimated deck price around Moderate expectations."
+        ],
+        "transformIntent": "general",
+        "previewFacts": {
+          "land_count": 17,
+          "ramp_count": 13,
+          "draw_count": 4,
+          "interaction_count": 2,
+          "avg_cmc": 2.35,
+          "curve_histogram": [
+            8,
+            16,
+            15,
+            4,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "mana_low",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "improve_mana_base",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "Mana base pass removed non-mana additions that fell outside the pass scope.",
+        "Mana-base guard reverted unrelated non-mana changes from this pass."
+      ],
+      "summary": "Transformed: Mana base improvement. Power Focused, budget Moderate. Avg CMC ~2.19.",
+      "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+      "elapsedMs": 3455,
+      "previewFactsBefore": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Avishkar Raceway",
+            "qty": 1
+          },
+          {
+            "name": "Captivating Cave",
+            "qty": 1
+          },
+          {
+            "name": "Crossroads Village",
+            "qty": 1
+          },
+          {
+            "name": "Dismal Backwater",
+            "qty": 2
+          },
+          {
+            "name": "Eusocial Engineering",
+            "qty": 3
+          },
+          {
+            "name": "Forest",
+            "qty": 7
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 3
+          },
+          {
+            "name": "Island",
+            "qty": 1
+          },
+          {
+            "name": "Jungle Hollow",
+            "qty": 2
+          },
+          {
+            "name": "Michelangelo, Weirdness to 11",
+            "qty": 2
+          },
+          {
+            "name": "Mimeoplasm, Revered One",
+            "qty": 2
+          },
+          {
+            "name": "Mirage Mesa",
+            "qty": 2
+          },
+          {
+            "name": "Mutable Explorer",
+            "qty": 3
+          },
+          {
+            "name": "Night Market",
+            "qty": 1
+          },
+          {
+            "name": "Otterball Antics",
+            "qty": 3
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 1
+          },
+          {
+            "name": "Plains",
+            "qty": 1
+          },
+          {
+            "name": "Rat King, Verminister",
+            "qty": 2
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Starting Town",
+            "qty": 1
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 3
+          },
+          {
+            "name": "Swamp",
+            "qty": 1
+          },
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Tolls of War",
+            "qty": 3
+          },
+          {
+            "name": "Tragic Trajectory",
+            "qty": 3
+          },
+          {
+            "name": "Unfortunate Accident",
+            "qty": 3
+          },
+          {
+            "name": "Zimone, All-Questioning",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "1 Avishkar Raceway\n1 Captivating Cave\n1 Crossroads Village\n2 Dismal Backwater\n3 Eusocial Engineering\n7 Forest\n1 Godless Shrine\n3 Innkeeper's Talent\n1 Island\n2 Jungle Hollow\n2 Michelangelo, Weirdness to 11\n2 Mimeoplasm, Revered One\n2 Mirage Mesa\n3 Mutable Explorer\n1 Night Market\n3 Otterball Antics\n1 Overgrown Tomb\n1 Plains\n2 Rat King, Verminister\n1 Rogue's Passage\n1 Starting Town\n3 Stocking the Pantry\n1 Swamp\n4 Tender Wildguide\n3 Tolls of War\n3 Tragic Trajectory\n3 Unfortunate Accident\n2 Zimone, All-Questioning",
+        "format": "Modern",
+        "summary": "Transformed: Mana base improvement. Power Focused, budget Moderate. Avg CMC ~2.19.",
+        "plan": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "why": "No swaps were suggested. This pass kept the working draft as-is because the current list already matched the requested direction closely enough.",
+        "changeReasons": null,
+        "warnings": [
+          "Mana base pass removed non-mana additions that fell outside the pass scope.",
+          "Mana-base guard reverted unrelated non-mana changes from this pass."
+        ],
+        "transformIntent": "improve_mana_base",
+        "previewFacts": {
+          "land_count": 24,
+          "ramp_count": 7,
+          "draw_count": 8,
+          "interaction_count": 3,
+          "avg_cmc": 2.19,
+          "curve_histogram": [
+            9,
+            17,
+            7,
+            0,
+            3
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "tighten_curve",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [
+        {
+          "name": "Cauldron Familiar",
+          "qty": 4
+        },
+        {
+          "name": "Eusocial Engineering",
+          "qty": 1
+        },
+        {
+          "name": "Gilded Goose",
+          "qty": 4
+        },
+        {
+          "name": "Innkeeper's Talent",
+          "qty": 1
+        },
+        {
+          "name": "Llanowar Wastes",
+          "qty": 4
+        },
+        {
+          "name": "Nest Invader",
+          "qty": 4
+        },
+        {
+          "name": "Nurturing Peatland",
+          "qty": 2
+        },
+        {
+          "name": "Overgrown Tomb",
+          "qty": 3
+        },
+        {
+          "name": "Ravenous Squirrel",
+          "qty": 4
+        },
+        {
+          "name": "Stocking the Pantry",
+          "qty": 1
+        },
+        {
+          "name": "Swamp",
+          "qty": 1
+        },
+        {
+          "name": "Tragic Trajectory",
+          "qty": 1
+        },
+        {
+          "name": "Unfortunate Accident",
+          "qty": 1
+        },
+        {
+          "name": "Woodland Cemetery",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Avishkar Raceway",
+          "qty": 1
+        },
+        {
+          "name": "Captivating Cave",
+          "qty": 1
+        },
+        {
+          "name": "Crossroads Village",
+          "qty": 1
+        },
+        {
+          "name": "Dismal Backwater",
+          "qty": 2
+        },
+        {
+          "name": "Forest",
+          "qty": 3
+        },
+        {
+          "name": "Godless Shrine",
+          "qty": 1
+        },
+        {
+          "name": "Island",
+          "qty": 1
+        },
+        {
+          "name": "Jungle Hollow",
+          "qty": 2
+        },
+        {
+          "name": "Michelangelo, Weirdness to 11",
+          "qty": 2
+        },
+        {
+          "name": "Mimeoplasm, Revered One",
+          "qty": 2
+        },
+        {
+          "name": "Mirage Mesa",
+          "qty": 2
+        },
+        {
+          "name": "Mutable Explorer",
+          "qty": 3
+        },
+        {
+          "name": "Night Market",
+          "qty": 1
+        },
+        {
+          "name": "Otterball Antics",
+          "qty": 3
+        },
+        {
+          "name": "Plains",
+          "qty": 1
+        },
+        {
+          "name": "Rat King, Verminister",
+          "qty": 2
+        },
+        {
+          "name": "Rogue's Passage",
+          "qty": 1
+        },
+        {
+          "name": "Starting Town",
+          "qty": 1
+        },
+        {
+          "name": "Tolls of War",
+          "qty": 3
+        },
+        {
+          "name": "Zimone, All-Questioning",
+          "qty": 2
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "Transformed: Curve tightening. Power Focused, budget Moderate. Avg CMC ~1.7.",
+      "why": "This pass tightens the curve by replacing slower, off-plan cards and awkward mana with cheap creatures, food synergies, and cleaner black-green sources. [[Cauldron Familiar]], [[Gilded Goose]], [[Nest Invader]], and [[Ravenous Squirrel]] give the deck more early plays that develop pressure and material efficiently. The land swaps also reduce color strain so the deck can deploy its low-cost spells more consistently.",
+      "elapsedMs": 19618,
+      "previewFactsBefore": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 20,
+        "ramp_count": 12,
+        "draw_count": 10,
+        "interaction_count": 8,
+        "avg_cmc": 1.7,
+        "curve_histogram": [
+          24,
+          12,
+          0,
+          0,
+          4
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 4
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 4
+          },
+          {
+            "name": "Eusocial Engineering",
+            "qty": 4
+          },
+          {
+            "name": "Unfortunate Accident",
+            "qty": 4
+          },
+          {
+            "name": "Tragic Trajectory",
+            "qty": 4
+          },
+          {
+            "name": "Cauldron Familiar",
+            "qty": 4
+          },
+          {
+            "name": "Ravenous Squirrel",
+            "qty": 4
+          },
+          {
+            "name": "Gilded Goose",
+            "qty": 4
+          },
+          {
+            "name": "Nest Invader",
+            "qty": 4
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 4
+          },
+          {
+            "name": "Llanowar Wastes",
+            "qty": 4
+          },
+          {
+            "name": "Woodland Cemetery",
+            "qty": 4
+          },
+          {
+            "name": "Forest",
+            "qty": 4
+          },
+          {
+            "name": "Swamp",
+            "qty": 2
+          },
+          {
+            "name": "Nurturing Peatland",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Tender Wildguide\n4 Stocking the Pantry\n4 Innkeeper's Talent\n4 Eusocial Engineering\n4 Unfortunate Accident\n4 Tragic Trajectory\n4 Cauldron Familiar\n4 Ravenous Squirrel\n4 Gilded Goose\n4 Nest Invader\n4 Overgrown Tomb\n4 Llanowar Wastes\n4 Woodland Cemetery\n4 Forest\n2 Swamp\n2 Nurturing Peatland",
+        "format": "Modern",
+        "summary": "Transformed: Curve tightening. Power Focused, budget Moderate. Avg CMC ~1.7.",
+        "plan": "This pass tightens the curve by replacing slower, off-plan cards and awkward mana with cheap creatures, food synergies, and cleaner black-green sources. [[Cauldron Familiar]], [[Gilded Goose]], [[Nest Invader]], and [[Ravenous Squirrel]] give the deck more early plays that develop pressure and material efficiently. The land swaps also reduce color strain so the deck can deploy its low-cost spells more consistently.",
+        "why": "This pass tightens the curve by replacing slower, off-plan cards and awkward mana with cheap creatures, food synergies, and cleaner black-green sources. [[Cauldron Familiar]], [[Gilded Goose]], [[Nest Invader]], and [[Ravenous Squirrel]] give the deck more early plays that develop pressure and material efficiently. The land swaps also reduce color strain so the deck can deploy its low-cost spells more consistently.",
+        "changeReasons": {
+          "added": {
+            "cauldron familiar": "[[Cauldron Familiar]] is a cheap recursive threat that supports the deck's lower curve.",
+            "gilded goose": "[[Gilded Goose]] accelerates mana early while adding Food for synergy and smoothing draws.",
+            "llanowar wastes": "[[Llanowar Wastes]] improves untapped black-green access for faster starts.",
+            "nest invader": "[[Nest Invader]] adds two bodies early and helps bridge mana efficiently.",
+            "ravenous squirrel": "[[Ravenous Squirrel]] is a one-drop payoff that rewards the deck for sacrificing permanents.",
+            "woodland cemetery": "[[Woodland Cemetery]] strengthens the manabase with efficient black-green fixing.",
+            "overgrown tomb": "[[Overgrown Tomb]] gives premium dual-color access that supports curve-tight draws.",
+            "nurturing peatland": "[[Nurturing Peatland]] provides flexible black-green mana and can cash in later for a card.",
+            "eusocial engineering": "[[Eusocial Engineering]] adds a low-cost role-player that better fits the streamlined plan.",
+            "innkeeper's talent": "[[Innkeeper's Talent]] is a cheaper value piece that aligns with the deck's proactive curve.",
+            "stocking the pantry": "[[Stocking the Pantry]] adds efficient support that fits the deck's lower-resource game.",
+            "swamp": "[[Swamp]] increases access to black mana in the simplified manabase.",
+            "tragic trajectory": "[[Tragic Trajectory]] gives the deck a cheaper interaction option for maintaining tempo.",
+            "unfortunate accident": "[[Unfortunate Accident]] is a low-cost removal piece that supports the focused curve plan."
+          },
+          "removed": {
+            "forest": "[[Forest]] was trimmed to make room for stronger black-green fixing.",
+            "mutable explorer": "[[Mutable Explorer]] was cut for cheaper or more synergistic early plays.",
+            "otterball antics": "[[Otterball Antics]] was removed because it is less efficient for the tightened curve plan.",
+            "tolls of war": "[[Tolls of War]] was cut as a slower effect that does not help streamline early turns.",
+            "dismal backwater": "[[Dismal Backwater]] was removed because entering tapped slows the deck down.",
+            "jungle hollow": "[[Jungle Hollow]] was cut to reduce tapped lands and improve tempo.",
+            "michelangelo, weirdness to 11": "[[Michelangelo, Weirdness to 11]] was removed as a higher-cost or less focused option.",
+            "mimeoplasm, revered one": "[[Mimeoplasm, Revered One]] was cut for being slower than the deck's streamlined plan wants.",
+            "mirage mesa": "[[Mirage Mesa]] was removed to improve color consistency with better black-green sources.",
+            "rat king, verminister": "[[Rat King, Verminister]] was cut for lower-curve cards that impact the board earlier.",
+            "zimone, all-questioning": "[[Zimone, All-Questioning]] was removed because the deck is narrowing into black-green efficiency.",
+            "avishkar raceway": "[[Avishkar Raceway]] was cut as part of cleaning up less efficient mana sources.",
+            "captivating cave": "[[Captivating Cave]] was removed to favor lands that cast spells on curve more reliably.",
+            "crossroads village": "[[Crossroads Village]] was cut to streamline the manabase around core colors and speed.",
+            "godless shrine": "[[Godless Shrine]] was removed because white is not part of the tightened build.",
+            "island": "[[Island]] was cut because blue is being removed from the mana requirements.",
+            "night market": "[[Night Market]] was removed to prioritize cleaner colored mana and faster development.",
+            "plains": "[[Plains]] was cut because white is outside the focused two-color plan.",
+            "rogue's passage": "[[Rogue's Passage]] was removed because colorless utility is less important than smooth early mana.",
+            "starting town": "[[Starting Town]] was cut to favor more reliable black-green sources for curve consistency."
+          }
+        },
+        "transformIntent": "tighten_curve",
+        "previewFacts": {
+          "land_count": 20,
+          "ramp_count": 12,
+          "draw_count": 10,
+          "interaction_count": 8,
+          "avg_cmc": 1.7,
+          "curve_histogram": [
+            24,
+            12,
+            0,
+            0,
+            4
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "add_interaction",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [
+        {
+          "name": "Go for the Throat",
+          "qty": 3
+        },
+        {
+          "name": "Negate",
+          "qty": 2
+        },
+        {
+          "name": "Spell Pierce",
+          "qty": 3
+        }
+      ],
+      "removed": [
+        {
+          "name": "Captivating Cave",
+          "qty": 1
+        },
+        {
+          "name": "Crossroads Village",
+          "qty": 1
+        },
+        {
+          "name": "Mirage Mesa",
+          "qty": 2
+        },
+        {
+          "name": "Night Market",
+          "qty": 1
+        },
+        {
+          "name": "Tolls of War",
+          "qty": 3
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "Interaction guard removed additions that were not clear answers or protection."
+      ],
+      "summary": "Transformed: More interaction. Power Focused, budget Moderate. Avg CMC ~2.1.",
+      "why": "This pass increases low-cost interaction so the deck can answer threats and protect its plan earlier and more reliably. [[Go for the Throat]], [[Spell Pierce]], and [[Negate]] add clean removal and stack interaction without raising the curve much. The cuts come from lower-impact noninteractive slots, including a spell and several lands, to make room for those answers.",
+      "elapsedMs": 10751,
+      "previewFactsBefore": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 19,
+        "ramp_count": 7,
+        "draw_count": 4,
+        "interaction_count": 3,
+        "avg_cmc": 2.1,
+        "curve_histogram": [
+          12,
+          19,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Mutable Explorer",
+            "qty": 3
+          },
+          {
+            "name": "Zimone, All-Questioning",
+            "qty": 2
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 3
+          },
+          {
+            "name": "Eusocial Engineering",
+            "qty": 3
+          },
+          {
+            "name": "Unfortunate Accident",
+            "qty": 3
+          },
+          {
+            "name": "Tragic Trajectory",
+            "qty": 3
+          },
+          {
+            "name": "Otterball Antics",
+            "qty": 3
+          },
+          {
+            "name": "Go for the Throat",
+            "qty": 3
+          },
+          {
+            "name": "Spell Pierce",
+            "qty": 3
+          },
+          {
+            "name": "Negate",
+            "qty": 2
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 1
+          },
+          {
+            "name": "Forest",
+            "qty": 7
+          },
+          {
+            "name": "Island",
+            "qty": 1
+          },
+          {
+            "name": "Swamp",
+            "qty": 1
+          },
+          {
+            "name": "Rat King, Verminister",
+            "qty": 2
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 3
+          },
+          {
+            "name": "Michelangelo, Weirdness to 11",
+            "qty": 2
+          },
+          {
+            "name": "Mimeoplasm, Revered One",
+            "qty": 2
+          },
+          {
+            "name": "Plains",
+            "qty": 1
+          },
+          {
+            "name": "Starting Town",
+            "qty": 1
+          },
+          {
+            "name": "Avishkar Raceway",
+            "qty": 1
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Dismal Backwater",
+            "qty": 2
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Jungle Hollow",
+            "qty": 2
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Tender Wildguide\n3 Mutable Explorer\n2 Zimone, All-Questioning\n3 Stocking the Pantry\n3 Eusocial Engineering\n3 Unfortunate Accident\n3 Tragic Trajectory\n3 Otterball Antics\n3 Go for the Throat\n3 Spell Pierce\n2 Negate\n1 Overgrown Tomb\n7 Forest\n1 Island\n1 Swamp\n2 Rat King, Verminister\n3 Innkeeper's Talent\n2 Michelangelo, Weirdness to 11\n2 Mimeoplasm, Revered One\n1 Plains\n1 Starting Town\n1 Avishkar Raceway\n1 Godless Shrine\n2 Dismal Backwater\n1 Rogue's Passage\n2 Jungle Hollow",
+        "format": "Modern",
+        "summary": "Transformed: More interaction. Power Focused, budget Moderate. Avg CMC ~2.1.",
+        "plan": "This pass increases low-cost interaction so the deck can answer threats and protect its plan earlier and more reliably. [[Go for the Throat]], [[Spell Pierce]], and [[Negate]] add clean removal and stack interaction without raising the curve much. The cuts come from lower-impact noninteractive slots, including a spell and several lands, to make room for those answers.",
+        "why": "This pass increases low-cost interaction so the deck can answer threats and protect its plan earlier and more reliably. [[Go for the Throat]], [[Spell Pierce]], and [[Negate]] add clean removal and stack interaction without raising the curve much. The cuts come from lower-impact noninteractive slots, including a spell and several lands, to make room for those answers.",
+        "changeReasons": {
+          "added": {
+            "go for the throat": "[[Go for the Throat]] gives the deck efficient creature removal at two mana.",
+            "spell pierce": "[[Spell Pierce]] adds cheap interaction against early noncreature plays.",
+            "negate": "[[Negate]] improves the deck's ability to answer key noncreature spells cleanly."
+          },
+          "removed": {
+            "tolls of war": "[[Tolls of War]] was cut to free space for more direct interaction.",
+            "mirage mesa": "[[Mirage Mesa]] was removed as a land slot converted into spell interaction.",
+            "captivating cave": "[[Captivating Cave]] was trimmed to help make room for more answers.",
+            "crossroads village": "[[Crossroads Village]] was trimmed to support the lower-curve interaction package.",
+            "night market": "[[Night Market]] was trimmed to open a slot for interactive spells."
+          }
+        },
+        "warnings": [
+          "Interaction guard removed additions that were not clear answers or protection."
+        ],
+        "transformIntent": "add_interaction",
+        "previewFacts": {
+          "land_count": 19,
+          "ramp_count": 7,
+          "draw_count": 4,
+          "interaction_count": 3,
+          "avg_cmc": 2.1,
+          "curve_histogram": [
+            12,
+            19,
+            7,
+            0,
+            3
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "draw_low",
+            "removal_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "lower_budget",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Budget route returned no one-for-one swaps."
+      ],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "Budget swaps returned no safe cheaper pairs.",
+      "why": "",
+      "elapsedMs": 2102,
+      "previewFactsBefore": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "summary": "Budget swaps returned no safe cheaper pairs.",
+        "why": "",
+        "decklist": [
+          {
+            "name": "Avishkar Raceway",
+            "qty": 1
+          },
+          {
+            "name": "Captivating Cave",
+            "qty": 1
+          },
+          {
+            "name": "Crossroads Village",
+            "qty": 1
+          },
+          {
+            "name": "Dismal Backwater",
+            "qty": 2
+          },
+          {
+            "name": "Eusocial Engineering",
+            "qty": 3
+          },
+          {
+            "name": "Forest",
+            "qty": 7
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 3
+          },
+          {
+            "name": "Island",
+            "qty": 1
+          },
+          {
+            "name": "Jungle Hollow",
+            "qty": 2
+          },
+          {
+            "name": "Michelangelo, Weirdness to 11",
+            "qty": 2
+          },
+          {
+            "name": "Mimeoplasm, Revered One",
+            "qty": 2
+          },
+          {
+            "name": "Mirage Mesa",
+            "qty": 2
+          },
+          {
+            "name": "Mutable Explorer",
+            "qty": 3
+          },
+          {
+            "name": "Night Market",
+            "qty": 1
+          },
+          {
+            "name": "Otterball Antics",
+            "qty": 3
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 1
+          },
+          {
+            "name": "Plains",
+            "qty": 1
+          },
+          {
+            "name": "Rat King, Verminister",
+            "qty": 2
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Starting Town",
+            "qty": 1
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 3
+          },
+          {
+            "name": "Swamp",
+            "qty": 1
+          },
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Tolls of War",
+            "qty": 3
+          },
+          {
+            "name": "Tragic Trajectory",
+            "qty": 3
+          },
+          {
+            "name": "Unfortunate Accident",
+            "qty": 3
+          },
+          {
+            "name": "Zimone, All-Questioning",
+            "qty": 2
+          }
+        ],
+        "changeReasons": {
+          "added": {},
+          "removed": {}
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "more_casual",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [
+        {
+          "name": "Blooming Marsh",
+          "qty": 3
+        },
+        {
+          "name": "Boseiju, Who Endures",
+          "qty": 1
+        },
+        {
+          "name": "Haywire Mite",
+          "qty": 4
+        },
+        {
+          "name": "Innkeeper's Talent",
+          "qty": 1
+        },
+        {
+          "name": "Llanowar Wastes",
+          "qty": 4
+        },
+        {
+          "name": "Mosswood Dreadknight",
+          "qty": 4
+        },
+        {
+          "name": "Overgrown Tomb",
+          "qty": 2
+        },
+        {
+          "name": "Pawpatch Formation",
+          "qty": 4
+        },
+        {
+          "name": "Questing Beast",
+          "qty": 3
+        },
+        {
+          "name": "Sentinel of the Nameless City",
+          "qty": 4
+        },
+        {
+          "name": "Stocking the Pantry",
+          "qty": 1
+        },
+        {
+          "name": "Swamp",
+          "qty": 1
+        },
+        {
+          "name": "Takenuma, Abandoned Mire",
+          "qty": 1
+        },
+        {
+          "name": "Tough Cookie",
+          "qty": 4
+        },
+        {
+          "name": "Unfortunate Accident",
+          "qty": 1
+        },
+        {
+          "name": "Woodland Cemetery",
+          "qty": 4
+        }
+      ],
+      "removed": [
+        {
+          "name": "Avishkar Raceway",
+          "qty": 1
+        },
+        {
+          "name": "Captivating Cave",
+          "qty": 1
+        },
+        {
+          "name": "Crossroads Village",
+          "qty": 1
+        },
+        {
+          "name": "Dismal Backwater",
+          "qty": 2
+        },
+        {
+          "name": "Eusocial Engineering",
+          "qty": 3
+        },
+        {
+          "name": "Forest",
+          "qty": 4
+        },
+        {
+          "name": "Godless Shrine",
+          "qty": 1
+        },
+        {
+          "name": "Island",
+          "qty": 1
+        },
+        {
+          "name": "Jungle Hollow",
+          "qty": 2
+        },
+        {
+          "name": "Michelangelo, Weirdness to 11",
+          "qty": 2
+        },
+        {
+          "name": "Mimeoplasm, Revered One",
+          "qty": 2
+        },
+        {
+          "name": "Mirage Mesa",
+          "qty": 2
+        },
+        {
+          "name": "Mutable Explorer",
+          "qty": 3
+        },
+        {
+          "name": "Night Market",
+          "qty": 1
+        },
+        {
+          "name": "Otterball Antics",
+          "qty": 3
+        },
+        {
+          "name": "Plains",
+          "qty": 1
+        },
+        {
+          "name": "Rat King, Verminister",
+          "qty": 2
+        },
+        {
+          "name": "Rogue's Passage",
+          "qty": 1
+        },
+        {
+          "name": "Starting Town",
+          "qty": 1
+        },
+        {
+          "name": "Tolls of War",
+          "qty": 3
+        },
+        {
+          "name": "Tragic Trajectory",
+          "qty": 3
+        },
+        {
+          "name": "Zimone, All-Questioning",
+          "qty": 2
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "Transformed: More casual. Power Focused, budget Moderate. Avg CMC ~1.95.",
+      "why": "This pass makes the deck more casual by trimming scattered multicolor and novelty pieces for a cleaner black-green core. [[Mosswood Dreadknight]], [[Sentinel of the Nameless City]], and [[Questing Beast]] give the deck straightforward creature pressure, while the land changes make casting spells much more consistent. The result is a more focused, easier-to-pilot list that still keeps solid interaction and value.",
+      "elapsedMs": 29030,
+      "previewFactsBefore": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 21,
+        "ramp_count": 4,
+        "draw_count": 8,
+        "interaction_count": 9,
+        "avg_cmc": 1.95,
+        "curve_histogram": [
+          12,
+          20,
+          4,
+          3,
+          0
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 4
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 4
+          },
+          {
+            "name": "Unfortunate Accident",
+            "qty": 4
+          },
+          {
+            "name": "Pawpatch Formation",
+            "qty": 4
+          },
+          {
+            "name": "Haywire Mite",
+            "qty": 4
+          },
+          {
+            "name": "Tough Cookie",
+            "qty": 4
+          },
+          {
+            "name": "Sentinel of the Nameless City",
+            "qty": 4
+          },
+          {
+            "name": "Mosswood Dreadknight",
+            "qty": 4
+          },
+          {
+            "name": "Questing Beast",
+            "qty": 3
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 3
+          },
+          {
+            "name": "Blooming Marsh",
+            "qty": 3
+          },
+          {
+            "name": "Woodland Cemetery",
+            "qty": 4
+          },
+          {
+            "name": "Llanowar Wastes",
+            "qty": 4
+          },
+          {
+            "name": "Forest",
+            "qty": 3
+          },
+          {
+            "name": "Swamp",
+            "qty": 2
+          },
+          {
+            "name": "Boseiju, Who Endures",
+            "qty": 1
+          },
+          {
+            "name": "Takenuma, Abandoned Mire",
+            "qty": 1
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Tender Wildguide\n4 Innkeeper's Talent\n4 Stocking the Pantry\n4 Unfortunate Accident\n4 Pawpatch Formation\n4 Haywire Mite\n4 Tough Cookie\n4 Sentinel of the Nameless City\n4 Mosswood Dreadknight\n3 Questing Beast\n3 Overgrown Tomb\n3 Blooming Marsh\n4 Woodland Cemetery\n4 Llanowar Wastes\n3 Forest\n2 Swamp\n1 Boseiju, Who Endures\n1 Takenuma, Abandoned Mire",
+        "format": "Modern",
+        "summary": "Transformed: More casual. Power Focused, budget Moderate. Avg CMC ~1.95.",
+        "plan": "This pass makes the deck more casual by trimming scattered multicolor and novelty pieces for a cleaner black-green core. [[Mosswood Dreadknight]], [[Sentinel of the Nameless City]], and [[Questing Beast]] give the deck straightforward creature pressure, while the land changes make casting spells much more consistent. The result is a more focused, easier-to-pilot list that still keeps solid interaction and value.",
+        "why": "This pass makes the deck more casual by trimming scattered multicolor and novelty pieces for a cleaner black-green core. [[Mosswood Dreadknight]], [[Sentinel of the Nameless City]], and [[Questing Beast]] give the deck straightforward creature pressure, while the land changes make casting spells much more consistent. The result is a more focused, easier-to-pilot list that still keeps solid interaction and value.",
+        "changeReasons": {
+          "added": {
+            "haywire mite": "[[Haywire Mite]] adds simple, efficient artifact and enchantment interaction on a body.",
+            "llanowar wastes": "[[Llanowar Wastes]] improves two-color mana without slowing the deck down.",
+            "mosswood dreadknight": "[[Mosswood Dreadknight]] provides reliable pressure and built-in value in a cleaner package.",
+            "pawpatch formation": "[[Pawpatch Formation]] supports the deck with a more direct, lower-complexity effect.",
+            "sentinel of the nameless city": "[[Sentinel of the Nameless City]] adds steady board presence and card selection through combat.",
+            "tough cookie": "[[Tough Cookie]] gives the deck a compact threat that can also support artifact-based utility.",
+            "woodland cemetery": "[[Woodland Cemetery]] strengthens the black-green mana base for smoother early turns.",
+            "blooming marsh": "[[Blooming Marsh]] helps the deck curve out more consistently in the early game.",
+            "questing beast": "[[Questing Beast]] is a straightforward finisher that keeps games moving through combat.",
+            "overgrown tomb": "[[Overgrown Tomb]] adds premium untapped fixing for the deck's main colors.",
+            "boseiju, who endures": "[[Boseiju, Who Endures]] gives the mana base flexible interaction with little deckbuilding cost.",
+            "innkeeper's talent": "[[Innkeeper's Talent]] adds a simple value piece that fits the deck's creature-focused plan.",
+            "stocking the pantry": "[[Stocking the Pantry]] adds a modest value tool that supports a more relaxed game plan.",
+            "swamp": "[[Swamp]] increases basic black access in the now more focused mana base.",
+            "takenuma, abandoned mire": "[[Takenuma, Abandoned Mire]] offers low-cost recursion while still functioning as a land.",
+            "unfortunate accident": "[[Unfortunate Accident]] gives the deck a cleaner, more direct removal option."
+          },
+          "removed": {
+            "forest": "[[Forest]] was trimmed because the updated mana base has stronger black-green fixing.",
+            "eusocial engineering": "[[Eusocial Engineering]] was cut to lower complexity and keep the deck's plan more direct.",
+            "mutable explorer": "[[Mutable Explorer]] was removed for stronger standalone threats and value creatures.",
+            "otterball antics": "[[Otterball Antics]] was cut to reduce off-plan, lower-impact support cards.",
+            "tolls of war": "[[Tolls of War]] was removed to favor simpler, more consistent gameplay pieces.",
+            "tragic trajectory": "[[Tragic Trajectory]] was replaced by interaction that fits the deck's colors and plan more cleanly.",
+            "dismal backwater": "[[Dismal Backwater]] was cut because blue splash fixing is no longer needed.",
+            "jungle hollow": "[[Jungle Hollow]] was removed for faster black-green lands.",
+            "michelangelo, weirdness to 11": "[[Michelangelo, Weirdness to 11]] was cut to reduce novelty elements and tighten the core plan.",
+            "mimeoplasm, revered one": "[[Mimeoplasm, Revered One]] was removed because the deck is no longer supporting broader multicolor requirements.",
+            "mirage mesa": "[[Mirage Mesa]] was cut as the manabase moved away from extra color spread and utility clutter.",
+            "rat king, verminister": "[[Rat King, Verminister]] was removed for threats with more immediate and consistent impact.",
+            "zimone, all-questioning": "[[Zimone, All-Questioning]] was cut to drop unsupported colors and simplify play patterns.",
+            "avishkar raceway": "[[Avishkar Raceway]] was removed to make room for lands that better support black-green consistency.",
+            "captivating cave": "[[Captivating Cave]] was cut because the deck needs cleaner colored mana more than extra utility.",
+            "crossroads village": "[[Crossroads Village]] was removed in favor of more reliable black-green sources.",
+            "godless shrine": "[[Godless Shrine]] was cut because white is no longer part of the deck's plan.",
+            "island": "[[Island]] was removed as the deck tightened into a black-green base.",
+            "night market": "[[Night Market]] was cut to reduce low-impact utility lands.",
+            "plains": "[[Plains]] was removed because the updated list no longer supports white cards.",
+            "rogue's passage": "[[Rogue's Passage]] was cut to prioritize colored mana over niche utility.",
+            "starting town": "[[Starting Town]] was removed for lands that more directly support the deck's focused colors."
+          }
+        },
+        "transformIntent": "more_casual",
+        "previewFacts": {
+          "land_count": 21,
+          "ramp_count": 4,
+          "draw_count": 8,
+          "interaction_count": 9,
+          "avg_cmc": 1.95,
+          "curve_histogram": [
+            12,
+            20,
+            4,
+            3,
+            0
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "more_optimized",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [
+        {
+          "name": "Boseiju, Who Endures",
+          "qty": 3
+        },
+        {
+          "name": "Caustic Bronco",
+          "qty": 4
+        },
+        {
+          "name": "Eusocial Engineering",
+          "qty": 1
+        },
+        {
+          "name": "Glissa Sunslayer",
+          "qty": 4
+        },
+        {
+          "name": "Go for the Throat",
+          "qty": 4
+        },
+        {
+          "name": "Innkeeper's Talent",
+          "qty": 1
+        },
+        {
+          "name": "Llanowar Wastes",
+          "qty": 4
+        },
+        {
+          "name": "Mosswood Dreadknight",
+          "qty": 4
+        },
+        {
+          "name": "Overgrown Tomb",
+          "qty": 3
+        },
+        {
+          "name": "Sentinel of the Nameless City",
+          "qty": 4
+        },
+        {
+          "name": "Stocking the Pantry",
+          "qty": 1
+        },
+        {
+          "name": "Tragic Trajectory",
+          "qty": 1
+        },
+        {
+          "name": "Unfortunate Accident",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Avishkar Raceway",
+          "qty": 1
+        },
+        {
+          "name": "Captivating Cave",
+          "qty": 1
+        },
+        {
+          "name": "Crossroads Village",
+          "qty": 1
+        },
+        {
+          "name": "Dismal Backwater",
+          "qty": 2
+        },
+        {
+          "name": "Forest",
+          "qty": 3
+        },
+        {
+          "name": "Godless Shrine",
+          "qty": 1
+        },
+        {
+          "name": "Island",
+          "qty": 1
+        },
+        {
+          "name": "Jungle Hollow",
+          "qty": 2
+        },
+        {
+          "name": "Michelangelo, Weirdness to 11",
+          "qty": 2
+        },
+        {
+          "name": "Mimeoplasm, Revered One",
+          "qty": 2
+        },
+        {
+          "name": "Mirage Mesa",
+          "qty": 2
+        },
+        {
+          "name": "Mutable Explorer",
+          "qty": 3
+        },
+        {
+          "name": "Night Market",
+          "qty": 1
+        },
+        {
+          "name": "Otterball Antics",
+          "qty": 3
+        },
+        {
+          "name": "Plains",
+          "qty": 1
+        },
+        {
+          "name": "Rat King, Verminister",
+          "qty": 2
+        },
+        {
+          "name": "Rogue's Passage",
+          "qty": 1
+        },
+        {
+          "name": "Starting Town",
+          "qty": 1
+        },
+        {
+          "name": "Tolls of War",
+          "qty": 3
+        },
+        {
+          "name": "Zimone, All-Questioning",
+          "qty": 2
+        }
+      ],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [
+        "Power guard removed basic-land additions that did not improve deck quality."
+      ],
+      "summary": "Transformed: More optimized. Power Focused, budget Moderate. Avg CMC ~2.18.",
+      "why": "This pass tightens the deck into a cleaner black-green midrange shell with stronger early plays, more efficient removal, and a much better mana base. Cards like [[Glissa Sunslayer]], [[Mosswood Dreadknight]], and [[Sentinel of the Nameless City]] raise the creature quality, while [[Go for the Throat]] improves interaction at a low cost. The land swaps cut off-color and low-impact sources for more reliable casting, with [[Llanowar Wastes]], [[Overgrown Tomb]], and [[Boseiju, Who Endures]] improving both speed and utility.",
+      "elapsedMs": 20899,
+      "previewFactsBefore": {
+        "land_count": 24,
+        "ramp_count": 7,
+        "draw_count": 8,
+        "interaction_count": 3,
+        "avg_cmc": 2.19,
+        "curve_histogram": [
+          9,
+          17,
+          7,
+          0,
+          3
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 16,
+        "ramp_count": 4,
+        "draw_count": 8,
+        "interaction_count": 15,
+        "avg_cmc": 2.18,
+        "curve_histogram": [
+          12,
+          20,
+          8,
+          0,
+          4
+        ],
+        "curve_profile": "aggro",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "mana_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 4
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 4
+          },
+          {
+            "name": "Eusocial Engineering",
+            "qty": 4
+          },
+          {
+            "name": "Unfortunate Accident",
+            "qty": 4
+          },
+          {
+            "name": "Tragic Trajectory",
+            "qty": 4
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 4
+          },
+          {
+            "name": "Llanowar Wastes",
+            "qty": 4
+          },
+          {
+            "name": "Boseiju, Who Endures",
+            "qty": 3
+          },
+          {
+            "name": "Forest",
+            "qty": 4
+          },
+          {
+            "name": "Swamp",
+            "qty": 1
+          },
+          {
+            "name": "Caustic Bronco",
+            "qty": 4
+          },
+          {
+            "name": "Mosswood Dreadknight",
+            "qty": 4
+          },
+          {
+            "name": "Glissa Sunslayer",
+            "qty": 4
+          },
+          {
+            "name": "Sentinel of the Nameless City",
+            "qty": 4
+          },
+          {
+            "name": "Go for the Throat",
+            "qty": 4
+          }
+        ],
+        "commander": null,
+        "colors": [],
+        "deckText": "4 Tender Wildguide\n4 Innkeeper's Talent\n4 Stocking the Pantry\n4 Eusocial Engineering\n4 Unfortunate Accident\n4 Tragic Trajectory\n4 Overgrown Tomb\n4 Llanowar Wastes\n3 Boseiju, Who Endures\n4 Forest\n1 Swamp\n4 Caustic Bronco\n4 Mosswood Dreadknight\n4 Glissa Sunslayer\n4 Sentinel of the Nameless City\n4 Go for the Throat",
+        "format": "Modern",
+        "summary": "Transformed: More optimized. Power Focused, budget Moderate. Avg CMC ~2.18.",
+        "plan": "This pass tightens the deck into a cleaner black-green midrange shell with stronger early plays, more efficient removal, and a much better mana base. Cards like [[Glissa Sunslayer]], [[Mosswood Dreadknight]], and [[Sentinel of the Nameless City]] raise the creature quality, while [[Go for the Throat]] improves interaction at a low cost. The land swaps cut off-color and low-impact sources for more reliable casting, with [[Llanowar Wastes]], [[Overgrown Tomb]], and [[Boseiju, Who Endures]] improving both speed and utility.",
+        "why": "This pass tightens the deck into a cleaner black-green midrange shell with stronger early plays, more efficient removal, and a much better mana base. Cards like [[Glissa Sunslayer]], [[Mosswood Dreadknight]], and [[Sentinel of the Nameless City]] raise the creature quality, while [[Go for the Throat]] improves interaction at a low cost. The land swaps cut off-color and low-impact sources for more reliable casting, with [[Llanowar Wastes]], [[Overgrown Tomb]], and [[Boseiju, Who Endures]] improving both speed and utility.",
+        "changeReasons": {
+          "added": {
+            "caustic bronco": "[[Caustic Bronco]] adds a more efficient threat that supports the deck’s streamlined pressure plan.",
+            "glissa sunslayer": "[[Glissa Sunslayer]] is a high-impact attacker that provides efficient combat pressure and utility.",
+            "go for the throat": "[[Go for the Throat]] upgrades the deck’s removal suite with cheap, reliable interaction.",
+            "llanowar wastes": "[[Llanowar Wastes]] improves early black-green access without slowing the deck down.",
+            "mosswood dreadknight": "[[Mosswood Dreadknight]] gives the deck a strong rate with built-in value for grindy games.",
+            "sentinel of the nameless city": "[[Sentinel of the Nameless City]] supplies an efficient body that also helps maintain card quality.",
+            "boseiju, who endures": "[[Boseiju, Who Endures]] adds flexible land-slot interaction with very low opportunity cost.",
+            "overgrown tomb": "[[Overgrown Tomb]] makes the mana base faster and more consistent for the deck’s core colors.",
+            "eusocial engineering": "[[Eusocial Engineering]] adds a focused utility effect that better fits the optimized plan.",
+            "innkeeper's talent": "[[Innkeeper's Talent]] improves the deck’s value generation at a low mana cost.",
+            "stocking the pantry": "[[Stocking the Pantry]] offers a more efficient support piece for keeping resources flowing.",
+            "tragic trajectory": "[[Tragic Trajectory]] adds another compact piece of interaction to reinforce board control.",
+            "unfortunate accident": "[[Unfortunate Accident]] gives the deck an additional efficient answer that fits the lower curve."
+          },
+          "removed": {
+            "forest": "[[Forest]] was trimmed because upgraded dual lands cover green while improving color flexibility.",
+            "mutable explorer": "[[Mutable Explorer]] is a lower-impact threat than the upgraded creature options.",
+            "otterball antics": "[[Otterball Antics]] is less efficient than the deck’s stronger proactive and interactive cards.",
+            "tolls of war": "[[Tolls of War]] was cut for being less streamlined than the new optimized inclusions.",
+            "dismal backwater": "[[Dismal Backwater]] does not fit the deck’s core colors and enters too slowly.",
+            "jungle hollow": "[[Jungle Hollow]] was replaced by stronger black-green lands that preserve tempo better.",
+            "michelangelo, weirdness to 11": "[[Michelangelo, Weirdness to 11]] is off-plan compared to the deck’s tighter core threats.",
+            "mimeoplasm, revered one": "[[Mimeoplasm, Revered One]] asks for a broader game plan than this focused build wants.",
+            "mirage mesa": "[[Mirage Mesa]] was removed because cleaner color sources better support the streamlined mana base.",
+            "rat king, verminister": "[[Rat King, Verminister]] is less efficient than the upgraded threats added in this pass.",
+            "zimone, all-questioning": "[[Zimone, All-Questioning]] pulls toward a different value plan than the deck is now built for.",
+            "avishkar raceway": "[[Avishkar Raceway]] was cut as a lower-priority land compared to stronger color fixing.",
+            "captivating cave": "[[Captivating Cave]] is a low-impact land that does less than the new utility and dual lands.",
+            "crossroads village": "[[Crossroads Village]] was removed to make the mana base more efficient and focused on black-green.",
+            "godless shrine": "[[Godless Shrine]] was cut because white is outside the deck’s optimized color requirements.",
+            "island": "[[Island]] was removed because blue is no longer part of the deck’s streamlined base.",
+            "night market": "[[Night Market]] offered less consistency than the replacement lands.",
+            "plains": "[[Plains]] was cut because white sources are unnecessary in the optimized build.",
+            "rogue's passage": "[[Rogue's Passage]] is too low-impact for a list prioritizing efficiency and color consistency.",
+            "starting town": "[[Starting Town]] was replaced by lands that better support the deck’s main colors and tempo."
+          }
+        },
+        "warnings": [
+          "Power guard removed basic-land additions that did not improve deck quality."
+        ],
+        "transformIntent": "more_optimized",
+        "previewFacts": {
+          "land_count": 16,
+          "ramp_count": 4,
+          "draw_count": 8,
+          "interaction_count": 15,
+          "avg_cmc": 2.18,
+          "curve_histogram": [
+            12,
+            20,
+            8,
+            0,
+            4
+          ],
+          "curve_profile": "aggro",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "mana_low"
+          ]
+        }
+      }
+    }
+  ]
+}

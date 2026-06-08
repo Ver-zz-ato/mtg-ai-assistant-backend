@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-06-08T15:57:12.425Z",
+  "baseUrl": "https://www.manatap.ai",
+  "decks": [
+    {
+      "id": "db-919ef8f6",
+      "name": "Untitled Deck",
+      "format": "Commander",
+      "sourceLabel": "supabase_saved_deck"
+    },
+    {
+      "id": "db-266c15df",
+      "name": "Who is who",
+      "format": "Commander",
+      "sourceLabel": "supabase_saved_deck"
+    },
+    {
+      "id": "db-0ffa8ecf",
+      "name": "Stuff",
+      "format": "Modern",
+      "sourceLabel": "supabase_saved_deck"
+    },
+    {
+      "id": "db-be38a74a",
+      "name": "Cats",
+      "format": "Modern",
+      "sourceLabel": "supabase_saved_deck"
+    }
+  ],
+  "summary": {
+    "total": 0,
+    "pass": 0,
+    "warn": 0,
+    "fail": 0
+  },
+  "results": []
+}

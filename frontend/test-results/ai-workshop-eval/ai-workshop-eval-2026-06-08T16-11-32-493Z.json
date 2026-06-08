@@ -1,0 +1,990 @@
+{
+  "generatedAt": "2026-06-08T16:11:50.370Z",
+  "baseUrl": "https://www.manatap.ai",
+  "decks": [
+    {
+      "id": "db-919ef8f6",
+      "name": "Untitled Deck",
+      "format": "Commander",
+      "sourceLabel": "supabase_saved_deck"
+    },
+    {
+      "id": "db-266c15df",
+      "name": "Who is who",
+      "format": "Commander",
+      "sourceLabel": "supabase_saved_deck"
+    },
+    {
+      "id": "db-0ffa8ecf",
+      "name": "Stuff",
+      "format": "Modern",
+      "sourceLabel": "supabase_saved_deck"
+    },
+    {
+      "id": "db-be38a74a",
+      "name": "Cats",
+      "format": "Modern",
+      "sourceLabel": "supabase_saved_deck"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "pass": 0,
+    "warn": 4,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "db-919ef8f6",
+      "deckName": "Untitled Deck",
+      "format": "Commander",
+      "pass": "lower_budget",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Budget route returned no one-for-one swaps."
+      ],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [],
+      "summary": "Budget swaps returned no safe cheaper pairs.",
+      "why": "",
+      "elapsedMs": 6497,
+      "raw": {
+        "ok": true,
+        "summary": "Budget swaps returned no safe cheaper pairs.",
+        "why": "",
+        "decklist": [
+          {
+            "name": "Accumulate Wisdom",
+            "qty": 1
+          },
+          {
+            "name": "Aetherize",
+            "qty": 1
+          },
+          {
+            "name": "Alandra, Sky Dreamer",
+            "qty": 1
+          },
+          {
+            "name": "An Offer You Can't Refuse",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Denial",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Archaeomancer",
+            "qty": 1
+          },
+          {
+            "name": "Archmage Emeritus",
+            "qty": 1
+          },
+          {
+            "name": "Archmage's Charm",
+            "qty": 1
+          },
+          {
+            "name": "Banishing Knack",
+            "qty": 1
+          },
+          {
+            "name": "Blue Sun's Zenith",
+            "qty": 1
+          },
+          {
+            "name": "Body of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Brainstorm",
+            "qty": 1
+          },
+          {
+            "name": "Chasm Skulker",
+            "qty": 1
+          },
+          {
+            "name": "Commandeer",
+            "qty": 1
+          },
+          {
+            "name": "Consider",
+            "qty": 1
+          },
+          {
+            "name": "Counterspell",
+            "qty": 1
+          },
+          {
+            "name": "Dig Through Time",
+            "qty": 1
+          },
+          {
+            "name": "Field of Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Flow of Knowledge",
+            "qty": 1
+          },
+          {
+            "name": "Frantic Search",
+            "qty": 1
+          },
+          {
+            "name": "Harbinger of the Seas",
+            "qty": 1
+          },
+          {
+            "name": "High Tide",
+            "qty": 1
+          },
+          {
+            "name": "Hydroelectric Specimen // Hydroelectric Laboratory",
+            "qty": 1
+          },
+          {
+            "name": "Imprisoned in the Moon",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 32
+          },
+          {
+            "name": "Jace, Wielder of Mysteries",
+            "qty": 1
+          },
+          {
+            "name": "Laboratory Maniac",
+            "qty": 1
+          },
+          {
+            "name": "Leveler",
+            "qty": 1
+          },
+          {
+            "name": "Lightning Greaves",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Minn, Wily Illusionist",
+            "qty": 1
+          },
+          {
+            "name": "Muddle the Mixture",
+            "qty": 1
+          },
+          {
+            "name": "Myriad Landscape",
+            "qty": 1
+          },
+          {
+            "name": "Mystic Sanctuary",
+            "qty": 1
+          },
+          {
+            "name": "Narset, Parter of Veils",
+            "qty": 1
+          },
+          {
+            "name": "Negate",
+            "qty": 1
+          },
+          {
+            "name": "Nexus Mentality",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Seas",
+            "qty": 1
+          },
+          {
+            "name": "Opt",
+            "qty": 1
+          },
+          {
+            "name": "Planetarium of Wan Shi Tong",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Proft's Eidetic Memory",
+            "qty": 1
+          },
+          {
+            "name": "Propaganda",
+            "qty": 1
+          },
+          {
+            "name": "Psychosis Crawler",
+            "qty": 1
+          },
+          {
+            "name": "Pull from Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Reliquary Tower",
+            "qty": 1
+          },
+          {
+            "name": "Retraction Helix",
+            "qty": 1
+          },
+          {
+            "name": "Sapphire Medallion",
+            "qty": 1
+          },
+          {
+            "name": "Snap",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Solemn Simulacrum",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Talrand, Sky Summoner",
+            "qty": 1
+          },
+          {
+            "name": "Teferi, Temporal Pilgrim",
+            "qty": 1
+          },
+          {
+            "name": "Teferi's Ageless Insight",
+            "qty": 1
+          },
+          {
+            "name": "The Unagi of Kyoshi Island",
+            "qty": 1
+          },
+          {
+            "name": "Thought Lash",
+            "qty": 1
+          },
+          {
+            "name": "Thought Vessel",
+            "qty": 1
+          },
+          {
+            "name": "Tidespout Tyrant",
+            "qty": 1
+          },
+          {
+            "name": "Trinket Mage",
+            "qty": 1
+          },
+          {
+            "name": "Triskaidekaphile",
+            "qty": 1
+          },
+          {
+            "name": "Twenty-Toed Toad",
+            "qty": 1
+          },
+          {
+            "name": "Valley Floodcaller",
+            "qty": 1
+          },
+          {
+            "name": "Wan Shi Tong, Librarian",
+            "qty": 1
+          },
+          {
+            "name": "Waterbending Scroll",
+            "qty": 1
+          },
+          {
+            "name": "Windfall",
+            "qty": 1
+          },
+          {
+            "name": "Wizard Class",
+            "qty": 1
+          }
+        ],
+        "changeReasons": {
+          "added": {},
+          "removed": {}
+        }
+      }
+    },
+    {
+      "deckId": "db-266c15df",
+      "deckName": "Who is who",
+      "format": "Commander",
+      "pass": "lower_budget",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Budget route returned no one-for-one swaps."
+      ],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [],
+      "summary": "Budget swaps returned no safe cheaper pairs.",
+      "why": "",
+      "elapsedMs": 6163,
+      "raw": {
+        "ok": true,
+        "summary": "Budget swaps returned no safe cheaper pairs.",
+        "why": "",
+        "decklist": [
+          {
+            "name": "Apex Devastator",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Beast Within",
+            "qty": 1
+          },
+          {
+            "name": "Bigger on the Inside",
+            "qty": 1
+          },
+          {
+            "name": "Blasphemous Act",
+            "qty": 1
+          },
+          {
+            "name": "Bloodbraid Elf",
+            "qty": 1
+          },
+          {
+            "name": "Brotherhood's End",
+            "qty": 1
+          },
+          {
+            "name": "Chaos Wand",
+            "qty": 1
+          },
+          {
+            "name": "Chaos Warp",
+            "qty": 1
+          },
+          {
+            "name": "Cinder Glade",
+            "qty": 1
+          },
+          {
+            "name": "Cultivate",
+            "qty": 1
+          },
+          {
+            "name": "Cursed Mirror",
+            "qty": 1
+          },
+          {
+            "name": "Darksteel Citadel",
+            "qty": 1
+          },
+          {
+            "name": "Doc Aurlock, Grizzled Genius",
+            "qty": 1
+          },
+          {
+            "name": "Dreamroot Cascade",
+            "qty": 1
+          },
+          {
+            "name": "Etali, Primal Storm",
+            "qty": 1
+          },
+          {
+            "name": "Exotic Orchard",
+            "qty": 1
+          },
+          {
+            "name": "Expressive Iteration",
+            "qty": 1
+          },
+          {
+            "name": "Farseek",
+            "qty": 1
+          },
+          {
+            "name": "Fellwar Stone",
+            "qty": 1
+          },
+          {
+            "name": "Fiery Islet",
+            "qty": 1
+          },
+          {
+            "name": "Flaming Tyrannosaurus",
+            "qty": 1
+          },
+          {
+            "name": "Flatline",
+            "qty": 1
+          },
+          {
+            "name": "Forest",
+            "qty": 4
+          },
+          {
+            "name": "Frontier Bivouac",
+            "qty": 1
+          },
+          {
+            "name": "Frostboil Snarl",
+            "qty": 1
+          },
+          {
+            "name": "Game Trail",
+            "qty": 1
+          },
+          {
+            "name": "Graham O'Brien",
+            "qty": 1
+          },
+          {
+            "name": "Great Furnace",
+            "qty": 1
+          },
+          {
+            "name": "Heaven Sent",
+            "qty": 1
+          },
+          {
+            "name": "Ignite the Future",
+            "qty": 1
+          },
+          {
+            "name": "Impending Flux",
+            "qty": 1
+          },
+          {
+            "name": "Into the Time Vortex",
+            "qty": 1
+          },
+          {
+            "name": "Iraxxa, Empress of Mars",
+            "qty": 1
+          },
+          {
+            "name": "Island",
+            "qty": 4
+          },
+          {
+            "name": "Kami of Celebration",
+            "qty": 1
+          },
+          {
+            "name": "Keeper of Secrets",
+            "qty": 1
+          },
+          {
+            "name": "Laelia, the Blade Reforged",
+            "qty": 1
+          },
+          {
+            "name": "Lunar Hatchling",
+            "qty": 1
+          },
+          {
+            "name": "Maelstrom Wanderer",
+            "qty": 1
+          },
+          {
+            "name": "Me, the Immortal",
+            "qty": 1
+          },
+          {
+            "name": "Mountain",
+            "qty": 3
+          },
+          {
+            "name": "Mystic Reflection",
+            "qty": 1
+          },
+          {
+            "name": "Nalfeshnee",
+            "qty": 1
+          },
+          {
+            "name": "Ominous Cemetery",
+            "qty": 1
+          },
+          {
+            "name": "Ponder",
+            "qty": 1
+          },
+          {
+            "name": "Pongify",
+            "qty": 1
+          },
+          {
+            "name": "Preordain",
+            "qty": 1
+          },
+          {
+            "name": "Psychic Paper",
+            "qty": 1
+          },
+          {
+            "name": "Quantum Misalignment",
+            "qty": 1
+          },
+          {
+            "name": "Rashmi and Ragavan",
+            "qty": 1
+          },
+          {
+            "name": "Rashmi, Eternities Crafter",
+            "qty": 1
+          },
+          {
+            "name": "Reckless Impulse",
+            "qty": 1
+          },
+          {
+            "name": "River Song's Diary",
+            "qty": 1
+          },
+          {
+            "name": "Rockfall Vale",
+            "qty": 1
+          },
+          {
+            "name": "Rootbound Crag",
+            "qty": 1
+          },
+          {
+            "name": "Ryan Sinclair",
+            "qty": 1
+          },
+          {
+            "name": "Saheeli, the Gifted",
+            "qty": 1
+          },
+          {
+            "name": "Saw It Coming",
+            "qty": 1
+          },
+          {
+            "name": "Search for Tomorrow",
+            "qty": 1
+          },
+          {
+            "name": "Seat of the Synod",
+            "qty": 1
+          },
+          {
+            "name": "Shardless Agent",
+            "qty": 1
+          },
+          {
+            "name": "Sheltered Thicket",
+            "qty": 1
+          },
+          {
+            "name": "Silverbluff Bridge",
+            "qty": 1
+          },
+          {
+            "name": "Sisterhood of Karn",
+            "qty": 1
+          },
+          {
+            "name": "Slagwoods Bridge",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Spire of Industry",
+            "qty": 1
+          },
+          {
+            "name": "Stolen Strategy",
+            "qty": 1
+          },
+          {
+            "name": "Stormcarved Coast",
+            "qty": 1
+          },
+          {
+            "name": "Swiftfoot Boots",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Curiosity",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Impulse",
+            "qty": 1
+          },
+          {
+            "name": "Tanglepool Bridge",
+            "qty": 1
+          },
+          {
+            "name": "TARDIS",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Epiphany",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Mystery",
+            "qty": 1
+          },
+          {
+            "name": "The Flux",
+            "qty": 1
+          },
+          {
+            "name": "The Fourth Doctor",
+            "qty": 1
+          },
+          {
+            "name": "The Key to the Vault",
+            "qty": 1
+          },
+          {
+            "name": "The Lost and the Damned",
+            "qty": 1
+          },
+          {
+            "name": "The Tenth Doctor",
+            "qty": 1
+          },
+          {
+            "name": "The Thirteenth Doctor",
+            "qty": 1
+          },
+          {
+            "name": "The Twelfth Doctor",
+            "qty": 1
+          },
+          {
+            "name": "Throes of Chaos",
+            "qty": 1
+          },
+          {
+            "name": "Tlincalli Hunter",
+            "qty": 1
+          },
+          {
+            "name": "Tree of Tales",
+            "qty": 1
+          },
+          {
+            "name": "Twice Upon a Time",
+            "qty": 1
+          },
+          {
+            "name": "Vineglimmer Snarl",
+            "qty": 1
+          },
+          {
+            "name": "Waterlogged Grove",
+            "qty": 1
+          },
+          {
+            "name": "Wild-Magic Sorcerer",
+            "qty": 1
+          },
+          {
+            "name": "Yasmin Khan",
+            "qty": 1
+          }
+        ],
+        "changeReasons": {
+          "added": {},
+          "removed": {}
+        }
+      }
+    },
+    {
+      "deckId": "db-0ffa8ecf",
+      "deckName": "Stuff",
+      "format": "Modern",
+      "pass": "lower_budget",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Budget route returned no one-for-one swaps."
+      ],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 60,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "Budget swaps returned no safe cheaper pairs.",
+      "why": "",
+      "elapsedMs": 2242,
+      "raw": {
+        "ok": true,
+        "summary": "Budget swaps returned no safe cheaper pairs.",
+        "why": "",
+        "decklist": [
+          {
+            "name": "Avishkar Raceway",
+            "qty": 1
+          },
+          {
+            "name": "Captivating Cave",
+            "qty": 1
+          },
+          {
+            "name": "Crossroads Village",
+            "qty": 1
+          },
+          {
+            "name": "Dismal Backwater",
+            "qty": 2
+          },
+          {
+            "name": "Eusocial Engineering",
+            "qty": 3
+          },
+          {
+            "name": "Forest",
+            "qty": 7
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Innkeeper's Talent",
+            "qty": 3
+          },
+          {
+            "name": "Island",
+            "qty": 1
+          },
+          {
+            "name": "Jungle Hollow",
+            "qty": 2
+          },
+          {
+            "name": "Michelangelo, Weirdness to 11",
+            "qty": 2
+          },
+          {
+            "name": "Mimeoplasm, Revered One",
+            "qty": 2
+          },
+          {
+            "name": "Mirage Mesa",
+            "qty": 2
+          },
+          {
+            "name": "Mutable Explorer",
+            "qty": 3
+          },
+          {
+            "name": "Night Market",
+            "qty": 1
+          },
+          {
+            "name": "Otterball Antics",
+            "qty": 3
+          },
+          {
+            "name": "Overgrown Tomb",
+            "qty": 1
+          },
+          {
+            "name": "Plains",
+            "qty": 1
+          },
+          {
+            "name": "Rat King, Verminister",
+            "qty": 2
+          },
+          {
+            "name": "Rogue's Passage",
+            "qty": 1
+          },
+          {
+            "name": "Starting Town",
+            "qty": 1
+          },
+          {
+            "name": "Stocking the Pantry",
+            "qty": 3
+          },
+          {
+            "name": "Swamp",
+            "qty": 1
+          },
+          {
+            "name": "Tender Wildguide",
+            "qty": 4
+          },
+          {
+            "name": "Tolls of War",
+            "qty": 3
+          },
+          {
+            "name": "Tragic Trajectory",
+            "qty": 3
+          },
+          {
+            "name": "Unfortunate Accident",
+            "qty": 3
+          },
+          {
+            "name": "Zimone, All-Questioning",
+            "qty": 2
+          }
+        ],
+        "changeReasons": {
+          "added": {},
+          "removed": {}
+        }
+      }
+    },
+    {
+      "deckId": "db-be38a74a",
+      "deckName": "Cats",
+      "format": "Modern",
+      "pass": "lower_budget",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Budget route returned no one-for-one swaps."
+      ],
+      "sourceLabel": "supabase_saved_deck",
+      "added": [],
+      "removed": [],
+      "finalCount": 68,
+      "targetCount": 60,
+      "warnings": [],
+      "summary": "Budget swaps returned no safe cheaper pairs.",
+      "why": "",
+      "elapsedMs": 1495,
+      "raw": {
+        "ok": true,
+        "summary": "Budget swaps returned no safe cheaper pairs.",
+        "why": "",
+        "decklist": [
+          {
+            "name": "Ajani, Strength of the Pride",
+            "qty": 1
+          },
+          {
+            "name": "Ajani's Pridemate",
+            "qty": 4
+          },
+          {
+            "name": "Ajani's Sunstriker",
+            "qty": 3
+          },
+          {
+            "name": "Ajani's Welcome",
+            "qty": 4
+          },
+          {
+            "name": "Arahbo, the First Fang",
+            "qty": 2
+          },
+          {
+            "name": "Authority of the Consuls",
+            "qty": 2
+          },
+          {
+            "name": "Felidar Sovereign",
+            "qty": 2
+          },
+          {
+            "name": "Healer of the Pride",
+            "qty": 2
+          },
+          {
+            "name": "King of the Pride",
+            "qty": 3
+          },
+          {
+            "name": "Leonin Vanguard",
+            "qty": 4
+          },
+          {
+            "name": "Ordeal of Heliod",
+            "qty": 4
+          },
+          {
+            "name": "Plains",
+            "qty": 20
+          },
+          {
+            "name": "Qala, Ajani's Pridemate",
+            "qty": 2
+          },
+          {
+            "name": "Regal Caracal",
+            "qty": 2
+          },
+          {
+            "name": "Sheltered by Ghosts",
+            "qty": 3
+          },
+          {
+            "name": "Skyknight Squire",
+            "qty": 4
+          },
+          {
+            "name": "Sunbond",
+            "qty": 4
+          },
+          {
+            "name": "The Wind Crystal",
+            "qty": 2
+          }
+        ],
+        "changeReasons": {
+          "added": {},
+          "removed": {}
+        }
+      }
+    }
+  ]
+}

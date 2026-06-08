@@ -45,7 +45,7 @@ type WhyPayload = {
 function looksLikeLandName(name: string): boolean {
   const lowerName = name.trim().toLowerCase();
   return /\b(plains|island|swamp|mountain|forest)\b/.test(lowerName)
-    || /triome|catacomb|sanctuary|fetch|passage|tower|garden|grave|marsh|coast|vista|pathway|citadel|palace|quarters|headquarters|ruins|mesa|delta|strand|heath|foothills|foundry|crypt|harbor|sanctum|temple|panorama|orchard|citadel|vantage|canyon|garrison|sanctuary/.test(lowerName);
+    || /triome|catacomb|sanctuary|fetch|passage|expanse|wilds|tower|garden|grave|marsh|coast|vista|pathway|citadel|palace|quarters|headquarters|ruins|mesa|delta|strand|heath|foothills|foundry|crypt|harbor|sanctum|temple|panorama|orchard|citadel|vantage|canyon|garrison|sanctuary/.test(lowerName);
 }
 
 function looksLikeManaSupportCard(name: string): boolean {
