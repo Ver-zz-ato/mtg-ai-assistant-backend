@@ -578,134 +578,124 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const dedupedSuggestions = new Map<string, Suggestion>();
-    for (const suggestion of suggestions) {
-      const key = `${normalizedCardKey(suggestion.from)}=>${normalizedCardKey(suggestion.to)}`;
-      const existing = dedupedSuggestions.get(key);
-      if (!existing || suggestion.price_delta < existing.price_delta) {
-        dedupedSuggestions.set(key, suggestion);
+    const runValidationPipeline = async (rawSuggestions: Suggestion[]): Promise<Suggestion[]> => {
+      const dedupedSuggestions = new Map<string, Suggestion>();
+      for (const suggestion of rawSuggestions) {
+        const key = `${normalizedCardKey(suggestion.from)}=>${normalizedCardKey(suggestion.to)}`;
+        const existing = dedupedSuggestions.get(key);
+        if (!existing || suggestion.price_delta < existing.price_delta) {
+          dedupedSuggestions.set(key, suggestion);
+        }
       }
-    }
-    suggestions.length = 0;
-    suggestions.push(...dedupedSuggestions.values());
-    suggestions.sort((a, b) => (a.price_to - a.price_from) - (b.price_to - b.price_from));
+      const deduped = [...dedupedSuggestions.values()].sort(
+        (a, b) => (a.price_to - a.price_from) - (b.price_to - b.price_from),
+      );
 
-    // COLOR IDENTITY VALIDATION: Filter out off-color swaps for Commander format
-    let validatedSuggestions = suggestions;
-    
-    if (isCommanderFormat && commander && suggestions.length > 0 && allowedColors.length > 0) {
+      let pipeline = deduped;
+
+      if (isCommanderFormat && commander && pipeline.length > 0 && allowedColors.length > 0) {
+        try {
+          const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
+          const { isWithinColorIdentity } = await import('@/lib/deck/mtgValidators');
+
+          const toCardNames = pipeline.map((s) => s.to);
+          const cardDetails = await getDetailsForNamesCached(toCardNames);
+          const beforeCount = pipeline.length;
+          pipeline = pipeline.filter((s) => {
+            const cardKey = s.to.toLowerCase();
+            const cardEntry = cardDetails.get(cardKey)
+              || Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === cardKey)?.[1];
+            if (!cardEntry) return false;
+            const cardColors = cardEntry.color_identity || [];
+            return isWithinColorIdentity({ color_identity: cardColors } as SfCard, allowedColors);
+          });
+          const removedCount = beforeCount - pipeline.length;
+          if (removedCount > 0) {
+            console.log(`[swap-suggestions] Removed ${removedCount} off-color suggestions`);
+          }
+        } catch (colorErr) {
+          console.error('[swap-suggestions] Color identity validation error:', colorErr);
+        }
+      }
+
       try {
-        const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
-        const { isWithinColorIdentity } = await import('@/lib/deck/mtgValidators');
-        
-        console.log('[swap-suggestions] Validating color identity:', allowedColors.join(','));
-        
-        // Fetch color identity for all "to" cards
-        const toCardNames = suggestions.map(s => s.to);
-        const cardDetails = await getDetailsForNamesCached(toCardNames);
-        
-        // Filter out off-color suggestions
-        const beforeCount = suggestions.length;
-        validatedSuggestions = suggestions.filter(s => {
-          const cardKey = s.to.toLowerCase();
-          const cardEntry = cardDetails.get(cardKey) || 
-            Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === cardKey)?.[1];
-          
-          if (!cardEntry) {
-            return false;
-          }
-          
-          const cardColors = cardEntry.color_identity || [];
-          const isValid = isWithinColorIdentity({ color_identity: cardColors } as SfCard, allowedColors);
-          
-          if (!isValid) {
-            console.log(`[swap-suggestions] Filtered off-color swap: ${s.to} (${cardColors.join(',')}) not in ${allowedColors.join(',')}`);
-          }
-          
-          return isValid;
+        const { filterSuggestedCardNamesForFormat } = await import("@/lib/deck/recommendation-legality");
+        const legal = await filterSuggestedCardNamesForFormat(
+          pipeline.map((s) => s.to),
+          format,
+          { logPrefix: "/api/deck/swap-suggestions" },
+        );
+        const legalNorm = new Set(legal.allowed.map((n) => normalizeScryfallCacheName(n)));
+        pipeline = pipeline.filter((s) => legalNorm.has(normalizeScryfallCacheName(s.to)));
+      } catch (legErr) {
+        console.warn("[swap-suggestions] Legality filter failed:", legErr);
+      }
+
+      const roleParitySuggestions = await filterSuggestionsByRoleParity(pipeline);
+      if (roleParitySuggestions.length > 0 || !isAiWorkshopBudgetSource(sourcePage)) {
+        pipeline = roleParitySuggestions;
+      }
+
+      if (admin && deckProfile && pipeline.length > 0) {
+        const groundedFromRows = await fetchTagGroundedRowsByNames(admin, pipeline.map((s) => s.from));
+        const groundedToRows = await fetchTagGroundedRowsByNames(admin, pipeline.map((s) => s.to));
+        const tagFilteredSuggestions = filterSwapSuggestionsByTagSimilarity(
+          pipeline,
+          groundedFromRows,
+          groundedToRows,
+          deckProfile,
+        );
+        if (tagFilteredSuggestions.length > 0 || !isAiWorkshopBudgetSource(sourcePage)) {
+          pipeline = tagFilteredSuggestions;
+        }
+
+        const recommendationTier = resolveRecommendationTier({ isGuest: !user, userId: user?.id ?? null, isPro });
+        const tierConfig = getRecommendationTierConfig(recommendationTier);
+        const intent = buildRecommendationIntent({
+          routeKind: "swap",
+          routeLabel: "swap_suggestions",
+          formatLabel: format,
+          profile: deckProfile,
+          selectionCount: Math.min(7, pipeline.length),
+          isGuest: !user,
+          isPro,
+          userId: user?.id ?? null,
         });
-        
-        const removedCount = beforeCount - validatedSuggestions.length;
-        if (removedCount > 0) {
-          console.log(`[swap-suggestions] Removed ${removedCount} off-color suggestions`);
-        }
-      } catch (colorErr) {
-        console.error('[swap-suggestions] Color identity validation error:', colorErr);
-        // Continue with unfiltered suggestions on error
-      }
-    }
-
-    try {
-      const { filterSuggestedCardNamesForFormat } = await import("@/lib/deck/recommendation-legality");
-      const legal = await filterSuggestedCardNamesForFormat(
-        validatedSuggestions.map((s) => s.to),
-        format,
-        { logPrefix: "/api/deck/swap-suggestions" }
-      );
-      const legalNorm = new Set(
-        legal.allowed.map((n) => normalizeScryfallCacheName(n))
-      );
-      validatedSuggestions = validatedSuggestions.filter((s) =>
-        legalNorm.has(normalizeScryfallCacheName(s.to))
-      );
-    } catch (legErr) {
-      console.warn("[swap-suggestions] Legality filter failed:", legErr);
-    }
-
-    const roleParitySuggestions = await filterSuggestionsByRoleParity(validatedSuggestions);
-    if (roleParitySuggestions.length > 0 || !isAiWorkshopBudgetSource(sourcePage)) {
-      validatedSuggestions = roleParitySuggestions;
-    }
-
-    if (admin && deckProfile && validatedSuggestions.length > 0) {
-      const groundedFromRows = await fetchTagGroundedRowsByNames(admin, validatedSuggestions.map((s) => s.from));
-      const groundedToRows = await fetchTagGroundedRowsByNames(admin, validatedSuggestions.map((s) => s.to));
-      const tagFilteredSuggestions = filterSwapSuggestionsByTagSimilarity(
-        validatedSuggestions,
-        groundedFromRows,
-        groundedToRows,
-        deckProfile,
-      );
-      if (tagFilteredSuggestions.length > 0 || !isAiWorkshopBudgetSource(sourcePage)) {
-        validatedSuggestions = tagFilteredSuggestions;
-      }
-
-      const recommendationTier = resolveRecommendationTier({ isGuest: !user, userId: user?.id ?? null, isPro });
-      const tierConfig = getRecommendationTierConfig(recommendationTier);
-      const intent = buildRecommendationIntent({
-        routeKind: "swap",
-        routeLabel: "swap_suggestions",
-        formatLabel: format,
-        profile: deckProfile,
-        selectionCount: Math.min(7, validatedSuggestions.length),
-        isGuest: !user,
-        isPro,
-        userId: user?.id ?? null,
-      });
-      const rankedPool = rankGroundedCandidates(groundedToRows as any, deckProfile, intent).slice(0, tierConfig.candidateLimit);
-      const reranked = await aiRerankRecommendations({
-        candidates: rankedPool,
-        intent,
-        userId: user?.id ?? null,
-        isPro,
-      }).catch(() => null);
-      if (reranked?.picks?.length) {
-        const existingByTo = new Map(validatedSuggestions.map((s) => [normalizeScryfallCacheName(s.to), s]));
-        const nextSuggestions = reranked.picks
-          .map((pick) => {
-            const row = existingByTo.get(normalizeScryfallCacheName(pick.name));
-            if (!row) return null;
-            return { ...row, rationale: pick.reason || row.rationale };
-          })
-          .filter((row): row is Suggestion => !!row);
-        if (nextSuggestions.length > 0) {
-          validatedSuggestions = nextSuggestions;
+        const rankedPool = rankGroundedCandidates(groundedToRows as any, deckProfile, intent).slice(0, tierConfig.candidateLimit);
+        const reranked = await aiRerankRecommendations({
+          candidates: rankedPool,
+          intent,
+          userId: user?.id ?? null,
+          isPro,
+        }).catch(() => null);
+        if (reranked?.picks?.length) {
+          const existingByTo = new Map(pipeline.map((s) => [normalizeScryfallCacheName(s.to), s]));
+          const nextSuggestions = reranked.picks
+            .map((pick) => {
+              const row = existingByTo.get(normalizeScryfallCacheName(pick.name));
+              if (!row) return null;
+              return { ...row, rationale: pick.reason || row.rationale };
+            })
+            .filter((row): row is Suggestion => !!row);
+          if (nextSuggestions.length > 0) {
+            pipeline = nextSuggestions;
+          }
         }
       }
+
+      return pipeline;
+    };
+
+    let validatedSuggestions = await runValidationPipeline(suggestions);
+
+    if (useAI && workshopBudgetSource && validatedSuggestions.length === 0) {
+      await addAiSuggestions();
+      validatedSuggestions = await runValidationPipeline(suggestions);
     }
 
     if (useAI && !workshopBudgetSource && suggestions.length === 0) {
       await addAiSuggestions();
+      validatedSuggestions = await runValidationPipeline(suggestions);
     }
 
     const annotatedSuggestions = validatedSuggestions.map((s) => {
@@ -718,7 +708,13 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ ok: true, currency, budget, suggestions: annotatedSuggestions });
+    return NextResponse.json({
+      ok: true,
+      currency,
+      budget,
+      suggestions: annotatedSuggestions,
+      ...(annotatedSuggestions.length === 0 ? { emptyReason: "no_cheaper_on_plan_swaps" as const } : {}),
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "swap failed";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

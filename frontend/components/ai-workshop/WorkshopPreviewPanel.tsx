@@ -102,6 +102,16 @@ export function WorkshopPreviewPanel({
 
       {isBudget ? (
         <div>
+          {(preview.budgetSwaps?.length ?? 0) === 0 ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+              <p className="font-semibold text-amber-50">No budget swaps found</p>
+              <p className="mt-2 text-amber-100/90">
+                {preview.whyText?.trim()
+                  || "The engine could not find a cheaper on-plan replacement for any expensive card at this threshold."}
+              </p>
+            </div>
+          ) : (
+          <>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-neutral-200">
               Budget swaps ({preview.budgetSwaps?.length ?? 0})
@@ -149,6 +159,8 @@ export function WorkshopPreviewPanel({
               );
             })}
           </div>
+          </>
+          )}
         </div>
       ) : (
         <div>

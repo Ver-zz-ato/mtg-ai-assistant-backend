@@ -7,6 +7,14 @@ import { aggregateCards, norm, totalDeckQty } from "@/lib/deck/generation-helper
 import { parseDeckText } from "@/lib/deck/parseDeckText";
 import { getFormatRules, isCommanderFormatString } from "@/lib/deck/formatRules";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
+import { assessWorkshopSourceDeck } from "@/lib/deck/workshop-source-assessment";
+import { budgetLevelToSwapThreshold } from "@/lib/deck/ai-workshop-rules";
+
+/**
+ * AI Workshop eval harness.
+ * Use --db-decks to pull recent Supabase saved decks; legality expectations are auto-classified.
+ * Budget pass uses budgetLevelToSwapThreshold("Moderate") to match the website UI.
+ */
 
 type AnalyzeFormat = "Commander" | "Modern" | "Pioneer" | "Standard" | "Pauper";
 type TransformIntent =
@@ -150,6 +158,45 @@ const CORE_FULL_PASS_IDS = new Set([
   "lathril-elves",
   "modern-burn",
 ]);
+
+/** Regression pins: hard-fail eval when these cases regress. */
+const REGRESSION_PINS: Array<{ deckId: string; pass: TransformIntent }> = [
+  { deckId: "teysa-aristocrats", pass: "add_interaction" },
+];
+
+function applyRegressionPins(results: EvalResult[]): EvalResult[] {
+  return results.map((result) => {
+    const pin = REGRESSION_PINS.find((entry) => entry.deckId === result.deckId && entry.pass === result.pass);
+    if (!pin) return result;
+
+    const hardIssues = [...result.hardIssues];
+    const before = result.previewFactsBefore?.interaction_count;
+    const after = result.previewFactsAfter?.interaction_count;
+
+    if (
+      pin.pass === "add_interaction" &&
+      typeof before === "number" &&
+      typeof after === "number" &&
+      after < before
+    ) {
+      hardIssues.push(
+        `Regression pin: ${pin.deckId} add_interaction reduced interaction count from ${before} to ${after}.`,
+      );
+    } else if (
+      pin.pass === "add_interaction" &&
+      typeof before === "number" &&
+      before > 0 &&
+      after === 0
+    ) {
+      hardIssues.push(`Regression pin: ${pin.deckId} add_interaction dropped interaction count to zero.`);
+    }
+
+    if (hardIssues.length > result.hardIssues.length) {
+      return { ...result, status: "fail", hardIssues };
+    }
+    return result;
+  });
+}
 
 const EXPENSIVE_STAPLE_WATCHLIST = new Set([
   "mana crypt",
@@ -511,14 +558,22 @@ async function fetchSupabaseDecks(limit = dbDeckLimit): Promise<EvalDeck[]> {
     if (!format) continue;
     const sourceDeckText = cleanDeckText(String((row as any).deck_text || ""));
     if (totalDeckQty(rowsFromDeckText(sourceDeckText)) < 40) continue;
+    const commander = typeof (row as any).commander === "string" && (row as any).commander.trim()
+      ? String((row as any).commander).trim()
+      : null;
+    const assessment = await assessWorkshopSourceDeck({
+      sourceDeckText,
+      format,
+      commander,
+    }).catch(() => null);
     const deck: EvalDeck = {
       id: `db-${String((row as any).id).slice(0, 8)}`,
       name: String((row as any).title || `Saved deck ${String((row as any).id).slice(0, 8)}`),
       format,
-      commander: typeof (row as any).commander === "string" && (row as any).commander.trim() ? String((row as any).commander).trim() : null,
+      commander,
       sourceDeckText,
       sourceLabel: "supabase_saved_deck",
-      expectedLegality: "noop",
+      expectedLegality: assessment?.expectedLegality ?? "noop",
     };
     const bucket = byFormat.get(format) || [];
     bucket.push(deck);
@@ -668,7 +723,7 @@ async function postBudgetSwaps(
     format: deck.format,
     commander: deck.commander,
     currency: "USD",
-    budget: 10,
+    budget: budgetLevelToSwapThreshold("Moderate"),
     ai: true,
     sourcePage: "app_ai_workshop_budget",
   };
@@ -734,8 +789,11 @@ function evaluateLegalityCase(deck: EvalDeck, added: Array<{ name: string; qty: 
     if (!added.length && !removed.length) {
       hardIssues.push("Expected legality repair changes, but got no adds/removals.");
     }
-    if (!warnings.length && !/legality|color identity/i.test(summary)) {
+    if (!warnings.length && !/legality|color identity|deck size needs review/i.test(summary)) {
       cautions.push("Repair path returned without clear legality/color identity note.");
+    }
+    if (removed.length > 0 && !added.length && /review the updated deck size/i.test(summary)) {
+      // Underfilled legal repair is expected for badly tagged saved decks.
     }
   }
 
@@ -857,6 +915,8 @@ function toMarkdown(results: EvalResult[], summary: { total: number; pass: numbe
   lines.push(`- Passed: ${summary.pass}`);
   lines.push(`- Warned: ${summary.warn}`);
   lines.push(`- Failed: ${summary.fail}`);
+  lines.push("");
+  lines.push("Note: Budget route HTTP 504 timeouts are classified as hard failures (monitor in production).");
   lines.push("");
 
   const grouped = new Map<string, EvalResult[]>();
@@ -991,6 +1051,9 @@ async function main() {
 
         if (response.status < 200 || response.status >= 300) {
           hardIssues.push(`HTTP ${response.status}: ${response.json?.error || "unknown error"}`);
+          if (response.status === 504) {
+            hardIssues.push("Budget route timed out (504).");
+          }
         }
         if (response.json?.ok === false) {
           hardIssues.push(`Route returned ok=false: ${response.json.error || "unknown error"}`);
@@ -1160,11 +1223,12 @@ async function main() {
     }
   }
 
+  const pinnedResults = applyRegressionPins(results);
   const summary = {
-    total: results.length,
-    pass: results.filter((result) => result.status === "pass").length,
-    warn: results.filter((result) => result.status === "warn").length,
-    fail: results.filter((result) => result.status === "fail").length,
+    total: pinnedResults.length,
+    pass: pinnedResults.filter((result) => result.status === "pass").length,
+    warn: pinnedResults.filter((result) => result.status === "warn").length,
+    fail: pinnedResults.filter((result) => result.status === "fail").length,
   };
 
   fs.writeFileSync(
@@ -1175,13 +1239,13 @@ async function main() {
         baseUrl,
         decks: decks.map((deck) => ({ id: deck.id, name: deck.name, format: deck.format, sourceLabel: deck.sourceLabel })),
         summary,
-        results,
+        results: pinnedResults,
       },
       null,
       2,
     ),
   );
-  fs.writeFileSync(mdOut, toMarkdown(results, summary));
+  fs.writeFileSync(mdOut, toMarkdown(pinnedResults, summary));
 
   if (jsonOnly) {
     console.log(JSON.stringify({ summary, jsonOut, mdOut }, null, 2));
@@ -1191,11 +1255,11 @@ async function main() {
     console.log(`JSON: ${jsonOut}`);
     console.log(`Markdown: ${mdOut}`);
     if (verbose) {
-      for (const result of results) {
+      for (const result of pinnedResults) {
         printDetailedResult(result);
       }
     } else {
-      const flagged = results.filter((result) => result.status !== "pass");
+      const flagged = pinnedResults.filter((result) => result.status !== "pass");
       for (const result of flagged.slice(0, 20)) {
         console.log(`- [${result.status.toUpperCase()}] ${result.deckName} :: ${PASS_LABELS[result.pass]}`);
         for (const issue of result.hardIssues) console.log(`    hard: ${issue}`);

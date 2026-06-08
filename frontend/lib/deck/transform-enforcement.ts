@@ -71,7 +71,7 @@ function sourceLandCountLooksBroken(sourceRows: QtyRow[], targetCount: number, i
   return lands < 16 || lands > 30;
 }
 
-function constructedGeneralLandCountLooksSeverelyBroken(sourceRows: QtyRow[]): boolean {
+export function constructedGeneralLandCountLooksSeverelyBroken(sourceRows: QtyRow[]): boolean {
   const lands = sourceRows.reduce((sum, row) => sum + (looksLikeLandName(row.name) ? row.qty : 0), 0);
   return lands < 14 || lands > 34;
 }

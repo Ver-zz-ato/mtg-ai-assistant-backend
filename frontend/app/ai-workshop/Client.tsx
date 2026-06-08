@@ -9,6 +9,7 @@ import { WorkshopAppliedBanner } from "@/components/ai-workshop/WorkshopAppliedB
 import { WorkshopDeckLoader } from "@/components/ai-workshop/WorkshopDeckLoader";
 import { WorkshopDeckStrip } from "@/components/ai-workshop/WorkshopDeckStrip";
 import { WorkshopIncompleteGate } from "@/components/ai-workshop/WorkshopIncompleteGate";
+import { WorkshopSourceWarningGate } from "@/components/ai-workshop/WorkshopSourceWarningGate";
 import { WorkshopPreviewPanel } from "@/components/ai-workshop/WorkshopPreviewPanel";
 import { WorkshopSettingsPanel } from "@/components/ai-workshop/WorkshopSettingsPanel";
 import { WorkshopWorkflowRail } from "@/components/ai-workshop/WorkshopWorkflowRail";
@@ -67,6 +68,22 @@ import Link from "next/link";
 
 type DeckRow = { id: string; title: string; format?: string; commander?: string; deck_text?: string };
 
+type WorkshopSourcePreflight = {
+  severity: "ok" | "review" | "blocked";
+  expectedLegality: "noop" | "size_only_review" | "repair";
+  issueSummary: {
+    offColorLineCount: number;
+    illegalLineCount: number;
+    copyViolationCount: number;
+    sourceCount: number;
+    targetCount: number;
+    sizeDelta: number;
+    landCountSeverelyBroken: boolean;
+  };
+  messages: string[];
+  suggestFixLegalityFirst: boolean;
+};
+
 export default function AiWorkshopClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -118,8 +135,12 @@ export default function AiWorkshopClient() {
     Array<{ originalName: string; qty: number; suggestions: string[] }>
   >([]);
   const [pendingDeckText, setPendingDeckText] = useState("");
+  const [sourcePreflight, setSourcePreflight] = useState<WorkshopSourcePreflight | null>(null);
+  const [sourcePreflightLoading, setSourcePreflightLoading] = useState(false);
+  const [sourceWarningConfirmed, setSourceWarningConfirmed] = useState(false);
 
   const transformAbortRef = useRef<AbortController | null>(null);
+  const preflightAbortRef = useRef<AbortController | null>(null);
   const handoffLoadedRef = useRef(false);
 
   const selectedAction = useMemo(
@@ -144,6 +165,14 @@ export default function AiWorkshopClient() {
     return rules?.mainDeckTarget ?? getTargetCountForFormat(format);
   }, [format]);
   const workshopBlocked = currentCardCount > 0 && currentCardCount < workshopMinimumCards;
+  const sourceGateSeverity =
+    sourcePreflight?.severity === "review" || sourcePreflight?.severity === "blocked"
+      ? sourcePreflight.severity
+      : null;
+  const sourceRunBlocked =
+    sourceGateSeverity === "blocked" &&
+    selectedActionId !== "legality" &&
+    !sourceWarningConfirmed;
   const isCommanderDeck = isCommanderFormatString(format);
   const commanderName = deckCommander.trim() || deriveCommanderFromDeckText(activeDeckText, deckTitle);
 
@@ -464,6 +493,63 @@ export default function AiWorkshopClient() {
     syncWorkingFromPaste();
   }, [deckText, syncWorkingFromPaste]);
 
+  useEffect(() => {
+    setSourceWarningConfirmed(false);
+  }, [activeDeckText, format, deckCommander]);
+
+  useEffect(() => {
+    if (!user || workshopBlocked || !activeDeckText.trim()) {
+      setSourcePreflight(null);
+      setSourcePreflightLoading(false);
+      return;
+    }
+
+    preflightAbortRef.current?.abort();
+    const controller = new AbortController();
+    preflightAbortRef.current = controller;
+    const timer = window.setTimeout(() => {
+      setSourcePreflightLoading(true);
+      void (async () => {
+        try {
+          const res = await fetch("/api/deck/workshop-preflight", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              deckText: activeDeckText,
+              format,
+              ...(commanderName ? { commander: commanderName } : {}),
+            }),
+            signal: controller.signal,
+          });
+          const json = await res.json().catch(() => ({}));
+          if (controller.signal.aborted) return;
+          if (res.ok && json.ok) {
+            setSourcePreflight({
+              severity: json.severity,
+              expectedLegality: json.expectedLegality,
+              issueSummary: json.issueSummary,
+              messages: Array.isArray(json.messages)
+                ? json.messages.filter((x: unknown): x is string => typeof x === "string")
+                : [],
+              suggestFixLegalityFirst: json.suggestFixLegalityFirst === true,
+            });
+          } else {
+            setSourcePreflight(null);
+          }
+        } catch (error) {
+          if ((error as Error).name !== "AbortError") setSourcePreflight(null);
+        } finally {
+          if (!controller.signal.aborted) setSourcePreflightLoading(false);
+        }
+      })();
+    }, 650);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [user, workshopBlocked, activeDeckText, format, commanderName]);
+
   const requireSignIn = useCallback(() => {
     router.push(`/login?redirect=${encodeURIComponent("/ai-workshop")}`);
     return false;
@@ -477,6 +563,10 @@ export default function AiWorkshopClient() {
     const raw = (workingDeckText.trim() || deckText.trim());
     if (!raw) {
       setError("Load a deck list before running the workshop.");
+      return;
+    }
+    if (sourceRunBlocked) {
+      setError("Confirm commander and format, or run Fix legality first before this pass.");
       return;
     }
     setError(null);
@@ -569,13 +659,19 @@ export default function AiWorkshopClient() {
           title: deckTitle,
           summary: budgetSwaps.length
             ? `Found ${budgetSwaps.length} validated 1-for-1 budget swap${budgetSwaps.length === 1 ? "" : "s"}.`
-            : "No safe budget swaps were found for the current threshold.",
+            : "No on-plan cheaper swaps found for this list.",
           whyText: budgetSwaps.length
             ? "These are validated one-for-one swaps from the Budget Swaps engine: each replacement is cheaper than the card it replaces and passed format, deck-membership, and color checks where available."
-            : "No budget swap was returned because the engine could not find a cheaper legal replacement that preserved the card role well enough.",
+            : `No on-plan cheaper swaps were found at the ${budgetLevel} budget threshold. Try the High budget tier, pick Expensive staples as the sub-target, or run Fix legality first if the list has format or commander issues.`,
           previewFacts: null,
           colors: [],
-          warnings: budgetSwaps.length ? [] : ["No safe cheaper one-for-one swaps found."],
+          warnings: budgetSwaps.length
+            ? []
+            : [
+                json.emptyReason === "no_cheaper_on_plan_swaps"
+                  ? "No safe cheaper one-for-one swaps found at this budget level."
+                  : "No safe cheaper one-for-one swaps found.",
+              ],
           changeReasons: {
             added: Object.fromEntries(
               budgetSwaps.map((row) => [row.to.trim().toLowerCase(), row.rationale]),
@@ -621,6 +717,15 @@ export default function AiWorkshopClient() {
       if (!res.ok || json.ok !== true) {
         if (json.code === "RATE_LIMIT_DAILY") {
           setShowProModal(true);
+          return;
+        }
+        if (json.code === "NEEDS_LEGALITY_FIRST") {
+          setSelectedActionId("legality");
+          setError(
+            typeof json.error === "string"
+              ? json.error
+              : "Run Fix legality first before general cleanup on this list.",
+          );
           return;
         }
         throw new Error(json.error || "AI refine failed");
@@ -676,6 +781,7 @@ export default function AiWorkshopClient() {
     avoidEntries,
     deckTitle,
     isPro,
+    sourceRunBlocked,
   ]);
 
   const applyPendingPreview = useCallback(() => {
@@ -1010,14 +1116,39 @@ export default function AiWorkshopClient() {
               onExtraNotes={setExtraNotes}
             />
 
+            {sourceGateSeverity && sourcePreflight ? (
+              <WorkshopSourceWarningGate
+                severity={sourceGateSeverity}
+                format={format}
+                commander={commanderName}
+                issueSummary={sourcePreflight.issueSummary}
+                messages={sourcePreflight.messages}
+                selectedActionId={selectedActionId}
+                confirmed={sourceWarningConfirmed}
+                onConfirm={() => setSourceWarningConfirmed(true)}
+                onSelectFixLegality={() => {
+                  setSelectedActionId("legality");
+                  setSourceWarningConfirmed(false);
+                }}
+              />
+            ) : sourcePreflightLoading ? (
+              <p className="text-xs text-neutral-500">Checking source deck for format issues…</p>
+            ) : null}
+
             {!pendingPreview && !resultMeta ? (
               <button
                 type="button"
                 onClick={() => (user ? void runWorkshopPass() : requireSignIn())}
-                disabled={running}
+                disabled={running || sourceRunBlocked}
                 className="w-full min-h-[48px] rounded-xl bg-violet-600 px-4 py-3 text-base font-bold text-white hover:bg-violet-500 disabled:opacity-60 touch-manipulation"
               >
-                {user ? (running ? "Running…" : "Run refinement pass") : "Sign in to run refinement"}
+                {user
+                  ? running
+                    ? "Running…"
+                    : sourceRunBlocked
+                      ? "Confirm source deck to continue"
+                      : "Run refinement pass"
+                  : "Sign in to run refinement"}
               </button>
             ) : null}
 

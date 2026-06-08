@@ -572,7 +572,8 @@ Your job is to read the SOURCE DECK below and output a REPLACEMENT full ${format
 CRITICAL RULES:
 1. Output ONLY the decklist, one card per line, format: "1 Card Name" (quantity then card name).
 ${formatRules.join("\n")}
-6. Do NOT include commentary, markdown, or extra text. Only the decklist lines.`;
+6. Do NOT include commentary, markdown, or extra text. Only the decklist lines.
+7. For light-touch passes (general cleanup, mana base, curve, interaction): copy every unchanged card exactly from SOURCE; change only the minimum cards required for the intent.`;
 }
 
 export function buildTransformUserPrompt(input: NormalizedTransformInput): string {

@@ -2,6 +2,16 @@
 
 ## 2026-06-08
 
+### AI Workshop QA fixes
+
+- **Eval harness:** `--db-decks` auto-classifies `expectedLegality` via `assessWorkshopSourceDeck`; repair underfill summaries no longer false-fail; budget eval uses `budgetLevelToSwapThreshold("Moderate")`; Teysa `add_interaction` regression pin; budget 504 noted as hard fail.
+- **Budget swaps:** Workshop budget path now falls back to `addAiSuggestions` when deterministic builtins return zero; returns `emptyReason: "no_cheaper_on_plan_swaps"`; tier-aware empty copy in Client + amber preview panel.
+- **Why fallback:** `buildFallbackWhyPayload` synthesizes per-card `changeReasons` when explanation generation fails.
+- **Source preflight:** `POST /api/deck/workshop-preflight` + `WorkshopSourceWarningGate` with debounced checks before destructive passes.
+- **General cleanup guard:** `NEEDS_LEGALITY_FIRST` blocks general cleanup on broken sources; Client redirects to Fix legality.
+- **Model tuning:** Light-touch prompt rule + `max_completion_tokens` 4500 when `maxChanges <= 12`.
+- **Libs/tests:** `lib/deck/workshop-source-assessment.ts`, `lib/deck/transform-why-fallback.ts`; unit tests for assessment + why fallback.
+
 ### AI Workshop (website)
 
 - **`/ai-workshop`:** New full-parity AI Workshop tool — load/paste a deck, run 8 refinement passes (general, mana, curve, interaction, budget, power, casual, legality), review selective adds/cuts or budget swaps, undo, and save refined deck. Sign-in required to run; free 5 passes/day; Pro unlimited + Big rebuild.

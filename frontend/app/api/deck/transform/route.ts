@@ -23,7 +23,9 @@ import { summarizeTransformIntent } from "@/lib/deck/transform-intent";
 import { warnSourceOffColor } from "@/lib/deck/transform-warnings";
 import { buildGenerationPreviewFacts } from "@/lib/deck/generation-preview-facts";
 import { precheckFixLegalitySourceDeck } from "@/lib/deck/transform-legality-check";
+import { sourceDeckNeedsLegalityFirst } from "@/lib/deck/workshop-source-assessment";
 import { enforceTransformRules, looksLikeSpikyCasualProblemCard } from "@/lib/deck/transform-enforcement";
+import { buildFallbackCardReason, buildFallbackWhyPayload } from "@/lib/deck/transform-why-fallback";
 import { finalizeTransformRows } from "@/lib/deck/transform-finalize";
 import { getCachedPrices } from "@/lib/ai/price-utils";
 
@@ -266,51 +268,7 @@ function buildFallbackReason(args: {
   row: QtyRow;
   transformIntent: string;
 }): string {
-  const lowerName = args.row.name.trim().toLowerCase();
-  const looksLikeLand = /\b(plains|island|swamp|mountain|forest)\b/.test(lowerName) || /triome|catacomb|sanctuary|fetch|passage|tower|garden|grave|marsh|coast|vista|pathway|citadel|palace|quarters|headquarters|ruins/.test(lowerName);
-  const pass = args.transformIntent;
-  if (pass === "improve_mana_base") {
-    return args.bucket === "added"
-      ? looksLikeLand
-        ? "Added to improve mana consistency and color access."
-        : "Added to support smoother ramp and mana development."
-      : looksLikeLand
-        ? "Removed to make room for cleaner fixing."
-        : "Removed to free space for better mana support.";
-  }
-  if (pass === "tighten_curve") {
-    return args.bucket === "added"
-      ? "Added to make the early game smoother and more efficient."
-      : "Removed to cut clunk from the curve.";
-  }
-  if (pass === "add_interaction") {
-    return args.bucket === "added"
-      ? "Added to give the deck a cleaner answer package."
-      : "Removed to make room for more useful interaction.";
-  }
-  if (pass === "lower_budget") {
-    return args.bucket === "added"
-      ? "Added as a cheaper fit for the same overall plan."
-      : "Removed to lower the deck's overall cost.";
-  }
-  if (pass === "more_casual") {
-    return args.bucket === "added"
-      ? "Added to keep the deck's play pattern a little softer and more table-friendly."
-      : "Removed to dial back sharper or swingier play patterns.";
-  }
-  if (pass === "more_optimized") {
-    return args.bucket === "added"
-      ? "Added to push consistency and stronger lines of play."
-      : "Removed because it was weaker than the upgraded line for this pass.";
-  }
-  if (pass === "fix_legality") {
-    return args.bucket === "added"
-      ? "Added as part of the legality repair output."
-      : "Removed because it did not meet the format's legality rules.";
-  }
-  return args.bucket === "added"
-    ? "Added to better match the requested refinement goal."
-    : "Removed to make room for the requested refinement goal.";
+  return buildFallbackCardReason(args);
 }
 
 function buildDeterministicLegalityWhy(args: {
@@ -504,10 +462,13 @@ async function buildAiWorkshopWhy(args: {
     };
   } catch (error) {
     console.warn("[deck/transform] explanation generation failed:", error);
-    return {
-      overallWhy: args.summary,
-      changeReasons: null,
-    };
+    return buildFallbackWhyPayload({
+      sourceRows: args.sourceRows,
+      resultRows: args.resultRows,
+      transformIntent: args.transformIntent,
+      summary: args.summary,
+      commanderName: args.commanderName,
+    });
   }
 }
 
@@ -619,6 +580,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (input.transformIntent === "general") {
+      const legalityPrecheck = await precheckFixLegalitySourceDeck(input, {
+        getCommanderColors: getCommanderColorIdentity,
+        warnOffColor: (sourceDeckText, commander) => warnSourceOffColor(sourceDeckText, commander ?? null),
+      }).catch((legErr) => {
+        console.warn("[deck/transform] General preflight legality check failed:", legErr);
+        return null;
+      });
+
+      if (
+        sourceDeckNeedsLegalityFirst({
+          sourceRows: sourceMainRows,
+          targetCount: rules.mainDeckTarget,
+          isCommander,
+          precheck: legalityPrecheck,
+        })
+      ) {
+        return NextResponse.json({
+          ok: false,
+          code: "NEEDS_LEGALITY_FIRST",
+          error:
+            "This list has format, size, or legality issues that should be fixed before general cleanup. Run Fix legality first, then retry general cleanup.",
+          suggestAction: "fix_legality",
+        });
+      }
+    }
+
     let isPro = false;
     try {
       const { checkProStatus } = await import("@/lib/server-pro-check");
@@ -683,6 +671,10 @@ export async function POST(req: NextRequest) {
       process.env.MODEL_DECK_ANALYSIS_PRO ||
       tierModel;
 
+    const maxChangesCap = input.transformRules.maxChanges;
+    const completionTokenLimit =
+      maxChangesCap == null || maxChangesCap > 12 ? 8000 : 4500;
+
     let content = "";
     try {
       content = await fetchOpenAIContent({
@@ -692,7 +684,7 @@ export async function POST(req: NextRequest) {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_completion_tokens: 8000,
+        max_completion_tokens: completionTokenLimit,
       });
     } catch (error) {
       console.error("[deck/transform] OpenAI error:", error);

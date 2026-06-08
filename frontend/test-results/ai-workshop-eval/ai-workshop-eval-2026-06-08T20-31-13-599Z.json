@@ -1,0 +1,1009 @@
+{
+  "generatedAt": "2026-06-08T20:31:40.564Z",
+  "baseUrl": "https://www.manatap.ai",
+  "decks": [
+    {
+      "id": "teysa-aristocrats",
+      "name": "Teysa Karlov - Aristocrats",
+      "format": "Commander",
+      "sourceLabel": "sample_commander"
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "pass": 1,
+    "warn": 1,
+    "fail": 0
+  },
+  "results": [
+    {
+      "deckId": "teysa-aristocrats",
+      "deckName": "Teysa Karlov - Aristocrats",
+      "format": "Commander",
+      "pass": "add_interaction",
+      "status": "pass",
+      "hardIssues": [],
+      "cautions": [],
+      "sourceLabel": "sample_commander",
+      "added": [
+        {
+          "name": "Aura of Silence",
+          "qty": 1
+        },
+        {
+          "name": "Feed the Swarm",
+          "qty": 1
+        },
+        {
+          "name": "Generous Gift",
+          "qty": 1
+        }
+      ],
+      "removed": [
+        {
+          "name": "Castle Ardenvale",
+          "qty": 1
+        },
+        {
+          "name": "Castle Locthwain",
+          "qty": 1
+        },
+        {
+          "name": "High Market",
+          "qty": 1
+        },
+        {
+          "name": "Phyrexian Tower",
+          "qty": 1
+        },
+        {
+          "name": "Plains",
+          "qty": 3
+        },
+        {
+          "name": "Spectator Seating",
+          "qty": 1
+        },
+        {
+          "name": "Swamp",
+          "qty": 8
+        }
+      ],
+      "finalCount": 100,
+      "targetCount": 100,
+      "warnings": [
+        "Source deck lists 1 line(s) that appear outside Teysa Karlov's color identity (replacements may be needed).",
+        "Model output had 112 cards after color filter; list trimmed to 100.",
+        "Interaction guard removed additions that were not clear answers or protection.",
+        "Final color identity check removed 1 card line(s).",
+        "Final copy-count check adjusted 2 card line(s).",
+        "Final validation restored legal source cards to refill the deck."
+      ],
+      "summary": "Transformed: More interaction. Power Casual, budget Moderate. Avg CMC ~3.04.",
+      "why": "This pass pushes [[Teysa Karlov]] toward a more interactive casual game plan by adding a few clean answers without overcomplicating the deck. [[Aura of Silence]], [[Feed the Swarm]], and [[Generous Gift]] broaden what the deck can answer while staying on-color. The cuts mostly come from excess lands to make room for those spells and keep the list legal and functional after validation.",
+      "elapsedMs": 19002,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 4,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "previewFactsAfter": {
+        "land_count": 29,
+        "ramp_count": 11,
+        "draw_count": 7,
+        "interaction_count": 16,
+        "avg_cmc": 3.04,
+        "curve_histogram": [
+          12,
+          18,
+          18,
+          10,
+          13
+        ],
+        "curve_profile": "midrange",
+        "warning_flags": [
+          "hybrid_plan_detected",
+          "mana_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "preview": true,
+        "decklist": [
+          {
+            "name": "Teysa Karlov",
+            "qty": 1
+          },
+          {
+            "name": "Viscera Seer",
+            "qty": 1
+          },
+          {
+            "name": "Carrion Feeder",
+            "qty": 1
+          },
+          {
+            "name": "Yahenni, Undying Partisan",
+            "qty": 1
+          },
+          {
+            "name": "Altar of Dementia",
+            "qty": 1
+          },
+          {
+            "name": "Ashnod's Altar",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Altar",
+            "qty": 1
+          },
+          {
+            "name": "Blasting Station",
+            "qty": 1
+          },
+          {
+            "name": "High Market",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Tower",
+            "qty": 1
+          },
+          {
+            "name": "Spawning Pit",
+            "qty": 1
+          },
+          {
+            "name": "Blood Artist",
+            "qty": 1
+          },
+          {
+            "name": "Zulaport Cutthroat",
+            "qty": 1
+          },
+          {
+            "name": "Cruel Celebrant",
+            "qty": 1
+          },
+          {
+            "name": "Bastion of Remembrance",
+            "qty": 1
+          },
+          {
+            "name": "Corpse Knight",
+            "qty": 1
+          },
+          {
+            "name": "Syr Konrad, the Grim",
+            "qty": 1
+          },
+          {
+            "name": "Elenda, the Dusk Rose",
+            "qty": 1
+          },
+          {
+            "name": "Dictate of Erebos",
+            "qty": 1
+          },
+          {
+            "name": "Grave Pact",
+            "qty": 1
+          },
+          {
+            "name": "Butcher of Malakir",
+            "qty": 1
+          },
+          {
+            "name": "Requiem Angel",
+            "qty": 1
+          },
+          {
+            "name": "Ogre Slumlord",
+            "qty": 1
+          },
+          {
+            "name": "Pawn of Ulamog",
+            "qty": 1
+          },
+          {
+            "name": "Sifter of Skulls",
+            "qty": 1
+          },
+          {
+            "name": "Pitiless Plunderer",
+            "qty": 1
+          },
+          {
+            "name": "Reassembling Skeleton",
+            "qty": 1
+          },
+          {
+            "name": "Nether Traitor",
+            "qty": 1
+          },
+          {
+            "name": "Bloodsoaked Champion",
+            "qty": 1
+          },
+          {
+            "name": "Gravecrawler",
+            "qty": 1
+          },
+          {
+            "name": "Doomed Traveler",
+            "qty": 1
+          },
+          {
+            "name": "Bitterblossom",
+            "qty": 1
+          },
+          {
+            "name": "Ophiomancer",
+            "qty": 1
+          },
+          {
+            "name": "Lingering Souls",
+            "qty": 1
+          },
+          {
+            "name": "Divine Visitation",
+            "qty": 1
+          },
+          {
+            "name": "Anointed Procession",
+            "qty": 1
+          },
+          {
+            "name": "Kaya's Ghostform",
+            "qty": 1
+          },
+          {
+            "name": "Karmic Guide",
+            "qty": 1
+          },
+          {
+            "name": "Reveillark",
+            "qty": 1
+          },
+          {
+            "name": "Sun Titan",
+            "qty": 1
+          },
+          {
+            "name": "Swords to Plowshares",
+            "qty": 1
+          },
+          {
+            "name": "Path to Exile",
+            "qty": 1
+          },
+          {
+            "name": "Anguished Unmaking",
+            "qty": 1
+          },
+          {
+            "name": "Vindicate",
+            "qty": 1
+          },
+          {
+            "name": "Utter End",
+            "qty": 1
+          },
+          {
+            "name": "Toxic Deluge",
+            "qty": 1
+          },
+          {
+            "name": "Damnation",
+            "qty": 1
+          },
+          {
+            "name": "Wrath of God",
+            "qty": 1
+          },
+          {
+            "name": "Merciless Eviction",
+            "qty": 1
+          },
+          {
+            "name": "Farewell",
+            "qty": 1
+          },
+          {
+            "name": "Generous Gift",
+            "qty": 1
+          },
+          {
+            "name": "Aura of Silence",
+            "qty": 1
+          },
+          {
+            "name": "Feed the Swarm",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Arena",
+            "qty": 1
+          },
+          {
+            "name": "Dark Confidant",
+            "qty": 1
+          },
+          {
+            "name": "Skullclamp",
+            "qty": 1
+          },
+          {
+            "name": "Night's Whisper",
+            "qty": 1
+          },
+          {
+            "name": "Sign in Blood",
+            "qty": 1
+          },
+          {
+            "name": "Read the Bones",
+            "qty": 1
+          },
+          {
+            "name": "Necropotence",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Orzhov Signet",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Hierarchy",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Wayfarer's Bauble",
+            "qty": 1
+          },
+          {
+            "name": "Command Tower",
+            "qty": 1
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Isolated Chapel",
+            "qty": 1
+          },
+          {
+            "name": "Concealed Courtyard",
+            "qty": 1
+          },
+          {
+            "name": "Caves of Koilos",
+            "qty": 1
+          },
+          {
+            "name": "Scoured Barrens",
+            "qty": 1
+          },
+          {
+            "name": "Orzhov Basilica",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Silence",
+            "qty": 1
+          },
+          {
+            "name": "Fetid Heath",
+            "qty": 1
+          },
+          {
+            "name": "Shineshadow Snarl",
+            "qty": 1
+          },
+          {
+            "name": "Brightclimb Pathway",
+            "qty": 1
+          },
+          {
+            "name": "Vault of Champions",
+            "qty": 1
+          },
+          {
+            "name": "Path of Ancestry",
+            "qty": 1
+          },
+          {
+            "name": "Fabled Passage",
+            "qty": 1
+          },
+          {
+            "name": "Bojuka Bog",
+            "qty": 1
+          },
+          {
+            "name": "Scavenger Grounds",
+            "qty": 1
+          },
+          {
+            "name": "Emeria, the Sky Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Cabal Coffers",
+            "qty": 1
+          },
+          {
+            "name": "Urborg, Tomb of Yawgmoth",
+            "qty": 1
+          },
+          {
+            "name": "Plains",
+            "qty": 5
+          },
+          {
+            "name": "Sram's Expertise",
+            "qty": 1
+          },
+          {
+            "name": "Secure the Wastes",
+            "qty": 1
+          },
+          {
+            "name": "Spectral Procession",
+            "qty": 1
+          },
+          {
+            "name": "Finale of Glory",
+            "qty": 1
+          },
+          {
+            "name": "Emeria Shepherd",
+            "qty": 1
+          },
+          {
+            "name": "Adeline, Resplendent Cathar",
+            "qty": 1
+          },
+          {
+            "name": "Painful Truths",
+            "qty": 1
+          },
+          {
+            "name": "Shattered Sanctum",
+            "qty": 1
+          },
+          {
+            "name": "Evolving Wilds",
+            "qty": 1
+          },
+          {
+            "name": "Terramorphic Expanse",
+            "qty": 1
+          }
+        ],
+        "commander": "Teysa Karlov",
+        "colors": [
+          "W",
+          "B"
+        ],
+        "deckText": "1 Teysa Karlov\n1 Viscera Seer\n1 Carrion Feeder\n1 Yahenni, Undying Partisan\n1 Altar of Dementia\n1 Ashnod's Altar\n1 Phyrexian Altar\n1 Blasting Station\n1 High Market\n1 Phyrexian Tower\n1 Spawning Pit\n1 Blood Artist\n1 Zulaport Cutthroat\n1 Cruel Celebrant\n1 Bastion of Remembrance\n1 Corpse Knight\n1 Syr Konrad, the Grim\n1 Elenda, the Dusk Rose\n1 Dictate of Erebos\n1 Grave Pact\n1 Butcher of Malakir\n1 Requiem Angel\n1 Ogre Slumlord\n1 Pawn of Ulamog\n1 Sifter of Skulls\n1 Pitiless Plunderer\n1 Reassembling Skeleton\n1 Nether Traitor\n1 Bloodsoaked Champion\n1 Gravecrawler\n1 Doomed Traveler\n1 Bitterblossom\n1 Ophiomancer\n1 Lingering Souls\n1 Divine Visitation\n1 Anointed Procession\n1 Kaya's Ghostform\n1 Karmic Guide\n1 Reveillark\n1 Sun Titan\n1 Swords to Plowshares\n1 Path to Exile\n1 Anguished Unmaking\n1 Vindicate\n1 Utter End\n1 Toxic Deluge\n1 Damnation\n1 Wrath of God\n1 Merciless Eviction\n1 Farewell\n1 Generous Gift\n1 Aura of Silence\n1 Feed the Swarm\n1 Phyrexian Arena\n1 Dark Confidant\n1 Skullclamp\n1 Night's Whisper\n1 Sign in Blood\n1 Read the Bones\n1 Necropotence\n1 Sol Ring\n1 Arcane Signet\n1 Orzhov Signet\n1 Talisman of Hierarchy\n1 Mind Stone\n1 Wayfarer's Bauble\n1 Command Tower\n1 Godless Shrine\n1 Isolated Chapel\n1 Concealed Courtyard\n1 Caves of Koilos\n1 Scoured Barrens\n1 Orzhov Basilica\n1 Temple of Silence\n1 Fetid Heath\n1 Shineshadow Snarl\n1 Brightclimb Pathway\n1 Vault of Champions\n1 Path of Ancestry\n1 Fabled Passage\n1 Bojuka Bog\n1 Scavenger Grounds\n1 Emeria, the Sky Ruin\n1 Cabal Coffers\n1 Urborg, Tomb of Yawgmoth\n5 Plains\n1 Sram's Expertise\n1 Secure the Wastes\n1 Spectral Procession\n1 Finale of Glory\n1 Emeria Shepherd\n1 Adeline, Resplendent Cathar\n1 Painful Truths\n1 Shattered Sanctum\n1 Evolving Wilds\n1 Terramorphic Expanse",
+        "format": "Commander",
+        "summary": "Transformed: More interaction. Power Casual, budget Moderate. Avg CMC ~3.04.",
+        "plan": "This pass pushes [[Teysa Karlov]] toward a more interactive casual game plan by adding a few clean answers without overcomplicating the deck. [[Aura of Silence]], [[Feed the Swarm]], and [[Generous Gift]] broaden what the deck can answer while staying on-color. The cuts mostly come from excess lands to make room for those spells and keep the list legal and functional after validation.",
+        "why": "This pass pushes [[Teysa Karlov]] toward a more interactive casual game plan by adding a few clean answers without overcomplicating the deck. [[Aura of Silence]], [[Feed the Swarm]], and [[Generous Gift]] broaden what the deck can answer while staying on-color. The cuts mostly come from excess lands to make room for those spells and keep the list legal and functional after validation.",
+        "changeReasons": {
+          "added": {
+            "aura of silence": "[[Aura of Silence]] adds flexible interaction by taxing artifacts and enchantments and later removing one.",
+            "feed the swarm": "[[Feed the Swarm]] gives black a simple way to answer problematic creatures or enchantments.",
+            "generous gift": "[[Generous Gift]] is broad instant-speed removal that answers nearly any permanent."
+          },
+          "removed": {
+            "swamp": "[[Swamp]] was trimmed as part of making room for more interaction.",
+            "plains": "[[Plains]] was trimmed to free slots for interactive spells.",
+            "castle ardenvale": "[[Castle Ardenvale]] was cut to lower land count while prioritizing direct interaction.",
+            "castle locthwain": "[[Castle Locthwain]] was removed during the land trim to support the interaction package.",
+            "high market": "[[High Market]] was cut in the mana-base trim to make room for answers.",
+            "phyrexian tower": "[[Phyrexian Tower]] was removed as part of reducing lands for added interaction.",
+            "spectator seating": "[[Spectator Seating]] was outside [[Teysa Karlov]]'s color identity and had to be removed."
+          }
+        },
+        "warnings": [
+          "Source deck lists 1 line(s) that appear outside Teysa Karlov's color identity (replacements may be needed).",
+          "Model output had 112 cards after color filter; list trimmed to 100.",
+          "Interaction guard removed additions that were not clear answers or protection.",
+          "Final color identity check removed 1 card line(s).",
+          "Final copy-count check adjusted 2 card line(s).",
+          "Final validation restored legal source cards to refill the deck."
+        ],
+        "transformIntent": "add_interaction",
+        "previewFacts": {
+          "land_count": 29,
+          "ramp_count": 11,
+          "draw_count": 7,
+          "interaction_count": 16,
+          "avg_cmc": 3.04,
+          "curve_histogram": [
+            12,
+            18,
+            18,
+            10,
+            13
+          ],
+          "curve_profile": "midrange",
+          "warning_flags": [
+            "hybrid_plan_detected",
+            "mana_low"
+          ]
+        }
+      }
+    },
+    {
+      "deckId": "teysa-aristocrats",
+      "deckName": "Teysa Karlov - Aristocrats",
+      "format": "Commander",
+      "pass": "lower_budget",
+      "status": "warn",
+      "hardIssues": [],
+      "cautions": [
+        "Budget route returned no one-for-one swaps."
+      ],
+      "sourceLabel": "sample_commander",
+      "added": [],
+      "removed": [],
+      "finalCount": 113,
+      "targetCount": 100,
+      "warnings": [],
+      "summary": "Budget swaps returned no safe cheaper pairs.",
+      "why": "",
+      "elapsedMs": 6679,
+      "previewFactsBefore": {
+        "land_count": 0,
+        "ramp_count": 4,
+        "draw_count": 0,
+        "interaction_count": 0,
+        "avg_cmc": 0,
+        "curve_histogram": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "warning_flags": [
+          "mana_low",
+          "ramp_low",
+          "draw_low",
+          "removal_low"
+        ]
+      },
+      "raw": {
+        "ok": true,
+        "summary": "Budget swaps returned no safe cheaper pairs.",
+        "why": "",
+        "decklist": [
+          {
+            "name": "Adeline, Resplendent Cathar",
+            "qty": 1
+          },
+          {
+            "name": "Altar of Dementia",
+            "qty": 1
+          },
+          {
+            "name": "Anguished Unmaking",
+            "qty": 1
+          },
+          {
+            "name": "Anointed Procession",
+            "qty": 1
+          },
+          {
+            "name": "Arcane Signet",
+            "qty": 1
+          },
+          {
+            "name": "Ashnod's Altar",
+            "qty": 1
+          },
+          {
+            "name": "Bastion of Remembrance",
+            "qty": 1
+          },
+          {
+            "name": "Bitterblossom",
+            "qty": 1
+          },
+          {
+            "name": "Blasting Station",
+            "qty": 1
+          },
+          {
+            "name": "Blood Artist",
+            "qty": 1
+          },
+          {
+            "name": "Bloodsoaked Champion",
+            "qty": 1
+          },
+          {
+            "name": "Bojuka Bog",
+            "qty": 1
+          },
+          {
+            "name": "Brightclimb Pathway",
+            "qty": 1
+          },
+          {
+            "name": "Butcher of Malakir",
+            "qty": 1
+          },
+          {
+            "name": "Cabal Coffers",
+            "qty": 1
+          },
+          {
+            "name": "Carrion Feeder",
+            "qty": 1
+          },
+          {
+            "name": "Castle Ardenvale",
+            "qty": 1
+          },
+          {
+            "name": "Castle Locthwain",
+            "qty": 1
+          },
+          {
+            "name": "Caves of Koilos",
+            "qty": 1
+          },
+          {
+            "name": "Command Tower",
+            "qty": 1
+          },
+          {
+            "name": "Concealed Courtyard",
+            "qty": 1
+          },
+          {
+            "name": "Corpse Knight",
+            "qty": 1
+          },
+          {
+            "name": "Cruel Celebrant",
+            "qty": 1
+          },
+          {
+            "name": "Damnation",
+            "qty": 1
+          },
+          {
+            "name": "Dark Confidant",
+            "qty": 1
+          },
+          {
+            "name": "Dictate of Erebos",
+            "qty": 1
+          },
+          {
+            "name": "Divine Visitation",
+            "qty": 1
+          },
+          {
+            "name": "Doomed Traveler",
+            "qty": 1
+          },
+          {
+            "name": "Elenda, the Dusk Rose",
+            "qty": 1
+          },
+          {
+            "name": "Emeria Shepherd",
+            "qty": 1
+          },
+          {
+            "name": "Emeria, the Sky Ruin",
+            "qty": 1
+          },
+          {
+            "name": "Evolving Wilds",
+            "qty": 1
+          },
+          {
+            "name": "Fabled Passage",
+            "qty": 1
+          },
+          {
+            "name": "Farewell",
+            "qty": 1
+          },
+          {
+            "name": "Fetid Heath",
+            "qty": 1
+          },
+          {
+            "name": "Finale of Glory",
+            "qty": 1
+          },
+          {
+            "name": "Godless Shrine",
+            "qty": 1
+          },
+          {
+            "name": "Grave Pact",
+            "qty": 1
+          },
+          {
+            "name": "Gravecrawler",
+            "qty": 1
+          },
+          {
+            "name": "High Market",
+            "qty": 2
+          },
+          {
+            "name": "Isolated Chapel",
+            "qty": 1
+          },
+          {
+            "name": "Karmic Guide",
+            "qty": 1
+          },
+          {
+            "name": "Kaya's Ghostform",
+            "qty": 1
+          },
+          {
+            "name": "Lingering Souls",
+            "qty": 1
+          },
+          {
+            "name": "Merciless Eviction",
+            "qty": 1
+          },
+          {
+            "name": "Mind Stone",
+            "qty": 1
+          },
+          {
+            "name": "Necropotence",
+            "qty": 1
+          },
+          {
+            "name": "Nether Traitor",
+            "qty": 1
+          },
+          {
+            "name": "Night's Whisper",
+            "qty": 1
+          },
+          {
+            "name": "Ogre Slumlord",
+            "qty": 1
+          },
+          {
+            "name": "Ophiomancer",
+            "qty": 1
+          },
+          {
+            "name": "Orzhov Basilica",
+            "qty": 1
+          },
+          {
+            "name": "Orzhov Signet",
+            "qty": 1
+          },
+          {
+            "name": "Painful Truths",
+            "qty": 1
+          },
+          {
+            "name": "Path of Ancestry",
+            "qty": 1
+          },
+          {
+            "name": "Path to Exile",
+            "qty": 1
+          },
+          {
+            "name": "Pawn of Ulamog",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Altar",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Arena",
+            "qty": 1
+          },
+          {
+            "name": "Phyrexian Tower",
+            "qty": 2
+          },
+          {
+            "name": "Pitiless Plunderer",
+            "qty": 1
+          },
+          {
+            "name": "Plains",
+            "qty": 8
+          },
+          {
+            "name": "Read the Bones",
+            "qty": 1
+          },
+          {
+            "name": "Reassembling Skeleton",
+            "qty": 1
+          },
+          {
+            "name": "Requiem Angel",
+            "qty": 1
+          },
+          {
+            "name": "Reveillark",
+            "qty": 1
+          },
+          {
+            "name": "Scavenger Grounds",
+            "qty": 1
+          },
+          {
+            "name": "Scoured Barrens",
+            "qty": 1
+          },
+          {
+            "name": "Secure the Wastes",
+            "qty": 1
+          },
+          {
+            "name": "Shattered Sanctum",
+            "qty": 1
+          },
+          {
+            "name": "Shineshadow Snarl",
+            "qty": 1
+          },
+          {
+            "name": "Sifter of Skulls",
+            "qty": 1
+          },
+          {
+            "name": "Sign in Blood",
+            "qty": 1
+          },
+          {
+            "name": "Skullclamp",
+            "qty": 1
+          },
+          {
+            "name": "Sol Ring",
+            "qty": 1
+          },
+          {
+            "name": "Spawning Pit",
+            "qty": 1
+          },
+          {
+            "name": "Spectator Seating",
+            "qty": 1
+          },
+          {
+            "name": "Spectral Procession",
+            "qty": 1
+          },
+          {
+            "name": "Sram's Expertise",
+            "qty": 1
+          },
+          {
+            "name": "Sun Titan",
+            "qty": 1
+          },
+          {
+            "name": "Swamp",
+            "qty": 8
+          },
+          {
+            "name": "Swords to Plowshares",
+            "qty": 1
+          },
+          {
+            "name": "Syr Konrad, the Grim",
+            "qty": 1
+          },
+          {
+            "name": "Talisman of Hierarchy",
+            "qty": 1
+          },
+          {
+            "name": "Temple of Silence",
+            "qty": 1
+          },
+          {
+            "name": "Terramorphic Expanse",
+            "qty": 1
+          },
+          {
+            "name": "Teysa Karlov",
+            "qty": 1
+          },
+          {
+            "name": "Toxic Deluge",
+            "qty": 1
+          },
+          {
+            "name": "Urborg, Tomb of Yawgmoth",
+            "qty": 1
+          },
+          {
+            "name": "Utter End",
+            "qty": 1
+          },
+          {
+            "name": "Vault of Champions",
+            "qty": 1
+          },
+          {
+            "name": "Vindicate",
+            "qty": 1
+          },
+          {
+            "name": "Viscera Seer",
+            "qty": 1
+          },
+          {
+            "name": "Wayfarer's Bauble",
+            "qty": 1
+          },
+          {
+            "name": "Wrath of God",
+            "qty": 1
+          },
+          {
+            "name": "Yahenni, Undying Partisan",
+            "qty": 1
+          },
+          {
+            "name": "Zulaport Cutthroat",
+            "qty": 1
+          }
+        ],
+        "changeReasons": {
+          "added": {},
+          "removed": {}
+        }
+      }
+    }
+  ]
+}
