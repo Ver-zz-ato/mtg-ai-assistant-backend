@@ -121,6 +121,33 @@ test.describe('Deck Management', () => {
     }
   });
 
+  test('deck detail page avoids mobile hydration mismatch', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    const hydrationErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        const text = msg.text();
+        if (/hydration|did not match/i.test(text)) {
+          hydrationErrors.push(text);
+        }
+      }
+    });
+
+    await page.goto('/my-decks', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await page.waitForSelector('a[href*="/my-decks/"]', { timeout: 15_000 });
+
+    const firstDeck = page.locator('a[href*="/my-decks/"]').first();
+    await firstDeck.click();
+
+    await page.waitForURL(/\/my-decks\/[^/]+/, { timeout: 15_000 });
+    await page.waitForLoadState('domcontentloaded', { timeout: 15_000 });
+    await page.waitForTimeout(2000);
+
+    await expect(page.locator('#nextjs-hydration-error')).toHaveCount(0);
+    expect(hydrationErrors).toEqual([]);
+  });
+
   test('delete deck', async ({ page }) => {
     await page.goto('/my-decks', { waitUntil: 'domcontentloaded', timeout: 60_000 });
     

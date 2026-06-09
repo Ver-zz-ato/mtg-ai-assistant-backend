@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { fetchCommanderArtBatch } from "@/lib/commander-art-batch";
 
 /**
  * Popular Commander Guides - Internal linking component for SEO
@@ -56,18 +57,8 @@ export default function PopularCommanderGuides() {
   useEffect(() => {
     let cancelled = false;
     async function fetchArt() {
-      const map: Record<string, string> = {};
-      await Promise.all(
-        POPULAR_COMMANDERS.map(async (cmd) => {
-          try {
-            const r = await fetch(
-              `/api/commander-art?name=${encodeURIComponent(cmd.name)}`,
-              { cache: "force-cache" }
-            );
-            const j = await r.json();
-            if (j?.ok && j?.art) map[cmd.name] = j.art;
-          } catch {}
-        })
+      const map = await fetchCommanderArtBatch(
+        POPULAR_COMMANDERS.map((cmd) => cmd.name)
       );
       if (!cancelled) {
         setArtMap(map);

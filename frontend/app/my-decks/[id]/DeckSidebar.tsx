@@ -168,11 +168,15 @@ function DeckAnalyzerWithHide({ deckId, isPro, format }: { deckId: string; isPro
 }
 
 function DeckCardRecommendationsWithHide({ deckId, onAddCard }: { deckId: string; onAddCard: (cardName: string) => Promise<void> }) {
-  const [open, setOpen] = React.useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.innerWidth >= 768;
-  });
-  
+  // Match SSR + first client paint, then hide on mobile after mount (avoids hydration mismatch).
+  const [open, setOpen] = React.useState(true);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setOpen(false);
+    }
+  }, []);
+
   React.useEffect(() => {
     const handler = (e: CustomEvent) => {
       if (e.detail?.action === 'toggle-all') {

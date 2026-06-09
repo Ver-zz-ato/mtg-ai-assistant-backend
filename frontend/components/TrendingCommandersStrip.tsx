@@ -9,6 +9,7 @@ import {
 } from "@/lib/observability/cost-audit";
 import { formatMetaFreshnessPill, type MetaLabelPayload } from "@/lib/meta/freshness";
 import { fetchJson } from "@/lib/http";
+import { fetchCommanderArtBatch } from "@/lib/commander-art-batch";
 
 type TrendingCommander = {
   name: string;
@@ -63,26 +64,15 @@ export function TrendingCommandersStrip() {
           setCommanders(list);
           setLastUpdated(data.lastUpdated ?? null);
           setLabelPayload(data.labelPayload ?? null);
-          const map: Record<string, string> = {};
           const tArt = Date.now();
-          await Promise.all(
-            list.map(async (cmd) => {
-              try {
-                const j = await fetchJson<{ ok?: boolean; art?: string }>(
-                  `/api/commander-art?name=${encodeURIComponent(cmd.name)}`,
-                  { cache: "force-cache" }
-                );
-                if (j?.ok && j?.art) map[cmd.name] = j.art;
-              } catch {}
-            })
-          );
+          const map = await fetchCommanderArtBatch(list.map((cmd) => cmd.name));
           if (isCostAuditClientEnabled()) {
             costAuditClientLog({
               event: "client.commander_art.batch_done",
               component: "TrendingCommandersStrip",
               session,
               durationMs: Date.now() - tArt,
-              artRequests: list.length,
+              artRequests: 1,
               artHits: Object.keys(map).length,
             });
           }

@@ -116,6 +116,23 @@ Sentry.init({
     const eventMessage = (event as any).message || '';
     const originalException = hint.originalException as Error | undefined;
     const errorUrl = originalException?.message || '';
+
+    // NEXTJS-2X: Linux Chrome bot/crawler unhandled rejections on /cards/* (head > link prefetch/CSS). Not actionable.
+    const osName = ((event.contexts?.os as { name?: string })?.name || '').toLowerCase();
+    const cardPageUrl = requestUrl.includes('/cards/');
+    const headLinkRejection =
+      errorValue.includes('head > link') ||
+      errorValue.includes('head>link') ||
+      (eventMessage.includes('head') && eventMessage.includes('link')) ||
+      (errorUrl.includes('head') && errorUrl.includes('link'));
+    if (
+      cardPageUrl &&
+      headLinkRejection &&
+      osName.includes('linux') &&
+      browserName.toLowerCase().includes('chrome')
+    ) {
+      return null;
+    }
     
     // Combine all text fields for searching
     const fullErrorText = (

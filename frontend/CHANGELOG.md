@@ -1,5 +1,21 @@
 # Frontend changelog
 
+## 2026-06-09
+
+### Sentry production fixes (website)
+
+- **NEXTJS-2 / NEXTJS-35:** Fixed mobile hydration mismatch on `/my-decks/:id` — `DeckCardRecommendationsWithHide` in `DeckSidebar.tsx` now uses SSR-safe `useState(true)` + post-mount viewport check instead of `window.innerWidth` in the initializer.
+- **NEXTJS-32:** Replaced top-level JSON-LD arrays with `@graph` wrapper on `/build-a-deck` and `/mtg-deck-checker` (Safari `@context.toLowerCase` parse error).
+- **NEXTJS-2Y:** Homepage commander strips batch art via single `POST /api/cards/batch-images` (`lib/commander-art-batch.ts`); removed browser-side Scryfall fuzzy fallback from `lib/scryfall-cache.ts`.
+- **NEXTJS-2X:** Added Sentry `beforeSend` filter for Linux Chrome `head > link` promise rejections on `/cards/*` (bot/crawler noise).
+- **E2E:** Mobile viewport hydration check in `tests/e2e/deck-management.spec.ts`.
+- **Files:** `app/my-decks/[id]/DeckSidebar.tsx`, `app/build-a-deck/page.tsx`, `app/mtg-deck-checker/page.tsx`, `lib/commander-art-batch.ts`, `lib/scryfall-cache.ts`, `components/TrendingCommandersStrip.tsx`, `components/PopularCommanderGuides.tsx`, `instrumentation-client.ts`, `docs/SENTRY_PRODUCTION_INVESTIGATION_2026-06-09.md`.
+
+### Sentry production investigation (read-only)
+
+- Documented root-cause analysis for four unresolved `javascript-nextjs` issues: JSON-LD Safari parse error (NEXTJS-32), my-decks mobile hydration (NEXTJS-2/35), homepage Scryfall N+1 (NEXTJS-2Y), cards slug link rejections (NEXTJS-2X).
+- **Files:** `docs/SENTRY_PRODUCTION_INVESTIGATION_2026-06-09.md`.
+
 ## 2026-06-08
 
 ### AI Workshop QA fixes
