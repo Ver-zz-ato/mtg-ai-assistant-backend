@@ -1264,7 +1264,7 @@ export default function CostToFinishClient() {
                   ➕ Add missing → Wishlist
                 </button>
                 <a
-                  href="/profile?tab=wishlist"
+                  href="/wishlist"
                   className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-white font-medium text-sm transition-colors">
                   👁️ View Wishlist →
                 </a>

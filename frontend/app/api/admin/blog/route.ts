@@ -33,6 +33,12 @@ export async function GET(req: NextRequest) {
       .single();
 
     const isAdmin = !profileError && profile?.is_admin === true;
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ ok: false, error: "not_found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
 
     const { data: blog, error } = await supabase
       .from('app_config')

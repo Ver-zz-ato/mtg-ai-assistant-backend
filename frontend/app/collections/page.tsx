@@ -60,70 +60,13 @@ function CollectionsPageClientBody() {
       const list: Collection[] = json.collections || [];
       setCollections(list);
 
-      // Kick off stats fetch in the background per collection
-      list.forEach(async (c) => {
-        try {
-          const r = await fetch(`/api/collections/cards?collectionId=${encodeURIComponent(c.id)}`, { cache: "no-store" });
-          const j = await r.json().catch(() => ({}));
-          if (!r.ok || j?.ok === false) throw new Error(j?.error || "cards_failed");
-          const items: Array<{ name: string; qty: number; created_at?: string }> = j.items || [];
-
-          const totalCards = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
-          const unique = items.length;
-          const lastUpdated = items.length ? (items.map(i => i.created_at || '').filter(Boolean).sort().pop() || null) : null;
-
-          // Price snapshot
-          const names = Array.from(new Set(items.map((it) => it.name)));
-          let estValueUSD = 0;
-          let coverName: string | null = null;
-          try {
-            if (names.length) {
-              const pr = await fetch('/api/price/snapshot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ names, currency: 'USD' }) });
-              const pj = await pr.json().catch(()=>({}));
-              const prices: Record<string, number> = (pr.ok && pj?.ok) ? (pj.prices || {}) : {};
-              const norm = (s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
-              estValueUSD = items.reduce((acc, it) => acc + (prices[norm(it.name)] || 0) * (Number(it.qty) || 0), 0);
-              const heroName = c.hero_card_name?.trim();
-              if (heroName && items.some((it) => it.name === heroName)) {
-                coverName = heroName;
-              } else {
-                let best = { name: '', score: -1 };
-                for (const it of items) {
-                  const unit = prices[norm(it.name)] || 0; const score = unit * (Number(it.qty)||1);
-                  if (score > best.score) best = { name: it.name, score };
-                }
-                coverName = best.name || (items.sort((a,b)=> (b.qty||0)-(a.qty||0))[0]?.name || null);
-              }
-            }
-          } catch {}
-
-          let cover: Stats['cover'] = undefined;
-          try {
-            const pick = coverName || names[0];
-            if (pick) {
-              const imageResponse = await fetch('/api/cards/batch-images', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ names: [pick] })
-              });
-              if (imageResponse.ok) {
-                const imageData = await imageResponse.json();
-                const card = imageData?.data?.[0];
-                if (card?.image_uris) {
-                  cover = { 
-                    small: card.image_uris.normal || card.image_uris.small, 
-                    art: card.image_uris.art_crop 
-                  };
-                }
-              }
-            }
-          } catch {}
-
-          setStats((prev) => ({ ...prev, [c.id]: { totalCards, unique, estValueUSD, lastUpdated, cover } }));
-        } catch {
-          setStats((prev) => ({ ...prev, [c.id]: null }));
-        }
-      });
+      const summaryRes = await fetch('/api/collections/summary', { cache: 'no-store' });
+      const summaryJson = await summaryRes.json().catch(() => ({}));
+      if (summaryRes.ok && summaryJson?.ok && summaryJson.summaries) {
+        setStats(summaryJson.summaries as Record<string, Stats>);
+      } else if (list.length) {
+        showToast(summaryJson?.error || 'Could not load collection stats');
+      }
     } catch (e: any) {
       console.error('[Collections] Load error:', e?.message || e);
       showToast(e?.message || "Load failed");

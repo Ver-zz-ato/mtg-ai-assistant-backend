@@ -2,13 +2,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
 import { assertCanCreateCollections } from "@/lib/pro-storage-limits-server";
+import { rejectUnlessCsrfOrBearer } from "@/lib/api/requireCsrf";
+import { NextRequest } from "next/server";
 export const runtime = "nodejs";
 
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const csrfBlock = rejectUnlessCsrfOrBearer(req);
+    if (csrfBlock) return csrfBlock;
+
     const supabase = await createClient();
 
     const {
@@ -16,16 +21,16 @@ export async function POST(req: Request) {
       error: userErr,
     } = await supabase.auth.getUser();
     if (userErr || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
     const { name } = (await req.json()) as { name?: string };
     const clean = sanitizeName(name ?? "");
     if (containsProfanity(clean)) {
-      return NextResponse.json({ error: "Please choose a different collection name" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Please choose a different collection name" }, { status: 400 });
     }
     if (!clean) {
-      return NextResponse.json({ error: "Missing collection name" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Missing collection name" }, { status: 400 });
     }
 
     const collectionLimit = await assertCanCreateCollections(supabase, user.id);
@@ -42,7 +47,7 @@ export async function POST(req: Request) {
       .select("id")
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
 
     // ANALYTICS: Track collection creation
     try { const { captureServer } = await import("@/lib/server/analytics"); await captureServer("collection_created", { collection_id: data.id, user_id: user.id, name: clean }); } catch {}
@@ -50,6 +55,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, id: data.id }, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unexpected error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

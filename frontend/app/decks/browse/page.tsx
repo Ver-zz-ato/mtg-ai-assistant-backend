@@ -113,7 +113,7 @@ function BrowseDecksContent() {
     setPage(1);
     setDecks([]);
     loadDecks(1, false);
-  }, [tab, format, colors, sort, debouncedSearch, debouncedCommander]);
+  }, [tab, format, colors, sort, debouncedSearch, debouncedCommander, advancedFilters]);
 
   // Load precons when on precons tab
   useEffect(() => {
@@ -146,6 +146,9 @@ function BrowseDecksContent() {
         ...(format !== 'all' && { format }),
         ...(colors !== 'all' && { colors }),
         ...(sort && { sort }),
+        ...(advancedFilters.ageFilter !== 'all' && { ageFilter: advancedFilters.ageFilter }),
+        ...(advancedFilters.budgetMin != null && { budgetMin: String(advancedFilters.budgetMin) }),
+        ...(advancedFilters.budgetMax != null && { budgetMax: String(advancedFilters.budgetMax) }),
       });
 
       const res = await dedupFetch(`/api/decks/browse?${params}`);
@@ -691,7 +694,6 @@ function BrowseDecksContent() {
           setAdvancedFilters(newFilters);
           setPage(1);
           capture('advanced_filters_applied', { filters: newFilters });
-          // TODO: Backend integration - send advancedFilters to API
         }}
       />
     </main>

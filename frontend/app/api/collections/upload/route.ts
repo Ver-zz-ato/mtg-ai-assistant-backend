@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sameOriginOrBearerPresent } from "@/lib/api/csrf";
 import { buildResolvedCollectionBulkNameMap } from "@/lib/collections/buildResolvedCollectionBulkNameMap";
 import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
 import {
@@ -10,6 +11,8 @@ import { getEffectiveProStatus } from "@/lib/pro-storage-limits-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 // Tiny CSV parser (header optional)
 function parseCSV(text: string): Array<{ name: string; qty: number }> {
@@ -65,6 +68,10 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!sameOriginOrBearerPresent(req)) {
+      return NextResponse.json({ ok: false, error: "Forbidden", csrf_error: true }, { status: 403 });
+    }
+
     const supabase = await createClient();
 
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
@@ -79,13 +86,19 @@ export async function POST(req: NextRequest) {
 
     if (!collection_id) return NextResponse.json({ ok: false, error: "Missing collection_id" }, { status: 400 });
     if (!file)          return NextResponse.json({ ok: false, error: "Missing file" }, { status: 400 });
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ ok: false, error: "File too large (max 5MB)" }, { status: 413 });
+    }
 
     const { data: col, error: colErr } = await supabase
       .from("collections")
-      .select("id")
+      .select("id, user_id")
       .eq("id", collection_id)
       .single();
     if (colErr || !col) return NextResponse.json({ ok: false, error: "Collection not found" }, { status: 404 });
+    if (col.user_id !== user.id) {
+      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
 
     const text = await file.text();
     const rows = parseCSV(text);
@@ -125,7 +138,7 @@ export async function POST(req: NextRequest) {
 
     // Replace contents
     const del = await supabase.from("collection_cards").delete().eq("collection_id", collection_id);
-    if (del.error) return NextResponse.json({ ok: false, error: del.error.message }, { status: 200 });
+    if (del.error) return NextResponse.json({ ok: false, error: del.error.message }, { status: 500 });
 
     // Chunk insert
     const chunkSize = 500;
@@ -141,7 +154,7 @@ export async function POST(req: NextRequest) {
         .insert(chunk, { count: "exact" });
 
       if (insErr) {
-        return NextResponse.json({ ok: false, error: insErr.message, inserted }, { status: 200 });
+        return NextResponse.json({ ok: false, error: insErr.message, inserted }, { status: 500 });
       }
       inserted += count ?? chunk.length;
     }

@@ -9,6 +9,7 @@ import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow"
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 import { getDeckHardCapMessage } from "@/lib/deck/formatCompliance";
 import { assertCanCreateDecks } from "@/lib/pro-storage-limits-server";
+import { rejectUnlessCsrfOrBearer } from "@/lib/api/requireCsrf";
 
 type SaveBody = {
   title?: string;
@@ -66,6 +67,9 @@ async function computeArchetype(parsed: { name: string; qty: number }[]) {
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfBlock = rejectUnlessCsrfOrBearer(req);
+    if (csrfBlock) return csrfBlock;
+
     let supabase = await createClient();
     let { data: userRes, error: authErr } = await supabase.auth.getUser();
     let user = userRes?.user;

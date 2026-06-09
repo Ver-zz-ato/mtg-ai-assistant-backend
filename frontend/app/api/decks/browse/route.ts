@@ -71,9 +71,18 @@ export async function GET(req: Request) {
     const format = searchParams.get('format') || '';
     const colors = searchParams.get('colors') || '';
     const sort = searchParams.get('sort') || 'recent'; // recent, popular, budget, expensive
+    const ageFilter = searchParams.get('ageFilter') || 'all';
+    const budgetMinRaw = searchParams.get('budgetMin');
+    const budgetMaxRaw = searchParams.get('budgetMax');
+    const budgetMin = budgetMinRaw != null && budgetMinRaw !== '' ? Number(budgetMinRaw) : null;
+    const budgetMax = budgetMaxRaw != null && budgetMaxRaw !== '' ? Number(budgetMaxRaw) : null;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = Math.min(parseInt(searchParams.get('limit') || '24'), 100);
     const offset = (page - 1) * limit;
+
+    if ((budgetMin != null && !Number.isFinite(budgetMin)) || (budgetMax != null && !Number.isFinite(budgetMax))) {
+      return NextResponse.json({ ok: false, error: 'Invalid budget filter' }, { status: 400 });
+    }
     
     // Build query - use service role to bypass RLS for public deck browsing
     // PERFORMANCE: Use nested select to fetch username in same query (avoid separate query)
@@ -100,6 +109,38 @@ export async function GET(req: Request) {
       const colorArray = colors.split('');
       const colorFilters = colorArray.map(c => `colors.cs.{${c}}`);
       query = query.or(colorFilters.join(','));
+    }
+
+    if (ageFilter && ageFilter !== 'all') {
+      const dayMap: Record<string, number> = { day: 1, week: 7, month: 30, year: 365 };
+      const days = dayMap[ageFilter];
+      if (days) {
+        const since = new Date();
+        since.setUTCDate(since.getUTCDate() - days);
+        query = query.gte('updated_at', since.toISOString());
+      }
+    }
+
+    if (budgetMin != null || budgetMax != null) {
+      let costQuery = supabase.from('deck_costs').select('deck_id');
+      if (budgetMin != null) costQuery = costQuery.gte('total_usd', budgetMin);
+      if (budgetMax != null) costQuery = costQuery.lte('total_usd', budgetMax);
+      const { data: costRows, error: costErr } = await costQuery.limit(5000);
+      if (costErr) {
+        return NextResponse.json({ ok: false, error: costErr.message }, { status: 500 });
+      }
+      const costDeckIds = (costRows || []).map((r: { deck_id: string }) => r.deck_id);
+      if (!costDeckIds.length) {
+        return NextResponse.json({
+          ok: true,
+          decks: [],
+          total: 0,
+          page,
+          limit,
+          hasMore: false,
+        }, { headers: CachePresets.SHORT });
+      }
+      query = query.in('id', costDeckIds);
     }
 
     // Sorting

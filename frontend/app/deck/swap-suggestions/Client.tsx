@@ -329,10 +329,41 @@ export default function BudgetSwapsClient(){
       alert('Added to wishlist');
     } catch(e:any){ alert(e?.message||'Wishlist add failed'); }
   };
+  const forkWithSwaps = async (swapsToApply: Sug[]) => {
+    if (!isProFinal) {
+      try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature.'); }
+      return;
+    }
+    if (!swapsToApply.length) {
+      alert('No swaps to apply');
+      return;
+    }
+    try {
+      const res = await fetch('/api/decks/fork-with-swaps', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sourceDeckId: deckId || undefined,
+          deckText: deckId ? undefined : deckText,
+          commander: commanderName || undefined,
+          format: deckFormat || undefined,
+          title: `${deckTitle || 'My Deck'} (Budget Swaps)`,
+          swaps: swapsToApply.map((s) => ({ from: s.from, to: s.to })),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) throw new Error(json?.error || 'Failed to fork deck');
+      const newId = json.deckId ?? json.id;
+      if (!newId) throw new Error('Failed to create deck');
+      setNewDeckLink(`/my-decks/${newId}`);
+      setShowSuccessModal(true);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to fork deck');
+    }
+  };
+
   const forkDeck = async () => {
-    if (!isProFinal){ try { const { showProToast } = await import('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature.'); } return; }
-    // Backend not implemented; show a graceful message for now
-    alert('Fork deck with swaps is coming soon!');
+    await forkWithSwaps(sugs);
   };
 
   // format currency
@@ -386,48 +417,11 @@ export default function BudgetSwapsClient(){
     }
 
     try {
-      const swapsToApply = Array.from(selectedSwaps).map(idx => sugs[idx]);
-      
-      // Create modifications
-      const cardsToRemove = swapsToApply.map(s => s.from);
-      const cardsToAdd = swapsToApply.map(s => s.to);
-
-      // Build new deck text
-      const lines = deckText.split('\n');
-      const newLines = lines.filter(line => {
-        const cardName = line.replace(/^\d+\s+/, '').trim();
-        return !cardsToRemove.some(remove => cardName.toLowerCase().includes(remove.toLowerCase()));
-      });
-      
-      // Add new cards
-      cardsToAdd.forEach(card => {
-        newLines.push(`1 ${card}`);
-      });
-
-      const newDeckText = newLines.join('\n');
-
-      // Create forked deck
-      const res = await fetch('/api/decks/create', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          title: `${deckTitle || 'My Deck'} (Budget Swaps)`,
-          deck_text: newDeckText,
-          commander: commanderName,
-          is_public: false,
-        })
-      });
-
-      if (!res.ok) throw new Error('Failed to create deck');
-
-      const forkJson = await res.json();
-      const newId = forkJson.id ?? forkJson.deckId;
-      if (!newId) throw new Error('Failed to create deck');
-      setNewDeckLink(`/my-decks/${newId}`);
-      setShowSuccessModal(true);
+      const swapsToApply = Array.from(selectedSwaps).map((idx) => sugs[idx]);
+      await forkWithSwaps(swapsToApply);
       clearSelection();
-    } catch (e: any) {
-      alert(e?.message || 'Failed to apply swaps');
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to apply swaps');
     }
   };
 

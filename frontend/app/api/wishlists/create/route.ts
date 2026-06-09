@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { containsProfanity } from '@/lib/profanity';
 import { assertCanCreateWishlists } from '@/lib/pro-storage-limits-server';
+import { rejectUnlessCsrfOrBearer } from '@/lib/api/requireCsrf';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfBlock = rejectUnlessCsrfOrBearer(req);
+    if (csrfBlock) return csrfBlock;
+
     let supabase = await getServerSupabase();
     let { data: ures } = await (supabase as any).auth.getUser();
     let user = ures?.user;

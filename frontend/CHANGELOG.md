@@ -2,6 +2,13 @@
 
 ## 2026-06-09
 
+### Audit remediation (security, performance, UX)
+
+- **Security:** Admin route gates (`events/summary`, scryfall-cache, snapshots/info, backfill-commanders); production fail-closed for `GUEST_TOKEN_SECRET` / `REVENUECAT_WEBHOOK_AUTH`; blog `sanitizeBlogHtml`; collection upload hardening; `/api/me/analytics-context`; fanout rate limits; CSRF on key mutating routes.
+- **Features:** `POST /api/decks/fork-with-swaps` (Pro); browse age/budget filters; `/wishlist` link fixes; profile cleanup (dead wishlist editor removed).
+- **Performance:** `GET /api/collections/summary`; homepage static shell; public profile ISR (`revalidate=60`); sitemap `revalidate=3600`.
+- **Quality:** `types/api.ts`, `lib/api/schemas.ts`, `parseApiResponse`, route loading/error boundaries, Sentry/PostHog on errors, `scripts/verify-admin-routes.ts`.
+
 ### Sentry production fixes (website)
 
 - **NEXTJS-2 / NEXTJS-35:** Fixed mobile hydration mismatch on `/my-decks/:id` — `DeckCardRecommendationsWithHide` in `DeckSidebar.tsx` now uses SSR-safe `useState(true)` + post-mount viewport check instead of `window.innerWidth` in the initializer.

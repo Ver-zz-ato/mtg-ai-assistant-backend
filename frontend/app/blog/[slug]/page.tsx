@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
 import { DEFAULT_BLOG_POSTS } from '@/lib/blog-defaults';
+import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
 import { descriptionFromText } from '@/lib/seo/metadata';
 
 // Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE error
@@ -1906,7 +1907,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 elements.push('</ul>');
               }
               
-              return elements.join('\n');
+              return sanitizeBlogHtml(elements.join('\n'));
             })()}} />
           </div>
         </article>

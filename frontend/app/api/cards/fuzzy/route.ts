@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
   const reqId = isCostAuditStorageEnabled() ? costAuditRequestId() : "";
   let scryfallHttpCalls = 0;
   try {
+    const { enforceFanoutRateLimit } = await import('@/lib/api/fanout-rate-limit');
+    const rateLimited = await enforceFanoutRateLimit(req, '/api/cards/fuzzy');
+    if (rateLimited) return rateLimited;
+
     const body = await req.json().catch(() => ({}));
     const names: string[] = Array.isArray(body?.names) ? body.names.slice(0, 100) : [];
     if (!names.length) {

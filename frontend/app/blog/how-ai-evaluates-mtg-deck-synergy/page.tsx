@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
 import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
 
@@ -329,7 +330,7 @@ export default function HowAIEvaluatesMTGDeckSynergyPage() {
                 elements.push('</ul>');
               }
               
-              return elements.join('\n');
+              return sanitizeBlogHtml(elements.join('\n'));
             })() }} />
           </div>
 

@@ -11,6 +11,11 @@ const requiredEnvVars = [
   'STRIPE_WEBHOOK_SECRET',
 ] as const;
 
+const productionRequiredEnvVars = [
+  'GUEST_TOKEN_SECRET',
+  'REVENUECAT_WEBHOOK_AUTH',
+] as const;
+
 const optionalEnvVars = [
   'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
   'NEXT_PUBLIC_POSTHOG_KEY',
@@ -36,6 +41,20 @@ export function validateEnv(): void {
       `Missing required environment variables: ${missing.join(', ')}\n` +
       `Please check your .env.local file or deployment environment variables.`
     );
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    const prodMissing: string[] = [];
+    for (const key of productionRequiredEnvVars) {
+      if (!process.env[key]) {
+        prodMissing.push(key);
+      }
+    }
+    if (prodMissing.length > 0) {
+      throw new Error(
+        `Missing required production environment variables: ${prodMissing.join(', ')}`
+      );
+    }
   }
 }
 

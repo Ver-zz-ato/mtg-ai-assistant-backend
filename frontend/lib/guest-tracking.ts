@@ -7,8 +7,14 @@
  * Note: Uses Web Crypto API for Edge runtime compatibility (middleware runs on Edge).
  */
 
-const GUEST_TOKEN_SECRET =
-  process.env.GUEST_TOKEN_SECRET || "default-secret-change-in-production";
+function getGuestTokenSecret(): string {
+  const secret = process.env.GUEST_TOKEN_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("GUEST_TOKEN_SECRET is required in production");
+  }
+  return "dev-only-guest-token-secret";
+}
 
 /**
  * Hash a string using SHA-256 for secondary tracking (IP, User-Agent)
@@ -81,7 +87,7 @@ export async function generateGuestToken(ip: string, userAgent: string): Promise
     .replace(/=/g, '');
   
   // Sign payload
-  const signature = await hmacSign(payload, GUEST_TOKEN_SECRET);
+  const signature = await hmacSign(payload, getGuestTokenSecret());
   
   return `${encodedPayload}.${signature}`;
 }
@@ -113,7 +119,7 @@ export async function verifyGuestToken(token: string): Promise<{ ip: string; use
     }
     
     // Verify signature
-    const isValid = await hmacVerify(payload, signature, GUEST_TOKEN_SECRET);
+    const isValid = await hmacVerify(payload, signature, getGuestTokenSecret());
     if (!isValid) {
       return null; // Invalid signature
     }

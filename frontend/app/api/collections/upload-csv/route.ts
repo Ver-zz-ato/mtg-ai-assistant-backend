@@ -1,5 +1,6 @@
 // app/api/collections/upload-csv/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { rejectUnlessCsrfOrBearer } from "@/lib/api/requireCsrf";
 import { createClient } from "@/lib/supabase/server";
 import { withLogging } from "@/lib/api/withLogging";
 import { parseCollectionCsvText } from "@/lib/csv/collection";
@@ -9,7 +10,10 @@ import { assertCanGrowCollection } from "@/lib/pro-storage-limits-server";
 
 export const dynamic = "force-dynamic";
 
-export const POST = withLogging(async (req: Request) => {
+export const POST = withLogging(async (req: NextRequest) => {
+  const csrfBlock = rejectUnlessCsrfOrBearer(req);
+  if (csrfBlock) return csrfBlock;
+
   const supabase = await createClient();
   const { data: ures } = await supabase.auth.getUser();
   const user = ures?.user;

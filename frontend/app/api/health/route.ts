@@ -1,8 +1,9 @@
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { withMetrics } from "@/lib/observability/withMetrics";
+import { requireAdminForApi } from "@/lib/server-admin";
 
 async function time<F extends (...a: any[]) => Promise<any>>(fn: F): Promise<{ ok: boolean; ms: number; error?: string; extra?: any }> {
   const t0 = Date.now();
@@ -14,20 +15,17 @@ async function time<F extends (...a: any[]) => Promise<any>>(fn: F): Promise<{ o
   }
 }
 
-async function getHandler() {
-  // Database check (Supabase)
+async function runDependencyChecks() {
   const supabaseCheck = await time(async () => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) throw new Error("Supabase public env not configured");
     const sb = createClient(url, key);
-    // cheap, RLS-friendly head count on public decks
     const { error } = await sb.from("decks").select("id", { count: "exact", head: true });
     if (error) throw new Error(error.message);
     return null;
   });
 
-  // Scryfall API check
   const scryfallCheck = await time(async () => {
     const r = await fetch("https://api.scryfall.com/cards/named?exact=Sol%20Ring", {
       cache: "no-store",
@@ -40,22 +38,17 @@ async function getHandler() {
     return null;
   });
 
-  // Stripe API check (lightweight - just verify API key is valid)
   const stripeCheck = await time(async () => {
     if (!process.env.STRIPE_SECRET_KEY) {
       throw new Error("STRIPE_SECRET_KEY not configured");
     }
-    // Lightweight check - just verify we can create a client
-    // Don't make actual API call to avoid rate limits
     return { configured: true };
   });
 
-  // OpenAI API check (lightweight - just verify API key is configured)
   const openaiCheck = await time(async () => {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY not configured");
     }
-    // Don't make actual API call to avoid costs/rate limits
     return { configured: true };
   });
 
@@ -67,10 +60,21 @@ async function getHandler() {
   };
 
   const dependencyOk = supabaseCheck.ok && scryfallCheck.ok;
+  return { checks, dependencyOk };
+}
+
+async function getHandler(req: NextRequest) {
+  const { checks, dependencyOk } = await runDependencyChecks();
+  const status = dependencyOk ? "alive" : "degraded";
+
+  const admin = await requireAdminForApi();
+  if (!admin.ok) {
+    return NextResponse.json({ ok: true, status }, { status: 200 });
+  }
 
   return NextResponse.json({
     ok: true,
-    status: dependencyOk ? "alive" : "degraded",
+    status,
     dependencyOk,
     checks,
     ts: new Date().toISOString(),

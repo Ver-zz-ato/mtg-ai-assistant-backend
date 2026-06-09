@@ -86,7 +86,9 @@ export function AdvancedFiltersModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Mana Value Range */}
+          {/* MV + card-type filters hidden until deck-level aggregates exist server-side */}
+          {false && (
+          <>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-3">
               Average Mana Value Range
@@ -158,6 +160,8 @@ export function AdvancedFiltersModal({
               ))}
             </div>
           </div>
+          </>
+          )}
 
           {/* Deck Age */}
           <div>

@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdminForApi } from "@/lib/server-admin";
 import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +15,11 @@ export const dynamic = "force-dynamic";
  * Run via: curl -X POST /api/admin/backfill-commanders (with auth)
  * Or schedule via cron.
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const adminCheck = await requireAdminForApi();
+    if (!adminCheck.ok) return adminCheck.response;
+
     let supabase = await createClient();
     let { data: { user } } = await supabase.auth.getUser();
 

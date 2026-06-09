@@ -62,15 +62,20 @@ export default function Header() {
     setSessionUser(u?.email ?? null);
     
     if (u) {
-      // Identify user in PostHog for filtering internal/test users
-      const userEmail = u.email || '';
-      const internalEmails = (process.env.NEXT_PUBLIC_INTERNAL_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-      const isInternal = internalEmails.includes(userEmail.toLowerCase());
-      
-      identify(u.id, {
-        is_internal: isInternal,
-        is_test_user: isInternal, // PostHog can filter on this property
-      });
+      // Identify user in PostHog; internal flag from server (never expose email list client-side)
+      (async () => {
+        try {
+          const r = await fetch('/api/me/analytics-context', { cache: 'no-store' });
+          const j = await r.json().catch(() => ({}));
+          const isInternal = r.ok && j?.ok === true && j?.is_internal === true;
+          identify(u.id, {
+            is_internal: isInternal,
+            is_test_user: isInternal,
+          });
+        } catch {
+          identify(u.id, { is_internal: false, is_test_user: false });
+        }
+      })();
       
       const md: any = u.user_metadata || {};
       const name = (md.username || u.email || "").toString();
@@ -122,9 +127,17 @@ export default function Header() {
       }
     };
     
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowHelpMenu(false);
+    };
+
     if (showHelpMenu) {
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleEscape);
+      };
     }
   }, [showHelpMenu]);
 
@@ -353,15 +366,21 @@ export default function Header() {
           <div className="relative" ref={helpMenuRef}>
             <button
               ref={helpButtonRef}
+              type="button"
+              aria-expanded={showHelpMenu}
+              aria-haspopup="menu"
+              aria-controls="header-help-menu"
               onClick={() => setShowHelpMenu(!showHelpMenu)}
               className="text-sm hover:underline text-orange-400 font-medium flex items-center gap-1"
             >
               Help
-              <span className="text-xs">▾</span>
+              <span className="text-xs" aria-hidden="true">▾</span>
             </button>
             
              {showHelpMenu && (
               <div
+                id="header-help-menu"
+                role="menu"
                 className="fixed w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50"
                 style={helpMenuPosition ? { top: helpMenuPosition.top, right: helpMenuPosition.right } : undefined}
               >

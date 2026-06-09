@@ -365,7 +365,9 @@ async function handleGenerate(req: NextRequest) {
     logUnauthorizedOnFailure: false,
   });
 
-  if (!isDev && !forceGenerate && !seedWhenEmpty && !cronAuthorized) {
+  const seedAllowed = seedWhenEmpty && (isDev || cronAuthorized);
+
+  if (!isDev && !forceGenerate && !seedAllowed && !cronAuthorized) {
     logUnauthorizedCronAttempt(req, { routePath: "/api/shout/auto-generate" });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -373,8 +375,7 @@ async function handleGenerate(req: NextRequest) {
   const history = getHistory();
   const isEmpty = history.length === 0;
   
-  // seedWhenEmpty: allow unauthenticated call when shoutbox is empty (e.g. first visitor)
-  if (seedWhenEmpty && !isEmpty) {
+  if (seedAllowed && !isEmpty) {
     return NextResponse.json({ ok: false, reason: "Not empty, no seed needed" });
   }
   
@@ -382,7 +383,7 @@ async function handleGenerate(req: NextRequest) {
   const lastTime = globalThis.__lastAutoGenTime ?? 0;
   
   // Check interval (skip in dev, force, or seed-when-empty)
-  if (!isDev && !forceGenerate && !(seedWhenEmpty && isEmpty) && now - lastTime < MIN_INTERVAL_MS) {
+  if (!isDev && !forceGenerate && !(seedAllowed && isEmpty) && now - lastTime < MIN_INTERVAL_MS) {
     const minutesRemaining = Math.ceil((MIN_INTERVAL_MS - (now - lastTime)) / 60000);
     return NextResponse.json({ 
       ok: false, 
@@ -397,7 +398,7 @@ async function handleGenerate(req: NextRequest) {
     now - m.ts < 30 * 60 * 1000
   );
   
-  if (!isDev && !forceGenerate && !(seedWhenEmpty && isEmpty) && recentRealMessages.length >= 2) {
+  if (!isDev && !forceGenerate && !(seedAllowed && isEmpty) && recentRealMessages.length >= 2) {
     return NextResponse.json({ 
       ok: false, 
       reason: "Enough recent real activity" 

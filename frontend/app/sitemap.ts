@@ -12,8 +12,7 @@ const CONTENT_PAGES = ["mulligan-guide", "budget-upgrades", "best-cards"] as con
 const META_SLUGS = ["trending-commanders", "most-played-commanders", "budget-commanders", "trending-cards", "most-played-cards"] as const;
 
 // Force fresh sitemap - no caching
-export const revalidate = 0;
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 /** Sitemap index: references child sitemaps at /sitemap/[id].xml */
 export async function generateSitemaps() {
@@ -40,10 +39,6 @@ export default async function sitemap(props: {
       const now = new Date();
       const routes = [
         "",
-        "my-decks",
-        "collections",
-        "profile",
-        "wishlist",
         "pricing",
         "privacy",
         "terms",

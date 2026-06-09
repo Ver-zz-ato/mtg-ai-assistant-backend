@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { rejectUnlessCsrfOrBearer } from "@/lib/api/requireCsrf";
 import { createClient } from "@supabase/supabase-js";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
@@ -35,8 +36,11 @@ function requiresPasswordForDeletion(user: DeleteAccountUser): boolean {
  * OAuth-capable users: deletion allowed with session only (no reliable password re-entry flow).
  * Deletes all user data then auth user (service role required).
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const csrfBlock = rejectUnlessCsrfOrBearer(req);
+    if (csrfBlock) return csrfBlock;
+
     let supabase = await getServerSupabase();
     let {
       data: { user },

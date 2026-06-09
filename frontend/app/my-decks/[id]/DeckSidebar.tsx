@@ -252,6 +252,7 @@ export default function DeckSidebar({
   commander?: string | null;
 }) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
+  const [nameConfirm, setNameConfirm] = useState<{ original: string; suggestion: string } | null>(null);
   
   useEffect(() => {
     if (!deckId) return;
@@ -278,42 +279,7 @@ export default function DeckSidebar({
     };
   }, [deckId]);
 
-  const handleAddCard = async (cardName: string) => {
-    // Validate card name before adding
-    try {
-      const validationRes = await fetch('/api/cards/fuzzy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ names: [cardName] })
-      });
-      const validationJson = await validationRes.json().catch(() => ({}));
-      const fuzzyResults = validationJson?.results || {};
-      
-      const suggestion = fuzzyResults[cardName]?.suggestion;
-      const allSuggestions = Array.isArray(fuzzyResults[cardName]?.all) ? fuzzyResults[cardName].all : [];
-      
-      // If name needs fixing, show alert and don't add — unless the only difference is capitalization
-      // Also skip if the card name (case-insensitive) matches any suggestion exactly
-      if (suggestion && suggestion !== cardName && allSuggestions.length > 0) {
-        const caseOnly = suggestion.toLowerCase() === cardName.toLowerCase();
-        const matchesSuggestion = allSuggestions.some((s: string) => s.toLowerCase() === cardName.toLowerCase());
-        
-        if (caseOnly || matchesSuggestion) {
-          // Same name, different casing, or matches a suggestion exactly — use canonical form, no prompt
-          cardName = suggestion;
-        } else {
-          const confirmed = confirm(`Did you mean "${suggestion}" instead of "${cardName}"? Click OK to use "${suggestion}" or Cancel to skip.`);
-          if (confirmed && suggestion) {
-            cardName = suggestion;
-          } else {
-            return; // User cancelled, don't add
-          }
-        }
-      }
-    } catch (validationError) {
-      console.warn('Validation check failed, proceeding anyway:', validationError);
-    }
-    
+  const proceedAddCard = async (cardName: string) => {
     try {
       // Get previous state for undo
       const prevRes = await fetch(`/api/decks/cards?deckid=${encodeURIComponent(String(deckId))}`);
@@ -369,6 +335,34 @@ export default function DeckSidebar({
     }
   };
 
+  const handleAddCard = async (cardName: string) => {
+    try {
+      const validationRes = await fetch('/api/cards/fuzzy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: [cardName] })
+      });
+      const validationJson = await validationRes.json().catch(() => ({}));
+      const fuzzyResults = validationJson?.results || {};
+      const suggestion = fuzzyResults[cardName]?.suggestion;
+      const allSuggestions = Array.isArray(fuzzyResults[cardName]?.all) ? fuzzyResults[cardName].all : [];
+
+      if (suggestion && suggestion !== cardName && allSuggestions.length > 0) {
+        const caseOnly = suggestion.toLowerCase() === cardName.toLowerCase();
+        const matchesSuggestion = allSuggestions.some((s: string) => s.toLowerCase() === cardName.toLowerCase());
+        if (caseOnly || matchesSuggestion) {
+          cardName = suggestion;
+        } else {
+          setNameConfirm({ original: cardName, suggestion });
+          return;
+        }
+      }
+    } catch (validationError) {
+      console.warn('Validation check failed, proceeding anyway:', validationError);
+    }
+    await proceedAddCard(cardName);
+  };
+
   return (
     <div className="space-y-4">
       {/* AI Assistant - Grouped header */}
@@ -399,6 +393,33 @@ export default function DeckSidebar({
       
       {/* Probability Calculator - SIXTH (default hidden) */}
       <DeckProbabilityWithHide deckId={deckId} isPro={isPro} format={format} />
+
+      {nameConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="card-name-confirm-title">
+          <div className="max-w-md w-full rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-xl">
+            <h2 id="card-name-confirm-title" className="text-lg font-semibold text-white mb-2">Confirm card name</h2>
+            <p className="text-sm text-neutral-300 mb-4">
+              Did you mean &quot;{nameConfirm.suggestion}&quot; instead of &quot;{nameConfirm.original}&quot;?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setNameConfirm(null)} className="px-3 py-2 rounded bg-neutral-800 text-sm text-white">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const name = nameConfirm.suggestion;
+                  setNameConfirm(null);
+                  await proceedAddCard(name);
+                }}
+                className="px-3 py-2 rounded bg-purple-600 text-sm text-white"
+              >
+                Use {nameConfirm.suggestion}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

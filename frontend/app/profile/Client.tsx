@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
@@ -20,6 +20,7 @@ import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 import { badgeRarityLabel, getBadgeRarityClasses, type BadgeRarity } from "@/lib/badges/rarity-ui";
 import QRShareModal from "@/components/share/QRShareModal";
+import SavingsAnalytics from "@/components/SavingsAnalytics";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
@@ -33,7 +34,7 @@ function norm(name: string): string { return String(name||'').toLowerCase().norm
 function cleanName(s: string): string {
   return String(s||'')
     .replace(/\s*\(.*?\)\s*/g, '') // remove parentheticals
-    .replace(/\s*[-–—:|].*$/, '')   // strip trailing descriptors after dash/colon/pipe
+    .replace(/\s*[-â€“â€”:|].*$/, '')   // strip trailing descriptors after dash/colon/pipe
     .replace(/\[[^\]]+\]/g, '')   // remove bracketed tags
     .replace(/\s+/g, ' ')
     .trim();
@@ -57,7 +58,7 @@ function mapCanonicalEarnedBadges(rows: BadgeProgressItem[]): DisplayBadge[] {
     .map((row) => ({
       key: row.id,
       label: row.name,
-      emoji: row.icon || '🏆',
+      emoji: row.icon || 'ðŸ†',
       desc: row.description,
       rarity: row.rarity,
     }));
@@ -97,11 +98,11 @@ function EmailVerificationSection({ sb }: { sb: any }) {
       if (error) throw error;
 
       const { toast } = await import('@/lib/toast-client');
-      toast('✅ Verification email sent! Check your inbox.', 'success');
+      toast('âœ… Verification email sent! Check your inbox.', 'success');
       capture('email_verification_resent_from_profile', { email_present: Boolean(userEmail) });
     } catch (error: any) {
       const { toast } = await import('@/lib/toast-client');
-      toast(`❌ ${error.message}`, 'error');
+      toast(`âŒ ${error.message}`, 'error');
     } finally {
       setResending(false);
     }
@@ -531,17 +532,17 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
   // Legacy website badge list remains as the fallback if canonical badge progress is unavailable.
   const legacyBadges = useMemo(() => {
     const out: DisplayBadge[] = [];
-    if (deckCount >= 1) out.push({ key: 'first_deck', label: 'First Deck', emoji: '🏆', desc: 'Created your first deck' });
-    if (deckCount >= 5) out.push({ key: 'brewer_i', label: 'Brewer I', emoji: '⚗️', desc: 'Built 5+ decks' });
-    if (deckCount >= 15) out.push({ key: 'brewer_ii', label: 'Brewer II', emoji: '⚗️', desc: 'Built 15+ decks' });
-    if (deckCount >= 30) out.push({ key: 'brewer_iii', label: 'Brewer III', emoji: '⚗️', desc: 'Built 30+ decks' });
-    if (collectionCount >= 3) out.push({ key: 'curator_i', label: 'Curator I', emoji: '📚', desc: 'Maintain 3+ collections' });
-    if (collectionCount >= 10) out.push({ key: 'curator_ii', label: 'Curator II', emoji: '📚', desc: 'Maintain 10+ collections' });
-    if (collectionCount >= 25) out.push({ key: 'curator_iii', label: 'Curator III', emoji: '📚', desc: 'Maintain 25+ collections' });
-    if ((usage?.messages || 0) >= 50) out.push({ key: 'chatterbox', label: 'Chatterbox', emoji: '💬', desc: '50+ messages in 30d' });
-    if ((tools?.prob_runs||0) >= 10) out.push({ key:'mathlete', label:'Mathlete', emoji:'∑', desc:'Run Probability tool 10 times' });
-    if ((tools?.prob_saves||0) >= 5) out.push({ key:'scenario_collector', label:'Scenario Collector', emoji:'💾', desc:'Save 5 probability scenarios' });
-    if ((tools?.mull_iters_total||0) >= 25000) out.push({ key:'mulligan_master', label:'Mulligan Master', emoji:'♻️', desc:'Run 25k+ mulligan iterations' });
+    if (deckCount >= 1) out.push({ key: 'first_deck', label: 'First Deck', emoji: 'ðŸ†', desc: 'Created your first deck' });
+    if (deckCount >= 5) out.push({ key: 'brewer_i', label: 'Brewer I', emoji: 'âš—ï¸', desc: 'Built 5+ decks' });
+    if (deckCount >= 15) out.push({ key: 'brewer_ii', label: 'Brewer II', emoji: 'âš—ï¸', desc: 'Built 15+ decks' });
+    if (deckCount >= 30) out.push({ key: 'brewer_iii', label: 'Brewer III', emoji: 'âš—ï¸', desc: 'Built 30+ decks' });
+    if (collectionCount >= 3) out.push({ key: 'curator_i', label: 'Curator I', emoji: 'ðŸ“š', desc: 'Maintain 3+ collections' });
+    if (collectionCount >= 10) out.push({ key: 'curator_ii', label: 'Curator II', emoji: 'ðŸ“š', desc: 'Maintain 10+ collections' });
+    if (collectionCount >= 25) out.push({ key: 'curator_iii', label: 'Curator III', emoji: 'ðŸ“š', desc: 'Maintain 25+ collections' });
+    if ((usage?.messages || 0) >= 50) out.push({ key: 'chatterbox', label: 'Chatterbox', emoji: 'ðŸ’¬', desc: '50+ messages in 30d' });
+    if ((tools?.prob_runs||0) >= 10) out.push({ key:'mathlete', label:'Mathlete', emoji:'âˆ‘', desc:'Run Probability tool 10 times' });
+    if ((tools?.prob_saves||0) >= 5) out.push({ key:'scenario_collector', label:'Scenario Collector', emoji:'ðŸ’¾', desc:'Save 5 probability scenarios' });
+    if ((tools?.mull_iters_total||0) >= 25000) out.push({ key:'mulligan_master', label:'Mulligan Master', emoji:'â™»ï¸', desc:'Run 25k+ mulligan iterations' });
     return out;
   }, [deckCount, collectionCount, usage?.messages, tools?.prob_runs, tools?.prob_saves, tools?.mull_iters_total]);
   const [canonicalBadgeProgress, setCanonicalBadgeProgress] = useState<BadgeProgressItem[] | null>(null);
@@ -623,9 +624,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           }
           if (ac.signal.aborted) return;
           const extra: any[] = [];
-          if (onCurve) extra.push({ key:'on_curve_90', label:'On-Curve 90', emoji:'📈', desc:'≥90% to hit land drops T1–T4' });
-          if (maestro) extra.push({ key:'mana_maestro', label:'Mana Maestro', emoji:'💧', desc:'High color odds by T3' });
-          if (combo) extra.push({ key:'combomancer', label:'Combomancer', emoji:'✨', desc:'Includes at least one detected combo' });
+          if (onCurve) extra.push({ key:'on_curve_90', label:'On-Curve 90', emoji:'ðŸ“ˆ', desc:'â‰¥90% to hit land drops T1â€“T4' });
+          if (maestro) extra.push({ key:'mana_maestro', label:'Mana Maestro', emoji:'ðŸ’§', desc:'High color odds by T3' });
+          if (combo) extra.push({ key:'combomancer', label:'Combomancer', emoji:'âœ¨', desc:'Includes at least one detected combo' });
           setExtraBadges(extra);
         } catch{ if (!ac.signal.aborted) setExtraBadges([]); }
       })();
@@ -651,9 +652,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               <div className="text-xl font-semibold truncate">{username || userEmail || 'Anonymous Mage'}</div>
               <div className="text-xs opacity-80 flex items-center gap-2">
                 {pro ? <ProTagLink /> : <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">Free</span>}
-                <span>•</span>
+                <span>â€¢</span>
                 <span>Decks {deckCount}</span>
-                <span>•</span>
+                <span>â€¢</span>
                 <span>Collections {collectionCount}</span>
               </div>
               <PinnedBadgesChips />
@@ -698,7 +699,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-lg font-semibold flex items-center gap-2">
-                    {pro ? '✨ Pro Member' : '💎 Upgrade to Pro'}
+                    {pro ? 'âœ¨ Pro Member' : 'ðŸ’Ž Upgrade to Pro'}
                   </div>
                   {pro && (
                     <span className="px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-xs font-medium text-amber-400">
@@ -711,13 +712,13 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="space-y-2">
                     <div className="text-sm opacity-80">Thanks for supporting ManaTap AI Pro! You have access to:</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Higher AI usage limits</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Advanced deck statistics</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Price tracking & alerts</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">✓</span> Priority support</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">âœ“</span> Higher AI usage limits</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">âœ“</span> Advanced deck statistics</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">âœ“</span> Price tracking & alerts</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">âœ“</span> Priority support</div>
                     </div>
                     <div className="pt-2 border-t border-neutral-700">
-                      <a href="/pricing" className="text-xs text-blue-400 hover:underline">View all Pro features →</a>
+                      <a href="/pricing" className="text-xs text-blue-400 hover:underline">View all Pro features â†’</a>
                     </div>
                   </div>
                 ) : (
@@ -728,14 +729,14 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     
                     <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-blue-500/20 rounded-lg p-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs mb-3">
-                        <div className="flex items-center gap-2"><span className="text-blue-400">⚡</span> Higher AI usage limits</div>
-                        <div className="flex items-center gap-2"><span className="text-blue-400">📊</span> Advanced deck stats</div>
-                        <div className="flex items-center gap-2"><span className="text-blue-400">📈</span> Price tracking & alerts</div>
-                        <div className="flex items-center gap-2"><span className="text-blue-400">🎯</span> Personalized recommendations</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">âš¡</span> Higher AI usage limits</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">ðŸ“Š</span> Advanced deck stats</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">ðŸ“ˆ</span> Price tracking & alerts</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">ðŸŽ¯</span> Personalized recommendations</div>
                       </div>
                       
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="text-sm font-medium">£1.99/month or £14.99/year</div>
+                        <div className="text-sm font-medium">Â£1.99/month or Â£14.99/year</div>
                         <div className="flex flex-col gap-2 sm:flex-row">
                           <a 
                             href="/pricing" 
@@ -862,7 +863,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="text-xs opacity-80">Pick up to 3 decks to show on your public profile.</div>
                   {pinnedDeckIds.length > 0 && recentDecks.length > 0 && pinnedDeckIds.every(id => !recentDecks.find(d => d.id === id)) && (
                     <div className="text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-700 rounded p-2">
-                      ⚠️ You have {pinnedDeckIds.length} pinned deck(s) that no longer exist. Click "Clear all" to reset.
+                      âš ï¸ You have {pinnedDeckIds.length} pinned deck(s) that no longer exist. Click "Clear all" to reset.
                     </div>
                   )}
                   <div className="max-h-60 overflow-y-auto border border-neutral-800 rounded bg-neutral-950/50 p-2">
@@ -903,7 +904,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                                 style={{ pointerEvents: canSelect ? 'auto' : 'none' }}
                               />
                               <span className="truncate flex-1">{d.title}</span>
-                              {checked && <span className="text-emerald-400 text-xs flex-shrink-0">✓</span>}
+                              {checked && <span className="text-emerald-400 text-xs flex-shrink-0">âœ“</span>}
                             </label>
                           </li>
                         );
@@ -932,7 +933,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 </details>
 
                 <div className="text-right mt-4">
-                  <button onClick={save} disabled={saving} className={`px-3 py-2 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving? 'Saving…':'Save profile'}</button>
+                  <button onClick={save} disabled={saving} className={`px-3 py-2 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving? 'Savingâ€¦':'Save profile'}</button>
                 </div>
 
                 </section>
@@ -956,7 +957,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     signatureSet={!!signatureDeckId}
                   />
                   <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
-                    <div className="text-lg font-semibold flex items-center gap-2"><span>🏆</span> Achievement Progress</div>
+                    <div className="text-lg font-semibold flex items-center gap-2"><span>ðŸ†</span> Achievement Progress</div>
                     <ProfileAchievementProgressRarity badges={canonicalBadgeProgress} />
                   </section>
                 </aside>
@@ -1024,23 +1025,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               </div>
             </div>
           )}
-          {tab==='savings' && (
-            <>
-              {(() => {
-                try {
-                  const SavingsAnalytics = require('@/components/SavingsAnalytics').default;
-                  return <SavingsAnalytics />;
-                } catch {
-                  return (
-                    <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
-                      <div className="text-lg font-semibold">Budget Savings</div>
-                      <div className="text-sm opacity-80">Track how much you've saved using budget swaps. This feature is coming soon!</div>
-                    </section>
-                  );
-                }
-              })()}
-            </>
-          )}
+          {tab==='savings' && <SavingsAnalytics />}
           {tab==='security' && (
             <div className="space-y-6">
               {/* Privacy Section */}
@@ -1090,19 +1075,12 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       <span className="text-xs text-emerald-400">Active</span>
                     </div>
                   </div>
-                  <button 
-                    onClick={async () => {
-                      if (confirm('Log out all other sessions? You will remain logged in on this device.')) {
-                        try {
-                          // This would call a backend endpoint to invalidate other sessions
-                          alert('Session management coming soon. For now, change your password to force logout everywhere.');
-                        } catch {}
-                      }
-                    }}
-                    className="px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-white text-sm"
+                  <a
+                    href="/account/update-password"
+                    className="inline-block px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-white text-sm"
                   >
-                    Log out all other sessions
-                  </button>
+                    Change password to sign out elsewhere
+                  </a>
                 </div>
 
                 {/* Account Deletion */}
@@ -1170,7 +1148,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 <div className="space-y-4">
                   <div className="bg-gradient-to-br from-purple-900/30 via-blue-900/20 to-emerald-900/20 border-2 border-emerald-500/50 rounded-xl p-6 shadow-xl">
                     <div className="flex items-start gap-3 mb-3">
-                      <span className="text-5xl">✨</span>
+                      <span className="text-5xl">âœ¨</span>
                       <div className="flex-1">
                         <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-blue-300 mb-2">
                           Thank You for Being Pro!
@@ -1184,12 +1162,12 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
                   <div className="space-y-3">
                     <div className="text-base font-bold text-neutral-200 flex items-center gap-2">
-                      <span className="text-emerald-400">✅</span> Your Pro Features
+                      <span className="text-emerald-400">âœ…</span> Your Pro Features
                     </div>
                     <div className="grid grid-cols-1 gap-2.5">
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-blue-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-blue-400 text-2xl flex-shrink-0">🤖</span>
+                          <span className="text-blue-400 text-2xl flex-shrink-0">ðŸ¤–</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Higher AI Usage Limits</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Higher limits on deck analysis & AI chat</div>
@@ -1198,7 +1176,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-emerald-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-emerald-400 text-2xl flex-shrink-0">📊</span>
+                          <span className="text-emerald-400 text-2xl flex-shrink-0">ðŸ“Š</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Advanced Probability Tools</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Hand testing, mulligan simulator, probability calculator</div>
@@ -1207,7 +1185,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-amber-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-amber-400 text-2xl flex-shrink-0">💰</span>
+                          <span className="text-amber-400 text-2xl flex-shrink-0">ðŸ’°</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Price Tracking & History</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Real-time prices, historical charts, budget optimization</div>
@@ -1216,7 +1194,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-purple-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-purple-400 text-2xl flex-shrink-0">📤</span>
+                          <span className="text-purple-400 text-2xl flex-shrink-0">ðŸ“¤</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Export to Moxfield & MTGO</div>
                             <div className="text-xs text-neutral-400 mt-0.5">One-click export in multiple formats</div>
@@ -1225,7 +1203,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-pink-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-pink-400 text-2xl flex-shrink-0">⚡</span>
+                          <span className="text-pink-400 text-2xl flex-shrink-0">âš¡</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Priority Support & Badge</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Faster help, exclusive badge, early access to features</div>
@@ -1258,7 +1236,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="bg-neutral-950 rounded-lg border border-neutral-700 p-4 space-y-2">
                         <div className="text-xs text-neutral-400 uppercase tracking-wide">Monthly</div>
-                        <div className="text-3xl font-bold">£1.99</div>
+                        <div className="text-3xl font-bold">Â£1.99</div>
                         <div className="text-xs text-neutral-400">per month</div>
                         <button onClick={()=>startCheckout('monthly')} className="w-full px-4 py-2 rounded bg-white text-black hover:bg-gray-200 text-sm font-medium mt-3">
                           Upgrade to Pro
@@ -1269,7 +1247,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                           Save 37%
                         </div>
                         <div className="text-xs text-neutral-400 uppercase tracking-wide">Yearly</div>
-                        <div className="text-3xl font-bold">£14.99</div>
+                        <div className="text-3xl font-bold">Â£14.99</div>
                         <div className="text-xs text-neutral-400">per year</div>
                         <button onClick={()=>startCheckout('yearly')} className="w-full px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium mt-3">
                           Upgrade to Pro
@@ -1283,30 +1261,30 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     <div className="text-sm font-semibold">Pro Features Include:</div>
                     <ul className="text-sm text-neutral-300 space-y-1.5 ml-4">
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">•</span>
+                        <span className="text-blue-400 mt-0.5">â€¢</span>
                         <span>Higher limits on AI deck analysis (Free tier has daily limits)</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">•</span>
+                        <span className="text-blue-400 mt-0.5">â€¢</span>
                         <span>Advanced probability calculations and hand testing</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">•</span>
+                        <span className="text-blue-400 mt-0.5">â€¢</span>
                         <span>Full price history and tracking alerts</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">•</span>
+                        <span className="text-blue-400 mt-0.5">â€¢</span>
                         <span>Export decks to Moxfield, MTGO, and more</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">•</span>
+                        <span className="text-blue-400 mt-0.5">â€¢</span>
                         <span>Collection bulk operations and fixes</span>
                       </li>
                     </ul>
                   </div>
 
                   <a href="/pricing" className="inline-block text-sm text-blue-400 hover:text-blue-300 underline">
-                    View full plan details →
+                    View full plan details â†’
                   </a>
                 </div>
               )}
@@ -1396,7 +1374,7 @@ function ProfileAchievementProgress({ badges: initialBadges }: { badges: BadgePr
         {badges.map(b => (
           <li key={b.id} className={`rounded-lg border p-3 text-xs ${getBadgeRarityClasses(b.rarity).card}`}>
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2"><span className="text-base">{b.icon}</span><span>{b.name}</span>{b.unlocked && <span className="text-emerald-400 text-[10px]">✓</span>}</div>
+              <div className="flex items-center gap-2"><span className="text-base">{b.icon}</span><span>{b.name}</span>{b.unlocked && <span className="text-emerald-400 text-[10px]">âœ“</span>}</div>
               <div className="font-mono">{b.current}/{b.target}</div>
             </div>
             <div className="mt-1 h-2 w-full rounded bg-neutral-800 overflow-hidden">
@@ -1441,7 +1419,7 @@ function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: B
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] ${getBadgeRarityClasses(b.rarity).chip}`}>
                     {badgeRarityLabel(b.rarity)}
                   </span>
-                  {b.unlocked && <span className="text-emerald-400 text-[10px]">✓</span>}
+                  {b.unlocked && <span className="text-emerald-400 text-[10px]">âœ“</span>}
                 </div>
               </div>
             </div>
@@ -1461,10 +1439,10 @@ function NextBadgesProgress(props: NextBadgesProgressProps){
   const { deckCount, collectionCount, pinnedCount, signatureSet } = props;
   function nextTarget(thresholds:number[], val:number){ for (const t of thresholds){ if (val < t) return t; } return null; }
   const items: Array<{ key:string; label:string; current:number; target:number; emoji:string }> = [];
-  const tBrewer = nextTarget([5,15,30], deckCount); if (tBrewer!=null) items.push({ key:'brewer_next', label:`Brewer ${tBrewer===5?'I':tBrewer===15?'II':'III'}`, current: deckCount, target: tBrewer, emoji:'⚗️' });
-  const tCurator = nextTarget([3,10,25], collectionCount); if (tCurator!=null) items.push({ key:'curator_next', label:`Curator ${tCurator===3?'I':tCurator===10?'II':'III'}`, current: collectionCount, target: tCurator, emoji:'📚' });
-  if (!signatureSet) items.push({ key:'signature', label:'Signature Commander', current: 0, target: 1, emoji:'👑' });
-  if (pinnedCount < 3) items.push({ key:'showcase', label:'Showcase (pin 3 decks)', current: pinnedCount, target: 3, emoji:'📌' });
+  const tBrewer = nextTarget([5,15,30], deckCount); if (tBrewer!=null) items.push({ key:'brewer_next', label:`Brewer ${tBrewer===5?'I':tBrewer===15?'II':'III'}`, current: deckCount, target: tBrewer, emoji:'âš—ï¸' });
+  const tCurator = nextTarget([3,10,25], collectionCount); if (tCurator!=null) items.push({ key:'curator_next', label:`Curator ${tCurator===3?'I':tCurator===10?'II':'III'}`, current: collectionCount, target: tCurator, emoji:'ðŸ“š' });
+  if (!signatureSet) items.push({ key:'signature', label:'Signature Commander', current: 0, target: 1, emoji:'ðŸ‘‘' });
+  if (pinnedCount < 3) items.push({ key:'showcase', label:'Showcase (pin 3 decks)', current: pinnedCount, target: 3, emoji:'ðŸ“Œ' });
 
   if (items.length === 0) return null;
   return (
@@ -1509,9 +1487,9 @@ function ToolUsageMini(props: ToolUsageMiniProps){
     <div className="mt-3 rounded border border-neutral-800 p-2 text-[11px]">
       <div className="font-medium mb-1">Tool usage</div>
       <ul className="grid grid-cols-1 gap-1">
-        <li title="Run Probability tool 10 times to unlock Mathlete">Mathlete ∑ — runs: <span className="font-mono">{runs}</span>{needRuns>0?` (need ${needRuns} more)`:''}</li>
-        <li title="Save 5 scenarios to unlock Scenario Collector">Scenario Collector 💾 — saves: <span className="font-mono">{saves}</span>{needSaves>0?` (need ${needSaves} more)`:''}</li>
-        <li title="Accumulate 25,000 mulligan iterations to unlock Mulligan Master">Mulligan Master ♻️ — iterations: <span className="font-mono">{iters}</span>{needIters>0?` (need ${needIters} more)`:''}</li>
+        <li title="Run Probability tool 10 times to unlock Mathlete">Mathlete âˆ‘ â€” runs: <span className="font-mono">{runs}</span>{needRuns>0?` (need ${needRuns} more)`:''}</li>
+        <li title="Save 5 scenarios to unlock Scenario Collector">Scenario Collector ðŸ’¾ â€” saves: <span className="font-mono">{saves}</span>{needSaves>0?` (need ${needSaves} more)`:''}</li>
+        <li title="Accumulate 25,000 mulligan iterations to unlock Mulligan Master">Mulligan Master â™»ï¸ â€” iterations: <span className="font-mono">{iters}</span>{needIters>0?` (need ${needIters} more)`:''}</li>
       </ul>
     </div>
   );
@@ -1529,7 +1507,7 @@ function Wallet(){
     })();
   }, []);
   async function del(id:string){ if(!confirm('Delete this custom card?')) return; const r = await fetch('/api/custom-cards/delete', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setRows(rs=>rs.filter(x=>x.id!==id)); else alert(j?.error||'Delete failed'); }
-  if (loading) return <div className="text-xs opacity-70">Loading…</div>;
+  if (loading) return <div className="text-xs opacity-70">Loadingâ€¦</div>;
   if (error) return <div className="text-xs text-red-400">{error}</div>;
   if (!rows.length) return (
     <div className="text-xs opacity-80">
@@ -1549,7 +1527,7 @@ function Wallet(){
               {require('react').createElement(require('@/components/AuthenticMTGCard').default, { mode:'view', width:'320px', value: {
                 nameParts: Array.isArray(val?.nameParts)? val.nameParts : ['','',title].slice(0,3),
                 subtext: String(val?.subtext||val?.sub||''),
-                typeLine: String(val?.typeLine||'Creature — Wizard'),
+                typeLine: String(val?.typeLine||'Creature â€” Wizard'),
                 pt: val?.pt || { p:1, t:1 },
                 cost: Number(val?.cost||3),
                 manaCost: Array.isArray(val?.manaCost)? val.manaCost : ['2', String(val?.colorHint||'U')],
@@ -1650,7 +1628,7 @@ async function save(){ try{ setSaving(true); const r = await fetch('/api/profile
                   className="px-2 py-1 rounded text-xs border border-blue-600 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 transition-colors"
                   title="Share this badge"
                 >
-                  📤 Share
+                  ðŸ“¤ Share
                 </button>
                 <button 
                   onClick={()=>togglePin(b.label)} 
@@ -1660,7 +1638,7 @@ async function save(){ try{ setSaving(true); const r = await fetch('/api/profile
                       : 'border-neutral-700 hover:bg-neutral-800 text-neutral-300'
                   }`}
                 >
-                  {pinnedSet.has(b.label) ? '📌 Pinned' : 'Pin'}
+                  {pinnedSet.has(b.label) ? 'ðŸ“Œ Pinned' : 'Pin'}
                 </button>
               </div>
             </div>
@@ -1668,7 +1646,7 @@ async function save(){ try{ setSaving(true); const r = await fetch('/api/profile
         ))}
       </ul>
       <div className="text-right text-xs opacity-80">Pinned: {pins.length}/3</div>
-      <div className="text-right"><button onClick={save} disabled={saving} className={`px-3 py-1.5 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving?'Saving…':'Save pinned badges'}</button></div>
+      <div className="text-right"><button onClick={save} disabled={saving} className={`px-3 py-1.5 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving?'Savingâ€¦':'Save pinned badges'}</button></div>
       
       {/* Share Banner Modal */}
       {showShareBanner && (
@@ -1807,7 +1785,7 @@ function StatsCharts(props: StatsChartsProps) {
             if (type.includes('Instant') || type.includes('Sorcery')) { w.control += 0.2*q; w.combo += 0.1*q; }
             if (/counter target/.test(text) || /destroy all/.test(text) || /board wipe/.test(text)) { w.control += 0.6*q; }
             if (/search your library/.test(text) || /tutor/.test(text)) { w.combo += 0.6*q; }
-            if (/players can\'t|can’t|can’t cast|doesn\'t untap|skip your|skip their|each player|unless you pay|pay \{/.test(text)
+            if (/players can\'t|canâ€™t|canâ€™t cast|doesn\'t untap|skip your|skip their|each player|unless you pay|pay \{/.test(text)
                || /rule of law|winter orb|static orb|stasis|ghostly prison|sphere of resistance|archon of/.test(text)) {
               w.stax += 0.8*q;
             }
@@ -1954,7 +1932,7 @@ function StatsCharts(props: StatsChartsProps) {
         </div>
       ) : (
         <div className="text-center py-8 text-sm opacity-70">
-          <div className="mb-2">📊 No deck trends data available</div>
+          <div className="mb-2">ðŸ“Š No deck trends data available</div>
           <div className="text-xs">
             Create some decks and add cards to see your deck trends here.
           </div>
@@ -1962,436 +1940,6 @@ function StatsCharts(props: StatsChartsProps) {
       )}
       <div className="mt-2 text-[10px] text-neutral-400">Derived from your decklists: we analyze card types, keywords, and curve (creatures, instants/sorceries, tutors, wipes, stax/tax pieces) and aggregate across your decks.</div>
     </section>
-  );
-}
-
-function WishlistEditor({ pro }: { pro: boolean }){
-  const [wishlists, setWishlists] = React.useState<Array<{id:string; name:string; is_public?: boolean}>>([]);
-  const [wishlistId, setWishlistId] = React.useState<string>('');
-  // Use global currency prefs
-  const { currency: globalCurrency, setCurrency: setGlobalCurrency } = usePrefs();
-  const currency = (globalCurrency as any as 'USD'|'EUR'|'GBP') || 'USD';
-  const setCurrency = (c: 'USD'|'EUR'|'GBP') => setGlobalCurrency?.(c);
-  const [items, setItems] = React.useState<Array<{ name:string; qty:number; unit:number; thumb?:string }>>([]);
-  const [total, setTotal] = React.useState<number>(0);
-  const [loading, setLoading] = React.useState<boolean>(true);
-  const [adding, setAdding] = React.useState<boolean>(false);
-  const [addName, setAddName] = React.useState<string>('');
-  const [addQty, setAddQty] = React.useState<number>(1);
-  const [error, setError] = React.useState<string|null>(null);
-  const [collections, setCollections] = React.useState<Array<{ id:string; name:string }>>([]);
-  const [collectionId, setCollectionId] = React.useState<string>('');
-  const [compare, setCompare] = React.useState<{ missing: Array<{ name:string; need:number; unit:number }>; total:number; currency:string }|null>(null);
-  // Keyboard + selection state
-  const [sel, setSel] = React.useState<number>(-1);
-  const [selSet, setSelSet] = React.useState<Set<string>>(new Set());
-  const containerRef = useRef<HTMLDivElement>(null);
-  const addWrapRef = useRef<HTMLDivElement>(null);
-  const [showBulk, setShowBulk] = React.useState(false);
-  const [bulkText, setBulkText] = React.useState<string>('');
-  const [bulkMode, setBulkMode] = React.useState<'increment'|'replace'>('increment');
-
-  React.useEffect(()=>{ (async()=>{
-    try{
-      setLoading(true);
-      const r = await fetch('/api/wishlists/list', { cache:'no-store' });
-      const j = await r.json().catch(()=>({}));
-      const wls = Array.isArray(j?.wishlists) ? (j.wishlists as any[]) : [];
-      setWishlists(wls);
-      const first = wls[0]?.id ? String(wls[0].id) : '';
-      setWishlistId(prev => prev || first);
-      // Load collections for compare action
-      try{
-        const cr = await fetch('/api/collections/list', { cache:'no-store' });
-        const cj = await cr.json().catch(()=>({}));
-        const cols = Array.isArray(cj?.collections)? cj.collections as any[] : [];
-        setCollections(cols);
-        if (!collectionId && cols[0]?.id) setCollectionId(String(cols[0].id));
-      } catch{}
-    } finally { setLoading(false); }
-  })(); }, []);
-
-  React.useEffect(()=>{ (async()=>{
-    if (!wishlistId) { setItems([]); setTotal(0); return; }
-    try{
-      setLoading(true);
-      const q = new URLSearchParams({ wishlistId, currency });
-      const r = await fetch(`/api/wishlists/items?${q.toString()}`, { cache:'no-store' });
-      const j = await r.json().catch(()=>({}));
-      if (r.ok && j?.ok){ setItems(Array.isArray(j.items)?j.items:[]); setTotal(Number(j.total||0)); setSel(-1); }
-      else { setError(j?.error||'Failed to load items'); }
-    } finally { setLoading(false); }
-  })(); }, [wishlistId, currency]);
-
-  // Selection helpers
-  function toggleOne(name:string){ setSelSet(prev => { const next = new Set(prev); if (next.has(name)) next.delete(name); else next.add(name); return next; }); }
-  function allSelectedOnPage(){ return items.length>0 && items.every(it => selSet.has(it.name)); }
-  function toggleAll(){ const all = allSelectedOnPage(); setSelSet(all? new Set() : new Set(items.map(it=>it.name))); }
-  async function removeSelected(){
-    if (selSet.size===0) return;
-    if(!confirm(`Remove ${selSet.size} selected item(s)?`)) return;
-    try{
-      const names = Array.from(selSet);
-      const r = await fetch('/api/wishlists/remove-batch', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, names }) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Batch remove failed');
-      // reload
-      const qs = new URLSearchParams({ wishlistId, currency });
-      const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
-      const jj = await rr.json().catch(()=>({}));
-      if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
-      setSelSet(new Set());
-    } catch(e:any){ alert(e?.message||'Batch remove failed'); }
-  }
-
-  function fmt(n:number){ try{ return new Intl.NumberFormat(undefined, { style:'currency', currency }).format(n||0); } catch { return `$${(n||0).toFixed(2)}`; } }
-
-  // Image map for hover previews
-  const [imgMap, setImgMap] = React.useState<Record<string, { small?: string; normal?: string }>>({});
-  React.useEffect(()=>{ (async()=>{
-    try{
-      const names = Array.from(new Set(items.map(i=>i.name))).slice(0,400);
-      if (!names.length) { setImgMap({}); return; }
-      const m = await getImagesForNames(names);
-      const obj: Record<string, { small?: string; normal?: string }> = {};
-      m.forEach((v:any,k:string)=>{ obj[k.toLowerCase()] = { small: v.small, normal: v.normal||v.art_crop||v.small }; });
-      setImgMap(obj);
-    } catch { setImgMap({}); }
-  })(); }, [items.map(i=>i.name).join('|')]);
-
-  const { preview, bind } = useHoverPreview();
-  const [fixOpen, setFixOpen] = React.useState(false);
-
-  async function add(){
-    const name = addName.trim(); const q = Math.max(1, Number(addQty||1)); if (!name) return;
-    try{ setAdding(true);
-      const body: any = { names:[name], qty: q };
-      if (wishlistId) body.wishlist_id = wishlistId;
-      const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Add failed');
-      const wid = String(j?.wishlist_id||wishlistId||'');
-      if (wid && wid !== wishlistId) setWishlistId(wid);
-      setAddName(''); setAddQty(1);
-      // reload
-      const qs = new URLSearchParams({ wishlistId: wid||wishlistId, currency });
-      const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
-      const jj = await rr.json().catch(()=>({}));
-      if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
-    } catch(e:any){ alert(e?.message||'Add failed'); } finally { setAdding(false); }
-  }
-
-  async function setQty(name:string, next:number){
-    try{
-      const body = { wishlist_id: wishlistId, name, qty: Math.max(0, Number(next||0)) };
-      const r = await fetch('/api/wishlists/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Update failed');
-      setItems(prev => prev.map(it => it.name===name ? { ...it, qty: Math.max(0,next) } : it));
-      setTotal(prev => items.reduce((s,it)=> s + (it.name===name ? (it.unit||0)*Math.max(0,next) : (it.unit||0)*Math.max(0,it.qty||0)), 0));
-    } catch(e:any){ alert(e?.message||'Update failed'); }
-  }
-  
-  function focusAdd(){ try{ addWrapRef.current?.querySelector('input')?.focus(); } catch{} }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>){
-    const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-    const typing = tag === 'input' || tag === 'textarea';
-    if (e.ctrlKey && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); setShowBulk(true); return; }
-    if (e.ctrlKey && (e.key === 'f' || e.key === 'F' || e.key === '/')) { e.preventDefault(); focusAdd(); return; }
-    if (typing) return; // don't hijack while editing inputs
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSel(i=> Math.min(items.length-1, Math.max(0, i+1))); return; }
-    if (e.key === 'ArrowUp') { e.preventDefault(); setSel(i=> Math.max(0, (i<0?0:i-1))); return; }
-    if (e.key === '+' || e.key === '=') { e.preventDefault(); if (sel>=0 && sel<items.length) setQty(items[sel].name, (items[sel].qty||0)+1); return; }
-    if (e.key === '-' || e.key === '_') { e.preventDefault(); if (sel>=0 && sel<items.length) setQty(items[sel].name, Math.max(0,(items[sel].qty||0)-1)); return; }
-    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (sel>=0 && sel<items.length) remove(items[sel].name); return; }
-    if (e.key === 'Enter') { if (addName.trim()) { e.preventDefault(); add(); } return; }
-  }
-
-  async function remove(name:string){
-    try{
-      const r = await fetch('/api/wishlists/remove', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, name }) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Remove failed');
-      setItems(prev => prev.filter(it => it.name !== name));
-      setTotal(prev => items.filter(it=>it.name!==name).reduce((s,it)=> s + (it.unit||0)*Math.max(0,it.qty||0), 0));
-    } catch(e:any){ alert(e?.message||'Remove failed'); }
-  }
-
-  async function inlineFix(name:string){
-    try{
-      const r = await fetch('/api/cards/fuzzy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ names:[name] }) });
-      const j = await r.json().catch(()=>({}));
-      const sugg = j?.results?.[name]?.suggestion || j?.results?.[name]?.all?.[0];
-      if (!sugg) { alert('No suggestion found'); return; }
-      if (!confirm(`Rename to "${sugg}"?`)) return;
-      const rr = await fetch('/api/wishlists/rename', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, name, new_name: sugg }) });
-      const jj = await rr.json().catch(()=>({}));
-      if (!rr.ok || jj?.ok===false) throw new Error(jj?.error||'Rename failed');
-      // reload
-      const qs = new URLSearchParams({ wishlistId, currency });
-      const r2 = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
-      const j2 = await r2.json().catch(()=>({}));
-      if (r2.ok && j2?.ok){ setItems(Array.isArray(j2.items)?j2.items:[]); setTotal(Number(j2.total||0)); setSel(-1); }
-    } catch(e:any){ alert(e?.message||'Rename failed'); }
-  }
-
-  if (loading && !items.length && !wishlists.length) return <div className="text-xs opacity-70">Loading…</div>;
-
-  return (
-    <div ref={containerRef} onKeyDown={handleKeyDown} tabIndex={0} className="space-y-3 outline-none">
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <label className="text-sm opacity-80">Wishlist</label>
-          <select value={wishlistId} onChange={(e)=>setWishlistId(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm min-w-[12rem]">
-            {wishlists.map(w => (<option key={w.id} value={w.id}>{w.name||'Untitled'}</option>))}
-            {!wishlists.length && (<option value="">My Wishlist</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm opacity-80">Currency</label>
-          <select value={currency} onChange={(e)=>setCurrency(e.target.value as any)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
-            <option>USD</option>
-            <option>EUR</option>
-            <option>GBP</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
-          {wishlistId ? <WishlistCsvUpload wishlistId={wishlistId} onDone={async()=>{ const qs=new URLSearchParams({ wishlistId, currency }); const r=await fetch(`/api/wishlists/items?${qs.toString()}`,{cache:'no-store'}); const j=await r.json().catch(()=>({})); if (r.ok&&j?.ok){ setItems(Array.isArray(j.items)?j.items:[]); setTotal(Number(j.total||0)); } }} /> : null}
-          {wishlistId ? <ExportWishlistCSV wishlistId={wishlistId} small /> : null}
-          <button onClick={()=>setFixOpen(true)} className="text-xs underline underline-offset-4">Fix names</button>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 items-end">
-        <label className="text-sm flex-1 min-w-[260px]">
-          <div className="opacity-70 mb-1">Add card</div>
-          <div ref={addWrapRef}>
-            <CardAutocomplete value={addName} onChange={setAddName} onPick={(name)=>{ setAddName(name); add(); }} placeholder="Search card…" />
-          </div>
-        </label>
-        <label className="text-sm w-24">
-          <div className="opacity-70 mb-1">Qty</div>
-          <input type="number" min={1} value={addQty} onChange={(e)=>setAddQty(Math.max(1, Number(e.target.value||1)))} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1" />
-        </label>
-        <button onClick={add} disabled={adding || !addName.trim()} className={`px-3 py-2 rounded text-sm ${adding || !addName.trim() ? 'bg-gray-300 text-black' : 'bg-white text-black hover:bg-gray-100'}`}>{adding?'Adding…':'Add'}</button>
-        <button onClick={()=>setShowBulk(true)} className="px-3 py-2 rounded border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-sm">Bulk add</button>
-        <div className="ml-auto flex items-end gap-2">
-          <label className="text-sm">
-            <div className="opacity-70 mb-1">Compare vs Collection</div>
-            <select value={collectionId} onChange={(e)=>setCollectionId(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm min-w-[12rem]">
-              {collections.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
-            </select>
-          </label>
-          <button onClick={async()=>{
-            if (!wishlistId || !collectionId) return;
-            try{
-              const q = new URLSearchParams({ wishlistId, collectionId, currency });
-              const r = await fetch(`/api/wishlists/compare?${q.toString()}`, { cache:'no-store' });
-              const j = await r.json().catch(()=>({}));
-              if (r.ok && j?.ok) setCompare({ missing: Array.isArray(j.missing)? j.missing : [], total: Number(j.total||0), currency: String(j.currency||currency) });
-            } catch{}
-          }} className="px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">Compare</button>
-        </div>
-        <FixNamesModalWishlist wishlistId={wishlistId} open={fixOpen} onClose={()=>setFixOpen(false)} pro={pro} />
-      </div>
-
-      {compare && (
-        <div className="rounded border border-neutral-800 p-3 text-sm">
-          <div className="flex items-center justify-between">
-            <div className="font-medium">Missing from selected collection</div>
-            <div className="tabular-nums">Est. {new Intl.NumberFormat(undefined, { style:'currency', currency: compare.currency as any }).format(compare.total||0)}</div>
-          </div>
-          <ul className="mt-2 max-h-40 overflow-auto space-y-1">
-            {compare.missing.map((m,i)=> (
-              <li key={`${m.name}-${i}`} className="flex items-center justify-between gap-2">
-                <span className="truncate">{m.name}</span>
-                <span className="opacity-80">x{m.need}</span>
-              </li>
-            ))}
-            {compare.missing.length===0 && (<li className="text-xs opacity-70">No gaps — you already own everything on this wishlist in the selected collection.</li>)}
-          </ul>
-        </div>
-      )}
-
-      <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
-        {/* Action bar */}
-        <div className="sticky top-0 z-20 bg-neutral-950/90 backdrop-blur border-b border-neutral-800 px-2 py-1 flex items-center gap-2 text-xs">
-          <label className="inline-flex items-center gap-2"><input type="checkbox" checked={allSelectedOnPage()} onChange={toggleAll} /> Select all</label>
-          {selSet.size>0 && (
-            <>
-              <span className="opacity-80">{selSet.size} selected</span>
-              <button className="px-2 py-0.5 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setSelSet(new Set())}>Clear</button>
-              <button className="px-2 py-0.5 rounded border border-red-500 text-red-300 hover:bg-red-900/20" onClick={removeSelected}>Remove selected</button>
-            </>
-          )}
-        </div>
-        <table className="w-full text-sm select-none">
-          <thead>
-            <tr className="text-xs opacity-70 border-b border-neutral-800">
-              <th className="p-2 sticky top-6 bg-neutral-950 z-10">{/* selection */}</th>
-              <th className="text-left p-2 sticky top-6 bg-neutral-950 z-10">Card</th>
-              <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Price</th>
-              <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Qty</th>
-              <th className="text-right p-2 sticky top-6 bg-neutral-950 z-10">Subtotal</th>
-              <th className="p-2 sticky top-6 bg-neutral-950 z-10"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((it, i) => (
-              <tr key={it.name} className={`border-b border-neutral-900 ${sel===i? 'bg-neutral-900/60' : ''}`} onClick={()=>setSel(i)}>
-                <td className="p-2 w-8 align-middle"><input type="checkbox" checked={selSet.has(it.name)} onChange={()=>toggleOne(it.name)} /></td>
-                <td className="p-2">
-                  <div className="flex items-center gap-3">
-                    {(() => { const key = it.name.toLowerCase(); const img = imgMap[key]?.small || it.thumb || ''; const big = imgMap[key]?.normal || img || ''; return img ? (<img src={img} alt="" className="w-10 h-14 object-cover rounded border border-neutral-800" {...(bind(big) as any)} />) : (<div className="w-10 h-14 rounded bg-neutral-900 border border-neutral-800" />); })()}
-                    <span className="truncate max-w-[38ch]" title={it.name}>{it.name}</span>
-                  </div>
-                </td>
-                <td className="p-2 text-right tabular-nums">{(it.unit||0)>0 ? fmt(it.unit||0) : (<span className="opacity-60">— <button className="underline" onClick={()=>inlineFix(it.name)}>fix?</button></span>)}</td>
-                <td className="p-2 text-right">
-                  <div className="inline-flex items-center gap-2">
-                    <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) - 1))}>-</button>
-                    <span className="min-w-[2ch] inline-block text-center tabular-nums">{it.qty||0}</span>
-                    <button className="px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800" onClick={()=>setQty(it.name, Math.max(0, (it.qty||0) + 1))}>+</button>
-                  </div>
-                </td>
-                <td className="p-2 text-right tabular-nums">{fmt((it.unit||0) * Math.max(0,it.qty||0))}</td>
-                <td className="p-2 text-right">
-                  <button className="text-xs text-red-300 underline" onClick={()=>remove(it.name)}>Remove</button>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr><td colSpan={5} className="p-3 text-xs opacity-70 text-center">No items yet. Use the form above to add cards.</td></tr>
-            )}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td className="p-2 text-right" colSpan={3}>Total</td>
-              <td className="p-2 text-right font-semibold tabular-nums">{fmt(total||0)}</td>
-              <td className="p-2"></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      {preview}
-      {/* Bulk add modal */}
-      {showBulk && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="w-[min(720px,95vw)] rounded-lg border border-neutral-700 bg-neutral-950 p-4 shadow-xl">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-base font-semibold">Bulk add to wishlist</div>
-              <button className="text-sm opacity-80 hover:opacity-100" onClick={()=>setShowBulk(false)}>Close</button>
-            </div>
-            <div className="text-xs opacity-80 mb-2">Paste one card per line. Formats supported: "2 Sol Ring", "Sol Ring x2", "Sol Ring". Use Ctrl+B to open, Ctrl+F to focus search, +/- to change qty on selection, Delete to remove.</div>
-            <textarea value={bulkText} onChange={(e)=>setBulkText(e.target.value)} className="w-full min-h-40 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" placeholder={"2 Sol Ring\n1 Lightning Greaves\n3 Counterspell"} />
-            <div className="mt-2 flex items-center justify-between">
-              <div className="flex items-center gap-3 text-sm">
-                <label className="flex items-center gap-1"><input type="radio" name="bulkmode" checked={bulkMode==='increment'} onChange={()=>setBulkMode('increment')} /> Increment existing</label>
-                <label className="flex items-center gap-1"><input type="radio" name="bulkmode" checked={bulkMode==='replace'} onChange={()=>setBulkMode('replace')} /> Set exact quantities</label>
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="px-3 py-1.5 rounded border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-sm" onClick={()=>setBulkText('')}>Clear</button>
-                <button className="px-3 py-1.5 rounded bg-white text-black text-sm" onClick={async()=>{
-                  const lines = (bulkText||'').split(/\r?\n|,/).map(s=>s.trim()).filter(Boolean);
-                  if (!lines.length) { setShowBulk(false); return; }
-                  function parseLine(s:string){
-                    const a = s.match(/^\s*(\d+)\s*[xX]?\s+(.+)$/); if (a) return { qty: Math.max(1, Number(a[1]||1)), name: a[2].trim() };
-                    const b = s.match(/^\s*(.+?)\s*[xX]\s*(\d+)\s*$/); if (b) return { qty: Math.max(1, Number(b[2]||1)), name: b[1].trim() };
-                    return { qty: 1, name: s.trim() };
-                  }
-                  const parsed = lines.map(parseLine).filter(p=>!!p.name);
-                  try{
-                    if (bulkMode==='increment'){
-                      // group by qty, call add endpoint in batches
-                      const groups: Record<string,string[]> = {};
-                      for (const p of parsed){ const k = String(p.qty); (groups[k] ||= []).push(p.name); }
-                      for (const [k, names] of Object.entries(groups)){
-                        const body:any = { names, qty: Math.max(1, Number(k)||1) }; if (wishlistId) body.wishlist_id = wishlistId;
-                        const r = await fetch('/api/wishlists/add', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-                        const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk add failed');
-                        const wid = String(j?.wishlist_id||wishlistId||''); if (wid && wid !== wishlistId) setWishlistId(wid);
-                      }
-                    } else {
-                      // replace exact quantities via update route per item
-                      for (const p of parsed){
-                        const body = { wishlist_id: wishlistId, name: p.name, qty: Math.max(0, Number(p.qty||0)) };
-                        const r = await fetch('/api/wishlists/update', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-                        const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Bulk update failed');
-                      }
-                    }
-                    // reload
-                    const qs = new URLSearchParams({ wishlistId, currency });
-                    const rr = await fetch(`/api/wishlists/items?${qs.toString()}`, { cache:'no-store' });
-                    const jj = await rr.json().catch(()=>({})); if (rr.ok && jj?.ok){ setItems(Array.isArray(jj.items)?jj.items:[]); setTotal(Number(jj.total||0)); setSel(-1); }
-                    setShowBulk(false); setBulkText('');
-                  } catch(e:any){ alert(e?.message||'Bulk action failed'); }
-                }}>Apply</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FixNamesModalWishlist({ wishlistId, open, onClose, pro }: { wishlistId: string; open: boolean; onClose: ()=>void; pro: boolean }){
-  const [loading, setLoading] = React.useState(false);
-  const [items, setItems] = React.useState<Array<{ name: string; suggestions: string[]; choice?: string }>>([]);
-  const [saving, setSaving] = React.useState(false);
-
-  React.useEffect(()=>{ if(!open) return; (async()=>{
-    try{
-      setLoading(true);
-      const r = await fetch(`/api/wishlists/fix-names?wishlistId=${encodeURIComponent(wishlistId)}`, { cache:'no-store' });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Load failed');
-      const arr: any[] = Array.isArray(j.items)? j.items : [];
-      setItems(arr.map(it => ({ ...it, choice: (it.suggestions||[])[0] || '' })));
-    } catch(e:any){ alert(e?.message||'Failed to load fixes'); onClose(); }
-    finally { setLoading(false); }
-  })(); }, [open, wishlistId]);
-
-  async function apply(){
-    if (!pro) { alert('Batch fix is a Pro feature.'); return; }
-    try{
-      setSaving(true);
-      const changes = items.map(it => ({ from: it.name, to: String(it.choice||'').trim() })).filter(ch => ch.to && ch.to !== ch.from);
-      if (!changes.length) { onClose(); return; }
-      const r = await fetch('/api/wishlists/fix-names/apply', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ wishlist_id: wishlistId, changes }) });
-      const j = await r.json().catch(()=>({}));
-      if (!r.ok || j?.ok===false) throw new Error(j?.error||'Apply failed');
-      onClose(); try{ window.location.reload(); } catch{}
-    } catch(e:any){ alert(e?.message||'Apply failed'); } finally { setSaving(false); }
-  }
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
-      <div className="max-w-xl w-full rounded border border-neutral-700 bg-neutral-950 p-3 text-sm">
-        <div className="font-semibold mb-2">Fix card names</div>
-        {loading && <div className="text-xs opacity-70">Loading…</div>}
-        {!loading && items.length===0 && (<div className="text-xs opacity-80">All card names look good.</div>)}
-        {!loading && items.length>0 && (
-          <div className="space-y-2 max-h-[50vh] overflow-auto pr-2">
-            {items.map((it, idx) => (
-              <div key={`${it.name}-${idx}`} className="flex items-center gap-2">
-                <div className="flex-1 truncate">{it.name}</div>
-                <select value={it.choice} onChange={e=>setItems(arr => { const next = arr.slice(); next[idx] = { ...it, choice: e.target.value }; return next; })}
-                  className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs">
-                  {it.suggestions.map(s => (<option key={s} value={s}>{s}</option>))}
-                </select>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="mt-3 flex items-center justify-end gap-2">
-          {!pro && (<span className="text-[11px] opacity-70 mr-auto">Batch rename is a Pro feature.</span>)}
-          <button onClick={onClose} className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-xs">Close</button>
-          <button onClick={apply} disabled={saving || loading || items.length===0 || !pro} className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-xs">Apply</button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -2550,7 +2098,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
   if (!pro) {
     return (
       <div className="text-sm opacity-70 p-4 bg-neutral-900/50 rounded border border-neutral-800 text-center">
-        <div className="mb-2">💎</div>
+        <div className="mb-2">ðŸ’Ž</div>
         <div>Price Watchlist is a Pro feature</div>
         <a href="/pricing" className="text-blue-400 hover:text-blue-300 underline text-xs mt-2 inline-block">
           Upgrade to Pro
@@ -2613,7 +2161,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
                         <span className="text-xs font-mono text-emerald-400">{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(price)}</span>
                         {delta24h !== 0 && (
                           <span className={`text-[10px] font-mono ${delta24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {delta24h >= 0 ? '▲' : '▼'} {delta24h >= 0 ? '+' : ''}{delta24h.toFixed(1)}%
+                            {delta24h >= 0 ? 'â–²' : 'â–¼'} {delta24h >= 0 ? '+' : ''}{delta24h.toFixed(1)}%
                           </span>
                         )}
                       </div>
@@ -2623,7 +2171,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
                     onClick={() => removeCard(item.id, item.name)}
                     className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-red-600/20 hover:border-red-600 transition-colors flex-shrink-0"
                   >
-                    ×
+                    Ã—
                   </button>
                 </li>
               );
@@ -2633,7 +2181,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
             href="/watchlist"
             className="text-sm text-blue-400 hover:text-blue-300 underline block text-center"
           >
-            → View full watchlist ({items.length} card{items.length !== 1 ? 's' : ''})
+            â†’ View full watchlist ({items.length} card{items.length !== 1 ? 's' : ''})
           </a>
         </>
       )}
@@ -2643,7 +2191,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
         <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }}>
           <div className="max-w-xl w-full rounded-xl border border-orange-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">✏️</span>
+              <span className="text-2xl">âœï¸</span>
               <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
                 Fix Card Name Before Adding
               </h3>

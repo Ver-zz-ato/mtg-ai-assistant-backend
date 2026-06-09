@@ -5,8 +5,7 @@ import { loadProfilesPublicBySlug } from "@/lib/server/publicProfile";
 import { getMainboardCardCount, isPublicBrowseDeckCompliant, mainDeckTextCardCount } from "@/lib/deck/formatCompliance";
 import { isLowQualityPublicDeckTitle } from "@/lib/deck/publicDeckValidation";
 
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 export const runtime = "nodejs";
 
 type Params = { slug: string };

@@ -29,9 +29,13 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
+    const { enforceFanoutRateLimit } = await import('@/lib/api/fanout-rate-limit');
+    const rateLimited = await enforceFanoutRateLimit(req, '/api/price/snapshot');
+    if (rateLimited) return rateLimited;
+
     const supabase = await createClient();
     const body = await req.json().catch(()=>({}));
-    const names: string[] = Array.isArray(body?.names) ? body.names.filter(Boolean) : [];
+    const names: string[] = Array.isArray(body?.names) ? body.names.filter(Boolean).slice(0, 200) : [];
     const currency: string = String(body?.currency || 'USD').toUpperCase();
     if (!names.length) return NextResponse.json({ ok: true, prices: {}, currency, snapshot_date: null });
 

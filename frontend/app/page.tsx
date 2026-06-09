@@ -2,8 +2,6 @@
 import nextDynamic from "next/dynamic";
 import ModeOptions from "../components/ModeOptions";
 
-// Avoid DYNAMIC_SERVER_USAGE: allow request-time data so any downstream use of cookies/headers is valid (e.g. suspense cache, middleware, or transitive deps).
-export const dynamic = "force-dynamic";
 import LeftSidebar from "../components/LeftSidebar";
 import Chat from "../components/Chat";
 import FeedbackFab from "../components/FeedbackFab";

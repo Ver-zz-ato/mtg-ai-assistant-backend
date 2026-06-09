@@ -1,5 +1,8 @@
 User-agent: *
 Disallow: /admin/
 Disallow: /api/
+Disallow: /profile
+Disallow: /collections
+Disallow: /wishlist
 Allow: /
 Sitemap: https://www.manatap.ai/sitemap.xml

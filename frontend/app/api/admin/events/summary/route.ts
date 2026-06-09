@@ -1,14 +1,12 @@
 // app/api/admin/events/summary/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase, getSupabaseServer } from '@/lib/server-supabase';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { requireAdminForApi } from '@/lib/server-admin';
 
 export async function GET(req: NextRequest){
   try{
-    // gate: must be admin user
-    const supabase = await getSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ ok:false, error:'unauthenticated' }, { status:401 });
+    const adminCheck = await requireAdminForApi();
+    if (!adminCheck.ok) return adminCheck.response;
 
     const admin = getAdmin();
     if (!admin) return NextResponse.json({ ok:false, error:'missing_service_role_key' }, { status:500 });

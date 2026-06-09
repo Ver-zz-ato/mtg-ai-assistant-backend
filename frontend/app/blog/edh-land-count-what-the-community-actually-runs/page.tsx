@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
+import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
 
 export const metadata: Metadata = {
   title: 'EDH Land Count: What the Community Actually Runs | ManaTap AI',
@@ -187,7 +188,7 @@ export default function BlogPost() {
 
         <article className="bg-white dark:bg-gray-800 rounded-2xl p-8 md:p-12 border border-gray-200 dark:border-gray-700 shadow-xl">
           <div className="prose prose-lg dark:prose-invert max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: content
+            <div dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(content
               .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
               .replace(/\*([^*]+)\*/g, '<em>$1</em>')
               .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>')
@@ -197,7 +198,7 @@ export default function BlogPost() {
               .replace(/^\- (.+)$/gm, '<li class="mb-2">$1</li>')
               .replace(/\n\n/g, '</p><p class="mb-6">')
               .replace(/^(.+)$/gm, '<p class="mb-6">$1</p>')
-            }} />
+            ) }} />
           </div>
         </article>
       </div>

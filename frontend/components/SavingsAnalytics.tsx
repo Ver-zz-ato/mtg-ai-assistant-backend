@@ -63,10 +63,19 @@ export default function SavingsAnalytics() {
     );
   }
 
-  if (error || !stats) {
+  if (error) {
+    return (
+      <div className="bg-gradient-to-br from-green-900/20 to-emerald-900/20 rounded-2xl border border-red-800/30 p-6" role="alert">
+        <h3 className="text-lg font-bold text-green-400 mb-2">Budget Swap Savings</h3>
+        <p className="text-sm text-red-300">{error}</p>
+      </div>
+    );
+  }
+
+  if (!stats || stats.swapCount === 0) {
     return (
       <div className="bg-gradient-to-br from-green-900/20 to-emerald-900/20 rounded-2xl border border-green-800/30 p-6">
-        <h3 className="text-lg font-bold text-green-400 mb-2">💰 Budget Swap Savings</h3>
+        <h3 className="text-lg font-bold text-green-400 mb-2">Budget Swap Savings</h3>
         <p className="text-sm text-gray-400">Start using Budget Swaps to track your savings!</p>
       </div>
     );

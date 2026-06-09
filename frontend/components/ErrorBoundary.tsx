@@ -24,6 +24,16 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    try {
+      import('@sentry/nextjs').then((Sentry) => {
+        Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
+      }).catch(() => {});
+    } catch {}
+    try {
+      import('@/lib/analytics-enhanced').then(({ trackErrorBoundary }) => {
+        trackErrorBoundary('ErrorBoundary', error.message, error.stack, undefined);
+      }).catch(() => {});
+    } catch {}
   }
 
   render() {
@@ -33,7 +43,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-[400px] flex items-center justify-center p-6">
+        <div className="min-h-[400px] flex items-center justify-center p-6" role="alert">
           <div className="max-w-md w-full bg-red-500/10 border border-red-500/30 rounded-xl p-6">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">

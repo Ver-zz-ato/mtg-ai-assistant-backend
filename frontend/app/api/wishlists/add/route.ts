@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 import { assertCanCreateWishlists, assertCanGrowWishlist } from '@/lib/pro-storage-limits-server';
+import { rejectUnlessCsrfOrBearer } from '@/lib/api/requireCsrf';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
+    const csrfBlock = rejectUnlessCsrfOrBearer(req);
+    if (csrfBlock) return csrfBlock;
+
     const supabase = await getServerSupabase();
     const { data: ures } = await (supabase as any).auth.getUser();
     const user = ures?.user; if (!user) return NextResponse.json({ ok:false, error:'unauthorized' }, { status:401 });

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
 import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
 
@@ -376,7 +377,7 @@ export default function HowManaTapAIWorksPage() {
                 elements.push(`<p>${currentParagraph.join(' ')}</p>`);
               }
               
-              return elements.join('\n');
+              return sanitizeBlogHtml(elements.join('\n'));
             })() }} />
           </div>
 

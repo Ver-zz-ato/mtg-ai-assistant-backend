@@ -11,12 +11,16 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error('[App Error Boundary]', error);
+    import('@sentry/nextjs').then((Sentry) => Sentry.captureException(error)).catch(() => {});
+    import('@/lib/ph').then(({ capture }) => {
+      capture('route_error', { digest: error.digest, message: error.message });
+    }).catch(() => {});
   }, [error]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-950">
       <div className="max-w-md w-full mx-4 text-center">
-        <div className="rounded-2xl border border-neutral-700 bg-neutral-900/80 p-8 shadow-xl">
+        <div className="rounded-2xl border border-neutral-700 bg-neutral-900/80 p-8 shadow-xl" role="alert">
           <div className="text-6xl mb-4">⚠️</div>
           <h1 className="text-2xl font-bold text-white mb-2">Something went wrong</h1>
           <p className="text-neutral-400 mb-6">

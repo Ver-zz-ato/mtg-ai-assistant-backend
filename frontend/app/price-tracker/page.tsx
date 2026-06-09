@@ -665,14 +665,6 @@ function DeckValue({ deckId, currency }: { deckId: string; currency: 'USD'|'EUR'
         </div>
       </div>
       
-      {/* #5: Top Movers in Deck - Placeholder (would need card-level historical data) */}
-      <div className="text-xs p-2 border border-neutral-800 rounded space-y-1">
-        <div className="font-medium">📈 Top Movers This Week</div>
-        <div className="text-[10px] opacity-70">
-          Card-level price tracking coming soon. This will show which cards in your deck gained or lost the most value.
-        </div>
-      </div>
-      
       {/* #6: Reprint Risk Warning */}
       {currentValue > 500 && (
         <motion.div

@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { timingSafeEqual } from 'node:crypto';
 import { getAdmin } from '@/app/api/_lib/supa';
 import { getRevenueCatSubscriberState } from '@/lib/server-pro-check';
+
+function verifyRevenueCatAuth(authHeader: string | null, expectedRaw: string): boolean {
+  const expected = expectedRaw.startsWith('Bearer ') ? expectedRaw : `Bearer ${expectedRaw}`;
+  if (!authHeader) return false;
+  const left = Buffer.from(authHeader);
+  const right = Buffer.from(expected);
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -288,12 +298,14 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const expectedAuth = process.env.REVENUECAT_WEBHOOK_AUTH ?? process.env.REVENUECAT_WEBHOOK_AUTH_HEADER;
 
-  if (expectedAuth?.trim()) {
-    const expected = expectedAuth.startsWith('Bearer ') ? expectedAuth : `Bearer ${expectedAuth}`;
-    if (authHeader !== expected) {
-      console.warn('[RevenueCat webhook] Unauthorized: auth header mismatch');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!expectedAuth?.trim()) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[RevenueCat webhook] REVENUECAT_WEBHOOK_AUTH is not configured');
+      return NextResponse.json({ error: 'Webhook auth not configured' }, { status: 500 });
     }
+  } else if (!verifyRevenueCatAuth(authHeader, expectedAuth.trim())) {
+    console.warn('[RevenueCat webhook] Unauthorized: auth header mismatch');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   let body: RevenueCatWebhookPayload;
