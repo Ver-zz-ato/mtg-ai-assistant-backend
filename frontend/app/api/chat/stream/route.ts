@@ -10,6 +10,7 @@ import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/p
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 import { createEmptyAdminPromptPreview, type AdminPromptPreviewPayload } from "@/lib/ai/admin-prompt-preview-types";
 import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
+import { resolveMobileChatAnalyticsProps } from "@/lib/analytics/mobile-chat-attribution";
 import {
   buildDeckTextFromDbRows,
   chatAnalyzeFormat,
@@ -1617,24 +1618,27 @@ export async function POST(req: NextRequest) {
           is_guest: isGuest,
           user_tier: modelTierRes.tier,
         });
-        if (clientEntrySource) {
-          try {
-            const { captureServer } = await import("@/lib/server/analytics");
-            await captureServer(
-              "chat_sent",
-              {
-                route: "chat_stream",
-                layer0: "NO_LLM",
-                ms: Date.now() - t0,
-                thread_id: tid,
-                user_id: userId,
-                user_message: text ? text.slice(0, 200) : null,
-                assistant_message: responseText ? responseText.slice(0, 200) : null,
-                source: clientEntrySource,
-              },
-              userId ?? undefined
-            );
-          } catch (_) {}
+        {
+          const mobileChatAnalytics = resolveMobileChatAnalyticsProps(req, raw, clientEntrySource);
+          if (mobileChatAnalytics) {
+            try {
+              const { captureServer } = await import("@/lib/server/analytics");
+              await captureServer(
+                "chat_sent",
+                {
+                  route: "chat_stream",
+                  layer0: "NO_LLM",
+                  ms: Date.now() - t0,
+                  thread_id: tid,
+                  user_id: userId,
+                  user_message: text ? text.slice(0, 200) : null,
+                  assistant_message: responseText ? responseText.slice(0, 200) : null,
+                  ...mobileChatAnalytics,
+                },
+                userId ?? undefined
+              );
+            } catch (_) {}
+          }
         }
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -2359,28 +2363,31 @@ export async function POST(req: NextRequest) {
             });
           } catch (_) {}
 
-          if (clientEntrySource) {
-            try {
-              const { captureServer } = await import("@/lib/server/analytics");
-              await captureServer(
-                "chat_sent",
-                {
-                  feature: "chat",
-                  route: "chat_stream",
-                  latency_ms: Date.now() - t0,
-                  thread_id: tid,
-                  user_id: userId,
-                  user_message_present: Boolean(text),
-                  assistant_message_present: Boolean(outputText),
-                  message_length: text ? text.length : 0,
-                  response_length: outputText ? outputText.length : 0,
-                  response_present: Boolean(outputText),
-                  source: clientEntrySource,
-                  has_deck_context: streamHasDeckContextForLayer0,
-                },
-                userId ?? undefined
-              );
-            } catch (_) {}
+          {
+            const mobileChatAnalytics = resolveMobileChatAnalyticsProps(req, raw, clientEntrySource);
+            if (mobileChatAnalytics) {
+              try {
+                const { captureServer } = await import("@/lib/server/analytics");
+                await captureServer(
+                  "chat_sent",
+                  {
+                    feature: "chat",
+                    route: "chat_stream",
+                    latency_ms: Date.now() - t0,
+                    thread_id: tid,
+                    user_id: userId,
+                    user_message_present: Boolean(text),
+                    assistant_message_present: Boolean(outputText),
+                    message_length: text ? text.length : 0,
+                    response_length: outputText ? outputText.length : 0,
+                    response_present: Boolean(outputText),
+                    has_deck_context: streamHasDeckContextForLayer0,
+                    ...mobileChatAnalytics,
+                  },
+                  userId ?? undefined
+                );
+              } catch (_) {}
+            }
           }
 
           try {

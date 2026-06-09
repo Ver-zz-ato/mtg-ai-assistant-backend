@@ -12,6 +12,7 @@ import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
+import { resolveMobileChatAnalyticsProps } from "@/lib/analytics/mobile-chat-attribution";
 import {
   buildDeckTextFromDbRows,
   chatAnalyzeFormat,
@@ -2804,6 +2805,7 @@ Return the corrected answer with concise, user-facing tone.`;
     try {
       const { captureServer } = await import("@/lib/server/analytics");
       if (created) await captureServer("thread_created", { thread_id: tid, user_id: userId });
+      const mobileChatAnalytics = resolveMobileChatAnalyticsProps(req, raw, clientEntrySource);
       await captureServer("chat_sent", {
         provider,
         feature: "chat",
@@ -2821,7 +2823,7 @@ Return the corrected answer with concise, user-facing tone.`;
         response_present: Boolean(outText),
         format: typeof prefs?.format === 'string' ? prefs.format : null,
         commander_present: Boolean(inferredContext?.commander),
-        ...(clientEntrySource ? { source: clientEntrySource } : {}),
+        ...(mobileChatAnalytics ?? (clientEntrySource ? { source: clientEntrySource } : {})),
       });
       await captureServer("chat_response_received", {
         app_surface: "api",
