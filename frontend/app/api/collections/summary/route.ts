@@ -24,19 +24,28 @@ export async function GET() {
 
     const { data: collections, error: colErr } = await supabase
       .from('collections')
-      .select('id, hero_card_name')
+      .select('id')
       .eq('user_id', user.id);
 
     if (colErr) {
       return NextResponse.json({ ok: false, error: colErr.message }, { status: 500 });
     }
 
-    const list = collections || [];
+    const list = (collections || []) as Array<{ id: string }>;
     if (!list.length) {
       return NextResponse.json({ ok: true, summaries: {} });
     }
 
     const collectionIds = list.map((c) => c.id);
+    const heroNameByCollection = new Map<string, string>();
+    const { data: metaRows } = await supabase
+      .from('collection_meta')
+      .select('collection_id, data')
+      .in('collection_id', collectionIds);
+    for (const row of (metaRows || []) as Array<{ collection_id: string; data?: Record<string, unknown> | null }>) {
+      const value = typeof row.data?.hero_card_name === 'string' ? row.data.hero_card_name.trim() : '';
+      if (value) heroNameByCollection.set(row.collection_id, value);
+    }
     const allCards = await fetchAllSupabaseRows<{ collection_id: string; name: string; qty: number; created_at?: string }>(
       () => supabase
         .from('collection_cards')
@@ -90,7 +99,7 @@ export async function GET() {
 
       let estValueUSD = 0;
       let coverName: string | null = null;
-      const heroName = col.hero_card_name?.trim();
+      const heroName = heroNameByCollection.get(col.id);
       if (heroName && items.some((it) => it.name === heroName)) {
         coverName = heroName;
       } else if (items.length) {
@@ -116,7 +125,7 @@ export async function GET() {
       const details = await getDetailsForNamesCached(Array.from(coverNames));
       for (const col of list) {
         const items = cardsByCollection.get(col.id) || [];
-        const heroName = col.hero_card_name?.trim();
+        const heroName = heroNameByCollection.get(col.id);
         let pick = heroName && items.some((it) => it.name === heroName) ? heroName : null;
         if (!pick && items.length) {
           let best = { name: '', score: -1 };
