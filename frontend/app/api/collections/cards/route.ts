@@ -6,7 +6,7 @@ import { fetchAllSupabaseRows } from "@/lib/supabase/fetchAllRows";
 import { costAuditRequestId, isCostAuditStorageEnabled } from "@/lib/observability/cost-audit";
 import { costAuditServerLog } from "@/lib/observability/cost-audit-server";
 import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
-import { assertCanGrowCollection } from "@/lib/pro-storage-limits";
+import { assertCanGrowCollection } from "@/lib/pro-storage-limits-server";
 
 export async function GET(req: NextRequest) {
   const t0 = Date.now();

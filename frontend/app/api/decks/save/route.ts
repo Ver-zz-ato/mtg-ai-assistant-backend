@@ -8,7 +8,7 @@ import { normalizeCardNames } from "@/lib/deck/normalizeCardNames";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 import { getDeckHardCapMessage } from "@/lib/deck/formatCompliance";
-import { assertCanCreateDecks } from "@/lib/pro-storage-limits";
+import { assertCanCreateDecks } from "@/lib/pro-storage-limits-server";
 
 type SaveBody = {
   title?: string;

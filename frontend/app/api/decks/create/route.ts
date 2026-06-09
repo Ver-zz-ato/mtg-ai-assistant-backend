@@ -10,7 +10,7 @@ import { parseDeckText, parseDeckTextWithZones } from "@/lib/deck/parseDeckText"
 import { isCommanderEligible } from "@/lib/deck/deck-enrichment";
 import { getPublicDeckValidationError } from "@/lib/deck/publicDeckValidation";
 import { getDeckHardCapMessage } from "@/lib/deck/formatCompliance";
-import { assertCanCreateDecks } from "@/lib/pro-storage-limits";
+import { assertCanCreateDecks } from "@/lib/pro-storage-limits-server";
 
 function norm(name: string): string {
   return String(name || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();

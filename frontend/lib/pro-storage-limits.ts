@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 export const FREE_DECK_LIMIT = 15;
 export const FREE_COLLECTION_LIMIT = 10;
 export const FREE_COLLECTION_CARD_LIMIT = 500;
@@ -59,100 +57,57 @@ export function exceedsFreeSizeLimit(currentQty: number, addedQty: number, limit
   return Math.max(0, currentQty) + Math.max(0, addedQty) > limit;
 }
 
-export async function getEffectiveProStatus(userId: string): Promise<boolean> {
-  const { checkProStatus } = await import("@/lib/server-pro-check");
-  return checkProStatus(userId);
+export function wouldExceedCollectionLimit(params: {
+  isPro: boolean;
+  currentQty: number;
+  importQty: number;
+  importMode: "merge" | "overwrite";
+  limit?: number;
+}): boolean {
+  if (params.isPro) return false;
+  const limit = params.limit ?? FREE_COLLECTION_CARD_LIMIT;
+  const baseQty = params.importMode === "overwrite" ? 0 : Math.max(0, params.currentQty);
+  return exceedsFreeSizeLimit(baseQty, Math.max(0, params.importQty), limit);
 }
 
-async function countRows(
-  supabase: SupabaseClient,
-  table: "decks" | "collections" | "wishlists",
-  userId: string,
-): Promise<number> {
-  const { count, error } = await supabase
-    .from(table)
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-  if (error) throw new Error(error.message);
-  return count ?? 0;
+/** How many card qty a free user can still add for this import mode. */
+export function getFreeCollectionImportCapacity(
+  currentQty: number,
+  importMode: "merge" | "overwrite",
+  limit = FREE_COLLECTION_CARD_LIMIT,
+): number {
+  return importMode === "overwrite"
+    ? limit
+    : Math.max(0, limit - Math.max(0, currentQty));
 }
 
-export async function assertCanCreateDecks(
-  supabase: SupabaseClient,
-  userId: string,
-  creatingCount = 1,
-): Promise<ProStorageLimitError | null> {
-  if (await getEffectiveProStatus(userId)) return null;
-  const current = await countRows(supabase, "decks", userId);
-  return exceedsFreeCountLimit(current, creatingCount, FREE_DECK_LIMIT)
-    ? buildProStorageLimitError("PRO_LIMIT_DECKS")
-    : null;
-}
+/** Trim import rows to fit the free collection size cap (preserves row order). */
+export function trimCardsToFreeLimit<T extends { quantity: number }>(
+  cards: T[],
+  currentQty: number,
+  importMode: "merge" | "overwrite",
+  limit = FREE_COLLECTION_CARD_LIMIT,
+): { cards: T[]; importedQty: number; skippedQty: number } {
+  const capacity = getFreeCollectionImportCapacity(currentQty, importMode, limit);
+  let used = 0;
+  const trimmed: T[] = [];
+  let skippedQty = 0;
 
-export async function assertCanCreateCollections(
-  supabase: SupabaseClient,
-  userId: string,
-  creatingCount = 1,
-): Promise<ProStorageLimitError | null> {
-  if (await getEffectiveProStatus(userId)) return null;
-  const current = await countRows(supabase, "collections", userId);
-  return exceedsFreeCountLimit(current, creatingCount, FREE_COLLECTION_LIMIT)
-    ? buildProStorageLimitError("PRO_LIMIT_COLLECTIONS")
-    : null;
-}
+  for (const card of cards) {
+    const room = capacity - used;
+    if (room <= 0) {
+      skippedQty += Math.max(0, card.quantity);
+      continue;
+    }
+    if (card.quantity <= room) {
+      trimmed.push(card);
+      used += card.quantity;
+    } else {
+      trimmed.push({ ...card, quantity: room });
+      skippedQty += card.quantity - room;
+      used = capacity;
+    }
+  }
 
-export async function assertCanCreateWishlists(
-  supabase: SupabaseClient,
-  userId: string,
-  creatingCount = 1,
-): Promise<ProStorageLimitError | null> {
-  if (await getEffectiveProStatus(userId)) return null;
-  const current = await countRows(supabase, "wishlists", userId);
-  return exceedsFreeCountLimit(current, creatingCount, FREE_WISHLIST_LIMIT)
-    ? buildProStorageLimitError("PRO_LIMIT_WISHLISTS")
-    : null;
-}
-
-export async function getCollectionTotalQty(
-  supabase: SupabaseClient,
-  collectionId: string,
-): Promise<number> {
-  const { data, error } = await supabase.from("collection_cards").select("qty").eq("collection_id", collectionId);
-  if (error) throw new Error(error.message);
-  return (data ?? []).reduce((sum, row: { qty: unknown }) => sum + Math.max(0, Number(row.qty) || 0), 0);
-}
-
-export async function getWishlistTotalQty(
-  supabase: SupabaseClient,
-  wishlistId: string,
-): Promise<number> {
-  const { data, error } = await supabase.from("wishlist_items").select("qty").eq("wishlist_id", wishlistId);
-  if (error) throw new Error(error.message);
-  return (data ?? []).reduce((sum, row: { qty: unknown }) => sum + Math.max(0, Number(row.qty) || 0), 0);
-}
-
-export async function assertCanGrowCollection(
-  supabase: SupabaseClient,
-  userId: string,
-  collectionId: string,
-  addedQty: number,
-): Promise<ProStorageLimitError | null> {
-  if (addedQty <= 0 || (await getEffectiveProStatus(userId))) return null;
-  const current = await getCollectionTotalQty(supabase, collectionId);
-  return exceedsFreeSizeLimit(current, addedQty, FREE_COLLECTION_CARD_LIMIT)
-    ? buildProStorageLimitError("PRO_LIMIT_COLLECTION_SIZE")
-    : null;
-}
-
-export async function assertCanGrowWishlist(
-  supabase: SupabaseClient,
-  userId: string,
-  wishlistId: string,
-  addedQty: number,
-): Promise<ProStorageLimitError | null> {
-  if (addedQty <= 0 || (await getEffectiveProStatus(userId))) return null;
-  const current = await getWishlistTotalQty(supabase, wishlistId);
-  return exceedsFreeSizeLimit(current, addedQty, FREE_WISHLIST_CARD_LIMIT)
-    ? buildProStorageLimitError("PRO_LIMIT_WISHLIST_SIZE")
-    : null;
+  return { cards: trimmed, importedQty: used, skippedQty };
 }

@@ -166,7 +166,9 @@ export function EmptyCollectionsState() {
       }}
       secondaryAction={{
         label: "Import CSV",
-        href: "/collections?import=true"
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent('open-collection-csv-import'));
+        },
       }}
       suggestions={[
         "Create a collection for each set you own",

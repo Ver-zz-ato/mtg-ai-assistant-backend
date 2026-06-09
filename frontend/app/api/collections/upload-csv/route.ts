@@ -5,7 +5,7 @@ import { withLogging } from "@/lib/api/withLogging";
 import { parseCollectionCsvText } from "@/lib/csv/collection";
 import { buildResolvedCollectionBulkNameMap } from "@/lib/collections/buildResolvedCollectionBulkNameMap";
 import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
-import { assertCanGrowCollection } from "@/lib/pro-storage-limits";
+import { assertCanGrowCollection } from "@/lib/pro-storage-limits-server";
 
 export const dynamic = "force-dynamic";
 

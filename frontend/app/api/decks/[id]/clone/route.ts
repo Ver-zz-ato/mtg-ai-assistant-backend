@@ -1,7 +1,7 @@
 // app/api/decks/[id]/clone/route.ts
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
-import { assertCanCreateDecks } from "@/lib/pro-storage-limits";
+import { assertCanCreateDecks } from "@/lib/pro-storage-limits-server";
 
 type Params = { id: string };
 

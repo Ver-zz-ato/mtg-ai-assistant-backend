@@ -9,7 +9,7 @@ import {
   parseCommanderDecklistForImport,
   sanitizeImportedCardEntries,
 } from "@/lib/deck/importHelpers";
-import { assertCanCreateDecks } from "@/lib/pro-storage-limits";
+import { assertCanCreateDecks } from "@/lib/pro-storage-limits-server";
 
 // Simple CSV parser for deck format
 function parseCSV(csvContent: string): { headers: string[]; decks: any[] } {

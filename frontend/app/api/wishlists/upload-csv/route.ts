@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { parseDeckOrCollectionCSV } from '@/lib/csv/parse';
 import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
-import { assertCanCreateWishlists, assertCanGrowWishlist } from '@/lib/pro-storage-limits';
+import { assertCanCreateWishlists, assertCanGrowWishlist } from '@/lib/pro-storage-limits-server';
 
 export const runtime = 'nodejs';
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
-import { assertCanCreateWishlists, assertCanGrowWishlist } from '@/lib/pro-storage-limits';
+import { assertCanCreateWishlists, assertCanGrowWishlist } from '@/lib/pro-storage-limits-server';
 
 export const runtime = 'nodejs';
 

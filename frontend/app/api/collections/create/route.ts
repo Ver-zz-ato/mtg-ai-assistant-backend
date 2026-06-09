@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { containsProfanity, sanitizeName } from "@/lib/profanity";
-import { assertCanCreateCollections } from "@/lib/pro-storage-limits";
+import { assertCanCreateCollections } from "@/lib/pro-storage-limits-server";
 export const runtime = "nodejs";
 
 

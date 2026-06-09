@@ -1,10 +1,16 @@
 // components/CollectionCsvUpload.tsx
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { capture } from "@/lib/ph";
 import { trackCollectionImportWorkflow } from '@/lib/analytics-workflow';
-import CollectionImportPreview, { PreviewCard } from './CollectionImportPreview';
-import { handleProStorageLimitPayload } from "@/lib/pro-storage-limit-ui";
+import CollectionImportPreview, {
+  PreviewCard,
+  ImportPreviewPhase,
+  ImportConfirmOptions,
+} from './CollectionImportPreview';
+import { handleProStorageLimitPayload, showProStorageLimitPanel } from "@/lib/pro-storage-limit-ui";
+import { trimCardsToFreeLimit, wouldExceedCollectionLimit } from "@/lib/pro-storage-limits";
+import { useProStatus } from "@/components/ProContext";
 
 type ImportMode = 'new' | 'existing';
 
@@ -22,10 +28,58 @@ export default function CollectionCsvUpload({
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [previewPhase, setPreviewPhase] = useState<ImportPreviewPhase>('review');
+  const [importSummary, setImportSummary] = useState<{
+    added: number;
+    updated: number;
+    failed: number;
+    skippedQty?: number;
+  } | null>(null);
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   const [targetCollectionId, setTargetCollectionId] = useState<string>('');
   const [collectionName, setCollectionName] = useState<string>('');
+  const [currentCollectionQty, setCurrentCollectionQty] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { isPro, loading: proLoading } = useProStatus();
+
+  function sumSelectedQty(cards: PreviewCard[]): number {
+    return cards.reduce((sum, card) => sum + (card.selected ? card.quantity : 0), 0);
+  }
+
+  async function loadCollectionQty(collectionId: string): Promise<number> {
+    try {
+      const res = await fetch(`/api/collections/cards?collectionId=${encodeURIComponent(collectionId)}`, {
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) return 0;
+      return (json.items || []).reduce(
+        (sum: number, item: { qty?: number }) => sum + Math.max(0, Number(item.qty) || 0),
+        0,
+      );
+    } catch {
+      return 0;
+    }
+  }
+
+  function notifyCollectionSizeLimitChoice(
+    importQty: number,
+    currentQty: number,
+    importMode: 'merge' | 'overwrite' = 'merge',
+  ) {
+    if (proLoading || isPro) return;
+    if (!wouldExceedCollectionLimit({ isPro, currentQty, importQty, importMode })) return;
+    showProStorageLimitPanel(
+      { code: "PRO_LIMIT_COLLECTION_SIZE" },
+      { attempted: importQty, current: currentQty, importMode },
+    );
+  }
+
+  useEffect(() => {
+    const onOpen = () => { void onPick(); };
+    window.addEventListener('open-collection-csv-import', onOpen);
+    return () => window.removeEventListener('open-collection-csv-import', onOpen);
+  }, []);
 
   async function onPick() {
     trackCollectionImportWorkflow('started');
@@ -87,6 +141,8 @@ export default function CollectionCsvUpload({
       
       setTargetCollectionId(actualCollectionId);
       setCollectionName(actualCollectionName);
+      const existingQty = await loadCollectionQty(actualCollectionId);
+      setCurrentCollectionQty(existingQty);
       
       // Parse CSV
       setProgress(20);
@@ -149,7 +205,12 @@ export default function CollectionCsvUpload({
       setProgress(100);
       setStatusText('');
       setBusy(false);
+      setPreviewPhase('review');
+      setImportSummary(null);
       setShowPreview(true);
+
+      const importQty = sumSelectedQty(preview);
+      notifyCollectionSizeLimitChoice(importQty, existingQty, 'merge');
       
     } catch (e: any) {
       trackCollectionImportWorkflow('abandoned', { current_step: 3, abandon_reason: 'parse_failed' });
@@ -200,7 +261,11 @@ export default function CollectionCsvUpload({
               });
 
               const json = await res.json().catch(() => ({}));
-              if (await handleProStorageLimitPayload(json)) return 'limit';
+              if (await handleProStorageLimitPayload(json, {
+                attempted: card.quantity,
+                current: currentCollectionQty,
+                importMode: 'merge',
+              })) return 'limit';
               return res.ok && json?.ok !== false ? 'added' : 'failed';
             } catch {
               return 'failed';
@@ -208,7 +273,11 @@ export default function CollectionCsvUpload({
           })
         );
         
-        if (batchResults.includes('limit')) throw new Error('Collection size limit reached');
+        if (batchResults.includes('limit')) {
+          setBusy(false);
+          setPreviewPhase('review');
+          return;
+        }
         added += batchResults.filter(r => r === 'added').length;
         failed += batchResults.filter(r => r === 'failed').length;
       }
@@ -244,11 +313,41 @@ export default function CollectionCsvUpload({
     }
   }
 
-  async function handleConfirmImport(selectedCards: PreviewCard[], importMode: 'merge' | 'overwrite') {
+  async function handleConfirmImport(
+    selectedCards: PreviewCard[],
+    importMode: 'merge' | 'overwrite',
+    options?: ImportConfirmOptions,
+  ) {
     const { toast } = await import('@/lib/toast-client');
+
+    const currentQty = importMode === 'overwrite' ? 0 : currentCollectionQty;
+    let cardsToImport = selectedCards;
+    let skippedQty = 0;
+
+    if (options?.capToFreeLimit) {
+      const trimmed = trimCardsToFreeLimit(selectedCards, currentQty, importMode);
+      cardsToImport = trimmed.cards;
+      skippedQty = trimmed.skippedQty;
+      if (cardsToImport.length === 0 || trimmed.importedQty <= 0) {
+        toast('No room left in this collection on the free plan. Upgrade to Pro to add more cards.', 'warning');
+        return;
+      }
+    } else if (
+      !proLoading &&
+      !isPro &&
+      wouldExceedCollectionLimit({
+        isPro,
+        currentQty,
+        importQty: sumSelectedQty(selectedCards),
+        importMode,
+      })
+    ) {
+      notifyCollectionSizeLimitChoice(sumSelectedQty(selectedCards), currentQty, importMode);
+      return;
+    }
     
     setBusy(true);
-    setShowPreview(false);
+    setPreviewPhase('importing');
     setProgress(0);
     setStatusText('Importing cards...');
     
@@ -269,18 +368,18 @@ export default function CollectionCsvUpload({
       
       // Import selected cards in batches
       setProgress(30);
-      setStatusText(`Importing ${selectedCards.length} cards...`);
+      setStatusText(`Importing ${cardsToImport.length} cards...`);
       
       let added = 0;
       let updated = 0;
       let failed = 0;
       const batchSize = 10;
       
-      for (let i = 0; i < selectedCards.length; i += batchSize) {
-        const batch = selectedCards.slice(i, i + batchSize);
-        const batchProgress = 30 + ((i / selectedCards.length) * 60);
+      for (let i = 0; i < cardsToImport.length; i += batchSize) {
+        const batch = cardsToImport.slice(i, i + batchSize);
+        const batchProgress = 30 + ((i / cardsToImport.length) * 60);
         setProgress(batchProgress);
-        setStatusText(`Importing cards ${i + 1}-${Math.min(i + batchSize, selectedCards.length)} of ${selectedCards.length}...`);
+        setStatusText(`Importing cards ${i + 1}-${Math.min(i + batchSize, cardsToImport.length)} of ${cardsToImport.length}...`);
         
         const batchResults = await Promise.all(
           batch.map(async (card) => {
@@ -302,7 +401,11 @@ export default function CollectionCsvUpload({
               });
               
               const json = await res.json().catch(() => ({}));
-              if (await handleProStorageLimitPayload(json)) return 'limit';
+              if (await handleProStorageLimitPayload(json, {
+                attempted: sumSelectedQty(cardsToImport),
+                current: importMode === 'overwrite' ? 0 : currentCollectionQty,
+                importMode,
+              })) return 'limit';
               if (res.ok && json?.ok !== false) return json.added ? 'added' : 'updated';
               return 'failed';
             } catch {
@@ -311,7 +414,11 @@ export default function CollectionCsvUpload({
           })
         );
         
-        if (batchResults.includes('limit')) throw new Error('Collection size limit reached');
+        if (batchResults.includes('limit')) {
+          setBusy(false);
+          setPreviewPhase('review');
+          return;
+        }
         added += batchResults.filter(r => r === 'added').length;
         updated += batchResults.filter(r => r === 'updated').length;
         failed += batchResults.filter(r => r === 'failed').length;
@@ -319,19 +426,26 @@ export default function CollectionCsvUpload({
       
       setProgress(100);
       setStatusText('Complete!');
-      setReport({ added, updated, skipped: [], total: selectedCards.length });
+      setReport({ added, updated, skipped: [], total: cardsToImport.length });
+      setImportSummary({ added, updated, failed, skippedQty: skippedQty > 0 ? skippedQty : undefined });
+      setPreviewPhase('complete');
+      setBusy(false);
       
       trackCollectionImportWorkflow('completed', { 
         cards_added: added,
         cards_updated: updated,
         cards_failed: failed,
-        total_processed: selectedCards.length 
+        total_processed: cardsToImport.length,
+        cards_skipped_free_cap: skippedQty,
       });
       
-      toast(`✅ Import complete! ${added} added, ${updated} updated${failed > 0 ? `, ${failed} failed` : ''}.`, 'success');
+      const skippedNote = skippedQty > 0 ? ` ${skippedQty} skipped (free limit). Upgrade to Pro for the rest.` : '';
+      toast(`✅ Import complete! ${added} added, ${updated} updated${failed > 0 ? `, ${failed} failed` : ''}.${skippedNote}`, 'success');
       
       // Small delay then redirect/reload
       setTimeout(() => {
+        setShowPreview(false);
+        setPreviewPhase('review');
         if (collectionId === 'prompt') {
           window.location.href = `/collections/${targetCollectionId}`;
         } else {
@@ -349,6 +463,7 @@ export default function CollectionCsvUpload({
       trackCollectionImportWorkflow('abandoned', { current_step: 4, abandon_reason: 'import_failed' });
       toast(e?.message || "Import failed", 'error');
       setBusy(false);
+      setPreviewPhase('review');
       setStatusText('');
       setProgress(0);
     }
@@ -356,9 +471,13 @@ export default function CollectionCsvUpload({
 
   function handleCancelPreview() {
     setShowPreview(false);
+    setPreviewPhase('review');
+    setImportSummary(null);
     setPreviewCards([]);
     trackCollectionImportWorkflow('abandoned', { current_step: 4, abandon_reason: 'preview_cancelled' });
   }
+
+  const showHeaderProgress = busy && !showPreview;
 
   return (
     <>
@@ -366,7 +485,7 @@ export default function CollectionCsvUpload({
         <div className="flex items-center gap-2">
           <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChange} />
           <button onClick={onPick} disabled={busy} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg min-w-[100px] disabled:opacity-50">
-            {busy ? (
+            {showHeaderProgress ? (
               <span className="flex items-center gap-1.5 justify-center">
                 <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 {Math.round(progress)}%
@@ -384,7 +503,7 @@ export default function CollectionCsvUpload({
               {report.skipped?.length ? ` • skipped ${report.skipped.length}` : ""}
             </span>
           )}
-          {busy && statusText && (
+          {showHeaderProgress && statusText && (
             <span className="text-xs text-gray-400 animate-pulse">{statusText}</span>
           )}
           {!busy && (
@@ -403,8 +522,8 @@ export default function CollectionCsvUpload({
           )}
         </div>
         
-        {/* Progress bar */}
-        {busy && (
+        {/* Progress bar — only while parsing file, not during modal import */}
+        {showHeaderProgress && (
           <div className="w-full bg-neutral-800 rounded-full h-2 overflow-hidden">
             <div 
               className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-500 ease-out"
@@ -428,6 +547,13 @@ export default function CollectionCsvUpload({
           collectionName={collectionName}
           onConfirm={handleConfirmImport}
           onCancel={handleCancelPreview}
+          phase={previewPhase}
+          progress={progress}
+          statusText={statusText}
+          importSummary={importSummary ?? undefined}
+          isPro={isPro}
+          proLoading={proLoading}
+          currentCollectionQty={currentCollectionQty}
         />
       )}
     </>

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { sanitizedNameForDeckPersistence } from '@/lib/deck/cleanCardName';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { buildGroundedScaffoldDeck } from '@/lib/deck/scaffold-builder';
-import { assertCanCreateDecks } from '@/lib/pro-storage-limits';
+import { assertCanCreateDecks } from '@/lib/pro-storage-limits-server';
 
 export const runtime = 'nodejs';
 

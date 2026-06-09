@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { containsProfanity } from '@/lib/profanity';
-import { assertCanCreateWishlists } from '@/lib/pro-storage-limits';
+import { assertCanCreateWishlists } from '@/lib/pro-storage-limits-server';
 
 export const runtime = 'nodejs';
 

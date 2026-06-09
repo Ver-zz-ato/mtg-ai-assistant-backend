@@ -5,8 +5,8 @@ import { sanitizedNameForDeckPersistence } from "@/lib/deck/cleanCardName";
 import {
   FREE_COLLECTION_CARD_LIMIT,
   buildProStorageLimitError,
-  getEffectiveProStatus,
 } from "@/lib/pro-storage-limits";
+import { getEffectiveProStatus } from "@/lib/pro-storage-limits-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

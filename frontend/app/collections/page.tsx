@@ -145,6 +145,21 @@ function CollectionsPageClientBody() {
       loadCollections(); 
     }
   }, [user, authLoading]);
+
+  // Deep-link: ?action=import or ?import=true opens the CSV file picker
+  useEffect(() => {
+    const shouldImport =
+      sp?.get('import') === 'true' || sp?.get('action') === 'import';
+    if (!shouldImport || authLoading || !user || loading) return;
+
+    window.dispatchEvent(new CustomEvent('open-collection-csv-import'));
+
+    const params = new URLSearchParams(sp?.toString() || '');
+    params.delete('import');
+    params.delete('action');
+    const query = params.toString();
+    router.replace(query ? `/collections?${query}` : '/collections', { scroll: false });
+  }, [sp, authLoading, user, loading, router]);
   
   // No longer need drawer logic - direct navigation now
   
