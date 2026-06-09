@@ -67,7 +67,7 @@ export default function PrivacyPage() {
     <div className="mx-auto max-w-3xl px-4 py-8 prose prose-invert">
       <h1>Privacy Policy (Manatap.ai)</h1>
       <p><strong>Effective date:</strong> {today}</p>
-      <p>Manatap.ai is a free, personal project created to help Magic: The Gathering players explore deck ideas and costs.</p>
+      <p>ManaTap is a Magic: The Gathering companion application and service built to help players build decks, analyse strategies, manage collections, use game-night tools, join tournaments, and explore MTG ideas with AI-powered features.</p>
 
       <h2 id="mobile-app" className="scroll-mt-24">ManaTap mobile app (iOS &amp; Android)</h2>
       <p className="text-sm text-neutral-300">
@@ -83,15 +83,23 @@ export default function PrivacyPage() {
           <ul className="space-y-2 text-sm">
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-1">•</span>
-              <span>Usage data: on the website, page visits and actions; in the app, optional in-app analytics (screens/events) when you consent—via PostHog</span>
+              <span>Account data: email address, login provider, profile information, and authentication details managed by Supabase</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-1">•</span>
-              <span>Account data if you create one (email, login via Supabase)</span>
+              <span>User content: decks, decklists, collections, wishlists, saved cards, tournament participation, public profile information, comments, and other content you choose to create or store in ManaTap</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-1">•</span>
-              <span>Payments: on the website, tips or checkouts via Ko-fi, PayPal, or Stripe (we don&apos;t store your card details). In the mobile app, Pro is sold via Apple/Google in-app purchase through RevenueCat—we don&apos;t receive your full card number from the stores</span>
+              <span>AI data: prompts, decklists, collection data, chat messages, and other information you send to ManaTap AI features so we can generate deck analysis, recommendations, answers, and other AI-powered responses</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-400 mt-1">•</span>
+              <span>Usage data: website page visits and actions; app screens, events, device/app diagnostics, and feature usage analytics, only where analytics is enabled or consented to</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-400 mt-1">•</span>
+              <span>Payment data: website tips or checkouts via Ko-fi, PayPal, or Stripe; mobile subscriptions and purchases via Apple/Google in-app purchases and RevenueCat. ManaTap does not store full card numbers</span>
             </li>
           </ul>
         </div>
@@ -101,15 +109,23 @@ export default function PrivacyPage() {
           <ul className="space-y-2 text-sm">
             <li className="flex items-start gap-2">
               <span className="text-emerald-400 mt-1">•</span>
-              <span>Keep the site running and fix bugs</span>
+              <span>Provide core ManaTap features such as deck building, deck analysis, collection management, wishlists, life counter tools, tournaments, profiles, comments, and AI chat</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-emerald-400 mt-1">•</span>
-              <span>Process donations via third-party providers</span>
+              <span>Generate AI-powered deck analysis, recommendations, budget swaps, strategy help, and other responses requested by the user</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-emerald-400 mt-1">•</span>
-              <span>Protect against abuse or misuse</span>
+              <span>Sync user data across devices and accounts</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-400 mt-1">•</span>
+              <span>Process subscriptions, purchases, tips, and entitlements</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-400 mt-1">•</span>
+              <span>Improve reliability, fix bugs, understand feature usage, and protect ManaTap from abuse, spam, misuse, fraud, and security issues</span>
             </li>
           </ul>
         </div>
@@ -119,15 +135,35 @@ export default function PrivacyPage() {
           <ul className="space-y-2 text-sm">
             <li className="flex items-start gap-2">
               <span className="text-purple-400 mt-1">•</span>
-              <span>Hosting and database (Supabase, Render)</span>
+              <span>Supabase, for authentication, database, and user data storage</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-purple-400 mt-1">•</span>
-              <span>Payment processors (Ko-fi, PayPal, Stripe on web; Apple, Google, RevenueCat for in-app Pro)</span>
+              <span>PostHog, for optional analytics</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-purple-400 mt-1">•</span>
-              <span>Analytics (PostHog), when you consent</span>
+              <span>RevenueCat, for mobile subscription entitlement management</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400 mt-1">•</span>
+              <span>Apple and Google, for in-app purchases</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400 mt-1">•</span>
+              <span>Stripe, PayPal, and Ko-fi, for website payments or donations</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400 mt-1">•</span>
+              <span>Scryfall, for card data/images where applicable</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400 mt-1">•</span>
+              <span>AI providers used to process AI requests and generate responses</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-purple-400 mt-1">•</span>
+              <span>Hosting/infrastructure providers used to run the website, app backend, APIs, and database</span>
             </li>
           </ul>
         </div>
@@ -146,6 +182,11 @@ export default function PrivacyPage() {
           </a>
         </div>
       </div>
+
+      <h2>Our commitments</h2>
+      <p>We do not sell your personal data.</p>
+      <p>We do not use your deck, collection, wishlist, tournament, or AI chat data for third-party advertising.</p>
+      <p>AI features may send the information you provide, such as prompts, decklists, collection data, or chat messages, to AI service providers so a response can be generated. Do not submit sensitive personal information to AI chat or analysis tools.</p>
 
       <h2>Cookies &amp; tracking</h2>
       <p>On the website we use strictly necessary cookies for authentication and preference storage, and optional analytics cookies with your consent. The mobile app does not use browser cookies; authentication uses Supabase session tokens stored on your device, and optional analytics uses PostHog only when you opt in.</p>
