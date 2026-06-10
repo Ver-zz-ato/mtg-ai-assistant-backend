@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
-import { isActiveProfilePro } from "@/lib/server-pro-check";
+import { getRevenueCatSubscriberState, isActiveProfilePro, syncProfileFromRevenueCat } from "@/lib/server-pro-check";
 
 export const runtime = "nodejs";
 
@@ -156,14 +156,31 @@ export async function GET(req: NextRequest){
     }
 
     const needle = norm(q);
-    const users = authUsers.map((u:any) => {
+    const users = (await Promise.all(authUsers.map(async (u: any) => {
       const um = (u?.user_metadata || {}) as any;
       const profile = profilesMap.get(u.id);
       const username = profile?.username || um.username || um.display_name || null;
       const displayName = profile?.display_name || um.display_name || um.username || null;
       const emailVal = profile?.email || u.email || null;
-      const pro = isActiveProfilePro(profile ?? null);
-      const pro_plan = profile?.pro_plan || null;
+      let pro = isActiveProfilePro(profile ?? null);
+      let pro_plan = profile?.pro_plan || null;
+      if (!pro) {
+        const { fromRevenueCat } = await getRevenueCatSubscriberState(u.id);
+        if (fromRevenueCat) {
+          pro = true;
+          if (!isActiveProfilePro(profile ?? null)) {
+            const synced = await syncProfileFromRevenueCat(admin, u.id, 'admin_search_reconcile');
+            if (synced.synced) {
+              const { data: refreshed } = await admin
+                .from('profiles')
+                .select('pro_plan, pro_until')
+                .eq('id', u.id)
+                .maybeSingle();
+              pro_plan = (refreshed as { pro_plan?: string | null } | null)?.pro_plan ?? pro_plan;
+            }
+          }
+        }
+      }
       const billing_active = !!um.billing_active;
       const created_at = u.created_at || null;
       const last_sign_in_at = u.last_sign_in_at || null;
@@ -186,7 +203,7 @@ export async function GET(req: NextRequest){
         stripe_customer_id,
         pro_since: profile?.pro_since || null,
       } as any;
-    }).filter((u:any) => {
+    }))).filter((u:any) => {
       if (!needle) return true;
       return [u.id, u.email, u.username, u.display_name].some(v => norm(v||"").includes(needle));
     });

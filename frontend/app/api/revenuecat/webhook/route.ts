@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { timingSafeEqual } from 'node:crypto';
 import { getAdmin } from '@/app/api/_lib/supa';
-import { getRevenueCatSubscriberState } from '@/lib/server-pro-check';
+import { getRevenueCatSubscriberState, syncProfileFromRevenueCat } from '@/lib/server-pro-check';
 
 function verifyRevenueCatAuth(authHeader: string | null, expectedRaw: string): boolean {
   const expected = expectedRaw.startsWith('Bearer ') ? expectedRaw : `Bearer ${expectedRaw}`;
@@ -448,6 +448,28 @@ export async function POST(req: NextRequest) {
       const { fromRevenueCat, debug } = await getRevenueCatSubscriberState(userId);
       if (fromRevenueCat || debug.error) {
         const reason = fromRevenueCat ? 'revenuecat_still_active' : 'revenuecat_status_unknown';
+        if (fromRevenueCat) {
+          // Voluntary cancel: keep Pro until period end and refresh stale pro_until if a RENEWAL webhook was missed.
+          const proUntilFromEvent = eventBody.expiration_at_ms
+            ? new Date(eventBody.expiration_at_ms).toISOString()
+            : null;
+          if (proUntilFromEvent) {
+            const plan = planFromProductId(eventBody.product_id) ?? 'monthly';
+            try {
+              await updateProStatus(supabase, userId, true, proUntilFromEvent, plan, 'cancellation_active_period');
+            } catch (error) {
+              await logWebhookProcessed(supabase, {
+                ...eventMeta,
+                status: 'fail',
+                reason: 'cancellation_refresh_failed',
+                userId,
+              });
+              throw error;
+            }
+          } else {
+            await syncProfileFromRevenueCat(supabase, userId, 'cancellation_active_period');
+          }
+        }
         if (traceLog) {
           console.info('[RevenueCat webhook] Cancellation revoke skipped', {
             userId: userId.slice(0, 8) + '...',
@@ -457,7 +479,7 @@ export async function POST(req: NextRequest) {
         }
         await logWebhookProcessed(supabase, {
           ...eventMeta,
-          status: 'skipped',
+          status: 'ok',
           reason,
           userId,
         });

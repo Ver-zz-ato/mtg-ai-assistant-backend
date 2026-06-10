@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getAdmin } from '@/app/api/_lib/supa';
 
 /**
@@ -74,6 +74,40 @@ export function isActiveProfilePro(profile: ProfileProRow): boolean {
   return !Number.isFinite(until.getTime()) || until.getTime() > Date.now();
 }
 
+function planFromProductId(productId: string | undefined): 'monthly' | 'yearly' | null {
+  if (!productId) return null;
+  const lower = productId.toLowerCase();
+  if (lower.includes('annual') || lower.includes('yearly') || lower.includes('year')) return 'yearly';
+  if (lower.includes('month') || lower.includes('monthly')) return 'monthly';
+  return null;
+}
+
+export type ActiveRevenueCatProDetails = {
+  active: boolean;
+  proUntil: string | null;
+  proPlan: 'monthly' | 'yearly' | null;
+  matchedEntitlementId: string | null;
+};
+
+function parseActiveProFromRevenueCatSubscriberJson(
+  json: RevenueCatSubscriberJson | null | undefined
+): ActiveRevenueCatProDetails {
+  const entitlements = json?.subscriber?.entitlements;
+  for (const id of REVENUECAT_PRO_ENTITLEMENT_IDS) {
+    const ent = entitlements?.[id];
+    if (!ent) continue;
+    const expires = ent.expires_date;
+    if (expires != null && new Date(expires) <= new Date()) continue;
+    return {
+      active: true,
+      proUntil: expires ?? null,
+      proPlan: planFromProductId(ent.product_identifier) ?? 'monthly',
+      matchedEntitlementId: id,
+    };
+  }
+  return { active: false, proUntil: null, proPlan: null, matchedEntitlementId: null };
+}
+
 function parseProFromRevenueCatSubscriberJson(json: RevenueCatSubscriberJson | null | undefined): {
   fromRevenueCat: boolean;
   entitlementKeys: string[];
@@ -83,18 +117,93 @@ function parseProFromRevenueCatSubscriberJson(json: RevenueCatSubscriberJson | n
   const entitlementKeys =
     entitlements && typeof entitlements === 'object' ? Object.keys(entitlements) : [];
 
-  for (const id of REVENUECAT_PRO_ENTITLEMENT_IDS) {
-    const ent = entitlements?.[id];
-    if (!ent) continue;
-    const expires = ent.expires_date;
-    if (expires == null) {
-      return { fromRevenueCat: true, entitlementKeys, matchedEntitlementId: id };
-    }
-    if (new Date(expires) > new Date()) {
-      return { fromRevenueCat: true, entitlementKeys, matchedEntitlementId: id };
-    }
+  const active = parseActiveProFromRevenueCatSubscriberJson(json);
+  if (active.active) {
+    return {
+      fromRevenueCat: true,
+      entitlementKeys,
+      matchedEntitlementId: active.matchedEntitlementId,
+    };
   }
   return { fromRevenueCat: false, entitlementKeys, matchedEntitlementId: null };
+}
+
+/**
+ * Pull live Pro expiry from RevenueCat and write it to profiles (and user_metadata).
+ * Used when webhooks were missed or cancellation left a stale pro_until.
+ */
+export async function syncProfileFromRevenueCat(
+  supabase: SupabaseClient,
+  userId: string,
+  source: string
+): Promise<{ synced: boolean; proUntil: string | null }> {
+  const { fromRevenueCat, debug } = await getRevenueCatSubscriberState(userId);
+  if (!fromRevenueCat) {
+    return { synced: false, proUntil: null };
+  }
+
+  const secretKey = process.env.REVENUECAT_SECRET_API_KEY || process.env.REVENUECAT_SECRET_KEY;
+  if (!secretKey?.trim()) {
+    return { synced: false, proUntil: null };
+  }
+
+  let proUntil: string | null = null;
+  let proPlan: 'monthly' | 'yearly' | null = 'monthly';
+  try {
+    const res = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+    if (res.ok) {
+      const json = (await res.json()) as RevenueCatSubscriberJson;
+      const active = parseActiveProFromRevenueCatSubscriberJson(json);
+      proUntil = active.proUntil;
+      proPlan = active.proPlan;
+    }
+  } catch {
+    // Fall through: still set is_pro when RC reports active even if expiry fetch failed.
+  }
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      is_pro: true,
+      pro_until: proUntil,
+      pro_plan: proPlan ?? 'monthly',
+    })
+    .eq('id', userId);
+
+  if (profileError) {
+    console.error('[syncProfileFromRevenueCat] profiles update failed', {
+      userId: userId.slice(0, 8) + '…',
+      source,
+      error: profileError.message,
+      rcHttpStatus: debug.httpStatus,
+    });
+    return { synced: false, proUntil: null };
+  }
+
+  try {
+    const { data: userData } = await supabase.auth.admin.getUserById(userId);
+    if (userData?.user) {
+      const current = (userData.user.user_metadata || {}) as Record<string, unknown>;
+      await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: { ...current, pro: true, is_pro: true },
+      });
+    }
+  } catch {
+    // Non-fatal
+  }
+
+  if (process.env.NODE_ENV !== 'production' || process.env.DEBUG_ENTITLEMENTS === '1') {
+    console.info('[syncProfileFromRevenueCat] refreshed profile from RevenueCat', {
+      userId: userId.slice(0, 8) + '…',
+      source,
+      proUntil: proUntil?.slice(0, 10) ?? null,
+    });
+  }
+
+  return { synced: true, proUntil };
 }
 
 export type RevenueCatSubscriberDebug = {
