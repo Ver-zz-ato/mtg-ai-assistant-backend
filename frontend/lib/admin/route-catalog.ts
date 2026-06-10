@@ -483,6 +483,47 @@ export const ADMIN_ROUTE_CATALOG: AdminRouteMeta[] = [
     description: "System monitor; can write audit alerts.",
     healthCheck: "safe-get",
   },
+  {
+    path: "/api/admin/marketing-radar",
+    methods: ["GET"],
+    category: "Ops",
+    risk: "low",
+    authRequired: true,
+    writes: false,
+    description: "Marketing Radar dashboard data (latest brief, signals, meta snapshot).",
+    healthCheck: "safe-get",
+  },
+  {
+    path: "/api/admin/marketing-radar/run",
+    methods: ["POST"],
+    category: "AI",
+    risk: "medium",
+    authRequired: true,
+    writes: true,
+    description: "Generate marketing brief and platform drafts from signals + meta context.",
+    healthCheck: "skip-write",
+    confirmationPhrase: "RUN",
+  },
+  {
+    path: "/api/admin/marketing-radar/signals",
+    methods: ["POST"],
+    category: "Ops",
+    risk: "low",
+    authRequired: true,
+    writes: true,
+    description: "Ingest manual marketing signal (paste Reddit/discussion text).",
+    healthCheck: "skip-write",
+  },
+  {
+    path: "/api/admin/marketing-drafts/[id]",
+    methods: ["PATCH"],
+    category: "Ops",
+    risk: "low",
+    authRequired: true,
+    writes: true,
+    description: "Update marketing draft content, status, or notes.",
+    healthCheck: "skip-write",
+  },
 ];
 
 export const ADMIN_ROUTE_GROUPS: Record<AdminCategory, { title: string; routes: string[] }> = {
@@ -523,7 +564,7 @@ export const ADMIN_ROUTE_GROUPS: Record<AdminCategory, { title: string; routes: 
   },
   SEO: {
     title: "SEO",
-    routes: ["/admin/seo/pages", "/admin/analytics-seed", "/admin/blog"],
+    routes: ["/admin/seo/pages", "/admin/analytics-seed", "/admin/blog", "/admin/marketing-radar"],
   },
   Ops: {
     title: "Ops",

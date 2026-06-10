@@ -1,5 +1,16 @@
 # Frontend changelog
 
+## 2026-06-11
+
+### Marketing Radar MVP (admin)
+
+- **Database:** Migration `138_marketing_radar.sql` — `marketing_sources`, `marketing_signals`, `marketing_briefs`, `marketing_drafts` (service-role-only RLS).
+- **Admin UI:** `/admin/marketing-radar` — manual signal paste, meta context preview, latest brief, drafts by platform (approve/reject/edit/save).
+- **APIs:** `GET /api/admin/marketing-radar`, `POST /api/admin/marketing-radar/run`, `POST /api/admin/marketing-radar/signals`, `PATCH /api/admin/marketing-drafts/[id]`.
+- **AI:** `lib/marketing/generateMarketingBrief.ts` blends manual signals + `meta_signals` snapshot; no auto-posting.
+- **Docs:** `frontend/docs/MARKETING_RADAR.md`, `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
+- **Files:** `app/admin/marketing-radar/page.tsx`, `app/api/admin/marketing-radar/**`, `app/api/admin/marketing-drafts/[id]/route.ts`, `lib/marketing/*`, `lib/admin/route-catalog.ts`, `app/admin/JustForDavy/page.tsx`.
+
 ## 2026-06-09
 
 ### Audit remediation (security, performance, UX)

@@ -65,6 +65,7 @@ const GROUPS = [
       { href: "/admin/deploy", label: "Deploy", eli5: "Deploy and release info" },
       { href: "/admin/changelog", label: "Changelog", eli5: "Edit What's New entries (website)" },
       { href: "/admin/blog", label: "Blog", eli5: "Manage blog listing, art, excerpts on /blog" },
+      { href: "/admin/marketing-radar", label: "Marketing Radar", eli5: "Paste MTG chatter, blend meta trends, AI brief + social drafts for manual approval" },
     ],
   },
   {
