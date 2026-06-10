@@ -168,13 +168,7 @@ export default function MarketingRadarPage() {
     <main className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-semibold">Marketing Radar</h1>
-            <ELI5>
-              Paste MTG community chatter, blend it with Discover meta trends, generate a brief and
-              social/blog drafts — you approve everything manually. Nothing auto-posts.
-            </ELI5>
-          </div>
+          <h1 className="text-xl font-semibold">Marketing Radar</h1>
           <p className="text-sm text-neutral-400 mt-1">
             Internal only. Drafts for manual copy/paste to X, Instagram, blog, and Reddit.
           </p>
@@ -202,6 +196,15 @@ export default function MarketingRadarPage() {
           {error}
         </div>
       )}
+
+      <ELI5
+        heading="Marketing Radar"
+        items={[
+          "Paste MTG community chatter (Reddit, forums, Discord) as manual signals.",
+          "Each run blends your signals with Discover meta_signals (trending cards/commanders).",
+          "AI generates a brief and platform drafts — you approve and copy manually. Nothing auto-posts.",
+        ]}
+      />
 
       {loading ? (
         <p className="text-sm text-neutral-400">Loading…</p>
