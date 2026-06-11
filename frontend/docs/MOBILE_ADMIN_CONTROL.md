@@ -147,7 +147,7 @@ Identity is masked in list views by default. Use the existing support, entitleme
 Moderation note:
 
 - `/admin/moderation` is the first-pass queue for public profile/share/comment reports.
-- `/admin/support` now also includes one-user moderation controls (warn, note, ban, unban) alongside the existing account support actions.
+- `/admin/support` includes subscription support per selected user (RevenueCat entitlements, store subs, TRANSFER/webhook audit) plus moderation (warn, note, ban, unban) and GDPR actions.
 
 Ops tab note:
 

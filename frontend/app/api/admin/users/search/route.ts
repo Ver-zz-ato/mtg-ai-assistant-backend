@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/server-supabase";
 import { getAdmin } from "@/app/api/_lib/supa";
-import { getRevenueCatSubscriberState, isActiveProfilePro, syncProfileFromRevenueCat } from "@/lib/server-pro-check";
+import {
+  getRevenueCatSubscriberState,
+  isActiveProfilePro,
+  resolveServerEffectiveIsPro,
+  syncProfileFromRevenueCat,
+} from "@/lib/server-pro-check";
 
 export const runtime = "nodejs";
 
@@ -162,23 +167,38 @@ export async function GET(req: NextRequest){
       const username = profile?.username || um.username || um.display_name || null;
       const displayName = profile?.display_name || um.display_name || um.username || null;
       const emailVal = profile?.email || u.email || null;
-      let pro = isActiveProfilePro(profile ?? null);
+      const profileRow = profile ?? null;
       let pro_plan = profile?.pro_plan || null;
-      if (!pro) {
-        const { fromRevenueCat } = await getRevenueCatSubscriberState(u.id);
-        if (fromRevenueCat) {
-          pro = true;
-          if (!isActiveProfilePro(profile ?? null)) {
-            const synced = await syncProfileFromRevenueCat(admin, u.id, 'admin_search_reconcile');
-            if (synced.synced) {
-              const { data: refreshed } = await admin
-                .from('profiles')
-                .select('pro_plan, pro_until')
-                .eq('id', u.id)
-                .maybeSingle();
-              pro_plan = (refreshed as { pro_plan?: string | null } | null)?.pro_plan ?? pro_plan;
-            }
-          }
+      const pro_until = profile?.pro_until ?? null;
+      const { fromRevenueCat, debug: rcDebug } = await getRevenueCatSubscriberState(u.id);
+      const revenueCatResolved = rcDebug.httpStatus === 200 && rcDebug.subscriberPresent;
+      let pro = resolveServerEffectiveIsPro(profileRow, fromRevenueCat, revenueCatResolved);
+      if (fromRevenueCat && !isActiveProfilePro(profileRow)) {
+        const synced = await syncProfileFromRevenueCat(admin, u.id, 'admin_search_reconcile');
+        if (synced.synced) {
+          const { data: refreshed } = await admin
+            .from('profiles')
+            .select('pro_plan, pro_until, is_pro')
+            .eq('id', u.id)
+            .maybeSingle();
+          const refreshedRow = refreshed as {
+            pro_plan?: string | null;
+            pro_until?: string | null;
+            is_pro?: boolean | null;
+          } | null;
+          pro_plan = refreshedRow?.pro_plan ?? pro_plan;
+          pro = resolveServerEffectiveIsPro(
+            refreshedRow
+              ? {
+                  is_pro: refreshedRow.is_pro,
+                  pro_until: refreshedRow.pro_until ?? null,
+                  pro_plan: refreshedRow.pro_plan ?? null,
+                  stripe_subscription_id: profile?.stripe_subscription_id ?? null,
+                }
+              : profileRow,
+            fromRevenueCat,
+            revenueCatResolved
+          );
         }
       }
       const billing_active = !!um.billing_active;
@@ -202,6 +222,7 @@ export async function GET(req: NextRequest){
         stripe_subscription_id,
         stripe_customer_id,
         pro_since: profile?.pro_since || null,
+        pro_until,
       } as any;
     }))).filter((u:any) => {
       if (!needle) return true;

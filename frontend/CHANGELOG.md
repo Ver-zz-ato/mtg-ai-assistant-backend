@@ -9,6 +9,13 @@
 - **UX:** Hash-based confirm links append the verified email to `/auth/confirmed`; signup modal adds **Confirm password** (must match).
 - **Files:** `lib/auth/emailVerificationRedirect.ts`, `middleware.ts`, `app/auth/callback/route.ts`, `components/HashAuthCallbackHandler.tsx`, `components/Header.tsx`, `components/InlineSignUpForm.tsx`, `components/EmailVerificationSuccessPopup.tsx`.
 
+### Admin support — subscription & transfer details
+
+- **User Support** (`/admin/support`): selecting a user loads subscription support — effective Pro, profile vs RevenueCat mismatches, store subs (sandbox/App Store/Play), auth providers, TRANSFER/EXPIRATION/RENEWAL rows from `admin_audit`.
+- **API:** `GET /api/admin/users/subscription-support?userId=`.
+- **Search:** Pro column uses `resolveServerEffectiveIsPro`; includes `pro_until`.
+- **Files:** `app/admin/support/page.tsx`, `lib/admin/subscription-support.ts`, `app/api/admin/users/subscription-support/route.ts`, `app/api/admin/users/search/route.ts`.
+
 ### Pro status — stale profile vs RevenueCat (server)
 
 - **Fix:** `checkProStatus` and `/api/user/pro-status` now use `resolveServerEffectiveIsPro` — manual/Stripe grants preserved; when RevenueCat REST reports an inactive store sub, stale `profiles.is_pro` no longer grants API Pro (aligns with mobile).

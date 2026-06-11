@@ -17,6 +17,72 @@ type SortKey =
   | 'billing_active'
   | 'stripe_subscription_id';
 type SortDirection = 'asc' | 'desc';
+type SubscriptionSupportData = {
+  userId: string;
+  email: string | null;
+  created_at: string | null;
+  last_sign_in_at: string | null;
+  identities: Array<{ provider: string; id: string; created_at: string | null }>;
+  revenueCatCustomerUrl: string | null;
+  debug: {
+    finalIsPro: boolean;
+    fromProfile: boolean;
+    fromRevenueCat: boolean;
+    fromMetadata: boolean;
+    sources: string[];
+    mismatchFlags: string[];
+    profile: {
+      is_pro: boolean;
+      pro_until: string | null;
+      pro_plan: string | null;
+      has_stripe_customer: boolean;
+      has_stripe_subscription: boolean;
+      stripe_subscription_status?: string;
+    };
+    revenueCatDebug: {
+      secretConfigured: boolean;
+      httpStatus: number | null;
+      subscriberPresent: boolean;
+      fromRevenueCat: boolean;
+      entitlementKeys: string[];
+      matchedEntitlementId: string | null;
+      error?: string;
+    };
+  };
+  revenueCat: {
+    originalAppUserId: string | null;
+    firstSeen: string | null;
+    managementUrl: string | null;
+    fetchError?: string;
+    entitlements: Array<{
+      id: string;
+      productId: string | null;
+      expiresDate: string | null;
+      active: boolean;
+    }>;
+    subscriptions: Array<{
+      productId: string;
+      store: string | null;
+      expiresDate: string | null;
+      isSandbox: boolean | null;
+      unsubscribeDetectedAt: string | null;
+      billingIssuesDetectedAt: string | null;
+    }>;
+  };
+  billingEvents: Array<{
+    created_at: string;
+    action: string;
+    source: string | null;
+    status: string | null;
+    reason: string | null;
+    store: string | null;
+    environment: string | null;
+    eventId: string | null;
+    isTransfer: boolean;
+    isTransferRevoke: boolean;
+  }>;
+};
+
 type ModerationData = {
   status: {
     user_id: string;
@@ -89,6 +155,8 @@ export default function SupportPage() {
   const [verificationLink, setVerificationLink] = React.useState<string | null>(null);
   const [moderationData, setModerationData] = React.useState<ModerationData | null>(null);
   const [moderationBusy, setModerationBusy] = React.useState(false);
+  const [subscriptionData, setSubscriptionData] = React.useState<SubscriptionSupportData | null>(null);
+  const [subscriptionBusy, setSubscriptionBusy] = React.useState(false);
   const [moderationReason, setModerationReason] = React.useState('');
   const [moderationDetails, setModerationDetails] = React.useState('');
   const [moderationBanDuration, setModerationBanDuration] = React.useState<'7' | '30' | 'permanent'>('7');
@@ -213,6 +281,22 @@ export default function SupportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function loadSubscription(userId: string) {
+    setSubscriptionBusy(true);
+    try {
+      const params = new URLSearchParams({ userId });
+      const r = await fetch(`/api/admin/users/subscription-support?${params.toString()}`);
+      const j = await r.json();
+      if (!r.ok || j?.ok === false) throw new Error(j?.error || 'subscription_load_failed');
+      setSubscriptionData(j.support as SubscriptionSupportData);
+    } catch (e: any) {
+      setSubscriptionData(null);
+      setNotice({ type: 'error', message: e?.message || 'Failed to load subscription details.' });
+    } finally {
+      setSubscriptionBusy(false);
+    }
+  }
+
   async function loadModeration(userId: string) {
     setModerationBusy(true);
     try {
@@ -234,8 +318,10 @@ export default function SupportPage() {
   React.useEffect(() => {
     if (!selectedUserId) {
       setModerationData(null);
+      setSubscriptionData(null);
       return;
     }
+    loadSubscription(selectedUserId);
     loadModeration(selectedUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserId]);
@@ -291,6 +377,7 @@ export default function SupportPage() {
         pro_since: j?.profile?.pro_since ?? current?.pro_since ?? null,
       });
       setNotice({ type: 'success', message: `Pro status updated for ${current?.email || userId}.` });
+      if (selectedUserId === userId) await loadSubscription(userId);
       await loadUsers(q, 1);
     } catch (e: any) {
       patchRow(userId, {
@@ -458,9 +545,9 @@ export default function SupportPage() {
       <ELI5
         heading="User Support"
         items={[
-          'Scrollable list of users with detailed info: email, decks, Pro status, Stripe, last sign-in.',
-          'Search by email, id, or username. Toggle Pro/Billing for access or refund fixes.',
-          'Select a user for account actions: generate a verification link, export data, delete account, or apply moderation actions.',
+          'Scrollable list of users with email, decks, Pro status (profile + RevenueCat), Stripe, last sign-in.',
+          'Select a user to load subscription support: live RevenueCat entitlements, store subs, TRANSFER/webhook history, mismatch flags.',
+          'Toggle manual Pro or billing flags for refunds; use moderation and GDPR actions below.',
         ]}
       />
 
@@ -646,10 +733,221 @@ export default function SupportPage() {
               <div className="grid gap-2 rounded border border-neutral-800 bg-neutral-950/40 p-3 text-xs text-neutral-300 sm:grid-cols-2">
                 <div>Username: <span className="text-neutral-100">{selectedUser.username || selectedUser.display_name || '-'}</span></div>
                 <div>Last sign-in: <span className="text-neutral-100">{fmt(selectedUser.last_sign_in_at)}</span></div>
-                <div>Tier: <span className="text-neutral-100">{selectedUser.pro ? `Pro${selectedUser.pro_plan ? ` (${selectedUser.pro_plan})` : ''}` : 'Free'}</span></div>
+                <div>List tier: <span className="text-neutral-100">{selectedUser.pro ? `Pro${selectedUser.pro_plan ? ` (${selectedUser.pro_plan})` : ''}` : 'Free'}</span></div>
                 <div>Decks: <span className="text-neutral-100">{selectedUser.deck_count ?? 0}</span></div>
+                {selectedUser.pro_until ? (
+                  <div className="sm:col-span-2">Profile pro_until: <span className="text-neutral-100">{fmt(selectedUser.pro_until)}</span></div>
+                ) : null}
               </div>
             )}
+
+            <div className="rounded border border-amber-900/50 bg-amber-950/20 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="font-medium text-sm text-amber-100">
+                  Subscriptions & entitlements{' '}
+                  <HelpTip text="Live RevenueCat + Supabase profile resolution, store subscriptions, and recent TRANSFER / EXPIRATION / RENEWAL webhook audit rows." />
+                </div>
+                {selectedUserId ? (
+                  <button
+                    type="button"
+                    onClick={() => loadSubscription(selectedUserId)}
+                    disabled={subscriptionBusy}
+                    className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60 text-xs"
+                  >
+                    {subscriptionBusy ? 'Refreshing…' : 'Refresh'}
+                  </button>
+                ) : null}
+              </div>
+
+              {subscriptionBusy && !subscriptionData ? (
+                <div className="text-sm text-neutral-400">Loading subscription details…</div>
+              ) : subscriptionData ? (
+                <div className="space-y-3 text-xs text-neutral-300">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded px-2 py-0.5 font-medium ${
+                        subscriptionData.debug.finalIsPro
+                          ? 'bg-emerald-900/60 text-emerald-200'
+                          : 'bg-neutral-800 text-neutral-300'
+                      }`}
+                    >
+                      Effective: {subscriptionData.debug.finalIsPro ? 'Pro' : 'Free'}
+                    </span>
+                    {subscriptionData.debug.sources.length > 0 ? (
+                      <span className="text-neutral-500">
+                        Sources: {subscriptionData.debug.sources.join(', ')}
+                      </span>
+                    ) : (
+                      <span className="text-neutral-500">No active entitlement sources</span>
+                    )}
+                    {subscriptionData.revenueCatCustomerUrl ? (
+                      <a
+                        href={subscriptionData.revenueCatCustomerUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-400 hover:text-blue-300 underline"
+                      >
+                        Open in RevenueCat
+                      </a>
+                    ) : null}
+                  </div>
+
+                  {subscriptionData.debug.mismatchFlags.length > 0 ? (
+                    <div className="rounded border border-amber-700/60 bg-amber-950/30 p-2 space-y-1">
+                      <div className="font-medium text-amber-200">Mismatch flags</div>
+                      {subscriptionData.debug.mismatchFlags.map((flag) => (
+                        <div key={flag} className="text-amber-100/90">
+                          • {flag}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded border border-neutral-800 bg-neutral-950/50 p-2">
+                      <div className="font-medium text-neutral-100 mb-1">Supabase profile</div>
+                      <div>is_pro: {subscriptionData.debug.profile.is_pro ? 'true' : 'false'}</div>
+                      <div>pro_plan: {subscriptionData.debug.profile.pro_plan || '-'}</div>
+                      <div>pro_until: {fmt(subscriptionData.debug.profile.pro_until)}</div>
+                      <div>
+                        Stripe:{' '}
+                        {subscriptionData.debug.profile.has_stripe_subscription
+                          ? subscriptionData.debug.profile.stripe_subscription_status || 'linked'
+                          : 'none'}
+                      </div>
+                    </div>
+                    <div className="rounded border border-neutral-800 bg-neutral-950/50 p-2">
+                      <div className="font-medium text-neutral-100 mb-1">RevenueCat API</div>
+                      <div>RC active: {subscriptionData.debug.fromRevenueCat ? 'yes' : 'no'}</div>
+                      <div>HTTP: {subscriptionData.debug.revenueCatDebug.httpStatus ?? '-'}</div>
+                      <div>Subscriber: {subscriptionData.debug.revenueCatDebug.subscriberPresent ? 'yes' : 'no'}</div>
+                      <div>
+                        Entitlements:{' '}
+                        {subscriptionData.debug.revenueCatDebug.entitlementKeys.length
+                          ? subscriptionData.debug.revenueCatDebug.entitlementKeys.join(', ')
+                          : 'none'}
+                      </div>
+                      {subscriptionData.debug.revenueCatDebug.error ? (
+                        <div className="text-red-300 mt-1">{subscriptionData.debug.revenueCatDebug.error}</div>
+                      ) : null}
+                    </div>
+                    <div className="rounded border border-neutral-800 bg-neutral-950/50 p-2">
+                      <div className="font-medium text-neutral-100 mb-1">Auth providers</div>
+                      {subscriptionData.identities.length === 0 ? (
+                        <div className="text-neutral-500">No linked identities</div>
+                      ) : (
+                        subscriptionData.identities.map((identity) => (
+                          <div key={identity.id}>
+                            {identity.provider} · {fmt(identity.created_at)}
+                          </div>
+                        ))
+                      )}
+                      {subscriptionData.revenueCat.originalAppUserId ? (
+                        <div className="mt-1 text-neutral-500 break-all">
+                          RC original id: {subscriptionData.revenueCat.originalAppUserId}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {subscriptionData.revenueCat.fetchError ? (
+                    <div className="text-red-300">RevenueCat detail fetch: {subscriptionData.revenueCat.fetchError}</div>
+                  ) : null}
+
+                  {subscriptionData.revenueCat.subscriptions.length > 0 ? (
+                    <div className="rounded border border-neutral-800 bg-neutral-950/40 p-2 space-y-2">
+                      <div className="font-medium text-neutral-100">Store subscriptions (RevenueCat)</div>
+                      {subscriptionData.revenueCat.subscriptions.map((sub) => (
+                        <div key={sub.productId} className="rounded border border-neutral-800 p-2">
+                          <div className="flex flex-wrap gap-x-3 gap-y-1">
+                            <span className="text-neutral-100 font-mono">{sub.productId}</span>
+                            <span className="uppercase text-[10px] tracking-wide text-neutral-500">
+                              {sub.store || 'store?'}
+                              {sub.isSandbox ? ' · sandbox' : ''}
+                            </span>
+                          </div>
+                          <div>Expires: {fmt(sub.expiresDate)}</div>
+                          {sub.unsubscribeDetectedAt ? (
+                            <div className="text-amber-200">Cancelled: {fmt(sub.unsubscribeDetectedAt)}</div>
+                          ) : null}
+                          {sub.billingIssuesDetectedAt ? (
+                            <div className="text-red-300">Billing issue: {fmt(sub.billingIssuesDetectedAt)}</div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-neutral-500">No store subscription rows in RevenueCat for this customer.</div>
+                  )}
+
+                  {subscriptionData.revenueCat.entitlements.length > 0 ? (
+                    <div className="rounded border border-neutral-800 bg-neutral-950/40 p-2 space-y-1">
+                      <div className="font-medium text-neutral-100">Entitlements</div>
+                      {subscriptionData.revenueCat.entitlements.map((ent) => (
+                        <div key={ent.id} className="flex flex-wrap gap-2">
+                          <span className={ent.active ? 'text-emerald-300' : 'text-neutral-500'}>
+                            {ent.id} — {ent.active ? 'active' : 'inactive'}
+                          </span>
+                          {ent.productId ? <span className="text-neutral-500">{ent.productId}</span> : null}
+                          {ent.expiresDate ? <span>until {fmt(ent.expiresDate)}</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="rounded border border-neutral-800 bg-neutral-950/40 p-2 space-y-2">
+                    <div className="font-medium text-neutral-100">Recent billing webhooks (audit)</div>
+                    {subscriptionData.billingEvents.length === 0 ? (
+                      <div className="text-neutral-500">No RevenueCat/Stripe ops events logged for this user.</div>
+                    ) : (
+                      <div className="overflow-auto max-h-48">
+                        <table className="min-w-full text-[11px]">
+                          <thead>
+                            <tr className="text-neutral-500 text-left">
+                              <th className="py-1 pr-2">When</th>
+                              <th className="py-1 pr-2">Event</th>
+                              <th className="py-1 pr-2">Store</th>
+                              <th className="py-1 pr-2">Status</th>
+                              <th className="py-1 pr-2">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {subscriptionData.billingEvents.map((ev) => (
+                              <tr
+                                key={`${ev.created_at}-${ev.eventId || ev.source}-${ev.reason}`}
+                                className={`border-t border-neutral-800 ${
+                                  ev.isTransfer ? 'bg-violet-950/30' : ev.isTransferRevoke ? 'bg-red-950/20' : ''
+                                }`}
+                              >
+                                <td className="py-1 pr-2 whitespace-nowrap">{fmt(ev.created_at)}</td>
+                                <td className="py-1 pr-2">
+                                  {ev.isTransfer ? '🔁 TRANSFER' : ev.source || ev.action}
+                                </td>
+                                <td className="py-1 pr-2">
+                                  {ev.store || '-'}
+                                  {ev.environment ? (
+                                    <span className="text-neutral-500"> · {ev.environment}</span>
+                                  ) : null}
+                                </td>
+                                <td className="py-1 pr-2">{ev.status || '-'}</td>
+                                <td className="py-1 pr-2 text-neutral-400">
+                                  {ev.reason || '-'}
+                                  {ev.eventId ? (
+                                    <span className="block font-mono text-[10px] text-neutral-600">{ev.eventId}</span>
+                                  ) : null}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-neutral-400">Subscription details unavailable.</div>
+              )}
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <button
