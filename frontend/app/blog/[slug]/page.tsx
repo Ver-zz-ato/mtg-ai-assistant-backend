@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
 import { DEFAULT_BLOG_POSTS } from '@/lib/blog-defaults';
+import { getMarketingBlogPost } from '@/lib/blog/dynamicBlogPosts';
 import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
 import { descriptionFromText } from '@/lib/seo/metadata';
 
@@ -11,10 +12,39 @@ export const dynamic = 'force-dynamic';
 // Cache for 24 hours (blog content changes infrequently)
 export const revalidate = 86400;
 
+type BlogPostEntry = {
+  title: string;
+  date: string;
+  author: string;
+  category: string;
+  readTime: string;
+  content: string;
+  gradient: string;
+  icon: string;
+  imageUrl?: string;
+};
+
+async function resolveBlogPost(slug: string): Promise<BlogPostEntry | null> {
+  const staticPost = blogContent[slug];
+  if (staticPost) return staticPost;
+  const dynamic = await getMarketingBlogPost(slug);
+  if (!dynamic) return null;
+  return {
+    title: dynamic.title,
+    date: dynamic.date,
+    author: dynamic.author,
+    category: dynamic.category,
+    readTime: dynamic.readTime,
+    content: dynamic.content,
+    gradient: dynamic.gradient,
+    icon: dynamic.icon,
+  };
+}
+
 // Generate metadata for each blog post
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const post = blogContent[slug];
+  const post = await resolveBlogPost(slug);
   
   if (!post) {
     return {
@@ -1526,7 +1556,7 @@ function articleJsonLd(post: typeof blogContent[string], slug: string) {
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = blogContent[slug];
+  const post = await resolveBlogPost(slug);
 
   if (!post) {
     notFound();

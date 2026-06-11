@@ -1,6 +1,6 @@
 # Marketing Radar (admin)
 
-Internal admin tool for collecting MTG marketing signals, generating AI briefs, and drafting social/blog content for **manual approval only**. Nothing auto-posts.
+Internal admin tool for collecting MTG marketing signals, generating AI briefs, and drafting social/blog content. **Human-in-the-loop:** ingest + AI run on a schedule, you approve per platform, then publish with one click (X, Instagram, blog). Nothing posts without approval.
 
 ## Access
 
@@ -14,6 +14,7 @@ Apply migrations in Supabase SQL Editor:
 1. `frontend/db/migrations/138_marketing_radar.sql`
 2. `frontend/db/migrations/139_marketing_radar_phase2.sql`
 3. `frontend/db/migrations/140_marketing_radar_source_fixes.sql` — RSS URL fixes, YouTube channel IDs
+4. `frontend/db/migrations/141_marketing_radar_publish_flow.sql` — `posted` status, `posted_at`, `external_post_id`, one active draft per platform per brief
 
 See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 
@@ -28,21 +29,32 @@ See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 | `REDDIT_CLIENT_SECRET` | Optional | Reddit script app secret |
 | `REDDIT_USERNAME` | Optional | Reddit **username** for the bot account (not email; 3+ chars, `a-z0-9_-`) |
 | `REDDIT_PASSWORD` | Optional | Password for that Reddit account — used with script-app OAuth |
-| `CRON_SECRET` | For cron | Protects `/api/cron/marketing-radar-daily` |
+| `CRON_SECRET` | For cron | Protects marketing radar cron routes |
 | `MARKETING_RADAR_REDDIT_UA` | Optional | Custom Reddit User-Agent string |
+| `X_USER_ACCESS_TOKEN` | For X publish | OAuth 2 user token (Bearer) for `POST /2/tweets` |
+| `INSTAGRAM_ACCESS_TOKEN` | For IG publish | Instagram Graph API token |
+| `INSTAGRAM_USER_ID` | For IG publish | Instagram business/creator user ID |
+| `INSTAGRAM_DEFAULT_IMAGE_URL` | For IG publish | Public image URL for feed posts (caption from draft) |
+| `MARKETING_RADAR_DISCORD_WEBHOOK` | Optional | Bi-daily “drafts ready” Discord link (falls back to `DISCORD_ADMIN_ALERT_WEBHOOK`) |
 
 Keys are server-side only. The UI receives booleans (e.g. `youtube_api_key_configured`), never secrets.
 
-## Manual workflow
+## 4-step admin workflow (`/admin/marketing-radar`)
 
-1. **Ingest signals** — Fetch RSS / YouTube / Reddit, or paste manual text.
-2. **Run brief** (or **Run Full Daily Radar**) — blends top-scored signals + Discover `meta_signals`.
-3. **Review drafts** — quality flags shown as warnings (do not block approve).
-4. **Edit / approve / reject** — per platform.
-5. **Copy** — use Copy buttons; paste into X, Instagram, blog, or Reddit manually.
-6. **Mark copied / set planned date / campaign** — calendar view for planning.
-7. **Mark external post URL** — after you post manually.
-8. **Export CSV** — for offline review or spreadsheet planning.
+| Step | Tab | What you do |
+|------|-----|-------------|
+| 1 | **Ingest** | Check source health; **Run everything** (ingest + brief + 3 drafts). |
+| 2 | **Summary** | Read what’s trending — AI brief summary, topics, top signals. |
+| 3 | **Drafts** | **One draft per platform** (X, Instagram, long blog). Edit, **Approve** or **Reject**. |
+| 4 | **Publish** | Post approved drafts to X / Instagram / blog via API (or copy as fallback). |
+
+Blog drafts are **long-form** (800–1500 words) for the website. Reddit is ingest-only (signals), not a publish target.
+
+## Automation (every 2 days)
+
+Cron `GET /api/cron/marketing-radar-review` (08:00 UTC on even calendar days): full ingest + brief + drafts, then Discord message with link to step 3 (`?tab=drafts&brief_id=…`). You still approve and publish manually.
+
+Daily cron `marketing-radar-daily` (06:30 UTC) still runs ingest + brief without Discord (useful for always-fresh signals).
 
 ## Ingestion sources
 
@@ -104,12 +116,14 @@ Unauthenticated `www.reddit.com/...json` returns 403 from server IPs.
 | GET | `/api/admin/marketing-radar/briefs/[id]` | Single brief + drafts |
 | POST | `/api/admin/marketing-radar/briefs/[id]/regenerate` | New drafts; supersedes non-approved |
 | GET | `/api/admin/marketing-radar/export.csv` | CSV export |
-| PATCH | `/api/admin/marketing-drafts/[id]` | Edit draft, calendar fields, status |
+| PATCH | `/api/admin/marketing-drafts/[id]` | Edit draft, status |
+| POST | `/api/admin/marketing-drafts/[id]/publish` | Publish approved draft (X / Instagram / blog) |
 | GET | `/api/cron/marketing-radar-daily` | Cron: ingest + brief (CRON_SECRET) |
+| GET | `/api/cron/marketing-radar-review` | Cron: ingest + brief + Discord review link |
 
 ## AI drafts (OpenAI)
 
-Brief + drafts use `callLLM` via `lib/marketing/generateMarketingBrief.ts` (model: `MODEL_ADMIN_DEEP` or fallback). The model turns signals into **audience-facing posts** with full `https://www.manatap.ai/...` links from `lib/marketing/marketingPublicLinks.ts` (deck builder, mulligan, budget swaps, `/get` for app when relevant). Regenerate drafts after changing signals or to refresh voice.
+Brief + drafts use `callLLM` via `lib/marketing/generateMarketingBrief.ts` (model: `MODEL_ADMIN_DEEP` or fallback). Output is **exactly 3 drafts**: one X post, one Instagram caption, one long blog article. Links from `lib/marketing/marketingPublicLinks.ts`. Blog bodies are stored in `app_config` key `blog_marketing_bodies` and served at `/blog/[slug]` via `lib/blog/dynamicBlogPosts.ts`.
 
 ## Scoring
 
@@ -121,13 +135,14 @@ Heuristic warnings on drafts: `too_salesy`, `fake_personal_claim`, `astroturf_ri
 
 ## Cron
 
-Daily at **06:30 UTC** (after `meta-signals` at 05:15). See `frontend/docs/CRONS.md`.
+- **Daily 06:30 UTC** — `marketing-radar-daily`: ingest + brief (no notification).
+- **Every 2 days 08:00 UTC** — `marketing-radar-review`: ingest + brief + Discord “review drafts” link.
 
-Ingests RSS + Reddit + YouTube (if key set), then generates brief + drafts. **Does not post anywhere.**
+Neither cron auto-posts. See `frontend/docs/CRONS.md`.
 
 ## Verification checklist
 
-- [ ] Migrations 138 + 139 applied
+- [ ] Migrations 138–141 applied
 - [ ] Admin can access `/admin/marketing-radar`
 - [ ] Manual paste works
 - [ ] RSS fetch returns inserted/skipped counts
@@ -135,7 +150,8 @@ Ingests RSS + Reddit + YouTube (if key set), then generates brief + drafts. **Do
 - [ ] Reddit skips gracefully without `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`
 - [ ] Reddit fetch works with OAuth credentials; rate/access errors per source
 - [ ] Full daily radar creates brief + drafts
-- [ ] Regenerate supersedes draft/rejected only; approved kept
+- [ ] Regenerate supersedes draft/rejected/approved; posted rows kept
+- [ ] Publish tab posts to X / IG / blog when env configured
+- [ ] Bi-daily cron sends Discord link when webhook set
 - [ ] CSV export downloads
-- [ ] No route auto-posts externally
 - [ ] Non-admin gets 404 on APIs

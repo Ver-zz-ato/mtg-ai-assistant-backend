@@ -2,65 +2,27 @@
 
 import React from "react";
 import Link from "next/link";
-import { ELI5 } from "@/components/AdminHelp";
-import { BriefDetail } from "@/components/admin/marketing-radar/BriefDetail";
-import { BriefHistory } from "@/components/admin/marketing-radar/BriefHistory";
-import { CalendarView } from "@/components/admin/marketing-radar/CalendarView";
 import { DraftsPanel } from "@/components/admin/marketing-radar/DraftsPanel";
-import { IngestActions } from "@/components/admin/marketing-radar/IngestActions";
-import { ManualSignalForm } from "@/components/admin/marketing-radar/ManualSignalForm";
+import { IngestTab } from "@/components/admin/marketing-radar/IngestTab";
 import {
   MarketingRadarTabs,
   type MarketingRadarTab,
 } from "@/components/admin/marketing-radar/MarketingRadarTabs";
-import { SetupTab, type MarketingSourceHealthRow } from "@/components/admin/marketing-radar/SetupTab";
-import { SignalFilters, type SignalFilterState } from "@/components/admin/marketing-radar/SignalFilters";
-import { SignalsList } from "@/components/admin/marketing-radar/SignalsList";
+import { PublishTab } from "@/components/admin/marketing-radar/PublishTab";
+import { SummaryTab } from "@/components/admin/marketing-radar/SummaryTab";
+import type { MarketingSourceHealthRow } from "@/components/admin/marketing-radar/SetupTab";
+import type { SignalFilterState } from "@/components/admin/marketing-radar/SignalFilters";
 import type { RadarPayload } from "@/components/admin/marketing-radar/types";
-import { WorkflowTab } from "@/components/admin/marketing-radar/WorkflowTab";
-import type { MarketingMetaSnapshot } from "@/lib/marketing/marketingBriefSchema";
+import { ELI5 } from "@/components/AdminHelp";
 
-function MetaPanel({ meta }: { meta: MarketingMetaSnapshot | null }) {
-  if (!meta) return null;
-  const chip = (items: string[]) =>
-    items.length ? (
-      <div className="flex flex-wrap gap-1">
-        {items.map((n) => (
-          <span key={n} className="text-xs px-2 py-0.5 rounded-full border border-neutral-600 bg-neutral-800/80">
-            {n}
-          </span>
-        ))}
-      </div>
-    ) : (
-      <span className="text-xs text-neutral-500">—</span>
-    );
+const VALID_TABS: MarketingRadarTab[] = ["ingest", "summary", "drafts", "publish"];
 
-  return (
-    <section className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-4 space-y-3">
-      <div>
-        <div className="font-medium">What ManaTap players care about right now</div>
-        <p className="text-sm text-neutral-500 mt-1">From Discover meta signals — mixed into your AI brief.</p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 text-sm">
-        <div>
-          <div className="text-neutral-400 text-xs mb-1">Trending cards</div>
-          {chip(meta.trending_cards)}
-        </div>
-        <div>
-          <div className="text-neutral-400 text-xs mb-1">Trending commanders</div>
-          {chip(meta.trending_commanders)}
-        </div>
-        <div>
-          <div className="text-neutral-400 text-xs mb-1">New set breakouts</div>
-          {chip(meta.new_set_breakouts)}
-        </div>
-        <div>
-          <div className="text-neutral-400 text-xs mb-1">Meta label</div>
-          <p className="text-neutral-200 text-sm">{meta.meta_label ?? "—"}</p>
-        </div>
-      </div>
-    </section>
-  );
+function parseTabFromUrl(value: string | null): MarketingRadarTab {
+  if (value && VALID_TABS.includes(value as MarketingRadarTab)) {
+    return value as MarketingRadarTab;
+  }
+  if (value === "workflow" || value === "collect" || value === "setup") return "ingest";
+  return "ingest";
 }
 
 function buildQuery(filters: SignalFilterState, briefId: string | null): string {
@@ -74,29 +36,46 @@ function buildQuery(filters: SignalFilterState, briefId: string | null): string 
   return q ? `?${q}` : "";
 }
 
+function syncUrl(tab: MarketingRadarTab, briefId: string | null) {
+  if (typeof window === "undefined") return;
+  const p = new URLSearchParams(window.location.search);
+  p.set("tab", tab);
+  if (briefId) p.set("brief_id", briefId);
+  else p.delete("brief_id");
+  const next = `${window.location.pathname}?${p.toString()}`;
+  window.history.replaceState(null, "", next);
+}
+
 export default function MarketingRadarPage() {
-  const [tab, setTab] = React.useState<MarketingRadarTab>("workflow");
+  const [tab, setTab] = React.useState<MarketingRadarTab>("ingest");
   const [data, setData] = React.useState<RadarPayload | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [info, setInfo] = React.useState("");
-  const [runBusy, setRunBusy] = React.useState(false);
   const [dailyBusy, setDailyBusy] = React.useState(false);
-  const [signalBusy, setSignalBusy] = React.useState(false);
   const [regenerateBusy, setRegenerateBusy] = React.useState(false);
   const [draftBusyId, setDraftBusyId] = React.useState<string | null>(null);
+  const [publishBusyId, setPublishBusyId] = React.useState<string | null>(null);
   const [selectedBriefId, setSelectedBriefId] = React.useState<string | null>(null);
-
-  const [pasteTitle, setPasteTitle] = React.useState("");
-  const [pasteUrl, setPasteUrl] = React.useState("");
-  const [pasteText, setPasteText] = React.useState("");
   const [draftEdits, setDraftEdits] = React.useState<Record<string, string>>({});
-  const [signalFilters, setSignalFilters] = React.useState<SignalFilterState>({
+  const [signalFilters] = React.useState<SignalFilterState>({
     source_type: "",
     topic: "",
     card: "",
     min_score: "",
   });
+
+  React.useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setTab(parseTabFromUrl(p.get("tab")));
+    const bid = p.get("brief_id");
+    if (bid) setSelectedBriefId(bid);
+  }, []);
+
+  const goTab = React.useCallback((next: MarketingRadarTab) => {
+    setTab(next);
+    syncUrl(next, selectedBriefId);
+  }, [selectedBriefId]);
 
   const load = React.useCallback(async (briefId?: string | null) => {
     setError("");
@@ -111,12 +90,14 @@ export default function MarketingRadarPage() {
         return;
       }
       setData(json);
-      if (!briefId && !selectedBriefId && json.latest_brief?.id) {
+      const resolvedBriefId = briefId ?? selectedBriefId ?? json.latest_brief?.id ?? null;
+      if (!selectedBriefId && json.latest_brief?.id) {
         setSelectedBriefId(json.latest_brief.id);
       }
       const edits: Record<string, string> = {};
       for (const d of json.drafts ?? []) edits[d.id] = d.content;
       setDraftEdits(edits);
+      return resolvedBriefId;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -127,58 +108,6 @@ export default function MarketingRadarPage() {
   React.useEffect(() => {
     load();
   }, [load]);
-
-  const addSignal = async () => {
-    if (!pasteText.trim()) return;
-    setSignalBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/marketing-radar/signals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: pasteTitle.trim() || null,
-          url: pasteUrl.trim() || null,
-          raw_text: pasteText.trim(),
-        }),
-      });
-      const json = await res.json();
-      if (!json.ok) {
-        setError(typeof json.error === "string" ? json.error : "Failed to add signal");
-        return;
-      }
-      setPasteText("");
-      setPasteTitle("");
-      setPasteUrl("");
-      setInfo("Saved manual signal.");
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to add signal");
-    } finally {
-      setSignalBusy(false);
-    }
-  };
-
-  const runBrief = async () => {
-    setRunBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/marketing-radar/run", { method: "POST" });
-      const json = await res.json();
-      if (!json.ok) {
-        setError(json.message ?? json.error ?? "Brief run failed");
-        return;
-      }
-      if (json.brief?.id) setSelectedBriefId(json.brief.id);
-      setInfo(`Brief created with ${json.draftCount ?? "?"} drafts.`);
-      setTab("drafts");
-      await load(json.brief?.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Brief run failed");
-    } finally {
-      setRunBusy(false);
-    }
-  };
 
   const runDaily = async () => {
     setDailyBusy(true);
@@ -201,8 +130,8 @@ export default function MarketingRadarPage() {
         ].join(" · ")
       );
       if (s?.brief?.briefId) setSelectedBriefId(s.brief.briefId);
-      setTab("drafts");
       await load(s?.brief?.briefId);
+      goTab("summary");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Daily run failed");
     } finally {
@@ -232,6 +161,35 @@ export default function MarketingRadarPage() {
     }
   };
 
+  const publishDraft = async (id: string) => {
+    setPublishBusyId(id);
+    setError("");
+    try {
+      const draft = (data?.drafts ?? []).find((d) => d.id === id);
+      const edited = draftEdits[id];
+      if (draft && edited && edited !== draft.content) {
+        await patchDraft(id, { content: edited });
+      }
+
+      const res = await fetch(`/api/admin/marketing-drafts/${id}/publish`, { method: "POST" });
+      const json = await res.json();
+      if (!json.ok) {
+        setError(typeof json.error === "string" ? json.error : "Publish failed");
+        return;
+      }
+      setInfo(
+        json.externalPostUrl
+          ? `Published! ${json.externalPostUrl}`
+          : "Published successfully."
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Publish failed");
+    } finally {
+      setPublishBusyId(null);
+    }
+  };
+
   const regenerate = async () => {
     if (!selectedBriefId) return;
     setRegenerateBusy(true);
@@ -244,7 +202,7 @@ export default function MarketingRadarPage() {
         setError(json.error ?? "Regenerate failed");
         return;
       }
-      setInfo("New drafts created (old draft/rejected rows superseded).");
+      setInfo("Fresh drafts created (posted rows kept; other active drafts superseded).");
       await load(selectedBriefId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Regenerate failed");
@@ -255,7 +213,6 @@ export default function MarketingRadarPage() {
 
   const brief = data?.latest_brief ?? null;
   const drafts = data?.drafts ?? [];
-  const pendingDraftCount = drafts.filter((d) => d.status === "draft").length;
   const youtubeOk = !!data?.config?.youtube_api_key_configured;
   const redditOk = !!data?.config?.reddit_api_configured;
   const sourceRows = (data?.sources ?? []) as MarketingSourceHealthRow[];
@@ -266,7 +223,7 @@ export default function MarketingRadarPage() {
         <div>
           <h1 className="text-xl font-semibold">Marketing Radar</h1>
           <p className="text-sm text-neutral-400 mt-1">
-            Spot MTG trends → AI writes drafts → you copy & post manually.
+            Ingest trends → review summary → approve drafts → publish to X, Instagram, or blog.
           </p>
         </div>
         <Link
@@ -277,7 +234,13 @@ export default function MarketingRadarPage() {
         </Link>
       </div>
 
-      <MarketingRadarTabs active={tab} onChange={setTab} />
+      <MarketingRadarTabs
+        active={tab}
+        onChange={(t) => {
+          setTab(t);
+          syncUrl(t, selectedBriefId);
+        }}
+      />
 
       {error && (
         <div className="rounded border border-red-800 bg-red-950/40 px-3 py-2 text-sm text-red-200">
@@ -294,104 +257,45 @@ export default function MarketingRadarPage() {
         <p className="text-sm text-neutral-400">Loading…</p>
       ) : (
         <>
-          {tab === "workflow" && (
-            <WorkflowTab
-              signalCount={data?.recent_signals?.length ?? 0}
-              draftCount={drafts.length}
-              pendingDraftCount={pendingDraftCount}
-              briefDate={brief?.brief_date ?? null}
-              runBusy={dailyBusy || runBusy}
-              onRunDaily={runDaily}
-              onRunBrief={runBrief}
-              onGoTab={setTab}
+          {tab === "ingest" && (
+            <IngestTab
+              sources={sourceRows}
               youtubeOk={youtubeOk}
               redditOk={redditOk}
+              redditPartial={!!data?.config?.reddit_partial_configured}
+              runBusy={dailyBusy}
+              onRunDaily={runDaily}
+              onIngestDone={() => load()}
+              onResult={setInfo}
             />
           )}
 
-          {tab === "collect" && (
-            <div className="space-y-5">
-              <ELI5
-                heading="Collect topics"
-                items={[
-                  "Hit the buttons to pull fresh articles and videos into your signal inbox.",
-                  "If Reddit is broken, paste thread text manually — it scores the same way.",
-                  "Signals from the last 7 days feed into the AI brief (top scores win).",
-                ]}
-              />
-              <IngestActions
-                youtubeConfigured={youtubeOk}
-                redditConfigured={redditOk}
-                onResult={setInfo}
-                onDone={() => load()}
-              />
-              <ManualSignalForm
-                title={pasteTitle}
-                url={pasteUrl}
-                text={pasteText}
-                busy={signalBusy}
-                onTitle={setPasteTitle}
-                onUrl={setPasteUrl}
-                onText={setPasteText}
-                onSubmit={addSignal}
-              />
-              <MetaPanel meta={data?.meta_snapshot ?? null} />
-              <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
-                <div className="font-medium">Saved signals</div>
-                <SignalFilters
-                  filters={signalFilters}
-                  onChange={setSignalFilters}
-                  onApply={() => load(selectedBriefId)}
-                />
-                <SignalsList signals={data?.recent_signals ?? []} />
-              </section>
-            </div>
+          {tab === "summary" && (
+            <SummaryTab
+              brief={brief}
+              briefHistory={data?.brief_history ?? []}
+              selectedBriefId={selectedBriefId}
+              signals={data?.recent_signals ?? []}
+              meta={data?.meta_snapshot ?? null}
+              onSelectBrief={(id) => {
+                setSelectedBriefId(id);
+                syncUrl(tab, id);
+                load(id);
+              }}
+              onGoDrafts={() => goTab("drafts")}
+            />
           )}
 
           {tab === "drafts" && (
             <div className="space-y-5">
               <ELI5
-                heading="AI drafts"
+                heading="Step 3 — Approve or reject"
                 items={[
-                  "OpenAI turns signals into real posts with manatap.ai links (deck tools, mulligan, etc.).",
-                  "Amber chips = warnings (e.g. analyst voice, missing link) — they don't block approve.",
-                  "Hit Regenerate for a fresh batch; approved drafts stay when you regenerate.",
+                  "One AI draft per platform: X, Instagram, and a long blog post.",
+                  "Edit text if needed, then Approve (goes to Publish) or Reject.",
+                  "Quality warnings are hints only — they don't block approval.",
                 ]}
               />
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={runBrief}
-                  disabled={runBusy || loading}
-                  className="px-4 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium"
-                >
-                  {runBusy ? "Writing brief…" : "Run AI brief"}
-                </button>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
-                  <div className="font-medium">Past briefs</div>
-                  <BriefHistory
-                    items={data?.brief_history ?? []}
-                    selectedId={selectedBriefId}
-                    onSelect={(id) => {
-                      setSelectedBriefId(id);
-                      load(id);
-                    }}
-                  />
-                </section>
-                <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div className="font-medium">Brief summary</div>
-                    {brief && (
-                      <span className="text-xs text-neutral-500">
-                        {brief.brief_date} · {new Date(brief.created_at).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                  <BriefDetail brief={brief} />
-                </section>
-              </div>
               <DraftsPanel
                 briefId={selectedBriefId}
                 drafts={drafts}
@@ -402,53 +306,25 @@ export default function MarketingRadarPage() {
                 onRegenerate={regenerate}
                 regenerateBusy={regenerateBusy}
               />
+              {drafts.some((d) => d.status === "approved") && (
+                <button
+                  type="button"
+                  onClick={() => goTab("publish")}
+                  className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium"
+                >
+                  Go to Publish →
+                </button>
+              )}
             </div>
           )}
 
           {tab === "publish" && (
-            <div className="space-y-5">
-              <ELI5
-                heading="Post & schedule"
-                items={[
-                  "Approve a draft → Copy → paste into X / Instagram / blog / Reddit yourself.",
-                  "Mark copied when done; add the live URL if you want a record.",
-                  "Set a planned date to see posts on the content calendar.",
-                ]}
-              />
-              <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
-                <div className="font-medium">Content calendar</div>
-                <p className="text-sm text-neutral-500">
-                  Drafts with a planned date show here. Edit dates on the AI drafts tab.
-                </p>
-                <CalendarView drafts={data?.calendar_drafts ?? drafts} />
-              </section>
-              {selectedBriefId && (
-                <a
-                  href={`/api/admin/marketing-radar/export.csv?brief_id=${selectedBriefId}`}
-                  className="inline-flex px-4 py-2 rounded-lg border border-neutral-600 bg-neutral-800 hover:bg-neutral-700 text-sm"
-                >
-                  Download CSV for this brief
-                </a>
-              )}
-              <DraftsPanel
-                briefId={selectedBriefId}
-                drafts={drafts.filter((d) => d.status === "approved" || d.status === "draft")}
-                draftEdits={draftEdits}
-                setDraftEdits={setDraftEdits}
-                draftBusyId={draftBusyId}
-                onPatch={patchDraft}
-                onRegenerate={regenerate}
-                regenerateBusy={regenerateBusy}
-              />
-            </div>
-          )}
-
-          {tab === "setup" && (
-            <SetupTab
-              sources={sourceRows}
-              youtubeConfigured={youtubeOk}
-              redditConfigured={redditOk}
-              redditPartial={!!data?.config?.reddit_partial_configured}
+            <PublishTab
+              drafts={drafts}
+              draftEdits={draftEdits}
+              publishConfig={data?.config?.publish}
+              publishBusyId={publishBusyId}
+              onPublish={publishDraft}
             />
           )}
         </>

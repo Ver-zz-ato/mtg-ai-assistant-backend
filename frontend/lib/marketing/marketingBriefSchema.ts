@@ -1,23 +1,41 @@
 import { z } from "zod";
 
-export const MARKETING_PLATFORMS = ["x", "instagram", "blog", "reddit"] as const;
+export const MARKETING_PLATFORMS = ["x", "instagram", "blog"] as const;
 export type MarketingPlatform = (typeof MARKETING_PLATFORMS)[number];
 
-export const MARKETING_DRAFT_STATUSES = ["draft", "approved", "rejected", "superseded"] as const;
+export const MARKETING_DRAFT_STATUSES = [
+  "draft",
+  "approved",
+  "rejected",
+  "superseded",
+  "posted",
+] as const;
 export type MarketingDraftStatus = (typeof MARKETING_DRAFT_STATUSES)[number];
 
 export const marketingDraftSchema = z.object({
   platform: z.enum(MARKETING_PLATFORMS),
   content: z.string().min(1),
+  title: z.string().optional(),
 });
 
-export const marketingBriefAiOutputSchema = z.object({
-  summary: z.string().min(1),
-  trending_cards: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
-  trending_topics: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
-  opportunities: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
-  drafts: z.array(marketingDraftSchema).min(1),
-});
+export const marketingBriefAiOutputSchema = z
+  .object({
+    summary: z.string().min(1),
+    trending_cards: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
+    trending_topics: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
+    opportunities: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
+    drafts: z.array(marketingDraftSchema).min(3),
+  })
+  .refine(
+    (data) => {
+      const counts = { x: 0, instagram: 0, blog: 0 };
+      for (const d of data.drafts) {
+        if (d.platform in counts) counts[d.platform as keyof typeof counts] += 1;
+      }
+      return counts.x === 1 && counts.instagram === 1 && counts.blog === 1;
+    },
+    { message: "Exactly one draft required per platform: x, instagram, blog" }
+  );
 
 export type MarketingBriefAiOutput = z.infer<typeof marketingBriefAiOutputSchema>;
 
@@ -56,6 +74,8 @@ export type MarketingDraftRow = {
   campaign: string | null;
   copied_at: string | null;
   external_post_url: string | null;
+  external_post_id: string | null;
+  posted_at: string | null;
   superseded_at: string | null;
   created_at: string;
   updated_at: string;

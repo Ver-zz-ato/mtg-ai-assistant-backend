@@ -31,6 +31,12 @@ export type RadarPayload = {
     youtube_api_key_configured?: boolean;
     reddit_api_configured?: boolean;
     reddit_partial_configured?: boolean;
+    publish?: {
+      x?: boolean;
+      instagram?: boolean;
+      blog?: boolean;
+      discord_notify?: boolean;
+    };
   };
   error?: string;
 };
@@ -48,10 +54,10 @@ export const PLATFORM_LABELS: Record<string, string> = {
   x: "X (Twitter)",
   instagram: "Instagram",
   blog: "Blog",
-  reddit: "Reddit",
 };
 
 export function statusBadgeClass(status: string): string {
+  if (status === "posted") return "bg-blue-900/50 text-blue-200 border-blue-800";
   if (status === "approved") return "bg-emerald-900/60 text-emerald-300 border-emerald-700";
   if (status === "rejected") return "bg-red-900/40 text-red-300 border-red-800";
   if (status === "superseded") return "bg-neutral-800/60 text-neutral-500 border-neutral-700";

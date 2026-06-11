@@ -2,6 +2,15 @@
 
 ## 2026-06-11
 
+### Marketing Radar 4-step publish flow
+
+- **UI:** Four tabs — Ingest → Summary → Drafts (approve/reject) → Publish (Post to X / Instagram / blog).
+- **AI:** Exactly one draft per platform; blog is long-form (800–1500 words).
+- **Publish:** `POST /api/admin/marketing-drafts/[id]/publish` + `lib/marketing/publish/*`; dynamic blog posts via `app_config`.
+- **Cron:** `marketing-radar-review` every 2 days — ingest + brief + Discord link to approve.
+- **Migration:** `141_marketing_radar_publish_flow.sql` (`posted` status, one active draft per platform).
+- **Files:** `app/admin/marketing-radar/page.tsx`, `components/admin/marketing-radar/*`, `lib/marketing/publish/*`, `app/blog/[slug]/page.tsx`, `vercel.json`, `docs/MARKETING_RADAR.md`.
+
 ### Marketing Radar draft voice + links
 
 - **AI prompts:** Audience-facing posts (not signal reports); required manatap.ai links from `marketingPublicLinks.ts` catalog.

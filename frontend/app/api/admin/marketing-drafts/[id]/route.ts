@@ -36,7 +36,7 @@ const patchSchema = z
 type RouteContext = { params: Promise<{ id: string }> };
 
 const DRAFT_SELECT =
-  "id, brief_id, platform, content, status, notes, quality_flags, scheduled_for, campaign, copied_at, external_post_url, superseded_at, created_at, updated_at";
+  "id, brief_id, platform, content, status, notes, quality_flags, scheduled_for, campaign, copied_at, external_post_url, external_post_id, posted_at, superseded_at, created_at, updated_at";
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
   try {

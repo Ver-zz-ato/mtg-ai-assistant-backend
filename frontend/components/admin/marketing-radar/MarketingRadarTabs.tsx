@@ -2,14 +2,13 @@
 
 import React from "react";
 
-export type MarketingRadarTab = "workflow" | "collect" | "drafts" | "publish" | "setup";
+export type MarketingRadarTab = "ingest" | "summary" | "drafts" | "publish";
 
-const TABS: { id: MarketingRadarTab; label: string; hint: string }[] = [
-  { id: "workflow", label: "Start here", hint: "Daily flow" },
-  { id: "collect", label: "Collect topics", hint: "News & Reddit" },
-  { id: "drafts", label: "AI drafts", hint: "Brief & posts" },
-  { id: "publish", label: "Post & schedule", hint: "Copy & calendar" },
-  { id: "setup", label: "Setup", hint: "Sources & Reddit" },
+const TABS: { id: MarketingRadarTab; step: number; label: string; hint: string }[] = [
+  { id: "ingest", step: 1, label: "Ingest", hint: "Sources & run" },
+  { id: "summary", step: 2, label: "Summary", hint: "What's trending" },
+  { id: "drafts", step: 3, label: "Drafts", hint: "Approve / reject" },
+  { id: "publish", step: 4, label: "Publish", hint: "Post live" },
 ];
 
 type Props = {
@@ -21,7 +20,7 @@ export function MarketingRadarTabs({ active, onChange }: Props) {
   return (
     <nav
       className="flex flex-wrap gap-1 rounded-xl border border-neutral-700 bg-neutral-900/60 p-1"
-      aria-label="Marketing Radar sections"
+      aria-label="Marketing Radar workflow"
     >
       {TABS.map((tab) => {
         const selected = active === tab.id;
@@ -36,7 +35,10 @@ export function MarketingRadarTabs({ active, onChange }: Props) {
                 : "border border-transparent text-neutral-300 hover:bg-neutral-800/80"
             }`}
           >
-            <div className="text-sm font-medium">{tab.label}</div>
+            <div className="text-sm font-medium">
+              <span className="text-emerald-500/80 mr-1">{tab.step}.</span>
+              {tab.label}
+            </div>
             <div className="text-[10px] text-neutral-500">{tab.hint}</div>
           </button>
         );

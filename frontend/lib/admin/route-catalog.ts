@@ -525,6 +525,17 @@ export const ADMIN_ROUTE_CATALOG: AdminRouteMeta[] = [
     healthCheck: "skip-write",
   },
   {
+    path: "/api/admin/marketing-drafts/[id]/publish",
+    methods: ["POST"],
+    category: "Ops",
+    risk: "high",
+    authRequired: true,
+    writes: true,
+    description: "Publish approved marketing draft to X, Instagram, or blog.",
+    healthCheck: "skip-write",
+    confirmationPhrase: "PUBLISH",
+  },
+  {
     path: "/api/admin/marketing-radar/ingest/rss",
     methods: ["POST"],
     category: "Ops",

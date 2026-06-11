@@ -5,6 +5,7 @@ import {
   metaSnapshotHasData,
 } from "./fetchMarketingContext";
 import { generateMarketingBrief } from "./generateMarketingBrief";
+import { normalizeBriefDrafts } from "./normalizeBriefDrafts";
 import type { MarketingBriefRow, MarketingDraftRow } from "./marketingBriefSchema";
 
 export type CreateBriefResult = {
@@ -26,11 +27,13 @@ export async function createBriefAndDrafts(
     };
   }
 
-  const briefOutput = await generateMarketingBrief({
-    signals,
-    metaContext: meta_snapshot,
-    userId: opts?.userId ?? null,
-  });
+  const briefOutput = normalizeBriefDrafts(
+    await generateMarketingBrief({
+      signals,
+      metaContext: meta_snapshot,
+      userId: opts?.userId ?? null,
+    })
+  );
 
   const { data: briefRow, error: briefErr } = await admin
     .from("marketing_briefs")
@@ -90,17 +93,19 @@ export async function regenerateBriefDrafts(
     limit: 30,
   });
 
-  const briefOutput = await generateMarketingBrief({
-    signals,
-    metaContext: meta_snapshot,
-    userId: opts?.userId ?? null,
-  });
+  const briefOutput = normalizeBriefDrafts(
+    await generateMarketingBrief({
+      signals,
+      metaContext: meta_snapshot,
+      userId: opts?.userId ?? null,
+    })
+  );
 
   await admin
     .from("marketing_drafts")
     .update({ superseded_at: new Date().toISOString(), status: "superseded", updated_at: new Date().toISOString() })
     .eq("brief_id", briefId)
-    .in("status", ["draft", "rejected"])
+    .in("status", ["draft", "rejected", "approved"])
     .is("superseded_at", null);
 
   const draftInserts = briefOutput.drafts.map((d) => ({

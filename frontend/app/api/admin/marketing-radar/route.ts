@@ -10,6 +10,8 @@ import {
 import { isRedditApiConfigured } from "@/lib/marketing/fetchRedditSignals";
 import { isRedditPartiallyConfigured } from "@/lib/marketing/redditOAuth";
 import { isYouTubeApiKeyConfigured } from "@/lib/marketing/fetchYouTubeSignals";
+import { isMarketingReviewNotifyConfigured } from "@/lib/marketing/notifyMarketingReview";
+import { publishConfigStatus } from "@/lib/marketing/publishConfig";
 import type { MarketingDraftRow } from "@/lib/marketing/marketingBriefSchema";
 
 export const runtime = "nodejs";
@@ -24,7 +26,7 @@ function groupDraftsByPlatform(drafts: MarketingDraftRow[]): Record<string, Mark
 }
 
 const DRAFT_SELECT =
-  "id, brief_id, platform, content, status, notes, quality_flags, scheduled_for, campaign, copied_at, external_post_url, superseded_at, created_at, updated_at";
+  "id, brief_id, platform, content, status, notes, quality_flags, scheduled_for, campaign, copied_at, external_post_url, external_post_id, posted_at, superseded_at, created_at, updated_at";
 
 export async function GET(req: NextRequest) {
   try {
@@ -135,6 +137,10 @@ export async function GET(req: NextRequest) {
           youtube_api_key_configured: isYouTubeApiKeyConfigured(),
           reddit_api_configured: isRedditApiConfigured(),
           reddit_partial_configured: isRedditPartiallyConfigured(),
+          publish: {
+            ...publishConfigStatus(),
+            discord_notify: isMarketingReviewNotifyConfigured(),
+          },
         },
       },
       { headers: { "Cache-Control": "no-store" } }
