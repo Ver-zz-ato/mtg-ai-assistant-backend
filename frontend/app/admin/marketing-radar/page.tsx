@@ -3,77 +3,105 @@
 import React from "react";
 import Link from "next/link";
 import { ELI5 } from "@/components/AdminHelp";
-import {
-  MARKETING_PLATFORMS,
-  stringifyBriefItem,
-  type MarketingBriefRow,
-  type MarketingDraftRow,
-  type MarketingMetaSnapshot,
-  type MarketingSignalRow,
-} from "@/lib/marketing/marketingBriefSchema";
+import { BriefDetail } from "@/components/admin/marketing-radar/BriefDetail";
+import { BriefHistory } from "@/components/admin/marketing-radar/BriefHistory";
+import { CalendarView } from "@/components/admin/marketing-radar/CalendarView";
+import { DraftsPanel } from "@/components/admin/marketing-radar/DraftsPanel";
+import { IngestActions } from "@/components/admin/marketing-radar/IngestActions";
+import { SignalFilters, type SignalFilterState } from "@/components/admin/marketing-radar/SignalFilters";
+import { SignalsList } from "@/components/admin/marketing-radar/SignalsList";
+import type { RadarPayload } from "@/components/admin/marketing-radar/types";
+import type { MarketingMetaSnapshot } from "@/lib/marketing/marketingBriefSchema";
 
-type RadarPayload = {
-  ok: boolean;
-  latest_brief: MarketingBriefRow | null;
-  drafts: MarketingDraftRow[];
-  drafts_by_platform: Record<string, MarketingDraftRow[]>;
-  recent_signals: MarketingSignalRow[];
-  meta_snapshot: MarketingMetaSnapshot;
-  error?: string;
-};
+function MetaPanel({ meta }: { meta: MarketingMetaSnapshot | null }) {
+  if (!meta) return null;
+  const chip = (items: string[]) =>
+    items.length ? (
+      <div className="flex flex-wrap gap-1">
+        {items.map((n) => (
+          <span key={n} className="text-xs px-2 py-0.5 rounded-full border border-neutral-600 bg-neutral-800/80">
+            {n}
+          </span>
+        ))}
+      </div>
+    ) : (
+      <span className="text-xs text-neutral-500">—</span>
+    );
 
-const PLATFORM_LABELS: Record<string, string> = {
-  x: "X (Twitter)",
-  instagram: "Instagram",
-  blog: "Blog",
-  reddit: "Reddit",
-};
-
-function statusBadgeClass(status: string): string {
-  if (status === "approved") return "bg-emerald-900/60 text-emerald-300 border-emerald-700";
-  if (status === "rejected") return "bg-red-900/40 text-red-300 border-red-800";
-  return "bg-neutral-800 text-neutral-300 border-neutral-600";
+  return (
+    <section className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-4 space-y-3">
+      <div className="font-medium">Discover meta context</div>
+      <div className="grid gap-3 sm:grid-cols-2 text-sm">
+        <div>
+          <div className="text-neutral-400 text-xs mb-1">Trending cards</div>
+          {chip(meta.trending_cards)}
+        </div>
+        <div>
+          <div className="text-neutral-400 text-xs mb-1">Trending commanders</div>
+          {chip(meta.trending_commanders)}
+        </div>
+        <div>
+          <div className="text-neutral-400 text-xs mb-1">New set breakouts</div>
+          {chip(meta.new_set_breakouts)}
+        </div>
+        <div>
+          <div className="text-neutral-400 text-xs mb-1">Meta label</div>
+          <p className="text-neutral-200 text-sm">{meta.meta_label ?? "—"}</p>
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function ChipList({ items, empty }: { items: unknown[]; empty: string }) {
-  if (!items.length) return <p className="text-sm text-neutral-500">{empty}</p>;
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((item, i) => (
-        <span
-          key={`${stringifyBriefItem(item)}-${i}`}
-          className="text-xs px-2 py-1 rounded-full border border-neutral-600 bg-neutral-800/80 text-neutral-200"
-        >
-          {stringifyBriefItem(item)}
-        </span>
-      ))}
-    </div>
-  );
+function buildQuery(filters: SignalFilterState, briefId: string | null): string {
+  const p = new URLSearchParams();
+  if (briefId) p.set("brief_id", briefId);
+  if (filters.source_type) p.set("source_type", filters.source_type);
+  if (filters.topic) p.set("topic", filters.topic);
+  if (filters.card) p.set("card", filters.card);
+  if (filters.min_score) p.set("min_score", filters.min_score);
+  const q = p.toString();
+  return q ? `?${q}` : "";
 }
 
 export default function MarketingRadarPage() {
   const [data, setData] = React.useState<RadarPayload | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [info, setInfo] = React.useState("");
   const [runBusy, setRunBusy] = React.useState(false);
   const [signalBusy, setSignalBusy] = React.useState(false);
+  const [regenerateBusy, setRegenerateBusy] = React.useState(false);
   const [draftBusyId, setDraftBusyId] = React.useState<string | null>(null);
+  const [selectedBriefId, setSelectedBriefId] = React.useState<string | null>(null);
 
   const [pasteTitle, setPasteTitle] = React.useState("");
   const [pasteUrl, setPasteUrl] = React.useState("");
   const [pasteText, setPasteText] = React.useState("");
   const [draftEdits, setDraftEdits] = React.useState<Record<string, string>>({});
+  const [signalFilters, setSignalFilters] = React.useState<SignalFilterState>({
+    source_type: "",
+    topic: "",
+    card: "",
+    min_score: "",
+  });
 
-  const load = React.useCallback(async () => {
+  const load = React.useCallback(async (briefId?: string | null) => {
     setError("");
     try {
-      const res = await fetch("/api/admin/marketing-radar", { cache: "no-store" });
+      const res = await fetch(
+        `/api/admin/marketing-radar${buildQuery(signalFilters, briefId ?? selectedBriefId)}`,
+        { cache: "no-store" }
+      );
       const json = (await res.json()) as RadarPayload;
       if (!json.ok) {
-        setError(json.error ?? "Failed to load marketing radar");
+        setError(json.error ?? "Failed to load");
         return;
       }
       setData(json);
+      if (!briefId && !selectedBriefId && json.latest_brief?.id) {
+        setSelectedBriefId(json.latest_brief.id);
+      }
       const edits: Record<string, string> = {};
       for (const d of json.drafts ?? []) edits[d.id] = d.content;
       setDraftEdits(edits);
@@ -82,7 +110,7 @@ export default function MarketingRadarPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [signalFilters, selectedBriefId]);
 
   React.useEffect(() => {
     load();
@@ -128,7 +156,8 @@ export default function MarketingRadarPage() {
         setError(json.message ?? json.error ?? "Brief run failed");
         return;
       }
-      await load();
+      if (json.brief?.id) setSelectedBriefId(json.brief.id);
+      await load(json.brief?.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Brief run failed");
     } finally {
@@ -136,10 +165,7 @@ export default function MarketingRadarPage() {
     }
   };
 
-  const patchDraft = async (
-    id: string,
-    patch: { content?: string; status?: string; notes?: string | null }
-  ) => {
+  const patchDraft = async (id: string, patch: Record<string, unknown>) => {
     setDraftBusyId(id);
     setError("");
     try {
@@ -161,16 +187,35 @@ export default function MarketingRadarPage() {
     }
   };
 
+  const regenerate = async () => {
+    if (!selectedBriefId) return;
+    setRegenerateBusy(true);
+    try {
+      const res = await fetch(`/api/admin/marketing-radar/briefs/${selectedBriefId}/regenerate`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        setError(json.error ?? "Regenerate failed");
+        return;
+      }
+      await load(selectedBriefId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Regenerate failed");
+    } finally {
+      setRegenerateBusy(false);
+    }
+  };
+
   const brief = data?.latest_brief ?? null;
-  const meta = data?.meta_snapshot;
 
   return (
-    <main className="max-w-4xl mx-auto p-4 space-y-6">
+    <main className="max-w-5xl mx-auto p-4 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold">Marketing Radar</h1>
           <p className="text-sm text-neutral-400 mt-1">
-            Internal only. Drafts for manual copy/paste to X, Instagram, blog, and Reddit.
+            Ingest signals, generate briefs, approve drafts — manual copy/post only.
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -196,13 +241,18 @@ export default function MarketingRadarPage() {
           {error}
         </div>
       )}
+      {info && (
+        <div className="rounded border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 whitespace-pre-wrap">
+          {info}
+        </div>
+      )}
 
       <ELI5
         heading="Marketing Radar"
         items={[
-          "Paste MTG community chatter (Reddit, forums, Discord) as manual signals.",
-          "Each run blends your signals with Discover meta_signals (trending cards/commanders).",
-          "AI generates a brief and platform drafts — you approve and copy manually. Nothing auto-posts.",
+          "Fetch RSS, YouTube, and Reddit signals for trend analysis only.",
+          "Run a brief to blend signals with Discover meta — AI drafts for manual review.",
+          "Approve, copy, and post yourself. Mark copied/posted in the calendar view.",
         ]}
       />
 
@@ -210,12 +260,14 @@ export default function MarketingRadarPage() {
         <p className="text-sm text-neutral-400">Loading…</p>
       ) : (
         <>
+          <IngestActions
+            youtubeConfigured={!!data?.config?.youtube_api_key_configured}
+            onResult={setInfo}
+            onDone={() => load()}
+          />
+
           <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
             <div className="font-medium">Add manual signal</div>
-            <p className="text-xs text-neutral-500">
-              Paste a Reddit thread, Discord snippet, or forum post. Card names in decklist format are
-              auto-detected.
-            </p>
             <input
               type="text"
               placeholder="Title (optional)"
@@ -234,7 +286,7 @@ export default function MarketingRadarPage() {
               placeholder="Paste discussion text…"
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
-              rows={6}
+              rows={5}
               className="w-full rounded border border-neutral-600 bg-neutral-950 px-3 py-2 text-sm font-mono"
             />
             <button
@@ -247,199 +299,63 @@ export default function MarketingRadarPage() {
             </button>
           </section>
 
-          <section className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-4 space-y-3">
-            <div className="font-medium">Discover meta context</div>
-            <p className="text-xs text-neutral-500">
-              Blended from <code className="bg-black/40 px-1 rounded">meta_signals</code> on each brief
-              run.
-            </p>
-            {meta ? (
-              <div className="grid gap-3 sm:grid-cols-2 text-sm">
-                <div>
-                  <div className="text-neutral-400 text-xs mb-1">Trending cards</div>
-                  <ChipList items={meta.trending_cards} empty="No card data yet" />
-                </div>
-                <div>
-                  <div className="text-neutral-400 text-xs mb-1">Trending commanders</div>
-                  <ChipList items={meta.trending_commanders} empty="No commander data yet" />
-                </div>
-                <div>
-                  <div className="text-neutral-400 text-xs mb-1">New set breakouts</div>
-                  <ChipList items={meta.new_set_breakouts} empty="No breakout data yet" />
-                </div>
-                <div>
-                  <div className="text-neutral-400 text-xs mb-1">Meta label</div>
-                  <p className="text-neutral-200">{meta.meta_label ?? "—"}</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-neutral-500">No meta snapshot loaded.</p>
-            )}
-          </section>
+          <MetaPanel meta={data?.meta_snapshot ?? null} />
 
-          <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="font-medium">Latest brief</div>
-              {brief && (
-                <span className="text-xs text-neutral-500">
-                  {brief.brief_date} · {new Date(brief.created_at).toLocaleString()}
-                </span>
-              )}
-            </div>
-            {!brief ? (
-              <p className="text-sm text-neutral-500">
-                No brief yet. Add signals and click Run brief.
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-neutral-200 leading-relaxed whitespace-pre-wrap">
-                  {brief.summary}
-                </p>
-                <div>
-                  <div className="text-xs text-neutral-400 mb-1">Trending cards</div>
-                  <ChipList
-                    items={Array.isArray(brief.trending_cards) ? brief.trending_cards : []}
-                    empty="None identified"
-                  />
-                </div>
-                <div>
-                  <div className="text-xs text-neutral-400 mb-1">Trending topics</div>
-                  <ChipList
-                    items={Array.isArray(brief.trending_topics) ? brief.trending_topics : []}
-                    empty="None identified"
-                  />
-                </div>
-                <div>
-                  <div className="text-xs text-neutral-400 mb-1">Opportunities</div>
-                  {Array.isArray(brief.opportunities) && brief.opportunities.length > 0 ? (
-                    <ul className="space-y-2 text-sm">
-                      {brief.opportunities.map((opp, i) => (
-                        <li
-                          key={i}
-                          className="rounded border border-neutral-700 bg-neutral-950/50 px-3 py-2"
-                        >
-                          {stringifyBriefItem(opp)}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-neutral-500">None identified</p>
-                  )}
-                </div>
-              </>
-            )}
-          </section>
-
-          {brief && (
-            <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-4">
-              <div className="font-medium">Drafts by platform</div>
-              {MARKETING_PLATFORMS.map((platform) => {
-                const platformDrafts = data?.drafts_by_platform?.[platform] ?? [];
-                if (platformDrafts.length === 0) return null;
-                return (
-                  <div key={platform} className="space-y-3">
-                    <h3 className="text-sm font-medium text-emerald-300/90">
-                      {PLATFORM_LABELS[platform] ?? platform}
-                    </h3>
-                    {platformDrafts.map((draft, idx) => (
-                      <div
-                        key={draft.id}
-                        className="rounded-lg border border-neutral-700 bg-neutral-950/60 p-3 space-y-2"
-                      >
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className="text-xs text-neutral-500">
-                            Draft {idx + 1}
-                          </span>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded border ${statusBadgeClass(draft.status)}`}
-                          >
-                            {draft.status}
-                          </span>
-                        </div>
-                        <textarea
-                          value={draftEdits[draft.id] ?? draft.content}
-                          onChange={(e) =>
-                            setDraftEdits((prev) => ({ ...prev, [draft.id]: e.target.value }))
-                          }
-                          rows={platform === "blog" ? 8 : 4}
-                          className="w-full rounded border border-neutral-600 bg-neutral-950 px-3 py-2 text-sm"
-                        />
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            disabled={draftBusyId === draft.id}
-                            onClick={() =>
-                              patchDraft(draft.id, {
-                                content: draftEdits[draft.id] ?? draft.content,
-                              })
-                            }
-                            className="px-3 py-1.5 rounded border border-neutral-600 bg-neutral-800 hover:bg-neutral-700 text-xs disabled:opacity-50"
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            disabled={draftBusyId === draft.id}
-                            onClick={() => patchDraft(draft.id, { status: "approved" })}
-                            className="px-3 py-1.5 rounded border border-emerald-800 bg-emerald-950/50 hover:bg-emerald-900/40 text-xs disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={draftBusyId === draft.id}
-                            onClick={() => patchDraft(draft.id, { status: "rejected" })}
-                            className="px-3 py-1.5 rounded border border-red-900 bg-red-950/30 hover:bg-red-900/30 text-xs disabled:opacity-50"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
+              <div className="font-medium">Brief history</div>
+              <BriefHistory
+                items={data?.brief_history ?? []}
+                selectedId={selectedBriefId}
+                onSelect={(id) => {
+                  setSelectedBriefId(id);
+                  load(id);
+                }}
+              />
             </section>
-          )}
+            <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="font-medium">Brief detail</div>
+                {brief && (
+                  <span className="text-xs text-neutral-500">
+                    {brief.brief_date} · {new Date(brief.created_at).toLocaleString()}
+                  </span>
+                )}
+              </div>
+              <BriefDetail brief={brief} />
+            </section>
+          </div>
+
+          <DraftsPanel
+            briefId={selectedBriefId}
+            drafts={data?.drafts ?? []}
+            draftEdits={draftEdits}
+            setDraftEdits={setDraftEdits}
+            draftBusyId={draftBusyId}
+            onPatch={patchDraft}
+            onRegenerate={regenerate}
+            regenerateBusy={regenerateBusy}
+          />
 
           <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
-            <div className="font-medium">Recent signals</div>
-            {(data?.recent_signals?.length ?? 0) === 0 ? (
-              <p className="text-sm text-neutral-500">No signals in the last 7 days.</p>
-            ) : (
-              <ul className="space-y-2">
-                {data?.recent_signals?.map((s) => (
-                  <li
-                    key={s.id}
-                    className="rounded border border-neutral-700 bg-neutral-950/50 px-3 py-2 text-sm"
-                  >
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="font-medium text-neutral-200">
-                        {s.title ?? "(untitled)"}
-                      </span>
-                      <span className="text-xs text-neutral-500">
-                        {s.source_type} · {new Date(s.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                    {s.url && (
-                      <a
-                        href={s.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-400 hover:text-blue-300 break-all"
-                      >
-                        {s.url}
-                      </a>
-                    )}
-                    <p className="text-xs text-neutral-400 mt-1 line-clamp-3">
-                      {s.raw_text?.slice(0, 280)}
-                      {(s.raw_text?.length ?? 0) > 280 ? "…" : ""}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="font-medium">Content calendar</div>
+            <CalendarView drafts={data?.calendar_drafts ?? data?.drafts ?? []} />
           </section>
+
+          <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-3">
+            <div className="font-medium">Signals</div>
+            <SignalFilters
+              filters={signalFilters}
+              onChange={setSignalFilters}
+              onApply={() => load(selectedBriefId)}
+            />
+            <SignalsList signals={data?.recent_signals ?? []} />
+          </section>
+
+          <p className="text-xs text-neutral-500 border border-neutral-800 rounded p-2">
+            Reddit safety: signals are for analysis only. Never auto-post or fake community engagement.
+            Reddit drafts must be manually reviewed before copying.
+          </p>
         </>
       )}
     </main>

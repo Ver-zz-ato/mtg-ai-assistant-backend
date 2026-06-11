@@ -53,12 +53,13 @@ function truncate(text: string | null | undefined, max = MAX_RAW_CHARS): string 
 }
 
 function compactSignalsForPrompt(signals: MarketingSignalRow[]) {
-  return signals.map((s) => ({
+  return signals.slice(0, 25).map((s) => ({
     source_type: s.source_type,
     title: s.title,
     url: s.url,
+    score: s.score,
+    detected_topics: s.detected_topics,
     raw_text: truncate(s.raw_text),
-    detected_cards: s.detected_cards,
     created_at: s.created_at,
   }));
 }

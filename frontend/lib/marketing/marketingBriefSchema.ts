@@ -3,7 +3,7 @@ import { z } from "zod";
 export const MARKETING_PLATFORMS = ["x", "instagram", "blog", "reddit"] as const;
 export type MarketingPlatform = (typeof MARKETING_PLATFORMS)[number];
 
-export const MARKETING_DRAFT_STATUSES = ["draft", "approved", "rejected"] as const;
+export const MARKETING_DRAFT_STATUSES = ["draft", "approved", "rejected", "superseded"] as const;
 export type MarketingDraftStatus = (typeof MARKETING_DRAFT_STATUSES)[number];
 
 export const marketingDraftSchema = z.object({
@@ -51,6 +51,12 @@ export type MarketingDraftRow = {
   content: string;
   status: MarketingDraftStatus;
   notes: string | null;
+  quality_flags: unknown;
+  scheduled_for: string | null;
+  campaign: string | null;
+  copied_at: string | null;
+  external_post_url: string | null;
+  superseded_at: string | null;
   created_at: string;
   updated_at: string;
 };

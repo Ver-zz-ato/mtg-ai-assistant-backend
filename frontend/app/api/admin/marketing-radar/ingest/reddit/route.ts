@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { validateOrigin } from "@/lib/api/csrf";
 import { requireAdminForApi } from "@/lib/server-admin";
-import { createBriefAndDrafts } from "@/lib/marketing/createBriefAndDrafts";
+import { fetchRedditSignals } from "@/lib/marketing/fetchRedditSignals";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,15 +24,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "admin_client_unavailable" }, { status: 500 });
     }
 
-    const result = await createBriefAndDrafts(admin, { userId: auth.user.id });
-    if ("error" in result) {
-      return NextResponse.json(
-        { ok: false, error: result.error, message: result.message },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ ok: true, brief: result.brief, drafts: result.drafts });
+    const result = await fetchRedditSignals(admin);
+    return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "server_error";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });

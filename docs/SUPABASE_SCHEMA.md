@@ -196,18 +196,18 @@ RLS / API expectations:
 
 Internal admin marketing pipeline (`/admin/marketing-radar`). Service-role-only access; no public reads.
 
-- `marketing_sources` — configured ingestion sources (`manual`, `internal`, future Reddit/YouTube/X)
-  - columns: `id`, `type`, `name`, `url`, `enabled`, `created_at`
+- `marketing_sources` — ingestion sources (`manual`, `internal`, `rss`, `youtube_channel`, `reddit_subreddit`)
+  - columns: `id`, `type`, `name`, `url`, `enabled`, `last_fetched_at`, `fetch_error`, `metadata` (jsonb), `created_at`
 - `marketing_signals` — raw community/marketing signals
-  - columns: `id`, `source_id` (FK → `marketing_sources`), `source_type`, `title`, `url`, `raw_text`, `detected_cards` (jsonb), `detected_topics` (jsonb), `score`, `created_at`
-- `marketing_briefs` — AI-generated briefs (history kept; UI shows latest)
-  - columns: `id`, `brief_date`, `summary`, `trending_cards`, `trending_topics`, `opportunities` (all jsonb except summary), `created_at`
-- `marketing_drafts` — platform drafts linked to a brief; manual approve/reject only
-  - columns: `id`, `brief_id` (FK → `marketing_briefs`, cascade delete), `platform`, `content`, `status` (`draft`|`approved`|`rejected`), `notes`, `created_at`, `updated_at`
+  - columns: `id`, `source_id`, `source_type`, `title`, `url`, `raw_text`, `detected_cards`, `detected_topics`, `score`, `created_at`
+- `marketing_briefs` — AI briefs (history kept)
+- `marketing_drafts` — platform drafts; manual approve/reject only
+  - columns include: `quality_flags`, `scheduled_for`, `campaign`, `copied_at`, `external_post_url`, `superseded_at`
+  - status: `draft` | `approved` | `rejected` | `superseded`
 
-RLS: enabled on all four tables with **no** anon/authenticated policies — admin API routes use `getAdmin()` service role.
+Migrations: `138_marketing_radar.sql`, `139_marketing_radar_phase2.sql`
 
-Migration: `frontend/db/migrations/138_marketing_radar.sql`
+Cron (ingest + brief only, no auto-post): `GET /api/cron/marketing-radar-daily` at 06:30 UTC (`CRON_SECRET`).
 
 - Free signed-in users are capped at **15 decks**, **10 collections**, **500 total card quantity per collection**, **10 wishlists**, and **100 total card quantity per wishlist**.
 - Pro is resolved from `profiles.is_pro` / active `profiles.pro_until` and is unlimited. Guests remain on local/demo behavior and are not gated by persisted-storage triggers.

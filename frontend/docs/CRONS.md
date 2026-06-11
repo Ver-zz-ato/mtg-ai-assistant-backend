@@ -10,6 +10,7 @@
 | commander-aggregates | `/api/cron/commander-aggregates` | 05:00 daily |
 | cleanup-guest-sessions | `/api/cron/cleanup-guest-sessions` | 05:00 daily |
 | meta-signals | `/api/cron/meta-signals` | 05:15 daily |
+| marketing-radar-daily | `/api/cron/marketing-radar-daily` | 06:30 daily |
 | top-cards | `/api/cron/top-cards` | 05:30 daily |
 | cleanup-rate-limits | `/api/cron/cleanup-rate-limits` | 06:00 Sundays |
 | cleanup-shared-links | `/api/cron/cleanup-shared-links` | 06:15 daily |

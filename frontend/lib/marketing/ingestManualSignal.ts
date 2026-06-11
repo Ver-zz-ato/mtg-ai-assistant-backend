@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { extractCardNames } from "@/lib/chat/enhancements";
+import { enrichMarketingSignal } from "./enrichMarketingSignal";
 import type { MarketingSignalRow } from "./marketingBriefSchema";
 
 export type IngestManualSignalInput = {
@@ -27,17 +27,25 @@ export async function ingestManualSignal(
   let source_id: string | null = null;
   const { data: manualSource } = await admin
     .from("marketing_sources")
-    .select("id")
+    .select("id, metadata")
     .eq("type", "manual")
     .limit(1)
     .maybeSingle();
+
+  const sourceMeta =
+    manualSource && typeof (manualSource as { metadata?: unknown }).metadata === "object"
+      ? ((manualSource as { metadata: Record<string, unknown> }).metadata ?? {})
+      : {};
 
   if (manualSource && typeof (manualSource as { id?: string }).id === "string") {
     source_id = (manualSource as { id: string }).id;
   }
 
-  const cardNames = extractCardNames(raw_text);
-  const detected_cards = cardNames.map((name) => ({ name }));
+  const enriched = await enrichMarketingSignal(admin, {
+    text: raw_text,
+    sourceType: "manual",
+    sourceMetadata: sourceMeta,
+  });
 
   const row = {
     source_id,
@@ -45,9 +53,9 @@ export async function ingestManualSignal(
     title: titleFromText(raw_text, input.title),
     url: input.url?.trim() || null,
     raw_text,
-    detected_cards,
-    detected_topics: [] as unknown[],
-    score: 0,
+    detected_cards: enriched.detected_cards,
+    detected_topics: enriched.detected_topics,
+    score: enriched.score,
   };
 
   const { data, error } = await admin.from("marketing_signals").insert(row).select().single();

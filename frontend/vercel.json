@@ -2,7 +2,9 @@
   "functions": {
     "app/api/cron/mtg-legality-refresh/route.ts": { "maxDuration": 800 },
     "app/api/cron/price/snapshot/route.ts": { "maxDuration": 800 },
-    "app/api/cron/card-tag-refresh/route.ts": { "maxDuration": 800 }
+    "app/api/cron/card-tag-refresh/route.ts": { "maxDuration": 800 },
+    "app/api/cron/marketing-radar-daily/route.ts": { "maxDuration": 120 },
+    "app/api/admin/marketing-radar/daily-run/route.ts": { "maxDuration": 120 }
   },
   "crons": [
     { "path": "/api/cron/price/snapshot", "schedule": "0 2 * * *" },
@@ -12,6 +14,7 @@
     { "path": "/api/cron/cleanup-guest-sessions", "schedule": "0 5 * * *" },
     { "path": "/api/cron/cleanup-shared-links", "schedule": "10 5 * * *" },
     { "path": "/api/cron/meta-signals", "schedule": "15 5 * * *" },
+    { "path": "/api/cron/marketing-radar-daily", "schedule": "30 6 * * *" },
     { "path": "/api/cron/top-cards", "schedule": "30 5 * * *" },
     { "path": "/api/cron/cleanup-rate-limits", "schedule": "0 6 * * 0" },
     { "path": "/api/cron/cleanup-request-metrics", "schedule": "30 6 * * 0" },

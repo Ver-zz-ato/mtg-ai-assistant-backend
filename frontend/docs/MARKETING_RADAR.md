@@ -5,57 +5,116 @@ Internal admin tool for collecting MTG marketing signals, generating AI briefs, 
 ## Access
 
 - **UI:** `/admin/marketing-radar` (protected by `AdminGuard` + env allowlist)
-- **Auth:** `ADMIN_USER_IDS` / `ADMIN_EMAILS` on all API routes via `requireAdminForApi()`
+- **Auth:** `ADMIN_USER_IDS` / `ADMIN_EMAILS` on all `/api/admin/*` routes via `requireAdminForApi()`
 
 ## Database
 
-Apply migration manually in Supabase SQL Editor:
+Apply migrations in Supabase SQL Editor:
 
-`frontend/db/migrations/138_marketing_radar.sql`
-
-Tables: `marketing_sources`, `marketing_signals`, `marketing_briefs`, `marketing_drafts`
+1. `frontend/db/migrations/138_marketing_radar.sql`
+2. `frontend/db/migrations/139_marketing_radar_phase2.sql`
 
 See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 
-## Workflow
+## Environment variables
 
-1. Open `/admin/marketing-radar` while signed in as admin.
-2. **Paste signals** — Reddit threads, forum posts, Discord snippets (optional title/URL).
-3. Review **Discover meta context** (from existing `meta_signals` cron).
-4. Click **Run brief** — AI blends manual signals + meta snapshot, creates a new brief and platform drafts.
-5. **Edit / Approve / Reject** drafts — copy approved content manually to X, Instagram, blog, or Reddit.
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `OPENAI_API_KEY` | Yes (briefs) | AI brief + draft generation |
+| `ADMIN_USER_IDS` / `ADMIN_EMAILS` | Yes | Admin gate |
+| `YOUTUBE_API_KEY` | Optional | YouTube Data API v3 channel video fetch |
+| `CRON_SECRET` | For cron | Protects `/api/cron/marketing-radar-daily` |
+| `MARKETING_RADAR_REDDIT_UA` | Optional | Custom Reddit User-Agent string |
 
-Each run creates a **new** brief (history is kept in DB; UI shows latest).
+Keys are server-side only. The UI receives booleans (e.g. `youtube_api_key_configured`), never secrets.
+
+## Manual workflow
+
+1. **Ingest signals** — Fetch RSS / YouTube / Reddit, or paste manual text.
+2. **Run brief** (or **Run Full Daily Radar**) — blends top-scored signals + Discover `meta_signals`.
+3. **Review drafts** — quality flags shown as warnings (do not block approve).
+4. **Edit / approve / reject** — per platform.
+5. **Copy** — use Copy buttons; paste into X, Instagram, blog, or Reddit manually.
+6. **Mark copied / set planned date / campaign** — calendar view for planning.
+7. **Mark external post URL** — after you post manually.
+8. **Export CSV** — for offline review or spreadsheet planning.
+
+## Ingestion sources
+
+### RSS (`type=rss`)
+
+Seeded: MTG Official News, EDHREC, MTGGoldfish (verify feeds in Supabase if a source errors).
+
+### YouTube (`type=youtube_channel`)
+
+Tracks **known channels only** (not broad search) to control API cost.
+
+Seeded channels: The Command Zone, Tolarian Community College, MTGGoldfish, EDHREC.
+
+To add a channel in Supabase `marketing_sources`:
+
+```json
+{
+  "channelId": "UCxxxxxxxx",
+  "channelName": "Channel Name",
+  "handle": "@handle",
+  "priority": 1
+}
+```
+
+Set `type=youtube_channel`, `enabled=true`, and `YOUTUBE_API_KEY` in env.
+
+### Reddit (`type=reddit_subreddit`)
+
+Read-only public JSON (`/r/{sub}/hot.json`). Seeded: EDH, magicTCG, mtg, CompetitiveEDH, BudgetBrews, mtgfinance.
+
+**Safety:**
+
+- Signal analysis only — no automated posting, replies, or comments.
+- No fake community engagement. Reddit drafts must be manually reviewed.
+- Rate limits: ~1s delay between subreddit fetches; errors stored on source `fetch_error`.
 
 ## API routes
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/admin/marketing-radar` | Dashboard payload (latest brief, drafts, signals, meta snapshot) |
-| POST | `/api/admin/marketing-radar/signals` | Ingest manual paste into `marketing_signals` |
-| POST | `/api/admin/marketing-radar/run` | Generate brief + drafts (OpenAI server-side) |
-| PATCH | `/api/admin/marketing-drafts/[id]` | Update draft `content`, `status`, or `notes` |
+| GET | `/api/admin/marketing-radar` | Dashboard (filters, history, calendar) |
+| POST | `/api/admin/marketing-radar/signals` | Manual paste |
+| POST | `/api/admin/marketing-radar/run` | Generate brief + drafts |
+| POST | `/api/admin/marketing-radar/ingest/rss` | Fetch RSS feeds |
+| POST | `/api/admin/marketing-radar/ingest/youtube` | Fetch YouTube videos |
+| POST | `/api/admin/marketing-radar/ingest/reddit` | Fetch Reddit hot posts |
+| POST | `/api/admin/marketing-radar/daily-run` | Full ingest + brief |
+| GET | `/api/admin/marketing-radar/briefs/[id]` | Single brief + drafts |
+| POST | `/api/admin/marketing-radar/briefs/[id]/regenerate` | New drafts; supersedes non-approved |
+| GET | `/api/admin/marketing-radar/export.csv` | CSV export |
+| PATCH | `/api/admin/marketing-drafts/[id]` | Edit draft, calendar fields, status |
+| GET | `/api/cron/marketing-radar-daily` | Cron: ingest + brief (CRON_SECRET) |
 
-Draft statuses: `draft`, `approved`, `rejected`.
+## Scoring
 
-## AI
+Signals scored by source type, recency, engagement, verified card names, topics, and pain/problem keywords. Brief generation uses top ~30 signals by score (last 7 days).
 
-- Server function: `lib/marketing/generateMarketingBrief.ts`
-- Model: `MODEL_ADMIN_DEEP` → `MODEL_PRO` → `OPENAI_MODEL` → `gpt-5.4`
-- Usage logged via `callLLM` / `ai_usage` with feature `marketing_radar_brief`
+## Quality flags
 
-## Manual test checklist
+Heuristic warnings on drafts: `too_salesy`, `fake_personal_claim`, `astroturf_risk`, `spammy_cta`, `manatap_overmention`, `thin_mtg_content`, `too_generic`, `reddit_hostile`. Warnings are visible only — approval is never blocked.
 
-1. Apply migration `138_marketing_radar.sql`
-2. Sign in as admin
-3. Paste sample EDH discussion → signal appears in recent list
-4. Run brief → summary + drafts render (needs signals and/or meta_signals data)
-5. Save / approve / reject a draft → persists on refresh
-6. Run again → new brief becomes latest; older briefs remain in DB
-7. Non-admin user → redirected from page; APIs return 404
+## Cron
 
-## Future hooks (not implemented)
+Daily at **06:30 UTC** (after `meta-signals` at 05:15). See `frontend/docs/CRONS.md`.
 
-- Reddit / YouTube / X fetchers writing to `marketing_signals`
-- Brief history picker in UI
-- Optional daily cron (pattern: `/api/cron/meta-signals` + `verifyCronRequest`)
+Ingests RSS + Reddit + YouTube (if key set), then generates brief + drafts. **Does not post anywhere.**
+
+## Verification checklist
+
+- [ ] Migrations 138 + 139 applied
+- [ ] Admin can access `/admin/marketing-radar`
+- [ ] Manual paste works
+- [ ] RSS fetch returns inserted/skipped counts
+- [ ] YouTube skips gracefully without `YOUTUBE_API_KEY`
+- [ ] Reddit fetch handles rate/access errors per source
+- [ ] Full daily radar creates brief + drafts
+- [ ] Regenerate supersedes draft/rejected only; approved kept
+- [ ] CSV export downloads
+- [ ] No route auto-posts externally
+- [ ] Non-admin gets 404 on APIs

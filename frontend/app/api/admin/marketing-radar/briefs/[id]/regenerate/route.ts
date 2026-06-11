@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { validateOrigin } from "@/lib/api/csrf";
 import { requireAdminForApi } from "@/lib/server-admin";
-import { createBriefAndDrafts } from "@/lib/marketing/createBriefAndDrafts";
+import { regenerateBriefDrafts } from "@/lib/marketing/createBriefAndDrafts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export async function POST(req: NextRequest) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function POST(req: NextRequest, context: RouteContext) {
   try {
     if (!validateOrigin(req)) {
       return NextResponse.json(
@@ -19,20 +21,14 @@ export async function POST(req: NextRequest) {
     const auth = await requireAdminForApi();
     if (!auth.ok) return auth.response;
 
+    const { id } = await context.params;
     const admin = getAdmin();
     if (!admin) {
       return NextResponse.json({ ok: false, error: "admin_client_unavailable" }, { status: 500 });
     }
 
-    const result = await createBriefAndDrafts(admin, { userId: auth.user.id });
-    if ("error" in result) {
-      return NextResponse.json(
-        { ok: false, error: result.error, message: result.message },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ ok: true, brief: result.brief, drafts: result.drafts });
+    const result = await regenerateBriefDrafts(admin, id, { userId: auth.user.id });
+    return NextResponse.json({ ok: true, drafts: result.drafts });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "server_error";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });

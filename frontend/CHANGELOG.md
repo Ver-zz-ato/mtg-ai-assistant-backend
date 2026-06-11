@@ -2,6 +2,14 @@
 
 ## 2026-06-11
 
+### Marketing Radar phases 2–10
+
+- **Migration:** `139_marketing_radar_phase2.sql` — source fetch metadata, draft calendar/export/quality fields, RSS/YouTube/Reddit seeds.
+- **Ingestion:** RSS, YouTube (known channels), Reddit (read-only hot posts); scoring + topic detection + scryfall card verify.
+- **APIs:** ingest/rss|youtube|reddit, daily-run, briefs/[id], regenerate, export.csv; cron `GET /api/cron/marketing-radar-daily` (06:30 UTC).
+- **UI:** Fetch buttons, brief history, signal/draft filters, copy actions, calendar view, quality warnings.
+- **Docs:** `frontend/docs/MARKETING_RADAR.md`, `docs/SUPABASE_SCHEMA.md`, `frontend/docs/CRONS.md`.
+
 ### Marketing Radar MVP (admin)
 
 - **Database:** Migration `138_marketing_radar.sql` — `marketing_sources`, `marketing_signals`, `marketing_briefs`, `marketing_drafts` (service-role-only RLS).

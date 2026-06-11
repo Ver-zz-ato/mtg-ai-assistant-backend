@@ -8,6 +8,15 @@ const META_SIGNAL_TYPES = [
   "discover-meta-label",
 ] as const;
 
+export type SignalFilters = {
+  source_type?: string | null;
+  topic?: string | null;
+  card?: string | null;
+  min_score?: number | null;
+  from?: string | null;
+  to?: string | null;
+};
+
 function namesFromMetaData(data: unknown, limit: number): string[] {
   if (!Array.isArray(data)) return [];
   const names: string[] = [];
@@ -43,26 +52,48 @@ function metaLabelFromData(data: unknown): string | null {
   return null;
 }
 
+function signalMatchesFilters(row: MarketingSignalRow, filters?: SignalFilters): boolean {
+  if (!filters) return true;
+  if (filters.source_type && row.source_type !== filters.source_type) return false;
+  if (filters.min_score != null && Number(row.score) < filters.min_score) return false;
+  if (filters.card) {
+    const cards = JSON.stringify(row.detected_cards ?? []).toLowerCase();
+    if (!cards.includes(filters.card.toLowerCase())) return false;
+  }
+  if (filters.topic) {
+    const topics = JSON.stringify(row.detected_topics ?? []).toLowerCase();
+    if (!topics.includes(filters.topic.toLowerCase())) return false;
+  }
+  return true;
+}
+
 export async function fetchRecentMarketingSignals(
   admin: SupabaseClient,
-  opts?: { days?: number; limit?: number }
+  opts?: { days?: number; limit?: number; filters?: SignalFilters; listLimit?: number }
 ): Promise<MarketingSignalRow[]> {
   const days = opts?.days ?? 7;
-  const limit = opts?.limit ?? 50;
+  const limit = opts?.limit ?? 30;
   const since = new Date();
   since.setDate(since.getDate() - days);
 
-  const { data, error } = await admin
+  let query = admin
     .from("marketing_signals")
     .select(
       "id, source_id, source_type, title, url, raw_text, detected_cards, detected_topics, score, created_at"
     )
-    .gte("created_at", since.toISOString())
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .gte("created_at", since.toISOString());
+
+  if (opts?.filters?.from) query = query.gte("created_at", opts.filters.from);
+  if (opts?.filters?.to) query = query.lte("created_at", opts.filters.to);
+  if (opts?.filters?.source_type) query = query.eq("source_type", opts.filters.source_type);
+  if (opts?.filters?.min_score != null) query = query.gte("score", opts.filters.min_score);
+
+  const { data, error } = await query.order("score", { ascending: false }).limit(opts?.listLimit ?? 100);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as MarketingSignalRow[];
+  let rows = (data ?? []) as MarketingSignalRow[];
+  rows = rows.filter((r) => signalMatchesFilters(r, opts?.filters));
+  return rows.slice(0, limit);
 }
 
 export async function fetchMetaSignalsSnapshot(admin: SupabaseClient): Promise<MarketingMetaSnapshot> {
@@ -101,10 +132,44 @@ export function metaSnapshotHasData(snapshot: MarketingMetaSnapshot): boolean {
   );
 }
 
-export async function fetchMarketingContext(admin: SupabaseClient) {
+export async function fetchMarketingContext(
+  admin: SupabaseClient,
+  opts?: { days?: number; limit?: number; listLimit?: number; filters?: SignalFilters }
+) {
   const [signals, meta_snapshot] = await Promise.all([
-    fetchRecentMarketingSignals(admin),
+    fetchRecentMarketingSignals(admin, {
+      days: opts?.days,
+      limit: opts?.limit ?? 30,
+      listLimit: opts?.listLimit,
+      filters: opts?.filters,
+    }),
     fetchMetaSignalsSnapshot(admin),
   ]);
   return { signals, meta_snapshot };
+}
+
+export async function fetchBriefHistory(admin: SupabaseClient, limit = 20) {
+  const { data: briefs, error } = await admin
+    .from("marketing_briefs")
+    .select("id, brief_date, summary, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+
+  const result = [];
+  for (const b of briefs ?? []) {
+    const brief = b as { id: string; brief_date: string; summary: string | null; created_at: string };
+    const { count } = await admin
+      .from("marketing_drafts")
+      .select("id", { count: "exact", head: true })
+      .eq("brief_id", brief.id)
+      .is("superseded_at", null);
+    result.push({
+      ...brief,
+      draft_count: count ?? 0,
+      summary_preview: (brief.summary ?? "").slice(0, 160),
+    });
+  }
+  return result;
 }
