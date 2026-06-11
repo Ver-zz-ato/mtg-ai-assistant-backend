@@ -2,6 +2,12 @@
 
 ## 2026-06-11
 
+### Marketing Radar draft voice + links
+
+- **AI prompts:** Audience-facing posts (not signal reports); required manatap.ai links from `marketingPublicLinks.ts` catalog.
+- **Quality flags:** `analyst_voice`, `missing_link` on X/Instagram/blog drafts.
+- **Files:** `lib/marketing/generateMarketingBrief.ts`, `marketingPublicLinks.ts`, `checkDraftQuality.ts`.
+
 ### Marketing Radar UX + Reddit script auth
 
 - **UI:** Tabbed flow — Start here, Collect topics, AI drafts, Post & schedule, Setup (ELI5 on each tab).

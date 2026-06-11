@@ -107,13 +107,17 @@ Unauthenticated `www.reddit.com/...json` returns 403 from server IPs.
 | PATCH | `/api/admin/marketing-drafts/[id]` | Edit draft, calendar fields, status |
 | GET | `/api/cron/marketing-radar-daily` | Cron: ingest + brief (CRON_SECRET) |
 
+## AI drafts (OpenAI)
+
+Brief + drafts use `callLLM` via `lib/marketing/generateMarketingBrief.ts` (model: `MODEL_ADMIN_DEEP` or fallback). The model turns signals into **audience-facing posts** with full `https://www.manatap.ai/...` links from `lib/marketing/marketingPublicLinks.ts` (deck builder, mulligan, budget swaps, `/get` for app when relevant). Regenerate drafts after changing signals or to refresh voice.
+
 ## Scoring
 
 Signals scored by source type, recency, engagement, verified card names, topics, and pain/problem keywords. Brief generation uses top ~30 signals by score (last 7 days).
 
 ## Quality flags
 
-Heuristic warnings on drafts: `too_salesy`, `fake_personal_claim`, `astroturf_risk`, `spammy_cta`, `manatap_overmention`, `thin_mtg_content`, `too_generic`, `reddit_hostile`. Warnings are visible only — approval is never blocked.
+Heuristic warnings on drafts: `too_salesy`, `fake_personal_claim`, `astroturf_risk`, `spammy_cta`, `manatap_overmention`, `thin_mtg_content`, `too_generic`, `analyst_voice`, `missing_link`, `reddit_hostile`. Warnings are visible only — approval is never blocked.
 
 ## Cron
 

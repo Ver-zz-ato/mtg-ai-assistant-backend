@@ -56,7 +56,12 @@ export function DraftsPanel({
   return (
     <section className="rounded-xl border border-neutral-700 bg-neutral-900/40 p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="font-medium">Drafts</div>
+        <div>
+          <div className="font-medium">Drafts</div>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            OpenAI writes audience-facing posts with manatap.ai links — edit, Approve, then Copy. Regenerate after prompt changes.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

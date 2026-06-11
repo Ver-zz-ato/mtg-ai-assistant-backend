@@ -353,9 +353,9 @@ export default function MarketingRadarPage() {
               <ELI5
                 heading="AI drafts"
                 items={[
-                  "Run brief when you have signals (or Discover meta alone is enough sometimes).",
-                  "Amber chips are quality warnings — they don't block approve.",
-                  "Regenerate makes new drafts; approved ones stay untouched.",
+                  "OpenAI turns signals into real posts with manatap.ai links (deck tools, mulligan, etc.).",
+                  "Amber chips = warnings (e.g. analyst voice, missing link) — they don't block approve.",
+                  "Hit Regenerate for a fresh batch; approved drafts stay when you regenerate.",
                 ]}
               />
               <div className="flex flex-wrap gap-2">

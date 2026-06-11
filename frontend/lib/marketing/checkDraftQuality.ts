@@ -1,3 +1,5 @@
+import { hasManaTapPublicLink } from "./marketingPublicLinks";
+
 export type DraftQualityFlag =
   | "too_salesy"
   | "fake_personal_claim"
@@ -6,6 +8,8 @@ export type DraftQualityFlag =
   | "manatap_overmention"
   | "thin_mtg_content"
   | "too_generic"
+  | "analyst_voice"
+  | "missing_link"
   | "reddit_hostile";
 
 export function checkDraftQuality(content: string, platform: string): DraftQualityFlag[] {
@@ -42,6 +46,19 @@ export function checkDraftQuality(content: string, platform: string): DraftQuali
   }
   if (/\b(in today's fast-paced world|excited to share|hot take:|thoughts\?)\b/i.test(lower)) {
     flags.add("too_generic");
+  }
+  if (
+    /\b(a lot of .+ talk|players are (discussing|talking)|interesting split|chatter|conversation is clustering|the community is focused|deck-tool problem)\b/i.test(
+      lower
+    )
+  ) {
+    flags.add("analyst_voice");
+  }
+  if (
+    (platform === "x" || platform === "instagram" || platform === "blog") &&
+    !hasManaTapPublicLink(content)
+  ) {
+    flags.add("missing_link");
   }
   if (platform === "reddit") {
     if (/\b(check out my|dm me|link in bio|follow me)\b/i.test(lower)) {
