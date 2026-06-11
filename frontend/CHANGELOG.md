@@ -2,6 +2,13 @@
 
 ## 2026-06-11
 
+### Email verification — success page on any device/browser
+
+- **Fix:** Signup `emailRedirectTo` now points at `/auth/callback?next=/auth/confirmed?verified=1` so PKCE verification links show the confirmation screen (not a silent homepage).
+- **Fix:** Middleware forwards stray `?code=` on non-callback pages to `/auth/callback` with the same success `next` (covers older emails that landed on Site URL).
+- **UX:** Hash-based confirm links append the verified email to `/auth/confirmed`; signup modal adds **Confirm password** (must match).
+- **Files:** `lib/auth/emailVerificationRedirect.ts`, `middleware.ts`, `app/auth/callback/route.ts`, `components/HashAuthCallbackHandler.tsx`, `components/Header.tsx`, `components/InlineSignUpForm.tsx`, `components/EmailVerificationSuccessPopup.tsx`.
+
 ### Pro status — stale profile vs RevenueCat (server)
 
 - **Fix:** `checkProStatus` and `/api/user/pro-status` now use `resolveServerEffectiveIsPro` — manual/Stripe grants preserved; when RevenueCat REST reports an inactive store sub, stale `profiles.is_pro` no longer grants API Pro (aligns with mobile).

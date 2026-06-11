@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { appendEmailToConfirmedUrl } from '@/lib/auth/emailVerificationRedirect';
 
 /** Same targets as `app/auth/confirm/route.ts` for failed / error-only hash fragments */
 const RECOVERY_ERROR_REDIRECT = '/account/update-password?error=invalid_or_expired';
@@ -82,7 +83,7 @@ export default function HashAuthCallbackHandler() {
         if (type === 'recovery') {
           await supabase.auth.signOut({ scope: 'local' });
         }
-        const { error: sessErr } = await supabase.auth.setSession({
+        const { data, error: sessErr } = await supabase.auth.setSession({
           access_token,
           refresh_token,
         });
@@ -91,7 +92,11 @@ export default function HashAuthCallbackHandler() {
           router.replace(getErrorRedirect(type));
           return;
         }
-        router.replace(getDestination(type));
+        const dest = appendEmailToConfirmedUrl(
+          getDestination(type),
+          data.session?.user?.email
+        );
+        router.replace(dest);
       } catch (e) {
         console.warn('[hash-auth] setSession error:', e);
         router.replace(getErrorRedirect(type));

@@ -8,6 +8,7 @@ import { useActiveUsers } from '@/lib/active-users-context';
 import { capture, identify } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
+import { getEmailSignupRedirectTo } from '@/lib/auth/emailVerificationRedirect';
 
 export default function Header() {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -20,8 +21,10 @@ export default function Header() {
   const [showSignUp, setShowSignUp] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
   const [signupEmailError, setSignupEmailError] = useState("");
   const [signupPasswordError, setSignupPasswordError] = useState("");
+  const [signupConfirmPasswordError, setSignupConfirmPasswordError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [emailFormMode, setEmailFormMode] = useState<'signup' | 'login'>('signup');
   const [showForgot, setShowForgot] = useState(false);
@@ -665,8 +668,10 @@ export default function Header() {
             setShowSignUp(false);
             setSignupEmail('');
             setSignupPassword('');
+            setSignupConfirmPassword('');
             setSignupEmailError('');
             setSignupPasswordError('');
+            setSignupConfirmPasswordError('');
             setSignupSuccess(false);
             setEmailFormMode('signup');
           }}
@@ -678,8 +683,10 @@ export default function Header() {
               setShowSignUp(false);
               setSignupEmail('');
               setSignupPassword('');
+              setSignupConfirmPassword('');
               setSignupEmailError('');
               setSignupPasswordError('');
+              setSignupConfirmPasswordError('');
               setSignupSuccess(false);
               setEmailFormMode('signup');
             }
@@ -696,8 +703,10 @@ export default function Header() {
                     setShowSignUp(false);
                     setSignupEmail('');
                     setSignupPassword('');
+                    setSignupConfirmPassword('');
                     setSignupEmailError('');
                     setSignupPasswordError('');
+                    setSignupConfirmPasswordError('');
                     setSignupSuccess(false);
                     setEmailFormMode('signup');
                   }}
@@ -909,6 +918,7 @@ export default function Header() {
                   }
                   setSignupEmailError('');
                   setSignupPasswordError('');
+                  setSignupConfirmPasswordError('');
                   
                   if (emailFormMode === 'login') {
                     if (!signupPassword.length) {
@@ -939,10 +949,20 @@ export default function Header() {
                     setSignupPasswordError('Password must be at least 8 characters');
                     return;
                   }
+                  if (signupPassword !== signupConfirmPassword) {
+                    setSignupConfirmPasswordError('Passwords do not match');
+                    return;
+                  }
                   
                   try { 
                     trackSignupStarted('email');
-                    const { data, error } = await supabase.auth.signUp({ email: signupEmail, password: signupPassword }); 
+                    const { data, error } = await supabase.auth.signUp({
+                      email: signupEmail,
+                      password: signupPassword,
+                      options: {
+                        emailRedirectTo: getEmailSignupRedirectTo(window.location.origin),
+                      },
+                    }); 
                     if (error) {
                       const msg = error.message || '';
                       const alreadyRegistered = /already registered|already been registered|user already exists/i.test(msg);
@@ -1046,6 +1066,28 @@ export default function Header() {
                         </div>
                       )}
                     </div>
+
+                    {emailFormMode === 'signup' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Confirm password</label>
+                        <input
+                          value={signupConfirmPassword}
+                          onChange={(e) => {
+                            setSignupConfirmPassword(e.target.value);
+                            setSignupConfirmPasswordError('');
+                          }}
+                          type="password"
+                          placeholder="Re-enter your password"
+                          className={`w-full bg-neutral-950 text-white border rounded px-3 py-2 ${signupConfirmPasswordError ? 'border-red-500' : 'border-neutral-700'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          autoComplete="new-password"
+                          minLength={8}
+                          required
+                        />
+                        {signupConfirmPasswordError && (
+                          <div className="text-xs text-red-400 mt-1">{signupConfirmPasswordError}</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex flex-col items-center gap-3 mt-6">
@@ -1056,8 +1098,10 @@ export default function Header() {
                           setShowSignUp(false);
                           setSignupEmail('');
                           setSignupPassword('');
+                          setSignupConfirmPassword('');
                           setSignupEmailError('');
                           setSignupPasswordError('');
+                          setSignupConfirmPasswordError('');
                           setSignupSuccess(false);
                           setEmailFormMode('signup');
                         }} 
@@ -1086,6 +1130,8 @@ export default function Header() {
                           setEmailFormMode(m => m === 'signup' ? 'login' : 'signup');
                           setSignupEmailError('');
                           setSignupPasswordError('');
+                          setSignupConfirmPassword('');
+                          setSignupConfirmPasswordError('');
                         }}
                         className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-4 py-2 text-sm font-bold transition-colors ${
                           emailFormMode === 'signup'
@@ -1162,6 +1208,9 @@ export default function Header() {
                             await supabase.auth.resend({
                               type: 'signup',
                               email: signupEmail,
+                              options: {
+                                emailRedirectTo: getEmailSignupRedirectTo(window.location.origin),
+                              },
                             });
                             alert('✅ Verification email resent! Check your inbox.');
                             capture('email_verification_resent_on_signup', { email_present: Boolean(signupEmail) });
@@ -1182,8 +1231,10 @@ export default function Header() {
                     setShowSignUp(false);
                     setSignupEmail('');
                     setSignupPassword('');
+                    setSignupConfirmPassword('');
                     setSignupEmailError('');
                     setSignupPasswordError('');
+                    setSignupConfirmPasswordError('');
                     setSignupSuccess(false);
                   }} 
                   className="px-6 py-3 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-medium"

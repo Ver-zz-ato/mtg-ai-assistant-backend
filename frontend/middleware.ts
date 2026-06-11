@@ -33,6 +33,7 @@ import {
   buildPageMetricsContext,
   logPageMetrics,
 } from './lib/observability/pageMetrics';
+import { EMAIL_CONFIRM_SUCCESS_PATH } from './lib/auth/emailVerificationRedirect';
 
 /**
  * After a successful /api/config read shows maintenance is OFF, skip the internal
@@ -126,6 +127,23 @@ export async function middleware(req: NextRequest) {
       response.headers.set("Vary", "User-Agent");
       return response;
     }
+  }
+
+  // Email verification PKCE: Supabase may redirect to Site URL with ?code= (no handler on /).
+  // Route to auth/callback so users see /auth/confirmed instead of a silent homepage landing.
+  const authCode = req.nextUrl.searchParams.get('code');
+  if (
+    authCode &&
+    path !== '/auth/callback' &&
+    path !== '/account/update-password' &&
+    !path.startsWith('/api/')
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/auth/callback';
+    if (!url.searchParams.has('next')) {
+      url.searchParams.set('next', EMAIL_CONFIRM_SUCCESS_PATH);
+    }
+    return NextResponse.redirect(url);
   }
 
   // WWW redirect: Ensure bare domain (manatap.ai) redirects to www.manatap.ai (single hop)

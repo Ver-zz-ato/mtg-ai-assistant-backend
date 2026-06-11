@@ -3,12 +3,15 @@
 import { useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { trackSignupStarted, trackSignupCompleted } from '@/lib/analytics-enhanced';
+import { getEmailSignupRedirectTo } from '@/lib/auth/emailVerificationRedirect';
 
 export default function InlineSignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -20,6 +23,7 @@ export default function InlineSignUpForm() {
     // Reset errors
     setEmailError('');
     setPasswordError('');
+    setConfirmPasswordError('');
     
     // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,15 +37,22 @@ export default function InlineSignUpForm() {
       setPasswordError('Password must be at least 8 characters');
       return;
     }
+    if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match');
+      return;
+    }
     
     setIsSubmitting(true);
     
     try {
       trackSignupStarted('email', 'inline_form');
       
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
-        password 
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: getEmailSignupRedirectTo(window.location.origin),
+        },
       });
       
       if (error) {
@@ -192,6 +203,30 @@ export default function InlineSignUpForm() {
                 <span>At least 8 characters</span>
               </div>
             </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-1">
+            Confirm password
+          </label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              setConfirmPasswordError('');
+            }}
+            placeholder="Re-enter your password"
+            className={`w-full bg-white/10 backdrop-blur text-white border ${
+              confirmPasswordError ? 'border-red-400' : 'border-white/30'
+            } rounded-lg px-4 py-3 placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50`}
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+          {confirmPasswordError && (
+            <div className="text-xs text-red-200 mt-1">{confirmPasswordError}</div>
           )}
         </div>
         

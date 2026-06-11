@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
+import { appendEmailToConfirmedUrl } from '@/lib/auth/emailVerificationRedirect';
 
 export const runtime = 'nodejs';
 
 /**
- * OAuth callback for Google (and other providers). Supabase redirects here with ?code=...
+ * OAuth + email-verification PKCE callback. Supabase redirects here with ?code=...
  * Exchanges the code for a Supabase session, sets the session via existing server client,
- * then redirects to ?next=... (if present and safe) or /profile.
+ * then redirects to ?next=... (if present and safe) or /.
+ *
+ * Email signup uses next=/auth/confirmed?verified=1 (see getEmailSignupRedirectTo).
  *
  * Add to Supabase Auth → URL Configuration → Redirect URLs:
- *   https://manatap.ai/auth/callback, http://localhost:3000/auth/callback
+ *   https://www.manatap.ai/auth/callback, http://localhost:3000/auth/callback
  */
 const DEFAULT_REDIRECT = '/';
 
@@ -22,6 +25,10 @@ function safeNext(next: string | null, base: string): string {
   } catch {
     return DEFAULT_REDIRECT;
   }
+}
+
+function enrichConfirmedRedirect(next: string, email?: string | null): string {
+  return appendEmailToConfirmedUrl(next, email);
 }
 
 export async function GET(req: NextRequest) {
@@ -40,12 +47,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       console.error('[auth/callback] exchangeCodeForSession error:', error.message);
       return NextResponse.redirect(new URL(`/?auth_error=${encodeURIComponent(error.message)}`, req.url));
     }
-    const res = NextResponse.redirect(new URL(next, req.url));
+    const dest = enrichConfirmedRedirect(next, data.session?.user?.email);
+    const res = NextResponse.redirect(new URL(dest, req.url));
     res.cookies.set('auth_return_to', '', { path: '/', maxAge: 0 });
     return res;
   } catch (e) {

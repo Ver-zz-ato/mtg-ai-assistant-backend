@@ -20,7 +20,9 @@ export default function EmailVerificationSuccessPopup() {
         const queryParams = new URLSearchParams(window.location.search);
         const queryType = queryParams.get('type');
         
-        if ((accessToken && type === 'signup') || queryType === 'email_verified') {
+        const isEmailConfirmType =
+          type === 'signup' || type === 'email' || type === 'magiclink';
+        if ((accessToken && isEmailConfirmType) || queryType === 'email_verified') {
           // User just verified their email
           const supabase = createBrowserSupabaseClient();
           const { data: { user } } = await supabase.auth.getUser();
