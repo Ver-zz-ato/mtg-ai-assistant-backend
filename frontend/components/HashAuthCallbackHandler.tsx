@@ -79,6 +79,9 @@ export default function HashAuthCallbackHandler() {
     (async () => {
       try {
         const supabase = createBrowserSupabaseClient();
+        if (type === 'recovery') {
+          await supabase.auth.signOut({ scope: 'local' });
+        }
         const { error: sessErr } = await supabase.auth.setSession({
           access_token,
           refresh_token,

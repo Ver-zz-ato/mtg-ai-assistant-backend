@@ -2,6 +2,13 @@
 
 ## 2026-06-11
 
+### Password reset — wrong account when already logged in
+
+- **Fix:** `/account/update-password` signs out any existing local session before exchanging a PKCE `?code=` or hash recovery token, so reset links always target the emailed account (not whoever is logged in on that browser profile).
+- **UX:** Form shows “Setting password for **email**” after the link is validated; visiting the page without a recovery link shows invalid/expired (not a logged-in password change).
+- **Hash links:** `HashAuthCallbackHandler` also signs out locally before `setSession` on `type=recovery`.
+- **Files:** `app/account/update-password/page.tsx`, `components/HashAuthCallbackHandler.tsx`.
+
 ### Marketing Radar manual X/Instagram
 
 - **Publish tab → Copy & post:** X and Instagram are clipboard + manual post (no paid X API). Blog still has one-click publish to manatap.ai.

@@ -23,13 +23,20 @@ function parseHashParams(hash: string): Record<string, string> {
 
 function hasRecoveryTokens(hash: string): boolean {
   const p = parseHashParams(hash);
-  return !!(p.type === 'recovery' && (p.access_token || p.refresh_token));
+  return !!(p.type === 'recovery' && p.access_token && p.refresh_token);
+}
+
+/** Clear any existing ManaTap session so recovery links target the emailed account, not whoever is logged in. */
+async function signOutLocalBeforeRecovery(): Promise<void> {
+  const supabase = createBrowserSupabaseClient();
+  await supabase.auth.signOut({ scope: 'local' });
 }
 
 function UpdatePasswordContent() {
   const searchParams = useSearchParams();
   const [state, setState] = useState<PageState>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [recoveryEmail, setRecoveryEmail] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitError, setSubmitError] = useState('');
@@ -38,22 +45,7 @@ function UpdatePasswordContent() {
     const supabase = createBrowserSupabaseClient();
     console.info('[update-password] recovery code detected:', !!code);
 
-    const {
-      data: { session: initialSession },
-      error: initialSessionError,
-    } = await supabase.auth.getSession();
-
-    if (initialSessionError) {
-      console.warn('[update-password] getSession before exchange error:', initialSessionError.message);
-    }
-
-    if (initialSession) {
-      console.info('[update-password] session exists after PKCE init:', true);
-      const url = new URL(window.location.href);
-      url.searchParams.delete('code');
-      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
-      return initialSession;
-    }
+    await signOutLocalBeforeRecovery();
 
     console.info('[update-password] exchange attempt started');
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
@@ -87,22 +79,27 @@ function UpdatePasswordContent() {
     const hash = window.location.hash;
     if (!hasRecoveryTokens(hash)) return null;
 
+    const params = parseHashParams(hash);
+    if (params.type !== 'recovery') return null;
+
+    const accessToken = params.access_token;
+    const refreshToken = params.refresh_token;
+    if (!accessToken || !refreshToken) return null;
+
+    await signOutLocalBeforeRecovery();
+
     const supabase = createBrowserSupabaseClient();
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.warn('[update-password] getSession error:', error.message);
-        return null;
-      }
-      if (session) {
-        const params = parseHashParams(hash);
-        if (params.type !== 'recovery') return null;
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
-        return session;
-      }
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 300));
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) {
+      console.warn('[update-password] setSession from hash failed:', error.message);
+      return null;
     }
-    return null;
+
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    return data.session ?? null;
   }, []);
 
   useEffect(() => {
@@ -121,6 +118,7 @@ function UpdatePasswordContent() {
         const session = await validateRecoveryCode(code);
         if (cancelled) return;
         if (session) {
+          setRecoveryEmail(session.user.email ?? null);
           setState('form');
         } else {
           setState('invalid');
@@ -131,14 +129,7 @@ function UpdatePasswordContent() {
       const hash = window.location.hash;
 
       if (!hash) {
-        const supabase = createBrowserSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (cancelled) return;
-        if (session) {
-          setState('form');
-        } else {
-          setState('invalid');
-        }
+        setState('invalid');
         return;
       }
 
@@ -151,6 +142,7 @@ function UpdatePasswordContent() {
       if (cancelled) return;
 
       if (session) {
+        setRecoveryEmail(session.user.email ?? null);
         setState('form');
       } else {
         setState('invalid');
@@ -235,9 +227,16 @@ function UpdatePasswordContent() {
       <div className="min-h-[60vh] flex items-center justify-center p-4">
         <div className={cardClass}>
           <h1 className="text-xl font-bold mb-2">Set new password</h1>
-          <p className="text-neutral-400 text-sm mb-4">
-            Enter your new password below.
-          </p>
+          {recoveryEmail ? (
+            <p className="text-sm text-neutral-300 mb-4">
+              Setting password for{' '}
+              <span className="font-medium text-white">{recoveryEmail}</span>
+            </p>
+          ) : (
+            <p className="text-neutral-400 text-sm mb-4">
+              Enter your new password below.
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="space-y-3">
             <input
               type="password"
@@ -289,7 +288,9 @@ function UpdatePasswordContent() {
             <div className="text-4xl mb-4">✓</div>
             <h1 className="text-xl font-bold mb-2">Password updated</h1>
             <p className="text-neutral-400 text-sm mb-6">
-              Your password has been changed. You can now sign in with your new password.
+              {recoveryEmail
+                ? `Password changed for ${recoveryEmail}. You can now sign in with your new password.`
+                : 'Your password has been changed. You can now sign in with your new password.'}
             </p>
             <Link
               href="/"
