@@ -1,8 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MarketingDraftRow } from "../marketingBriefSchema";
 import { publishToBlog } from "./publishToBlog";
-import { publishToInstagram } from "./publishToInstagram";
-import { publishToX } from "./publishToX";
 
 export async function publishMarketingDraft(
   admin: SupabaseClient,
@@ -14,22 +12,13 @@ export async function publishMarketingDraft(
   if (draft.superseded_at) {
     throw new Error("Draft is superseded");
   }
-
-  let result: { externalPostId: string; externalPostUrl: string };
-
-  switch (draft.platform) {
-    case "x":
-      result = await publishToX(draft.content);
-      break;
-    case "instagram":
-      result = await publishToInstagram(draft.content);
-      break;
-    case "blog":
-      result = await publishToBlog(admin, draft.content);
-      break;
-    default:
-      throw new Error(`Publishing not supported for platform: ${draft.platform}`);
+  if (draft.platform !== "blog") {
+    throw new Error(
+      `${draft.platform} is manual-only — copy from admin and post in the app yourself`
+    );
   }
+
+  const result = await publishToBlog(admin, draft.content);
 
   const now = new Date().toISOString();
   const { error } = await admin

@@ -223,7 +223,7 @@ export default function MarketingRadarPage() {
         <div>
           <h1 className="text-xl font-semibold">Marketing Radar</h1>
           <p className="text-sm text-neutral-400 mt-1">
-            Ingest trends → review summary → approve drafts → publish to X, Instagram, or blog.
+            Ingest trends → review summary → approve drafts → copy to X/Instagram or publish blog.
           </p>
         </div>
         <Link
@@ -312,7 +312,7 @@ export default function MarketingRadarPage() {
                   onClick={() => goTab("publish")}
                   className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium"
                 >
-                  Go to Publish →
+                  Go to Copy &amp; post →
                 </button>
               )}
             </div>
@@ -322,9 +322,11 @@ export default function MarketingRadarPage() {
             <PublishTab
               drafts={drafts}
               draftEdits={draftEdits}
-              publishConfig={data?.config?.publish}
               publishBusyId={publishBusyId}
-              onPublish={publishDraft}
+              draftBusyId={draftBusyId}
+              onPublishBlog={publishDraft}
+              onPatch={patchDraft}
+              onCopied={() => setInfo("Copied to clipboard.")}
             />
           )}
         </>

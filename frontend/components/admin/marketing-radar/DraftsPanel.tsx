@@ -55,7 +55,7 @@ export function DraftsPanel({
         <div>
           <div className="font-medium">One draft per platform</div>
           <p className="text-xs text-neutral-500 mt-0.5">
-            Edit if needed, then Approve or Reject. Approved posts move to Publish (step 4).
+            Edit if needed, then Approve or Reject. Approved posts move to Copy &amp; post (step 4).
             {approvedCount > 0 && (
               <span className="text-emerald-400 ml-1">{approvedCount} approved</span>
             )}

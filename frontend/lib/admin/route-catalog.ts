@@ -531,9 +531,8 @@ export const ADMIN_ROUTE_CATALOG: AdminRouteMeta[] = [
     risk: "high",
     authRequired: true,
     writes: true,
-    description: "Publish approved marketing draft to X, Instagram, or blog.",
+    description: "Publish approved blog draft to manatap.ai (X/Instagram are manual copy only).",
     healthCheck: "skip-write",
-    confirmationPhrase: "PUBLISH",
   },
   {
     path: "/api/admin/marketing-radar/ingest/rss",

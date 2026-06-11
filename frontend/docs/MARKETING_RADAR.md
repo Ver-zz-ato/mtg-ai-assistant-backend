@@ -1,6 +1,6 @@
 # Marketing Radar (admin)
 
-Internal admin tool for collecting MTG marketing signals, generating AI briefs, and drafting social/blog content. **Human-in-the-loop:** ingest + AI run on a schedule, you approve per platform, then publish with one click (X, Instagram, blog). Nothing posts without approval.
+Internal admin tool for collecting MTG marketing signals, generating AI briefs, and drafting social/blog content. **Human-in-the-loop:** ingest + AI on a schedule, you approve per platform, then **copy** X/Instagram posts manually (no X API fees). Blog can be published to manatap.ai from admin. Nothing posts without approval.
 
 ## Access
 
@@ -31,11 +31,9 @@ See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 | `REDDIT_PASSWORD` | Optional | Password for that Reddit account — used with script-app OAuth |
 | `CRON_SECRET` | For cron | Protects marketing radar cron routes |
 | `MARKETING_RADAR_REDDIT_UA` | Optional | Custom Reddit User-Agent string |
-| `X_USER_ACCESS_TOKEN` | For X publish | OAuth 2 user token (Bearer) for `POST /2/tweets` |
-| `INSTAGRAM_ACCESS_TOKEN` | For IG publish | Instagram Graph API token |
-| `INSTAGRAM_USER_ID` | For IG publish | Instagram business/creator user ID |
-| `INSTAGRAM_DEFAULT_IMAGE_URL` | For IG publish | Public image URL for feed posts (caption from draft) |
 | `MARKETING_RADAR_DISCORD_WEBHOOK` | Optional | Bi-daily “drafts ready” Discord link (falls back to `DISCORD_ADMIN_ALERT_WEBHOOK`) |
+
+X and Instagram are **copy-paste only** (no API keys required). Optional legacy publish helpers exist in `lib/marketing/publish/` but are not used by the admin UI.
 
 Keys are server-side only. The UI receives booleans (e.g. `youtube_api_key_configured`), never secrets.
 
@@ -46,7 +44,7 @@ Keys are server-side only. The UI receives booleans (e.g. `youtube_api_key_confi
 | 1 | **Ingest** | Check source health; **Run everything** (ingest + brief + 3 drafts). |
 | 2 | **Summary** | Read what’s trending — AI brief summary, topics, top signals. |
 | 3 | **Drafts** | **One draft per platform** (X, Instagram, long blog). Edit, **Approve** or **Reject**. |
-| 4 | **Publish** | Post approved drafts to X / Instagram / blog via API (or copy as fallback). |
+| 4 | **Copy & post** | Copy X/Instagram to clipboard; optional **Publish to blog** on manatap.ai; mark posted + save live URL. |
 
 Blog drafts are **long-form** (800–1500 words) for the website. Reddit is ingest-only (signals), not a publish target.
 
@@ -117,7 +115,7 @@ Unauthenticated `www.reddit.com/...json` returns 403 from server IPs.
 | POST | `/api/admin/marketing-radar/briefs/[id]/regenerate` | New drafts; supersedes non-approved |
 | GET | `/api/admin/marketing-radar/export.csv` | CSV export |
 | PATCH | `/api/admin/marketing-drafts/[id]` | Edit draft, status |
-| POST | `/api/admin/marketing-drafts/[id]/publish` | Publish approved draft (X / Instagram / blog) |
+| POST | `/api/admin/marketing-drafts/[id]/publish` | Publish approved **blog** draft to manatap.ai |
 | GET | `/api/cron/marketing-radar-daily` | Cron: ingest + brief (CRON_SECRET) |
 | GET | `/api/cron/marketing-radar-review` | Cron: ingest + brief + Discord review link |
 
@@ -151,7 +149,7 @@ Neither cron auto-posts. See `frontend/docs/CRONS.md`.
 - [ ] Reddit fetch works with OAuth credentials; rate/access errors per source
 - [ ] Full daily radar creates brief + drafts
 - [ ] Regenerate supersedes draft/rejected/approved; posted rows kept
-- [ ] Publish tab posts to X / IG / blog when env configured
+- [ ] Copy & post tab: clipboard copy for X/IG; blog publish works
 - [ ] Bi-daily cron sends Discord link when webhook set
 - [ ] CSV export downloads
 - [ ] Non-admin gets 404 on APIs

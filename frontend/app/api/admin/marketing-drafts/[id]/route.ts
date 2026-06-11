@@ -78,8 +78,12 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       patch.external_post_url = d.external_post_url || null;
     }
     if (d.mark_copied) patch.copied_at = new Date().toISOString();
-    if (d.mark_posted && d.external_post_url) {
-      patch.external_post_url = d.external_post_url;
+    if (d.mark_posted) {
+      patch.status = "posted";
+      patch.posted_at = new Date().toISOString();
+      if (d.external_post_url !== undefined) {
+        patch.external_post_url = d.external_post_url || null;
+      }
     }
 
     const { data, error } = await admin

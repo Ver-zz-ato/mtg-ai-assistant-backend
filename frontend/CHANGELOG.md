@@ -2,6 +2,12 @@
 
 ## 2026-06-11
 
+### Marketing Radar manual X/Instagram
+
+- **Publish tab → Copy & post:** X and Instagram are clipboard + manual post (no paid X API). Blog still has one-click publish to manatap.ai.
+- **PATCH:** `mark_posted` sets `posted` status + `posted_at` for manual tracking.
+- **Files:** `PublishTab.tsx`, `publishMarketingDraft.ts`, `marketing-drafts/[id]/route.ts`, docs.
+
 ### Marketing Radar 4-step publish flow
 
 - **UI:** Four tabs — Ingest → Summary → Drafts (approve/reject) → Publish (Post to X / Instagram / blog).
