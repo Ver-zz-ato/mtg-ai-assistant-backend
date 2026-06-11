@@ -8,6 +8,7 @@ import {
   type SignalFilters,
 } from "@/lib/marketing/fetchMarketingContext";
 import { isRedditApiConfigured } from "@/lib/marketing/fetchRedditSignals";
+import { isRedditPartiallyConfigured } from "@/lib/marketing/redditOAuth";
 import { isYouTubeApiKeyConfigured } from "@/lib/marketing/fetchYouTubeSignals";
 import type { MarketingDraftRow } from "@/lib/marketing/marketingBriefSchema";
 
@@ -133,6 +134,7 @@ export async function GET(req: NextRequest) {
         config: {
           youtube_api_key_configured: isYouTubeApiKeyConfigured(),
           reddit_api_configured: isRedditApiConfigured(),
+          reddit_partial_configured: isRedditPartiallyConfigured(),
         },
       },
       { headers: { "Cache-Control": "no-store" } }

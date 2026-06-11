@@ -9,9 +9,16 @@ type Props = {
   redditConfigured: boolean;
   onResult: (msg: string) => void;
   onDone: () => void;
+  compact?: boolean;
 };
 
-export function IngestActions({ youtubeConfigured, redditConfigured, onResult, onDone }: Props) {
+export function IngestActions({
+  youtubeConfigured,
+  redditConfigured,
+  onResult,
+  onDone,
+  compact,
+}: Props) {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [lastDaily, setLastDaily] = React.useState<DailySummary | null>(null);
 
@@ -27,24 +34,22 @@ export function IngestActions({ youtubeConfigured, redditConfigured, onResult, o
       if (path.includes("daily-run")) {
         setLastDaily(json.summary as DailySummary);
         const s = json.summary as DailySummary;
-        onResult(
-          [
-            formatIngestSummary("RSS", s.rss),
-            formatIngestSummary("YouTube", s.youtube),
-            formatIngestSummary("Reddit", s.reddit),
-            s.brief?.created
-              ? `Brief: created (${s.brief.draftCount ?? 0} drafts)`
-              : `Brief: ${s.brief?.error ?? "not created"}`,
-          ].join("\n")
-        );
+        const lines = [
+          formatIngestSummary("Articles", s.rss),
+          formatIngestSummary("YouTube", s.youtube),
+          formatIngestSummary("Reddit", s.reddit),
+          s.brief?.created
+            ? `Brief: created (${s.brief.draftCount ?? 0} drafts)`
+            : `Brief: ${s.brief?.error ?? "not created"}`,
+        ];
+        onResult(lines.join("\n"));
       } else {
         const r = json as IngestSummary;
-        onResult(formatIngestSummary(label, r));
+        const lines = [formatIngestSummary(label, r)];
         if (r.errors?.length) {
-          onResult(
-            r.errors.map((e) => `${e.name}: ${e.error}`).join("\n")
-          );
+          lines.push(r.errors.map((e) => `  • ${e.name}: ${e.error}`).join("\n"));
         }
+        onResult(lines.join("\n"));
       }
       onDone();
     } catch (e) {
@@ -55,63 +60,79 @@ export function IngestActions({ youtubeConfigured, redditConfigured, onResult, o
   };
 
   const btn =
-    "px-3 py-2 rounded-lg border text-sm disabled:opacity-50";
+    "px-3 py-2.5 rounded-lg border text-sm disabled:opacity-50 text-left";
+
+  const actions = [
+    {
+      path: "/api/admin/marketing-radar/ingest/rss",
+      label: "Articles",
+      title: "Pull MTG articles",
+      desc: "EDHREC, MTGGoldfish, Commanders Herald",
+      className: "border-emerald-800 bg-emerald-950/50 hover:bg-emerald-900/40",
+    },
+    {
+      path: "/api/admin/marketing-radar/ingest/youtube",
+      label: "YouTube",
+      title: "Pull YouTube videos",
+      desc: youtubeConfigured ? "Command Zone, Tolarian, etc." : "Needs YOUTUBE_API_KEY",
+      className: "border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700",
+      disabled: !youtubeConfigured,
+    },
+    {
+      path: "/api/admin/marketing-radar/ingest/reddit",
+      label: "Reddit",
+      title: "Pull Reddit hot posts",
+      desc: redditConfigured ? "r/EDH, r/magicTCG, …" : "Needs Reddit script app — Setup tab",
+      className: "border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700",
+      disabled: !redditConfigured,
+    },
+  ];
 
   return (
     <section className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-4 space-y-3">
-      <div className="font-medium">Fetch signals</div>
-      {!youtubeConfigured && (
-        <p className="text-xs text-amber-300/90 rounded border border-amber-900/50 bg-amber-950/30 px-2 py-1.5">
-          YOUTUBE_API_KEY is not set — YouTube fetch and daily run will skip video ingestion.
-        </p>
+      {!compact && (
+        <div>
+          <div className="font-medium">Fetch from the web</div>
+          <p className="text-sm text-neutral-500 mt-1">
+            Read-only. We save titles and text for the AI — nothing gets posted anywhere.
+          </p>
+        </div>
       )}
       {!redditConfigured && (
         <p className="text-xs text-amber-300/90 rounded border border-amber-900/50 bg-amber-950/30 px-2 py-1.5">
-          REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are not set — Reddit fetch is skipped (use manual
-          paste, or add a script app at reddit.com/prefs/apps).
+          Reddit not wired yet — use <strong>Setup</strong> tab or paste threads manually below.
         </p>
       )}
-      <p className="text-xs text-neutral-500">
-        Read-only ingestion for analysis. Nothing is posted automatically.
-      </p>
-      <div className="flex flex-wrap gap-2">
+      <div className={`grid gap-2 ${compact ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+        {actions.map((a) => (
+          <button
+            key={a.path}
+            type="button"
+            disabled={!!busy || a.disabled}
+            className={`${btn} ${a.className}`}
+            onClick={() => post(a.path, a.label)}
+          >
+            <div className="font-medium">
+              {busy === a.path ? "Fetching…" : a.title}
+            </div>
+            <div className="text-[11px] text-neutral-500 mt-0.5">{a.desc}</div>
+          </button>
+        ))}
+      </div>
+      {!compact && (
         <button
           type="button"
           disabled={!!busy}
-          className={`${btn} border-emerald-800 bg-emerald-950/50 hover:bg-emerald-900/40`}
-          onClick={() => post("/api/admin/marketing-radar/ingest/rss", "RSS")}
-        >
-          {busy === "/api/admin/marketing-radar/ingest/rss" ? "Fetching…" : "Fetch MTG News"}
-        </button>
-        <button
-          type="button"
-          disabled={!!busy}
-          className={`${btn} border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700`}
-          onClick={() => post("/api/admin/marketing-radar/ingest/youtube", "YouTube")}
-        >
-          {busy === "/api/admin/marketing-radar/ingest/youtube" ? "Fetching…" : "Fetch YouTube Signals"}
-        </button>
-        <button
-          type="button"
-          disabled={!!busy}
-          className={`${btn} border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700`}
-          onClick={() => post("/api/admin/marketing-radar/ingest/reddit", "Reddit")}
-        >
-          {busy === "/api/admin/marketing-radar/ingest/reddit" ? "Fetching…" : "Fetch Reddit Signals"}
-        </button>
-        <button
-          type="button"
-          disabled={!!busy}
-          className={`${btn} border-purple-800 bg-purple-950/40 hover:bg-purple-900/30 text-purple-100`}
+          className="w-full px-3 py-2.5 rounded-lg border border-purple-800 bg-purple-950/40 hover:bg-purple-900/30 text-purple-100 text-sm font-medium disabled:opacity-50"
           onClick={() => post("/api/admin/marketing-radar/daily-run", "Daily")}
         >
-          {busy === "/api/admin/marketing-radar/daily-run" ? "Running…" : "Run Full Daily Radar"}
+          {busy === "/api/admin/marketing-radar/daily-run" ? "Running…" : "Run all fetches + AI brief"}
         </button>
-      </div>
-      {lastDaily && (
+      )}
+      {lastDaily && !compact && (
         <pre className="text-xs text-neutral-400 whitespace-pre-wrap rounded border border-neutral-800 bg-black/30 p-2">
           {[
-            formatIngestSummary("RSS", lastDaily.rss),
+            formatIngestSummary("Articles", lastDaily.rss),
             formatIngestSummary("YouTube", lastDaily.youtube),
             formatIngestSummary("Reddit", lastDaily.reddit),
             lastDaily.brief?.created

@@ -4,14 +4,15 @@ import { insertMarketingSignal, updateSourceFetchStatus } from "./marketingSigna
 import {
   getRedditAccessToken,
   isRedditApiConfigured,
+  isRedditPartiallyConfigured,
   redditUserAgent,
 } from "./redditOAuth";
 
 export type RedditIngestResult = IngestResult & {
-  skippedReason?: "missing_api_credentials";
+  skippedReason?: "missing_api_credentials" | "incomplete_api_credentials";
 };
 
-export { isRedditApiConfigured };
+export { isRedditApiConfigured, isRedditPartiallyConfigured };
 
 type RedditListing = {
   data?: {
@@ -35,7 +36,9 @@ export async function fetchRedditSignals(admin: SupabaseClient): Promise<RedditI
       inserted: 0,
       skipped: 0,
       errors: [],
-      skippedReason: "missing_api_credentials",
+      skippedReason: isRedditPartiallyConfigured()
+        ? "incomplete_api_credentials"
+        : "missing_api_credentials",
     };
   }
 

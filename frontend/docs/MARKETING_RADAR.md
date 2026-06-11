@@ -25,7 +25,9 @@ See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 | `ADMIN_USER_IDS` / `ADMIN_EMAILS` | Yes | Admin gate |
 | `YOUTUBE_API_KEY` | Optional | YouTube Data API v3 channel video fetch |
 | `REDDIT_CLIENT_ID` | Optional | Reddit script app client ID (under app name at reddit.com/prefs/apps) |
-| `REDDIT_CLIENT_SECRET` | Optional | Reddit script app secret — required with client ID for OAuth reads |
+| `REDDIT_CLIENT_SECRET` | Optional | Reddit script app secret |
+| `REDDIT_USERNAME` | Optional | Reddit **username** for the bot account (not email; 3+ chars, `a-z0-9_-`) |
+| `REDDIT_PASSWORD` | Optional | Password for that Reddit account — used with script-app OAuth |
 | `CRON_SECRET` | For cron | Protects `/api/cron/marketing-radar-daily` |
 | `MARKETING_RADAR_REDDIT_UA` | Optional | Custom Reddit User-Agent string |
 
@@ -69,19 +71,18 @@ Set `type=youtube_channel`, `enabled=true`, and `YOUTUBE_API_KEY` in env.
 
 ### Reddit (`type=reddit_subreddit`)
 
-Read-only via **Reddit OAuth** (`client_credentials` → `oauth.reddit.com/r/{sub}/hot`). Seeded: EDH, magicTCG, mtg, CompetitiveEDH, BudgetBrews, mtgfinance.
+Read-only via **Reddit OAuth** (script app **password grant** → `oauth.reddit.com/r/{sub}/hot`). Seeded: EDH, magicTCG, mtg, CompetitiveEDH, BudgetBrews, mtgfinance.
 
 **Setup (one-time):**
 
-1. Log in to Reddit → [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) → **create another app**.
-2. Type: **script** (personal use / server-side read).
-3. Name e.g. `ManaTap Marketing Radar`; redirect URI can be `https://www.manatap.ai` (unused for client_credentials).
-4. Copy **client ID** (under app name) and **secret** into Vercel + local env:
-   - `REDDIT_CLIENT_ID`
-   - `REDDIT_CLIENT_SECRET`
-5. Redeploy (or restart local dev). UI amber banner clears when both are set.
+1. Create a **dedicated Reddit account** for the bot (e.g. username `manatap_radar` — letters/numbers/underscore only, 3+ chars).
+2. Log in → [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) or [developers.reddit.com](https://developers.reddit.com) → **script** app.
+3. On “Add your automated account”, enter the bot **username** (not your email) and password.
+4. Copy client ID + secret into Vercel + local env:
+   - `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USERNAME`, `REDDIT_PASSWORD`
+5. Redeploy. Setup tab shows Reddit: ready.
 
-Unauthenticated `www.reddit.com/...json` requests return 403 from server IPs; OAuth is required.
+Unauthenticated `www.reddit.com/...json` returns 403 from server IPs.
 
 **Safety:**
 

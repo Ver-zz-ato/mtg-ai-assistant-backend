@@ -2,6 +2,12 @@
 
 ## 2026-06-11
 
+### Marketing Radar UX + Reddit script auth
+
+- **UI:** Tabbed flow — Start here, Collect topics, AI drafts, Post & schedule, Setup (ELI5 on each tab).
+- **Reddit:** Script-app password grant (`REDDIT_USERNAME`, `REDDIT_PASSWORD`); Setup tab with developer portal guidance.
+- **Files:** `app/admin/marketing-radar/page.tsx`, `components/admin/marketing-radar/*`, `lib/marketing/redditOAuth.ts`.
+
 ### Marketing Radar source fixes
 
 - **Migration:** `140_marketing_radar_source_fixes.sql` — disable broken Wizards RSS; fix MTGGoldfish feed URL; enable Commanders Herald; correct YouTube channel IDs (EDHRECast, Nitpicking Nerds).

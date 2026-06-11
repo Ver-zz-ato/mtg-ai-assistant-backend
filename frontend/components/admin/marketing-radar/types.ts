@@ -30,6 +30,7 @@ export type RadarPayload = {
   config?: {
     youtube_api_key_configured?: boolean;
     reddit_api_configured?: boolean;
+    reddit_partial_configured?: boolean;
   };
   error?: string;
 };
@@ -64,7 +65,10 @@ export async function copyText(text: string): Promise<void> {
 export function formatIngestSummary(label: string, r: IngestSummary): string {
   if (r.skippedReason === "missing_api_key") return `${label}: skipped (YOUTUBE_API_KEY not set)`;
   if (r.skippedReason === "missing_api_credentials") {
-    return `${label}: skipped (REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET not set)`;
+    return `${label}: skipped (Reddit not configured — see Setup tab)`;
+  }
+  if (r.skippedReason === "incomplete_api_credentials") {
+    return `${label}: skipped (set REDDIT_CLIENT_ID, SECRET, USERNAME, PASSWORD)`;
   }
   const errPart = r.errors.length ? `; ${r.errors.length} source error(s)` : "";
   return `${label}: +${r.inserted} inserted, ${r.skipped} skipped${errPart}`;
