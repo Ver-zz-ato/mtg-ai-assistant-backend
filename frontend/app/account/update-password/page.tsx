@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
+import { PasswordRequirementsChecklist } from '@/components/auth/PasswordRequirementsChecklist';
+import { passwordMeetsMinimumRequirements } from '@/lib/auth/passwordRequirements';
 
 type PageState = 'loading' | 'invalid' | 'form' | 'success' | 'error';
 
@@ -163,8 +165,8 @@ function UpdatePasswordContent() {
     e.preventDefault();
     setSubmitError('');
 
-    if (password.length < 6) {
-      setSubmitError('Password must be at least 6 characters');
+    if (!passwordMeetsMinimumRequirements(password)) {
+      setSubmitError('Password does not meet all requirements below.');
       return;
     }
     if (password !== confirmPassword) {
@@ -240,21 +242,28 @@ function UpdatePasswordContent() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setSubmitError('');
+              }}
               placeholder="New password"
               className="w-full bg-neutral-950 text-white border border-neutral-700 rounded px-3 py-2"
               autoComplete="new-password"
-              minLength={6}
+              minLength={8}
               required
             />
+            <PasswordRequirementsChecklist password={password} />
             <input
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                setSubmitError('');
+              }}
               placeholder="Confirm password"
               className="w-full bg-neutral-950 text-white border border-neutral-700 rounded px-3 py-2"
               autoComplete="new-password"
-              minLength={6}
+              minLength={8}
               required
             />
             {submitError && (
