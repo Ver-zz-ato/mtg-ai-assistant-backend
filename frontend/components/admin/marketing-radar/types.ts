@@ -27,7 +27,10 @@ export type RadarPayload = {
   sources: unknown[];
   meta_snapshot: MarketingMetaSnapshot;
   calendar_drafts: MarketingDraftRow[];
-  config?: { youtube_api_key_configured?: boolean };
+  config?: {
+    youtube_api_key_configured?: boolean;
+    reddit_api_configured?: boolean;
+  };
   error?: string;
 };
 
@@ -60,6 +63,9 @@ export async function copyText(text: string): Promise<void> {
 
 export function formatIngestSummary(label: string, r: IngestSummary): string {
   if (r.skippedReason === "missing_api_key") return `${label}: skipped (YOUTUBE_API_KEY not set)`;
+  if (r.skippedReason === "missing_api_credentials") {
+    return `${label}: skipped (REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET not set)`;
+  }
   const errPart = r.errors.length ? `; ${r.errors.length} source error(s)` : "";
   return `${label}: +${r.inserted} inserted, ${r.skipped} skipped${errPart}`;
 }

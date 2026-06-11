@@ -262,6 +262,7 @@ export default function MarketingRadarPage() {
         <>
           <IngestActions
             youtubeConfigured={!!data?.config?.youtube_api_key_configured}
+            redditConfigured={!!data?.config?.reddit_api_configured}
             onResult={setInfo}
             onDone={() => load()}
           />

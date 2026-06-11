@@ -2,6 +2,14 @@
 
 ## 2026-06-11
 
+### Marketing Radar source fixes
+
+- **Migration:** `140_marketing_radar_source_fixes.sql` — disable broken Wizards RSS; fix MTGGoldfish feed URL; enable Commanders Herald; correct YouTube channel IDs (EDHRECast, Nitpicking Nerds).
+- **Reddit:** OAuth `client_credentials` via `lib/marketing/redditOAuth.ts` (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`); unauthenticated JSON no longer used.
+- **YouTube:** optional `forHandle` resolution when `channelId` missing in source metadata.
+- **UI:** amber banner when Reddit API credentials missing.
+- **Files:** `lib/marketing/redditOAuth.ts`, `fetchRedditSignals.ts`, `fetchYouTubeSignals.ts`, `IngestActions.tsx`, `MARKETING_RADAR.md`.
+
 ### Marketing Radar phases 2–10
 
 - **Migration:** `139_marketing_radar_phase2.sql` — source fetch metadata, draft calendar/export/quality fields, RSS/YouTube/Reddit seeds.

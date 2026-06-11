@@ -13,6 +13,7 @@ Apply migrations in Supabase SQL Editor:
 
 1. `frontend/db/migrations/138_marketing_radar.sql`
 2. `frontend/db/migrations/139_marketing_radar_phase2.sql`
+3. `frontend/db/migrations/140_marketing_radar_source_fixes.sql` — RSS URL fixes, YouTube channel IDs
 
 See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 
@@ -23,6 +24,8 @@ See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 | `OPENAI_API_KEY` | Yes (briefs) | AI brief + draft generation |
 | `ADMIN_USER_IDS` / `ADMIN_EMAILS` | Yes | Admin gate |
 | `YOUTUBE_API_KEY` | Optional | YouTube Data API v3 channel video fetch |
+| `REDDIT_CLIENT_ID` | Optional | Reddit script app client ID (under app name at reddit.com/prefs/apps) |
+| `REDDIT_CLIENT_SECRET` | Optional | Reddit script app secret — required with client ID for OAuth reads |
 | `CRON_SECRET` | For cron | Protects `/api/cron/marketing-radar-daily` |
 | `MARKETING_RADAR_REDDIT_UA` | Optional | Custom Reddit User-Agent string |
 
@@ -43,13 +46,13 @@ Keys are server-side only. The UI receives booleans (e.g. `youtube_api_key_confi
 
 ### RSS (`type=rss`)
 
-Seeded: MTG Official News, EDHREC, MTGGoldfish (verify feeds in Supabase if a source errors).
+Seeded: EDHREC Articles, MTGGoldfish (`/feed`), Commanders Herald. MTG Official News is disabled (Wizards RSS retired).
 
 ### YouTube (`type=youtube_channel`)
 
 Tracks **known channels only** (not broad search) to control API cost.
 
-Seeded channels: The Command Zone, Tolarian Community College, MTGGoldfish, EDHREC.
+Seeded channels: The Command Zone, Tolarian Community College, MTGGoldfish, EDHRECast, Nitpicking Nerds.
 
 To add a channel in Supabase `marketing_sources`:
 
@@ -66,7 +69,19 @@ Set `type=youtube_channel`, `enabled=true`, and `YOUTUBE_API_KEY` in env.
 
 ### Reddit (`type=reddit_subreddit`)
 
-Read-only public JSON (`/r/{sub}/hot.json`). Seeded: EDH, magicTCG, mtg, CompetitiveEDH, BudgetBrews, mtgfinance.
+Read-only via **Reddit OAuth** (`client_credentials` → `oauth.reddit.com/r/{sub}/hot`). Seeded: EDH, magicTCG, mtg, CompetitiveEDH, BudgetBrews, mtgfinance.
+
+**Setup (one-time):**
+
+1. Log in to Reddit → [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) → **create another app**.
+2. Type: **script** (personal use / server-side read).
+3. Name e.g. `ManaTap Marketing Radar`; redirect URI can be `https://www.manatap.ai` (unused for client_credentials).
+4. Copy **client ID** (under app name) and **secret** into Vercel + local env:
+   - `REDDIT_CLIENT_ID`
+   - `REDDIT_CLIENT_SECRET`
+5. Redeploy (or restart local dev). UI amber banner clears when both are set.
+
+Unauthenticated `www.reddit.com/...json` requests return 403 from server IPs; OAuth is required.
 
 **Safety:**
 
@@ -112,7 +127,8 @@ Ingests RSS + Reddit + YouTube (if key set), then generates brief + drafts. **Do
 - [ ] Manual paste works
 - [ ] RSS fetch returns inserted/skipped counts
 - [ ] YouTube skips gracefully without `YOUTUBE_API_KEY`
-- [ ] Reddit fetch handles rate/access errors per source
+- [ ] Reddit skips gracefully without `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`
+- [ ] Reddit fetch works with OAuth credentials; rate/access errors per source
 - [ ] Full daily radar creates brief + drafts
 - [ ] Regenerate supersedes draft/rejected only; approved kept
 - [ ] CSV export downloads

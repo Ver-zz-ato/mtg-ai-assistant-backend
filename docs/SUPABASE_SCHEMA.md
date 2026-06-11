@@ -205,7 +205,7 @@ Internal admin marketing pipeline (`/admin/marketing-radar`). Service-role-only 
   - columns include: `quality_flags`, `scheduled_for`, `campaign`, `copied_at`, `external_post_url`, `superseded_at`
   - status: `draft` | `approved` | `rejected` | `superseded`
 
-Migrations: `138_marketing_radar.sql`, `139_marketing_radar_phase2.sql`
+Migrations: `138_marketing_radar.sql`, `139_marketing_radar_phase2.sql`, `140_marketing_radar_source_fixes.sql`
 
 Cron (ingest + brief only, no auto-post): `GET /api/cron/marketing-radar-daily` at 06:30 UTC (`CRON_SECRET`).
 

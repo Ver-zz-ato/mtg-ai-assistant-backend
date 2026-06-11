@@ -6,11 +6,12 @@ import { formatIngestSummary } from "./types";
 
 type Props = {
   youtubeConfigured: boolean;
+  redditConfigured: boolean;
   onResult: (msg: string) => void;
   onDone: () => void;
 };
 
-export function IngestActions({ youtubeConfigured, onResult, onDone }: Props) {
+export function IngestActions({ youtubeConfigured, redditConfigured, onResult, onDone }: Props) {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [lastDaily, setLastDaily] = React.useState<DailySummary | null>(null);
 
@@ -62,6 +63,12 @@ export function IngestActions({ youtubeConfigured, onResult, onDone }: Props) {
       {!youtubeConfigured && (
         <p className="text-xs text-amber-300/90 rounded border border-amber-900/50 bg-amber-950/30 px-2 py-1.5">
           YOUTUBE_API_KEY is not set — YouTube fetch and daily run will skip video ingestion.
+        </p>
+      )}
+      {!redditConfigured && (
+        <p className="text-xs text-amber-300/90 rounded border border-amber-900/50 bg-amber-950/30 px-2 py-1.5">
+          REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are not set — Reddit fetch is skipped (use manual
+          paste, or add a script app at reddit.com/prefs/apps).
         </p>
       )}
       <p className="text-xs text-neutral-500">

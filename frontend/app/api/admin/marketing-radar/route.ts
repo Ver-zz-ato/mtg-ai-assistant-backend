@@ -7,6 +7,7 @@ import {
   fetchMetaSignalsSnapshot,
   type SignalFilters,
 } from "@/lib/marketing/fetchMarketingContext";
+import { isRedditApiConfigured } from "@/lib/marketing/fetchRedditSignals";
 import { isYouTubeApiKeyConfigured } from "@/lib/marketing/fetchYouTubeSignals";
 import type { MarketingDraftRow } from "@/lib/marketing/marketingBriefSchema";
 
@@ -131,6 +132,7 @@ export async function GET(req: NextRequest) {
         calendar_drafts: calendarDrafts ?? [],
         config: {
           youtube_api_key_configured: isYouTubeApiKeyConfigured(),
+          reddit_api_configured: isRedditApiConfigured(),
         },
       },
       { headers: { "Cache-Control": "no-store" } }

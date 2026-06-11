@@ -1,10 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IngestResult, MarketingSourceRow } from "./ingestTypes";
 import { insertMarketingSignal, updateSourceFetchStatus } from "./marketingSignalInsert";
+import {
+  getRedditAccessToken,
+  isRedditApiConfigured,
+  redditUserAgent,
+} from "./redditOAuth";
 
-const REDDIT_UA =
-  process.env.MARKETING_RADAR_REDDIT_UA ||
-  "ManaTapMarketingRadar/1.0 (admin signal analysis; +https://manatap.ai)";
+export type RedditIngestResult = IngestResult & {
+  skippedReason?: "missing_api_credentials";
+};
+
+export { isRedditApiConfigured };
 
 type RedditListing = {
   data?: {
@@ -22,8 +29,34 @@ type RedditListing = {
   };
 };
 
-export async function fetchRedditSignals(admin: SupabaseClient): Promise<IngestResult> {
-  const result: IngestResult = { inserted: 0, skipped: 0, errors: [] };
+export async function fetchRedditSignals(admin: SupabaseClient): Promise<RedditIngestResult> {
+  if (!isRedditApiConfigured()) {
+    return {
+      inserted: 0,
+      skipped: 0,
+      errors: [],
+      skippedReason: "missing_api_credentials",
+    };
+  }
+
+  const result: RedditIngestResult = { inserted: 0, skipped: 0, errors: [] };
+  let accessToken: string;
+  try {
+    const token = await getRedditAccessToken();
+    if (!token) {
+      return {
+        inserted: 0,
+        skipped: 0,
+        errors: [],
+        skippedReason: "missing_api_credentials",
+      };
+    }
+    accessToken = token;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "reddit_oauth_failed";
+    result.errors.push({ sourceId: "reddit", name: "reddit_oauth", error: msg });
+    return result;
+  }
 
   const { data: sources, error } = await admin
     .from("marketing_sources")
@@ -45,9 +78,13 @@ export async function fetchRedditSignals(admin: SupabaseClient): Promise<IngestR
     }
 
     try {
-      const url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/${sort}.json?limit=${limit}&raw_json=1`;
+      const url = `https://oauth.reddit.com/r/${encodeURIComponent(subreddit)}/${sort}?limit=${limit}&raw_json=1`;
       const res = await fetch(url, {
-        headers: { "User-Agent": REDDIT_UA, Accept: "application/json" },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "User-Agent": redditUserAgent(),
+          Accept: "application/json",
+        },
         cache: "no-store",
       });
       if (!res.ok) {

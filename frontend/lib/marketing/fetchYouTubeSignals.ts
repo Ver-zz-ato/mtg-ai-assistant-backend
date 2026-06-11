@@ -20,6 +20,27 @@ export function isYouTubeApiKeyConfigured(): boolean {
   return !!String(process.env.YOUTUBE_API_KEY || "").trim();
 }
 
+async function resolveYouTubeChannelId(
+  apiKey: string,
+  source: MarketingSourceRow
+): Promise<string> {
+  const existing = String(source.metadata?.channelId ?? "").trim();
+  if (existing) return existing;
+
+  const handle = String(source.metadata?.handle ?? "")
+    .trim()
+    .replace(/^@/, "");
+  if (!handle) return "";
+
+  const params = new URLSearchParams({ part: "id", forHandle: handle, key: apiKey });
+  const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?${params.toString()}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) return "";
+  const json = (await res.json()) as { items?: Array<{ id?: string }> };
+  return String(json.items?.[0]?.id ?? "").trim();
+}
+
 export async function fetchYouTubeSignals(admin: SupabaseClient): Promise<YouTubeIngestResult> {
   const apiKey = String(process.env.YOUTUBE_API_KEY || "").trim();
   if (!apiKey) {
@@ -38,9 +59,13 @@ export async function fetchYouTubeSignals(admin: SupabaseClient): Promise<YouTub
 
   for (const raw of sources ?? []) {
     const source = raw as MarketingSourceRow;
-    const channelId = String(source.metadata?.channelId ?? "").trim();
+    const channelId = await resolveYouTubeChannelId(apiKey, source);
     if (!channelId) {
-      result.errors.push({ sourceId: source.id, name: source.name, error: "missing_channelId" });
+      result.errors.push({
+        sourceId: source.id,
+        name: source.name,
+        error: "missing_channelId (set metadata.channelId or handle)",
+      });
       continue;
     }
 
