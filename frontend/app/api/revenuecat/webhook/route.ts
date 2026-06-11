@@ -239,6 +239,50 @@ function planFromProductId(productId: string | undefined): 'monthly' | 'yearly' 
   return null;
 }
 
+const SUPABASE_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isSupabaseUserId(id: string): boolean {
+  return SUPABASE_UUID_RE.test(id);
+}
+
+type RevenueCatRevokeSkipReason = 'manual_or_indefinite_pro' | 'stripe_status_unknown' | 'stripe_active';
+
+/** Same guards as EXPIRATION revoke — skip manual/indefinite Pro and active Stripe. */
+async function getRevenueCatRevokeSkipReason(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<RevenueCatRevokeSkipReason | null> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_pro, pro_plan, pro_until, stripe_subscription_id')
+    .eq('id', userId)
+    .single();
+  const profileState = profile as {
+    is_pro?: boolean | null;
+    pro_plan?: string | null;
+    pro_until?: string | null;
+    stripe_subscription_id?: string | null;
+  } | null;
+  const stripeSubId = profileState?.stripe_subscription_id;
+  const hasManualOrIndefinitePro =
+    profileState?.is_pro === true &&
+    (profileState.pro_plan === 'manual' ||
+      (!profileState.pro_until && !profileState.stripe_subscription_id && !profileState.pro_plan));
+  if (hasManualOrIndefinitePro) return 'manual_or_indefinite_pro';
+  if (stripeSubId && !process.env.STRIPE_SECRET_KEY) return 'stripe_status_unknown';
+  if (stripeSubId && process.env.STRIPE_SECRET_KEY) {
+    try {
+      const { stripe } = await import('@/lib/stripe');
+      const sub = await stripe.subscriptions.retrieve(stripeSubId);
+      if (sub.status === 'active' || sub.status === 'trialing') return 'stripe_active';
+    } catch {
+      return 'stripe_status_unknown';
+    }
+  }
+  return null;
+}
+
 /** Update Supabase profiles and user_metadata for Pro status. */
 async function updateProStatus(
   supabase: SupabaseClient,
@@ -375,6 +419,44 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    const from = eventBody.transferred_from ?? [];
+    for (const donorId of from) {
+      if (!donorId || typeof donorId !== 'string' || !isSupabaseUserId(donorId)) continue;
+      const skipReason = await getRevenueCatRevokeSkipReason(supabase, donorId);
+      if (skipReason) {
+        if (traceLog) {
+          console.info('[RevenueCat webhook] Transfer revoke skipped', {
+            userId: donorId.slice(0, 8) + '...',
+            reason: skipReason,
+          });
+        }
+        await logWebhookProcessed(supabase, {
+          ...eventMeta,
+          status: 'skipped',
+          reason: `transfer_revoke_${skipReason}`,
+          userId: donorId,
+        });
+        continue;
+      }
+      try {
+        await updateProStatus(supabase, donorId, false, null, null, 'transfer_revoke');
+        await logWebhookProcessed(supabase, {
+          ...eventMeta,
+          status: 'ok',
+          reason: 'transfer_revoke',
+          userId: donorId,
+        });
+      } catch (e) {
+        console.error('[RevenueCat webhook] Transfer revoke failed for', donorId, e);
+        await logWebhookProcessed(supabase, {
+          ...eventMeta,
+          status: 'fail',
+          reason: 'transfer_revoke_failed',
+          userId: donorId,
+        });
+      }
+    }
     return NextResponse.json({ received: true });
   }
 
@@ -487,83 +569,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Before revoking: if user has manual/indefinite Pro or active Stripe subscription, don't overwrite.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_pro, pro_plan, pro_until, stripe_subscription_id')
-      .eq('id', userId)
-      .single();
-    const profileState = profile as {
-      is_pro?: boolean | null;
-      pro_plan?: string | null;
-      pro_until?: string | null;
-      stripe_subscription_id?: string | null;
-    } | null;
-    const stripeSubId = profileState?.stripe_subscription_id;
-    const hasManualOrIndefinitePro =
-      profileState?.is_pro === true &&
-      (profileState.pro_plan === 'manual' ||
-        (!profileState.pro_until && !profileState.stripe_subscription_id && !profileState.pro_plan));
-    if (hasManualOrIndefinitePro) {
+    const skipReason = await getRevenueCatRevokeSkipReason(supabase, userId);
+    if (skipReason) {
       if (traceLog) {
-        console.info('[RevenueCat webhook] Revoke skipped: manual/indefinite Pro active', {
+        console.info('[RevenueCat webhook] Revoke skipped', {
           userId: userId.slice(0, 8) + '...',
           eventType,
+          reason: skipReason,
         });
       }
-      await logWebhookProcessed(supabase, {
-        ...eventMeta,
-        status: 'skipped',
-        reason: 'manual_or_indefinite_pro',
-        userId,
-      });
-      return NextResponse.json({ received: true, skipped: 'manual_or_indefinite_pro' });
-    }
-    if (stripeSubId && !process.env.STRIPE_SECRET_KEY) {
-      await logWebhookProcessed(supabase, {
-        ...eventMeta,
-        status: 'skipped',
-        reason: 'stripe_status_unknown',
-        userId,
-      });
-      return NextResponse.json({ received: true, skipped: 'stripe_status_unknown' });
-    }
-    if (stripeSubId && process.env.STRIPE_SECRET_KEY) {
-      try {
-        const { stripe } = await import('@/lib/stripe');
-        const sub = await stripe.subscriptions.retrieve(stripeSubId);
-        if (sub.status === 'active' || sub.status === 'trialing') {
-          if (traceLog) {
-            console.info('[RevenueCat webhook] Revoke skipped: Stripe active', { userId: userId.slice(0, 8) + '...', eventType });
-          }
-          try {
-            const { logOpsEvent } = await import('@/lib/ops-events');
-            await logOpsEvent(supabase, {
-              event_type: 'ops_entitlement_revoke_skipped',
-              route: 'revenuecat_webhook',
-              status: 'skipped',
-              reason: 'stripe_active',
-              user_id: userId,
-              source: eventType,
-            });
-          } catch {}
-          await logWebhookProcessed(supabase, {
-            ...eventMeta,
+      if (skipReason === 'stripe_active') {
+        try {
+          const { logOpsEvent } = await import('@/lib/ops-events');
+          await logOpsEvent(supabase, {
+            event_type: 'ops_entitlement_revoke_skipped',
+            route: 'revenuecat_webhook',
             status: 'skipped',
             reason: 'stripe_active',
-            userId,
+            user_id: userId,
+            source: eventType,
           });
-          return NextResponse.json({ received: true, skipped: 'stripe_active' });
-        }
-      } catch {
-        await logWebhookProcessed(supabase, {
-          ...eventMeta,
-          status: 'skipped',
-          reason: 'stripe_status_unknown',
-          userId,
-        });
-        return NextResponse.json({ received: true, skipped: 'stripe_status_unknown' });
+        } catch {}
       }
+      await logWebhookProcessed(supabase, {
+        ...eventMeta,
+        status: 'skipped',
+        reason: skipReason,
+        userId,
+      });
+      return NextResponse.json({ received: true, skipped: skipReason });
     }
     try {
       await updateProStatus(supabase, userId, false, null, null, eventType);

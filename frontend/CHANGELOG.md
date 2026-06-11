@@ -2,6 +2,18 @@
 
 ## 2026-06-11
 
+### Pro status — stale profile vs RevenueCat (server)
+
+- **Fix:** `checkProStatus` and `/api/user/pro-status` now use `resolveServerEffectiveIsPro` — manual/Stripe grants preserved; when RevenueCat REST reports an inactive store sub, stale `profiles.is_pro` no longer grants API Pro (aligns with mobile).
+- **Admin debug:** `getEntitlementDebugForAdmin` uses the same resolver; mismatch flag when profile Pro but RC inactive.
+- **Files:** `lib/server-pro-check.ts`, `tests/unit/server-pro-check.test.ts`.
+
+### RevenueCat TRANSFER — revoke donor accounts
+
+- **Fix:** `TRANSFER` webhook grants `transferred_to` and revokes `transferred_from` Supabase UUIDs (skips `$RCAnonymousID`); same manual/Stripe skip guards as EXPIRATION.
+- **Refactor:** Shared `getRevenueCatRevokeSkipReason` for EXPIRATION and transfer revoke.
+- **Files:** `app/api/revenuecat/webhook/route.ts`.
+
 ### Password reset — wrong account when already logged in
 
 - **Fix:** `/account/update-password` signs out any existing local session before exchanging a PKCE `?code=` or hash recovery token, so reset links always target the emailed account (not whoever is logged in on that browser profile).
