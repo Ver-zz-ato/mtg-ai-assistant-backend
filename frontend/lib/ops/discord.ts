@@ -6,7 +6,6 @@
  */
 
 const DISCORD_CONTENT_MAX = 1900;
-const DISCORD_DAILY_MESSAGE_MAX = 3;
 const STALE_JOBS_CAP = 3;
 const SEO_SLUGS_CAP = 5;
 const ERROR_TRUNCATE = 200;
@@ -49,92 +48,98 @@ function money(value: unknown, digits = 2): string {
   return `$${(Number(value) || 0).toFixed(digits)}`;
 }
 
-function pct(value: unknown): string {
-  return `${(Number(value) || 0).toFixed(1)}%`;
+function word(count: number, base: string, pluralForm?: string): string {
+  return count === 1 ? base : (pluralForm ?? `${base}s`);
 }
 
-function splitDiscordMessages(lines: string[], maxMessages: number): string[] {
-  const chunks: string[] = [];
-  let current = "";
-  let truncated = false;
-
-  for (const line of lines) {
-    const next = current ? `${current}\n${line}` : line;
-    if (next.length <= DISCORD_CONTENT_MAX) {
-      current = next;
-      continue;
-    }
-
-    if (current) chunks.push(current);
-    current = line;
-    if (chunks.length >= maxMessages - 1) {
-      truncated = true;
-      break;
-    }
-  }
-
-  if (current && chunks.length < maxMessages) chunks.push(current);
-
-  if (truncated && chunks.length === maxMessages) {
-    const last = chunks[chunks.length - 1];
-    chunks[chunks.length - 1] = last.length > DISCORD_CONTENT_MAX - 42
-      ? `${last.slice(0, DISCORD_CONTENT_MAX - 42)}\n...more in admin/ops`
-      : `${last}\n...more in admin/ops`;
-  }
-
-  return chunks;
+function dailyMood(status: DiscordOpsPayload["status"]): string {
+  if (status === "fail") return "Needs attention today.";
+  if (status === "warn") return "Mostly fine — worth a quick look.";
+  return "Quiet and healthy.";
 }
 
-function describeDailyDigest(digest: Record<string, unknown>, status: DiscordOpsPayload["status"]): string[] {
+function collectJobWatchlist(
+  digest: Record<string, unknown>,
+  staleJobs: string[] | undefined,
+): string[] {
+  const watch: string[] = [];
+  for (const section of ["tier1_jobs", "pipeline_jobs", "discover_jobs"] as const) {
+    const jobs = (valueAtPath(digest, ["shared", "ops", section]) as Array<Record<string, unknown>> | undefined) || [];
+    for (const job of jobs) {
+      const status = String(job.status || "").toLowerCase();
+      if (status === "working" || status === "ok") continue;
+      watch.push(`${String(job.job || "job")} (${String(job.last_seen || status)})`);
+    }
+  }
+  if (staleJobs?.length) {
+    watch.push(...staleJobs.slice(0, STALE_JOBS_CAP).map((job) => `${job} stale`));
+  }
+  return watch;
+}
+
+/** Compact ELI5 daily digest: App / Website / Total blocks. */
+export function buildCompactDailyOpsLines(
+  digest: Record<string, unknown>,
+  status: DiscordOpsPayload["status"],
+  options: { staleJobs?: string[] } = {},
+): string[] {
   const appSignups = num(digest, ["app", "users", "signups_24h"]);
   const websiteSignups = num(digest, ["website", "analytics", "signups_24h"]);
+  const totalSignups = appSignups + websiteSignups;
   const newProfiles = num(digest, ["shared", "users", "new_profiles_24h"]);
   const appEvents = num(digest, ["app", "analytics", "events_seen"]);
-  const pageviews = num(digest, ["website", "analytics", "pageviews_24h"]);
   const firstVisits = num(digest, ["website", "analytics", "first_visits_24h"]);
+  const pageviews = num(digest, ["website", "analytics", "pageviews_24h"]);
+  const logins = num(digest, ["website", "analytics", "logins_24h"]);
+  const proStarts = num(digest, ["website", "analytics", "pro_upgrade_starts_24h"]);
+  const proCompletes = num(digest, ["website", "analytics", "pro_upgrade_completions_24h"]);
   const appLlm = num(digest, ["app", "ai", "calls_24h"]);
   const websiteLlm = num(digest, ["website", "ai", "calls_24h"]);
+  const totalLlm = appLlm + websiteLlm;
   const openAi24h = num(digest, ["shared", "revenue", "openai_actual_24h_usd"]);
+  const openAiMtd = num(digest, ["shared", "revenue", "openai_actual_mtd_usd"]);
+  const stripeSubs = num(digest, ["shared", "revenue", "stripe_subs"]);
   const sentry = num(digest, ["shared", "reliability", "sentry_unresolved"]);
   const rateLimits = num(digest, ["shared", "reliability", "rate_limit_hits_24h"]);
-  const errors = num(digest, ["shared", "reliability", "local_error_logs_24h"]);
   const critical = num(digest, ["counts", "critical_alerts"]);
   const warnings = num(digest, ["counts", "warning_alerts"]);
 
-  const health = status === "fail"
-    ? "Something needs urgent attention before you trust today's numbers."
-    : status === "warn"
-      ? "Mostly alive, but there are a few things worth checking."
-      : "Quiet and healthy overall.";
+  const emoji = status === "ok" ? "OK" : status === "warn" ? "WARN" : "FAIL";
+  const proBit = proCompletes > 0
+    ? ` · ${proCompletes} Pro`
+    : proStarts > 0
+      ? ` · ${proStarts} Pro started`
+      : "";
 
-  const acquisition = websiteSignups + appSignups > 0
-    ? `${websiteSignups + appSignups} signup${websiteSignups + appSignups === 1 ? "" : "s"} landed: ${websiteSignups} website, ${appSignups} app.`
-    : "No signups landed in this window.";
-
-  const traffic = pageviews > 0 || firstVisits > 0
-    ? `Website saw ${firstVisits} first visit${firstVisits === 1 ? "" : "s"} and ${pageviews} pageview${pageviews === 1 ? "" : "s"}.`
-    : "Website pageview tracking was quiet, even though signup/visit counters may still have activity.";
-
-  const appActivity = appEvents > 0
-    ? `Mobile app generated ${appEvents} tracked event${appEvents === 1 ? "" : "s"}.`
-    : "Mobile app activity was quiet.";
-
-  const ai = appLlm + websiteLlm > 0
-    ? `${appLlm + websiteLlm} LLM call${appLlm + websiteLlm === 1 ? "" : "s"} were logged: ${websiteLlm} website, ${appLlm} app. OpenAI actual spend for the rolling 24h was ${money(openAi24h)}.`
-    : `No billable LLM calls were logged. OpenAI actual spend for the rolling 24h was ${money(openAi24h)}.`;
-
-  const reliability = sentry || rateLimits || errors
-    ? `Reliability watch: ${sentry} unresolved Sentry, ${errors} local error log${errors === 1 ? "" : "s"}, ${rateLimits} rate-limit hit${rateLimits === 1 ? "" : "s"}.`
-    : "Reliability looks clean: no local errors, no rate-limit hits, no unresolved Sentry count increase in the headline.";
-
-  return [
-    `- ${health}`,
-    `- ${acquisition} New profiles across all platforms: ${newProfiles}.`,
-    `- ${traffic} ${appActivity}`,
-    `- ${ai}`,
-    `- ${reliability}`,
-    `- Watch list count: ${critical} critical, ${warnings} warning.`,
+  const lines: string[] = [
+    `${emoji} **Daily Ops** · ${text(digest, ["window", "london_range"], "last 24h")}`,
+    dailyMood(status),
+    "",
+    `**App** · ${appSignups} ${word(appSignups, "signup")} · ${appEvents} ${word(appEvents, "event")} · ${appLlm} AI ${word(appLlm, "call")}`,
+    `**Website** · ${firstVisits} new ${word(firstVisits, "visitor")} · ${pageviews} page ${word(pageviews, "load")} · ${websiteSignups} ${word(websiteSignups, "signup")} · ${logins} ${word(logins, "login")}${proBit}`,
+    `**Total** · ${newProfiles} new ${word(newProfiles, "account")} · ${totalSignups} signup ${word(totalSignups, "event")} · ${totalLlm} AI ${word(totalLlm, "call")} · ${money(openAi24h)} OpenAI (24h, ${money(openAiMtd)} MTD) · ${stripeSubs} Stripe subs · ${sentry} Sentry · ${rateLimits} rate ${word(rateLimits, "limit")}`,
   ];
+
+  if (newProfiles !== totalSignups) {
+    lines.push(`_(Accounts = database rows; signup events = PostHog completions — small gaps are normal.)_`);
+  }
+
+  if (critical > 0 || warnings > 0) {
+    lines.push(`Alerts: ${critical} critical · ${warnings} warning`);
+  }
+
+  const jobWatch = collectJobWatchlist(digest, options.staleJobs);
+  if (jobWatch.length > 0) {
+    lines.push(`Jobs to check: ${jobWatch.slice(0, 4).join(" · ")}`);
+  }
+
+  const topAlerts = (valueAtPath(digest, ["top_alerts"]) as Array<Record<string, unknown>> | undefined) || [];
+  if (topAlerts.length > 0) {
+    const first = topAlerts[0];
+    lines.push(`Top alert: [${String(first.severity || "info")}] ${String(first.title || "Alert")}`);
+  }
+
+  return lines;
 }
 
 export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promise<void> {
@@ -146,89 +151,12 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
     "";
   if (!url) return;
 
-  const emoji = payload.status === "ok" ? "OK" : payload.status === "warn" ? "WARN" : "FAIL";
-  const lines: string[] = [`${emoji} **Ops Report** (${payload.reportType})`];
+  const lines: string[] = [];
 
   if (payload.reportType === "daily_ops" && payload.dailyDigest) {
-    const digest = payload.dailyDigest;
-    const topAlerts = (valueAtPath(digest, ["top_alerts"]) as Array<Record<string, unknown>> | undefined) || [];
-    const discoverJobs =
-      (valueAtPath(digest, ["shared", "ops", "discover_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
-    const pipelineJobs =
-      (valueAtPath(digest, ["shared", "ops", "pipeline_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
-    const tier1Jobs =
-      (valueAtPath(digest, ["shared", "ops", "tier1_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
-    const notes = (valueAtPath(digest, ["notes"]) as Array<string> | undefined) || [];
-    const apiKeyFilters = (valueAtPath(digest, ["shared", "revenue", "openai_actual_api_key_ids"]) as Array<string> | undefined) || [];
-    const projectFilters = (valueAtPath(digest, ["shared", "revenue", "openai_actual_project_ids"]) as Array<string> | undefined) || [];
-
-    lines.push(
-      "",
-      `**Window**`,
-      `${text(digest, ["window", "london_range"])}`,
-      "",
-      `**Plain English**`,
-      ...describeDailyDigest(digest, payload.status),
-      "",
-      `**App**`,
-      `- Signups: ${num(digest, ["app", "users", "signups_24h"])} mobile app signup(s).`,
-      `- Activity: ${num(digest, ["app", "analytics", "events_seen"])} event(s), ${num(digest, ["app", "analytics", "scanner_sessions_completed"])} completed scanner session(s), ${num(digest, ["app", "analytics", "tool_events_seen"])} tool event(s).`,
-      `- AI: ${num(digest, ["app", "ai", "calls_24h"])} billable LLM call(s), ${pct(valueAtPath(digest, ["app", "ai", "error_rate_pct"]))} error rate, ${pct(valueAtPath(digest, ["app", "ai", "cache_hit_pct"]))} cache hit rate.`,
-      `- Feedback: ${num(digest, ["app", "feedback", "app_feedback_events_24h"])} feedback event(s), ${num(digest, ["app", "feedback", "app_ai_reports_24h"])} AI report(s), ${num(digest, ["app", "feedback", "feedback_submit_failures_24h"])} submit failure(s).`,
-      "",
-      `**Website**`,
-      `- Traffic: ${num(digest, ["website", "analytics", "first_visits_24h"])} first visit(s), ${num(digest, ["website", "analytics", "pageviews_24h"])} pageview(s), ${num(digest, ["website", "analytics", "logins_24h"])} login(s).`,
-      `- Conversion: ${num(digest, ["website", "analytics", "signups_24h"])} signup(s), ${num(digest, ["website", "analytics", "pro_upgrade_starts_24h"])} Pro start(s), ${num(digest, ["website", "analytics", "pro_upgrade_completions_24h"])} Pro completion(s).`,
-      `- AI: ${num(digest, ["website", "ai", "calls_24h"])} billable LLM call(s), ${pct(valueAtPath(digest, ["website", "ai", "error_rate_pct"]))} error rate, ${pct(valueAtPath(digest, ["website", "ai", "cache_hit_pct"]))} cache hit rate.`,
-      `- Feedback: ${num(digest, ["website", "feedback", "generic_feedback_rows_24h"])} database row(s), ${num(digest, ["website", "analytics", "feedback_sent_24h"])} tracked sent event(s).`,
-      "",
-      `**Money + AI Cost**`,
-      `- Stripe: ${num(digest, ["shared", "revenue", "stripe_subs"])} active subscription(s), ${num(digest, ["shared", "revenue", "stripe_webhooks_24h"])} webhook(s) in this window.`,
-      `- OpenAI actual rolling 24h: ${money(valueAtPath(digest, ["shared", "revenue", "openai_actual_24h_usd"]))} from the OpenAI Costs API.`,
-      `- OpenAI latest completed UTC day: ${money(valueAtPath(digest, ["shared", "revenue", "openai_actual_latest_day_usd"]))} on ${text(digest, ["shared", "revenue", "openai_actual_latest_day_date_utc"], "unavailable")}.`,
-      `- OpenAI month to date: ${money(valueAtPath(digest, ["shared", "revenue", "openai_actual_mtd_usd"]))}.`,
-    );
-    if (apiKeyFilters.length > 0) lines.push(`- Cost filter: API key IDs ${apiKeyFilters.join(", ")}.`);
-    if (projectFilters.length > 0) lines.push(`- Cost filter: project IDs ${projectFilters.join(", ")}.`);
-    lines.push(
-      "",
-      `**Reliability**`,
-      `- Sentry unresolved: ${num(digest, ["shared", "reliability", "sentry_unresolved"])} (${text(digest, ["shared", "reliability", "sentry_status"], "unknown")}).`,
-      `- Local error logs: ${num(digest, ["shared", "reliability", "local_error_logs_24h"])}.`,
-      `- Rate limits: ${num(digest, ["shared", "reliability", "rate_limit_hits_24h"])} hit(s) across ${num(digest, ["shared", "reliability", "rate_limit_rows_24h"])} row(s).`,
-      `- Admin audit rows: ${num(digest, ["shared", "reliability", "admin_audit_rows_24h"])}.`,
-    );
-
-    if (tier1Jobs.length > 0) {
-      lines.push("", `**Tier-1 Hourly Jobs**`);
-      for (const job of tier1Jobs.slice(0, 4)) {
-        lines.push(`- ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
-      }
-    }
-    if (pipelineJobs.length > 0) {
-      lines.push("", `**Pipeline jobs**`);
-      for (const job of pipelineJobs.slice(0, 4)) {
-        lines.push(`- ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
-      }
-    }
-    if (discoverJobs.length > 0) {
-      lines.push("", `**Discover jobs**`);
-      for (const job of discoverJobs.slice(0, 3)) {
-        lines.push(`- ${String(job.job || "Job")}: ${String(job.status || "unknown")} (${String(job.last_seen || "unknown")})`);
-      }
-    }
-    if (topAlerts.length > 0) {
-      lines.push("", `**Watch list**`);
-      for (const alert of topAlerts.slice(0, 4)) {
-        lines.push(`- [${String(alert.severity || "info")}] ${String(alert.title || "Alert")}: ${String(alert.detail || "")}`);
-      }
-    }
-    if (notes.length > 0) {
-      lines.push("", `**Notes / ELI5**`);
-      for (const note of notes.slice(0, 4)) {
-        lines.push(`- ${note}`);
-      }
-    }
+    lines.push(...buildCompactDailyOpsLines(payload.dailyDigest, payload.status, {
+      staleJobs: payload.staleJobs,
+    }));
   } else if (payload.reportType === "weekly_ops" && payload.weeklyDigest) {
     const digest = payload.weeklyDigest;
     const topAlerts = (valueAtPath(digest, ["top_alerts"]) as Array<Record<string, unknown>> | undefined) || [];
@@ -239,6 +167,7 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
       (valueAtPath(digest, ["shared", "ops", "pipeline_jobs"]) as Array<Record<string, unknown>> | undefined) || [];
 
     lines.push(
+      `${payload.status === "ok" ? "OK" : payload.status === "warn" ? "WARN" : "FAIL"} **Ops Report** (${payload.reportType})`,
       "",
       `**Last 7d**`,
       `${String(valueAtPath(digest, ["window", "london_range"]) || "")}`,
@@ -294,6 +223,7 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
     }
   } else {
     lines.push(
+      `${payload.status === "ok" ? "OK" : payload.status === "warn" ? "WARN" : "FAIL"} **Ops Report** (${payload.reportType})`,
       "",
       `- AI cost mismatch: ${(payload.aiMismatchRate ?? 0).toFixed(1)}%`,
       `- 429 rate: ${payload.rate429 ?? "-"}`,
@@ -301,13 +231,13 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
     );
   }
 
-  if (payload.staleJobs && payload.staleJobs.length > 0) {
+  if (payload.reportType !== "daily_ops" && payload.staleJobs && payload.staleJobs.length > 0) {
     lines.push(`- Stale jobs: ${payload.staleJobs.slice(0, STALE_JOBS_CAP).join(", ")}`);
   }
-  if (payload.indexedPageCount != null) {
+  if (payload.indexedPageCount != null && payload.reportType !== "daily_ops") {
     lines.push(`- Indexed pages: ${payload.indexedPageCount}`);
   }
-  if (payload.seoWinnersCount != null && payload.seoWinnersCount > 0) {
+  if (payload.seoWinnersCount != null && payload.seoWinnersCount > 0 && payload.reportType !== "daily_ops") {
     lines.push(`- SEO winners (noindex w/ impressions): ${payload.seoWinnersCount}`);
     if (payload.seoWinnersSlugs && payload.seoWinnersSlugs.length > 0) {
       lines.push(`  Top: ${payload.seoWinnersSlugs.slice(0, SEO_SLUGS_CAP).join(", ")}`);
@@ -320,27 +250,22 @@ export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promis
     lines.push(`- Error: ${truncated}`);
   }
   if (payload.adminUrl) {
-    lines.push("", `View in [admin/ops](${payload.adminUrl})`);
+    lines.push("", `Details: [admin/ops](${payload.adminUrl})`);
   }
 
-  const contents = payload.reportType === "daily_ops" && payload.dailyDigest
-    ? splitDiscordMessages(lines.filter((line) => line != null) as string[], DISCORD_DAILY_MESSAGE_MAX)
-    : [lines.join("\n")];
-
-  if (contents.length === 1 && contents[0].length > DISCORD_CONTENT_MAX) {
-    contents[0] = `${contents[0].slice(0, DISCORD_CONTENT_MAX - 3)}...`;
+  let content = lines.join("\n");
+  if (content.length > DISCORD_CONTENT_MAX) {
+    content = `${content.slice(0, DISCORD_CONTENT_MAX - 3)}...`;
   }
 
   try {
-    for (const content of contents) {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      if (!res.ok) {
-        console.warn("[discord] Webhook failed:", res.status, await res.text());
-      }
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+      console.warn("[discord] Webhook failed:", res.status, await res.text());
     }
   } catch (error) {
     console.warn("[discord] Post failed:", error);

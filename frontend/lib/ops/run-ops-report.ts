@@ -229,11 +229,24 @@ async function getPosthogSignupCounts(hours: number) {
   }
 }
 
+/** Website page loads = middleware HTML loads plus optional client SPA $pageview events. */
+export function websitePageviewCountFromEventCounts(
+  counts: Map<string, number> | Record<string, number>,
+): number {
+  const get = (key: string) => {
+    if (counts instanceof Map) return counts.get(key) || 0;
+    return Number((counts as Record<string, number>)[key]) || 0;
+  };
+  return get("pageview_server") + get("$pageview");
+}
+
 async function getWebsitePosthogDigest(hours: number) {
   if (!getPosthogQueryCredentials()) {
     return {
       configured: false,
       pageviews: 0,
+      pageviewsServer: 0,
+      pageviewsClient: 0,
       firstVisits: 0,
       logins: 0,
       signups: 0,
@@ -250,6 +263,7 @@ async function getWebsitePosthogDigest(hours: number) {
     WHERE timestamp >= now() - INTERVAL ${Math.max(1, Math.min(hours, 168))} HOUR
       AND event IN [
         '$pageview',
+        'pageview_server',
         'user_first_visit',
         'auth_login_success',
         'pro_upgrade_started',
@@ -266,9 +280,13 @@ async function getWebsitePosthogDigest(hours: number) {
     for (const row of result.results) {
       counts.set(String(row[0] || ""), Number(row[1] || 0));
     }
+    const pageviewsServer = counts.get("pageview_server") || 0;
+    const pageviewsClient = counts.get("$pageview") || 0;
     return {
       configured: true,
-      pageviews: counts.get("$pageview") || 0,
+      pageviews: websitePageviewCountFromEventCounts(counts),
+      pageviewsServer,
+      pageviewsClient,
       firstVisits: counts.get("user_first_visit") || 0,
       logins: counts.get("auth_login_success") || 0,
       signups: 0,
@@ -280,6 +298,8 @@ async function getWebsitePosthogDigest(hours: number) {
     return {
       configured: true,
       pageviews: 0,
+      pageviewsServer: 0,
+      pageviewsClient: 0,
       firstVisits: 0,
       logins: 0,
       signups: 0,
@@ -487,6 +507,8 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
     website: {
       analytics: {
         pageviews_24h: websitePosthog.pageviews,
+        pageviews_server_24h: websitePosthog.pageviewsServer,
+        pageviews_client_24h: websitePosthog.pageviewsClient,
         first_visits_24h: websitePosthog.firstVisits,
         logins_24h: websitePosthog.logins,
         signups_24h: signupCounts.websiteSignups,
