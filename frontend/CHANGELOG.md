@@ -1,5 +1,13 @@
 # Frontend changelog
 
+## 2026-06-12
+
+### Blog — Marvel Commander precon upgrades
+
+- **New post:** *How to Upgrade Marvel Commander Precons Without Losing the Theme* (`/blog/upgrade-marvel-commander-precons-without-losing-theme`) — layered precon tuning guide with ManaTap tool links (deck builder, compare decks, budget swaps, deck checker).
+- **Listing:** `lib/blog-defaults.ts`; optional Supabase metadata in `db/migrations/110_blog_marvel_precon_upgrades.sql`.
+- **Files:** `lib/blog-defaults.ts`, `app/blog/[slug]/page.tsx`, `db/migrations/110_blog_marvel_precon_upgrades.sql`.
+
 ## 2026-06-11
 
 ### Email verification — success page on any device/browser
