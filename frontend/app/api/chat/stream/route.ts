@@ -5,6 +5,7 @@ import type { SfCard } from "@/lib/deck/inference";
 import { MAX_STREAM_SECONDS, MAX_TOKENS_STREAM, MAX_TOKENS_DECK_ANALYSIS, STREAM_HEARTBEAT_MS } from "@/lib/config/streaming";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { modelTierInputsForRouting, resolveOverlayTier } from "@/lib/ai/client-ai-overrides";
 import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
@@ -97,10 +98,13 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
+    const { isAdmin } = await import("@/lib/admin-check");
+    const allowClientOverrides = !!(user && isAdmin(user));
+
     const wantPromptPreview =
       req.headers.get("x-admin-prompt-preview") === "1" &&
       !!user &&
-      (await import("@/lib/admin-check")).isAdmin(user);
+      allowClientOverrides;
     let adminPv: AdminPromptPreviewPayload | null = wantPromptPreview ? createEmptyAdminPromptPreview() : null;
 
     // Accept { text } and legacy { prompt }
@@ -253,16 +257,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let modelTierRes = getModelForTier({ isGuest, userId, isPro });
-    const ft = (raw?.context as { forceTier?: string } | undefined)?.forceTier;
-    const forceTierFromContext = typeof ft === "string" && (ft === "guest" || ft === "free" || ft === "pro") ? ft : null;
-    if (forceTierFromContext && sourcePage?.includes("Admin Chat Test")) {
-      modelTierRes = getModelForTier({
-        isGuest: forceTierFromContext === "guest",
-        userId: forceTierFromContext === "guest" ? null : "admin-override",
-        isPro: forceTierFromContext === "pro",
-      });
-    }
+    const streamOverlayTier = resolveOverlayTier({
+      isGuest,
+      userId,
+      isPro,
+      clientForceTier: (raw?.context as { forceTier?: string } | undefined)?.forceTier,
+      allowClientOverrides,
+    });
+    const modelTierInputs = modelTierInputsForRouting({
+      isGuest,
+      userId,
+      isPro,
+      overlayTier: streamOverlayTier,
+      allowClientOverrides,
+      useCase: "chat",
+    });
+    let modelTierRes = getModelForTier(modelTierInputs);
     const promptRequestId = generatePromptRequestId();
 
     // Guardrail: chat/completions only accepts chat-capable models
@@ -768,16 +778,16 @@ export async function POST(req: NextRequest) {
       try {
         const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
         const admin = (await import("@/app/api/_lib/supa")).getAdmin();
-        const overlay = admin ? await getTierOverlayResolved(admin, modelTierRes.tier) : getTierOverlay(modelTierRes.tier);
+        const overlay = admin ? await getTierOverlayResolved(admin, streamOverlayTier) : getTierOverlay(streamOverlayTier);
         if (overlay) {
           tierOverlayCaptured = overlay;
           sys += "\n\n" + overlay;
-          streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: true });
+          streamDebug("tier_overlay", { tier: streamOverlayTier, applied: true });
         } else {
-          streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: false });
+          streamDebug("tier_overlay", { tier: streamOverlayTier, applied: false });
         }
       } catch (err) {
-        streamDebug("tier_overlay", { tier: modelTierRes.tier, applied: false, error: err instanceof Error ? err.message : String(err) });
+        streamDebug("tier_overlay", { tier: streamOverlayTier, applied: false, error: err instanceof Error ? err.message : String(err) });
       }
     }
     if (adminPv) {

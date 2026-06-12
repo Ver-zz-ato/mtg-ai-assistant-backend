@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger";
 import { deduplicatedFetch } from "@/lib/api/deduplicator";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
-import { isChatCompletionsModel } from "@/lib/ai/modelCapabilities";
+import { resolveChatModel, resolveOverlayTier } from "@/lib/ai/client-ai-overrides";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { FREE_DAILY_MESSAGE_LIMIT, GUEST_MESSAGE_LIMIT, PRO_DAILY_MESSAGE_LIMIT } from "@/lib/limits";
 import { sanitizeMobileChatSource } from "@/lib/analytics/mobile-chat-source";
@@ -450,13 +450,15 @@ function buildSafeGeneralChatAnswer(input: string): string | null {
 type CallOpenAIOpts = {
   deckCardCount?: number;
   stop?: string[];
-  /** Layer 0 MINI_ONLY: force model and max_tokens, skip dynamic ceiling */
+  /** Admin-only: force model (validated server-side) */
   forceModel?: string;
+  /** Server-controlled model (e.g. layer0 MINI_ONLY), not from client JSON */
+  serverForceModel?: string;
   forceMaxTokens?: number;
-  /** Panic switch: min token floor from llm_min_tokens_per_route */
   minTokenFloor?: number;
-  /** When true, route records one ai_usage row at the end; skip recording in callLLM */
   skipRecordAiUsage?: boolean;
+  allowClientOverrides?: boolean;
+  overlayTier?: "guest" | "free" | "pro";
 };
 
 async function callOpenAI(
@@ -480,18 +482,20 @@ async function callOpenAI(
     isPro: isPro ?? false,
   });
 
-  const modelOverride = opts?.forceModel;
-  // Cost routing: simple queries → mini, complex (deck analysis, synergy) → full model
-  let effectiveModel = modelOverride ?? (useMidTier ? tierRes.model : tierRes.fallbackModel);
-  if (!modelOverride && !isChatCompletionsModel(effectiveModel)) {
-    console.warn(JSON.stringify({
-      tag: "model_rejected_chat",
-      route: "/api/chat",
-      tier: tierRes.tier,
-      model: effectiveModel,
-      replacement: tierRes.fallbackModel,
+  let effectiveModel: string;
+  const serverForced = typeof opts?.serverForceModel === "string" ? opts.serverForceModel.trim() : "";
+  if (serverForced) {
+    effectiveModel = serverForced;
+  } else {
+    ({ model: effectiveModel } = resolveChatModel({
+      isGuest: isGuest ?? !userId,
+      userId: userId ?? null,
+      isPro: isPro ?? false,
+      useMidTier,
+      clientModelOverride: opts?.allowClientOverrides ? opts?.forceModel : undefined,
+      allowClientOverrides: opts?.allowClientOverrides ?? false,
+      overlayTier: opts?.overlayTier,
     }));
-    effectiveModel = tierRes.fallbackModel;
   }
 
   const { getDynamicTokenCeiling, CHAT_STOP_SEQUENCES } = await import('@/lib/ai/chat-generation-config');
@@ -657,6 +661,9 @@ export async function POST(req: NextRequest) {
       isPro = await checkProStatus(userId);
     }
 
+    const { isAdmin } = await import('@/lib/admin-check');
+    const allowClientOverrides = !!(user && isAdmin(user));
+
     // Maintenance mode (defense-in-depth; middleware also blocks)
     const { checkMaintenance } = await import('@/lib/maintenance-check');
     const maint = await checkMaintenance();
@@ -730,7 +737,25 @@ export async function POST(req: NextRequest) {
     const parse = ChatPostSchema.safeParse(normalized);
     const prefs = raw?.prefs || raw?.preferences || null; // optional UX prefs from client
     const context = raw?.context || null; // optional structured context: { deckId, budget, colors }
-    const forceModel = typeof raw?.forceModel === 'string' && raw.forceModel.trim() ? raw.forceModel.trim() : undefined;
+    const chatOverlayTier = resolveOverlayTier({
+      isGuest,
+      userId,
+      isPro,
+      clientForceTier: (context as { forceTier?: string } | null)?.forceTier,
+      allowClientOverrides,
+    });
+    const adminForceModel =
+      allowClientOverrides && typeof raw?.forceModel === "string" && raw.forceModel.trim()
+        ? resolveChatModel({
+            isGuest,
+            userId,
+            isPro,
+            useMidTier: true,
+            clientModelOverride: raw.forceModel,
+            allowClientOverrides: true,
+            overlayTier: chatOverlayTier,
+          }).model
+        : undefined;
     const sourcePage = (typeof raw?.sourcePage === "string" ? raw.sourcePage : raw?.source_page)?.trim() || null;
     const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
     const chatAiUsageSource = resolveAiUsageSourceForRequest(req, raw, evalRunId ?? null);
@@ -1407,8 +1432,7 @@ export async function POST(req: NextRequest) {
     // Tier overlay for standard tier (full tier injects later, after getUserLevelInstruction)
     if (selectedTier === "standard") {
       try {
-        const forceTier = typeof context?.forceTier === "string" && ["guest", "free", "pro"].includes(context.forceTier) ? context.forceTier : null;
-        const overlayTierForStandard = forceTier ?? chatTierRes.tier;
+        const overlayTierForStandard = chatOverlayTier;
         const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
         const admin = (await import("@/app/api/_lib/supa")).getAdmin();
         const overlay = admin ? await getTierOverlayResolved(admin, overlayTierForStandard) : getTierOverlay(overlayTierForStandard);
@@ -1709,8 +1733,7 @@ export async function POST(req: NextRequest) {
     const { getUserLevelInstruction } = await import("@/lib/ai/user-level-instructions");
     sys += getUserLevelInstruction(prefs?.userLevel);
     // Tier overlay (guest/free/pro) — after user level, before v2/deck blocks
-    const forceTierFromContext = typeof context?.forceTier === "string" && ["guest", "free", "pro"].includes(context.forceTier) ? context.forceTier : null;
-    const overlayTier = forceTierFromContext ?? chatTierRes.tier;
+    const overlayTier = chatOverlayTier;
     try {
       const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
       const admin = (await import("@/app/api/_lib/supa")).getAdmin();
@@ -2202,13 +2225,13 @@ export async function POST(req: NextRequest) {
     }
     let out1: any;
     try {
-      const callOpts: CallOpenAIOpts = { deckCardCount, stop: (await import('@/lib/ai/chat-generation-config')).CHAT_STOP_SEQUENCES, skipRecordAiUsage: true };
+      const callOpts: CallOpenAIOpts = { deckCardCount, stop: (await import('@/lib/ai/chat-generation-config')).CHAT_STOP_SEQUENCES, skipRecordAiUsage: true, allowClientOverrides, overlayTier: chatOverlayTier };
       const chatMinFloor = runtimeConfig.llm_min_tokens_per_route?.["chat"];
       if (chatMinFloor != null) callOpts.minTokenFloor = chatMinFloor;
-      if (forceModel) {
-        callOpts.forceModel = forceModel;
+      if (adminForceModel) {
+        callOpts.forceModel = adminForceModel;
       } else if (layer0MiniOnly) {
-        callOpts.forceModel = layer0MiniOnly.model;
+        callOpts.serverForceModel = layer0MiniOnly.model;
         callOpts.forceMaxTokens = layer0MiniOnly.max_tokens;
       }
       out1 = await callOpenAI(textForModel, sysForCall, layer0MiniOnly ? false : isComplexAnalysis, userId, isPro, isGuest, anonId, callOpts);

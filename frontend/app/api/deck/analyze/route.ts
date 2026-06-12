@@ -39,6 +39,7 @@ import knownBad from "@/lib/data/known_bad.json";
 import { getBannedCards, bannedDataToMaps } from "@/lib/data/get-banned-cards";
 import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
+import { resolveModelForRequest, resolveOverlayTier } from "@/lib/ai/client-ai-overrides";
 import { buildSystemPromptForRequest, generatePromptRequestId } from "@/lib/ai/prompt-path";
 import { DECK_ANALYZE_FREE, DECK_ANALYZE_GUEST, DECK_ANALYZE_PRO } from "@/lib/feature-limits";
 import {
@@ -280,8 +281,11 @@ async function callOpenAI(
     feature?: string;
     /** If provided, increment the appropriate key after the LLM call */
     llmCallCounter?: DeckAnalyzeLLMByFeature;
-    /** Override model (e.g. from AI test batch to use gpt-4o-mini) */
+    /** Admin-only model override (ignored for non-admin callers) */
     forceModel?: string;
+    /** Admin-only tier overlay simulation */
+    overlayTier?: "guest" | "free" | "pro";
+    allowClientOverrides?: boolean;
     /** Where the analyze was triggered (e.g. deck_page_analyze, homepage, build_assistant) */
     sourcePage?: string | null;
     /** For user_attribution join */
@@ -307,17 +311,20 @@ async function callOpenAI(
     maxTokens = Math.max(maxTokens, DECK_ANALYZE_MIN_TOKENS);
   }
 
-  const tierRes = getModelForTier({
-    isGuest: !opts.userId,
-    userId: opts.userId ?? null,
-    isPro: opts.isPro ?? false,
-    useCase: 'deck_analysis',
-  });
-
   // Slot planning/candidates: use mini for cost savings (structured JSON tasks)
   const slotModel = process.env.MODEL_DECK_ANALYZE_SLOTS || DEFAULT_FALLBACK_MODEL;
   const useMiniForSlots = feature === "deck_analyze_slot_planning" || feature === "deck_analyze_slot_candidates";
-  const model = opts.forceModel ?? (useMiniForSlots ? slotModel : tierRes.model);
+  const { model, tierResult: tierRes } = resolveModelForRequest({
+    isGuest: !opts.userId,
+    userId: opts.userId ?? null,
+    isPro: opts.isPro ?? false,
+    useCase: "deck_analysis",
+    preferMini: useMiniForSlots,
+    miniDefault: slotModel,
+    clientModelOverride: opts.forceModel,
+    allowClientOverrides: !!opts.allowClientOverrides,
+    overlayTier: opts.overlayTier,
+  });
 
   const { getPreferredApiSurface } = await import('@/lib/ai/modelCapabilities');
   const apiSurface = getPreferredApiSurface(tierRes.model);
@@ -491,6 +498,8 @@ async function planSuggestionSlots(
   isPro?: boolean,
   llmCallCounter?: DeckAnalyzeLLMByFeature,
   forceModel?: string,
+  overlayTier?: "guest" | "free" | "pro",
+  allowClientOverrides?: boolean,
   sourcePage?: string | null,
   anonId?: string | null,
   evalRunId?: string | null,
@@ -563,6 +572,8 @@ async function planSuggestionSlots(
       llmCallCounter,
       deckSize,
       forceModel,
+      overlayTier,
+      allowClientOverrides,
       sourcePage,
       anonId,
       evalRunId,
@@ -595,6 +606,8 @@ async function fetchSlotCandidates(
   isPro?: boolean,
   llmCallCounter?: DeckAnalyzeLLMByFeature,
   forceModel?: string,
+  overlayTier?: "guest" | "free" | "pro",
+  allowClientOverrides?: boolean,
   sourcePage?: string | null,
   anonId?: string | null,
   evalRunId?: string | null,
@@ -666,6 +679,8 @@ async function fetchSlotCandidates(
       llmCallCounter,
       deckSize,
       forceModel,
+      overlayTier,
+      allowClientOverrides,
       sourcePage,
       anonId,
       evalRunId,
@@ -693,6 +708,8 @@ async function retrySlotCandidates(
   isPro?: boolean,
   llmCallCounter?: DeckAnalyzeLLMByFeature,
   forceModel?: string,
+  overlayTier?: "guest" | "free" | "pro",
+  allowClientOverrides?: boolean,
   sourcePage?: string | null,
   anonId?: string | null,
   evalRunId?: string | null,
@@ -756,6 +773,8 @@ async function retrySlotCandidates(
       llmCallCounter,
       deckSize,
       forceModel,
+      overlayTier,
+      allowClientOverrides,
       sourcePage,
       anonId,
       evalRunId,
@@ -787,6 +806,8 @@ async function validateSlots(
   isPro?: boolean,
   llmCallCounter?: DeckAnalyzeLLMByFeature,
   forceModel?: string,
+  overlayTier?: "guest" | "free" | "pro",
+  allowClientOverrides?: boolean,
   sourcePage?: string | null,
   anonId?: string | null,
   evalRunId?: string | null,
@@ -806,7 +827,7 @@ async function validateSlots(
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId, evalRunId, usageSource);
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, overlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, usageSource);
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -892,7 +913,7 @@ async function validateSlots(
 
     await attempt(baseCandidates, "gpt");
     if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, sourcePage, anonId, evalRunId, usageSource);
+      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, overlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, usageSource);
       await attempt(retry, "retry");
     }
   }
@@ -1581,6 +1602,8 @@ export async function runDeckAnalyzeCore(
   }
 
   let anonId: string | null = null;
+  const allowClientOverrides = !!isAdminUser;
+
   if (user?.id) {
     const { hashString } = await import('@/lib/guest-tracking');
     anonId = await hashString(user.id);
@@ -1648,6 +1671,26 @@ export async function runDeckAnalyzeCore(
     body,
     typeof body.eval_run_id === "string" ? body.eval_run_id : null
   );
+
+  const deckOverlayTier = resolveOverlayTier({
+    isGuest: !user,
+    userId: user?.id ?? null,
+    isPro,
+    clientForceTier: body.forceTier,
+    allowClientOverrides,
+  });
+  const adminForceModel =
+    allowClientOverrides && typeof body.forceModel === "string" && body.forceModel.trim()
+      ? resolveModelForRequest({
+          isGuest: !user,
+          userId: user?.id ?? null,
+          isPro,
+          useCase: "deck_analysis",
+          clientModelOverride: body.forceModel,
+          allowClientOverrides: true,
+          overlayTier: deckOverlayTier,
+        }).model
+      : undefined;
 
   let deckRowFormat: string | null = null;
   let deckText = String(body.deckText || "").trim();
@@ -1943,13 +1986,11 @@ export async function runDeckAnalyzeCore(
 
   // Tier overlay (guest/free/pro) — after base prompt, before fingerprint
   const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false, useCase: "deck_analysis" });
-  const forceTierFromBody = typeof body.forceTier === "string" && ["guest", "free", "pro"].includes(body.forceTier) ? body.forceTier : null;
-  const overlayTier: "guest" | "free" | "pro" = (forceTierFromBody ?? deckTierRes.tier) as "guest" | "free" | "pro";
   if (deckAnalysisSystemPrompt) {
     try {
       const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
       const admin = (await import("@/app/api/_lib/supa")).getAdmin();
-      const overlay = admin ? await getTierOverlayResolved(admin, overlayTier) : getTierOverlay(overlayTier);
+      const overlay = admin ? await getTierOverlayResolved(admin, deckOverlayTier) : getTierOverlay(deckOverlayTier);
       if (overlay) deckAnalysisSystemPrompt += "\n\n" + overlay;
     } catch (_) {}
   }
@@ -2013,8 +2054,8 @@ export async function runDeckAnalyzeCore(
   const sourcePage = body.sourcePage?.trim() || null;
   const evalRunId = typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null;
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -2027,7 +2068,7 @@ export async function runDeckAnalyzeCore(
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, body.forceModel, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
