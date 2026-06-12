@@ -1,6 +1,7 @@
 /**
  * Post ops report summary to Discord webhook.
- * Env: DISCORD_WEBHOOK_URL, with fallback to the admin/app-sub alert hooks
+ * Daily/weekly digests go to #daily-digest (DISCORD_WEBHOOK_URL).
+ * Hourly launch alerts use DISCORD_ADMIN_ALERT_WEBHOOK separately (mobile-command-center).
  * Failure must not block report save.
  * Discord content limit: 2000 chars - we cap at 1900.
  */
@@ -87,6 +88,8 @@ export function buildCompactDailyOpsLines(
   const websiteSignups = num(digest, ["website", "analytics", "signups_24h"]);
   const totalSignups = appSignups + websiteSignups;
   const newProfiles = num(digest, ["shared", "users", "new_profiles_24h"]);
+  const appUsers = num(digest, ["app", "analytics", "unique_users_24h"]);
+  const scanSessions = num(digest, ["app", "analytics", "scanner_sessions_completed"]);
   const appEvents = num(digest, ["app", "analytics", "events_seen"]);
   const firstVisits = num(digest, ["website", "analytics", "first_visits_24h"]);
   const pageviews = num(digest, ["website", "analytics", "pageviews_24h"]);
@@ -111,11 +114,18 @@ export function buildCompactDailyOpsLines(
       ? ` · ${proStarts} Pro started`
       : "";
 
+  const appActivity =
+    appUsers > 0 || scanSessions > 0
+      ? `${appUsers} ${word(appUsers, "user")}${scanSessions > 0 ? ` · ${scanSessions} scan ${word(scanSessions, "session")}` : ""}`
+      : appEvents > 0
+        ? `${appEvents} telemetry ${word(appEvents, "event")}`
+        : "quiet";
+
   const lines: string[] = [
     `${emoji} **Daily Ops** · ${text(digest, ["window", "london_range"], "last 24h")}`,
     dailyMood(status),
     "",
-    `**App** · ${appSignups} ${word(appSignups, "signup")} · ${appEvents} ${word(appEvents, "event")} · ${appLlm} AI ${word(appLlm, "call")}`,
+    `**App** · ${appSignups} ${word(appSignups, "signup")} · ${appActivity} · ${appLlm} AI ${word(appLlm, "call")}`,
     `**Website** · ${firstVisits} new ${word(firstVisits, "visitor")} · ${pageviews} page ${word(pageviews, "load")} · ${websiteSignups} ${word(websiteSignups, "signup")} · ${logins} ${word(logins, "login")}${proBit}`,
     `**Total** · ${newProfiles} new ${word(newProfiles, "account")} · ${totalSignups} signup ${word(totalSignups, "event")} · ${totalLlm} AI ${word(totalLlm, "call")} · ${money(openAi24h)} OpenAI (24h, ${money(openAiMtd)} MTD) · ${stripeSubs} Stripe subs · ${sentry} Sentry · ${rateLimits} rate ${word(rateLimits, "limit")}`,
   ];
@@ -142,13 +152,28 @@ export function buildCompactDailyOpsLines(
   return lines;
 }
 
-export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promise<void> {
-  const url =
+function getDiscordDailyDigestWebhook(): string {
+  return (
+    process.env.DISCORD_DAILY_OPS_WEBHOOK ||
     process.env.DISCORD_WEBHOOK_URL ||
     process.env.DISCORD_ADMIN_ALERT_WEBHOOK ||
     process.env.DISCORD_APPSUB_WEBHOOK ||
     process.env.DISCORD_APP_SUBS_WEBHOOK ||
-    "";
+    ""
+  ).trim();
+}
+
+export async function postOpsReportToDiscord(payload: DiscordOpsPayload): Promise<void> {
+  const url =
+    payload.reportType === "daily_ops" || payload.reportType === "weekly_ops"
+      ? getDiscordDailyDigestWebhook()
+      : (
+        process.env.DISCORD_WEBHOOK_URL ||
+        process.env.DISCORD_ADMIN_ALERT_WEBHOOK ||
+        process.env.DISCORD_APPSUB_WEBHOOK ||
+        process.env.DISCORD_APP_SUBS_WEBHOOK ||
+        ""
+      ).trim();
   if (!url) return;
 
   const lines: string[] = [];

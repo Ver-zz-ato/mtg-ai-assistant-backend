@@ -12,6 +12,7 @@ import {
   isAppAiUsageRow,
 } from "@/lib/ai/manatap-client-origin";
 import { getPosthogQueryCredentials, posthogHogql } from "@/lib/server/posthog-hogql";
+import { POSTHOG_STRICT_APP_EVENT_FILTER } from "@/lib/analytics/app-posthog-filter";
 
 export type Severity = "ok" | "info" | "warn" | "critical";
 
@@ -609,6 +610,7 @@ async function getPosthogAnalytics(days: number) {
       configured: false,
       rows: [] as JsonRecord[],
       eventCount: 0,
+      uniqueUsers: 0,
       scannerEventCount: 0,
       scannerSessionCompletions: 0,
       toolEventCount: 0,
@@ -620,32 +622,30 @@ async function getPosthogAnalytics(days: number) {
     };
   }
   const safeDays = parseDaysParam(String(days), 7);
+  const windowClause = `timestamp > now() - INTERVAL ${safeDays} DAY`;
+  const appClause = POSTHOG_STRICT_APP_EVENT_FILTER;
   const query = `
     SELECT event, count() AS count
     FROM events
-    WHERE timestamp > now() - INTERVAL ${safeDays} DAY
-      AND (
-        event LIKE 'tool_%'
-        OR event LIKE 'scan_%'
-        OR event LIKE 'pro_%'
-        OR event LIKE 'paywall_%'
-        OR event LIKE 'feedback_%'
-        OR event LIKE 'chat_%'
-        OR event LIKE 'voice_%'
-        OR event LIKE 'hero_%'
-        OR event LIKE 'home_%'
-        OR event LIKE 'analysis_%'
-        OR properties.$lib = 'posthog-react-native'
-        OR properties.platform = 'app'
-        OR properties.source = 'manatap_app'
-      )
+    WHERE ${windowClause}
+      AND ${appClause}
     GROUP BY event
     ORDER BY count DESC
     LIMIT 120
   `;
+  const totalsQuery = `
+    SELECT
+      uniq(distinct_id) AS unique_users,
+      count() AS event_count
+    FROM events
+    WHERE ${windowClause}
+      AND ${appClause}
+  `;
   try {
-    const result = await posthogHogql(query);
+    const [result, totalsResult] = await Promise.all([posthogHogql(query), posthogHogql(totalsQuery)]);
     const rows = result.results.map((row) => ({ event: row[0], count: Number(row[1] || 0) })) as JsonRecord[];
+    const totalsRow = totalsResult.results[0] || [];
+    const uniqueUsers = Number(totalsRow[0] || 0);
     const countFor = (matcher: (event: string) => boolean) =>
       rows.reduce((sum, row) => {
         const event = String(row.event || "");
@@ -663,6 +663,7 @@ async function getPosthogAnalytics(days: number) {
       configured: true,
       rows,
       eventCount: rows.reduce((sum, row) => sum + (Number(row.count) || 0), 0),
+      uniqueUsers,
       scannerEventCount: countFor((event) => event.startsWith("scan_")),
       scannerSessionCompletions: countFor((event) => event === "scan_card_session_completed"),
       toolEventCount: countFor((event) => event.startsWith("tool_")),
@@ -676,6 +677,7 @@ async function getPosthogAnalytics(days: number) {
       configured: true,
       rows: [] as JsonRecord[],
       eventCount: 0,
+      uniqueUsers: 0,
       scannerEventCount: 0,
       scannerSessionCompletions: 0,
       toolEventCount: 0,
@@ -725,7 +727,8 @@ export async function getMobileCommandCenterAnalytics(days: number): Promise<Com
         value: posthog.configured ? (posthog.error ? "failing" : "connected") : "missing",
         severity: posthog.configured ? (posthog.error ? "warn" : "ok") : "warn",
       },
-      { key: "app_events", label: "App events seen", value: posthog.eventCount, severity: posthog.rows.length ? "ok" : "info" },
+      { key: "app_events", label: "App telemetry events", value: posthog.eventCount, sub: `${posthog.uniqueUsers} unique user(s)`, severity: posthog.rows.length ? "ok" : "info" },
+      { key: "app_unique_users", label: "App unique users", value: posthog.uniqueUsers, severity: posthog.uniqueUsers ? "ok" : "info" },
       { key: "scanner_events_seen", label: "Scanner events seen", value: posthog.scannerEventCount, sub: scannerStatus, severity: posthog.error ? "warn" : posthog.scannerEventCount ? "ok" : "info" },
       { key: "scanner_sessions_completed", label: "Scanner sessions completed", value: posthog.scannerSessionCompletions, severity: posthog.scannerSessionCompletions ? "ok" : "info" },
       { key: "tool_events_seen", label: "Tool events seen", value: posthog.toolEventCount, sub: `${posthog.toolOutcomeCount} outcomes`, severity: posthog.toolEventCount ? "ok" : "info" },

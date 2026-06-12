@@ -475,6 +475,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       },
       analytics: {
         events_seen: asNumber(getMetric(analytics, "app_events")?.value),
+        unique_users_24h: asNumber(getMetric(analytics, "app_unique_users")?.value),
         scanner_events_seen: asNumber(getMetric(analytics, "scanner_events_seen")?.value),
         scanner_sessions_completed: asNumber(getMetric(analytics, "scanner_sessions_completed")?.value),
         tool_events_seen: asNumber(getMetric(analytics, "tool_events_seen")?.value),

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useCookieConsentModal } from '@/components/CookieConsentContext';
+import { MANATAP_DISCORD_INVITE_URL } from '@/lib/manatap-links';
+import { capture } from '@/lib/ph';
 
 function CookieSettingsLink() {
   const { openModal } = useCookieConsentModal();
@@ -219,6 +221,16 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
               <span className="text-gray-600">•</span>
               <a className="text-orange-400 hover:text-orange-300 transition-colors font-medium" href="https://www.instagram.com/manatap.ai?igsh=Mnl4ZW4xNnJxYnF1" target="_blank" rel="noreferrer">
                 Instagram: <span className="underline">@manatap.ai</span>
+              </a>
+              <span className="text-gray-600">•</span>
+              <a
+                className="text-orange-400 hover:text-orange-300 transition-colors font-medium"
+                href={MANATAP_DISCORD_INVITE_URL}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => { try { capture('discord_join_clicked', { location: 'footer' }); } catch {} }}
+              >
+                Discord: <span className="underline">Join server</span>
               </a>
             </div>
           </div>

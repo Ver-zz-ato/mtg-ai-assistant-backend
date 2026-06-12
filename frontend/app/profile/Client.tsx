@@ -16,6 +16,7 @@ import BadgeShareBanner from "@/components/BadgeShareBanner";
 import { ProTagLink } from "@/components/ProBadge";
 import { showProToast } from "@/lib/pro-ux";
 import { WEBSITE_APP_PRICING_NOTE } from "@/lib/pricing-copy";
+import { MANATAP_DISCORD_INVITE_URL } from "@/lib/manatap-links";
 import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 import { badgeRarityLabel, getBadgeRarityClasses, type BadgeRarity } from "@/lib/badges/rarity-ui";
@@ -693,6 +694,22 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   description="Scan to open your public profile."
                   onClose={() => setProfileShareQrUrl("")}
                 />
+              </section>
+
+              <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
+                <div className="text-lg font-semibold">Community</div>
+                <div className="text-sm opacity-80">
+                  Chat with other players, share brews, and get ManaTap updates on Discord.
+                </div>
+                <a
+                  href={MANATAP_DISCORD_INVITE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
+                  onClick={() => { try { capture('discord_join_clicked', { location: 'profile' }); } catch {} }}
+                >
+                  Join Discord
+                </a>
               </section>
 
               {/* Pricing/Upgrade Section - show for non-pro users or as general info */}

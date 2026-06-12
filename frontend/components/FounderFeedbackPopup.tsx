@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { MANATAP_DISCORD_INVITE_URL } from "@/lib/manatap-links";
 
 const STORAGE_KEY = "founder_popup_seen";
 const OPEN_FEEDBACK_EVENT = "manatap:open_feedback";
@@ -69,6 +70,17 @@ export default function FounderFeedbackPopup() {
     setShow(false);
   };
 
+  const handleJoinDiscord = () => {
+    try {
+      import("@/lib/ph").then(({ capture }) => {
+        capture("founder_popup_discord_clicked");
+        capture("discord_join_clicked", { location: "founder_popup" });
+      }).catch(() => {});
+    } catch {}
+    setShow(false);
+    window.open(MANATAP_DISCORD_INVITE_URL, "_blank", "noopener,noreferrer");
+  };
+
   if (!show) return null;
 
   return (
@@ -78,15 +90,22 @@ export default function FounderFeedbackPopup() {
           Hey — I&apos;m the developer of ManaTap.
         </p>
         <p className="text-sm text-neutral-300 mb-4">
-          If anything feels confusing, wrong, or missing, I&apos;d genuinely love to hear it.
+          If anything feels confusing, wrong, or missing, I&apos;d genuinely love to hear it — send feedback here, or join our Discord to chat with me and other players.
         </p>
-        <div className="flex gap-2 justify-end">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={handleMaybeLater}
             className="px-3 py-2 rounded-lg border border-neutral-600 hover:bg-neutral-800 text-sm"
           >
             Maybe later
+          </button>
+          <button
+            type="button"
+            onClick={handleJoinDiscord}
+            className="px-3 py-2 rounded-lg border border-indigo-500/40 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-200 font-medium text-sm"
+          >
+            Join Discord
           </button>
           <button
             type="button"

@@ -2,6 +2,75 @@ import assert from "node:assert/strict";
 import { buildCompactDailyOpsLines } from "@/lib/ops/discord";
 import { websitePageviewCountFromEventCounts } from "@/lib/ops/run-ops-report";
 
+async function withEnv(vars: Record<string, string | undefined>, fn: () => void | Promise<void>) {
+  const prior = new Map<string, string | undefined>();
+  for (const [key, value] of Object.entries(vars)) {
+    prior.set(key, process.env[key]);
+    if (value == null) delete process.env[key];
+    else process.env[key] = value;
+  }
+  try {
+    await fn();
+  } finally {
+    for (const [key, value] of prior.entries()) {
+      if (value == null) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+async function testDailyOpsUsesDailyDigestWebhook() {
+  await withEnv(
+    {
+      DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/daily-digest",
+      DISCORD_ADMIN_ALERT_WEBHOOK: "https://discord.com/api/webhooks/app-launch-alerts",
+      DISCORD_DAILY_OPS_WEBHOOK: undefined,
+      DISCORD_APPSUB_WEBHOOK: undefined,
+      DISCORD_APP_SUBS_WEBHOOK: undefined,
+    },
+    async () => {
+      const seen: { url?: string } = {};
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        seen.url = String(input);
+        return new Response("{}", { status: 200 });
+      }) as typeof fetch;
+
+      try {
+        const { postOpsReportToDiscord } = await import("@/lib/ops/discord");
+        await postOpsReportToDiscord({
+          status: "ok",
+          reportType: "daily_ops",
+          dailyDigest: {
+            window: { london_range: "test window" },
+            app: { users: { signups_24h: 0 }, analytics: { events_seen: 0 }, ai: { calls_24h: 0 } },
+            website: {
+              analytics: {
+                first_visits_24h: 0,
+                pageviews_24h: 0,
+                signups_24h: 0,
+                logins_24h: 0,
+                pro_upgrade_starts_24h: 0,
+                pro_upgrade_completions_24h: 0,
+              },
+              ai: { calls_24h: 0 },
+            },
+            shared: {
+              users: { new_profiles_24h: 0 },
+              revenue: { openai_actual_24h_usd: 0, openai_actual_mtd_usd: 0, stripe_subs: 0 },
+              reliability: { sentry_unresolved: 0, rate_limit_hits_24h: 0 },
+            },
+            counts: { critical_alerts: 0, warning_alerts: 0 },
+          },
+        });
+        assert.equal(seen.url, "https://discord.com/api/webhooks/daily-digest");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+}
+
 function testWebsitePageviewCountCombinesServerAndClient() {
   const counts = new Map<string, number>([
     ["pageview_server", 1769],
@@ -19,8 +88,8 @@ function testCompactDailyOpsLinesShape() {
       window: { london_range: "10 Jun 2026, 23:30 -> 11 Jun 2026, 23:30 Europe/London" },
       app: {
         users: { signups_24h: 0 },
-        analytics: { events_seen: 476 },
-        ai: { calls_24h: 1 },
+        analytics: { events_seen: 3025, unique_users_24h: 5, scanner_sessions_completed: 100 },
+        ai: { calls_24h: 0 },
       },
       website: {
         analytics: {
@@ -49,10 +118,20 @@ function testCompactDailyOpsLinesShape() {
   assert.ok(lines.some((line) => line.startsWith("**Website**")));
   assert.ok(lines.some((line) => line.startsWith("**Total**")));
   assert.ok(lines.some((line) => line.includes("3200 page load")));
+  assert.ok(lines.some((line) => line.includes("5 users")));
+  assert.ok(lines.some((line) => line.includes("100 scan sessions")));
   assert.ok(lines.some((line) => line.includes("bulk_scryfall stale")));
   assert.ok(lines.some((line) => line.includes("Accounts = database rows")));
 }
 
-testWebsitePageviewCountCombinesServerAndClient();
-testCompactDailyOpsLinesShape();
-console.log("ops-daily-discord.test.ts: ok");
+async function main() {
+  testWebsitePageviewCountCombinesServerAndClient();
+  testCompactDailyOpsLinesShape();
+  await testDailyOpsUsesDailyDigestWebhook();
+  console.log("ops-daily-discord.test.ts: ok");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Apple } from "lucide-react";
+import { MANATAP_DISCORD_INVITE_URL } from "@/lib/manatap-links";
+import { capture } from "@/lib/ph";
 
 const IOS_STORE_URL = "https://apps.apple.com/app/id6774626559";
 const ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=com.manatap.app";
@@ -96,6 +98,22 @@ export default function GetAppClient() {
               >
                 <GooglePlayIcon />
                 Get it on Google Play
+              </a>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-indigo-400/20 bg-indigo-500/10 p-4">
+              <p className="text-sm font-semibold text-indigo-100">Join the ManaTap community</p>
+              <p className="mt-1 text-sm leading-6 text-neutral-400">
+                Talk decks, share feedback, and meet other players on Discord.
+              </p>
+              <a
+                href={MANATAP_DISCORD_INVITE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center justify-center rounded-xl border border-indigo-300/30 bg-indigo-600/80 px-4 py-2.5 text-sm font-black text-white transition hover:bg-indigo-500"
+                onClick={() => { try { capture('discord_join_clicked', { location: 'get_app' }); } catch {} }}
+              >
+                Join Discord
               </a>
             </div>
           </div>

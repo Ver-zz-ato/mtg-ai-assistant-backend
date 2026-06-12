@@ -9,6 +9,7 @@ import { capture, identify } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
 import { getEmailSignupRedirectTo } from '@/lib/auth/emailVerificationRedirect';
+import { MANATAP_DISCORD_INVITE_URL } from '@/lib/manatap-links';
 
 export default function Header() {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -398,6 +399,20 @@ export default function Header() {
                   <div className="font-medium">📧 Get Help</div>
                   <div className="text-xs opacity-70">Contact support</div>
                 </Link>
+                <a
+                  href={MANATAP_DISCORD_INVITE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    setShowHelpMenu(false);
+                    capture('help_menu_clicked', { link: 'discord' });
+                    try { capture('discord_join_clicked', { location: 'help_menu' }); } catch {}
+                  }}
+                >
+                  <div className="font-medium">💬 Join Discord</div>
+                  <div className="text-xs opacity-70">Community chat & updates</div>
+                </a>
                 <Link
                   href="/terms"
                   className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -595,6 +610,29 @@ export default function Header() {
               Pricing
             </Link>
             <div className="block min-h-[44px] py-2 px-1 text-sm text-orange-400 font-medium flex items-center">Help</div>
+            <Link
+              href="/support"
+              className="block min-h-[44px] py-2 px-2 text-sm text-orange-300 font-medium rounded transition-all hover:bg-orange-400/10 flex items-center touch-manipulation"
+              onClick={() => {
+                capture('help_menu_clicked', { link: 'get_help', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Get Help
+            </Link>
+            <a
+              href={MANATAP_DISCORD_INVITE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="block min-h-[44px] py-2 px-2 text-sm text-indigo-300 font-medium rounded transition-all hover:bg-indigo-400/10 flex items-center touch-manipulation"
+              onClick={() => {
+                capture('help_menu_clicked', { link: 'discord', source: 'mobile_menu' });
+                try { capture('discord_join_clicked', { location: 'mobile_help_menu' }); } catch {}
+                setMobileMenuOpen(false);
+              }}
+            >
+              Join Discord
+            </a>
             <Link 
               href="/my-decks" 
               className="block min-h-[44px] py-2 px-2 text-sm text-pink-400 font-medium rounded transition-all hover:bg-pink-400/10 flex items-center touch-manipulation"
