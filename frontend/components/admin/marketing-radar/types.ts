@@ -3,10 +3,19 @@
 import type { IngestResult } from "@/lib/marketing/ingestTypes";
 import type {
   MarketingBriefRow,
+  MarketingContentFormat,
   MarketingDraftRow,
   MarketingMetaSnapshot,
   MarketingSignalRow,
 } from "@/lib/marketing/marketingBriefSchema";
+
+export const CONTENT_FORMAT_LABELS: Record<MarketingContentFormat, string> = {
+  roast_hook: "Roast hook",
+  swap_spotlight: "Swap spotlight",
+  mulligan_math: "Mulligan math",
+  commander_spotlight: "Commander spotlight",
+  tool_demo: "Tool demo",
+};
 
 export type BriefHistoryItem = {
   id: string;

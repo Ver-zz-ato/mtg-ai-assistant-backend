@@ -74,13 +74,13 @@ export async function GET(req: NextRequest) {
     if (briefId) {
       latestBriefRes = await admin
         .from("marketing_briefs")
-        .select("id, brief_date, summary, trending_cards, trending_topics, opportunities, created_at")
+        .select("id, brief_date, summary, primary_cta, content_format, seo_target_keyword, social_repurpose, trending_cards, trending_topics, opportunities, created_at")
         .eq("id", briefId)
         .maybeSingle();
     } else {
       latestBriefRes = await admin
         .from("marketing_briefs")
-        .select("id, brief_date, summary, trending_cards, trending_topics, opportunities, created_at")
+        .select("id, brief_date, summary, primary_cta, content_format, seo_target_keyword, social_repurpose, trending_cards, trending_topics, opportunities, created_at")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

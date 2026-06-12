@@ -201,11 +201,12 @@ Internal admin marketing pipeline (`/admin/marketing-radar`). Service-role-only 
 - `marketing_signals` — raw community/marketing signals
   - columns: `id`, `source_id`, `source_type`, `title`, `url`, `raw_text`, `detected_cards`, `detected_topics`, `score`, `created_at`
 - `marketing_briefs` — AI briefs (history kept)
+  - columns include: `primary_cta` (jsonb: `link_key`, `landing_url`, `rationale`), `content_format`, `seo_target_keyword`, `social_repurpose` (jsonb: `x_thread_bullets`, `instagram_carousel_slides`)
 - `marketing_drafts` — platform drafts; manual approve/reject only
-  - columns include: `quality_flags`, `scheduled_for`, `campaign`, `copied_at`, `external_post_url`, `superseded_at`
-  - status: `draft` | `approved` | `rejected` | `superseded`
+  - columns include: `quality_flags`, `scheduled_for`, `campaign` (`radar-YYYY-MM-DD` UTM slug), `copied_at`, `external_post_url`, `superseded_at`
+  - status: `draft` | `approved` | `rejected` | `posted` | `superseded`
 
-Migrations: `138_marketing_radar.sql`, `139_marketing_radar_phase2.sql`, `140_marketing_radar_source_fixes.sql`
+Migrations: `138_marketing_radar.sql`, `139_marketing_radar_phase2.sql`, `140_marketing_radar_source_fixes.sql`, `141_marketing_radar_publish_flow.sql`, `143_marketing_radar_cta_seo.sql`
 
 Cron (ingest + brief only, no auto-post): `GET /api/cron/marketing-radar-daily` at 06:30 UTC (`CRON_SECRET`).
 

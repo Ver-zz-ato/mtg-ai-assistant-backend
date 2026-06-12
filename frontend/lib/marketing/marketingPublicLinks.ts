@@ -14,11 +14,13 @@ export const MARKETING_PUBLIC_LINKS = {
   budgetSwaps: `${MARKETING_SITE_BASE}/budget-swaps`,
   mulligan: `${MARKETING_SITE_BASE}/commander-mulligan-calculator`,
   deckChecker: `${MARKETING_SITE_BASE}/mtg-deck-checker`,
+  analyzeDeck: `${MARKETING_SITE_BASE}/analyze`,
   compareDecks: `${MARKETING_SITE_BASE}/compare-decks`,
   collections: `${MARKETING_SITE_BASE}/collections`,
   meta: `${MARKETING_SITE_BASE}/meta`,
   commanders: `${MARKETING_SITE_BASE}/commanders`,
   blog: `${MARKETING_SITE_BASE}/blog`,
+  tools: `${MARKETING_SITE_BASE}/tools`,
 } as const;
 
 export type MarketingLinkKey = keyof typeof MARKETING_PUBLIC_LINKS;
@@ -32,6 +34,8 @@ export function marketingLinkCatalogForPrompt(): Record<string, string> {
     budget_upgrades: MARKETING_PUBLIC_LINKS.budgetSwaps,
     mulligan: MARKETING_PUBLIC_LINKS.mulligan,
     deck_legality_check: MARKETING_PUBLIC_LINKS.deckChecker,
+    analyze_deck: MARKETING_PUBLIC_LINKS.analyzeDeck,
+    roast_deck: MARKETING_PUBLIC_LINKS.tools,
     compare_decks: MARKETING_PUBLIC_LINKS.compareDecks,
     collection_tracking: MARKETING_PUBLIC_LINKS.collections,
     meta_trends: MARKETING_PUBLIC_LINKS.meta,

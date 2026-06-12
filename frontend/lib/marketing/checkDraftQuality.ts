@@ -10,7 +10,12 @@ export type DraftQualityFlag =
   | "too_generic"
   | "analyst_voice"
   | "missing_link"
-  | "reddit_hostile";
+  | "reddit_hostile"
+  | "cta_mismatch"
+  | "missing_h1"
+  | "thin_blog"
+  | "missing_internal_links"
+  | "missing_commander_link";
 
 export function checkDraftQuality(content: string, platform: string): DraftQualityFlag[] {
   const flags = new Set<DraftQualityFlag>();

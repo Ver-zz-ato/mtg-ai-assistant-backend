@@ -3,6 +3,26 @@ import { z } from "zod";
 export const MARKETING_PLATFORMS = ["x", "instagram", "blog"] as const;
 export type MarketingPlatform = (typeof MARKETING_PLATFORMS)[number];
 
+export const MARKETING_CONTENT_FORMATS = [
+  "roast_hook",
+  "swap_spotlight",
+  "mulligan_math",
+  "commander_spotlight",
+  "tool_demo",
+] as const;
+export type MarketingContentFormat = (typeof MARKETING_CONTENT_FORMATS)[number];
+
+export const marketingPrimaryCtaSchema = z.object({
+  link_key: z.string().min(1),
+  landing_url: z.string().url(),
+  rationale: z.string().min(1),
+});
+
+export const marketingSocialRepurposeSchema = z.object({
+  x_thread_bullets: z.array(z.string()).default([]),
+  instagram_carousel_slides: z.array(z.string()).default([]),
+});
+
 export const MARKETING_DRAFT_STATUSES = [
   "draft",
   "approved",
@@ -21,6 +41,10 @@ export const marketingDraftSchema = z.object({
 export const marketingBriefAiOutputSchema = z
   .object({
     summary: z.string().min(1),
+    primary_cta: marketingPrimaryCtaSchema,
+    content_format: z.enum(MARKETING_CONTENT_FORMATS),
+    seo_target_keyword: z.string().optional(),
+    social_repurpose: marketingSocialRepurposeSchema.optional(),
     trending_cards: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
     trending_topics: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
     opportunities: z.array(z.union([z.string(), z.record(z.string(), z.unknown())])).default([]),
@@ -52,10 +76,25 @@ export type MarketingSignalRow = {
   created_at: string;
 };
 
+export type MarketingPrimaryCta = {
+  link_key: string;
+  landing_url: string;
+  rationale: string;
+};
+
+export type MarketingSocialRepurpose = {
+  x_thread_bullets: string[];
+  instagram_carousel_slides: string[];
+};
+
 export type MarketingBriefRow = {
   id: string;
   brief_date: string;
   summary: string | null;
+  primary_cta: MarketingPrimaryCta | null;
+  content_format: MarketingContentFormat | string | null;
+  seo_target_keyword: string | null;
+  social_repurpose: MarketingSocialRepurpose | null;
   trending_cards: unknown;
   trending_topics: unknown;
   opportunities: unknown;

@@ -576,6 +576,16 @@ export const ADMIN_ROUTE_CATALOG: AdminRouteMeta[] = [
     healthCheck: "skip-write",
   },
   {
+    path: "/api/admin/marketing-radar/briefs/[id]/attribution",
+    methods: ["GET"],
+    category: "Ops",
+    risk: "low",
+    authRequired: true,
+    writes: false,
+    description: "PostHog HogQL signup/pro attribution for radar UTM campaign (14d).",
+    healthCheck: "safe-get",
+  },
+  {
     path: "/api/admin/marketing-radar/export.csv",
     methods: ["GET"],
     category: "Ops",

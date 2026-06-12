@@ -15,6 +15,7 @@ Apply migrations in Supabase SQL Editor:
 2. `frontend/db/migrations/139_marketing_radar_phase2.sql`
 3. `frontend/db/migrations/140_marketing_radar_source_fixes.sql` — RSS URL fixes, YouTube channel IDs
 4. `frontend/db/migrations/141_marketing_radar_publish_flow.sql` — `posted` status, `posted_at`, `external_post_id`, one active draft per platform per brief
+5. `frontend/db/migrations/143_marketing_radar_cta_seo.sql` — `primary_cta`, `content_format`, `seo_target_keyword`, `social_repurpose` on briefs
 
 See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 
@@ -32,6 +33,8 @@ See `docs/SUPABASE_SCHEMA.md` (Marketing Radar section).
 | `CRON_SECRET` | For cron | Protects marketing radar cron routes |
 | `MARKETING_RADAR_REDDIT_UA` | Optional | Custom Reddit User-Agent string |
 | `MARKETING_RADAR_DISCORD_WEBHOOK` | Optional | Bi-daily “drafts ready” Discord link (falls back to `DISCORD_ADMIN_ALERT_WEBHOOK`) |
+| `POSTHOG_PERSONAL_API_KEY` | Optional | HogQL for Summary tab attribution panel |
+| `POSTHOG_PROJECT_ID` | Optional | PostHog project for attribution queries |
 
 X and Instagram are **copy-paste only** (no API keys required). Optional legacy publish helpers exist in `lib/marketing/publish/` but are not used by the admin UI.
 
@@ -42,7 +45,7 @@ Keys are server-side only. The UI receives booleans (e.g. `youtube_api_key_confi
 | Step | Tab | What you do |
 |------|-----|-------------|
 | 1 | **Ingest** | Check source health; **Run everything** (ingest + brief + 3 drafts). |
-| 2 | **Summary** | Read what’s trending — AI brief summary, topics, top signals. |
+| 2 | **Summary** | Read what’s trending — primary CTA, content format, UTM campaign preview, PostHog attribution (14d), blog repurpose bullets. |
 | 3 | **Drafts** | **One draft per platform** (X, Instagram, long blog). Edit, **Approve** or **Reject**. |
 | 4 | **Copy & post** | Copy X/Instagram to clipboard; optional **Publish to blog** on manatap.ai; mark posted + save live URL. |
 
@@ -112,6 +115,7 @@ Unauthenticated `www.reddit.com/...json` returns 403 from server IPs.
 | POST | `/api/admin/marketing-radar/ingest/reddit` | Fetch Reddit hot posts |
 | POST | `/api/admin/marketing-radar/daily-run` | Full ingest + brief |
 | GET | `/api/admin/marketing-radar/briefs/[id]` | Single brief + drafts |
+| GET | `/api/admin/marketing-radar/briefs/[id]/attribution` | PostHog signups/pro upgrades for `utm_campaign=radar-{date}` (14d) |
 | POST | `/api/admin/marketing-radar/briefs/[id]/regenerate` | New drafts; supersedes non-approved |
 | GET | `/api/admin/marketing-radar/export.csv` | CSV export |
 | PATCH | `/api/admin/marketing-drafts/[id]` | Edit draft, status |
@@ -121,7 +125,11 @@ Unauthenticated `www.reddit.com/...json` returns 403 from server IPs.
 
 ## AI drafts (OpenAI)
 
-Brief + drafts use `callLLM` via `lib/marketing/generateMarketingBrief.ts` (model: `MODEL_ADMIN_DEEP` or fallback). Output is **exactly 3 drafts**: one X post, one Instagram caption, one long blog article. Links from `lib/marketing/marketingPublicLinks.ts`.
+Brief + drafts use `callLLM` via `lib/marketing/generateMarketingBrief.ts` (model: `MODEL_ADMIN_DEEP` or fallback). Output is **exactly 3 drafts**: one X post, one Instagram caption, one long blog article.
+
+Each brief picks **one primary CTA** (`primary_cta` jsonb) and a **content_format** playbook (`roast_hook`, `swap_spotlight`, `mulligan_math`, `commander_spotlight`, `tool_demo`). All drafts push the same landing page. After generation, `lib/marketing/marketingUtm.ts` appends UTM params (`utm_source` = platform, `utm_medium` = social, `utm_campaign` = `radar-YYYY-MM-DD`) to manatap.ai links and stores the campaign on each draft.
+
+Links from `lib/marketing/marketingPublicLinks.ts` plus commander deep links from `lib/marketing/marketingCommanderLinks.ts`. Blog drafts get SEO validation via `lib/marketing/validateBlogSeo.ts`. `social_repurpose` (X thread bullets + IG carousel captions) is stored on the brief for manual repurpose.
 
 **Blog publish (step 4):** Approve the blog draft → set optional **slug / category / gradient / icon** → **Publish to blog**. This calls `lib/blog/publishBlogPost.ts`, which writes:
 
@@ -136,7 +144,7 @@ Signals scored by source type, recency, engagement, verified card names, topics,
 
 ## Quality flags
 
-Heuristic warnings on drafts: `too_salesy`, `fake_personal_claim`, `astroturf_risk`, `spammy_cta`, `manatap_overmention`, `thin_mtg_content`, `too_generic`, `analyst_voice`, `missing_link`, `reddit_hostile`. Warnings are visible only — approval is never blocked.
+Heuristic warnings on drafts: `too_salesy`, `fake_personal_claim`, `astroturf_risk`, `spammy_cta`, `manatap_overmention`, `thin_mtg_content`, `too_generic`, `analyst_voice`, `missing_link`, `reddit_hostile`, `cta_mismatch`, plus blog SEO flags `missing_h1`, `thin_blog`, `missing_internal_links`, `missing_commander_link`. Warnings are visible only — approval is never blocked.
 
 ## Cron
 
@@ -147,7 +155,7 @@ Neither cron auto-posts. See `frontend/docs/CRONS.md`.
 
 ## Verification checklist
 
-- [ ] Migrations 138–141 applied
+- [ ] Migrations 138–143 applied
 - [ ] Admin can access `/admin/marketing-radar`
 - [ ] Manual paste works
 - [ ] RSS fetch returns inserted/skipped counts

@@ -2,6 +2,17 @@
 
 ## 2026-06-12
 
+### Marketing Radar — CTA, UTM, SEO, attribution
+
+- **Primary CTA:** Each brief stores `primary_cta`, `content_format`, `seo_target_keyword`, `social_repurpose` (migration `143_marketing_radar_cta_seo.sql`).
+- **UTM:** `lib/marketing/marketingUtm.ts` appends `utm_campaign=radar-YYYY-MM-DD` (+ platform source/medium) to draft manatap.ai links; `campaign` column on drafts.
+- **Product-led playbooks:** AI picks one format (`roast_hook`, `swap_spotlight`, etc.); expanded link catalog + commander deep links.
+- **Blog SEO:** `validateBlogSeo.ts` flags thin/missing H1/internal links; blog prompt requires SEO structure + repurpose bullets.
+- **Summary tab:** Primary CTA card, PostHog attribution panel (14d signups/pro), collapsible repurpose copy.
+- **Publish tab:** Campaign slug + utm_source shown per draft.
+- **API:** `GET /api/admin/marketing-radar/briefs/[id]/attribution` (HogQL; needs `POSTHOG_PERSONAL_API_KEY` + `POSTHOG_PROJECT_ID`).
+- **Files:** `lib/marketing/marketingUtm.ts`, `marketingCommanderLinks.ts`, `validateBlogSeo.ts`, `processBriefDrafts.ts`, `generateMarketingBrief.ts`, `createBriefAndDrafts.ts`, `SummaryTab.tsx`, `PublishTab.tsx`, `docs/MARKETING_RADAR.md`.
+
 ### Moderation — Discord alerts for new reports
 
 - **`POST /api/moderation/reports`:** After a report is saved, sends a Discord message with type, reason, resource, and direct link to `https://www.manatap.ai/admin/moderation?report_id=…`. Failure does not block submission.

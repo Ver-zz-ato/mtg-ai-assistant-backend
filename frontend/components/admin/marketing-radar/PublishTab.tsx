@@ -154,9 +154,14 @@ export function PublishTab({
                 approved
               </span>
             </div>
+            {draft.campaign && (
+              <p className="text-xs text-neutral-500 font-mono">
+                Campaign: {draft.campaign} · utm_source={draft.platform} · utm_medium=social
+              </p>
+            )}
             {!isBlog && (
               <p className="text-xs text-neutral-500">
-                Manual post — copy below, paste into {PLATFORM_LABELS[draft.platform] ?? draft.platform}.
+                Manual post — copy below (includes UTM links), paste into {PLATFORM_LABELS[draft.platform] ?? draft.platform}.
               </p>
             )}
             <pre className="text-sm text-neutral-200 whitespace-pre-wrap font-sans max-h-72 overflow-y-auto rounded border border-neutral-800 bg-neutral-950/60 p-3">

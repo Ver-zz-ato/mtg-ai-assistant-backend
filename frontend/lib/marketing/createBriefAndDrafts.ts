@@ -1,17 +1,46 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { checkDraftQuality } from "./checkDraftQuality";
 import {
   fetchMarketingContext,
   metaSnapshotHasData,
 } from "./fetchMarketingContext";
 import { generateMarketingBrief } from "./generateMarketingBrief";
-import { normalizeBriefDrafts } from "./normalizeBriefDrafts";
+import { commanderNamesFromBriefContext } from "./marketingCommanderLinks";
 import type { MarketingBriefRow, MarketingDraftRow } from "./marketingBriefSchema";
+import { normalizeBriefDrafts } from "./normalizeBriefDrafts";
+import { processBriefDraftsForInsert } from "./processBriefDrafts";
 
 export type CreateBriefResult = {
   brief: MarketingBriefRow;
   drafts: MarketingDraftRow[];
 };
+
+const BRIEF_SELECT =
+  "id, brief_date, summary, primary_cta, content_format, seo_target_keyword, social_repurpose, trending_cards, trending_topics, opportunities, created_at";
+
+const DRAFT_SELECT =
+  "id, brief_id, platform, content, status, notes, quality_flags, scheduled_for, campaign, copied_at, external_post_url, superseded_at, created_at, updated_at";
+
+function briefInsertFields(briefOutput: ReturnType<typeof normalizeBriefDrafts>, briefDate: string) {
+  return {
+    brief_date: briefDate,
+    summary: briefOutput.summary,
+    primary_cta: briefOutput.primary_cta,
+    content_format: briefOutput.content_format,
+    seo_target_keyword: briefOutput.seo_target_keyword ?? null,
+    social_repurpose: briefOutput.social_repurpose ?? null,
+    trending_cards: briefOutput.trending_cards,
+    trending_topics: briefOutput.trending_topics,
+    opportunities: briefOutput.opportunities,
+  };
+}
+
+function expectCommanderLink(
+  briefOutput: ReturnType<typeof normalizeBriefDrafts>,
+  metaCommanders: string[]
+): boolean {
+  if (briefOutput.content_format === "commander_spotlight") return true;
+  return commanderNamesFromBriefContext({ metaCommanders }).length > 0;
+}
 
 export async function createBriefAndDrafts(
   admin: SupabaseClient,
@@ -27,6 +56,7 @@ export async function createBriefAndDrafts(
     };
   }
 
+  const briefDate = new Date().toISOString().slice(0, 10);
   const briefOutput = normalizeBriefDrafts(
     await generateMarketingBrief({
       signals,
@@ -37,34 +67,25 @@ export async function createBriefAndDrafts(
 
   const { data: briefRow, error: briefErr } = await admin
     .from("marketing_briefs")
-    .insert({
-      brief_date: new Date().toISOString().slice(0, 10),
-      summary: briefOutput.summary,
-      trending_cards: briefOutput.trending_cards,
-      trending_topics: briefOutput.trending_topics,
-      opportunities: briefOutput.opportunities,
-    })
-    .select("id, brief_date, summary, trending_cards, trending_topics, opportunities, created_at")
+    .insert(briefInsertFields(briefOutput, briefDate))
+    .select(BRIEF_SELECT)
     .single();
 
   if (briefErr || !briefRow) {
     throw new Error(briefErr?.message ?? "brief_insert_failed");
   }
 
-  const draftInserts = briefOutput.drafts.map((d) => ({
+  const draftInserts = processBriefDraftsForInsert(briefOutput, briefDate, {
+    expectCommanderLink: expectCommanderLink(briefOutput, meta_snapshot.trending_commanders),
+  }).map((d) => ({
     brief_id: briefRow.id,
-    platform: d.platform,
-    content: d.content,
-    status: "draft" as const,
-    quality_flags: checkDraftQuality(d.content, d.platform),
+    ...d,
   }));
 
   const { data: draftRows, error: draftErr } = await admin
     .from("marketing_drafts")
     .insert(draftInserts)
-    .select(
-      "id, brief_id, platform, content, status, notes, quality_flags, scheduled_for, campaign, copied_at, external_post_url, superseded_at, created_at, updated_at"
-    );
+    .select(DRAFT_SELECT);
 
   if (draftErr) throw new Error(draftErr.message);
 
@@ -101,6 +122,22 @@ export async function regenerateBriefDrafts(
     })
   );
 
+  const briefDate = brief.brief_date ?? new Date().toISOString().slice(0, 10);
+
+  await admin
+    .from("marketing_briefs")
+    .update({
+      summary: briefOutput.summary,
+      primary_cta: briefOutput.primary_cta,
+      content_format: briefOutput.content_format,
+      seo_target_keyword: briefOutput.seo_target_keyword ?? null,
+      social_repurpose: briefOutput.social_repurpose ?? null,
+      trending_cards: briefOutput.trending_cards,
+      trending_topics: briefOutput.trending_topics,
+      opportunities: briefOutput.opportunities,
+    })
+    .eq("id", briefId);
+
   await admin
     .from("marketing_drafts")
     .update({ superseded_at: new Date().toISOString(), status: "superseded", updated_at: new Date().toISOString() })
@@ -108,20 +145,17 @@ export async function regenerateBriefDrafts(
     .in("status", ["draft", "rejected", "approved"])
     .is("superseded_at", null);
 
-  const draftInserts = briefOutput.drafts.map((d) => ({
+  const draftInserts = processBriefDraftsForInsert(briefOutput, briefDate, {
+    expectCommanderLink: expectCommanderLink(briefOutput, meta_snapshot.trending_commanders),
+  }).map((d) => ({
     brief_id: briefId,
-    platform: d.platform,
-    content: d.content,
-    status: "draft" as const,
-    quality_flags: checkDraftQuality(d.content, d.platform),
+    ...d,
   }));
 
   const { data: draftRows, error: draftErr } = await admin
     .from("marketing_drafts")
     .insert(draftInserts)
-    .select(
-      "id, brief_id, platform, content, status, notes, quality_flags, scheduled_for, campaign, copied_at, external_post_url, superseded_at, created_at, updated_at"
-    );
+    .select(DRAFT_SELECT);
 
   if (draftErr) throw new Error(draftErr.message);
 

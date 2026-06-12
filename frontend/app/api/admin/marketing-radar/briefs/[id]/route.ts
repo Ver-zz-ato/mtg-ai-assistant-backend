@@ -22,7 +22,7 @@ export async function GET(_req: Request, context: RouteContext) {
 
     const { data: brief, error: briefErr } = await admin
       .from("marketing_briefs")
-      .select("id, brief_date, summary, trending_cards, trending_topics, opportunities, created_at")
+      .select("id, brief_date, summary, primary_cta, content_format, seo_target_keyword, social_repurpose, trending_cards, trending_topics, opportunities, created_at")
       .eq("id", id)
       .maybeSingle();
 
