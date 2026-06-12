@@ -5,7 +5,7 @@
 1. **Pro conversion attribution** – Upgrades attributed to the exact feature that triggered the paywall via `pro_feature`.
 2. **Auth attribution** – `signup_completed` / `login_completed` carry `method`, `provider`, `source_path`, `visitor_id` (verified; no changes).
 3. **No UA everywhere** – User-agent not added to pro/workflow/auth events.
-4. **Event seeding** – Admin-only `/admin/analytics-seed` fires each canonical event once for PostHog taxonomy.
+4. **Event seeding** – (Removed 2026-06) Former admin `/admin/analytics-seed` page; seed events manually in PostHog or via dev tools when needed.
 
 ---
 
@@ -18,7 +18,7 @@
 | `components/ProBadge.tsx` | Fires `pro_gate_viewed` when Upgrade tooltip is shown (`header_upgrade`, `header`). On Upgrade click: `setActiveProFeature('header_upgrade')`, `trackProUpgradeStarted('gate', …)`. |
 | `components/DeckSnapshotPanel.tsx` | `trackProGateViewed` options: `is_pro: false`. |
 | `components/HandTestingWidget.tsx` | `trackProGateViewed` options: `is_pro: false`. |
-| `app/admin/analytics-seed/page.tsx` | **New.** Admin-only page with buttons to fire: `pro_gate_viewed`, `pro_upgrade_started`, `pro_upgrade_completed`, `workflow.started`, `workflow.completed`, `workflow.abandoned` (with `pro_feature=seed_test` / `workflow_name=seed_test`). Auth: instructions only (no fake events). |
+| `app/admin/analytics-seed/page.tsx` | **Removed 2026-06.** Was admin-only page to fire canonical Pro/workflow events once for PostHog taxonomy. |
 | `docs/POSTHOG_PRO_ATTRIBUTION_SUMMARY.md` | **New.** This file. |
 
 ---
@@ -60,7 +60,7 @@
    - Complete checkout → on thank-you, filter for `pro_upgrade_completed` → check `pro_feature`, `source_path`, `workflow_run_id`.
 
 2. **Seeding**
-   - As admin, open `/admin/analytics-seed`, click each button once.
+   - Seed taxonomy events in PostHog directly or from authenticated dev sessions (admin analytics-seed page removed).
    - In Live Events, confirm `pro_gate_viewed`, `pro_upgrade_started`, `pro_upgrade_completed`, `workflow.started`, `workflow.completed`, `workflow.abandoned` with the expected props (`pro_feature=seed_test` or `workflow_name=seed_test`).
 
 3. **Auth**

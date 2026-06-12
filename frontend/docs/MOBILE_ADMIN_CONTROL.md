@@ -147,6 +147,7 @@ Identity is masked in list views by default. Use the existing support, entitleme
 Moderation note:
 
 - `/admin/moderation` is the first-pass queue for public profile/share/comment reports.
+- New reports from `POST /api/moderation/reports` (mobile app or website) can ping Discord when `DISCORD_MODERATION_WEBHOOK` is set (falls back to `DISCORD_ADMIN_ALERT_WEBHOOK` / `DISCORD_WEBHOOK_URL`). Discord failure does not block report submission.
 - `/admin/support` includes subscription support per selected user (RevenueCat entitlements, store subs, TRANSFER/webhook audit) plus moderation (warn, note, ban, unban) and GDPR actions.
 
 Ops tab note:

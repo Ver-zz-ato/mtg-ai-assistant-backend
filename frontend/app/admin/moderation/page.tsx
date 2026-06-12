@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 type ReportStatus = "open" | "reviewed" | "resolved" | "dismissed";
 type ModerationActionType = "warn" | "ban" | "unban" | "note";
@@ -56,6 +57,8 @@ function buildBanUntil(duration: string) {
 }
 
 export default function ModerationAdminPage() {
+  const searchParams = useSearchParams();
+  const reportIdFromUrl = searchParams.get("report_id");
   const [reports, setReports] = React.useState<ReportRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [statusFilter, setStatusFilter] = React.useState<ReportStatus | "all">("open");
@@ -96,6 +99,13 @@ export default function ModerationAdminPage() {
   React.useEffect(() => {
     fetchReports();
   }, [fetchReports]);
+
+  React.useEffect(() => {
+    if (!reportIdFromUrl || reports.length === 0) return;
+    if (reports.some((report) => report.id === reportIdFromUrl)) {
+      setSelectedReportId(reportIdFromUrl);
+    }
+  }, [reportIdFromUrl, reports]);
 
   React.useEffect(() => {
     setAdminNotes(selectedReport?.admin_notes || "");

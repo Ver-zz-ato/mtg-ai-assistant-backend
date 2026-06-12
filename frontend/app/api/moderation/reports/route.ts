@@ -5,6 +5,7 @@ import { checkRateLimit } from "@/lib/api/rate-limit";
 import { extractIP } from "@/lib/guest-tracking";
 import { getAdmin } from "@/app/api/_lib/supa";
 import { getModerationStatus, isBanActive } from "@/lib/admin/moderation";
+import { notifyModerationReport } from "@/lib/admin/notifyModerationReport";
 
 export const runtime = "nodejs";
 
@@ -105,22 +106,41 @@ export async function POST(req: NextRequest) {
       authenticated: Boolean(user),
     };
 
-    const { error } = await admin.from("user_content_reports").insert({
-      reporter_user_id: user?.id ?? null,
-      subject_type: subjectType,
-      subject_id: subjectId,
-      target_user_id: targetUserId,
-      resource_type: resourceType,
-      resource_id: resourceId,
-      reason,
-      details: details || null,
-      context_jsonb: context,
-    });
+    const { data: inserted, error } = await admin
+      .from("user_content_reports")
+      .insert({
+        reporter_user_id: user?.id ?? null,
+        subject_type: subjectType,
+        subject_id: subjectId,
+        target_user_id: targetUserId,
+        resource_type: resourceType,
+        resource_id: resourceId,
+        reason,
+        details: details || null,
+        context_jsonb: context,
+      })
+      .select("id")
+      .single();
 
     if (error) {
       console.error("moderation_report_post", error);
       return NextResponse.json({ ok: false, error: "Failed to submit report" }, { status: 500 });
     }
+
+    void notifyModerationReport({
+      reportId: inserted.id,
+      subjectType,
+      subjectId,
+      reason,
+      details: details || null,
+      resourceType,
+      resourceId,
+      targetUserId,
+      source: context.source,
+      authenticated: context.authenticated,
+    }).catch((discordErr) => {
+      console.warn("moderation_report_discord", discordErr);
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {

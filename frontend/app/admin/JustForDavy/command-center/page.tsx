@@ -358,14 +358,9 @@ export default function CommandCenterPage() {
       </div>
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-4">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div>
-            <h2 className="text-sm font-semibold">Admin Command Map</h2>
-            <p className="text-xs text-neutral-500">Grouped routes for AI, app, data, money, SEO, ops, and safety.</p>
-          </div>
-          <Link href="/admin/route-health" className="text-xs px-3 py-1.5 rounded bg-blue-600/80 hover:bg-blue-500 text-white">
-            Route health
-          </Link>
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold">Admin Command Map</h2>
+          <p className="text-xs text-neutral-500">Grouped routes for AI, app, data, money, SEO, ops, and safety.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {Object.values(ADMIN_ROUTE_GROUPS).map((group) => (
@@ -592,9 +587,6 @@ export default function CommandCenterPage() {
                 ))}
               </div>
             </div>
-            <Link href="/admin/mulligan-analytics" className="text-xs text-blue-400 hover:text-blue-300">
-              Full Mulligan →
-            </Link>
           </div>
           {mulligan ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -985,9 +977,6 @@ export default function CommandCenterPage() {
         </Link>
         <Link href="/admin/pro-gate" className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">
           Pro Gate
-        </Link>
-        <Link href="/admin/mulligan-analytics" className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">
-          Mulligan Analytics
         </Link>
         <Link href="/admin/feedback" className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sm">
           Feedback

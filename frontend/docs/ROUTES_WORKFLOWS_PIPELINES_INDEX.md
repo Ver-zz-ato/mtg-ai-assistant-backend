@@ -47,7 +47,7 @@ Live play route notes: `/api/mobile/live-games*` backs synced Life Counter QR/li
 |---|---|
 | Mobile launch cockpit | `/api/admin/mobile-command-center/*` |
 | Mobile config plane | `/api/admin/mobile/*` |
-| Route/admin health | `/api/admin/route-health`, `/api/admin/audit`, `/api/admin/errors`, `/api/admin/rate-limits` |
+| Admin observability APIs | `/api/admin/audit`, `/api/admin/errors`, `/api/admin/rate-limits` |
 | AI admin | `/api/admin/ai/*`, `/api/admin/ai-usage*`, `/api/admin/app-ai-feedback` |
 | Revenue/admin billing | `/api/admin/stripe/*`, `/api/admin/entitlements/debug`, `/api/admin/monetize/*` |
 | Data/admin jobs | `/api/admin/data/*`, `/api/admin/cron/run`, `/api/admin/ops-reports/*` |
@@ -195,9 +195,8 @@ Read first:
 If you need a quick inventory instead of grepping the repo:
 
 - `lib/admin/route-catalog.ts` — curated admin route inventory with risk/auth/write metadata
-- `/api/admin/route-health` — safe probe catalog for admin route health
 
-Use these before adding more ad hoc admin status docs.
+Use this before adding more ad hoc admin status docs.
 
 ---
 

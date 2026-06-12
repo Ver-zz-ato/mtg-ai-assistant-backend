@@ -36,16 +36,6 @@ export const ADMIN_ROUTE_CATALOG: AdminRouteMeta[] = [
     healthCheck: "safe-get",
   },
   {
-    path: "/api/admin/route-health",
-    methods: ["GET"],
-    category: "Safety",
-    risk: "low",
-    authRequired: true,
-    writes: false,
-    description: "Admin route catalog and safe health probes.",
-    healthCheck: "safe-get",
-  },
-  {
     path: "/api/admin/live-smoke",
     methods: ["GET", "POST"],
     category: "AI",
@@ -164,16 +154,6 @@ export const ADMIN_ROUTE_CATALOG: AdminRouteMeta[] = [
     authRequired: true,
     writes: false,
     description: "Mobile app AI feedback reports.",
-    healthCheck: "safe-get",
-  },
-  {
-    path: "/api/admin/feedback-dashboard",
-    methods: ["GET"],
-    category: "App",
-    risk: "low",
-    authRequired: true,
-    writes: false,
-    description: "Website feedback dashboard data.",
     healthCheck: "safe-get",
   },
   {
@@ -616,7 +596,6 @@ export const ADMIN_ROUTE_GROUPS: Record<AdminCategory, { title: string; routes: 
       "/admin/ai-usage-app",
       "/admin/ai-reports",
       "/admin/app-ai-feedback",
-      "/admin/route-health",
     ],
   },
   App: {
@@ -625,7 +604,6 @@ export const ADMIN_ROUTE_GROUPS: Record<AdminCategory, { title: string; routes: 
       "/admin/app-whats-new",
       "/admin/app-scanner",
       "/admin/app-ai-feedback",
-      "/admin/feedback-dashboard",
       "/admin/pro-gate",
     ],
   },
@@ -636,7 +614,6 @@ export const ADMIN_ROUTE_GROUPS: Record<AdminCategory, { title: string; routes: 
       "/admin/datadashboard",
       "/admin/precons",
       "/admin/budget-swaps",
-      "/admin/route-health",
     ],
   },
   Money: {
@@ -645,15 +622,15 @@ export const ADMIN_ROUTE_GROUPS: Record<AdminCategory, { title: string; routes: 
   },
   SEO: {
     title: "SEO",
-    routes: ["/admin/seo/pages", "/admin/analytics-seed", "/admin/blog", "/admin/marketing-radar"],
+    routes: ["/admin/seo/pages", "/admin/blog", "/admin/marketing-radar"],
   },
   Ops: {
     title: "Ops",
-    routes: ["/admin/JustForDavy/command-center", "/admin/ops", "/admin/route-health", "/admin/deploy"],
+    routes: ["/admin/JustForDavy/command-center", "/admin/ops"],
   },
   Safety: {
     title: "Safety",
-    routes: ["/admin/security", "/admin/backups", "/admin/ops", "/admin/route-health"],
+    routes: ["/admin/security", "/admin/backups", "/admin/ops"],
   },
 };
 

@@ -2,6 +2,25 @@
 
 ## 2026-06-12
 
+### Moderation — Discord alerts for new reports
+
+- **`POST /api/moderation/reports`:** After a report is saved, sends a Discord message with type, reason, resource, and direct link to `https://www.manatap.ai/admin/moderation?report_id=…`. Failure does not block submission.
+- **`/admin/moderation`:** Honors `?report_id=` to auto-select a report from Discord links.
+- **Env:** `DISCORD_MODERATION_WEBHOOK` (falls back to `DISCORD_ADMIN_ALERT_WEBHOOK` / `DISCORD_WEBHOOK_URL`).
+- **Files:** `lib/admin/notifyModerationReport.ts`, `app/api/moderation/reports/route.ts`, `docs/MOBILE_ADMIN_CONTROL.md`.
+
+### Admin — remove unused pages
+
+- **Removed:** `/admin/feedback-dashboard`, `/admin/feature-flags`, `/admin/mulligan-analytics` and `GET /api/admin/feedback-dashboard`.
+- **Nav:** Admin hub, command center, mobile command center links updated; feature-flag counts remain on mobile command center (no dedicated page).
+- **Note:** `POST/GET /api/admin/mobile/feature-flags` and `/api/admin/mulligan/analytics` remain for API/SQL workflows.
+
+### Admin — remove unused pages (earlier)
+
+- **Removed:** `/admin/analytics-seed`, `/admin/obs`, `/admin/deploy`, `/admin/route-health` and `GET /api/admin/route-health`.
+- **Nav:** Admin hub + command-center command map links updated; `lib/admin/route-catalog.ts` groups trimmed.
+- **Note:** `/api/admin/audit`, `errors`, `rate-limits` remain (used by `/admin/security`, ops pinboard).
+
 ### Blog — SQL-first publishing (website + mobile)
 
 - **Shared publish:** `lib/blog/publishBlogPost.ts` writes `app_config.blog` + `blog_marketing_bodies`; used by Admin Blog, Marketing Radar, and SQL generator.

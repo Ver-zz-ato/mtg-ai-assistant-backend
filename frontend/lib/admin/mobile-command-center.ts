@@ -1229,10 +1229,9 @@ export async function getMobileCommandCenterOps(days: number): Promise<CommandCe
         value: configFreshness.value,
         sub: "When mobile settings were last changed.",
         severity: configFreshness.severity,
-        href: "/admin/feature-flags",
       },
-      { key: "flags", label: "Feature flags", value: flags.rows.length, severity: flags.error ? "info" : "ok", href: "/admin/feature-flags" },
-      { key: "config", label: "Remote config rows", value: config.rows.length, severity: config.error ? "info" : "ok", href: "/admin/feature-flags" },
+      { key: "flags", label: "Feature flags", value: flags.rows.length, severity: flags.error ? "info" : "ok" },
+      { key: "config", label: "Remote config rows", value: config.rows.length, severity: config.error ? "info" : "ok" },
       { key: "changelog", label: "Active app notes", value: changelog.rows.filter((row) => row.is_active).length, severity: changelog.error ? "info" : "ok", href: "/admin/app-whats-new" },
     ],
     tables: {

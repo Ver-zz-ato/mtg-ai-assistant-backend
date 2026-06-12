@@ -14,11 +14,6 @@ const GROUPS = [
         eli5: "Phone-friendly launch cockpit for app health, AI spend, signups, revenue, errors, rate limits, feedback, and ops.",
       },
       {
-        href: "/admin/feature-flags",
-        label: "Feature Flags",
-        eli5: "Turn app features on/off without a new release.",
-      },
-      {
         href: "/admin/app-whats-new",
         label: "App What's New",
         eli5: "Manage update notes and popup content for mobile users.",
@@ -35,7 +30,6 @@ const GROUPS = [
     eli5: "Read what users say, manage accounts, and handle support requests.",
     links: [
       { href: "/admin/ai-feedback", label: "AI Feedback (unified)", eli5: "All app + web AI feedback with context, filters, detail, and JSON export for Cursor" },
-      { href: "/admin/feedback-dashboard", label: "Feedback Dashboard", eli5: "Where feedback is collected, where it goes (Supabase vs PostHog), counts and links" },
       { href: "/admin/feedback", label: "Feedback", eli5: "General support widget feedback (non-AI)" },
       { href: "/admin/ai-reports", label: "AI Reports (legacy)", eli5: "Historical ai_response_reports before unified events" },
       { href: "/admin/app-ai-feedback", label: "App AI Feedback (legacy)", eli5: "Redirects to unified AI Feedback" },
@@ -51,18 +45,16 @@ const GROUPS = [
       { href: "/admin/ai-health", label: "AI Health", eli5: "Is the API key working? Run a live test" },
       { href: "/admin/ai-usage", label: "AI Usage", eli5: "Cost, tokens, which models are used" },
       { href: "/admin/ai-usage-app", label: "AI Usage (App)", eli5: "Mobile-only AI cost & tokens by app feature key" },
-      { href: "/admin/route-health", label: "Route Health", eli5: "Admin API matrix, safe health checks, and live smoke tests" },
       { href: "/admin/prompt-edit", label: "Prompt Edit", eli5: "Edit base prompts (chat/deck) and tier overlays (guest/free/pro). Stored in DB." },
     ],
   },
   {
     label: "Money & Ops",
-    eli5: "Stripe, cron jobs, deploy, and rollbacks.",
+    eli5: "Stripe, cron jobs, and rollbacks.",
     links: [
       { href: "/admin/monetize", label: "Monetize", eli5: "Stripe sync, subscribers" },
       { href: "/admin/pro-gate", label: "Pro Gate", eli5: "Where users see the Pro paywall, conversion funnel" },
       { href: "/admin/ops", label: "Ops", eli5: "Run crons, edit config, rollback snapshots" },
-      { href: "/admin/deploy", label: "Deploy", eli5: "Deploy and release info" },
       { href: "/admin/changelog", label: "Changelog", eli5: "Edit What's New entries (website)" },
       { href: "/admin/blog", label: "Blog", eli5: "Manage blog listing, art, excerpts on /blog" },
       { href: "/admin/marketing-radar", label: "Marketing Radar", eli5: "Paste MTG chatter, blend meta trends, AI brief + social drafts for manual approval" },
@@ -77,17 +69,8 @@ const GROUPS = [
       { href: "/admin/precons", label: "Precons", eli5: "Sync Westly/CommanderPrecons from GitHub, insert one-off, or generate SQL" },
       { href: "/admin/seo/pages", label: "SEO Pages", eli5: "Manage SEO landing pages" },
       { href: "/admin/data", label: "Data", eli5: "Run bulk jobs, vacuum, snapshot" },
-      { href: "/admin/analytics-seed", label: "Analytics Seed", eli5: "Seed or debug analytics data" },
       { href: "/admin/backups", label: "Backups", eli5: "Backup management" },
-      { href: "/admin/obs", label: "OBS", eli5: "Audit log, rate limits, errors" },
       { href: "/admin/security", label: "Security", eli5: "Security checks" },
-    ],
-  },
-  {
-    label: "Mulligan",
-    eli5: "Mulligan usage and stats.",
-    links: [
-      { href: "/admin/mulligan-analytics", label: "Mulligan Analytics", eli5: "Usage stats" },
     ],
   },
 ];
