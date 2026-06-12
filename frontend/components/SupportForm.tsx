@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { MANATAP_SUPPORT_EMAIL } from '@/lib/support-email';
 
 export default function SupportForm() {
   const [email, setEmail] = useState('');
@@ -95,7 +96,6 @@ export default function SupportForm() {
         screenResolution: `${window.screen.width}x${window.screen.height}`
       };
 
-      const proEmail = userInfo?.pro ? 'prosupport@manatap.ai' : 'davy@manatap.ai';
       const emailSubject = subject || 'Support Request';
       const emailBody = (
         `Subject: ${emailSubject}\n\n` +
@@ -103,7 +103,7 @@ export default function SupportForm() {
         `---\n` +
         `User Info:\n` +
         `Email: ${email}\n` +
-        `Support inbox: ${proEmail}\n` +
+        `Support inbox: ${MANATAP_SUPPORT_EMAIL}\n` +
         `Pro Status: ${userInfo?.pro ? 'Yes ⭐' : 'No'}\n` +
         `Browser: ${browserInfo.userAgent}\n` +
         `Language: ${browserInfo.language}\n` +
@@ -132,7 +132,7 @@ export default function SupportForm() {
     } catch (error) {
       console.error('Error sending support request:', error);
       setErrorMessage(
-        `We couldn't send that through the site. Please email ${userInfo?.pro ? 'prosupport@manatap.ai' : 'davy@manatap.ai'} directly.`
+        `We couldn't send that through the site. Please email ${MANATAP_SUPPORT_EMAIL} directly.`
       );
     } finally {
       setLoading(false);

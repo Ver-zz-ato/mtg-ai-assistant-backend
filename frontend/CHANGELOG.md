@@ -2,6 +2,11 @@
 
 ## 2026-06-12
 
+### Support — single public inbox
+
+- **Aligned** `/support`, `/terms`, and support form fallback to **`support@manatap.ai`** (removed `davy@` and `prosupport@` from user-facing copy).
+- **Files:** `lib/support-email.ts`, `app/support/page.tsx`, `app/terms/page.tsx`, `components/SupportForm.tsx`.
+
 ### Marketing Radar — ELI5 copy on Summary and all steps
 
 - **Plain English:** Renamed jargon sections (Primary CTA → “Where to send players”, Attribution explained, UTM hidden by default), expanded ELI5 on all four tabs, “Your move” callout on Summary.

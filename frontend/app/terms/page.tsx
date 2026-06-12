@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { MANATAP_SUPPORT_EMAIL } from '@/lib/support-email';
 
 // Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE errors with Date formatting
 export const dynamic = 'force-dynamic';
@@ -156,7 +157,7 @@ export default function TermsPage() {
             If you have any questions or concerns about our terms of service, please get in touch.
           </p>
           <a
-            href="mailto:davy@manatap.ai"
+            href={`mailto:${MANATAP_SUPPORT_EMAIL}`}
             className="inline-flex items-center gap-2 bg-white text-blue-600 px-5 py-2.5 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-sm"
           >
             📧 Contact Us
