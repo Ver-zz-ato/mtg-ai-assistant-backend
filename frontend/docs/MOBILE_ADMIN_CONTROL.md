@@ -22,8 +22,7 @@ All under `/admin/*`, protected by `AdminGuard` + server-side admin checks on mu
 
 | Path | Role |
 |------|------|
-| `/admin/feature-flags` | List / create / edit feature flags |
-| `/admin/remote-config` | List / create / edit remote config keys |
+| `/admin/remote-config` | List / create / edit remote config keys (if present) |
 | `/admin/app-whats-new` | List / create / edit `app_changelog` rows |
 | `/admin/tier-limits` | Edit `mobile.tiers.limits` (validated JSON) |
 | `/admin/mobile-bootstrap-preview` | Debug view; same payload as public bootstrap |
@@ -270,9 +269,10 @@ If these tables are empty, stale, or misconfigured, the mobile app still runs, b
 
 ## Adding a feature flag
 
-1. Open `/admin/feature-flags`.
-2. Set `key` (e.g. `mobile.enable_roast`), `enabled`, optional JSON `value`, `platform`.
-3. Save. The flag appears in the next bootstrap response for matching platforms.
+Use Supabase (`feature_flags` table) or `POST /api/admin/mobile/feature-flags` (admin auth). The dedicated `/admin/feature-flags` UI was removed in 2026-06.
+
+1. Set `key` (e.g. `mobile.enable_roast`), `enabled`, optional JSON `value`, `platform`.
+2. Save. The flag appears in the next bootstrap response for matching platforms.
 
 ### Tournament Manager beta allowlist
 
@@ -314,4 +314,4 @@ On cold start or when refreshing remote config:
 - `lib/mobile/bootstrap.ts`, `lib/mobile/validation.ts`, `lib/mobile/semver-compare.ts`
 - `app/api/mobile/bootstrap/route.ts`
 - `app/api/admin/mobile/*/route.ts`
-- Admin pages under `app/admin/feature-flags`, `remote-config`, `app-whats-new`, `tier-limits`, `mobile-bootstrap-preview`
+- Admin pages under `app/admin/app-whats-new`, `mobile-command-center`, etc. (`feature_flags` via API/SQL — no dedicated UI page)

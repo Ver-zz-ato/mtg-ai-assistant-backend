@@ -33,7 +33,10 @@ type Props = {
   draftEdits: Record<string, string>;
   publishBusyId: string | null;
   draftBusyId: string | null;
-  onPublishBlog: (id: string, opts?: Omit<BlogPublishOpts, never>) => Promise<void>;
+  onPublishBlog: (
+    id: string,
+    opts?: Partial<Pick<BlogPublishOpts, "slug" | "category" | "gradient" | "icon">>
+  ) => Promise<void>;
   onPatch: (id: string, patch: Record<string, unknown>) => Promise<void>;
   onCopied?: () => void;
 };

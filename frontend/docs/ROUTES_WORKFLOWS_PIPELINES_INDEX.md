@@ -61,9 +61,7 @@ Live play route notes: `/api/mobile/live-games*` backs synced Life Counter QR/li
 | `/admin/JustForDavy` | Main jump-off page for admin tools |
 | `/admin/mobile-command-center` | Launch control room for app health, analytics, revenue, errors, ops |
 | `/admin/app-scanner` | PostHog scanner funnel and quality |
-| `/admin/feedback-dashboard` | Website feedback/dashboard surface |
 | `/admin/ai-usage-app` | Mobile app AI spend and recent requests |
-| `/admin/feature-flags` | Mobile feature flags |
 | `/admin/remote-config` | Mobile remote config |
 | `/admin/app-whats-new` | Mobile changelog content |
 | `/admin/tier-limits` | Mobile tier limits JSON |
@@ -137,7 +135,6 @@ Start here:
 
 - `/api/feedback`
 - `/api/chat/report`
-- `/api/admin/feedback-dashboard`
 - `/api/admin/app-ai-feedback`
 - `docs/POSTHOG_FEEDBACK_DASHBOARDS_SPEC.md`
 
