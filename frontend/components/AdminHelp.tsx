@@ -17,9 +17,14 @@ export function ELI5({ heading = "What is this?", items = [] as string[] }: { he
   return (
     <div className="rounded border border-neutral-800 bg-neutral-950/40 p-3">
       <div className="font-medium mb-1">ELI5 — {heading}</div>
-      <ul className="list-disc pl-5 text-sm space-y-1">
+      <ul className="list-disc pl-5 text-sm space-y-1 text-neutral-300">
         {items.map((s, i)=> (<li key={i}>{s}</li>))}
       </ul>
     </div>
   );
+}
+
+/** One-line plain-English helper under a section title. */
+export function SectionCaption({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-neutral-500 leading-relaxed">{children}</p>;
 }

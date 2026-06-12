@@ -5,10 +5,10 @@ import React from "react";
 export type MarketingRadarTab = "ingest" | "summary" | "drafts" | "publish";
 
 const TABS: { id: MarketingRadarTab; step: number; label: string; hint: string }[] = [
-  { id: "ingest", step: 1, label: "Ingest", hint: "Sources & run" },
-  { id: "summary", step: 2, label: "Summary", hint: "What's trending" },
-  { id: "drafts", step: 3, label: "Drafts", hint: "Approve / reject" },
-  { id: "publish", step: 4, label: "Copy & post", hint: "Manual + blog" },
+  { id: "ingest", step: 1, label: "Ingest", hint: "Fetch & generate" },
+  { id: "summary", step: 2, label: "Summary", hint: "Read the plan" },
+  { id: "drafts", step: 3, label: "Drafts", hint: "Approve posts" },
+  { id: "publish", step: 4, label: "Copy & post", hint: "Go live" },
 ];
 
 type Props = {

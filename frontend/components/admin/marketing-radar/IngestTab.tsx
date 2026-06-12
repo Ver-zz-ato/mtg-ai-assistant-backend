@@ -48,11 +48,11 @@ export function IngestTab({
   return (
     <div className="space-y-5">
       <ELI5
-        heading="Step 1 — Collect signals"
+        heading="Step 1 — Fetch topics and write drafts"
         items={[
-          "Check that your news, YouTube, and Reddit sources look healthy.",
-          "Hit Run everything to ingest fresh topics and generate a new brief + drafts.",
-          "Nothing posts automatically — you approve each platform in step 3.",
+          "This step reads the internet (RSS, YouTube, Reddit) for what Commander players are discussing.",
+          "Run everything = fetch + AI writes one X post, one Instagram caption, and one blog article.",
+          "Nothing goes public automatically. You always review in step 3 before copying or publishing.",
         ]}
       />
 

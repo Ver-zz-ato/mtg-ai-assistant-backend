@@ -2,6 +2,11 @@
 
 ## 2026-06-12
 
+### Marketing Radar — ELI5 copy on Summary and all steps
+
+- **Plain English:** Renamed jargon sections (Primary CTA → “Where to send players”, Attribution explained, UTM hidden by default), expanded ELI5 on all four tabs, “Your move” callout on Summary.
+- **Files:** `SummaryTab.tsx`, `IngestTab.tsx`, `PublishTab.tsx`, `MarketingRadarTabs.tsx`, `AdminHelp.tsx` (`SectionCaption`), `page.tsx`.
+
 ### Marketing Radar — CTA, UTM, SEO, attribution
 
 - **Primary CTA:** Each brief stores `primary_cta`, `content_format`, `seo_target_keyword`, `social_repurpose` (migration `143_marketing_radar_cta_seo.sql`).

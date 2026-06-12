@@ -230,7 +230,7 @@ export default function MarketingRadarPage() {
         <div>
           <h1 className="text-xl font-semibold">Marketing Radar</h1>
           <p className="text-sm text-neutral-400 mt-1">
-            Ingest trends → review summary → approve drafts → copy to X/Instagram or publish blog.
+            Your weekly marketing assistant: scrape what MTG players are talking about, get draft posts, you approve and post manually.
           </p>
         </div>
         <Link
@@ -296,11 +296,11 @@ export default function MarketingRadarPage() {
           {tab === "drafts" && (
             <div className="space-y-5">
               <ELI5
-                heading="Step 3 — Approve or reject"
+                heading="Step 3 — Pick what you're happy to post"
                 items={[
-                  "One AI draft per platform: X, Instagram, and a long blog post.",
-                  "Edit text if needed, then Approve (goes to Publish) or Reject.",
-                  "Quality warnings are hints only — they don't block approval.",
+                  "Three tabs worth of content: short X post, Instagram caption, long blog article.",
+                  "Read each one. Edit if you want. Approve = send to step 4. Reject = skip that platform.",
+                  "Yellow quality warnings are suggestions (e.g. missing link) — they never block you.",
                 ]}
               />
               <DraftsPanel

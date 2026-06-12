@@ -124,11 +124,12 @@ export function PublishTab({
   return (
     <div className="space-y-5">
       <ELI5
-        heading="Step 4 — Copy and post"
+        heading="Step 4 — Copy and post (you're live now)"
         items={[
-          "X and Instagram: copy the text, paste into each app yourself (no API fees).",
-          "Blog: set slug/category, then Publish to blog — writes Supabase listing + body (website + app).",
-          "Copy SQL: same post as a Supabase script for backup or manual publish.",
+          "Only drafts you approved in step 3 show up here.",
+          "X / Instagram: Copy to clipboard → paste in the app. Links already include tracking tags — leave them in.",
+          "Blog: optional slug/category, then Publish to blog — goes live on manatap.ai and in the app Discover feed.",
+          "Campaign line under each post = the tracking name PostHog uses in step 2's attribution box.",
         ]}
       />
 
