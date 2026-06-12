@@ -32,6 +32,7 @@ export default function BlogPage() {
         const defaultSlugs = new Set(fromDefaults.map((p) => p.slug));
         const apiOnly = apiEntries.filter((e) => e?.slug && !defaultSlugs.has(e.slug));
         const merged = [...fromDefaults, ...apiOnly];
+        merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setBlogPosts(merged);
       })
       .catch(() => {});

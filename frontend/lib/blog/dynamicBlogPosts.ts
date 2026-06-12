@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-
-const BLOG_BODIES_KEY = "blog_marketing_bodies";
+import { BLOG_BODIES_KEY, BLOG_LISTING_KEY } from "./blogConfig";
 
 export type DynamicBlogPost = {
   title: string;
@@ -11,9 +10,10 @@ export type DynamicBlogPost = {
   content: string;
   gradient: string;
   icon: string;
+  imageUrl?: string;
 };
 
-export async function getMarketingBlogPost(slug: string): Promise<DynamicBlogPost | null> {
+export async function getDbBlogPost(slug: string): Promise<DynamicBlogPost | null> {
   try {
     const supabase = await createClient();
     const { data } = await supabase
@@ -29,7 +29,7 @@ export async function getMarketingBlogPost(slug: string): Promise<DynamicBlogPos
     const { data: blogRow } = await supabase
       .from("app_config")
       .select("value")
-      .eq("key", "blog")
+      .eq("key", BLOG_LISTING_KEY)
       .maybeSingle();
 
     const entries = ((blogRow?.value as { entries?: unknown[] })?.entries || []) as Array<
@@ -44,13 +44,17 @@ export async function getMarketingBlogPost(slug: string): Promise<DynamicBlogPos
       title,
       date: meta?.date || new Date().toISOString().slice(0, 10),
       author: meta?.author || "ManaTap Team",
-      category: meta?.category || "Meta",
-      readTime: meta?.readTime || "8 min read",
+      category: meta?.category || "Strategy",
+      readTime: meta?.readTime || meta?.read_time || "8 min read",
       content,
       gradient: meta?.gradient || "from-emerald-600 via-teal-600 to-cyan-600",
       icon: meta?.icon || "📰",
+      ...(meta?.imageUrl ? { imageUrl: meta.imageUrl } : {}),
     };
   } catch {
     return null;
   }
 }
+
+/** @deprecated Use getDbBlogPost */
+export const getMarketingBlogPost = getDbBlogPost;

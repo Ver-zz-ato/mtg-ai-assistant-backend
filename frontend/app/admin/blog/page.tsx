@@ -34,8 +34,10 @@ const ICON_PRESETS = ['🚀', '🎉', '💰', '📊', '💎', '🎯', '⚠️', 
 
 export default function AdminBlogPage() {
   const [entries, setEntries] = useState<BlogEntry[]>([]);
+  const [bodies, setBodies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [copyBusySlug, setCopyBusySlug] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string>('');
 
@@ -50,6 +52,7 @@ export default function AdminBlogPage() {
 
       if (data.ok) {
         setEntries(data.blog?.entries || []);
+        setBodies(data.bodies || {});
         setIsAdmin(data.is_admin);
       } else {
         setError(data.error);
@@ -69,7 +72,7 @@ export default function AdminBlogPage() {
       const res = await fetch('/api/admin/blog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries })
+        body: JSON.stringify({ entries, bodies })
       });
 
       const data = await res.json();
@@ -110,7 +113,44 @@ export default function AdminBlogPage() {
 
   const deleteEntry = (index: number) => {
     if (confirm('Delete this blog entry?')) {
+      const slug = entries[index]?.slug;
       setEntries(entries.filter((_, i) => i !== index));
+      if (slug) {
+        setBodies((prev) => {
+          const next = { ...prev };
+          delete next[slug];
+          return next;
+        });
+      }
+    }
+  };
+
+  const updateBody = (slug: string, content: string) => {
+    setBodies((prev) => ({ ...prev, [slug]: content }));
+  };
+
+  const copySqlForEntry = async (entry: BlogEntry) => {
+    const content = bodies[entry.slug]?.trim();
+    if (!content) {
+      alert('Add markdown body content first (starts with # Title).');
+      return;
+    }
+    setCopyBusySlug(entry.slug);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/blog/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...entry, content }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'SQL generation failed');
+      await navigator.clipboard.writeText(data.sql);
+      alert('SQL copied to clipboard — paste in Supabase SQL Editor.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Copy SQL failed');
+    } finally {
+      setCopyBusySlug(null);
     }
   };
 
@@ -124,12 +164,12 @@ export default function AdminBlogPage() {
           <h1 className="text-2xl font-bold text-white">Admin • Blog Manager</h1>
         </div>
         <div className="mb-6">
-          <ELI5 heading="Public Blog" items={[
-            "📝 Blog Listing: Add and edit entries shown on /blog",
-            "🖼️ Art & Format: Set gradient, icon, and imageUrl for each post",
-            "🔗 Slug: URL path (e.g. my-post → /blog/my-post). Actual page content lives in app/blog/[slug]",
-            "✨ Gradient: Use presets like from-blue-600 via-purple-600 to-pink-600",
-            "⏱️ When to use: Add new posts, update order, change art or excerpts",
+          <ELI5 heading="Public Blog (DB-published)" items={[
+            "📝 Listing + body: Save writes to Supabase (app_config.blog + blog_marketing_bodies) — no deploy needed",
+            "📄 Markdown body: Start with # Title — powers /blog/[slug] and the mobile app reader",
+            "📋 Copy SQL: Backup or publish the same post via Supabase SQL Editor",
+            "📦 Import Defaults: Legacy code fallback posts only — new posts should use body + Save here",
+            "📱 Mobile Discover picks up listing from GET /api/blog automatically",
           ]} />
         </div>
         <div className="flex items-center justify-between mb-6">
@@ -193,12 +233,22 @@ export default function AdminBlogPage() {
                     <option value="Commander">Commander</option>
                   </select>
                 </div>
-                <button
-                  onClick={() => deleteEntry(index)}
-                  className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                >
-                  Delete
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copySqlForEntry(entry)}
+                    disabled={copyBusySlug === entry.slug}
+                    className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-500 disabled:opacity-50"
+                  >
+                    {copyBusySlug === entry.slug ? 'Copying…' : 'Copy SQL'}
+                  </button>
+                  <button
+                    onClick={() => deleteEntry(index)}
+                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -277,6 +327,17 @@ export default function AdminBlogPage() {
                     onChange={(e) => updateEntry(index, 'imageUrl', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded text-sm focus:border-blue-500 focus:outline-none"
                     placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-300">
+                    Markdown body {bodies[entry.slug]?.trim() ? '(DB-published)' : '(optional — required for live article)'}
+                  </label>
+                  <textarea
+                    value={bodies[entry.slug] || ''}
+                    onChange={(e) => updateBody(entry.slug, e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 bg-gray-700 text-white rounded h-48 resize-y font-mono text-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="# Post Title&#10;&#10;Markdown content…"
                   />
                 </div>
               </div>

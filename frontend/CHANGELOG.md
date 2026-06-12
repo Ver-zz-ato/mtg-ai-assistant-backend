@@ -2,11 +2,21 @@
 
 ## 2026-06-12
 
+### Blog — SQL-first publishing (website + mobile)
+
+- **Shared publish:** `lib/blog/publishBlogPost.ts` writes `app_config.blog` + `blog_marketing_bodies`; used by Admin Blog, Marketing Radar, and SQL generator.
+- **Reader:** `getDbBlogPost()` (alias `getMarketingBlogPost`); ISR `revalidate = 300` on `/blog/[slug]`.
+- **SQL generator:** `scripts/generate-blog-sql.mjs` + `docs/BLOG_SQL_PUBLISH.md`.
+- **Admin Blog:** markdown body per entry, Save publishes both keys, **Copy SQL** per post; `GET/POST /api/admin/blog` + `POST /api/admin/blog/sql`.
+- **Marketing Radar:** blog publish accepts slug/category/gradient/icon overrides; **Copy SQL** on publish tab.
+- **Sitemap:** unions DB blog slugs with `DEFAULT_BLOG_POSTS`.
+- **Marvel post body migration:** `db/migrations/110b_blog_marvel_precon_body.sql` (run in Supabase if article 404).
+- **Docs:** `HOW_TO_ADD_BLOGS_AND_CHANGELOGS.md`, `docs/BLOG_SOURCES_OF_TRUTH_AUDIT.md`, `MARKETING_RADAR.md`, cursor rules.
+
 ### Blog — Marvel Commander precon upgrades
 
-- **New post:** *How to Upgrade Marvel Commander Precons Without Losing the Theme* (`/blog/upgrade-marvel-commander-precons-without-losing-theme`) — layered precon tuning guide with ManaTap tool links (deck builder, compare decks, budget swaps, deck checker).
-- **Listing:** `lib/blog-defaults.ts`; optional Supabase metadata in `db/migrations/110_blog_marvel_precon_upgrades.sql`.
-- **Files:** `lib/blog-defaults.ts`, `app/blog/[slug]/page.tsx`, `db/migrations/110_blog_marvel_precon_upgrades.sql`.
+- **New post:** *How to Upgrade Marvel Commander Precons Without Losing the Theme* (`/blog/upgrade-marvel-commander-precons-without-losing-theme`).
+- **Files:** `lib/blog-defaults.ts`, `app/blog/[slug]/page.tsx`, `db/migrations/110_blog_marvel_precon_upgrades.sql`, `110b_blog_marvel_precon_body.sql`.
 
 ## 2026-06-11
 

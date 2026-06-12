@@ -1,74 +1,67 @@
 # Blog: sources of truth audit
 
-**Problem:** Roast My Deck (and other posts) sometimes don’t appear on `/blog` after SQL + redeploy. The blog list was effectively coming from two places, with merge logic that could behave differently depending on API success.
+**Updated:** SQL-first publishing (2026-06). New posts should live in Supabase, not require deploys.
 
 ---
 
 ## Where blog data lives
 
-| Purpose | Source | File / location | Used by |
-|--------|--------|------------------|--------|
-| **Listing (cards on /blog)** | 1. Code (canonical) | `lib/blog-defaults.ts` → `DEFAULT_BLOG_POSTS` | `app/blog/page.tsx` |
-| **Listing (optional override)** | 2. Database | Supabase `app_config` key `blog` → `value.entries` | `GET /api/blog` → `app/blog/page.tsx` |
-| **Full post content** | 3. Code only | `app/blog/[slug]/page.tsx` → `blogContent` | `/blog/[slug]` page, `generateStaticParams` |
-| **Sitemap blog URLs** | 4. Code (was separate list) | `app/sitemap.ts` → hardcoded `blogPosts` array | Sitemap generation |
+| Purpose | Primary source | Fallback | Used by |
+|--------|----------------|----------|---------|
+| **Listing (cards)** | `app_config.blog` → `entries` | `lib/blog-defaults.ts` | `/blog`, `GET /api/blog`, mobile Discover |
+| **Article body** | `app_config.blog_marketing_bodies` → `{ slug: markdown }` | `blogContent` in `app/blog/[slug]/page.tsx` | `/blog/[slug]` via `getDbBlogPost()` |
+| **Sitemap slugs** | DB listing + defaults (union) | — | `app/sitemap.ts` |
 
-So there were **two sources for the listing** (defaults + API) and a **third hardcoded list** in the sitemap.
-
----
-
-## Intended flow (after fix)
-
-1. **Canonical list of posts** = `DEFAULT_BLOG_POSTS` in `lib/blog-defaults.ts`.  
-   The `/blog` page **always** renders this list. It never shows fewer posts than the defaults.
-
-2. **API** (`GET /api/blog`) returns Supabase `app_config.blog.entries`.  
-   The page uses this only to **enrich** or **override** fields (e.g. title, excerpt, date) for slugs that exist in the defaults, and to **append** any extra slugs that exist only in the API.  
-   If the API fails or returns empty, the page still shows the full default list.
-
-3. **Full content** for `/blog/[slug]` comes only from the `blogContent` object in `app/blog/[slug]/page.tsx`.  
-   Adding a new post requires adding an entry there and in `DEFAULT_BLOG_POSTS` (and optionally in DB for admin/overrides).
-
-4. **Sitemap** uses the same default list (or a shared list) so blog URLs stay in sync.
+Shared write path: `lib/blog/publishBlogPost.ts` (Admin Blog, Marketing Radar, SQL generator).
 
 ---
 
-## What was changed
+## Intended flow (current)
 
-- **app/blog/page.tsx**  
-  - List is built from `DEFAULT_BLOG_POSTS` first.  
-  - API response is merged in by slug (overrides + appends API-only slugs).  
-  - If the API fails or returns non-array `entries`, the default list is still shown.  
-  - So Roast My Deck (and every other default post) always appears when it’s in `blog-defaults.ts`.
+```mermaid
+flowchart TB
+  publish[Publish SQL / Admin / Marketing Radar]
+  blogKey[app_config.blog]
+  bodiesKey[app_config.blog_marketing_bodies]
+  api[GET /api/blog]
+  page["/blog/[slug]"]
+  mobile[Mobile Discover]
 
-- **app/sitemap.ts**  
-  - Blog slugs for the sitemap are derived from `DEFAULT_BLOG_POSTS` (or a shared export) so there is a single list for “which blog posts exist.”
+  publish --> blogKey
+  publish --> bodiesKey
+  blogKey --> api
+  api --> websiteList["/blog listing"]
+  api --> mobile
+  bodiesKey --> page
+  blogKey --> page
+  page --> mobile
+```
 
-- **docs/HOW_TO_ADD_BLOGS_AND_CHANGELOGS.md**  
-  - Already describes the three places to touch (defaults, blogContent, optional SQL).  
-  - Troubleshooting section added earlier for “ran SQL but post still doesn’t show.”
+1. **New posts:** Write **both** `blog` and `blog_marketing_bodies`. No code deploy required (after one-time frontend deploy of the dynamic reader).
+
+2. **Website listing:** Merges `DEFAULT_BLOG_POSTS` with API entries; API-only slugs appended; sorted by date.
+
+3. **Article page:** Static `blogContent[slug]` first, else `getDbBlogPost(slug)` from Supabase. ISR `revalidate = 300`.
+
+4. **Mobile:** Lists from API; loads article HTML from website. No `blog-defaults.ts` update needed for SQL-published posts.
+
+5. **Legacy:** Older posts remain in `blog-defaults.ts` / `blogContent` as offline fallback.
 
 ---
 
-## Checklist when a post doesn’t show
+## Checklist when a post doesn't work
 
-1. **Is the slug in `lib/blog-defaults.ts`?**  
-   If not, add it (newest first). Deploy. The card will show.
-
-2. **Is the slug in `app/blog/[slug]/page.tsx` → `blogContent`?**  
-   If not, the card may show but the post page will 404. Add the key and content.
-
-3. **Optional:** Run the blog SQL migration in the correct Supabase project so the API can override metadata.  
-   Not required for the card to appear; code defaults are enough.
-
-4. **Redeploy** and do a hard refresh (or incognito) so the new bundle and no-cache request are used.
-
-5. **Sitemap:** If you added a new slug to defaults, ensure the sitemap uses the same list (it does after the sitemap fix).
+| Symptom | Fix |
+|---------|-----|
+| Card missing | Add row to `app_config.blog` (or run full publish SQL) |
+| Card OK, page 404 | Add markdown to `blog_marketing_bodies[slug]` |
+| Stale content after SQL | Wait ~5 min or hard-refresh (ISR) |
+| Not in sitemap | Ensure slug in `app_config.blog`; sitemap unions DB + defaults |
 
 ---
 
 ## Summary
 
-- **Listing:** Single source of truth = `DEFAULT_BLOG_POSTS`. API only enriches/appends.  
-- **Content:** Single source of truth = `blogContent` in `app/blog/[slug]/page.tsx`.  
-- **Sitemap:** Uses the same default list so there are no extra “sources of truth” for blog slugs.
+- **New posts:** Supabase is canonical (`blog` + `blog_marketing_bodies`).
+- **Code defaults:** Legacy fallback only.
+- **Agents:** Use `docs/BLOG_SQL_PUBLISH.md` + `scripts/generate-blog-sql.mjs`.

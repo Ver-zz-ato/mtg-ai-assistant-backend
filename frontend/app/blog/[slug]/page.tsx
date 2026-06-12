@@ -3,14 +3,14 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
 import { DEFAULT_BLOG_POSTS } from '@/lib/blog-defaults';
-import { getMarketingBlogPost } from '@/lib/blog/dynamicBlogPosts';
+import { getDbBlogPost } from '@/lib/blog/dynamicBlogPosts';
 import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
 import { descriptionFromText } from '@/lib/seo/metadata';
 
 // Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE error
 export const dynamic = 'force-dynamic';
 // Cache for 24 hours (blog content changes infrequently)
-export const revalidate = 86400;
+export const revalidate = 300;
 
 type BlogPostEntry = {
   title: string;
@@ -27,7 +27,7 @@ type BlogPostEntry = {
 async function resolveBlogPost(slug: string): Promise<BlogPostEntry | null> {
   const staticPost = blogContent[slug];
   if (staticPost) return staticPost;
-  const dynamic = await getMarketingBlogPost(slug);
+  const dynamic = await getDbBlogPost(slug);
   if (!dynamic) return null;
   return {
     title: dynamic.title,

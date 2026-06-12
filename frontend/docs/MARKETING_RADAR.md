@@ -121,7 +121,14 @@ Unauthenticated `www.reddit.com/...json` returns 403 from server IPs.
 
 ## AI drafts (OpenAI)
 
-Brief + drafts use `callLLM` via `lib/marketing/generateMarketingBrief.ts` (model: `MODEL_ADMIN_DEEP` or fallback). Output is **exactly 3 drafts**: one X post, one Instagram caption, one long blog article. Links from `lib/marketing/marketingPublicLinks.ts`. Blog bodies are stored in `app_config` key `blog_marketing_bodies` and served at `/blog/[slug]` via `lib/blog/dynamicBlogPosts.ts`.
+Brief + drafts use `callLLM` via `lib/marketing/generateMarketingBrief.ts` (model: `MODEL_ADMIN_DEEP` or fallback). Output is **exactly 3 drafts**: one X post, one Instagram caption, one long blog article. Links from `lib/marketing/marketingPublicLinks.ts`.
+
+**Blog publish (step 4):** Approve the blog draft → set optional **slug / category / gradient / icon** → **Publish to blog**. This calls `lib/blog/publishBlogPost.ts`, which writes:
+
+- `app_config.blog` — listing card (website `/blog`, `GET /api/blog`, **mobile Discover**)
+- `app_config.blog_marketing_bodies` — markdown body (`/blog/[slug]` via `getDbBlogPost()`)
+
+No frontend deploy needed per post. **Copy SQL** exports the same payload for Supabase backup. See `docs/BLOG_SQL_PUBLISH.md`.
 
 ## Scoring
 

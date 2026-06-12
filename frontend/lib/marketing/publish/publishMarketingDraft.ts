@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MarketingDraftRow } from "../marketingBriefSchema";
-import { publishToBlog } from "./publishToBlog";
+import { publishToBlog, type PublishToBlogOptions } from "./publishToBlog";
 
 export async function publishMarketingDraft(
   admin: SupabaseClient,
-  draft: MarketingDraftRow
+  draft: MarketingDraftRow,
+  blogOpts?: PublishToBlogOptions
 ): Promise<{ externalPostId: string; externalPostUrl: string }> {
   if (draft.status !== "approved") {
     throw new Error("Only approved drafts can be published");
@@ -18,7 +19,7 @@ export async function publishMarketingDraft(
     );
   }
 
-  const result = await publishToBlog(admin, draft.content);
+  const result = await publishToBlog(admin, draft.content, blogOpts);
 
   const now = new Date().toISOString();
   const { error } = await admin

@@ -42,7 +42,23 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
 
-    const result = await publishMarketingDraft(admin, draft);
+    let blogOpts: Record<string, string | undefined> | undefined;
+    try {
+      const body = await req.json();
+      if (body && typeof body === "object") {
+        blogOpts = {
+          slug: typeof body.slug === "string" ? body.slug : undefined,
+          category: typeof body.category === "string" ? body.category : undefined,
+          gradient: typeof body.gradient === "string" ? body.gradient : undefined,
+          icon: typeof body.icon === "string" ? body.icon : undefined,
+          title: typeof body.title === "string" ? body.title : undefined,
+        };
+      }
+    } catch {
+      // Empty body is fine — use defaults
+    }
+
+    const result = await publishMarketingDraft(admin, draft, blogOpts);
 
     const { data: updated } = await admin
       .from("marketing_drafts")

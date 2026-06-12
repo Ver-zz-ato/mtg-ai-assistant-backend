@@ -161,7 +161,10 @@ export default function MarketingRadarPage() {
     }
   };
 
-  const publishDraft = async (id: string) => {
+  const publishDraft = async (
+    id: string,
+    blogOpts?: { slug?: string; category?: string; gradient?: string; icon?: string }
+  ) => {
     setPublishBusyId(id);
     setError("");
     try {
@@ -171,7 +174,11 @@ export default function MarketingRadarPage() {
         await patchDraft(id, { content: edited });
       }
 
-      const res = await fetch(`/api/admin/marketing-drafts/${id}/publish`, { method: "POST" });
+      const res = await fetch(`/api/admin/marketing-drafts/${id}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(blogOpts ?? {}),
+      });
       const json = await res.json();
       if (!json.ok) {
         setError(typeof json.error === "string" ? json.error : "Publish failed");

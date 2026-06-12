@@ -9,9 +9,11 @@ This guide explains how to add new blog posts and changelog entries to ManaTap A
 | Item | Storage | Where it appears |
 |------|---------|------------------|
 | **Changelog** | Supabase `app_config` (key: `changelog`) | What's New page |
-| **Blog listing** | `lib/blog-defaults.ts` (canonical); API enriches only | Blog index (`/blog`) |
-| **Blog content** | Codebase `app/blog/[slug]/page.tsx` | Individual post pages |
-| **Blog defaults** | `lib/blog-defaults.ts` | Listing + sitemap + Admin Import |
+| **Blog listing (new posts)** | Supabase `app_config` (key: `blog`) | `/blog`, `GET /api/blog`, mobile Discover |
+| **Blog body (new posts)** | Supabase `app_config` (key: `blog_marketing_bodies`) | `/blog/[slug]`, mobile reader (via website HTML) |
+| **Legacy fallback** | `lib/blog-defaults.ts` + `blogContent` in code | Offline / API failure only |
+
+**Recommended for new posts:** SQL, Admin → Blog, or Marketing Radar → Publish to blog. See **`docs/BLOG_SQL_PUBLISH.md`** for the agent/SQL workflow.
 
 ---
 
@@ -37,7 +39,7 @@ BEGIN
     'version', 'Your Version',
     'date', 'YYYY-MM-DD',
     'title', 'Short title for the changelog',
-    'type', 'feature',  -- or 'fix', 'announcement'
+    'type', 'feature',
     'description', 'Summary paragraph.',
     'features', jsonb_build_array(
       'Feature 1 — description',
@@ -76,142 +78,85 @@ BEGIN
 END $$;
 ```
 
-**Run in Supabase:** Dashboard → SQL Editor → New query → Paste & Run.
-
-### "I ran the SQL but the post still doesn't show on /blog"
-
-1. **Redeploy the frontend**  
-   The blog listing uses `DEFAULT_BLOG_POSTS` from `lib/blog-defaults.ts` and merges with the API. If the live site was built before "Roast My Deck" (or your post) was added to the codebase, the card won't appear until you deploy a new build.
-
-2. **Confirm the SQL ran in the right project**  
-   The API reads from Supabase `app_config` (key: `blog`). In Supabase SQL Editor run:
-   ```sql
-   SELECT key, jsonb_array_length(value->'entries') AS entry_count
-   FROM app_config WHERE key = 'blog';
-   ```
-   You should see `entry_count` ≥ 1. If the row is missing or `entries` is empty, run the blog migration (e.g. `092_blog_roast_my_deck_only.sql`) again in that project.
-
-3. **Check RLS on `app_config`**  
-   If Row Level Security is enabled, ensure the role used by the app (e.g. `anon` or your server role) can `SELECT` from `app_config`. Otherwise `/api/blog` may return empty entries.
+**Run in Supabase:** Dashboard → SQL Editor → Paste & Run.
 
 ### Option B: Admin UI
 
-Use Admin → Changelog (or POST to `/api/admin/changelog`) if available. The SQL migration is still the most reliable.
+Use Admin → Changelog when available.
 
 ---
 
-## 2. Adding a Blog Post
+## 2. Adding a Blog Post (recommended: SQL-first)
 
-You need to touch **three places** so the post appears and the full content renders. The sitemap uses `blog-defaults.ts`, so no separate sitemap edit is needed. See `docs/BLOG_SOURCES_OF_TRUTH_AUDIT.md` for how listing, API, and sitemap relate.
+New posts need **both** Supabase keys:
 
-### Step 1: Add metadata to `lib/blog-defaults.ts`
+1. **`blog`** — card metadata (title, excerpt, slug, date, category, …)
+2. **`blog_marketing_bodies`** — full markdown (`{ "slug": "# Title\n\n..." }`)
 
-Add a new entry to the `DEFAULT_BLOG_POSTS` array (newest first):
+### Option A: Generate SQL (agents / manual)
 
-```ts
-{
-  slug: 'your-post-slug',
-  title: 'Your Post Title',
-  excerpt: '1–2 sentence summary for the card.',
-  date: 'YYYY-MM-DD',
-  author: 'ManaTap Team',
-  category: 'Announcement',  // or 'Budget Building', 'Strategy', 'Commander'
-  readTime: '6 min read',
-  gradient: 'from-purple-600 via-pink-600 to-rose-600',
-  icon: '✨',
-  imageUrl: 'https://...',  // optional
-}
+```bash
+cd frontend
+node scripts/generate-blog-sql.mjs path/to/post.json
 ```
 
-**Categories:** `Announcement`, `Budget Building`, `Strategy`, `Commander`
+See **`docs/BLOG_SQL_PUBLISH.md`** for JSON shape, examples, and verification.
 
-### Step 2: Add full content to `app/blog/[slug]/page.tsx`
+### Option B: Admin → Blog
 
-In the `blogContent` object, add a new key matching your slug:
+1. Open `/admin/blog`
+2. Add entry metadata + **markdown body** (starts with `# Title`)
+3. **Save Changes** — writes both keys
+4. **Copy SQL** — backup script for Supabase
 
-```ts
-'your-post-slug': {
-  title: 'Your Post Title',
-  date: 'YYYY-MM-DD',
-  author: 'ManaTap Team',
-  category: 'Announcement',
-  readTime: '6 min read',
-  gradient: 'from-purple-600 via-pink-600 to-rose-600',
-  icon: '✨',
-  content: `
-# Your Post Title
+### Option C: Marketing Radar
 
-Your markdown content here. Use ## for sections.
+1. Approve the **blog** draft in step 3
+2. In step 4, set slug/category (optional) → **Publish to blog**
 
-## Section 1
+### Legacy: code fallback (old posts only)
 
-...
-  `,
-},
-```
+Only needed if you want a permanent bundle fallback without Supabase:
 
-### Step 3: Add to Supabase (optional but recommended)
+- `lib/blog-defaults.ts` → `DEFAULT_BLOG_POSTS`
+- `app/blog/[slug]/page.tsx` → `blogContent`
 
-If you use DB-backed blog, add the entry via SQL so the API returns it. Create a migration similar to the changelog:
-
-```sql
-DO $$
-DECLARE
-  current_blog JSONB;
-  new_entry JSONB;
-  updated_blog JSONB;
-BEGIN
-  SELECT value INTO current_blog FROM app_config WHERE key = 'blog';
-
-  new_entry := jsonb_build_object(
-    'slug', 'your-post-slug',
-    'title', 'Your Post Title',
-    'excerpt', '1–2 sentence summary.',
-    'date', 'YYYY-MM-DD',
-    'author', 'ManaTap Team',
-    'category', 'Announcement',
-    'readTime', '6 min read',
-    'gradient', 'from-purple-600 via-pink-600 to-rose-600',
-    'icon', '✨'
-  );
-
-  IF current_blog IS NULL OR current_blog->'entries' IS NULL THEN
-    updated_blog := jsonb_build_object(
-      'entries', jsonb_build_array(new_entry),
-      'last_updated', NOW()::text
-    );
-  ELSE
-    updated_blog := jsonb_set(
-      current_blog,
-      '{entries}',
-      jsonb_build_array(new_entry) || (current_blog->'entries')
-    );
-    updated_blog := jsonb_set(updated_blog, '{last_updated}', to_jsonb(NOW()::text));
-  END IF;
-
-  INSERT INTO app_config (key, value, updated_at)
-  VALUES ('blog', updated_blog, NOW())
-  ON CONFLICT (key) DO UPDATE SET value = updated_blog, updated_at = NOW();
-END $$;
-```
-
-**Important:** The blog page merges API entries with `DEFAULT_BLOG_POSTS` (see `app/blog/page.tsx`). Entries in the DB override/add to defaults; defaults are never removed.
+Do **not** use this for routine new posts.
 
 ---
 
-## 3. Checklist
+## 3. Troubleshooting
 
-- [ ] Changelog: SQL migration or admin update
-- [ ] Blog: Add to `lib/blog-defaults.ts`
-- [ ] Blog: Add full content to `app/blog/[slug]/page.tsx` under `blogContent`
-- [ ] Blog (optional): SQL migration for `app_config.blog`
-- [ ] Verify: `/blog` shows the new post, `/blog/your-slug` renders correctly
-- [ ] Verify: What's New shows the changelog entry
+### Card shows on `/blog` but article 404
+
+You updated **`blog`** (listing) but not **`blog_marketing_bodies`** (body). Run full publish SQL or add body in Admin → Blog.
+
+### Post doesn't appear after SQL
+
+1. Confirm both keys in Supabase:
+   ```sql
+   SELECT key FROM app_config WHERE key IN ('blog', 'blog_marketing_bodies');
+   ```
+2. Check `GET /api/blog` returns your slug.
+3. Hard-refresh `/blog/[slug]` (ISR revalidates every ~5 minutes).
+
+### Mobile Discover
+
+No app deploy needed — listing from `GET /api/blog`, article from `https://www.manatap.ai/blog/[slug]`.
 
 ---
 
-## 4. Reference: Migration Template
+## 4. Checklist
 
-See `frontend/db/migrations/085_changelog_and_blog_march_2025.sql` for a complete example that adds both a changelog entry and a blog entry in one file.
+- [ ] Blog: SQL (both keys) **or** Admin save **or** Marketing Radar publish
+- [ ] Verify: `/blog` card, `/blog/your-slug` article, mobile Discover
+- [ ] Changelog (if applicable): SQL or admin
 
-For optional **`app_config.blog`** listing metadata only (batch prepend / de-dupe by slug), see `frontend/db/migrations/109_blog_may_2026_three_posts.sql`.
+---
+
+## 5. Reference
+
+- **SQL publish guide:** `docs/BLOG_SQL_PUBLISH.md`
+- **Sources audit:** `docs/BLOG_SOURCES_OF_TRUTH_AUDIT.md` (repo root `docs/`)
+- **Listing-only SQL template:** `db/migrations/109_blog_may_2026_three_posts.sql`
+- **Full publish example:** `db/migrations/110b_blog_marvel_precon_body.sql`

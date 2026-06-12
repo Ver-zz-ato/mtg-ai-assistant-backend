@@ -5,6 +5,7 @@ import { ARCHETYPES } from "@/lib/data/archetypes";
 import { STRATEGIES } from "@/lib/data/strategies";
 import { getPublishedSeoPagesForSitemap } from "@/lib/seo-pages";
 import { DEFAULT_BLOG_POSTS } from "@/lib/blog-defaults";
+import { getBlogListingFromDb } from "@/lib/blog/getBlogListingFromDb";
 import { getGlobalMetaCards } from "@/lib/meta/global-meta-entities";
 
 const BASE = "https://www.manatap.ai";
@@ -63,7 +64,8 @@ export default async function sitemap(props: {
         "meta",
         "cards",
       ];
-      const blogSlugs = DEFAULT_BLOG_POSTS.map((p) => p.slug);
+      const dbSlugs = (await getBlogListingFromDb()).map((p) => p.slug);
+      const blogSlugs = [...new Set([...dbSlugs, ...DEFAULT_BLOG_POSTS.map((p) => p.slug)])];
       const entries: MetadataRoute.Sitemap = [
         ...routes.map((p) => ({
           url: `${BASE}/${p}`,
