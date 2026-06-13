@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { timingSafeEqual } from 'node:crypto';
 import { getAdmin } from '@/app/api/_lib/supa';
+import { isSupabaseUserId } from '@/lib/revenuecat/app-user-id';
 import { getRevenueCatSubscriberState, syncProfileFromRevenueCat } from '@/lib/server-pro-check';
 
 function verifyRevenueCatAuth(authHeader: string | null, expectedRaw: string): boolean {
@@ -239,13 +240,6 @@ function planFromProductId(productId: string | undefined): 'monthly' | 'yearly' 
   return null;
 }
 
-const SUPABASE_UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isSupabaseUserId(id: string): boolean {
-  return SUPABASE_UUID_RE.test(id);
-}
-
 type RevenueCatRevokeSkipReason = 'manual_or_indefinite_pro' | 'stripe_status_unknown' | 'stripe_active';
 
 /** Same guards as EXPIRATION revoke — skip manual/indefinite Pro and active Stripe. */
@@ -400,23 +394,31 @@ export async function POST(req: NextRequest) {
     const plan = planFromProductId(eventBody.product_id) ?? 'monthly';
 
     for (const userId of to) {
-      if (userId && typeof userId === 'string') {
-        try {
-          await updateProStatus(supabase, userId, isPro, proUntil, plan, 'transfer');
-          await logWebhookProcessed(supabase, {
-            ...eventMeta,
-            status: 'ok',
-            userId,
-          });
-        } catch (e) {
-          console.error('[RevenueCat webhook] Transfer update failed for', userId, e);
-          await logWebhookProcessed(supabase, {
-            ...eventMeta,
-            status: 'fail',
-            reason: 'transfer_update_failed',
-            userId,
-          });
-        }
+      if (!userId || typeof userId !== 'string') continue;
+      if (!isSupabaseUserId(userId)) {
+        await logWebhookProcessed(supabase, {
+          ...eventMeta,
+          status: 'skipped',
+          reason: 'anonymous_or_unlinked_app_user_id',
+          userId,
+        });
+        continue;
+      }
+      try {
+        await updateProStatus(supabase, userId, isPro, proUntil, plan, 'transfer');
+        await logWebhookProcessed(supabase, {
+          ...eventMeta,
+          status: 'ok',
+          userId,
+        });
+      } catch (e) {
+        console.error('[RevenueCat webhook] Transfer update failed for', userId, e);
+        await logWebhookProcessed(supabase, {
+          ...eventMeta,
+          status: 'fail',
+          reason: 'transfer_update_failed',
+          userId,
+        });
       }
     }
 
@@ -470,6 +472,22 @@ export async function POST(req: NextRequest) {
       reason: 'no_user_id',
     });
     return NextResponse.json({ received: true, skipped: 'no_user_id' });
+  }
+
+  if (!isSupabaseUserId(userId)) {
+    if (traceLog) {
+      console.info('[RevenueCat webhook] Skipping non-Supabase app_user_id', {
+        userIdPrefix: userId.slice(0, 24),
+        type: eventType,
+      });
+    }
+    await logWebhookProcessed(supabase, {
+      ...eventMeta,
+      status: 'skipped',
+      reason: 'anonymous_or_unlinked_app_user_id',
+      userId,
+    });
+    return NextResponse.json({ received: true, skipped: 'anonymous_or_unlinked_app_user_id' });
   }
 
   // Check if this event pertains to our "pro" entitlement

@@ -1,5 +1,12 @@
 # Frontend changelog
 
+## 2026-06-13
+
+### RevenueCat webhook — anonymous app_user_id (Sentry JAVASCRIPT-NEXTJS-36)
+
+- **Fix:** Skip profile updates when `app_user_id` is not a Supabase UUID (e.g. `$RCAnonymousID:…`); acknowledge webhook with 200 instead of Postgres UUID errors.
+- **Files:** `app/api/revenuecat/webhook/route.ts`, `lib/revenuecat/app-user-id.ts`.
+
 ## 2026-06-12
 
 ### Support — single public inbox
