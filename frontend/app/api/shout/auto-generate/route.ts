@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { insertShoutboxMessage } from "@/lib/server/serviceRoleSupabase";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { logUnauthorizedCronAttempt, verifyCronRequest } from "@/lib/server/verifyCronRequest";
+import { isAdmin } from "@/lib/admin-check";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -352,22 +353,33 @@ function isNearDuplicateMessage(text: string, recentNormalized: string[]): boole
 }
 
 async function handleGenerate(req: NextRequest) {
-  // Seed and force remain manual escape hatches. Automated cron auth must still come
-  // through the centralized verifier so we do not trust spoofable headers like x-vercel-id.
+  // Seed and force are manual escape hatches. In production they require either
+  // centralized cron auth or a verified admin session.
   const isDev = process.env.NODE_ENV === "development";
 
   const url = new URL(req.url);
   const forceGenerate = url.searchParams.get('force') === 'true';
   const seedWhenEmpty = url.searchParams.get('seed') === 'true';
+  const manualOverrideRequested = forceGenerate || seedWhenEmpty;
 
   const cronAuthorized = verifyCronRequest(req, {
     routePath: "/api/shout/auto-generate",
     logUnauthorizedOnFailure: false,
   });
 
-  const seedAllowed = seedWhenEmpty && (isDev || cronAuthorized);
+  let supabase = null as Awaited<ReturnType<typeof createClient>> | null;
+  let adminAuthorized = false;
+  if (!isDev && manualOverrideRequested && !cronAuthorized && req.headers.has("cookie")) {
+    supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    adminAuthorized = isAdmin(user);
+  }
 
-  if (!isDev && !forceGenerate && !seedAllowed && !cronAuthorized) {
+  const manualOverrideAuthorized = isDev || cronAuthorized || adminAuthorized;
+  const forceAllowed = forceGenerate && manualOverrideAuthorized;
+  const seedAllowed = seedWhenEmpty && manualOverrideAuthorized;
+
+  if (!isDev && !cronAuthorized && !forceAllowed && !seedAllowed) {
     logUnauthorizedCronAttempt(req, { routePath: "/api/shout/auto-generate" });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -382,8 +394,8 @@ async function handleGenerate(req: NextRequest) {
   const now = Date.now();
   const lastTime = globalThis.__lastAutoGenTime ?? 0;
   
-  // Check interval (skip in dev, force, or seed-when-empty)
-  if (!isDev && !forceGenerate && !(seedAllowed && isEmpty) && now - lastTime < MIN_INTERVAL_MS) {
+  // Check interval (skip only for authorized manual force or empty seed)
+  if (!isDev && !forceAllowed && !(seedAllowed && isEmpty) && now - lastTime < MIN_INTERVAL_MS) {
     const minutesRemaining = Math.ceil((MIN_INTERVAL_MS - (now - lastTime)) / 60000);
     return NextResponse.json({ 
       ok: false, 
@@ -392,13 +404,13 @@ async function handleGenerate(req: NextRequest) {
     });
   }
   
-  // Check for recent real activity (skip if force or seed-when-empty)
+  // Check for recent real activity (skip only for authorized manual force or empty seed)
   const recentRealMessages = history.filter(m => 
     m.id > 0 &&
     now - m.ts < 30 * 60 * 1000
   );
   
-  if (!isDev && !forceGenerate && !(seedAllowed && isEmpty) && recentRealMessages.length >= 2) {
+  if (!isDev && !forceAllowed && !(seedAllowed && isEmpty) && recentRealMessages.length >= 2) {
     return NextResponse.json({ 
       ok: false, 
       reason: "Enough recent real activity" 
@@ -458,7 +470,7 @@ async function handleGenerate(req: NextRequest) {
   const posted: Array<{ user: string; text: string }> = [];
   
   // Initialize supabase for persistence
-  const supabase = await createClient();
+  supabase ??= await createClient();
   
   // Check for banned usernames
   const candidateUsers = [...new Set(messages.map(m => m.user))];
