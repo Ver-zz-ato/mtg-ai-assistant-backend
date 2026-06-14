@@ -6,6 +6,8 @@ Server-side cron that polls **App Store Connect** for new **written** customer r
 
 This uses `GET /v1/apps/{id}/customerReviews` — **written reviews only**. Star-only ratings without review text may **not** appear in App Store Connect API results, so Discord will not receive every rating event.
 
+**Not truly instant:** Apple does not offer a webhook when someone posts an App Store review. This job **polls** App Store Connect on a schedule (default: every **5 minutes** via Vercel Cron). Worst-case delay is one poll interval after a review appears in Apple’s API (Apple’s own indexing can add a few minutes). For an immediate check after you notice a review in App Store Connect, run the manual `curl` / PowerShell trigger below.
+
 ## Architecture
 
 | Piece | Location |
@@ -87,7 +89,7 @@ First run on an empty table may return `bootstrapped` and `skippedBootstrapNotif
 Configured in `frontend/vercel.json`:
 
 - Path: `/api/cron/apple-reviews`
-- Schedule: every 6 hours (`0 */6 * * *` UTC)
+- Schedule: every **5 minutes** (`*/5 * * * *` UTC).
 
 Vercel sends `Authorization: Bearer $CRON_SECRET`. This route also accepts `APP_REVIEW_ALERT_SECRET`. You can use the same value for both or rely on `CRON_SECRET` for scheduled runs only.
 

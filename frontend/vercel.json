@@ -29,6 +29,6 @@
     { "path": "/api/cron/budget-swaps-update", "schedule": "0 3 * * 0" },
     { "path": "/api/cron/mtg-legality-refresh", "schedule": "0 2 * * 0" },
     { "path": "/api/cron/card-tag-refresh", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/apple-reviews", "schedule": "0 */6 * * *" }
+    { "path": "/api/cron/apple-reviews", "schedule": "*/5 * * * *" }
   ]
 }

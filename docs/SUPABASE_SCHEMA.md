@@ -218,7 +218,7 @@ Server-side dedupe for iOS written review notifications. Service-role only; no c
   - columns: `id`, `review_id` (unique), `rating`, `title`, `body`, `reviewer_nickname`, `territory`, `created_date`, `notified_at`, `raw` (jsonb), `created_at`
   - **Limitation:** App Store Connect `customerReviews` returns written reviews; star-only ratings may not appear.
 
-Migration: `144_app_store_review_notifications.sql`. Cron: `POST`/`GET` `/api/cron/apple-reviews` every 6h. Setup: `docs/apple-review-discord-alerts.md`.
+Migration: `144_app_store_review_notifications.sql`. Cron: `POST`/`GET` `/api/cron/apple-reviews` every 5m (poll — Apple has no review webhook). Setup: `docs/apple-review-discord-alerts.md`.
 
 - Free signed-in users are capped at **15 decks**, **10 collections**, **500 total card quantity per collection**, **10 wishlists**, and **100 total card quantity per wishlist**.
 - Pro is resolved from `profiles.is_pro` / active `profiles.pro_until` and is unlimited. Guests remain on local/demo behavior and are not gated by persisted-storage triggers.

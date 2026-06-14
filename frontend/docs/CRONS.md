@@ -12,7 +12,7 @@
 | meta-signals | `/api/cron/meta-signals` | 05:15 daily |
 | marketing-radar-daily | `/api/cron/marketing-radar-daily` | 06:30 daily |
 | marketing-radar-review | `/api/cron/marketing-radar-review` | 08:00 every 2 days (ingest + brief + Discord review link) |
-| apple-reviews | `/api/cron/apple-reviews` | every 6 hours (iOS written App Store reviews → Discord; see `docs/apple-review-discord-alerts.md`) |
+| apple-reviews | `/api/cron/apple-reviews` | every 5 minutes (iOS written App Store reviews → Discord; Apple has no review webhook — see `docs/apple-review-discord-alerts.md`) |
 | top-cards | `/api/cron/top-cards` | 05:30 daily |
 | cleanup-rate-limits | `/api/cron/cleanup-rate-limits` | 06:00 Sundays |
 | cleanup-shared-links | `/api/cron/cleanup-shared-links` | 06:15 daily |

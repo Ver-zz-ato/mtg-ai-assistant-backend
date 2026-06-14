@@ -4,6 +4,7 @@
 
 ### iOS App Store review → Discord alerts
 
+- **Cron:** Apple review poll interval **15m → 5m** (Apple has no review webhook; polling only).
 - **Fix:** App Store Connect JWT now signs ES256 with IEEE P1363 (`r||s`) — fixes Apple `properly configured and signed bearer token` errors from DER-encoded signatures.
 - **Files:** `lib/apple-app-store/createAppStoreConnectJwt.ts`, `tests/unit/apple-app-store-jwt.test.ts`.
 
