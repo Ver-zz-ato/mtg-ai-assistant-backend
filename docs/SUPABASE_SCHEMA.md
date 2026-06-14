@@ -210,6 +210,16 @@ Migrations: `138_marketing_radar.sql`, `139_marketing_radar_phase2.sql`, `140_ma
 
 Cron (ingest + brief only, no auto-post): `GET /api/cron/marketing-radar-daily` at 06:30 UTC (`CRON_SECRET`).
 
+### App Store review Discord alerts (2026-06-14)
+
+Server-side dedupe for iOS written review notifications. Service-role only; no client access.
+
+- `app_store_review_notifications` — one row per App Store Connect `customerReviews` id already handled
+  - columns: `id`, `review_id` (unique), `rating`, `title`, `body`, `reviewer_nickname`, `territory`, `created_date`, `notified_at`, `raw` (jsonb), `created_at`
+  - **Limitation:** App Store Connect `customerReviews` returns written reviews; star-only ratings may not appear.
+
+Migration: `144_app_store_review_notifications.sql`. Cron: `POST`/`GET` `/api/cron/apple-reviews` every 6h. Setup: `docs/apple-review-discord-alerts.md`.
+
 - Free signed-in users are capped at **15 decks**, **10 collections**, **500 total card quantity per collection**, **10 wishlists**, and **100 total card quantity per wishlist**.
 - Pro is resolved from `profiles.is_pro` / active `profiles.pro_until` and is unlimited. Guests remain on local/demo behavior and are not gated by persisted-storage triggers.
 - Migration `frontend/db/migrations/133_pro_storage_limits.sql` adds a private helper plus triggers on `public.decks`, `public.collections`, `public.collection_cards`, `public.wishlists`, and `public.wishlist_items`.

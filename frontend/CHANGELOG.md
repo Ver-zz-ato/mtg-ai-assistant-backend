@@ -1,5 +1,15 @@
 # Frontend changelog
 
+## 2026-06-14
+
+### iOS App Store review → Discord alerts
+
+- **Cron:** `POST`/`GET` `/api/cron/apple-reviews` polls App Store Connect `customerReviews`, dedupes in `app_store_review_notifications`, posts new written reviews to Discord.
+- **Auth:** `Authorization: Bearer` with `APP_REVIEW_ALERT_SECRET` (accepts `CRON_SECRET` for Vercel Cron).
+- **Safety:** Empty-table bootstrap seeds without Discord; `?dryRun=1` for testing.
+- **Docs:** `docs/apple-review-discord-alerts.md`, `frontend/docs/CRONS.md`, migration `144_app_store_review_notifications.sql`.
+- **Files:** `app/api/cron/apple-reviews/route.ts`, `lib/apple-app-store/*`, `lib/server/verifyAppReviewAlertRequest.ts`.
+
 ## 2026-06-13
 
 ### RevenueCat webhook — anonymous app_user_id (Sentry JAVASCRIPT-NEXTJS-36)
