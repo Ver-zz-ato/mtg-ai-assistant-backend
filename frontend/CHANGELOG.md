@@ -4,6 +4,9 @@
 
 ### iOS App Store review → Discord alerts
 
+- **Fix:** App Store Connect JWT now signs ES256 with IEEE P1363 (`r||s`) — fixes Apple `properly configured and signed bearer token` errors from DER-encoded signatures.
+- **Files:** `lib/apple-app-store/createAppStoreConnectJwt.ts`, `tests/unit/apple-app-store-jwt.test.ts`.
+
 - **Cron:** `POST`/`GET` `/api/cron/apple-reviews` polls App Store Connect `customerReviews`, dedupes in `app_store_review_notifications`, posts new written reviews to Discord.
 - **Auth:** `Authorization: Bearer` with `APP_REVIEW_ALERT_SECRET` (accepts `CRON_SECRET` for Vercel Cron).
 - **Safety:** Empty-table bootstrap seeds without Discord; `?dryRun=1` for testing.

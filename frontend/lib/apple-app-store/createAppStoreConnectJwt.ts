@@ -45,7 +45,11 @@ export function createAppStoreConnectJwt(config: AppStoreConnectJwtConfig): stri
   signer.update(signingInput);
   signer.end();
 
-  const signature = signer.sign(privateKeyPem);
+  // JWT ES256 requires IEEE P1363 (r||s), not DER — default Node sign output is DER.
+  const signature = signer.sign({
+    key: privateKeyPem,
+    dsaEncoding: "ieee-p1363",
+  });
   return `${signingInput}.${base64UrlEncode(signature)}`;
 }
 
