@@ -55,7 +55,7 @@ export default function HomeHero() {
                 <Link href="/tools" className={primaryBtn}>
                   Explore Tools
                 </Link>
-                <Link href="/" className={aiBtn}>
+                <Link href="/new-chat" className={aiBtn}>
                   Ask ManaTap AI ✨
                 </Link>
               </>
