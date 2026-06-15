@@ -1,13 +1,5 @@
-import nextDynamic from "next/dynamic";
-import { TrendingCommandersStrip } from "@/components/TrendingCommandersStrip";
-import PopularCommanderGuides from "@/components/PopularCommanderGuides";
 import HomeCommanderGuideRotator from "@/components/home/HomeCommanderGuideRotator";
-
-const MetaDeckPanel = nextDynamic(() => import("@/components/MetaDeckPanel"), {
-  loading: () => (
-    <div className="h-32 animate-pulse rounded-xl border border-purple-800/30 bg-purple-900/20 p-3" />
-  ),
-});
+import HomeMetaMoverRotator from "@/components/home/HomeMetaMoverRotator";
 
 export default function HomeTrendingSection() {
   return (
@@ -17,24 +9,13 @@ export default function HomeTrendingSection() {
           What&apos;s trending in Commander
         </h2>
         <p className="mt-1.5 text-sm text-neutral-400 sm:text-base">
-          Meta movers, featured guides, and commanders to explore.
+          Featured guides and meta movers — pick a commander to explore.
         </p>
       </div>
 
-      <div className="-mx-4 sm:mx-0">
-        <TrendingCommandersStrip mode="marketing" />
-      </div>
-
-      <div className="mt-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
         <HomeCommanderGuideRotator />
-      </div>
-
-      <div className="-mx-4 mt-4 sm:mx-0">
-        <PopularCommanderGuides />
-      </div>
-
-      <div className="mt-4 max-w-xl">
-        <MetaDeckPanel compact />
+        <HomeMetaMoverRotator />
       </div>
     </section>
   );
