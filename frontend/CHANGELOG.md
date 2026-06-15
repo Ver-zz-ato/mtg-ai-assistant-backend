@@ -14,6 +14,7 @@
 - **Trending spotlight:** Merged commander guides + meta movers into one 2-column rotating spotlight row (`HomeMetaMoverRotator` + `HomeCommanderGuideRotator`). Removed horizontal meta strip, Popular Commander Guides grid, Meta Snapshot, and Browse by Workflow nav from `/new-home`.
 - **Trending layout:** Guide + meta rotators side-by-side again on desktop; Popular Commander Guides uses responsive grid (12 catalog commanders) on `/new-home`.
 - **Density pass:** Popular guides back to one row (6 flagship); community highlights on a single line; public deck count from `/api/decks/browse` total (not meta commander sum); tighter section spacing; tool card subtitles truncated to one line.
+- **Hero tool art:** Replaced `/new-home` popular tools banners with new 4:3 assets (`tool-deck-checker.png`, `tool-budget-swaps.png`, `tool-price-tracker.png`, `tool-mulligan-lab.png`, `tool-build-a-deck.png`).
 - **Conversion pass:** `HomeCommunityHighlights` strip (live public deck count + catalog commander guide count); stacked trending → featured guide → popular guides; compact FAQ (`HomepageFAQ` reuse, 5 items); compact `HomeProCta` near footer. No testimonials. Meta Snapshot remains off `/new-home`.
 - **Commander guides:** Rotating flagship guide pill (`HomeCommanderGuideRotator`) replaces static box in trending grid; shared `FLAGSHIP_COMMANDER_GUIDES` in `lib/home/commanderGuides.ts` (also used by `PopularCommanderGuides`).
 - **Meta Snapshot:** Trending card thumbnails with click-to-open `WebsiteCardDetailModal` (images via `/api/cards/batch-images`).
