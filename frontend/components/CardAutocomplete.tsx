@@ -56,8 +56,7 @@ export default function CardAutocomplete({
         const list = norm(json);
         trackCardSearch(q, list.length, "autocomplete");
         setItems(list.slice(0, 20));
-        const exactMatch = list.some((n) => n.toLowerCase().trim() === q.toLowerCase());
-        setOpen(list.length > 0 && !exactMatch);
+        setOpen(list.length > 0);
         setHi(0);
       } catch {
         setItems([]);

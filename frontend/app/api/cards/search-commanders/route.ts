@@ -12,23 +12,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { withLogging } from "@/lib/api/withLogging";
+import { scryfallGetJson } from "@/lib/server/scryfallApi";
 
 export const runtime = "nodejs";
 export const revalidate = 3600;
 
 const DAY = 24 * 60 * 60 * 1000;
+const CACHE_KEY_PREFIX = "scryfall-commanders:v2:";
 
 async function scryfallSearchCommanders(q: string): Promise<{ name: string }[]> {
   const fullQuery = `${q} is:commander`.trim();
-  const res = await fetch(
-    `https://api.scryfall.com/cards/search?q=${encodeURIComponent(fullQuery)}&unique=cards&order=edhrec`,
-    { cache: "no-store" }
+  const json = await scryfallGetJson<{ object?: string; data?: { name: string }[] }>(
+    `https://api.scryfall.com/cards/search?q=${encodeURIComponent(fullQuery)}&unique=cards&order=edhrec`
   );
-  if (!res.ok) return [];
-  const json = await res.json().catch(() => ({}));
-  if (json?.object === "error") return [];
-  const data = json?.data || [];
-  return data.map((c: { name: string }) => ({ name: c.name }));
+  if (!json || json.object === "error") return [];
+  const data = json.data || [];
+  return data.map((c) => ({ name: c.name }));
 }
 
 export const GET = withLogging(async (req: NextRequest) => {
@@ -36,13 +35,13 @@ export const GET = withLogging(async (req: NextRequest) => {
   const q = (searchParams.get("q") || "").trim();
   if (!q) return NextResponse.json({ ok: true, cards: [] }, { status: 200 });
 
-  const key = `scryfall-commanders:${q.toLowerCase()}`;
+  const key = `${CACHE_KEY_PREFIX}${q.toLowerCase()}`;
   try {
     const cached = memoGet<{ ok: boolean; cards: { name: string }[] }>(key);
     if (cached) return NextResponse.json(cached, { status: 200 });
   } catch {}
 
-  const cards = await scryfallSearchCommanders(q);
+  const cards = (await scryfallSearchCommanders(q)).slice(0, 20);
   const payload = { ok: true, cards };
 
   try {

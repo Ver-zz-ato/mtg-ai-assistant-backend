@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { memoGet, memoSet } from "@/lib/utils/memoCache";
 import { withLogging } from "@/lib/api/withLogging";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
+import { scryfallGetJson } from "@/lib/server/scryfallApi";
 
 export const runtime = 'nodejs';
 export const revalidate = 3600; // 1 hour
@@ -12,20 +13,20 @@ const DAY = 24 * 60 * 60 * 1000;
 
 /** Scryfall autocomplete is best for typeahead (partial names like "sol r" -> Sol Ring) */
 async function scryfallAutocomplete(q: string): Promise<{ name: string }[]> {
-  const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
-  if (!res.ok) return [];
-  const json = await res.json().catch(() => ({}));
+  const json = await scryfallGetJson<{ data?: string[] }>(
+    `https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(q)}`
+  );
   const names = Array.isArray(json?.data) ? json.data : [];
   return names.map((name: string) => ({ name }));
 }
 
 /** Scryfall search for complex queries (syntax, filters) */
 async function scryfallSearch(q: string): Promise<{ name: string; set?: string; set_name?: string; mana_cost?: string; type_line?: string }[]> {
-  const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}&unique=cards&order=edhrec`, { cache: 'no-store' });
-  if (!res.ok) return [];
-  const json = await res.json().catch(() => ({}));
-  if (json?.object === 'error') return [];
-  const data = json?.data || [];
+  const json = await scryfallGetJson<{ object?: string; data?: any[] }>(
+    `https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}&unique=cards&order=edhrec`
+  );
+  if (!json || json.object === "error") return [];
+  const data = json.data || [];
   return data.map((c: any) => ({
     name: c.name,
     set: c.set,
@@ -50,9 +51,10 @@ async function scryfallNamedFuzzyBest(q: string): Promise<{ name: string } | nul
   const t = q.trim();
   if (t.length < 3 || looksLikeScryfallSyntax(t)) return null;
   try {
-    const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(t)}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const j = (await res.json().catch(() => ({}))) as { object?: string; name?: string };
+    const j = await scryfallGetJson<{ object?: string; name?: string }>(
+      `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(t)}`
+    );
+    if (!j) return null;
     if (j?.object === "error") return null;
     const name = typeof j?.name === "string" ? j.name.trim() : "";
     return name ? { name } : null;
