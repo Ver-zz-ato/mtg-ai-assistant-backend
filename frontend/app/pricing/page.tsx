@@ -8,6 +8,7 @@ import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-e
 import { trackProUpgradeStarted, setActiveProFeature } from '@/lib/analytics-pro';
 import { track } from '@/lib/analytics/track';
 import Link from 'next/link';
+import { isChatReferrer } from '@/lib/navigation/chatRoute';
 import ProValueTooltip from '@/components/ProValueTooltip';
 import PricingTestimonials from '@/components/PricingTestimonials';
 import { AUTH_MESSAGES, showAuthToast } from '@/lib/auth-messages';
@@ -23,9 +24,8 @@ export default function PricingPage() {
     
     // Enhanced pricing page tracking
     const referrer = typeof document !== 'undefined' ? document.referrer : '';
-    const isChatReferrer =
-      referrer.includes('/chat') || referrer.includes('/new-chat');
-    const source = isChatReferrer ? 'chat_limit' :
+    const isChatReferrerHit = isChatReferrer(referrer);
+    const source = isChatReferrerHit ? 'chat_limit' :
                   referrer.includes('/my-decks') ? 'deck_feature' :
                   referrer.includes('google') ? 'google_search' : 'direct';
     

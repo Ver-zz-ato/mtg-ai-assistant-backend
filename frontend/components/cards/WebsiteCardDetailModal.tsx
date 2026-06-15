@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast-client";
 import WebsiteAddCardDestinationModal from "@/components/cards/WebsiteAddCardDestinationModal";
 import type { DeckUsageItem } from "@/lib/collection/deckCardUsage";
-import { CHAT_ROUTE, isChatPath } from "@/lib/navigation/chatRoute";
+import { openChatPrompt } from "@/lib/navigation/chatRoute";
 
 type CardMetadata = {
   name: string;
@@ -160,16 +160,6 @@ function friendlyExplainError(result: Extract<ExplainResult, { ok: false }>): st
   if (result.code === "AI_UNAVAILABLE") return "Card explanations are temporarily unavailable. Try again in a moment.";
   if (result.code === "VALIDATION_ERROR") return "This card could not be explained from the details available.";
   return result.error || "Could not explain this card. Try again in a moment.";
-}
-
-function openChatPrompt(prompt: string) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem("manatap_pending_chat_draft", prompt);
-  if (isChatPath(window.location.pathname)) {
-    window.dispatchEvent(new CustomEvent("manatap-chat-draft", { detail: { message: prompt } }));
-    return;
-  }
-  window.location.href = CHAT_ROUTE;
 }
 
 async function explainCardAi(params: {

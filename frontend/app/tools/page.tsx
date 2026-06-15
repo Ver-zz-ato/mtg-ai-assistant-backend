@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import ProFeatureCard from "@/components/ProFeatureCard";
+import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 
 export const metadata: Metadata = {
   title: "MTG Tools | ManaTap AI",
@@ -55,7 +56,7 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         priority: "recommended",
       },
       {
-        href: "/chat",
+        href: CHAT_ROUTE,
         title: "AI Chat",
         subtitle: "Ask rules questions, tune your deck, and get focused MTG help.",
         badge: "Limited",

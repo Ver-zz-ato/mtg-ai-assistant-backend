@@ -131,30 +131,36 @@ export default function PopularCommanderGuides({ embedded = false }: { embedded?
         embedded ? "pt-1" : "mx-auto max-w-[1600px] border-t border-neutral-800 px-4 py-4"
       }
     >
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          {embedded ? (
-            <>
-              <h2 className="text-2xl font-black text-white sm:text-3xl">Popular Commander Guides</h2>
-              <p className="mt-1.5 text-sm text-neutral-400 sm:text-base">
-                Best cards, budget upgrades, and mulligan strategy for top commanders.
-              </p>
-            </>
-          ) : (
-            <>
+      <div className={embedded ? "mb-3 text-center" : "mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"}>
+        {embedded ? (
+          <>
+            <h2 className="text-2xl font-black text-white sm:text-3xl">Popular Commander Guides</h2>
+            <p className="mt-1.5 text-sm text-neutral-400 sm:text-base">
+              Best cards, budget upgrades, and mulligan strategy for top commanders.
+            </p>
+            <Link
+              href="/commanders"
+              className="mt-2 inline-block text-sm font-medium text-cyan-400 transition-colors hover:text-cyan-300"
+            >
+              View all {HOME_COMMANDER_GUIDE_COUNT}+ guides →
+            </Link>
+          </>
+        ) : (
+          <>
+            <div>
               <h2 className="text-lg font-semibold text-neutral-200">📚 Popular Commander Guides</h2>
               <p className="mt-0.5 text-xs text-neutral-500">
                 Best cards, budget upgrades & mulligan strategy for top commanders
               </p>
-            </>
-          )}
-        </div>
-        <Link
-          href="/commanders"
-          className="shrink-0 text-sm font-medium text-cyan-400 transition-colors hover:text-cyan-300"
-        >
-          View all {HOME_COMMANDER_GUIDE_COUNT}+ guides →
-        </Link>
+            </div>
+            <Link
+              href="/commanders"
+              className="shrink-0 text-sm font-medium text-cyan-400 transition-colors hover:text-cyan-300"
+            >
+              View all {HOME_COMMANDER_GUIDE_COUNT}+ guides →
+            </Link>
+          </>
+        )}
       </div>
 
       {embedded ? (

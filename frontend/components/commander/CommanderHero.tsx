@@ -5,6 +5,7 @@
  */
 
 import Link from "next/link";
+import { buildChatDraftUrl } from "@/lib/navigation/chatRoute";
 import { CommanderArtBanner } from "@/components/CommanderArtBanner";
 import { CommanderStatsRow } from "./CommanderStatsRow";
 import type { CommanderStatsRowData } from "./CommanderStatsRow";
@@ -31,7 +32,7 @@ export function CommanderHero({
   swapsUrl,
 }: Props) {
   const builderUrl = `/build-a-deck?commander=${encodeURIComponent(commanderName)}#builder`;
-  const chatUrl = `/?chatDraft=${encodeURIComponent(`Tell me about the ${commanderName} commander?`)}`;
+  const chatUrl = buildChatDraftUrl(`Tell me about the ${commanderName} commander?`);
 
   return (
     <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">

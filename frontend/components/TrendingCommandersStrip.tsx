@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { openChatPrompt } from "@/lib/navigation/chatRoute";
 import {
   costAuditClientLog,
   costAuditRequestId,
@@ -114,11 +115,7 @@ export function TrendingCommandersStrip({ mode = "chat" }: { mode?: "chat" | "ma
       return;
     }
     const message = `Build a Commander deck for ${name}`;
-    window.dispatchEvent(
-      new CustomEvent("quiz-build-deck", { detail: { message } })
-    );
-    const chatArea = document.querySelector("[data-chat-area]");
-    chatArea?.scrollIntoView({ behavior: "smooth", block: "center" });
+    openChatPrompt(message, { autoSubmit: true });
   }
 
   if (loading) {

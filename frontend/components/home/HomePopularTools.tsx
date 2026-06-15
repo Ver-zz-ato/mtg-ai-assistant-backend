@@ -4,7 +4,7 @@ import HomeToolCard from "./HomeToolCard";
 export default function HomePopularTools() {
   return (
     <section className="mt-5 sm:mt-6">
-      <div className="mb-3">
+      <div className="mb-3 text-center">
         <h2 className="text-2xl font-black text-white sm:text-3xl">Popular ManaTap tools</h2>
         <p className="mt-2 text-sm text-neutral-400 sm:text-base">
           Fast paths to the tools players use most.

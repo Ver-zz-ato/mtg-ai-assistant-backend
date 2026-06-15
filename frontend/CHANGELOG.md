@@ -2,6 +2,20 @@
 
 ## 2026-06-15
 
+### Chat handoff pipeline
+
+- **Shared helpers:** `openChatPrompt`, `buildChatDraftUrl`, `hasEmbeddedChatShell`, and `isChatReferrer` in `lib/navigation/chatRoute.ts` — single source for card modal, commander hero, trending strip, and pricing attribution.
+- **Card modal:** `WebsiteCardDetailModal` uses shared `openChatPrompt` (localStorage + `/chat` or in-place event on `/chat` / `/old-home`).
+- **Trending strip:** Meta mover “build deck” CTA uses `openChatPrompt({ autoSubmit: true })` instead of a root-only custom event.
+- **Pricing:** `chat_limit` attribution includes `/chat`, `/new-chat`, `/old-home`, and legacy `/?chatDraft=…`.
+- **Files:** `lib/navigation/chatRoute.ts`, `components/cards/WebsiteCardDetailModal.tsx`, `components/commander/CommanderHero.tsx`, `components/TrendingCommandersStrip.tsx`, `app/tools/page.tsx`, `app/pricing/page.tsx`.
+
+### Homepage section headers
+
+- **Centered headings:** Problem finder, Popular tools, Trending in Commander, and Popular Commander Guides section titles + subtext are now center-aligned on `/`.
+- **Commander → chat hook:** `CommanderHero` “Ask the AI” CTA now uses `/chat?chatDraft=…` instead of `/?chatDraft=…`.
+- **Files:** `components/home/HomeProblemFinder.tsx`, `HomePopularTools.tsx`, `HomeTrendingSection.tsx`, `components/PopularCommanderGuides.tsx`, `components/commander/CommanderHero.tsx`.
+
 ### Production homepage + chat route swap
 
 - **Root `/`:** Hybrid companion homepage (`HybridHomePage`) is now production — hero, problem finder, popular tools, community highlights, trending, FAQ, Pro CTA. JSON-LD + indexable metadata on `/`.

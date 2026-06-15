@@ -4,14 +4,14 @@ import { HOME_PROBLEM_FINDER } from "@/lib/home/homeConfig";
 export default function HomeProblemFinder() {
   return (
     <section className="mt-4 sm:mt-5" aria-labelledby="home-problem-finder-heading">
-      <div className="mb-3">
+      <div className="mb-3 text-center">
         <h2
           id="home-problem-finder-heading"
           className="text-2xl font-black text-white sm:text-3xl"
         >
           What do you need help with today?
         </h2>
-        <p className="mt-2 max-w-2xl text-sm text-neutral-400 sm:text-base">
+        <p className="mx-auto mt-2 max-w-2xl text-sm text-neutral-400 sm:text-base">
           Pick a problem and ManaTap will point you to the right tools.
         </p>
       </div>
