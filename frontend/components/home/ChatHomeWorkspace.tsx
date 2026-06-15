@@ -60,7 +60,7 @@ export default function ChatHomeWorkspace({
 
   return (
     <>
-      <ModeOptions />
+      {!embedded ? <ModeOptions /> : null}
 
       <div className="w-full relative">
         {showAppBanner ? <AppComingSoonBanner /> : null}
@@ -91,7 +91,7 @@ export default function ChatHomeWorkspace({
             </ResponsiveLeftSidebar>
           ) : null}
 
-          <section className={`${chatColClass} flex flex-col gap-3 pt-2`} data-chat-area>
+          <section className={`${chatColClass} flex flex-col gap-3 ${embedded ? "pt-0" : "pt-2"}`} data-chat-area>
             <AIMemoryGreeting className="flex-shrink-0" />
             <Chat />
           </section>

@@ -67,12 +67,12 @@ const IntroBlock = () => (
       Your tactical MTG co-pilot for rules, deck tuning, and card questions. Paste a list, link a
       deck, or ask anything about your game plan — ManaTap answers with format-aware context.
     </p>
-    <h2 className="text-base font-semibold text-neutral-100 mb-2">How it works</h2>
+    <h2 className="text-base font-semibold text-cyan-300 mb-2">How it works</h2>
     <p className="text-neutral-300 mb-3 text-sm">
       Start typing in the chat panel. Guests can explore with limits; signed-in users get saved
       threads, deck linking, and more daily messages.
     </p>
-    <h2 className="text-base font-semibold text-neutral-100 mb-2">Use with your deck</h2>
+    <h2 className="text-base font-semibold text-emerald-300 mb-2">Use with your deck</h2>
     <p className="text-neutral-300 mb-4 text-sm">
       Link a saved deck or paste a list so recommendations respect your commander, colors, and
       card choices instead of generic advice.
@@ -135,7 +135,7 @@ const IntroBlock = () => (
         ))}
       </ul>
     </nav>
-    <PopularCommanders variant="pill" />
+    <PopularCommanders variant="rotator" />
   </section>
 );
 

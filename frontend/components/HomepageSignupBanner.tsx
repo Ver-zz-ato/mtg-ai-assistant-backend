@@ -94,8 +94,8 @@ export default function HomepageSignupBanner({ compact = false }: HomepageSignup
     }));
   };
 
-  const outerWrap = compact ? "w-full mb-2" : "max-w-[1600px] mx-auto px-4 mb-3";
-  const outerWrapExpanded = compact ? "w-full mb-2" : "max-w-[1600px] mx-auto px-4 mb-8 animate-slide-down";
+  const outerWrap = compact ? "w-full mb-2 -mt-px" : "max-w-[1600px] mx-auto px-4 mb-3";
+  const outerWrapExpanded = compact ? "w-full mb-2 -mt-px" : "max-w-[1600px] mx-auto px-4 mb-8 animate-slide-down";
 
   // Collapsed state: reduced visual weight (smaller height, softer gradient)
   if (!isExpanded) {
@@ -128,10 +128,10 @@ export default function HomepageSignupBanner({ compact = false }: HomepageSignup
   return (
     <div className={outerWrapExpanded}>
       <div
-        className={`bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 shadow-xl ${
+        className={`bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 ${
           compact
             ? "rounded-xl p-4 border border-white/10"
-            : "rounded-2xl p-5 border border-blue-500/30 ring-2 ring-blue-400/50"
+            : "rounded-2xl p-5 shadow-xl border border-blue-500/30 ring-2 ring-blue-400/50"
         }`}
       >
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

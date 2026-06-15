@@ -3,7 +3,7 @@ import ChatHomeWorkspace from "@/components/home/ChatHomeWorkspace";
 export default function NewChatPage() {
   return (
     <div className="max-w-[1400px] mx-auto">
-      <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-violet-900/25 via-fuchsia-900/15 to-cyan-900/20 p-5 sm:p-6 mb-3">
+      <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-violet-900/25 via-fuchsia-900/15 to-cyan-900/20 p-5 sm:p-6 mb-2">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-3xl" aria-hidden="true">
