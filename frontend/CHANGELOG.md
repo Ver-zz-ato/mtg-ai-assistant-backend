@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### Tools hub fixes (audit follow-up)
+
+- **Route:** `GET /analyze` redirects to `/mtg-deck-checker` via `app/analyze/route.ts` GET handler; `POST /analyze` unchanged (legacy re-export of `/api/deck/analyze` — mobile uses `/api/mobile/deck/analyze`).
+- **Route:** New `GET /roast` page with inline `DeckRoastPanel` (hub link no longer 404).
+- **Hub:** Deck Compare badge corrected to **Sign in** (guests see signup wall).
+- **Deck Checker UX:** Three-phase loading (reading list → identifying cards/format → running check); commander confirm gate; passes `commander` to analyze API; honest “Detailed” result copy.
+- **Files:** `app/analyze/route.ts`, `app/roast/page.tsx`, `app/tools/page.tsx`, `app/mtg-deck-checker/DeckCheckerClient.tsx`, `lib/deck/deck-checker-prep.ts`, `tests/unit/deck-checker-prep.test.ts`.
+
 - **Reliability:** `/api/deck/swap-suggestions` retries failed/invalid AI responses once (plus `retryOn429` / `retryOn5xx` on LLM client).
 - **Quality:** Blink/ETB engines (Thassa, Brago, Displacer Kitten, etc.) blocked as swap `from` cards server-side and in AI prompt; mobile response shape unchanged (`ok`, `suggestions`, `currency`, `budget`).
 - **Files:** `app/api/deck/swap-suggestions/route.ts`, `lib/deck/protected-role-cards.ts`, `lib/deck/budget-swap-guards.ts`, `tests/unit/swap-suggestions-protected.test.ts`.

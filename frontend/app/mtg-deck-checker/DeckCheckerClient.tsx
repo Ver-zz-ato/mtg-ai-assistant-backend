@@ -19,10 +19,13 @@ import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 import { AI_WORKSHOP_HANDOFF_KEY, type AiWorkshopHandoff } from "@/lib/deck/ai-workshop-actions";
 import { countAiWorkshopDeckCards } from "@/lib/deck/ai-workshop-deck-text";
 import { getAiDeckHalfwayMinimumCards } from "@/lib/deck/ai-workshop-rules";
+import { prepareDeckCheckerRun } from "@/lib/deck/deck-checker-prep";
 
 type Bands = Partial<Record<"curve" | "ramp" | "draw" | "removal" | "mana", number>>;
 type Counts = { lands: number; ramp: number; draw: number; removal: number };
 type Suggestion = { card?: string; reason?: string; category?: string };
+
+type BusyPhase = null | "reading" | "identifying" | "analyzing";
 
 const formats: AnalyzeFormat[] = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"];
 
@@ -140,10 +143,20 @@ function buildFixes(format: AnalyzeFormat, counts: Counts | null, quickFixes: st
   return fixes.slice(0, 4);
 }
 
+function busyLabel(phase: BusyPhase) {
+  if (phase === "reading") return "Reading decklist...";
+  if (phase === "identifying") return "Identifying cards & format...";
+  if (phase === "analyzing") return "Running deck check...";
+  return "Run deck check";
+}
+
 export default function DeckCheckerClient() {
   const [deckText, setDeckText] = useState("");
   const [format, setFormat] = useState<AnalyzeFormat>("Commander");
-  const [busy, setBusy] = useState(false);
+  const [commander, setCommander] = useState("");
+  const [busyPhase, setBusyPhase] = useState<BusyPhase>(null);
+  const [prepSummary, setPrepSummary] = useState<string | null>(null);
+  const [needsCommanderConfirm, setNeedsCommanderConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [bands, setBands] = useState<Bands | null>(null);
@@ -152,6 +165,7 @@ export default function DeckCheckerClient() {
   const [whatsGood, setWhatsGood] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
+  const busy = busyPhase !== null;
   const activeBands = bands ?? previewBands;
   const fixes = useMemo(() => buildFixes(format, counts, quickFixes, suggestions), [counts, format, quickFixes, suggestions]);
   const hasResult = score !== null || counts !== null;
@@ -173,26 +187,79 @@ export default function DeckCheckerClient() {
     }
   }, []);
 
-  async function runAnalysis(nextDeckText = deckText, nextFormat = format) {
+  async function runAnalysis(
+    nextDeckText = deckText,
+    nextFormat = format,
+    nextCommander = commander,
+    skipCommanderGate = false,
+  ) {
     if (!nextDeckText.trim()) {
       setError("Paste a decklist first, or load the sample Commander list.");
       return;
     }
 
     try {
-      setBusy(true);
       setError(null);
+      setNeedsCommanderConfirm(false);
+      setBusyPhase("reading");
+
+      const prep = prepareDeckCheckerRun(nextDeckText.trim(), nextFormat);
+      const resolvedFormat = prep.detectedFormat;
+      const resolvedCommander = nextCommander.trim() || prep.commander || "";
+      setPrepSummary(prep.formatHint);
+
+      if (resolvedFormat !== nextFormat) {
+        setFormat(resolvedFormat);
+      }
+      if (prep.commander && !nextCommander.trim()) {
+        setCommander(prep.commander);
+      }
+
+      if (
+        !skipCommanderGate &&
+        resolvedFormat === "Commander" &&
+        !resolvedCommander
+      ) {
+        setNeedsCommanderConfirm(true);
+        setBusyPhase(null);
+        setError("Commander format needs a commander. Confirm who leads this deck below.");
+        return;
+      }
+
+      setBusyPhase("identifying");
+      let preparedDeckText = nextDeckText.trim();
+      try {
+        const fixRes = await fetch("/api/deck/parse-and-fix-names", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deckText: preparedDeckText }),
+        });
+        const fixData = await fixRes.json().catch(() => ({}));
+        if (fixRes.ok && fixData?.ok && Array.isArray(fixData.cards) && fixData.cards.length) {
+          preparedDeckText = fixData.cards
+            .map((card: { qty?: number; name?: string }) => `${card.qty ?? 1} ${card.name ?? ""}`.trim())
+            .filter((line: string) => line.length > 1)
+            .join("\n");
+          if (preparedDeckText !== nextDeckText.trim()) {
+            setDeckText(preparedDeckText);
+          }
+        }
+      } catch {
+        // Name fixing is best-effort before the heavy analyze call.
+      }
+
+      setBusyPhase("analyzing");
 
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 240000);
-      // Same-origin App Router route; fetchJson targets the backend proxy prefix in dev.
       // eslint-disable-next-line no-restricted-globals
       const res = await fetch("/api/deck/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          deckText: nextDeckText.trim(),
-          format: nextFormat,
+          deckText: preparedDeckText,
+          format: resolvedFormat,
+          commander: resolvedFormat === "Commander" ? resolvedCommander : undefined,
           useScryfall: true,
           sourcePage: "mtg_deck_checker_landing",
         }),
@@ -219,15 +286,17 @@ export default function DeckCheckerClient() {
       setWhatsGood([]);
       setSuggestions([]);
     } finally {
-      setBusy(false);
+      setBusyPhase(null);
     }
   }
 
   function loadSample() {
     setFormat("Commander");
     setDeckText(sampleCommanderDeck);
+    setCommander("Krenko, Mob Boss");
     setError(null);
-    void runAnalysis(sampleCommanderDeck, "Commander");
+    setPrepSummary(null);
+    void runAnalysis(sampleCommanderDeck, "Commander", "Krenko, Mob Boss", true);
   }
 
   return (
@@ -269,7 +338,7 @@ export default function DeckCheckerClient() {
               {[
                 ["Formats", "5"],
                 ["Signup", "No"],
-                ["Result", "Instant"],
+                ["Result", "Detailed"],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-3">
                   <div className="text-xs uppercase text-zinc-500">{label}</div>
@@ -287,7 +356,9 @@ export default function DeckCheckerClient() {
                     <Gauge className="h-4 w-4 text-amber-300" aria-hidden />
                     Deck check console
                   </div>
-                  <p className="mt-1 text-xs text-zinc-500">{deckLines ? `${deckLines} deck lines loaded` : "Ready for your decklist"}</p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {prepSummary || (deckLines ? `${deckLines} deck lines loaded` : "Ready for your decklist")}
+                  </p>
                 </div>
                 <div className="grid grid-cols-3 gap-1 rounded-md border border-white/10 bg-black/35 p-1 sm:flex">
                   {formats.map((option) => (
@@ -317,6 +388,8 @@ export default function DeckCheckerClient() {
                   onChange={(event) => {
                     setDeckText(event.target.value);
                     setError(null);
+                    setPrepSummary(null);
+                    setNeedsCommanderConfirm(false);
                   }}
                   placeholder={`1 Sol Ring\n1 Arcane Signet\n1 Swords to Plowshares\n1 Command Tower`}
                   className="mt-3 h-80 w-full resize-none rounded-md border border-white/10 bg-black/45 px-4 py-3 font-mono text-sm leading-6 text-zinc-100 outline-none transition placeholder:text-zinc-700 focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/15"
@@ -328,8 +401,39 @@ export default function DeckCheckerClient() {
                   className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-cyan-300 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {busy ? <Zap className="h-4 w-4 animate-pulse" aria-hidden /> : <Wand2 className="h-4 w-4" aria-hidden />}
-                  {busy ? "Checking deck..." : "Run deck check"}
+                  {busyLabel(busyPhase)}
                 </button>
+                {needsCommanderConfirm && (
+                  <div className="mt-3 rounded-md border border-amber-300/35 bg-amber-950/25 p-3">
+                    <label htmlFor="commander-name" className="text-xs font-bold uppercase tracking-[0.14em] text-amber-100">
+                      Commander name
+                    </label>
+                    <input
+                      id="commander-name"
+                      value={commander}
+                      onChange={(event) => setCommander(event.target.value)}
+                      placeholder="e.g. Krenko, Mob Boss"
+                      className="mt-2 w-full rounded-md border border-white/10 bg-black/45 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-300/60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void runAnalysis(deckText, format, commander, true)}
+                      disabled={!commander.trim() || busy}
+                      className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-amber-300 px-4 py-2 text-sm font-black text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Confirm commander & run check
+                    </button>
+                  </div>
+                )}
+                {busyPhase && (
+                  <p className="mt-2 text-xs text-cyan-200/80">
+                    {busyPhase === "reading"
+                      ? "Parsing your list and detecting format..."
+                      : busyPhase === "identifying"
+                        ? "Matching card names before the full check..."
+                        : "Scoring curve, mana, roles, and legality — large lists can take a minute."}
+                  </p>
+                )}
                 {error && (
                   <div className="mt-3 flex gap-2 rounded-md border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">
                     <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
