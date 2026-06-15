@@ -466,6 +466,7 @@ export async function POST(req: NextRequest) {
     }
     const builtinSwaps = await getBudgetSwaps();
     const suggestions: Suggestion[] = [];
+    const curatedSourceNames = names.filter((name) => (builtinSwaps[name.toLowerCase()] || []).length > 0);
 
     // Detect combo pieces - these should NOT be suggested for swapping
     const comboPieces = new Set<string>();
@@ -551,19 +552,21 @@ export async function POST(req: NextRequest) {
       await addAiSuggestions();
     }
 
-    // Built-in fallbacks for common staples
-    for (const from of names) {
+    // Built-in fallbacks for common staples — only price cards with curated swap entries.
+    const builtinPricingSources = useAI && workshopBudgetSource ? names : curatedSourceNames;
+    for (const from of builtinPricingSources) {
       // Skip combo pieces - don't suggest swapping them
       const fromNorm = from.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim();
       if (comboPieces.has(fromNorm)) {
         console.log(`[swap-suggestions] Skipping combo piece (builtin): ${from}`);
         continue;
       }
-      
-      const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase, !workshopBudgetSource);
+
       const key = from.toLowerCase();
       const cands = builtinSwaps[key] || [];
-      
+      if (cands.length === 0) continue;
+
+      const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase, !workshopBudgetSource);
       if (pf > budget) {
         for (const cand of cands) {
           const toCanon = canonicalize(cand).canonicalName || cand;
@@ -632,7 +635,7 @@ export async function POST(req: NextRequest) {
       }
 
       const roleParitySuggestions = await filterSuggestionsByRoleParity(pipeline);
-      if (roleParitySuggestions.length > 0 || !isAiWorkshopBudgetSource(sourcePage)) {
+      if (roleParitySuggestions.length > 0) {
         pipeline = roleParitySuggestions;
       }
 
@@ -645,7 +648,7 @@ export async function POST(req: NextRequest) {
           groundedToRows,
           deckProfile,
         );
-        if (tagFilteredSuggestions.length > 0 || !isAiWorkshopBudgetSource(sourcePage)) {
+        if (tagFilteredSuggestions.length > 0) {
           pipeline = tagFilteredSuggestions;
         }
 
@@ -713,7 +716,18 @@ export async function POST(req: NextRequest) {
       currency,
       budget,
       suggestions: annotatedSuggestions,
-      ...(annotatedSuggestions.length === 0 ? { emptyReason: "no_cheaper_on_plan_swaps" as const } : {}),
+      stats: {
+        cardsInDeck: names.length,
+        curatedSourcesInDeck: curatedSourceNames.length,
+      },
+      ...(annotatedSuggestions.length === 0
+        ? {
+            emptyReason:
+              !useAI && curatedSourceNames.length === 0
+                ? ("no_curated_sources_in_deck" as const)
+                : ("no_cheaper_on_plan_swaps" as const),
+          }
+        : {}),
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "swap failed";

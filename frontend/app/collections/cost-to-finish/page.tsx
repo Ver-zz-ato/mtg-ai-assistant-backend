@@ -4,7 +4,7 @@ import Client from "./Client";
 import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { PopularCommanders } from "@/components/PopularCommanders";
-import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
+import { TOOL_DESCRIPTIONS, SOCIAL_PREVIEW_OG_IMAGE, SOCIAL_PREVIEW_TWITTER_IMAGE_URL } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +15,13 @@ export const metadata: Metadata = {
     title: "Cost to Finish • ManaTap AI",
     description: TOOL_DESCRIPTIONS.costToFinish,
     type: "website",
+    images: [SOCIAL_PREVIEW_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "Cost to Finish • ManaTap AI",
     description: TOOL_DESCRIPTIONS.costToFinish,
+    images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
   },
   alternates: { canonical: "https://www.manatap.ai/collections/cost-to-finish" },
 };

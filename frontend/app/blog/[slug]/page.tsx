@@ -5,7 +5,7 @@ import BlogImage from '@/components/BlogImage';
 import { DEFAULT_BLOG_POSTS } from '@/lib/blog-defaults';
 import { getDbBlogPost } from '@/lib/blog/dynamicBlogPosts';
 import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
-import { descriptionFromText } from '@/lib/seo/metadata';
+import { descriptionFromText, SOCIAL_PREVIEW_OG_IMAGE, SOCIAL_PREVIEW_OG_IMAGE_URL, SOCIAL_PREVIEW_TWITTER_IMAGE_URL } from '@/lib/seo/metadata';
 
 // Force dynamic rendering to avoid DYNAMIC_SERVER_USAGE error
 export const dynamic = 'force-dynamic';
@@ -79,11 +79,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       publishedTime: post.date,
       authors: [post.author],
       tags: [post.category],
+      images: [SOCIAL_PREVIEW_OG_IMAGE],
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description,
+      images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
     },
   };
 }
@@ -1679,7 +1681,7 @@ function articleJsonLd(post: typeof blogContent[string], slug: string) {
     "@type": "BlogPosting",
     "headline": post.title,
     "description": post.content.split('\n').find((line: string) => line.trim().length > 50 && !line.startsWith('#') && !line.startsWith('##'))?.trim().slice(0, 160) || `Learn about ${post.title.toLowerCase()}`,
-    "image": `https://www.manatap.ai/manatap-og-image.png`,
+    "image": SOCIAL_PREVIEW_OG_IMAGE_URL,
     "datePublished": post.date,
     "dateModified": post.date,
     "author": {
@@ -1691,7 +1693,7 @@ function articleJsonLd(post: typeof blogContent[string], slug: string) {
       "name": "ManaTap AI",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://www.manatap.ai/manatap-og-image.png"
+        "url": SOCIAL_PREVIEW_OG_IMAGE_URL
       }
     },
     "mainEntityOfPage": {

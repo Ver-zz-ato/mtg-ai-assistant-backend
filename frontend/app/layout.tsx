@@ -33,7 +33,11 @@ import TopLoadingBar from "@/components/TopLoadingBar";
 import GlobalBackground from "@/components/GlobalBackground";
 import SecureConnectionsGuard from "@/components/SecureConnectionsGuard";
 import { ActiveUsersProvider } from "@/lib/active-users-context";
-import { HOME_DESCRIPTION } from "@/lib/seo/metadata";
+import {
+  HOME_DESCRIPTION,
+  SOCIAL_PREVIEW_OG_IMAGE,
+  SOCIAL_PREVIEW_TWITTER_IMAGE_URL,
+} from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.manatap.ai"),
@@ -50,20 +54,13 @@ export const metadata: Metadata = {
     siteName: "ManaTap AI",
     type: "website",
     locale: "en_US",
-    images: [
-      {
-        url: "/opengraph-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "ManaTap AI — Your Complete Magic Companion",
-      },
-    ],
+    images: [SOCIAL_PREVIEW_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "ManaTap AI — MTG Deck Builder & Assistant",
     description: HOME_DESCRIPTION,
-    images: ["/twitter-image.jpg"],
+    images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
   },
   appleWebApp: {
     capable: true,

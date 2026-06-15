@@ -23,6 +23,19 @@ async function main() {
       to: "Thought Vessel",
       priceFrom: 180,
       priceTo: 12,
+      budget: 0,
+      deckNameKeys,
+      format: "Commander",
+    }),
+    true,
+  );
+
+  assert.equal(
+    isValidBudgetSwap({
+      from: "Mana Crypt",
+      to: "Thought Vessel",
+      priceFrom: 180,
+      priceTo: 12,
       budget: 5,
       deckNameKeys,
       format: "Commander",

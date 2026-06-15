@@ -1,5 +1,15 @@
 # Frontend changelog
 
+## 2026-06-15
+
+### Budget Swaps — threshold 0 and empty states
+
+- **Fix:** `isValidBudgetSwap` no longer requires replacements to cost £0 when threshold is 0 (was blocking every swap).
+- **Fix:** Tag/role filters on `/api/deck/swap-suggestions` keep prior suggestions when filtering would return none (standalone page no longer wiped to empty).
+- **Fix:** Quick Swaps only prices cards with curated swap entries (avoids timing out on large decks); returns `no_curated_sources_in_deck` when the list has no curated staples.
+- **UX:** No-results modal and inline banner use mode-aware copy; threshold-0 no longer suggests "raise threshold"; API/network failures show an error modal with retry; errors show in empty results panel.
+- **Files:** `lib/deck/budget-swap-guards.ts`, `app/api/deck/swap-suggestions/route.ts`, `app/deck/swap-suggestions/Client.tsx`, `tests/unit/swap-suggestions-budget.test.ts`.
+
 ## 2026-06-14
 
 ### iOS App Store review → Discord alerts

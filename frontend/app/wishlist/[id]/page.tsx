@@ -1,6 +1,7 @@
 // app/wishlist/[id]/page.tsx
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
+import { SOCIAL_PREVIEW_OG_IMAGE, SOCIAL_PREVIEW_TWITTER_IMAGE_URL } from "@/lib/seo/metadata";
 import PublicWishlistCardList from "@/components/PublicWishlistCardList";
 
 type Params = { id: string };
@@ -42,11 +43,13 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
       url: canonicalUrl,
       siteName: "ManaTap.ai",
       locale: "en_US",
+      images: [SOCIAL_PREVIEW_OG_IMAGE],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: `${title} | ManaTap.ai`,
       description,
+      images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
     },
   };
 }

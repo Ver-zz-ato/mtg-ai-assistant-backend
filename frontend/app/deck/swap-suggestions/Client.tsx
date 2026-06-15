@@ -67,6 +67,8 @@ export default function BudgetSwapsClient(){
   const [newDeckLink, setNewDeckLink] = React.useState<string>('');
   
   const [showNoResultsModal, setShowNoResultsModal] = React.useState(false);
+  const [showErrorModal, setShowErrorModal] = React.useState(false);
+  const [noResultsHint, setNoResultsHint] = React.useState<string | undefined>(undefined);
   const [showProModal, setShowProModal] = React.useState(false);
   // Name fixing for pasted deck text
   const [fixNamesOpen, setFixNamesOpen] = React.useState(false);
@@ -185,6 +187,42 @@ export default function BudgetSwapsClient(){
   const isProFinal = isPro || isProLocal;
   const hasResults = sugs.length > 0;
 
+  const buildNoResultsHint = React.useCallback((
+    swapMode: 'strict' | 'ai',
+    swapThreshold: number,
+    emptyReason?: string,
+    curatedSourcesInDeck?: number,
+  ) => {
+    const sym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
+    if (swapMode === 'strict' && emptyReason === 'no_curated_sources_in_deck') {
+      return `Quick Swaps only covers curated expensive staples (Mana Crypt, Dockside Extortionist, fetchlands, and similar). Your deck doesn't include those cards${curatedSourcesInDeck === 0 ? '' : ''}. Try AI-Powered Swaps to find cheaper options for the expensive cards you do have${isProFinal ? '' : ' (Pro)'}.`;
+    }
+    if (swapMode === 'ai') {
+      if (swapThreshold <= 0) {
+        return `We couldn't find AI swaps for this deck at any price point. The list may be very budget-friendly already, or card prices didn't load — try Quick Swaps, refresh, and run again.`;
+      }
+      return `No AI swaps matched your deck at ${sym}${swapThreshold.toFixed(1)}+. Try lowering the threshold or switching to Quick Swaps for curated staple pairings.`;
+    }
+    if (swapThreshold <= 0) {
+      return `Quick Swaps uses a curated list of popular expensive staples. None of those pairings matched your deck right now — try AI-Powered Swaps for broader suggestions${isProFinal ? '' : ' (Pro)'}.`;
+    }
+    return `No curated swaps matched cards over ${sym}${swapThreshold.toFixed(1)} in your deck. Try lowering the threshold, or use AI-Powered Swaps for broader coverage${isProFinal ? '' : ' (Pro)'}.`;
+  }, [currency, isProFinal]);
+
+  const friendlySwapError = React.useCallback((message: string) => {
+    const lower = message.toLowerCase();
+    if (lower.includes('failed to fetch') || lower.includes('network') || lower.includes('abort')) {
+      return 'We lost connection before swaps finished. This can happen on large decks or slow networks — please try again in a moment.';
+    }
+    if (lower.includes('rate_limit') || lower.includes('daily limit') || lower.includes('free budget swap')) {
+      return message;
+    }
+    if (message === 'Failed') {
+      return 'Budget Swaps could not finish this run. Please try again, or switch mode and retry.';
+    }
+    return message;
+  }, []);
+
   const compute = async (): Promise<Sug[]|null> => {
     // Capture deckText at the moment compute() is called
     const currentDeckText = deckText;
@@ -226,6 +264,7 @@ export default function BudgetSwapsClient(){
     
     setBusy(true); 
     setError(undefined);
+    setShowErrorModal(false);
     setDisplayedCount(5);
     // Clear previous results immediately to prevent flashing
     setSugs([]);
@@ -241,8 +280,22 @@ export default function BudgetSwapsClient(){
         body.commander = commanderName;
       }
 
-      const r = await fetch('/api/deck/swap-suggestions', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-      const j = await r.json().catch(() => ({ ok:false }));
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 125_000);
+
+      let r: Response;
+      try {
+        r = await fetch('/api/deck/swap-suggestions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+
+      const j = await r.json().catch(() => ({ ok: false }));
 
       if (!r.ok || j?.ok === false) {
         if (r.status === 429 && j?.proUpsell) {
@@ -250,14 +303,25 @@ export default function BudgetSwapsClient(){
         }
         throw new Error(j?.error || 'Failed');
       }
-      const list: Sug[] = Array.isArray(j?.suggestions)? j.suggestions: [];
-      const sorted = list.sort((a,b)=> (a.price_to-a.price_from)-(b.price_to-b.price_from));
+      const list: Sug[] = Array.isArray(j?.suggestions) ? j.suggestions : [];
+      const sorted = list.sort((a, b) => (a.price_to - a.price_from) - (b.price_to - b.price_from));
       setAllSuggestions(sorted);
       const initialCount = 5;
       setDisplayedCount(initialCount);
       const initialSugs = sorted.slice(0, initialCount);
       setSugs(initialSugs);
-      if (initialSugs.length === 0) setShowNoResultsModal(true);
+      if (initialSugs.length === 0) {
+        const hint = buildNoResultsHint(
+          mode,
+          threshold,
+          typeof j?.emptyReason === 'string' ? j.emptyReason : undefined,
+          typeof j?.stats?.curatedSourcesInDeck === 'number' ? j.stats.curatedSourcesInDeck : undefined,
+        );
+        setNoResultsHint(hint);
+        setShowNoResultsModal(true);
+      } else {
+        setNoResultsHint(undefined);
+      }
       // Prefetch thumbnails for initial display
       const names: string[] = [];
       initialSugs.forEach(s => { names.push(s.from); names.push(s.to); });
@@ -284,9 +348,12 @@ export default function BudgetSwapsClient(){
       }
       
       return initialSugs;
-    } catch(e:any){
-      const errorMsg = e?.message || String(e) || 'Unknown error';
+    } catch (e: unknown) {
+      const raw = e instanceof Error ? e.message : String(e) || 'Unknown error';
+      const errorMsg = friendlySwapError(raw);
       setError(errorMsg);
+      setShowNoResultsModal(false);
+      setShowErrorModal(true);
       return null;
     } finally{ 
       setBusy(false); 
@@ -565,7 +632,7 @@ export default function BudgetSwapsClient(){
               <label className="text-xs">
                 <div className="opacity-70 mb-1">Min. card price (per card)</div>
                 <input type="number" min={0} step={0.5} value={threshold} onChange={e=>setThreshold(parseFloat(e.target.value||'0'))} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" />
-                <div className="text-[10px] text-neutral-500 mt-0.5">Cards costing more than this (per card) get budget alternatives. E.g. {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'} shows swaps for cards over {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'}.</div>
+                <div className="text-[10px] text-neutral-500 mt-0.5">Cards costing more than this (per card) get budget alternatives. E.g. {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'} shows swaps for cards over {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'}. Use 0 to include any priced card.</div>
               </label>
               <label className="text-xs block">
                 <div className="opacity-70 mb-1.5">Mode</div>
@@ -638,6 +705,16 @@ export default function BudgetSwapsClient(){
 
           {!hasResults ? (
             <div className="space-y-4">
+              {error && (
+                <div className="rounded-lg border border-red-500/40 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                  {error}
+                </div>
+              )}
+              {!busy && noResultsHint && !showNoResultsModal && (
+                <div className="rounded-lg border border-amber-600/40 bg-amber-950/20 px-3 py-2 text-sm text-amber-100/90">
+                  {noResultsHint}
+                </div>
+              )}
               {/* Quick-start tutorial */}
               {!busy && (
                 <div className="mb-4">
@@ -1073,21 +1150,83 @@ export default function BudgetSwapsClient(){
                 <div className="text-5xl mb-3">🔍</div>
                 <h3 className="text-xl font-bold mb-2 text-amber-400">No budget swaps found</h3>
                 <p className="text-sm text-neutral-300 mb-4">
-                  No cards in your deck met the swap criteria at {currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$'}{threshold.toFixed(1)}+. Try raising the threshold to see suggestions for more expensive cards.
+                  {noResultsHint || buildNoResultsHint(mode, threshold)}
                 </p>
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={() => {
-                      setThreshold(Math.min(100, threshold + 5));
-                      setShowNoResultsModal(false);
-                      setTimeout(() => compute(), 100);
-                    }}
-                    className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm"
-                  >
-                    Try {currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$'}{threshold + 5}+ threshold
-                  </button>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  {threshold > 0 && (
+                    <button
+                      onClick={() => {
+                        setThreshold(Math.max(0, threshold - 5));
+                        setShowNoResultsModal(false);
+                        setTimeout(() => compute(), 100);
+                      }}
+                      className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm"
+                    >
+                      Try {currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$'}{Math.max(0, threshold - 5).toFixed(1)}+ threshold
+                    </button>
+                  )}
+                  {mode === 'strict' && (
+                    <button
+                      onClick={() => {
+                        setShowNoResultsModal(false);
+                        if (isProFinal) {
+                          setMode('ai');
+                          setTimeout(() => compute(), 100);
+                        } else {
+                          setShowProModal(true);
+                        }
+                      }}
+                      className="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm"
+                    >
+                      {isProFinal ? 'Try AI-Powered Swaps' : 'See AI-Powered Swaps (Pro)'}
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowNoResultsModal(false)}
+                    className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600 text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Request failed modal */}
+      <AnimatePresence>
+        {showErrorModal && error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => setShowErrorModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-neutral-900 border-2 border-red-600/50 rounded-xl p-6 max-w-md mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="text-5xl mb-3">⚠️</div>
+                <h3 className="text-xl font-bold mb-2 text-red-400">Couldn&apos;t finish Budget Swaps</h3>
+                <p className="text-sm text-neutral-300 mb-4">{error}</p>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  <button
+                    onClick={() => {
+                      setShowErrorModal(false);
+                      setTimeout(() => { void compute(); }, 100);
+                    }}
+                    className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-black font-semibold text-sm"
+                  >
+                    Try again
+                  </button>
+                  <button
+                    onClick={() => setShowErrorModal(false)}
                     className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600 text-sm"
                   >
                     Close

@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import DeckCheckerClient from "./DeckCheckerClient";
+import {
+  SOCIAL_PREVIEW_OG_IMAGE,
+  SOCIAL_PREVIEW_TWITTER_IMAGE_URL,
+} from "@/lib/seo/metadata";
 
 const title = "MTG Deck Checker | Free Magic Deck Analyzer & Deck Rater";
 const description =
@@ -25,14 +29,7 @@ export const metadata: Metadata = {
     description,
     url: "https://www.manatap.ai/mtg-deck-checker",
     siteName: "ManaTap AI",
-    images: [
-      {
-        url: "/opengraph-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "ManaTap AI MTG Deck Checker",
-      },
-    ],
+    images: [{ ...SOCIAL_PREVIEW_OG_IMAGE, alt: "ManaTap AI MTG Deck Checker" }],
     locale: "en_US",
     type: "website",
   },
@@ -40,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title,
     description,
-    images: ["/twitter-image.jpg"],
+    images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
   },
 };
 

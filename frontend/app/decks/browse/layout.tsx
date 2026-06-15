@@ -1,5 +1,9 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  SOCIAL_PREVIEW_OG_IMAGE,
+  SOCIAL_PREVIEW_TWITTER_IMAGE_URL,
+} from '@/lib/seo/metadata';
 
 export const metadata: Metadata = {
   title: 'Browse Magic: The Gathering Decks | ManaTap AI',
@@ -9,11 +13,13 @@ export const metadata: Metadata = {
     title: 'Browse MTG Decks | ManaTap AI',
     description: 'Explore thousands of community MTG decks. Find your next Commander, Modern, or Standard deck!',
     type: 'website',
+    images: [SOCIAL_PREVIEW_OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Browse MTG Decks | ManaTap AI',
     description: 'Explore thousands of community MTG decks.',
+    images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
   },
 };
 

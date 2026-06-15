@@ -12,6 +12,7 @@ import CloneDeckButton from "@/components/CloneDeckButton";
 import ShareButton from "@/components/ShareButton";
 import HandTestingSection from "./HandTestingSection";
 import type { Metadata } from "next";
+import { SOCIAL_PREVIEW_OG_IMAGE_URL } from "@/lib/seo/metadata";
 import { buildScryfallCacheRowFromApiCard } from "@/lib/server/scryfallCacheRow";
 import { isMaybeFlexBucketEnabledForFormat, normalizeMaybeFlexCards } from "@/lib/deck/maybeFlexCards";
 
@@ -106,7 +107,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
         alt: commander ? `${title} - ${commander} deck` : `${title} deck`,
       }
     : {
-        url: "/manatap-og-image.png",
+        url: SOCIAL_PREVIEW_OG_IMAGE_URL,
         width: 1200,
         height: 630,
         alt: "ManaTap AI - MTG Deck Builder",

@@ -30,7 +30,8 @@ export function isValidBudgetSwap(input: {
   if (!(input.priceFrom > 0 && input.priceTo > 0)) return false;
   if (input.priceFrom <= input.budget) return false;
   if (input.priceTo >= input.priceFrom) return false;
-  if (!input.allowReplacementAboveBudget && input.priceTo > input.budget) return false;
+  // Threshold 0 means "swap any priced card" — do not require free replacements.
+  if (!input.allowReplacementAboveBudget && input.budget > 0 && input.priceTo > input.budget) return false;
   const fromKey = normalizedCardKey(input.from);
   const toKey = normalizedCardKey(input.to);
   if (!toKey || fromKey === toKey) return false;

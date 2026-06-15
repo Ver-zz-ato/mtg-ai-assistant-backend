@@ -3,6 +3,19 @@ import type { Metadata } from "next";
 export const SITE_URL = "https://www.manatap.ai";
 export const SITE_LAST_UPDATED_ISO = "2026-05-26T00:00:00Z";
 
+/** Public 1200×630 preview image for Open Graph (absolute URL). */
+export const SOCIAL_PREVIEW_OG_IMAGE_URL = `${SITE_URL}/opengraph-image.jpg`;
+
+/** Public 1200×630 preview image for Twitter cards (absolute URL). */
+export const SOCIAL_PREVIEW_TWITTER_IMAGE_URL = `${SITE_URL}/twitter-image.jpg`;
+
+export const SOCIAL_PREVIEW_OG_IMAGE = {
+  url: SOCIAL_PREVIEW_OG_IMAGE_URL,
+  width: 1200,
+  height: 630,
+  alt: "ManaTap AI — Your Complete Magic Companion",
+} as const;
+
 export const HOME_DESCRIPTION =
   "Build better Magic: The Gathering decks with ManaTap AI. Analyze Commander decks, test mulligans, compare lists, track prices, and find upgrades.";
 

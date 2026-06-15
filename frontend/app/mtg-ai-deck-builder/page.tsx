@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
+import {
+  SOCIAL_PREVIEW_OG_IMAGE,
+  SOCIAL_PREVIEW_TWITTER_IMAGE_URL,
+} from '@/lib/seo/metadata';
 
 export const metadata: Metadata = {
   title: 'MTG AI Deck Builder | Free Magic: The Gathering AI Deck Analyzer - ManaTap AI',
@@ -13,14 +17,7 @@ export const metadata: Metadata = {
     description: 'Build and analyze Magic: The Gathering decks with AI-powered suggestions for Commander, Modern, and Standard formats.',
     url: 'https://www.manatap.ai/mtg-ai-deck-builder',
     siteName: 'ManaTap AI',
-    images: [
-      {
-        url: '/manatap-og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'ManaTap AI - MTG AI Deck Builder',
-      },
-    ],
+    images: [{ ...SOCIAL_PREVIEW_OG_IMAGE, alt: 'ManaTap AI - MTG AI Deck Builder' }],
     locale: 'en_US',
     type: 'website',
   },
@@ -28,6 +25,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'MTG AI Deck Builder | Free Magic: The Gathering AI - ManaTap AI',
     description: 'Build and analyze Magic: The Gathering decks with AI-powered suggestions.',
+    images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
   },
 };
 
