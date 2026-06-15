@@ -86,6 +86,24 @@ const KNOWN_ENGINES = new Set(
   ].map(normalizeScryfallCacheName)
 );
 
+/** Repeatable blink / flicker engines that anchor ETB and value strategies. */
+const KNOWN_FLICKER_ENGINES = new Set(
+  [
+    "thassa, deep-dwelling",
+    "brago, king eternal",
+    "soulherder",
+    "displacer kitten",
+    "ephemerate",
+    "essence flux",
+    "cloudshift",
+    "momentary blink",
+    "planar incision",
+    "lae'zel's acrobatics",
+    "ghostly flicker",
+    "rescue",
+  ].map(normalizeScryfallCacheName)
+);
+
 function addProtected(
   out: Map<string, ProtectedRoleCard>,
   card: ProtectedRoleCard
@@ -123,6 +141,17 @@ function classifyProtectedRole(name: string, card: SfCard | null): ProtectedRole
 
   if (KNOWN_ENGINES.has(key)) {
     return { name, category: "engine", reason: "repeatable card, mana, or resource engine", confidence: "high" };
+  }
+
+  if (KNOWN_FLICKER_ENGINES.has(key)) {
+    return { name, category: "engine", reason: "blink or flicker engine that enables the deck's ETB plan", confidence: "high" };
+  }
+
+  if (
+    /exile .*return .*battlefield|return .*creature .*battlefield under its owner|flicker target|blink target/i.test(oracle) &&
+    !/until end of turn|at the beginning of the next end step/i.test(oracle)
+  ) {
+    return { name, category: "engine", reason: "repeatable blink or flicker engine", confidence: "medium" };
   }
 
   if (
@@ -201,6 +230,41 @@ export function formatProtectedRoleCardsForPrompt(cards: ProtectedRoleCard[]): s
     lines.push(`- ${card.name}: ${card.category}; ${card.reason}; confidence=${card.confidence}`);
   }
   return lines.join("\n");
+}
+
+export function formatProtectedRoleCardsForSwapPrompt(cards: ProtectedRoleCard[]): string {
+  if (!cards.length) return "";
+  const lines = [
+    "DECK ROLE PROTECTION (budget swaps — critical):",
+    "- NEVER use these cards as the `from` card in a swap suggestion.",
+    "- They are commander, combo, win-con, or core synergy engines for this list — cheaper price alone is not enough reason to replace them.",
+    "- Prefer swapping expensive support cards, lands, or flex slots that are not listed here.",
+  ];
+  for (const card of cards.slice(0, 16)) {
+    lines.push(`- ${card.name}: ${card.category}; ${card.reason}; confidence=${card.confidence}`);
+  }
+  return lines.join("\n");
+}
+
+export function buildProtectedSwapFromKeys(cards: ProtectedRoleCard[]): Set<string> {
+  const out = new Set<string>();
+  for (const card of cards) {
+    const key = normalizeScryfallCacheName(card.name);
+    if (!key) continue;
+    const block =
+      card.category === "commander" ||
+      card.category === "combo" ||
+      card.category === "wincon" ||
+      card.confidence === "high" ||
+      (card.category === "engine" && card.confidence === "medium");
+    if (block) out.add(key);
+  }
+  return out;
+}
+
+export function isProtectedBudgetSwapFrom(name: string, protectedFromKeys: Set<string>): boolean {
+  if (!protectedFromKeys.size) return false;
+  return protectedFromKeys.has(normalizeScryfallCacheName(name));
 }
 
 export async function buildProtectedRoleCardsPrompt(input: {

@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+- **Reliability:** `/api/deck/swap-suggestions` retries failed/invalid AI responses once (plus `retryOn429` / `retryOn5xx` on LLM client).
+- **Quality:** Blink/ETB engines (Thassa, Brago, Displacer Kitten, etc.) blocked as swap `from` cards server-side and in AI prompt; mobile response shape unchanged (`ok`, `suggestions`, `currency`, `budget`).
+- **Files:** `app/api/deck/swap-suggestions/route.ts`, `lib/deck/protected-role-cards.ts`, `lib/deck/budget-swap-guards.ts`, `tests/unit/swap-suggestions-protected.test.ts`.
+
 - **UX:** AI failures (`ai_call_failed`, `ai_invalid_response`) show error modal with retry; empty AI outcomes distinguish "no suggestions" vs "filtered out".
 - **API:** `emptyReason` + `stats.ai` on `/api/deck/swap-suggestions`; removed duplicate standalone AI retry.
 - **Files:** `app/api/deck/swap-suggestions/route.ts`, `app/deck/swap-suggestions/Client.tsx`, `lib/deck/swap-suggestions-empty-reason.ts`, `tests/unit/swap-suggestions-empty-reason.test.ts`.

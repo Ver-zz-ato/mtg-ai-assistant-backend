@@ -26,7 +26,12 @@ export function isValidBudgetSwap(input: {
   deckNameKeys: Set<string>;
   format: string;
   allowReplacementAboveBudget?: boolean;
+  protectedFromKeys?: Set<string>;
 }): boolean {
+  if (input.protectedFromKeys?.size) {
+    const fromKey = normalizedCardKey(input.from);
+    if (input.protectedFromKeys.has(fromKey)) return false;
+  }
   if (!(input.priceFrom > 0 && input.priceTo > 0)) return false;
   if (input.priceFrom <= input.budget) return false;
   if (input.priceTo >= input.priceFrom) return false;

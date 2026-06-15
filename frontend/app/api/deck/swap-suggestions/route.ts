@@ -241,7 +241,8 @@ async function aiSuggest(
   allowedColors?: string[] | null,
   usageSource?: string | null,
   sourcePage?: string | null,
-  recommendationTier?: "guest" | "free" | "pro"
+  recommendationTier?: "guest" | "free" | "pro",
+  protectedRoleCardsPrompt = "",
 ): Promise<AiSuggestResult> {
   const tierConfig = getRecommendationTierConfig(recommendationTier ?? "guest");
   const model = tierConfig.model || process.env.MODEL_SWAP_SUGGESTIONS || DEFAULT_FALLBACK_MODEL;
@@ -259,16 +260,19 @@ async function aiSuggest(
     formatRule = '5. Format & color: All suggestions must be Commander-legal and match the deck color identity when it is known.';
   }
 
-  let protectedRoleCardsPrompt = "";
-  try {
-    const { buildProtectedRoleCardsPrompt } = await import("@/lib/deck/protected-role-cards");
-    protectedRoleCardsPrompt = await buildProtectedRoleCardsPrompt({
-      deckText,
-      commander: isCommander ? commander || null : null,
-      limit: 14,
-    });
-  } catch {
-    protectedRoleCardsPrompt = "";
+  let protectedRoleCardsPromptResolved = protectedRoleCardsPrompt;
+  if (!protectedRoleCardsPromptResolved) {
+    try {
+      const { detectProtectedRoleCards, formatProtectedRoleCardsForSwapPrompt } = await import("@/lib/deck/protected-role-cards");
+      const cards = await detectProtectedRoleCards({
+        deckText,
+        commander: isCommander ? commander || null : null,
+        limit: 14,
+      });
+      protectedRoleCardsPromptResolved = formatProtectedRoleCardsForSwapPrompt(cards);
+    } catch {
+      protectedRoleCardsPromptResolved = "";
+    }
   }
   
   const system = `You are ManaTap AI, an expert Magic: The Gathering assistant suggesting budget-friendly alternatives.
@@ -291,7 +295,7 @@ CRITICAL RULES:
    - Cards that reference specific other cards by name
    - Cards with "you win the game" or infinite combo potential
 ${formatRule}
-${protectedRoleCardsPrompt ? `\n${protectedRoleCardsPrompt}` : ""}
+${protectedRoleCardsPromptResolved ? `\n${protectedRoleCardsPromptResolved}` : ""}
 
 RESPONSE FORMAT: Respond ONLY with a JSON array. Each object: "from" (original card), "to" (replacement), "reason" (1-2 sentences explaining role match).
 Example: [{"from":"Gaea's Cradle","to":"Growing Rites of Itlimoc","reason":"Both are lands that tap for mana based on creatures - same ramp role."}]
@@ -300,56 +304,66 @@ If SHARED ROLE CLASSIFIER SUMMARY or TAG GROUNDED PROFILE is present in the deck
 Quality over quantity. If no good swaps exist, return empty array [].`;
   
   const input = `Format: ${formatTitle}\nCurrency: ${currency}${isCommander && commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
-  
-  try {
-    const { callLLM } = await import('@/lib/ai/unified-llm-client');
 
-    const response = await callLLM(
-      [
-        { role: "system", content: [{ type: "input_text", text: system }] },
-        { role: "user", content: [{ type: "input_text", text: input }] },
-      ],
-      {
-        route: '/api/deck/swap-suggestions',
-        feature: 'swap_suggestions',
-        model,
-        fallbackModel: tierConfig.fallbackModel || DEFAULT_FALLBACK_MODEL,
-        timeout: 120000,
-        maxTokens: 4096,
-        apiType: 'responses',
-        userId: userId || null,
-        isPro: isPro || false,
-        anonId: anonId ?? null,
-        source_page: sourcePage ?? null,
-        source: usageSource ?? null,
-      }
-    );
-
-    const text = response.text.trim();
-    if (!text) {
-      return { outcome: "empty", suggestions: [] };
-    }
+  const runOnce = async (): Promise<AiSuggestResult> => {
     try {
-      // Remove markdown code blocks if present
-      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const parsed = JSON.parse(cleaned) as unknown;
-      if (!Array.isArray(parsed)) {
+      const { callLLM } = await import('@/lib/ai/unified-llm-client');
+
+      const response = await callLLM(
+        [
+          { role: "system", content: [{ type: "input_text", text: system }] },
+          { role: "user", content: [{ type: "input_text", text: input }] },
+        ],
+        {
+          route: '/api/deck/swap-suggestions',
+          feature: 'swap_suggestions',
+          model,
+          fallbackModel: tierConfig.fallbackModel || DEFAULT_FALLBACK_MODEL,
+          timeout: 120000,
+          maxTokens: 4096,
+          apiType: 'responses',
+          retryOn429: true,
+          retryOn5xx: true,
+          userId: userId || null,
+          isPro: isPro || false,
+          anonId: anonId ?? null,
+          source_page: sourcePage ?? null,
+          source: usageSource ?? null,
+        }
+      );
+
+      const text = response.text.trim();
+      if (!text) {
+        return { outcome: "empty", suggestions: [] };
+      }
+      try {
+        const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        const parsed = JSON.parse(cleaned) as unknown;
+        if (!Array.isArray(parsed)) {
+          return { outcome: "invalid_response", suggestions: [] };
+        }
+        const suggestions = parsed.filter((x): x is AiSwapResponse[number] => {
+          return x != null && typeof x === "object" && typeof (x as { from?: unknown }).from === "string" && typeof (x as { to?: unknown }).to === "string";
+        });
+        return {
+          outcome: suggestions.length > 0 ? "ok" : "empty",
+          suggestions,
+        };
+      } catch {
         return { outcome: "invalid_response", suggestions: [] };
       }
-      const suggestions = parsed.filter((x): x is AiSwapResponse[number] => {
-        return x != null && typeof x === "object" && typeof (x as { from?: unknown }).from === "string" && typeof (x as { to?: unknown }).to === "string";
-      });
-      return {
-        outcome: suggestions.length > 0 ? "ok" : "empty",
-        suggestions,
-      };
-    } catch {
-      return { outcome: "invalid_response", suggestions: [] };
+    } catch (e) {
+      console.warn("[swap-suggestions] AI call failed:", e);
+      return { outcome: "call_failed", suggestions: [] };
     }
-  } catch (e) {
-    console.warn("[swap-suggestions] AI call failed:", e);
-    return { outcome: "call_failed", suggestions: [] };
+  };
+
+  let result = await runOnce();
+  if (result.outcome === "call_failed" || result.outcome === "invalid_response") {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    result = await runOnce();
   }
+  return result;
 }
 
 async function cachedPrice(name: string, currency: string, supabase: SupabaseClient): Promise<number> {
@@ -531,6 +545,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let protectedRoleCardsPrompt = "";
+    let protectedFromKeys = new Set<string>();
+    try {
+      const {
+        detectProtectedRoleCards,
+        formatProtectedRoleCardsForSwapPrompt,
+        buildProtectedSwapFromKeys,
+      } = await import("@/lib/deck/protected-role-cards");
+      const protectedRoleCards = await detectProtectedRoleCards({
+        deckText,
+        commander: isCommanderFormat && commander ? commander : null,
+        limit: 20,
+      });
+      protectedRoleCardsPrompt = formatProtectedRoleCardsForSwapPrompt(protectedRoleCards);
+      protectedFromKeys = buildProtectedSwapFromKeys(protectedRoleCards);
+      if (protectedFromKeys.size > 0) {
+        console.log(
+          "[swap-suggestions] Protected swap sources:",
+          protectedRoleCards.slice(0, 10).map((c) => c.name).join(", "),
+        );
+      }
+    } catch (protectedErr) {
+      console.warn("[swap-suggestions] Protected role detection failed:", protectedErr);
+    }
+
     const addAiSuggestions = async (metrics: AiRunMetrics) => {
       let anonId: string | null = null;
       if (user?.id) anonId = await hashString(user.id);
@@ -547,7 +586,7 @@ export async function POST(req: NextRequest) {
         ownershipPrompt,
       ].filter(Boolean).join("\n\n");
       const aiDeckText = aiContext || deckText;
-      const aiResult = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage, recommendationTier);
+      const aiResult = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage, recommendationTier, protectedRoleCardsPrompt);
       metrics.outcome = aiResult.outcome;
       metrics.rawCount = aiResult.suggestions.length;
 
@@ -569,7 +608,7 @@ export async function POST(req: NextRequest) {
         
         const pf = await snapOrScryPrice(from, currency, useSnapshot, snapshotDate, supabase);
         const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase);
-        if (!isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format, allowReplacementAboveBudget })) continue;
+        if (!isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format, allowReplacementAboveBudget, protectedFromKeys })) continue;
         const delta = pt - pf;
         const rationale = s.reason || `${toCanon} is a budget-friendly alternative to ${from}.`;
         const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
@@ -605,7 +644,7 @@ export async function POST(req: NextRequest) {
         for (const cand of cands) {
           const toCanon = canonicalize(cand).canonicalName || cand;
           const pt = await snapOrScryPrice(toCanon, currency, useSnapshot, snapshotDate, supabase, !workshopBudgetSource);
-          if (isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format, allowReplacementAboveBudget })) {
+          if (isValidBudgetSwap({ from, to: toCanon, priceFrom: pf, priceTo: pt, budget, deckNameKeys, format, allowReplacementAboveBudget, protectedFromKeys })) {
             const delta = pt - pf;
             const rationale = `${toCanon} is a budget-friendly alternative to ${from}.`;
             const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
