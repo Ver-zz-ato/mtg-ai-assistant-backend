@@ -2,7 +2,19 @@
 
 ## 2026-06-15
 
-### Hybrid homepage preview (`/new-home`)
+### Production homepage + chat route swap
+
+- **Root `/`:** Hybrid companion homepage (`HybridHomePage`) is now production — hero, problem finder, popular tools, community highlights, trending, FAQ, Pro CTA. JSON-LD + indexable metadata on `/`.
+- **`/chat`:** Standalone AI chat (former `/new-chat` preview) — `ChatHomeWorkspace` embedded shell, ToolStrip, FAQ sidebar, guest signup banner. Canonical chat route via `lib/navigation/chatRoute.ts` (`CHAT_ROUTE`).
+- **Redirects:** `/new-home` → `/`, `/new-chat` → `/chat` (permanent, `next.config.ts`).
+- **Archive:** Legacy chat-first homepage at `/old-home` (`robots: noindex`) for rollback reference.
+- **Link sweep:** `homeConfig`, `HomeHero`, `ToolStrip`, tools hub, `TopToolsStrip` — all AI Chat entry points → `/chat`.
+- **Pathname hooks:** `GuestExitWarning` and `WebsiteCardDetailModal` `openChatPrompt` use `isChatPath()`; pricing `chat_limit` attribution includes `/chat` and legacy `/new-chat`.
+- **SEO:** `chat` added to static + tools sitemaps; `TOOL_DESCRIPTIONS.aiChat`; updated `HOME_DESCRIPTION`.
+- **Removed:** `app/new-home/page.tsx`, `app/new-chat/*` (replaced by `/` + `/chat`).
+- **Files:** `app/page.tsx`, `app/chat/*`, `app/old-home/page.tsx`, `lib/navigation/chatRoute.ts`, `next.config.ts`, `lib/home/homeConfig.ts`, `components/GuestExitWarning.tsx`, `components/cards/WebsiteCardDetailModal.tsx`, `app/sitemap.ts`, `lib/seo/metadata.ts`.
+
+### Hybrid homepage preview (`/new-home`) — shipped to `/`
 
 - **Route:** New experimental homepage at `/new-home` (Concept 10 hybrid layout) — `robots: noindex` until owner approves root swap.
 - **Layout:** Hero with tool discovery CTAs, six pillar tiles (Build / Improve / Track / Play / Discover / AI), popular tools grid, trending section (reuses `MetaDeckPanel`, `RecentPublicDecks`, `PopularCommanderGuides`), mobile app section, trust feature row.

@@ -4,13 +4,13 @@ import { RelatedTools } from "@/components/RelatedTools";
 import { ToolStrip } from "@/components/ToolStrip";
 import { PopularCommanders } from "@/components/PopularCommanders";
 import { PILL_BASE_CLASS, pillClassAt } from "@/lib/ui/accentPills";
+import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
+import { TOOL_DESCRIPTIONS, canonicalMeta } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
-  title: "AI Chat Preview | ManaTap AI",
-  description:
-    "Ask Magic: The Gathering rules questions, get deck advice, and explore card interactions with ManaTap AI.",
-  robots: { index: false, follow: false },
-};
+export const metadata: Metadata = canonicalMeta(CHAT_ROUTE, {
+  title: "AI Chat | ManaTap AI",
+  description: TOOL_DESCRIPTIONS.aiChat,
+});
 
 const FAQ_QUESTION_COLORS = [
   "text-violet-300",
@@ -54,7 +54,7 @@ const EXPLORE_LINKS = [
   { href: "/commanders", label: "Commanders" },
   { href: "/tools", label: "All tools" },
   { href: "/meta", label: "Meta hub" },
-  { href: "/new-home", label: "Homepage preview" },
+  { href: "/", label: "Home" },
 ] as const;
 
 const IntroBlock = () => (
@@ -139,7 +139,7 @@ const IntroBlock = () => (
   </section>
 );
 
-export default function NewChatLayout({ children }: { children: React.ReactNode }) {
+export default function ChatLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd() }} />
@@ -147,7 +147,7 @@ export default function NewChatLayout({ children }: { children: React.ReactNode 
         <div className="max-w-[1600px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div className="lg:col-span-8 order-2 lg:order-1 min-w-0">
-              <ToolStrip currentPath="/new-chat" variant="compact" className="mb-4" />
+              <ToolStrip currentPath={CHAT_ROUTE} variant="compact" className="mb-4" />
               {children}
             </div>
             <aside className="lg:col-span-4 order-1 lg:order-2 lg:sticky lg:top-4 self-start">

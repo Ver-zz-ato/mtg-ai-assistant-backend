@@ -55,6 +55,15 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         priority: "recommended",
       },
       {
+        href: "/chat",
+        title: "AI Chat",
+        subtitle: "Ask rules questions, tune your deck, and get focused MTG help.",
+        badge: "Limited",
+        icon: Bot,
+        accent: "text-fuchsia-200 border-fuchsia-300/25 bg-fuchsia-300/10",
+        priority: "popular",
+      },
+      {
         href: "/analyze",
         title: "Analyze a Deck",
         subtitle: "Paste a list and get curve, role, legality, and upgrade notes.",

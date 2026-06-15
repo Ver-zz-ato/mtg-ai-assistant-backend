@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { HOME_HERO_COPY, HOME_HERO_TOOLS } from "@/lib/home/homeConfig";
 import { useHomeMobilePlatform } from "@/lib/home/useHomeMobilePlatform";
+import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 
 const primaryBtn =
   "inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-3 text-center text-sm font-bold text-white shadow-[0_12px_30px_rgba(139,92,246,0.35)] transition hover:from-violet-400 hover:to-fuchsia-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70";
@@ -55,7 +56,7 @@ export default function HomeHero() {
                 <Link href="/tools" className={primaryBtn}>
                   Explore Tools
                 </Link>
-                <Link href="/new-chat" className={aiBtn}>
+                <Link href={CHAT_ROUTE} className={aiBtn}>
                   Ask ManaTap AI ✨
                 </Link>
               </>

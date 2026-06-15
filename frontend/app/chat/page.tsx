@@ -1,6 +1,6 @@
 import ChatHomeWorkspace from "@/components/home/ChatHomeWorkspace";
 
-export default function NewChatPage() {
+export default function ChatPage() {
   return (
     <div className="max-w-[1400px] mx-auto">
       <header className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-violet-900/25 via-fuchsia-900/15 to-cyan-900/20 p-5 sm:p-6 mb-2">

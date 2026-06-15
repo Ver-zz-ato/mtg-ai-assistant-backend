@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { HOME_COMMANDER_GUIDE_COUNT } from "@/lib/home/commanderGuideCount";
+import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 
 export const APP_STORE_URLS = {
   ios: "https://apps.apple.com/app/id6774626559",
@@ -164,8 +165,8 @@ export const HOME_PROBLEM_FINDER: HomeProblemCard[] = [
     iconShell: "border-fuchsia-300/35 bg-fuchsia-500/12 text-fuchsia-100",
     toolChipClass:
       "border-fuchsia-300/30 bg-fuchsia-500/10 text-fuchsia-100 hover:border-fuchsia-300/50 hover:bg-fuchsia-500/16",
-    primaryHref: "/",
-    tools: [{ label: "AI Chat", href: "/" }],
+    primaryHref: CHAT_ROUTE,
+    tools: [{ label: "AI Chat", href: CHAT_ROUTE }],
   },
 ];
 
@@ -373,12 +374,12 @@ export const HOME_PILLARS: HomePillar[] = [
     border: "border-fuchsia-400/45",
     glow: "from-fuchsia-500/30 via-violet-500/15 to-transparent",
     featured: true,
-    categoryHref: "/",
+    categoryHref: CHAT_ROUTE,
     navPillClass:
       "border-fuchsia-300/40 bg-fuchsia-500/12 text-fuchsia-100 hover:border-fuchsia-300/60 hover:bg-fuchsia-500/18",
     links: [
       {
-        href: "/",
+        href: CHAT_ROUTE,
         label: "AI Chat",
         pillClass:
           "border-fuchsia-300/40 bg-fuchsia-500/14 text-fuchsia-100 hover:border-fuchsia-300/60 hover:bg-fuchsia-500/22",
@@ -462,7 +463,7 @@ export const HOME_POPULAR_TOOLS: HomePopularTool[] = [
     accent: "text-sky-200 border-sky-300/25 bg-sky-300/10",
   },
   {
-    href: "/new-chat",
+    href: CHAT_ROUTE,
     title: "AI Chat",
     subtitle: "Ask rules questions and get focused MTG help.",
     icon: Bot,
@@ -486,7 +487,7 @@ export const HOME_HERO_TOOLS = [
   { href: "/price-tracker", img: "/tool-price-tracker.png", alt: "Price Tracker" },
   { href: "/tools/mulligan", img: "/tool-mulligan-lab.png", alt: "Mulligan Lab" },
   { href: "/build-a-deck", img: "/tool-build-a-deck.png", alt: "Build a Deck" },
-  { href: "/new-chat", img: "/tool-ai-chat.png", alt: "AI Chat" },
+  { href: CHAT_ROUTE, img: "/tool-ai-chat.png", alt: "AI Chat" },
 ] as const;
 
 /** Tool-banner assets used until real iOS screenshots are added under /public/app-screenshots/ */

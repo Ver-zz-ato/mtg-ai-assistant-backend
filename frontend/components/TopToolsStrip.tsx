@@ -8,6 +8,7 @@ import {
   costAuditRequestId,
   isCostAuditClientEnabled,
 } from "@/lib/observability/cost-audit";
+import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 
 export default function TopToolsStrip() {
   const [flags, setFlags] = React.useState<any>(null);
@@ -81,11 +82,12 @@ export default function TopToolsStrip() {
     ...(riskyOn ? [{ href: "/price-tracker", img: "/tool-price-tracker.png", alt: "Price Tracker", tour: "price-tracker" }] : []),
     { href: "/tools/mulligan", img: "/tool-mulligan-lab.png", alt: "Mulligan Lab", tour: "mulligan" },
     { href: "/build-a-deck", img: "/tool-build-a-deck.png", alt: "Build a Deck", tour: "build-a-deck" },
+    { href: CHAT_ROUTE, img: "/tool-ai-chat.png", alt: "AI Chat", tour: "ai-chat" },
   ];
 
   return (
     <div className="w-full">
-      <div className="w-full flex md:grid md:grid-cols-5 items-start gap-px mb-0 overflow-x-auto md:overflow-hidden scrollbar-hide opacity-95">
+      <div className="w-full flex md:grid md:grid-cols-6 items-start gap-px mb-0 overflow-x-auto md:overflow-hidden scrollbar-hide opacity-95">
         {tools.map((tool, idx) => (
           <a
             key={idx}

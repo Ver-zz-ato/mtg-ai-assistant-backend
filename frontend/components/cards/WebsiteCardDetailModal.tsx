@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast-client";
 import WebsiteAddCardDestinationModal from "@/components/cards/WebsiteAddCardDestinationModal";
 import type { DeckUsageItem } from "@/lib/collection/deckCardUsage";
+import { CHAT_ROUTE, isChatPath } from "@/lib/navigation/chatRoute";
 
 type CardMetadata = {
   name: string;
@@ -164,11 +165,11 @@ function friendlyExplainError(result: Extract<ExplainResult, { ok: false }>): st
 function openChatPrompt(prompt: string) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem("manatap_pending_chat_draft", prompt);
-  if (window.location.pathname === "/") {
+  if (isChatPath(window.location.pathname)) {
     window.dispatchEvent(new CustomEvent("manatap-chat-draft", { detail: { message: prompt } }));
     return;
   }
-  window.location.href = "/";
+  window.location.href = CHAT_ROUTE;
 }
 
 async function explainCardAi(params: {

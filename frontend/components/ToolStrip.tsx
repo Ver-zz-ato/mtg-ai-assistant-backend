@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 
 const TOOLS = [
-  { href: "/new-chat", label: "AI Chat" },
+  { href: CHAT_ROUTE, label: "AI Chat" },
   { href: "/ai-workshop", label: "AI Workshop" },
   { href: "/mtg-deck-checker", label: "Deck Checker" },
   { href: "/build-a-deck", label: "Build a Deck" },

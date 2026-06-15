@@ -17,7 +17,7 @@ export const SOCIAL_PREVIEW_OG_IMAGE = {
 } as const;
 
 export const HOME_DESCRIPTION =
-  "Build better Magic: The Gathering decks with ManaTap AI. Analyze Commander decks, test mulligans, compare lists, track prices, and find upgrades.";
+  "Build better Magic: The Gathering decks with ManaTap AI. Analyze lists, test mulligans, track prices, discover commanders, and get deck-aware AI chat help.";
 
 export const TOOL_DESCRIPTIONS = {
   mulligan:
@@ -34,6 +34,8 @@ export const TOOL_DESCRIPTIONS = {
     "Compare Magic: The Gathering decks side by side with ManaTap. Review shared cards, unique upgrades, mana curves, colors, and deck value.",
   aiWorkshop:
     "Refine your MTG deck with ManaTap AI Workshop. Run focused passes on mana, curve, budget, power, interaction, or legality — then review and save.",
+  aiChat:
+    "Ask Magic: The Gathering rules questions, get deck advice, and explore card interactions with ManaTap AI Chat. Link a deck for grounded Commander and 60-card help.",
 } as const;
 
 export const META_DESCRIPTIONS = {

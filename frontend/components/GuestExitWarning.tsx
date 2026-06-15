@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { capture } from '@/lib/ph';
+import { isChatPath } from '@/lib/navigation/chatRoute';
 
 export default function GuestExitWarning() {
   const [showModal, setShowModal] = useState(false);
@@ -48,7 +49,7 @@ export default function GuestExitWarning() {
   }, []);
 
   // Only intercept when user is ON a chat page - avoid modal on browse, decks, etc.
-  const isChatPage = pathname === '/' || pathname.startsWith('/chat');
+  const isChatPage = isChatPath(pathname ?? '');
 
   // Intercept navigation attempts
   useEffect(() => {
@@ -76,8 +77,8 @@ export default function GuestExitWarning() {
       if (link && link.href && !link.href.startsWith('#')) {
         const linkPathname = new URL(link.href, window.location.origin).pathname;
         
-        // Don't warn if staying on homepage or going to auth
-        if (linkPathname === '/' || linkPathname === pathname || 
+        // Don't warn if staying on chat or going to auth
+        if (isChatPath(linkPathname) || linkPathname === pathname ||
             linkPathname.includes('/auth') || linkPathname.includes('/login') || linkPathname.includes('/signup')) {
           return;
         }

@@ -23,7 +23,9 @@ export default function PricingPage() {
     
     // Enhanced pricing page tracking
     const referrer = typeof document !== 'undefined' ? document.referrer : '';
-    const source = referrer.includes('/chat') ? 'chat_limit' :
+    const isChatReferrer =
+      referrer.includes('/chat') || referrer.includes('/new-chat');
+    const source = isChatReferrer ? 'chat_limit' :
                   referrer.includes('/my-decks') ? 'deck_feature' :
                   referrer.includes('google') ? 'google_search' : 'direct';
     

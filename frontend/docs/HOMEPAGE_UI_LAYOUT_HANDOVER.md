@@ -4,22 +4,28 @@
 
 ---
 
-## Hybrid homepage preview (`/new-home`) — 2026-06-15
+## Production site structure — 2026-06-15
 
-Experimental **Concept 10** companion-first homepage lives at **`/new-home`** (not yet the root `/`).
+| Route | Role |
+|-------|------|
+| `/` | Hybrid companion homepage (`HybridHomePage` via `app/page.tsx`) |
+| `/chat` | Standalone AI chat (`app/chat/` + embedded `ChatHomeWorkspace`) |
+| `/old-home` | Legacy chat-first homepage archive (`robots: noindex`) |
+| `/new-home` | 301 redirect → `/` |
+| `/new-chat` | 301 redirect → `/chat` |
 
 | Component | Path |
 |-----------|------|
-| Route | `app/new-home/page.tsx` (`robots: noindex`) |
-| Page composer | `components/home/HybridHomePage.tsx` |
+| Homepage composer | `components/home/HybridHomePage.tsx` |
+| Chat shell | `components/home/ChatHomeWorkspace.tsx` |
+| Chat route constant | `lib/navigation/chatRoute.ts` (`CHAT_ROUTE`, `isChatPath`) |
 | Config (pillars, tools, store URLs) | `lib/home/homeConfig.ts` |
-| Sections | `HomeHero`, `HomeMobileInstallBanner` (mobile only), `HomeProblemFinder`, `HomePopularTools`, `HomeCommunityHighlights`, `HomeTrendingSection`, `HomeFaqSection`, `HomeProCta` |
 
-**Trending section:** `HomeMetaMoverRotator` → `HomeCommanderGuideRotator` → `PopularCommanderGuides` (stacked). Chat homepage still uses full `TrendingCommandersStrip` + `MetaDeckPanel`.
-
-**Root `/` unchanged** — still chat-first (`app/page.tsx`). AI Chat links on `/new-home` point to `/` until owner approves swap to hybrid + `/chat`.
+**AI Chat links** across the hybrid homepage, tools hub, and ToolStrip point to **`/chat`**. Header logo and breadcrumb “Home” links still point to **`/`**.
 
 ---
+
+## Hybrid homepage preview (`/new-home`) — historical
 
 ## 1. Document Structure (Top to Bottom)
 
