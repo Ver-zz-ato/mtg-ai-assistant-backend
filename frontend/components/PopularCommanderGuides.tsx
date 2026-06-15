@@ -10,6 +10,7 @@ import { fetchCommanderArtBatch } from "@/lib/commander-art-batch";
  */
 
 import { FLAGSHIP_COMMANDER_GUIDES } from "@/lib/home/commanderGuides";
+import { HOME_COMMANDER_GUIDE_COUNT } from "@/lib/home/commanderGuideCount";
 
 interface CommanderGuide {
   slug: string;
@@ -44,7 +45,7 @@ function ColorPips({ colors }: { colors: string }) {
   );
 }
 
-export default function PopularCommanderGuides() {
+export default function PopularCommanderGuides({ embedded = false }: { embedded?: boolean }) {
   const [artMap, setArtMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -64,7 +65,13 @@ export default function PopularCommanderGuides() {
   }, []);
 
   return (
-    <section className="max-w-[1600px] mx-auto px-4 py-4 border-t border-neutral-800">
+    <section
+      className={
+        embedded
+          ? "pt-1"
+          : "max-w-[1600px] mx-auto px-4 py-4 border-t border-neutral-800"
+      }
+    >
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-3">
         <div>
           <h2 className="text-lg font-semibold text-neutral-200">
@@ -78,7 +85,7 @@ export default function PopularCommanderGuides() {
           href="/commanders"
           className="text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors shrink-0"
         >
-          View all 50+ guides →
+          View all {HOME_COMMANDER_GUIDE_COUNT}+ guides →
         </Link>
       </div>
 

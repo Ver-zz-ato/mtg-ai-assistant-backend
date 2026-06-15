@@ -125,43 +125,70 @@ const faqItems: FAQItem[] = [
 
 const trustChips = ['Format-aware', 'Commander-aware', 'Synergy-first', 'No judge replacement'];
 
-export default function HomepageFAQ({ defaultCollapsed = false }: { defaultCollapsed?: boolean }) {
+export default function HomepageFAQ({
+  defaultCollapsed = false,
+  compact = false,
+  maxItems,
+}: {
+  defaultCollapsed?: boolean;
+  compact?: boolean;
+  maxItems?: number;
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(defaultCollapsed ? null : 0);
 
   const toggleItem = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
   };
 
+  const visibleItems =
+    typeof maxItems === "number" ? faqItems.slice(0, maxItems) : faqItems;
+
   return (
-    <section className="mx-auto w-full px-2 py-4">
-      <div className="overflow-hidden rounded-[28px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(7,18,34,0.96),rgba(9,16,28,0.94))] shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-        <div className="border-b border-slate-800/80 px-5 py-6 md:px-6">
+    <section className={`mx-auto w-full ${compact ? "px-0 py-0" : "px-2 py-4"}`}>
+      <div
+        className={`overflow-hidden border border-slate-700/60 bg-[linear-gradient(180deg,rgba(7,18,34,0.96),rgba(9,16,28,0.94))] shadow-[0_20px_60px_rgba(0,0,0,0.35)] ${
+          compact ? "rounded-2xl" : "rounded-[28px]"
+        }`}
+      >
+        <div className={`border-b border-slate-800/80 ${compact ? "px-4 py-4 md:px-5" : "px-5 py-6 md:px-6"}`}>
           <div className="space-y-4">
             <div className="space-y-3">
-              <h2 className="text-center text-2xl font-bold leading-tight text-white md:text-3xl">
+              <h2
+                className={`text-center font-bold leading-tight text-white ${
+                  compact ? "text-xl md:text-2xl" : "text-2xl md:text-3xl"
+                }`}
+              >
                 Frequently Asked Questions
               </h2>
-              <p className="mx-auto max-w-[32rem] text-center text-sm leading-6 text-slate-300 md:text-[15px]">
-                Straight answers about what ManaTap&apos;s AI can do, what it checks, and where
-                human deckbuilding still matters.
-              </p>
+              {!compact ? (
+                <p className="mx-auto max-w-[32rem] text-center text-sm leading-6 text-slate-300 md:text-[15px]">
+                  Straight answers about what ManaTap&apos;s AI can do, what it checks, and where
+                  human deckbuilding still matters.
+                </p>
+              ) : (
+                <p className="mx-auto max-w-[32rem] text-center text-sm leading-6 text-slate-400">
+                  Quick answers about free vs Pro, AI help, and Commander support.
+                </p>
+              )}
             </div>
 
-            <div className="flex flex-wrap justify-center gap-2.5">
-              {trustChips.map((chip) => (
-                <span
-                  key={chip}
-                  className="rounded-full border border-slate-600/70 bg-slate-900/70 px-3 py-1.5 text-[11px] font-medium tracking-wide text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
+            {!compact ? (
+              <div className="flex flex-wrap justify-center gap-2.5">
+                {trustChips.map((chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full border border-slate-600/70 bg-slate-900/70 px-3 py-1.5 text-[11px] font-medium tracking-wide text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="space-y-3 p-4 md:p-5">
-          {faqItems.map((item, index) => {
+        <div className={`space-y-3 ${compact ? "p-3 md:p-4" : "p-4 md:p-5"}`}>
+          {visibleItems.map((item, index) => {
             const isOpen = openIndex === index;
 
             return (

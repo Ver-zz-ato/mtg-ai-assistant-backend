@@ -2,7 +2,10 @@ import HomeHero from "./HomeHero";
 import HomeMobileInstallBanner from "./HomeMobileInstallBanner";
 import HomeProblemFinder from "./HomeProblemFinder";
 import HomePopularTools from "./HomePopularTools";
+import HomeCommunityHighlights from "./HomeCommunityHighlights";
 import HomeTrendingSection from "./HomeTrendingSection";
+import HomeFaqSection from "./HomeFaqSection";
+import HomeProCta from "./HomeProCta";
 
 export default function HybridHomePage() {
   return (
@@ -13,7 +16,10 @@ export default function HybridHomePage() {
         <HomeMobileInstallBanner />
         <HomeProblemFinder />
         <HomePopularTools />
+        <HomeCommunityHighlights />
         <HomeTrendingSection />
+        <HomeFaqSection />
+        <HomeProCta />
       </div>
     </div>
   );

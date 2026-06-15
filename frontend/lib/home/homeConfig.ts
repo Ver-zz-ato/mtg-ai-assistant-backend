@@ -15,6 +15,7 @@ import {
   Wand2,
   type LucideIcon,
 } from "lucide-react";
+import { HOME_COMMANDER_GUIDE_COUNT } from "@/lib/home/commanderGuideCount";
 
 export const APP_STORE_URLS = {
   ios: "https://apps.apple.com/app/id6774626559",
@@ -493,4 +494,63 @@ export const HOME_APP_SHOWCASE = [
   { label: "Budget Swaps", img: "/tool-budget-swaps.png", href: "/deck/swap-suggestions" },
   { label: "Deck Builder", img: "/tool-build-a-deck.png", href: "/build-a-deck" },
   { label: "Mulligan Lab", img: "/tool-mulligan-lab.png", href: "/tools/mulligan" },
+] as const;
+
+/** Commander hub pages in catalog — used for Community Highlights count */
+export { HOME_COMMANDER_GUIDE_COUNT } from "@/lib/home/commanderGuideCount";
+
+export type HomeCommunityHighlight = {
+  id: string;
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  accent: string;
+  /** When set, label may include a live stat from meta API */
+  statKey?: "publicDecks";
+  /** Static suffix when statKey resolves (e.g. "Public Decks") */
+  statLabel?: string;
+  /** Static count from catalog — not invented */
+  staticCount?: number;
+  staticCountSuffix?: string;
+};
+
+export const HOME_COMMUNITY_HIGHLIGHTS: HomeCommunityHighlight[] = [
+  {
+    id: "public-decks",
+    label: "Public Decks",
+    href: "/decks/browse",
+    icon: Boxes,
+    accent: "text-violet-300 border-violet-400/30 bg-violet-500/10",
+    statKey: "publicDecks",
+    statLabel: "Public Decks",
+  },
+  {
+    id: "commander-guides",
+    label: "Commander Guides",
+    href: "/commanders",
+    icon: Compass,
+    accent: "text-cyan-300 border-cyan-400/30 bg-cyan-500/10",
+    staticCount: HOME_COMMANDER_GUIDE_COUNT,
+    staticCountSuffix: "Commander Guides",
+  },
+  {
+    id: "meta-tracking",
+    label: "Meta Tracking",
+    href: "/meta",
+    icon: LineChart,
+    accent: "text-fuchsia-300 border-fuchsia-400/30 bg-fuchsia-500/10",
+  },
+  {
+    id: "budget-swaps",
+    label: "Budget Swaps",
+    href: "/deck/swap-suggestions",
+    icon: Sparkles,
+    accent: "text-emerald-300 border-emerald-400/30 bg-emerald-500/10",
+  },
+];
+
+export const HOME_PRO_BENEFITS = [
+  "Higher AI limits",
+  "Deeper deck analysis",
+  "Advanced deck tools",
 ] as const;
