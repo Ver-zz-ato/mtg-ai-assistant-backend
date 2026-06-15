@@ -1,6 +1,7 @@
 import {
   Bot,
   Boxes,
+  Compass,
   GitCompare,
   HeartHandshake,
   LineChart,
@@ -15,6 +16,23 @@ export const APP_STORE_URLS = {
   android: "https://play.google.com/store/apps/details?id=com.manatap.app",
 } as const;
 
+export const HOME_HERO_COPY = {
+  kicker: "ManaTap companion",
+  headline: "The Ultimate MTG Companion",
+  subheadline: "Build decks. Upgrade faster. Track collections. Play smarter.",
+  supporting:
+    "Everything from deck building and budget upgrades to commander discovery, collection tracking, and AI-powered MTG assistance.",
+} as const;
+
+export const HOME_WHY_ITEMS = [
+  "Build decks",
+  "Find upgrades",
+  "Track collections",
+  "Discover commanders",
+  "Test opening hands",
+  "Get AI-powered MTG help",
+] as const;
+
 export type HomePillarLink = {
   href: string;
   label: string;
@@ -24,9 +42,11 @@ export type HomePillar = {
   id: string;
   title: string;
   description: string;
+  icon: LucideIcon;
   accent: string;
   border: string;
   glow: string;
+  featured?: boolean;
   links: HomePillarLink[];
 };
 
@@ -34,10 +54,11 @@ export const HOME_PILLARS: HomePillar[] = [
   {
     id: "build",
     title: "Build",
-    description: "Create new decks from commanders, ideas, or your collection.",
+    description: "Start from a commander, an idea, or cards you already own.",
+    icon: Wand2,
     accent: "text-emerald-200",
-    border: "border-emerald-400/30",
-    glow: "from-emerald-500/15 to-transparent",
+    border: "border-emerald-400/35",
+    glow: "from-emerald-500/20 to-transparent",
     links: [
       { href: "/build-a-deck", label: "Deck Builder" },
       { href: "/commanders", label: "Commander Browser" },
@@ -47,10 +68,11 @@ export const HOME_PILLARS: HomePillar[] = [
   {
     id: "improve",
     title: "Improve",
-    description: "Find upgrades, budget swaps, weak spots, and smarter card choices.",
+    description: "Spot weak slots, compare lists, and find smarter upgrades.",
+    icon: Sparkles,
     accent: "text-violet-200",
-    border: "border-violet-400/30",
-    glow: "from-violet-500/15 to-transparent",
+    border: "border-violet-400/35",
+    glow: "from-violet-500/20 to-transparent",
     links: [
       { href: "/deck/swap-suggestions", label: "Budget Swaps" },
       { href: "/compare-decks", label: "Deck Compare" },
@@ -61,10 +83,11 @@ export const HOME_PILLARS: HomePillar[] = [
   {
     id: "track",
     title: "Track",
-    description: "Manage cards, wishlists, prices, and collection-aware deck choices.",
+    description: "Manage collections, wishlists, prices, and deck gaps in one place.",
+    icon: Boxes,
     accent: "text-amber-200",
-    border: "border-amber-400/30",
-    glow: "from-amber-500/15 to-transparent",
+    border: "border-amber-400/35",
+    glow: "from-amber-500/20 to-transparent",
     links: [
       { href: "/collections", label: "Collections" },
       { href: "/wishlist", label: "Wishlist" },
@@ -75,10 +98,11 @@ export const HOME_PILLARS: HomePillar[] = [
   {
     id: "play",
     title: "Play",
-    description: "Tools for live games, testing hands, and quick table decisions.",
+    description: "Test hands, model odds, and make faster table decisions.",
+    icon: HeartHandshake,
     accent: "text-sky-200",
-    border: "border-sky-400/30",
-    glow: "from-sky-500/15 to-transparent",
+    border: "border-sky-400/35",
+    glow: "from-sky-500/20 to-transparent",
     links: [
       { href: "/tools/mulligan", label: "Mulligan Simulator" },
       { href: "/tools/mulligan#probability", label: "Probability Calculator" },
@@ -87,10 +111,11 @@ export const HOME_PILLARS: HomePillar[] = [
   {
     id: "discover",
     title: "Discover",
-    description: "Explore commanders, archetypes, public decks, and meta movement.",
+    description: "Follow meta movement, archetypes, and commander guides.",
+    icon: Compass,
     accent: "text-rose-200",
-    border: "border-rose-400/30",
-    glow: "from-rose-500/15 to-transparent",
+    border: "border-rose-400/35",
+    glow: "from-rose-500/20 to-transparent",
     links: [
       { href: "/meta", label: "Meta" },
       { href: "/commanders", label: "Commander Guides" },
@@ -101,10 +126,12 @@ export const HOME_PILLARS: HomePillar[] = [
   {
     id: "ai",
     title: "AI",
-    description: "Ask rules questions, improve decks, roast lists, and get focused MTG help.",
-    accent: "text-fuchsia-200",
-    border: "border-fuchsia-400/30",
-    glow: "from-fuchsia-500/15 to-transparent",
+    description: "Rules help, deck tuning, roasts, and focused MTG assistance.",
+    icon: Bot,
+    accent: "text-fuchsia-100",
+    border: "border-fuchsia-400/45",
+    glow: "from-fuchsia-500/30 via-violet-500/15 to-transparent",
+    featured: true,
     links: [
       { href: "/", label: "AI Chat" },
       { href: "/roast", label: "Roast My Deck" },
@@ -119,6 +146,7 @@ export type HomePopularTool = {
   subtitle: string;
   icon: LucideIcon;
   accent: string;
+  badge?: string;
 };
 
 export const HOME_POPULAR_TOOLS: HomePopularTool[] = [
@@ -128,6 +156,7 @@ export const HOME_POPULAR_TOOLS: HomePopularTool[] = [
     subtitle: "Start a Commander or 60-card list with guided help.",
     icon: Wand2,
     accent: "text-amber-200 border-amber-300/25 bg-amber-300/10",
+    badge: "Most Popular",
   },
   {
     href: "/deck/swap-suggestions",
@@ -135,6 +164,7 @@ export const HOME_POPULAR_TOOLS: HomePopularTool[] = [
     subtitle: "Find cheaper alternatives without losing the deck's plan.",
     icon: Sparkles,
     accent: "text-emerald-200 border-emerald-300/25 bg-emerald-300/10",
+    badge: "Community Favourite",
   },
   {
     href: "/compare-decks",
@@ -156,6 +186,7 @@ export const HOME_POPULAR_TOOLS: HomePopularTool[] = [
     subtitle: "Track owned cards and use them in deck-building tools.",
     icon: Boxes,
     accent: "text-orange-200 border-orange-300/25 bg-orange-300/10",
+    badge: "Power Users",
   },
   {
     href: "/tools/mulligan",
@@ -177,14 +208,17 @@ export const HOME_POPULAR_TOOLS: HomePopularTool[] = [
     subtitle: "Ask rules questions and get focused MTG help.",
     icon: Bot,
     accent: "text-violet-200 border-violet-300/25 bg-violet-300/10",
+    badge: "New Players",
   },
 ];
 
-export const HOME_TRUST_ITEMS = [
-  { label: "Deck tools", accent: "text-violet-300" },
+export const HOME_TRUST_CAPABILITIES = [
+  { label: "Deck building", accent: "text-violet-300" },
   { label: "Budget upgrades", accent: "text-emerald-300" },
   { label: "Collection tracking", accent: "text-sky-300" },
+  { label: "Commander discovery", accent: "text-rose-300" },
   { label: "AI assistance", accent: "text-fuchsia-300" },
+  { label: "Game night tools", accent: "text-amber-300" },
 ] as const;
 
 export const HOME_HERO_TOOLS = [
@@ -193,4 +227,12 @@ export const HOME_HERO_TOOLS = [
   { href: "/price-tracker", img: "/tool-price-tracker.png", alt: "Price Tracker" },
   { href: "/tools/mulligan", img: "/tool-mulligan-lab.png", alt: "Mulligan Lab" },
   { href: "/build-a-deck", img: "/tool-build-a-deck.png", alt: "Build a Deck" },
+] as const;
+
+/** Tool-banner assets used until real iOS screenshots are added under /public/app-screenshots/ */
+export const HOME_APP_SHOWCASE = [
+  { label: "Deck Checker", img: "/tool-deck-checker.png", href: "/mtg-deck-checker" },
+  { label: "Budget Swaps", img: "/tool-budget-swaps.png", href: "/deck/swap-suggestions" },
+  { label: "Deck Builder", img: "/tool-build-a-deck.png", href: "/build-a-deck" },
+  { label: "Mulligan Lab", img: "/tool-mulligan-lab.png", href: "/tools/mulligan" },
 ] as const;

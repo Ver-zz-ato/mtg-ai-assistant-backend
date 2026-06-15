@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { HOME_HERO_TOOLS } from "@/lib/home/homeConfig";
+import { HOME_HERO_COPY, HOME_HERO_TOOLS } from "@/lib/home/homeConfig";
 
 export default function HomeHero() {
   const [failedImgs, setFailedImgs] = useState<Set<number>>(new Set());
@@ -17,17 +17,16 @@ export default function HomeHero() {
       <div className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.28em] text-violet-300">
-            ManaTap companion
+            {HOME_HERO_COPY.kicker}
           </p>
           <h1 className="mt-3 text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">
-            The Ultimate MTG Companion
+            {HOME_HERO_COPY.headline}
           </h1>
-          <p className="mt-3 text-lg font-semibold text-neutral-200 sm:text-xl">
-            Build better decks. Play better games.
+          <p className="mt-3 text-lg font-semibold text-neutral-100 sm:text-xl">
+            {HOME_HERO_COPY.subheadline}
           </p>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-neutral-400 sm:text-base">
-            ManaTap brings deck building, budget upgrades, collection tools, game-night helpers, and AI
-            assistance into one place.
+            {HOME_HERO_COPY.supporting}
           </p>
 
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">

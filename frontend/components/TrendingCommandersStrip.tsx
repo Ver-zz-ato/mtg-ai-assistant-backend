@@ -24,7 +24,7 @@ type TrendingResponse = {
   labelPayload?: MetaLabelPayload | null;
 };
 
-export function TrendingCommandersStrip() {
+export function TrendingCommandersStrip({ mode = "chat" }: { mode?: "chat" | "marketing" }) {
   const [commanders, setCommanders] = useState<TrendingCommander[]>([]);
   const [artMap, setArtMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -104,7 +104,15 @@ export function TrendingCommandersStrip() {
     [lastUpdated, labelPayload]
   );
 
-  function handleAnalyze(name: string) {
+  function handleAnalyze(name: string, slug?: string) {
+    if (mode === "marketing") {
+      if (slug) {
+        window.location.assign(`/commanders/${slug}`);
+      } else {
+        window.location.assign(`/build-a-deck`);
+      }
+      return;
+    }
     const message = `Build a Commander deck for ${name}`;
     window.dispatchEvent(
       new CustomEvent("quiz-build-deck", { detail: { message } })
@@ -230,10 +238,10 @@ export function TrendingCommandersStrip() {
                 <div className="mt-auto flex gap-2">
                   <button
                     type="button"
-                    onClick={() => handleAnalyze(cmd.name)}
+                    onClick={() => handleAnalyze(cmd.name, cmd.slug)}
                     className="flex-1 px-3 py-1.5 text-xs font-medium bg-neutral-600 hover:bg-neutral-500 text-white rounded-md transition-colors"
                   >
-                    Analyze this commander
+                    {mode === "marketing" ? "View commander" : "Analyze this commander"}
                   </button>
                   {cmd.slug ? (
                     <Link

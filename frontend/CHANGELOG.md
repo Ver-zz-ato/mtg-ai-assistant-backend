@@ -6,9 +6,10 @@
 
 - **Route:** New experimental homepage at `/new-home` (Concept 10 hybrid layout) — `robots: noindex` until owner approves root swap.
 - **Layout:** Hero with tool discovery CTAs, six pillar tiles (Build / Improve / Track / Play / Discover / AI), popular tools grid, trending section (reuses `MetaDeckPanel`, `RecentPublicDecks`, `PopularCommanderGuides`), mobile app section, trust feature row.
+- **Polish pass:** Stronger hero copy; **Why ManaTap?** scan section; mobile app moved below hero (iOS live, Android coming soon — no live Play button); phone-frame tool showcase; pillar icons + AI highlight; popularity badges on select tools; commander-first trending (`TrendingCommandersStrip` marketing mode); capability trust row with optional live public-deck count from meta API.
 - **Config:** Pillar and tool link data centralized in `lib/home/homeConfig.ts`; Deck Checker label used (not “Analyze a Deck”); Life Counter omitted (no web route); AI Chat links to `/` until Phase 4.
 - **Unchanged:** Root `/` remains chat-first homepage; no API/backend/mobile changes.
-- **Files:** `app/new-home/page.tsx`, `components/home/*`, `lib/home/homeConfig.ts`.
+- **Files:** `app/new-home/page.tsx`, `components/home/*`, `components/TrendingCommandersStrip.tsx`, `lib/home/homeConfig.ts`.
 
 ### Tools hub fixes (audit follow-up)
 
