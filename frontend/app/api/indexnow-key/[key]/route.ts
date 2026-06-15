@@ -4,18 +4,22 @@ import { getIndexNowKey } from "@/lib/seo/indexnow";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ indexnowKey: string }> }) {
-  const { indexnowKey } = await ctx.params;
-  const key = getIndexNowKey();
+/** IndexNow verification at /{key}.txt (rewritten from next.config). */
+export async function GET(
+  _req: NextRequest,
+  ctx: { params: Promise<{ key: string }> },
+) {
+  const { key: keySegment } = await ctx.params;
+  const configuredKey = getIndexNowKey();
 
-  if (!key || indexnowKey !== `${key}.txt`) {
+  if (!configuredKey || keySegment !== configuredKey) {
     return new NextResponse("Not found", {
       status: 404,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }
 
-  return new NextResponse(key, {
+  return new NextResponse(configuredKey, {
     status: 200,
     headers: {
       "Content-Type": "text/plain; charset=utf-8",

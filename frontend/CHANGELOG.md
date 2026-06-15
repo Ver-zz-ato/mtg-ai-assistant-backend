@@ -17,6 +17,7 @@
 - **Hero tool art:** Replaced `/new-home` popular tools banners with new 4:3 assets (`tool-deck-checker.png`, `tool-budget-swaps.png`, `tool-price-tracker.png`, `tool-mulligan-lab.png`, `tool-build-a-deck.png`).
 - **Hero polish:** Removed redundant tool name overlay on art tiles; cyan gradient **Ask ManaTap AI ✨** CTA; problem-finder tool chips reveal on card hover; embedded Popular Commander Guides header matches trending section typography.
 - **`/new-chat` preview:** Chat workspace extracted to `ChatHomeWorkspace`; tool-style layout (ToolStrip + side FAQ) like Mulligan/AI Workshop; `robots: noindex`. Root `/` unchanged. Hybrid `/new-home` CTA links to `/new-chat`.
+- **IndexNow route fix:** Moved `/{key}.txt` verification off catch-all `[indexnowKey]` so paths like `/new-chat` no longer return plain-text 404 when missing from a deploy.
 - **Conversion pass:** `HomeCommunityHighlights` strip (live public deck count + catalog commander guide count); stacked trending → featured guide → popular guides; compact FAQ (`HomepageFAQ` reuse, 5 items); compact `HomeProCta` near footer. No testimonials. Meta Snapshot remains off `/new-home`.
 - **Commander guides:** Rotating flagship guide pill (`HomeCommanderGuideRotator`) replaces static box in trending grid; shared `FLAGSHIP_COMMANDER_GUIDES` in `lib/home/commanderGuides.ts` (also used by `PopularCommanderGuides`).
 - **Meta Snapshot:** Trending card thumbnails with click-to-open `WebsiteCardDetailModal` (images via `/api/cards/batch-images`).
