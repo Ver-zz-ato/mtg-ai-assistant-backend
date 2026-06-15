@@ -42,10 +42,13 @@ export default function HomeCommanderGuideRotator() {
   const art = artMap[active.name];
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-neutral-950/40 p-4 sm:p-5">
+    <div className="flex flex-col rounded-2xl border border-cyan-400/25 bg-neutral-950/50 p-4 shadow-[0_0_32px_rgba(34,211,238,0.06)] sm:p-5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold text-neutral-200">Commander guides</h3>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/90">
+            Start here
+          </p>
+          <h3 className="mt-1 text-lg font-bold text-neutral-100 sm:text-xl">Commander guides</h3>
           <p className="mt-1 text-sm text-neutral-500">
             Best cards, budget upgrades, and mulligan tips for popular leaders.
           </p>
@@ -60,7 +63,7 @@ export default function HomeCommanderGuideRotator() {
 
       <Link
         href={`/commanders/${active.slug}`}
-        className="group relative mt-1 flex min-h-[168px] flex-1 overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80 transition hover:border-cyan-400/35"
+        className="group relative mt-1 flex min-h-[200px] overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80 transition hover:border-cyan-400/40 sm:min-h-[220px]"
       >
         {loading ? (
           <div className="absolute inset-0 animate-pulse bg-neutral-800" />

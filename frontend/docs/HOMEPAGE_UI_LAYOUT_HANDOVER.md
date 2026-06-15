@@ -13,9 +13,9 @@ Experimental **Concept 10** companion-first homepage lives at **`/new-home`** (n
 | Route | `app/new-home/page.tsx` (`robots: noindex`) |
 | Page composer | `components/home/HybridHomePage.tsx` |
 | Config (pillars, tools, store URLs) | `lib/home/homeConfig.ts` |
-| Sections | `HomeHero`, `HomeMobileInstallBanner` (mobile only), `HomeProblemFinder`, `HomeWhyManaTap`, `HomePillarGrid`, `HomePopularTools`, `HomeTrendingSection` |
+| Sections | `HomeHero`, `HomeMobileInstallBanner` (mobile only), `HomeProblemFinder`, `HomePopularTools`, `HomeTrendingSection`, `HomeCategoryNav` |
 
-**Retained but unused on `/new-home`:** `HomeAppSection`, `HomeAppScreenshots`, `HomeTrustRow`.
+**Retained but unused on `/new-home`:** `HomeAppSection`, `HomeAppScreenshots`, `HomeTrustRow`, `HomeWhyManaTap`, `HomePillarGrid`.
 
 **Trending section reuses:** `MetaDeckPanel` (with card preview modal), `TrendingCommandersStrip`, `HomeCommanderGuideRotator`, `PopularCommanderGuides`.
 

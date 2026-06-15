@@ -4,9 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { HOME_HERO_COPY, HOME_HERO_TOOLS } from "@/lib/home/homeConfig";
+import { useHomeMobilePlatform } from "@/lib/home/useHomeMobilePlatform";
+
+const primaryBtn =
+  "inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-3 text-center text-sm font-bold text-white shadow-[0_12px_30px_rgba(139,92,246,0.35)] transition hover:from-violet-400 hover:to-fuchsia-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70";
+const secondaryBtn =
+  "inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-center text-sm font-bold text-white transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30";
 
 export default function HomeHero() {
   const [failedImgs, setFailedImgs] = useState<Set<number>>(new Set());
+  const { ready, isMobile } = useHomeMobilePlatform();
+
+  const showMobileCtas = !ready || isMobile;
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(145deg,rgba(10,10,12,0.94),rgba(17,17,20,0.88)_55%,rgba(88,28,135,0.18))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_70px_rgba(0,0,0,0.38)] sm:p-8 lg:p-10">
@@ -30,24 +39,25 @@ export default function HomeHero() {
           </p>
 
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link
-              href="/get"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-3 text-center text-sm font-bold text-white shadow-[0_12px_30px_rgba(139,92,246,0.35)] transition hover:from-violet-400 hover:to-fuchsia-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70"
-            >
-              Download App
-            </Link>
-            <Link
-              href="/tools"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-center text-sm font-bold text-white transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-            >
-              Explore Tools
-            </Link>
-            <Link
-              href="/"
-              className="inline-flex min-h-11 items-center justify-center px-2 py-3 text-center text-sm font-semibold text-violet-300/90 transition hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/50 sm:px-4"
-            >
-              Ask ManaTap AI →
-            </Link>
+            {showMobileCtas ? (
+              <>
+                <Link href="/get" className={primaryBtn}>
+                  Download App
+                </Link>
+                <Link href="/tools" className={secondaryBtn}>
+                  Explore Tools
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/tools" className={primaryBtn}>
+                  Explore Tools
+                </Link>
+                <Link href="/" className={secondaryBtn}>
+                  Ask ManaTap AI
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

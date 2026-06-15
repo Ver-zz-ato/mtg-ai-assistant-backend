@@ -1,10 +1,9 @@
 import HomeHero from "./HomeHero";
 import HomeMobileInstallBanner from "./HomeMobileInstallBanner";
 import HomeProblemFinder from "./HomeProblemFinder";
-import HomeWhyManaTap from "./HomeWhyManaTap";
-import HomePillarGrid from "./HomePillarGrid";
 import HomePopularTools from "./HomePopularTools";
 import HomeTrendingSection from "./HomeTrendingSection";
+import HomeCategoryNav from "./HomeCategoryNav";
 
 export default function HybridHomePage() {
   return (
@@ -14,10 +13,9 @@ export default function HybridHomePage() {
         <HomeHero />
         <HomeMobileInstallBanner />
         <HomeProblemFinder />
-        <HomeWhyManaTap />
-        <HomePillarGrid />
         <HomePopularTools />
         <HomeTrendingSection />
+        <HomeCategoryNav />
       </div>
     </div>
   );

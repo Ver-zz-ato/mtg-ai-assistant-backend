@@ -11,7 +11,7 @@
 - **Problem finder (Concept 8 merge):** New `HomeProblemFinder` section with six problem-first cards (`HOME_PROBLEM_FINDER` in config) — weak deck, too expensive, need commander, bad mana, collection help, MTG question — each with accent colour, primary link, and tool chips.
 - **Compact pass:** `HomePillarGrid` and `HomeWhyManaTap` tightened to reduce page length below the new onboarding block.
 - **Pillar pills:** Each workflow link pill in `HomePillarGrid` has its own accent color (configured via `pillClass` on `HOME_PILLARS` links).
-- **Removed:** `HomeTrustRow` (“Built for real MTG workflows” capability checklist) dropped from `/new-home` layout.
+- **Simplification pass:** Removed `HomeWhyManaTap` and `HomePillarGrid` from `/new-home` (redundant with Problem Finder). Categories preserved as compact `HomeCategoryNav` pill strip near footer. Meta Snapshot uses `compact` variant (~50% shorter). Featured guide promoted full-width with “Start here” treatment. Hero CTAs: desktop shows Explore Tools + Ask AI; mobile shows Download App + Explore Tools.
 - **Commander guides:** Rotating flagship guide pill (`HomeCommanderGuideRotator`) replaces static box in trending grid; shared `FLAGSHIP_COMMANDER_GUIDES` in `lib/home/commanderGuides.ts` (also used by `PopularCommanderGuides`).
 - **Meta Snapshot:** Trending card thumbnails with click-to-open `WebsiteCardDetailModal` (images via `/api/cards/batch-images`).
 - **Config:** Pillar and tool link data centralized in `lib/home/homeConfig.ts`; Deck Checker label used (not “Analyze a Deck”); Life Counter omitted (no web route); AI Chat links to `/` until Phase 4; `ANDROID_APP_LIVE` flag for pre-launch Android.

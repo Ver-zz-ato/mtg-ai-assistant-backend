@@ -31,7 +31,12 @@ interface MetaData {
 
 type CardImage = { small?: string; normal?: string; art_crop?: string };
 
-export default function MetaDeckPanel() {
+type MetaDeckPanelProps = {
+  /** Shorter layout for /new-home — does not affect chat sidebar usage */
+  compact?: boolean;
+};
+
+export default function MetaDeckPanel({ compact = false }: MetaDeckPanelProps) {
   const [meta, setMeta] = useState<MetaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [cardImages, setCardImages] = useState<Record<string, CardImage>>({});
@@ -44,7 +49,8 @@ export default function MetaDeckPanel() {
   useEffect(() => {
     const timeoutId = setTimeout(fetchMeta, 800);
     return () => clearTimeout(timeoutId);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once meta fetch
+  }, [compact]);
 
   async function fetchMeta() {
     const session = isCostAuditClientEnabled() ? costAuditRequestId() : "";
@@ -75,20 +81,22 @@ export default function MetaDeckPanel() {
 
       if (data.ok) {
         setMeta(data);
-        const cardNames = (data.popularCards ?? []).slice(0, 8).map((c) => c.name);
-        if (cardNames.length > 0) {
-          try {
-            const imgRes = await fetch("/api/cards/batch-images", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ names: cardNames }),
-            });
-            const imgJson = await imgRes.json();
-            if (imgJson?.ok && imgJson?.images) {
-              setCardImages(imgJson.images as Record<string, CardImage>);
+        if (!compact) {
+          const cardNames = (data.popularCards ?? []).slice(0, 8).map((c) => c.name);
+          if (cardNames.length > 0) {
+            try {
+              const imgRes = await fetch("/api/cards/batch-images", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ names: cardNames }),
+              });
+              const imgJson = await imgRes.json();
+              if (imgJson?.ok && imgJson?.images) {
+                setCardImages(imgJson.images as Record<string, CardImage>);
+              }
+            } catch {
+              // Card previews optional
             }
-          } catch {
-            // Card previews optional
           }
         }
       }
@@ -110,12 +118,16 @@ export default function MetaDeckPanel() {
 
   if (loading) {
     return (
-      <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-2xl border border-purple-800/30 p-4">
-        <div className="animate-pulse space-y-3">
-          <div className="h-5 bg-purple-800/30 rounded w-1/2" />
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-4 bg-purple-800/30 rounded" />
+      <div
+        className={`bg-gradient-to-br from-purple-900/20 to-blue-900/20 border border-purple-800/30 ${
+          compact ? "rounded-xl p-3" : "rounded-2xl p-4"
+        }`}
+      >
+        <div className="animate-pulse space-y-2">
+          <div className={`bg-purple-800/30 rounded ${compact ? "h-4 w-2/3" : "h-5 w-1/2"}`} />
+          <div className="space-y-1.5">
+            {[1, 2].map((i) => (
+              <div key={i} className={`bg-purple-800/30 rounded ${compact ? "h-3" : "h-4"}`} />
             ))}
           </div>
         </div>
@@ -128,9 +140,93 @@ export default function MetaDeckPanel() {
   }
 
   const freshness = formatMetaFreshnessPill(meta.lastUpdated, meta.labelPayload ?? null);
-  const trending = (meta.trendingCommanders ?? []).slice(0, 3);
-  const mostPlayed = (meta.mostPlayedCommanders ?? meta.topCommanders ?? []).slice(0, 5);
+  const trending = (meta.trendingCommanders ?? []).slice(0, compact ? 2 : 3);
+  const mostPlayed = (meta.mostPlayedCommanders ?? meta.topCommanders ?? []).slice(0, compact ? 3 : 5);
   const popularCards = (meta.popularCards ?? []).slice(0, 8);
+
+  if (compact) {
+    return (
+      <div className="rounded-xl border border-purple-800/30 bg-gradient-to-br from-purple-900/15 to-blue-900/15 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h3 className="text-sm font-bold text-purple-300">Meta Snapshot</h3>
+            {freshness ? (
+              <span className="rounded-full border border-purple-500/25 bg-black/20 px-2 py-0.5 text-[10px] font-medium text-purple-200/80">
+                {freshness}
+              </span>
+            ) : null}
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] uppercase tracking-wide text-neutral-500">Public decks</span>
+            <span className="ml-2 text-lg font-bold text-purple-300">{meta.totalDecks.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {trending.length > 0 ? (
+            <div>
+              <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                <Link href="/meta/trending-commanders" className="hover:text-purple-300">
+                  Trending
+                </Link>
+              </h4>
+              <div className="space-y-0.5">
+                {trending.map((cmd, i) => (
+                  <Link
+                    key={`trending-${cmd.name}`}
+                    href={
+                      cmd.slug
+                        ? `/commanders/${cmd.slug}`
+                        : `/decks/browse?search=${encodeURIComponent(cmd.name)}`
+                    }
+                    className="flex items-center truncate rounded px-1 py-0.5 text-xs text-neutral-300 transition hover:bg-purple-900/20 hover:text-white"
+                  >
+                    <span className="mr-1.5 font-semibold text-fuchsia-300">{i + 1}.</span>
+                    {cmd.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div>
+            <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              <Link href="/meta/most-played-commanders" className="hover:text-purple-300">
+                Most played
+              </Link>
+            </h4>
+            {mostPlayed.length > 0 ? (
+              <div className="space-y-0.5">
+                {mostPlayed.map((cmd, i) => (
+                  <Link
+                    key={`popular-${cmd.name}`}
+                    href={
+                      cmd.slug
+                        ? `/commanders/${cmd.slug}`
+                        : `/decks/browse?search=${encodeURIComponent(cmd.name)}`
+                    }
+                    className="flex items-center truncate rounded px-1 py-0.5 text-xs text-neutral-300 transition hover:bg-purple-900/20 hover:text-white"
+                  >
+                    <span className="mr-1.5 font-semibold text-purple-400">{i + 1}.</span>
+                    {cmd.name}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] italic text-neutral-500">No public decks yet.</p>
+            )}
+          </div>
+        </div>
+
+        <Link
+          href="/meta"
+          className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-purple-300 transition hover:text-purple-200"
+        >
+          Full meta dashboard →
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <>

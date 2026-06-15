@@ -183,6 +183,9 @@ export type HomePillar = {
   accent: string;
   border: string;
   glow: string;
+  /** Primary route for compact category navigation */
+  categoryHref: string;
+  navPillClass: string;
   featured?: boolean;
   links: HomePillarLink[];
 };
@@ -196,6 +199,9 @@ export const HOME_PILLARS: HomePillar[] = [
     accent: "text-emerald-200",
     border: "border-emerald-400/35",
     glow: "from-emerald-500/20 to-transparent",
+    categoryHref: "/build-a-deck",
+    navPillClass:
+      "border-emerald-300/35 bg-emerald-500/10 text-emerald-100 hover:border-emerald-300/55 hover:bg-emerald-500/16",
     links: [
       {
         href: "/build-a-deck",
@@ -225,6 +231,9 @@ export const HOME_PILLARS: HomePillar[] = [
     accent: "text-violet-200",
     border: "border-violet-400/35",
     glow: "from-violet-500/20 to-transparent",
+    categoryHref: "/mtg-deck-checker",
+    navPillClass:
+      "border-violet-300/35 bg-violet-500/10 text-violet-100 hover:border-violet-300/55 hover:bg-violet-500/16",
     links: [
       {
         href: "/deck/swap-suggestions",
@@ -260,6 +269,9 @@ export const HOME_PILLARS: HomePillar[] = [
     accent: "text-amber-200",
     border: "border-amber-400/35",
     glow: "from-amber-500/20 to-transparent",
+    categoryHref: "/collections",
+    navPillClass:
+      "border-amber-300/35 bg-amber-500/10 text-amber-100 hover:border-amber-300/55 hover:bg-amber-500/16",
     links: [
       {
         href: "/collections",
@@ -295,6 +307,9 @@ export const HOME_PILLARS: HomePillar[] = [
     accent: "text-sky-200",
     border: "border-sky-400/35",
     glow: "from-sky-500/20 to-transparent",
+    categoryHref: "/tools/mulligan",
+    navPillClass:
+      "border-sky-300/35 bg-sky-500/10 text-sky-100 hover:border-sky-300/55 hover:bg-sky-500/16",
     links: [
       {
         href: "/tools/mulligan",
@@ -318,6 +333,9 @@ export const HOME_PILLARS: HomePillar[] = [
     accent: "text-rose-200",
     border: "border-rose-400/35",
     glow: "from-rose-500/20 to-transparent",
+    categoryHref: "/commanders",
+    navPillClass:
+      "border-rose-300/35 bg-rose-500/10 text-rose-100 hover:border-rose-300/55 hover:bg-rose-500/16",
     links: [
       {
         href: "/meta",
@@ -354,6 +372,9 @@ export const HOME_PILLARS: HomePillar[] = [
     border: "border-fuchsia-400/45",
     glow: "from-fuchsia-500/30 via-violet-500/15 to-transparent",
     featured: true,
+    categoryHref: "/",
+    navPillClass:
+      "border-fuchsia-300/40 bg-fuchsia-500/12 text-fuchsia-100 hover:border-fuchsia-300/60 hover:bg-fuchsia-500/18",
     links: [
       {
         href: "/",
