@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 import { AI_WORKSHOP_HANDOFF_KEY, type AiWorkshopHandoff } from "@/lib/deck/ai-workshop-actions";
 import { countAiWorkshopDeckCards } from "@/lib/deck/ai-workshop-deck-text";
@@ -164,12 +165,16 @@ export default function DeckCheckerClient() {
   const [quickFixes, setQuickFixes] = useState<string[]>([]);
   const [whatsGood, setWhatsGood] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [resultRevealKey, setResultRevealKey] = useState(0);
 
   const busy = busyPhase !== null;
-  const activeBands = bands ?? previewBands;
-  const fixes = useMemo(() => buildFixes(format, counts, quickFixes, suggestions), [counts, format, quickFixes, suggestions]);
   const hasResult = score !== null || counts !== null;
-  const currentScore = score ?? 72;
+  const isPreview = !hasResult;
+  const showPreviewRibbon = isPreview && busyPhase !== "analyzing";
+  const showVerdictAnalyzing = busyPhase === "analyzing";
+  const activeBands = hasResult && bands ? bands : previewBands;
+  const fixes = useMemo(() => buildFixes(format, counts, quickFixes, suggestions), [counts, format, quickFixes, suggestions]);
+  const currentScore = hasResult && score !== null ? score : 72;
   const deckLines = lineCount(deckText);
 
   useEffect(() => {
@@ -201,6 +206,12 @@ export default function DeckCheckerClient() {
     try {
       setError(null);
       setNeedsCommanderConfirm(false);
+      setScore(null);
+      setBands(null);
+      setCounts(null);
+      setQuickFixes([]);
+      setWhatsGood([]);
+      setSuggestions([]);
       setBusyPhase("reading");
 
       const prep = prepareDeckCheckerRun(nextDeckText.trim(), nextFormat);
@@ -276,6 +287,7 @@ export default function DeckCheckerClient() {
       setQuickFixes(Array.isArray(data?.quickFixes) ? data.quickFixes : []);
       setWhatsGood(Array.isArray(data?.whatsGood) ? data.whatsGood : []);
       setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions.slice(0, 5) : []);
+      setResultRevealKey((key) => key + 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Analysis failed.";
       setError(err instanceof Error && err.name === "AbortError" ? "Analysis timed out. Try a shorter list or run it again." : message);
@@ -442,17 +454,78 @@ export default function DeckCheckerClient() {
                 )}
               </div>
 
-              <div className="p-4 sm:p-5">
+              <div className="relative overflow-hidden p-4 sm:p-5">
+                <AnimatePresence>
+                  {showPreviewRibbon ? (
+                    <motion.div
+                      key="preview-ribbon"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="pointer-events-none absolute inset-0 z-20 overflow-hidden"
+                      aria-hidden
+                    >
+                      <div className="absolute left-1/2 top-[42%] w-[155%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg]">
+                        <div className="border-y-[3px] border-amber-200/90 bg-gradient-to-r from-amber-300 via-amber-200 to-amber-300 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+                          <p className="text-center text-[11px] font-black uppercase tracking-[0.28em] text-zinc-950 sm:text-xs sm:tracking-[0.34em]">
+                            Example preview — run a deck check
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {showVerdictAnalyzing ? (
+                    <motion.div
+                      key="verdict-loading"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/72 backdrop-blur-[2px]"
+                    >
+                      <div className="rounded-md border border-cyan-300/30 bg-black/55 px-5 py-4 text-center">
+                        <Zap className="mx-auto h-6 w-6 animate-pulse text-cyan-300" aria-hidden />
+                        <p className="mt-2 text-sm font-bold text-white">Running deck check…</p>
+                        <p className="mt-1 text-xs text-zinc-400">Results will replace the preview</p>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <motion.div
+                  key={hasResult ? `result-${resultRevealKey}` : "preview"}
+                  initial={hasResult ? { opacity: 0, scale: 0.94, y: 14 } : false}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 26 }}
+                  className={isPreview ? "relative opacity-[0.68] saturate-[0.55] contrast-[0.92]" : "relative"}
+                >
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">Deck verdict</div>
-                    <div className="mt-2 text-2xl font-black text-white">{verdictForScore(score)}</div>
-                    <div className="mt-1 text-sm text-zinc-400">{hasResult ? "Based on this decklist" : "Preview until you run a check"}</div>
+                    <div className="mt-2 text-2xl font-black text-white">{verdictForScore(hasResult ? score : null)}</div>
+                    <div className="mt-1 text-sm text-zinc-400">
+                      {hasResult ? (
+                        <span className="inline-flex items-center gap-1.5 text-cyan-200/90">
+                          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                          Live results from your decklist
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500">Sample output below</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="grid h-20 w-20 place-items-center rounded-lg border border-amber-300/35 bg-amber-300/10">
+                  <div
+                    className={`grid h-20 w-20 place-items-center rounded-lg border ${
+                      hasResult ? "border-cyan-300/45 bg-cyan-300/12" : "border-amber-300/35 bg-amber-300/10"
+                    }`}
+                  >
                     <div className="text-center">
-                      <div className="text-xs font-bold text-amber-100">Grade</div>
-                      <div className="text-3xl font-black text-amber-200">{gradeForScore(score)}</div>
+                      <div className={`text-xs font-bold ${hasResult ? "text-cyan-100" : "text-amber-100"}`}>Grade</div>
+                      <div className={`text-3xl font-black ${hasResult ? "text-cyan-200" : "text-amber-200"}`}>
+                        {gradeForScore(hasResult ? score : null)}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -461,7 +534,7 @@ export default function DeckCheckerClient() {
                   {[
                     ["Score", String(currentScore)],
                     ["Issues", String(fixes.length)],
-                    ["Signals", String(whatsGood.length + suggestions.length || 6)],
+                    ["Signals", String(hasResult ? whatsGood.length + suggestions.length : 6)],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-3">
                       <div className="text-xs text-zinc-500">{label}</div>
@@ -533,6 +606,7 @@ export default function DeckCheckerClient() {
                     Save deck for full AI analysis
                   </Link>
                 </div>
+                </motion.div>
               </div>
             </div>
           </div>

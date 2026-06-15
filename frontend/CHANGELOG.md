@@ -8,6 +8,7 @@
 - **Route:** New `GET /roast` page with inline `DeckRoastPanel` (hub link no longer 404).
 - **Hub:** Deck Compare badge corrected to **Sign in** (guests see signup wall).
 - **Deck Checker UX:** Three-phase loading (reading list → identifying cards/format → running check); commander confirm gate; passes `commander` to analyze API; honest “Detailed” result copy.
+- **Deck Checker preview:** Diagonal example ribbon on verdict panel; analyzing overlay; spring pop-in when live results arrive; grade badge shifts cyan for real output.
 - **Files:** `app/analyze/route.ts`, `app/roast/page.tsx`, `app/tools/page.tsx`, `app/mtg-deck-checker/DeckCheckerClient.tsx`, `lib/deck/deck-checker-prep.ts`, `tests/unit/deck-checker-prep.test.ts`.
 
 - **Reliability:** `/api/deck/swap-suggestions` retries failed/invalid AI responses once (plus `retryOn429` / `retryOn5xx` on LLM client).
