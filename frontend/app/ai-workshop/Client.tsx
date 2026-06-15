@@ -58,6 +58,10 @@ import {
   getTargetCountForFormat,
   toMaxChangesLimit,
 } from "@/lib/deck/ai-workshop-rules";
+import {
+  enrichSavedDeckRow,
+  filterEligibleSavedDecks,
+} from "@/lib/deck/tool-deck-eligibility";
 import { previewFactsStrengthsRisks } from "@/lib/deck/preview-facts-adapter";
 import { getFormatRules, isCommanderFormatString } from "@/lib/deck/formatRules";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -165,6 +169,12 @@ export default function AiWorkshopClient() {
     return rules?.mainDeckTarget ?? getTargetCountForFormat(format);
   }, [format]);
   const workshopBlocked = currentCardCount > 0 && currentCardCount < workshopMinimumCards;
+  const savedDeckPicker = useMemo(() => {
+    const enriched = decks
+      .map((row) => enrichSavedDeckRow(row))
+      .filter((row): row is NonNullable<typeof row> => row != null);
+    return filterEligibleSavedDecks(enriched);
+  }, [decks]);
   const sourceGateSeverity =
     sourcePreflight?.severity === "review" || sourcePreflight?.severity === "blocked"
       ? sourcePreflight.severity
@@ -1037,7 +1047,13 @@ export default function AiWorkshopClient() {
           format={format}
           commander={deckCommander}
           deckTitle={deckTitle}
-          decks={decks.map((d) => ({ id: d.id, title: d.title }))}
+          decks={savedDeckPicker.eligible.map((d) => ({
+            id: d.id,
+            title: d.title,
+            cardCount: d.cardCount,
+            format: d.format,
+          }))}
+          hiddenDeckCount={savedDeckPicker.hiddenCount}
           selectedDeckId={selectedDeckId}
           bootLoading={bootLoading}
           onDeckText={setDeckText}

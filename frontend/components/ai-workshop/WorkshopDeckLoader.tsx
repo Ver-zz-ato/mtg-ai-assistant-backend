@@ -1,8 +1,9 @@
 "use client";
 
 import { WORKSHOP_FORMATS } from "@/lib/deck/ai-workshop-actions";
+import { getAiDeckHalfwayMinimumCards } from "@/lib/deck/tool-deck-eligibility";
 
-type DeckOption = { id: string; title: string };
+type DeckOption = { id: string; title: string; cardCount?: number; format?: string };
 
 type Props = {
   deckText: string;
@@ -10,6 +11,7 @@ type Props = {
   commander: string;
   deckTitle: string;
   decks: DeckOption[];
+  hiddenDeckCount?: number;
   selectedDeckId: string;
   bootLoading: boolean;
   onDeckText: (v: string) => void;
@@ -26,6 +28,7 @@ export function WorkshopDeckLoader({
   commander,
   deckTitle,
   decks,
+  hiddenDeckCount = 0,
   selectedDeckId,
   bootLoading,
   onDeckText,
@@ -63,9 +66,17 @@ export function WorkshopDeckLoader({
             {decks.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.title}
+                {typeof d.cardCount === "number" ? ` (${d.cardCount} cards)` : ""}
               </option>
             ))}
           </select>
+          {hiddenDeckCount > 0 ? (
+            <p className="mt-1.5 text-xs text-neutral-500">
+              {hiddenDeckCount} saved deck{hiddenDeckCount === 1 ? "" : "s"} hidden — need at least{" "}
+              {getAiDeckHalfwayMinimumCards("Commander")} cards (Commander) or{" "}
+              {getAiDeckHalfwayMinimumCards("Standard")} (other formats).
+            </p>
+          ) : null}
         </label>
       ) : (
         <p className="text-sm text-amber-200/90">

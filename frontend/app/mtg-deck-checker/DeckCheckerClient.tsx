@@ -16,6 +16,11 @@ import {
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useAuth } from "@/lib/auth-context";
+import EligibleSavedDeckSelect from "@/components/tools/EligibleSavedDeckSelect";
+import { useEligibleSavedDecks } from "@/hooks/useEligibleSavedDecks";
+import type { SavedDeckPickerRow } from "@/lib/deck/tool-deck-eligibility";
+import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 import { AI_WORKSHOP_HANDOFF_KEY, type AiWorkshopHandoff } from "@/lib/deck/ai-workshop-actions";
 import { countAiWorkshopDeckCards } from "@/lib/deck/ai-workshop-deck-text";
@@ -152,6 +157,9 @@ function busyLabel(phase: BusyPhase) {
 }
 
 export default function DeckCheckerClient() {
+  const { user } = useAuth();
+  const { eligibleDecks, hiddenCount, loading: savedDecksLoading } = useEligibleSavedDecks(user?.id);
+  const [selectedDeckId, setSelectedDeckId] = useState("");
   const [deckText, setDeckText] = useState("");
   const [format, setFormat] = useState<AnalyzeFormat>("Commander");
   const [commander, setCommander] = useState("");
@@ -191,6 +199,24 @@ export default function DeckCheckerClient() {
       // Best-effort handoff from the deck builder.
     }
   }, []);
+
+  function applySavedDeck(deck: SavedDeckPickerRow | null) {
+    if (!deck) return;
+    setDeckText(deck.deckText);
+    setFormat(deckFormatStringToAnalyzeFormat(deck.format));
+    if (deck.commander) setCommander(deck.commander);
+    setError(null);
+    setPrepSummary(null);
+    setNeedsCommanderConfirm(false);
+    setScore(null);
+    setBands(null);
+    setCounts(null);
+  }
+
+  function handleSavedDeckChange(id: string, deck: SavedDeckPickerRow | null) {
+    setSelectedDeckId(id);
+    if (deck) applySavedDeck(deck);
+  }
 
   async function runAnalysis(
     nextDeckText = deckText,
@@ -391,6 +417,20 @@ export default function DeckCheckerClient() {
 
             <div className="grid gap-0 lg:grid-cols-[1.03fr_0.97fr]">
               <div className="border-b border-white/10 p-4 sm:p-5 lg:border-b-0 lg:border-r">
+                {user ? (
+                  <div className="mb-4">
+                    <EligibleSavedDeckSelect
+                      decks={eligibleDecks}
+                      hiddenCount={hiddenCount}
+                      loading={savedDecksLoading}
+                      value={selectedDeckId}
+                      onChange={handleSavedDeckChange}
+                      label="Load a saved deck"
+                      placeholder="Paste below or pick a saved deck"
+                      className="[&_select]:border-white/10 [&_select]:bg-black/45 [&_span]:text-zinc-500"
+                    />
+                  </div>
+                ) : null}
                 <label htmlFor="decklist" className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">
                   Decklist
                 </label>

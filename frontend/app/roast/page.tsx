@@ -20,7 +20,7 @@ export default function RoastPage() {
           Paste a list, pick your spice level, and get a shareable roast permalink.
         </p>
       </div>
-      <DeckRoastPanel variant="inline" showSignupCta sharePath="/roast" useModal={false} defaultExpanded />
+      <DeckRoastPanel variant="inline" showSignupCta sharePath="/roast" useModal={false} defaultExpanded showSavedDeckPicker />
     </main>
   );
 }

@@ -3,7 +3,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import CardAutocomplete from "@/components/CardAutocomplete";
+import CardDetailLink from "@/components/cards/CardDetailLink";
+import EligibleSavedDeckSelect from "@/components/tools/EligibleSavedDeckSelect";
 import ComputingModal from "@/components/ComputingModal";
+import { useEligibleSavedDecks } from "@/hooks/useEligibleSavedDecks";
+import type { SavedDeckPickerRow } from "@/lib/deck/tool-deck-eligibility";
+import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -33,6 +38,8 @@ export interface DeckRoastPanelProps {
   useModal?: boolean;
   /** Open the form immediately (standalone /roast page). */
   defaultExpanded?: boolean;
+  /** Logged-in users can load eligible saved decks (standalone /roast). */
+  showSavedDeckPicker?: boolean;
 }
 
 export default function DeckRoastPanel({
@@ -41,6 +48,7 @@ export default function DeckRoastPanel({
   sharePath = "/",
   useModal = false,
   defaultExpanded = false,
+  showSavedDeckPicker = false,
 }: DeckRoastPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [deckText, setDeckText] = useState("");
@@ -53,17 +61,30 @@ export default function DeckRoastPanel({
   const [error, setError] = useState<string | null>(null);
   const [roast, setRoast] = useState<string | null>(null);
   const [roastScore, setRoastScore] = useState<number | null>(null);
-  const [commanderArt, setCommanderArt] = useState<string | null>(null);
+  const [commanderArtCrop, setCommanderArtCrop] = useState<string | null>(null);
+  const [commanderArtNormal, setCommanderArtNormal] = useState<string | null>(null);
+  const [selectedDeckId, setSelectedDeckId] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
   const [roastCardImages, setRoastCardImages] = useState<Map<string, ImageInfo>>(new Map());
   const [hoverCard, setHoverCard] = useState<{ src: string; name: string; x: number; y: number } | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { eligibleDecks, hiddenCount, loading: savedDecksLoading } = useEligibleSavedDecks(
+    showSavedDeckPicker ? userId : null,
+  );
+
   useEffect(() => {
     createBrowserSupabaseClient()
       .auth.getUser()
-      .then(({ data }) => setIsLoggedIn(!!data?.user))
-      .catch(() => setIsLoggedIn(false));
+      .then(({ data }) => {
+        setIsLoggedIn(!!data?.user);
+        setUserId(data?.user?.id ?? null);
+      })
+      .catch(() => {
+        setIsLoggedIn(false);
+        setUserId(null);
+      });
   }, []);
 
   const HOVER_CARD_SIZE = "max-w-[280px] max-h-[400px]";
@@ -86,16 +107,19 @@ export default function DeckRoastPanel({
   // Fetch art only for a confirmed commander pick — not while the user is still typing.
   useEffect(() => {
     if (format !== "Commander" || !pickedCommander.trim()) {
-      setCommanderArt(null);
+      setCommanderArtCrop(null);
+      setCommanderArtNormal(null);
       return;
     }
     (async () => {
       try {
         const map = await getImagesForNames([pickedCommander.trim()]);
         const first = Array.from(map.values())[0];
-        setCommanderArt(first?.normal || first?.art_crop || null);
+        setCommanderArtCrop(first?.art_crop || first?.normal || null);
+        setCommanderArtNormal(first?.normal || first?.art_crop || null);
       } catch {
-        setCommanderArt(null);
+        setCommanderArtCrop(null);
+        setCommanderArtNormal(null);
       }
     })();
   }, [format, pickedCommander]);
@@ -111,7 +135,28 @@ export default function DeckRoastPanel({
   function clearPickedCommander() {
     setPickedCommander("");
     setCommanderDraft("");
-    setCommanderArt(null);
+    setCommanderArtCrop(null);
+    setCommanderArtNormal(null);
+  }
+
+  function applySavedDeck(deck: SavedDeckPickerRow | null) {
+    if (!deck) return;
+    setDeckText(deck.deckText);
+    const nextFormat = deckFormatStringToAnalyzeFormat(deck.format);
+    setFormat(nextFormat);
+    setError(null);
+    setRoast(null);
+    setRoastScore(null);
+    if (nextFormat === "Commander" && deck.commander) {
+      confirmCommanderPick(deck.commander);
+    } else if (nextFormat !== "Commander") {
+      clearPickedCommander();
+    }
+  }
+
+  function handleSavedDeckChange(id: string, deck: SavedDeckPickerRow | null) {
+    setSelectedDeckId(id);
+    if (deck) applySavedDeck(deck);
   }
 
   // Extract [[Card Name]] from roast and fetch images when roast changes
@@ -310,17 +355,35 @@ export default function DeckRoastPanel({
         Roast currently supports Commander, Modern, Pioneer, Standard, and Pauper.
       </p>
 
+      {showSavedDeckPicker && isLoggedIn ? (
+        <EligibleSavedDeckSelect
+          decks={eligibleDecks}
+          hiddenCount={hiddenCount}
+          loading={savedDecksLoading}
+          value={selectedDeckId}
+          onChange={handleSavedDeckChange}
+        />
+      ) : null}
+
       {format === "Commander" && (
         <div>
           <label className="text-xs text-neutral-400 block mb-1">Commander</label>
           {pickedCommander ? (
             <div className="flex items-center gap-2 rounded-full border border-amber-600/45 bg-amber-950/35 py-1 pl-1 pr-1.5">
-              {commanderArt ? (
-                <img
-                  src={commanderArt}
-                  alt=""
-                  className="h-10 w-7 shrink-0 rounded-md border border-neutral-700 object-cover"
-                />
+              {commanderArtCrop ? (
+                <CardDetailLink
+                  cardName={pickedCommander}
+                  imageSmall={commanderArtCrop}
+                  imageNormal={commanderArtNormal || commanderArtCrop}
+                  className="h-10 w-8 shrink-0 overflow-hidden rounded-md border border-neutral-700 p-0"
+                  title={`View ${pickedCommander}`}
+                >
+                  <img
+                    src={commanderArtCrop}
+                    alt=""
+                    className="h-full w-full object-cover object-[center_20%]"
+                  />
+                </CardDetailLink>
               ) : (
                 <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-700 bg-neutral-900 text-[10px] text-neutral-500">
                   ?
@@ -448,7 +511,7 @@ export default function DeckRoastPanel({
                             commander: pickedCommander || null,
                             format,
                             roastLevel,
-                            commanderArtUrl: commanderArt || null,
+                            commanderArtUrl: commanderArtNormal || commanderArtCrop || null,
                           }),
                         });
                         const j = await r.json().catch(() => ({}));
@@ -482,7 +545,7 @@ export default function DeckRoastPanel({
                             commander: pickedCommander || null,
                             format,
                             roastLevel,
-                            commanderArtUrl: commanderArt || null,
+                            commanderArtUrl: commanderArtNormal || commanderArtCrop || null,
                           }),
                         });
                         const j = await r.json().catch(() => ({}));
@@ -521,7 +584,7 @@ export default function DeckRoastPanel({
                             commander: pickedCommander || null,
                             format,
                             roastLevel,
-                            commanderArtUrl: commanderArt || null,
+                            commanderArtUrl: commanderArtNormal || commanderArtCrop || null,
                           }),
                         });
                         const j = await r.json().catch(() => ({}));
@@ -538,18 +601,21 @@ export default function DeckRoastPanel({
               </div>
             </div>
           )}
-          {format === "Commander" && commanderArt && (
-            <div
-              className="flex justify-center"
-              onMouseEnter={(e) => handleCardHoverEnter(e, commanderArt, pickedCommander)}
-              onMouseLeave={() => setHoverCard(null)}
-            >
-              <img
-                src={commanderArt}
-                alt={pickedCommander}
-                className="w-48 h-auto rounded-lg border border-neutral-700 shadow-lg cursor-pointer hover:ring-2 hover:ring-amber-500/50 transition-shadow"
-                title="Hover for full view"
-              />
+          {format === "Commander" && commanderArtCrop && pickedCommander && (
+            <div className="flex justify-center">
+              <CardDetailLink
+                cardName={pickedCommander}
+                imageSmall={commanderArtCrop}
+                imageNormal={commanderArtNormal || commanderArtCrop}
+                className="block overflow-hidden rounded-lg border border-neutral-700 shadow-lg transition-shadow hover:ring-2 hover:ring-amber-500/50"
+                title={`View ${pickedCommander}`}
+              >
+                <img
+                  src={commanderArtCrop}
+                  alt={pickedCommander}
+                  className="h-56 w-40 object-cover object-[center_18%]"
+                />
+              </CardDetailLink>
             </div>
           )}
           <div className="text-sm text-neutral-200 whitespace-pre-wrap prose prose-invert prose-sm max-w-none">

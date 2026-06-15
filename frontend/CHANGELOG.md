@@ -10,7 +10,10 @@
 - **Deck Checker UX:** Three-phase loading (reading list → identifying cards/format → running check); commander confirm gate; passes `commander` to analyze API; honest “Detailed” result copy.
 - **Deck Checker preview:** Diagonal example ribbon on verdict panel; analyzing overlay; spring pop-in when live results arrive; grade badge shifts cyan for real output.
 - **Roast:** Standalone `/roast` opens form expanded; commander must be picked from search; confirmed commander shows art pill with Change (homepage modal + standalone).
-- **Files:** `app/analyze/route.ts`, `app/roast/page.tsx`, `app/tools/page.tsx`, `app/mtg-deck-checker/DeckCheckerClient.tsx`, `components/DeckRoastPanel.tsx`, `lib/deck/deck-checker-prep.ts`, `tests/unit/deck-checker-prep.test.ts`.
+- **Fix:** Commander autocomplete on Roast (homepage modal + `/roast`) — Scryfall API calls now send required `User-Agent` header; stale empty commander cache busted (`v2` key); suggestion list stays open until user picks.
+- **Roast UX:** Picked commander shows art-only thumbnail (click opens `WebsiteCardDetailModal`); standalone `/roast` adds saved-deck picker for signed-in users.
+- **Tool deck pickers:** Saved-deck selectors on Roast (standalone), AI Workshop, Deck Checker, and Mulligan hide decks below halfway minimum (50 Commander / 30 other formats), aligned with mobile app rules.
+- **Files:** `app/analyze/route.ts`, `app/roast/page.tsx`, `app/tools/page.tsx`, `app/mtg-deck-checker/DeckCheckerClient.tsx`, `components/DeckRoastPanel.tsx`, `components/CardAutocomplete.tsx`, `components/tools/EligibleSavedDeckSelect.tsx`, `components/ai-workshop/WorkshopDeckLoader.tsx`, `components/mulligan/MulliganDeckInput.tsx`, `app/ai-workshop/Client.tsx`, `app/api/cards/search-commanders/route.ts`, `app/api/cards/search/route.ts`, `lib/server/scryfallApi.ts`, `lib/deck/tool-deck-eligibility.ts`, `hooks/useEligibleSavedDecks.ts`, `tests/unit/tool-deck-eligibility.test.ts`, `lib/deck/deck-checker-prep.ts`, `tests/unit/deck-checker-prep.test.ts`.
 
 - **Reliability:** `/api/deck/swap-suggestions` retries failed/invalid AI responses once (plus `retryOn429` / `retryOn5xx` on LLM client).
 - **Quality:** Blink/ETB engines (Thassa, Brago, Displacer Kitten, etc.) blocked as swap `from` cards server-side and in AI prompt; mobile response shape unchanged (`ok`, `suggestions`, `currency`, `budget`).

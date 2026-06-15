@@ -5,12 +5,14 @@ import Link from "next/link";
 import { parseDecklist } from "@/lib/mulligan/parse-decklist";
 import { SAMPLE_DECKS } from "@/lib/sample-decks";
 import { useAuth } from "@/lib/auth-context";
+import { useEligibleSavedDecks } from "@/hooks/useEligibleSavedDecks";
+import type { SavedDeckPickerRow } from "@/lib/deck/tool-deck-eligibility";
+import { getAiDeckHalfwayMinimumCards } from "@/lib/deck/tool-deck-eligibility";
 import HandTestingWidget, { type HandTestingWidgetRef } from "./HandTestingWidget";
 
 const FIRST_SAMPLE = SAMPLE_DECKS[0];
 /** Example deck commander slug (The Ur-Dragon) - used for hotlink to commander page */
 const EXAMPLE_COMMANDER_SLUG = "the-ur-dragon";
-type DeckRow = { id: string; title?: string | null };
 
 export default function MulliganDeckInput() {
   const { user, loading: authLoading } = useAuth();
@@ -19,8 +21,8 @@ export default function MulliganDeckInput() {
   const [deckText, setDeckText] = useState("");
   const [deckId, setDeckId] = useState("");
   const [deckCards, setDeckCards] = useState<Array<{ name: string; qty: number }>>([]);
-  const [decks, setDecks] = useState<DeckRow[]>([]);
   const [commander, setCommander] = useState<string | null>(null);
+  const { eligibleDecks, hiddenCount, loading: decksLoading } = useEligibleSavedDecks(user?.id);
 
   // Resolve deck for widget
   useEffect(() => {
@@ -41,13 +43,9 @@ export default function MulliganDeckInput() {
       setDeckId("");
       return;
     }
-    if (deckSource === "load" && deckId) {
-      setDeckCards([]);
-      setDeckId(deckId);
-      return;
-    }
     if (deckSource === "load" && !deckId) {
       setDeckCards([]);
+      setCommander(null);
       return;
     }
     if (deckSource === "paste" && !deckText.trim()) {
@@ -55,45 +53,17 @@ export default function MulliganDeckInput() {
     }
   }, [deckSource, deckText, deckId]);
 
-  useEffect(() => {
-    if (!user) {
-      setDecks([]);
-      return;
-    }
-    (async () => {
-      try {
-        const res = await fetch("/api/decks/my", { cache: "no-store" });
-        const j = await res.json().catch(() => ({ ok: false }));
-        if (res.ok && j?.ok && Array.isArray(j.decks)) setDecks(j.decks);
-      } catch {}
-    })();
-  }, [user]);
-
-  const handleLoadDeck = useCallback(async (id: string) => {
-    if (!id) return;
-    try {
-      const res = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(id)}`, {
-        cache: "no-store",
-      });
-      const data = await res.json();
-      if (!data.ok || !Array.isArray(data.cards)) return;
-      const cards = (data.cards as { name: string; qty: number }[]).map((c) => ({
-        name: c.name,
-        qty: c.qty || 1,
-      }));
-      setDeckCards(cards);
-      const metaRes = await fetch(`/api/decks/get?id=${encodeURIComponent(id)}`, {
-        cache: "no-store",
-      });
-      const meta = await metaRes.json().catch(() => ({}));
-      const cmd = (meta?.deck as { commander?: string })?.commander;
-      setCommander(cmd ? String(cmd).trim() || null : null);
-    } catch {}
+  const handleLoadDeck = useCallback((deck: SavedDeckPickerRow) => {
+    const cards = parseDecklist(deck.deckText).map((p) => ({ name: p.name, qty: p.count }));
+    setDeckCards(cards);
+    setCommander(deck.commander || null);
   }, []);
 
   useEffect(() => {
-    if (deckSource === "load" && deckId) handleLoadDeck(deckId);
-  }, [deckSource, deckId, handleLoadDeck]);
+    if (deckSource !== "load" || !deckId) return;
+    const deck = eligibleDecks.find((d) => d.id === deckId);
+    if (deck) handleLoadDeck(deck);
+  }, [deckSource, deckId, eligibleDecks, handleLoadDeck]);
 
   const mode = deckSource === "example" ? "DEMO" : "DECK";
   const hasDeck = mode === "DEMO" || deckCards.length > 0 || deckId;
@@ -102,7 +72,7 @@ export default function MulliganDeckInput() {
     deckSource === "example"
       ? FIRST_SAMPLE?.commander ?? "Example"
       : deckSource === "load" && deckId
-        ? decks.find((d) => d.id === deckId)?.title ?? "Loaded"
+        ? eligibleDecks.find((d) => d.id === deckId)?.title ?? "Loaded"
         : deckSource === "paste"
           ? "Pasted deck"
           : "Select a deck";
@@ -197,23 +167,37 @@ export default function MulliganDeckInput() {
         </div>
       )}
       {deckSource === "load" && (user || authLoading) && (
-        <select
-          value={deckId}
-          onChange={(e) => setDeckId(e.target.value)}
-          className="w-full bg-neutral-950 border border-neutral-600 rounded px-2 py-1.5 text-xs"
-        >
-          <option value="">{authLoading ? "Loading…" : decks.length === 0 ? "No decks yet" : "Select deck…"}</option>
-          {decks.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.title || "Untitled"}
+        <div className="space-y-1">
+          <select
+            value={deckId}
+            onChange={(e) => setDeckId(e.target.value)}
+            className="w-full bg-neutral-950 border border-neutral-600 rounded px-2 py-1.5 text-xs"
+          >
+            <option value="">
+              {authLoading || decksLoading
+                ? "Loading…"
+                : eligibleDecks.length === 0
+                  ? "No eligible decks yet"
+                  : "Select deck…"}
             </option>
-          ))}
-        </select>
+            {eligibleDecks.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.title} ({d.cardCount} cards)
+              </option>
+            ))}
+          </select>
+          {hiddenCount > 0 ? (
+            <p className="text-[10px] text-neutral-500">
+              Decks under {getAiDeckHalfwayMinimumCards("Commander")}+ (Commander) or{" "}
+              {getAiDeckHalfwayMinimumCards("Standard")}+ (other) are hidden.
+            </p>
+          ) : null}
+        </div>
       )}
       {hasDeck && deckSource !== "example" && (
         <div className="text-[10px] text-neutral-500">
           {deckSource === "load" && deckId ? (
-            decks.find((d) => d.id === deckId)?.title ?? "Loaded"
+            eligibleDecks.find((d) => d.id === deckId)?.title ?? "Loaded"
           ) : deckSource === "paste" ? (
             "Pasted deck"
           ) : (
