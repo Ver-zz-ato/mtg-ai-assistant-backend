@@ -14,9 +14,12 @@ export default function HomeTrendingSection() {
         </p>
       </div>
 
-      <div className="space-y-4">
-        <HomeMetaMoverRotator />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
         <HomeCommanderGuideRotator />
+        <HomeMetaMoverRotator />
+      </div>
+
+      <div className="mt-4">
         <PopularCommanderGuides embedded />
       </div>
     </section>
