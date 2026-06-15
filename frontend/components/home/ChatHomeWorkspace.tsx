@@ -55,7 +55,7 @@ export default function ChatHomeWorkspace({
   const chatColClass = showRightSidebar
     ? "col-span-1 md:col-span-7 xl:col-span-7"
     : embedded
-      ? "col-span-1 md:col-span-8"
+      ? "col-span-1 md:col-span-10"
       : "col-span-1 md:col-span-10";
 
   return (
@@ -71,7 +71,7 @@ export default function ChatHomeWorkspace({
           </div>
         ) : null}
 
-        <HomepageSignupBanner />
+        <HomepageSignupBanner compact={embedded} />
 
         {showVariantB && !embedded ? (
           <div className="max-w-[1600px] mx-auto px-4 pt-4">
@@ -82,12 +82,14 @@ export default function ChatHomeWorkspace({
         <div
           className={`${embedded ? "" : "max-w-[1600px] mx-auto px-4 py-0"} ${gridClass}`}
         >
-          <ResponsiveLeftSidebar>
-            <DeckRoastPanel variant="panel" showSignupCta={true} useModal={true} />
-            <Shoutbox />
-            <MetaDeckPanel />
-            <LeftSidebar />
-          </ResponsiveLeftSidebar>
+          {!embedded ? (
+            <ResponsiveLeftSidebar>
+              <DeckRoastPanel variant="panel" showSignupCta={true} useModal={true} />
+              <Shoutbox />
+              <MetaDeckPanel />
+              <LeftSidebar />
+            </ResponsiveLeftSidebar>
+          ) : null}
 
           <section className={`${chatColClass} flex flex-col gap-3 pt-2`} data-chat-area>
             <AIMemoryGreeting className="flex-shrink-0" />
@@ -102,11 +104,13 @@ export default function ChatHomeWorkspace({
         </div>
       </div>
 
-      <CommunityDrawer>
-        <MobileOnlyContent>
-          <CommunityDrawerContent />
-        </MobileOnlyContent>
-      </CommunityDrawer>
+      {!embedded ? (
+        <CommunityDrawer>
+          <MobileOnlyContent>
+            <CommunityDrawerContent />
+          </MobileOnlyContent>
+        </CommunityDrawer>
+      ) : null}
       <FeedbackFab />
       <EmailVerificationSuccessPopup />
     </>

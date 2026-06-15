@@ -2,11 +2,14 @@
 
 import React from "react";
 import Link from "next/link";
+import { PILL_BASE_CLASS } from "@/lib/ui/accentPills";
 
 interface CommanderLinkWithHoverProps {
   href: string;
   name: string;
   className?: string;
+  /** When set, renders as a coloured pill instead of a plain text link. */
+  pillClass?: string;
 }
 
 const PREVIEW_W = 192;
@@ -36,7 +39,12 @@ function clampPosition(clientX: number, clientY: number) {
   return { x, y, below };
 }
 
-export function CommanderLinkWithHover({ href, name, className = "" }: CommanderLinkWithHoverProps) {
+export function CommanderLinkWithHover({
+  href,
+  name,
+  className = "",
+  pillClass,
+}: CommanderLinkWithHoverProps) {
   const [art, setArt] = React.useState<string | null>(null);
   const [pos, setPos] = React.useState<{ x: number; y: number; below: boolean } | null>(null);
   const fetchedRef = React.useRef(false);
@@ -62,7 +70,11 @@ export function CommanderLinkWithHover({ href, name, className = "" }: Commander
     <span className="relative inline">
       <Link
         href={href}
-        className={`text-blue-400 hover:text-blue-300 hover:underline ${className}`}
+        className={
+          pillClass
+            ? `${PILL_BASE_CLASS} ${pillClass} ${className}`
+            : `text-blue-400 hover:text-blue-300 hover:underline ${className}`
+        }
         onMouseEnter={(e) => {
           setPos(clampPosition(e.clientX, e.clientY));
           fetchArt();

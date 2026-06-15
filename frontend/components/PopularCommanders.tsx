@@ -1,31 +1,76 @@
 import { CommanderLinkWithHover } from "@/components/CommanderLinkWithHover";
-import { getGlobalMetaCommanders } from "@/lib/meta/global-meta-entities";
+import {
+  getExternalMostPlayedCommanders,
+  getExternalTrendingCommanders,
+} from "@/lib/meta/externalDailyMeta";
+import { formatMetaUpdatedPhrase } from "@/lib/meta/freshness";
+import { pillClassAt } from "@/lib/ui/accentPills";
 
-export async function PopularCommanders() {
-  const popular = (await getGlobalMetaCommanders(10).catch(() => [])).filter(
-    (commander) => commander.inCatalog
-  );
+type PopularCommandersProps = {
+  variant?: "link" | "pill";
+  limit?: number;
+};
 
-  if (popular.length === 0) return null;
+export async function PopularCommanders({ variant = "pill", limit = 10 }: PopularCommandersProps) {
+  const played = await getExternalMostPlayedCommanders(limit + 4).catch(() => ({
+    items: [],
+    updatedAt: null,
+    snapshotDate: null,
+  }));
+
+  const seen = new Set<string>();
+  const popular = played.items.filter((commander) => {
+    if (seen.has(commander.slug)) return false;
+    seen.add(commander.slug);
+    return true;
+  });
+
+  if (popular.length < Math.min(6, limit)) {
+    const trending = await getExternalTrendingCommanders(limit + 4).catch(() => ({
+      items: [],
+      updatedAt: null,
+      snapshotDate: null,
+    }));
+    for (const commander of trending.items) {
+      if (seen.has(commander.slug)) continue;
+      seen.add(commander.slug);
+      popular.push(commander);
+      if (popular.length >= limit) break;
+    }
+  }
+
+  const commanders = popular.slice(0, limit);
+  if (commanders.length === 0) return null;
+
+  const freshness = played.updatedAt
+    ? formatMetaUpdatedPhrase(played.updatedAt)
+    : played.snapshotDate ?? null;
 
   return (
     <section
-      className="mt-8 pt-6 border-t border-neutral-700"
+      className="mt-6 pt-5 border-t border-neutral-800"
       aria-label="Popular Commanders"
     >
-      <h2 className="text-lg font-semibold text-neutral-100 mb-2">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 mb-1">
         Popular Commanders
       </h2>
-      <p className="text-neutral-400 text-sm mb-3">
-        Live Commander shells from ManaTap&apos;s blended meta signals.
+      <p className="text-neutral-500 text-xs mb-3 leading-relaxed">
+        Global EDHREC popularity signals
+        {freshness ? (
+          <>
+            {" "}
+            · <span className="text-neutral-400">updated {freshness}</span>
+          </>
+        ) : null}
       </p>
-      <ul className="flex flex-wrap gap-3">
-        {popular.map((c) => (
+      <ul className="flex flex-wrap gap-2">
+        {commanders.map((c, i) => (
           <li key={c.slug}>
             <CommanderLinkWithHover
               href={`/commanders/${c.slug}`}
               name={c.name}
-              className="text-sm"
+              pillClass={variant === "pill" ? pillClassAt(i) : undefined}
+              className={variant === "link" ? "text-sm" : undefined}
             />
           </li>
         ))}

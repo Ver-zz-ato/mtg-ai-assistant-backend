@@ -6,7 +6,12 @@ import { useCapture } from '@/lib/analytics/useCapture';
 import { AnalyticsEvents } from '@/lib/analytics/events';
 import { trackSignupStarted } from '@/lib/analytics-enhanced';
 
-export default function HomepageSignupBanner() {
+type HomepageSignupBannerProps = {
+  /** Tighter spacing and softer chrome for tool pages (e.g. /new-chat). */
+  compact?: boolean;
+};
+
+export default function HomepageSignupBanner({ compact = false }: HomepageSignupBannerProps) {
   const { user, loading } = useAuth();
   const capture = useCapture();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -89,11 +94,18 @@ export default function HomepageSignupBanner() {
     }));
   };
 
+  const outerWrap = compact ? "w-full mb-2" : "max-w-[1600px] mx-auto px-4 mb-3";
+  const outerWrapExpanded = compact ? "w-full mb-2" : "max-w-[1600px] mx-auto px-4 mb-8 animate-slide-down";
+
   // Collapsed state: reduced visual weight (smaller height, softer gradient)
   if (!isExpanded) {
     return (
-      <div className="max-w-[1600px] mx-auto px-4 mb-3">
-        <div className="bg-gradient-to-r from-blue-600/60 via-purple-600/60 to-pink-600/60 rounded-xl p-3 shadow-lg border border-blue-500/20 backdrop-blur-sm transition-all duration-500">
+      <div className={outerWrap}>
+        <div
+          className={`bg-gradient-to-r from-blue-600/60 via-purple-600/60 to-pink-600/60 rounded-xl p-3 shadow-lg backdrop-blur-sm transition-all duration-500 ${
+            compact ? "border border-white/10" : "border border-blue-500/20"
+          }`}
+        >
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 text-center md:text-left">
               <p className="text-white/90 text-sm font-medium">
@@ -114,8 +126,14 @@ export default function HomepageSignupBanner() {
 
   // Expanded state: full banner (re-surfaced aggressively)
   return (
-    <div className="max-w-[1600px] mx-auto px-4 mb-8 animate-slide-down">
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-5 shadow-xl border border-blue-500/30 ring-2 ring-blue-400/50">
+    <div className={outerWrapExpanded}>
+      <div
+        className={`bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 shadow-xl ${
+          compact
+            ? "rounded-xl p-4 border border-white/10"
+            : "rounded-2xl p-5 border border-blue-500/30 ring-2 ring-blue-400/50"
+        }`}
+      >
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Mobile: CTA on top for better thumb reach */}
           <button
@@ -126,7 +144,7 @@ export default function HomepageSignupBanner() {
             <span className="absolute inset-0 rounded-lg bg-white opacity-0 group-hover:opacity-20 transition-opacity blur-xl"></span>
           </button>
           <div className="flex-1 text-center md:text-left">
-            <h3 className="text-2xl font-bold text-white mb-2">
+            <h3 className={`font-bold text-white mb-2 ${compact ? "text-lg sm:text-xl" : "text-2xl"}`}>
               Save Your Chat History, Build Decks, Track Collections
             </h3>
             <p className="text-blue-100 text-sm md:text-base flex flex-wrap items-center justify-center md:justify-start gap-2">
