@@ -5,9 +5,9 @@ import Link from "next/link";
 import { fetchJson } from "@/lib/http";
 import { HOME_COMMUNITY_HIGHLIGHTS } from "@/lib/home/homeConfig";
 
-type MetaStats = {
+type BrowseStats = {
   ok?: boolean;
-  totalDecks?: number;
+  total?: number;
 };
 
 export default function HomeCommunityHighlights() {
@@ -17,17 +17,12 @@ export default function HomeCommunityHighlights() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchJson<MetaStats>("/api/meta/trending", { cache: "no-store" });
-        if (
-          !cancelled &&
-          data?.ok &&
-          typeof data.totalDecks === "number" &&
-          data.totalDecks > 0
-        ) {
-          setPublicDecks(data.totalDecks);
+        const data = await fetchJson<BrowseStats>("/api/decks/browse?limit=1", { cache: "no-store" });
+        if (!cancelled && data?.ok && typeof data.total === "number" && data.total > 0) {
+          setPublicDecks(data.total);
         }
       } catch {
-        // Capability labels only when meta unavailable
+        // Capability labels only when browse unavailable
       }
     })();
     return () => {
@@ -36,12 +31,13 @@ export default function HomeCommunityHighlights() {
   }, []);
 
   return (
-    <section className="mt-8 sm:mt-9" aria-label="Community highlights">
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-500">
-        Community highlights
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {HOME_COMMUNITY_HIGHLIGHTS.map((item) => {
+    <section className="mt-5 sm:mt-6" aria-label="Community highlights">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-500">
+          Community highlights
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {HOME_COMMUNITY_HIGHLIGHTS.map((item) => {
           const Icon = item.icon;
           let text = item.label;
           if (item.statKey === "publicDecks" && publicDecks !== null && item.statLabel) {
@@ -60,7 +56,8 @@ export default function HomeCommunityHighlights() {
               {text}
             </Link>
           );
-        })}
+          })}
+        </div>
       </div>
     </section>
   );

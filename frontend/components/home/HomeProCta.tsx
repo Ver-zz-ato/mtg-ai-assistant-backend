@@ -4,7 +4,7 @@ import { HOME_PRO_BENEFITS } from "@/lib/home/homeConfig";
 
 export default function HomeProCta() {
   return (
-    <section className="mt-8 sm:mt-10" aria-labelledby="home-pro-cta-heading">
+    <section className="mt-5 sm:mt-6" aria-labelledby="home-pro-cta-heading">
       <div className="rounded-2xl border border-violet-400/25 bg-[linear-gradient(135deg,rgba(12,10,24,0.92),rgba(8,8,14,0.9))] px-5 py-5 sm:px-6 sm:py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">

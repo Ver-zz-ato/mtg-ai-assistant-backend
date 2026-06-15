@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchCommanderArtBatch } from "@/lib/commander-art-batch";
 import { FLAGSHIP_COMMANDER_GUIDES } from "@/lib/home/commanderGuides";
-import { HOMEPAGE_COMMANDER_GUIDE_STRIP } from "@/lib/home/homepageGuideStrip";
 import { HOME_COMMANDER_GUIDE_COUNT } from "@/lib/home/commanderGuideCount";
 
 interface CommanderGuide {
@@ -109,10 +108,7 @@ export default function PopularCommanderGuides({ embedded = false }: { embedded?
   const [artMap, setArtMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
-  const commanders = useMemo(
-    () => (embedded ? HOMEPAGE_COMMANDER_GUIDE_STRIP : FLAGSHIP_STRIP),
-    [embedded],
-  );
+  const commanders = useMemo(() => FLAGSHIP_STRIP, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,7 +147,7 @@ export default function PopularCommanderGuides({ embedded = false }: { embedded?
       </div>
 
       {embedded ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {commanders.map((cmd) => (
             <GuideCard key={cmd.slug} cmd={cmd} art={artMap[cmd.name]} loading={loading} />
           ))}

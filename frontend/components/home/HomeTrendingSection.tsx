@@ -4,8 +4,8 @@ import PopularCommanderGuides from "@/components/PopularCommanderGuides";
 
 export default function HomeTrendingSection() {
   return (
-    <section className="mt-8 sm:mt-10">
-      <div className="mb-4">
+    <section className="mt-5 sm:mt-6">
+      <div className="mb-3">
         <h2 className="text-2xl font-black text-white sm:text-3xl">
           What&apos;s trending in Commander
         </h2>
@@ -19,7 +19,7 @@ export default function HomeTrendingSection() {
         <HomeMetaMoverRotator />
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3">
         <PopularCommanderGuides embedded />
       </div>
     </section>

@@ -25,7 +25,7 @@ export default function HomeToolCard({ tool }: { tool: HomePopularTool }) {
           <span className="text-[15px] font-bold leading-5 text-white group-hover:text-amber-100">
             {tool.title}
           </span>
-          <span className="mt-2 block text-sm leading-6 text-neutral-400">{tool.subtitle}</span>
+          <span className="mt-1.5 block truncate text-sm text-neutral-400">{tool.subtitle}</span>
           <span className="mt-auto pt-3 text-xs font-semibold text-amber-200/0 transition group-hover:text-amber-200">
             Open →
           </span>
