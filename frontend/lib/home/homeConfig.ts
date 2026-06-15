@@ -462,7 +462,7 @@ export const HOME_POPULAR_TOOLS: HomePopularTool[] = [
     accent: "text-sky-200 border-sky-300/25 bg-sky-300/10",
   },
   {
-    href: "/",
+    href: "/new-chat",
     title: "AI Chat",
     subtitle: "Ask rules questions and get focused MTG help.",
     icon: Bot,
@@ -486,6 +486,7 @@ export const HOME_HERO_TOOLS = [
   { href: "/price-tracker", img: "/tool-price-tracker.png", alt: "Price Tracker" },
   { href: "/tools/mulligan", img: "/tool-mulligan-lab.png", alt: "Mulligan Lab" },
   { href: "/build-a-deck", img: "/tool-build-a-deck.png", alt: "Build a Deck" },
+  { href: "/new-chat", img: "/tool-ai-chat.png", alt: "AI Chat" },
 ] as const;
 
 /** Tool-banner assets used until real iOS screenshots are added under /public/app-screenshots/ */
