@@ -4,6 +4,23 @@
 
 ---
 
+## Hybrid homepage preview (`/new-home`) — 2026-06-15
+
+Experimental **Concept 10** companion-first homepage lives at **`/new-home`** (not yet the root `/`).
+
+| Component | Path |
+|-----------|------|
+| Route | `app/new-home/page.tsx` (`robots: noindex`) |
+| Page composer | `components/home/HybridHomePage.tsx` |
+| Config (pillars, tools, store URLs) | `lib/home/homeConfig.ts` |
+| Sections | `HomeHero`, `HomePillarGrid`, `HomePopularTools`, `HomeTrendingSection`, `HomeAppSection`, `HomeTrustRow` |
+
+**Trending section reuses:** `MetaDeckPanel`, `RecentPublicDecks`, `PopularCommanderGuides` (no data refactor).
+
+**Root `/` unchanged** — still chat-first (`app/page.tsx`). AI Chat links on `/new-home` point to `/` until owner approves swap to hybrid + `/chat`.
+
+---
+
 ## 1. Document Structure (Top to Bottom)
 
 ```

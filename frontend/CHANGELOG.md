@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### Hybrid homepage preview (`/new-home`)
+
+- **Route:** New experimental homepage at `/new-home` (Concept 10 hybrid layout) — `robots: noindex` until owner approves root swap.
+- **Layout:** Hero with tool discovery CTAs, six pillar tiles (Build / Improve / Track / Play / Discover / AI), popular tools grid, trending section (reuses `MetaDeckPanel`, `RecentPublicDecks`, `PopularCommanderGuides`), mobile app section, trust feature row.
+- **Config:** Pillar and tool link data centralized in `lib/home/homeConfig.ts`; Deck Checker label used (not “Analyze a Deck”); Life Counter omitted (no web route); AI Chat links to `/` until Phase 4.
+- **Unchanged:** Root `/` remains chat-first homepage; no API/backend/mobile changes.
+- **Files:** `app/new-home/page.tsx`, `components/home/*`, `lib/home/homeConfig.ts`.
+
 ### Tools hub fixes (audit follow-up)
 
 - **Route:** `GET /analyze` redirects to `/mtg-deck-checker` via `app/analyze/route.ts` GET handler; `POST /analyze` unchanged (legacy re-export of `/api/deck/analyze` — mobile uses `/api/mobile/deck/analyze`).
