@@ -1,5 +1,7 @@
 # ManaTap Website / Backend Instructions
 
+> **Engineering discipline:** Follow `../ENGINEERING.md` (workspace root) for universal coding behaviour. This file covers website/backend-specific rules only.
+
 This repo is the ManaTap website and backend for the mobile app.
 
 ## Next.js And App Router Discipline

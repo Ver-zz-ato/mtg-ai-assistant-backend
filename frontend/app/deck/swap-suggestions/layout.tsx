@@ -12,8 +12,7 @@ export const metadata: Metadata = {
 };
 
 const FAQ = [
-  { q: "What is the budget threshold?", a: "It's the minimum price per card. Only cards costing more than this get swap suggestions. E.g. $5 means we find cheaper alternatives for cards over $5 in your deck." },
-  { q: "Quick Swaps vs AI-Powered Swaps?", a: "Quick Swaps uses a curated list of budget replacements for popular staples. AI-Powered (Pro) analyzes your deck's strategy to find cheaper cards that maintain synergies." },
+  { q: "Quick Swaps vs AI-Powered Swaps?", a: "Quick Swaps uses a curated list of budget replacements for popular staples (Mana Crypt, fetchlands, etc.). AI-Powered (Pro) analyzes your deck's strategy to find cheaper cards that maintain synergies — including cards not on the curated list." },
   { q: "Can I paste from Moxfield or Archidekt?", a: "Yes. The tool works with standard formats from Moxfield, Archidekt, or plain text. Fix card names if your paste has typos." },
   { q: "How do I apply swaps to a new deck?", a: "Compare before/after totals, export as CSV, or apply swaps to create a new deck. Sign in to load decks from your ManaTap account." },
 ];
@@ -49,10 +48,10 @@ const IntroBlock = () => (
       How it works
     </h2>
     <p className="text-neutral-300 mb-3 text-sm">
-      Set a budget threshold (e.g. $5 per card). The tool finds cards above
-      that price and suggests alternatives. Compare before/after totals and
-      export as CSV or apply swaps to a new deck. Fix card names if your paste
-      has typos.
+      Paste or load your deck, pick Quick Swaps or AI-Powered (Pro), then hit
+      Compute. The tool finds cheaper alternatives where they exist, compares
+      savings, and lets you export or fork a budget version. Fix card names if
+      your paste has typos.
     </p>
     <h2 className="text-base font-semibold text-neutral-100 mb-2">
       Use with your deck

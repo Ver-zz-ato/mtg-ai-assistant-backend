@@ -39,6 +39,10 @@ import {
 } from "@/lib/recommendations/tag-grounding";
 import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from "@/lib/recommendations/recommendation-pipeline";
 import { getRecommendationTierConfig, resolveRecommendationTier } from "@/lib/recommendations/recommendation-tier";
+import {
+  resolveSwapSuggestionsEmptyReason,
+  type AiRunMetrics,
+} from "@/lib/deck/swap-suggestions-empty-reason";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -63,6 +67,13 @@ type ScryfallPriceResponse = {
 };
 
 type AiSwapResponse = Array<{ from: string; to: string; reason?: string }>;
+
+type AiSuggestOutcome = "ok" | "empty" | "invalid_response" | "call_failed";
+
+type AiSuggestResult = {
+  outcome: AiSuggestOutcome;
+  suggestions: AiSwapResponse;
+};
 
 type RoleGroup =
   | "mana"
@@ -231,7 +242,7 @@ async function aiSuggest(
   usageSource?: string | null,
   sourcePage?: string | null,
   recommendationTier?: "guest" | "free" | "pro"
-): Promise<Array<{ from: string; to: string; reason?: string }>> {
+): Promise<AiSuggestResult> {
   const tierConfig = getRecommendationTierConfig(recommendationTier ?? "guest");
   const model = tierConfig.model || process.env.MODEL_SWAP_SUGGESTIONS || DEFAULT_FALLBACK_MODEL;
   const formatKey = normalizeManatapDeckFormatKey(format);
@@ -263,8 +274,9 @@ async function aiSuggest(
   const system = `You are ManaTap AI, an expert Magic: The Gathering assistant suggesting budget-friendly alternatives.
 
 CRITICAL RULES:
-1. Price: Only suggest swaps where the replacement costs LESS than the threshold.
-   - Do not suggest replacements above the threshold, even if they are cheaper than the original.
+1. Price: Only suggest swaps where the replacement costs LESS than the original card.
+   - Prioritize the deck's most expensive cards where meaningful savings are possible.
+   - Skip bulk basics and trivially cheap cards unless savings are still worthwhile.
    - Do not suggest a replacement already present in the submitted deck.
 2. Role: Replacement MUST fill the SAME deck role:
    - Ramp → Ramp only (mana rocks, land fetch, dorks)
@@ -287,7 +299,7 @@ If USER COLLECTION CONTEXT is present, prefer owned replacements from the sample
 If SHARED ROLE CLASSIFIER SUMMARY or TAG GROUNDED PROFILE is present in the deck text, use it to preserve deck intent and avoid generic swaps.
 Quality over quantity. If no good swaps exist, return empty array [].`;
   
-  const input = `Format: ${formatTitle}\nCurrency: ${currency}\nThreshold: ${budget}${isCommander && commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
+  const input = `Format: ${formatTitle}\nCurrency: ${currency}${isCommander && commander ? `\nCommander: ${commander}` : ''}\nDeck:\n${deckText}`;
   
   try {
     const { callLLM } = await import('@/lib/ai/unified-llm-client');
@@ -314,20 +326,29 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
     );
 
     const text = response.text.trim();
+    if (!text) {
+      return { outcome: "empty", suggestions: [] };
+    }
     try {
       // Remove markdown code blocks if present
       const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const parsed = JSON.parse(cleaned) as unknown;
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter((x): x is AiSwapResponse[number] => {
+      if (!Array.isArray(parsed)) {
+        return { outcome: "invalid_response", suggestions: [] };
+      }
+      const suggestions = parsed.filter((x): x is AiSwapResponse[number] => {
         return x != null && typeof x === "object" && typeof (x as { from?: unknown }).from === "string" && typeof (x as { to?: unknown }).to === "string";
       });
+      return {
+        outcome: suggestions.length > 0 ? "ok" : "empty",
+        suggestions,
+      };
     } catch {
-      return [];
+      return { outcome: "invalid_response", suggestions: [] };
     }
   } catch (e) {
     console.warn("[swap-suggestions] AI call failed:", e);
-    return [];
+    return { outcome: "call_failed", suggestions: [] };
   }
 }
 
@@ -374,15 +395,18 @@ export async function POST(req: NextRequest) {
       (typeof body.sourcePage === "string" ? body.sourcePage : typeof body.source_page === "string" ? body.source_page : null)?.trim() || null;
     const deckText = String(body.deckText || body.deck_text || "");
     const currency = String(body.currency || "USD").toUpperCase();
-    const budget = Number(body.budget ?? 5); // suggest swaps for cards over this per-unit
+    const budget = Number(body.budget ?? 0);
     const useAI = Boolean(body.ai || (body.provider === "ai"));
     const useSnapshot = Boolean(body.useSnapshot || body.use_snapshot);
     const snapshotDate = String(body.snapshotDate || body.snapshot_date || new Date().toISOString().slice(0,10)).slice(0,10);
     const commander = String(body.commander || "").trim();
     const format = String(body.format || "Commander").trim();
-    const allowReplacementAboveBudget =
-      isAiWorkshopBudgetSource(sourcePage) || body.allowReplacementAboveBudget === true || body.allow_replacement_above_budget === true;
     const workshopBudgetSource = isAiWorkshopBudgetSource(sourcePage);
+    const allowReplacementAboveBudget =
+      isAiWorkshopBudgetSource(sourcePage)
+      || body.allowReplacementAboveBudget === true
+      || body.allow_replacement_above_budget === true
+      || (useAI && !workshopBudgetSource);
 
     let supabase = await createClient();
     let { data: { user } } = await supabase.auth.getUser();
@@ -507,7 +531,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const addAiSuggestions = async () => {
+    const addAiSuggestions = async (metrics: AiRunMetrics) => {
       let anonId: string | null = null;
       if (user?.id) anonId = await hashString(user.id);
       else {
@@ -523,8 +547,15 @@ export async function POST(req: NextRequest) {
         ownershipPrompt,
       ].filter(Boolean).join("\n\n");
       const aiDeckText = aiContext || deckText;
-      const ai = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage, recommendationTier);
-      for (const s of ai) {
+      const aiResult = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage, recommendationTier);
+      metrics.outcome = aiResult.outcome;
+      metrics.rawCount = aiResult.suggestions.length;
+
+      if (aiResult.outcome === "call_failed" || aiResult.outcome === "invalid_response") {
+        return;
+      }
+
+      for (const s of aiResult.suggestions) {
         const from = canonicalize(s.from).canonicalName || s.from;
         const toCanon = canonicalize(s.to).canonicalName || s.to;
         if (!from || !toCanon) continue;
@@ -543,13 +574,16 @@ export async function POST(req: NextRequest) {
         const rationale = s.reason || `${toCanon} is a budget-friendly alternative to ${from}.`;
         const confidence = Math.max(0.3, Math.min(0.9, (pf - pt) / Math.max(1, pf)));
         suggestions.push({ from, to: toCanon, price_from: pf, price_to: pt, price_delta: delta, rationale, confidence });
+        metrics.validatedCount += 1;
       }
     };
+
+    const aiRun: AiRunMetrics = { outcome: "not_run", rawCount: 0, validatedCount: 0 };
 
     // Standalone Budget Swaps can use AI first. AI Workshop lower-budget needs the
     // trusted deterministic swaps first so the modal never waits on a long LLM pass.
     if (useAI && !workshopBudgetSource) {
-      await addAiSuggestions();
+      await addAiSuggestions(aiRun);
     }
 
     // Built-in fallbacks for common staples — only price cards with curated swap entries.
@@ -692,12 +726,7 @@ export async function POST(req: NextRequest) {
     let validatedSuggestions = await runValidationPipeline(suggestions);
 
     if (useAI && workshopBudgetSource && validatedSuggestions.length === 0) {
-      await addAiSuggestions();
-      validatedSuggestions = await runValidationPipeline(suggestions);
-    }
-
-    if (useAI && !workshopBudgetSource && suggestions.length === 0) {
-      await addAiSuggestions();
+      await addAiSuggestions(aiRun);
       validatedSuggestions = await runValidationPipeline(suggestions);
     }
 
@@ -711,6 +740,15 @@ export async function POST(req: NextRequest) {
       };
     });
 
+    const emptyReason = annotatedSuggestions.length === 0
+      ? resolveSwapSuggestionsEmptyReason({
+          useAI,
+          curatedSourcesInDeck: curatedSourceNames.length,
+          finalCount: annotatedSuggestions.length,
+          aiRun,
+        })
+      : undefined;
+
     return NextResponse.json({
       ok: true,
       currency,
@@ -719,15 +757,15 @@ export async function POST(req: NextRequest) {
       stats: {
         cardsInDeck: names.length,
         curatedSourcesInDeck: curatedSourceNames.length,
+        ...(useAI ? {
+          ai: {
+            outcome: aiRun.outcome,
+            rawCount: aiRun.rawCount,
+            validatedCount: aiRun.validatedCount,
+          },
+        } : {}),
       },
-      ...(annotatedSuggestions.length === 0
-        ? {
-            emptyReason:
-              !useAI && curatedSourceNames.length === 0
-                ? ("no_curated_sources_in_deck" as const)
-                : ("no_cheaper_on_plan_swaps" as const),
-          }
-        : {}),
+      ...(emptyReason ? { emptyReason } : {}),
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "swap failed";

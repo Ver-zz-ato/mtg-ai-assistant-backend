@@ -38,7 +38,6 @@ export default function BudgetSwapsClient(){
 
   const [deckId, setDeckId] = React.useState("");
   const [deckText, setDeckText] = React.useState("");
-  const [threshold, setThreshold] = React.useState<number>(5);
   const [mode, setMode] = React.useState<'strict'|'ai'>("strict");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string|undefined>(undefined);
@@ -69,6 +68,7 @@ export default function BudgetSwapsClient(){
   const [showNoResultsModal, setShowNoResultsModal] = React.useState(false);
   const [showErrorModal, setShowErrorModal] = React.useState(false);
   const [noResultsHint, setNoResultsHint] = React.useState<string | undefined>(undefined);
+  const [lastEmptyReason, setLastEmptyReason] = React.useState<string | undefined>(undefined);
   const [showProModal, setShowProModal] = React.useState(false);
   // Name fixing for pasted deck text
   const [fixNamesOpen, setFixNamesOpen] = React.useState(false);
@@ -187,27 +187,39 @@ export default function BudgetSwapsClient(){
   const isProFinal = isPro || isProLocal;
   const hasResults = sugs.length > 0;
 
+  const AI_SWAP_FAILURE_REASONS = React.useMemo(() => new Set(['ai_call_failed', 'ai_invalid_response']), []);
+
   const buildNoResultsHint = React.useCallback((
     swapMode: 'strict' | 'ai',
-    swapThreshold: number,
     emptyReason?: string,
     curatedSourcesInDeck?: number,
   ) => {
-    const sym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
+    if (emptyReason === 'ai_call_failed') {
+      return 'Our AI could not finish analyzing your deck. This is usually temporary — please try again in a moment.';
+    }
+    if (emptyReason === 'ai_invalid_response') {
+      return 'We received an unexpected response from the AI. Please try again.';
+    }
     if (swapMode === 'strict' && emptyReason === 'no_curated_sources_in_deck') {
-      return `Quick Swaps only covers curated expensive staples (Mana Crypt, Dockside Extortionist, fetchlands, and similar). Your deck doesn't include those cards${curatedSourcesInDeck === 0 ? '' : ''}. Try AI-Powered Swaps to find cheaper options for the expensive cards you do have${isProFinal ? '' : ' (Pro)'}.`;
+      return `Quick Swaps only covers curated expensive staples (Mana Crypt, Dockside Extortionist, fetchlands, and similar). Your deck doesn't include those cards. Try AI-Powered Swaps to find cheaper options for the expensive cards you do have${isProFinal ? '' : ' (Pro)'}.`;
+    }
+    if (swapMode === 'ai' && emptyReason === 'ai_filtered_out') {
+      return 'AI suggested swaps, but none passed our price, legality, color identity, and role checks. Your deck may already be in good shape — or try again if prices were still loading.';
+    }
+    if (swapMode === 'ai' && emptyReason === 'ai_no_suggestions') {
+      return 'AI reviewed your deck but did not find safe cheaper swaps that match your strategy and format.';
     }
     if (swapMode === 'ai') {
-      if (swapThreshold <= 0) {
-        return `We couldn't find AI swaps for this deck at any price point. The list may be very budget-friendly already, or card prices didn't load — try Quick Swaps, refresh, and run again.`;
-      }
-      return `No AI swaps matched your deck at ${sym}${swapThreshold.toFixed(1)}+. Try lowering the threshold or switching to Quick Swaps for curated staple pairings.`;
+      return `We couldn't find AI swaps that safely matched your deck's roles and format. Try again in a moment, or switch to Quick Swaps for curated staple pairings.`;
     }
-    if (swapThreshold <= 0) {
-      return `Quick Swaps uses a curated list of popular expensive staples. None of those pairings matched your deck right now — try AI-Powered Swaps for broader suggestions${isProFinal ? '' : ' (Pro)'}.`;
-    }
-    return `No curated swaps matched cards over ${sym}${swapThreshold.toFixed(1)} in your deck. Try lowering the threshold, or use AI-Powered Swaps for broader coverage${isProFinal ? '' : ' (Pro)'}.`;
-  }, [currency, isProFinal]);
+    return `No curated swaps matched your deck. Try AI-Powered Swaps for broader coverage${isProFinal ? '' : ' (Pro)'}.`;
+  }, [isProFinal]);
+
+  const getEmptyModalTitle = React.useCallback((emptyReason?: string) => {
+    if (emptyReason === 'ai_filtered_out') return 'No swaps passed validation';
+    if (emptyReason === 'ai_no_suggestions') return 'No swaps found';
+    return 'No budget swaps found';
+  }, []);
 
   const friendlySwapError = React.useCallback((message: string) => {
     const lower = message.toLowerCase();
@@ -265,6 +277,7 @@ export default function BudgetSwapsClient(){
     setBusy(true); 
     setError(undefined);
     setShowErrorModal(false);
+    setLastEmptyReason(undefined);
     setDisplayedCount(5);
     // Clear previous results immediately to prevent flashing
     setSugs([]);
@@ -272,7 +285,13 @@ export default function BudgetSwapsClient(){
     setMeta({});
     
     try{
-      const body: Record<string, unknown> = { deckText: currentDeckText, currency, budget: threshold, ai: mode==='ai' };
+      const body: Record<string, unknown> = {
+        deckText: currentDeckText,
+        currency,
+        budget: 0,
+        ai: mode === 'ai',
+        ...(mode === 'ai' ? { allowReplacementAboveBudget: true } : {}),
+      };
       if (deckId && deckFormat) {
         body.format = deckFormat;
       }
@@ -311,16 +330,25 @@ export default function BudgetSwapsClient(){
       const initialSugs = sorted.slice(0, initialCount);
       setSugs(initialSugs);
       if (initialSugs.length === 0) {
+        const emptyReason = typeof j?.emptyReason === 'string' ? j.emptyReason : undefined;
         const hint = buildNoResultsHint(
           mode,
-          threshold,
-          typeof j?.emptyReason === 'string' ? j.emptyReason : undefined,
+          emptyReason,
           typeof j?.stats?.curatedSourcesInDeck === 'number' ? j.stats.curatedSourcesInDeck : undefined,
         );
-        setNoResultsHint(hint);
-        setShowNoResultsModal(true);
+        setLastEmptyReason(emptyReason);
+        if (emptyReason && AI_SWAP_FAILURE_REASONS.has(emptyReason)) {
+          setNoResultsHint(undefined);
+          setError(hint);
+          setShowNoResultsModal(false);
+          setShowErrorModal(true);
+        } else {
+          setNoResultsHint(hint);
+          setShowNoResultsModal(true);
+        }
       } else {
         setNoResultsHint(undefined);
+        setLastEmptyReason(undefined);
       }
       // Prefetch thumbnails for initial display
       const names: string[] = [];
@@ -366,7 +394,10 @@ export default function BudgetSwapsClient(){
     return -Math.min(0, totalDelta);
   }, [sugs]);
 
-  const withinBudget = React.useMemo(()=> sugs.length>0 && sugs.every(s => (s.price_to||0) <= threshold), [sugs, threshold]);
+  const allSaveMoney = React.useMemo(
+    () => sugs.length > 0 && sugs.every((s) => (s.price_to || 0) < (s.price_from || 0)),
+    [sugs],
+  );
 
   // Exports
   const exportCSV = () => {
@@ -622,40 +653,33 @@ export default function BudgetSwapsClient(){
                 placeholder={`1 Sol Ring\n1 Cyclonic Rift`} 
               />
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs">
-                <div className="opacity-70 mb-1">Currency</div>
-                <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
-                  {(['USD','EUR','GBP'] as const).map(c=> <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <label className="text-xs">
-                <div className="opacity-70 mb-1">Min. card price (per card)</div>
-                <input type="number" min={0} step={0.5} value={threshold} onChange={e=>setThreshold(parseFloat(e.target.value||'0'))} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm" />
-                <div className="text-[10px] text-neutral-500 mt-0.5">Cards costing more than this (per card) get budget alternatives. E.g. {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'} shows swaps for cards over {currency === 'EUR' ? '€5' : currency === 'GBP' ? '£5' : '$5'}. Use 0 to include any priced card.</div>
-              </label>
-              <label className="text-xs block">
-                <div className="opacity-70 mb-1.5">Mode</div>
-                <div className="space-y-2">
-                  <label className="flex items-start gap-2 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
-                    <input type="radio" name="swap-mode" checked={mode==='strict'} onChange={()=>setMode('strict')} className="mt-1 shrink-0" />
-                    <div>
-                      <span className="font-medium">Quick Swaps</span>
-                      <span className="text-neutral-500 ml-1">(Free)</span>
-                      <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">Curated budget alternatives for popular expensive cards.</p>
-                    </div>
-                  </label>
-                  <label className="flex items-start gap-2 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
-                    <input type="radio" name="swap-mode" checked={mode==='ai'} onChange={()=>setMode('ai')} className="mt-1 shrink-0" />
-                    <div>
-                      <span className="font-medium">AI-Powered Swaps</span>
-                      <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/90 text-black text-[10px] font-bold">PRO</span>
-                      <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">AI finds cheaper cards that keep your deck’s strategy and synergies.</p>
-                    </div>
-                  </label>
-                </div>
-              </label>
-            </div>
+            <label className="text-xs block">
+              <div className="opacity-70 mb-1">Currency</div>
+              <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-sm">
+                {(['USD','EUR','GBP'] as const).map(c=> <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="text-xs block">
+              <div className="opacity-70 mb-1.5">Mode</div>
+              <div className="space-y-2">
+                <label className="flex items-start gap-2 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
+                  <input type="radio" name="swap-mode" checked={mode==='strict'} onChange={()=>setMode('strict')} className="mt-1 shrink-0" />
+                  <div>
+                    <span className="font-medium">Quick Swaps</span>
+                    <span className="text-neutral-500 ml-1">(Free)</span>
+                    <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">Curated budget alternatives for popular expensive cards.</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2 p-2.5 rounded-lg border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer">
+                  <input type="radio" name="swap-mode" checked={mode==='ai'} onChange={()=>setMode('ai')} className="mt-1 shrink-0" />
+                  <div>
+                    <span className="font-medium">AI-Powered Swaps</span>
+                    <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/90 text-black text-[10px] font-bold">PRO</span>
+                    <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">AI finds cheaper cards that keep your deck’s strategy and synergies.</p>
+                  </div>
+                </label>
+              </div>
+            </label>
             <div className="pt-1">
               <button onClick={async () => {
                 // Track UI click
@@ -722,7 +746,7 @@ export default function BudgetSwapsClient(){
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
                       { step: '1', text: 'Paste your decklist or select a deck', icon: '📝' },
-                      { step: '2', text: 'Set your budget threshold', icon: '💰' },
+                      { step: '2', text: 'Choose Quick or AI-Powered mode', icon: '✨' },
                       { step: '3', text: 'Click Compute to find savings', icon: '🔍' }
                     ].map((item, i) => (
                       <motion.div
@@ -775,7 +799,7 @@ export default function BudgetSwapsClient(){
                     <div className="text-xs font-semibold mb-2">Summary</div>
                     <div className="grid grid-cols-3 gap-2 text-xs mb-3">
                       <div className="rounded border border-neutral-800 bg-neutral-900/50 p-2">
-                        <div className="opacity-70 text-[9px] mb-0.5">Cards over threshold</div>
+                        <div className="opacity-70 text-[9px] mb-0.5">Swap suggestions</div>
                         <div className="font-bold text-sm">5</div>
                       </div>
                       <div className="rounded border border-neutral-800 bg-neutral-900/50 p-2">
@@ -784,7 +808,7 @@ export default function BudgetSwapsClient(){
                       </div>
                       <div className="rounded border border-neutral-800 bg-neutral-900/50 p-2">
                         <div className="opacity-70 text-[9px] mb-0.5">Budget check</div>
-                        <div className="text-[9px] text-amber-400">⚠️ Some above threshold</div>
+                        <div className="text-[9px] text-emerald-400">✅ Every swap saves money</div>
                       </div>
                     </div>
                     
@@ -866,7 +890,7 @@ export default function BudgetSwapsClient(){
                     transition={{ delay: 0.1 }}
                     className="rounded-lg border border-neutral-800 bg-neutral-950 p-3"
                   >
-                    <div className="opacity-70 text-xs">Cards over threshold</div>
+                    <div className="opacity-70 text-xs">Swap suggestions</div>
                     <div className="text-xl font-semibold">{sugs.length}</div>
                   </motion.div>
                   <motion.div
@@ -891,8 +915,8 @@ export default function BudgetSwapsClient(){
                     transition={{ delay: 0.3 }}
                     className="rounded-lg border border-neutral-800 bg-neutral-950 p-3"
                   >
-                    <div className="opacity-70 text-xs">Budget check</div>
-                    <div className={`text-sm font-semibold ${withinBudget? 'text-emerald-400':'text-amber-400'}`}>{withinBudget? `✅ Within your ${new Intl.NumberFormat(undefined,{style:'currency', currency}).format(threshold)} budget!` : '⚠️ Some staples remain above threshold.'}</div>
+                    <div className="opacity-70 text-xs">Savings check</div>
+                    <div className={`text-sm font-semibold ${allSaveMoney ? 'text-emerald-400' : 'text-amber-400'}`}>{allSaveMoney ? '✅ Every swap saves money' : '⚠️ Review swap values below.'}</div>
                   </motion.div>
                 </div>
               </div>
@@ -1043,8 +1067,8 @@ export default function BudgetSwapsClient(){
                     <PieBeforeAfter currency={currency} sugs={sugs} />
                   </div>
                   <div className="rounded-xl border border-neutral-800 p-3">
-                    <div className="text-sm font-semibold">After swaps: under vs over threshold</div>
-                    <HistogramUnderOver threshold={threshold} sugs={sugs} />
+                    <div className="text-sm font-semibold">After swaps: budget vs premium replacements</div>
+                    <HistogramReplacementTiers currency={currency} sugs={sugs} />
                   </div>
                 </div>
               )}
@@ -1129,7 +1153,7 @@ export default function BudgetSwapsClient(){
         )}
       </AnimatePresence>
 
-      {/* No results modal - suggest trying higher threshold */}
+      {/* No results modal */}
       <AnimatePresence>
         {showNoResultsModal && (
           <motion.div
@@ -1148,21 +1172,20 @@ export default function BudgetSwapsClient(){
             >
               <div className="text-center">
                 <div className="text-5xl mb-3">🔍</div>
-                <h3 className="text-xl font-bold mb-2 text-amber-400">No budget swaps found</h3>
+                <h3 className="text-xl font-bold mb-2 text-amber-400">{getEmptyModalTitle(lastEmptyReason)}</h3>
                 <p className="text-sm text-neutral-300 mb-4">
-                  {noResultsHint || buildNoResultsHint(mode, threshold)}
+                  {noResultsHint || buildNoResultsHint(mode, lastEmptyReason)}
                 </p>
                 <div className="flex flex-wrap gap-3 justify-center">
-                  {threshold > 0 && (
+                  {mode === 'ai' && (
                     <button
                       onClick={() => {
-                        setThreshold(Math.max(0, threshold - 5));
                         setShowNoResultsModal(false);
-                        setTimeout(() => compute(), 100);
+                        setTimeout(() => { void compute(); }, 100);
                       }}
-                      className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-black font-semibold text-sm"
+                      className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-black font-semibold text-sm"
                     >
-                      Try {currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$'}{Math.max(0, threshold - 5).toFixed(1)}+ threshold
+                      Try again
                     </button>
                   )}
                   {mode === 'strict' && (
@@ -1213,7 +1236,11 @@ export default function BudgetSwapsClient(){
             >
               <div className="text-center">
                 <div className="text-5xl mb-3">⚠️</div>
-                <h3 className="text-xl font-bold mb-2 text-red-400">Couldn&apos;t finish Budget Swaps</h3>
+                <h3 className="text-xl font-bold mb-2 text-red-400">
+                  {lastEmptyReason && AI_SWAP_FAILURE_REASONS.has(lastEmptyReason)
+                    ? "AI couldn't finish"
+                    : "Couldn't finish Budget Swaps"}
+                </h3>
                 <p className="text-sm text-neutral-300 mb-4">{error}</p>
                 <div className="flex flex-wrap gap-3 justify-center">
                   <button
@@ -1340,8 +1367,9 @@ function PieBeforeAfter({ currency, sugs }: { currency:'USD'|'EUR'|'GBP'; sugs: 
   );
 }
 
-function HistogramUnderOver({ threshold, sugs }: { threshold:number; sugs: Array<{ price_to:number }> }){
-  const under = sugs.filter(s => (s.price_to||0) <= threshold).length;
+function HistogramReplacementTiers({ currency, sugs }: { currency:'USD'|'EUR'|'GBP'; sugs: Array<{ price_to:number }> }){
+  const tier = 5;
+  const under = sugs.filter(s => (s.price_to||0) <= tier).length;
   const over = sugs.length - under;
   const max = Math.max(1, Math.max(under, over));
   const H = 60;
@@ -1356,8 +1384,8 @@ function HistogramUnderOver({ threshold, sugs }: { threshold:number; sugs: Array
   );
   return (
     <div className="flex items-end gap-4">
-      {bar(under, 'bg-emerald-500', 'Under')}
-      {bar(over, 'bg-red-500', 'Over')}
+      {bar(under, 'bg-emerald-500', `≤ ${new Intl.NumberFormat(undefined,{ style:'currency', currency }).format(tier)}`)}
+      {bar(over, 'bg-amber-500', `> ${new Intl.NumberFormat(undefined,{ style:'currency', currency }).format(tier)}`)}
     </div>
   );
 }

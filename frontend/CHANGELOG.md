@@ -2,6 +2,17 @@
 
 ## 2026-06-15
 
+- **UX:** AI failures (`ai_call_failed`, `ai_invalid_response`) show error modal with retry; empty AI outcomes distinguish "no suggestions" vs "filtered out".
+- **API:** `emptyReason` + `stats.ai` on `/api/deck/swap-suggestions`; removed duplicate standalone AI retry.
+- **Files:** `app/api/deck/swap-suggestions/route.ts`, `app/deck/swap-suggestions/Client.tsx`, `lib/deck/swap-suggestions-empty-reason.ts`, `tests/unit/swap-suggestions-empty-reason.test.ts`.
+
+### Budget Swaps — remove threshold, fix Pro AI swaps
+
+- **UX:** Removed the min card price threshold from Budget Swaps — paste deck, pick mode, Compute.
+- **Fix (Pro AI):** AI prompt no longer caps replacements at the threshold (was blocking swaps like Sea of Clouds → cheaper land at £10+). AI standalone always allows replacements cheaper than the original only.
+- **Fix:** `isValidBudgetSwap` threshold-0, tag/role filter wipe, quick-swap pricing scope, error modal — see prior entries this date.
+- **Files:** `app/deck/swap-suggestions/Client.tsx`, `app/deck/swap-suggestions/layout.tsx`, `app/api/deck/swap-suggestions/route.ts`, `lib/deck/budget-swap-guards.ts`.
+
 ### Budget Swaps — threshold 0 and empty states
 
 - **Fix:** `isValidBudgetSwap` no longer requires replacements to cost £0 when threshold is 0 (was blocking every swap).
