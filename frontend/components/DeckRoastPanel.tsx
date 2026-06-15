@@ -31,6 +31,8 @@ export interface DeckRoastPanelProps {
   sharePath?: string;
   /** When true, show compact trigger; click opens full content in a modal (for space-constrained sidebar) */
   useModal?: boolean;
+  /** Open the form immediately (standalone /roast page). */
+  defaultExpanded?: boolean;
 }
 
 export default function DeckRoastPanel({
@@ -38,11 +40,13 @@ export default function DeckRoastPanel({
   showSignupCta = true,
   sharePath = "/",
   useModal = false,
+  defaultExpanded = false,
 }: DeckRoastPanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [deckText, setDeckText] = useState("");
   const [format, setFormat] = useState<AnalyzeFormat>("Commander");
-  const [commander, setCommander] = useState("");
+  const [commanderDraft, setCommanderDraft] = useState("");
+  const [pickedCommander, setPickedCommander] = useState("");
   const [roastLevel, setRoastLevel] = useState<RoastLevelId>("balanced");
   const [modalOpen, setModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -79,22 +83,36 @@ export default function DeckRoastPanel({
     setHoverCard({ src, name, x, y });
   }
 
-  // Fetch commander art when commander is set (Commander format) – show immediately on select
+  // Fetch art only for a confirmed commander pick — not while the user is still typing.
   useEffect(() => {
-    if (format !== "Commander" || !commander.trim()) {
+    if (format !== "Commander" || !pickedCommander.trim()) {
       setCommanderArt(null);
       return;
     }
     (async () => {
       try {
-        const map = await getImagesForNames([commander.trim()]);
+        const map = await getImagesForNames([pickedCommander.trim()]);
         const first = Array.from(map.values())[0];
         setCommanderArt(first?.normal || first?.art_crop || null);
       } catch {
         setCommanderArt(null);
       }
     })();
-  }, [format, commander]);
+  }, [format, pickedCommander]);
+
+  function confirmCommanderPick(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setPickedCommander(trimmed);
+    setCommanderDraft(trimmed);
+    setError(null);
+  }
+
+  function clearPickedCommander() {
+    setPickedCommander("");
+    setCommanderDraft("");
+    setCommanderArt(null);
+  }
 
   // Extract [[Card Name]] from roast and fetch images when roast changes
   useEffect(() => {
@@ -203,6 +221,10 @@ export default function DeckRoastPanel({
       setError("Please paste a decklist first");
       return;
     }
+    if (format === "Commander" && !pickedCommander.trim()) {
+      setError("Pick your commander from the search results first.");
+      return;
+    }
 
     setBusy(true);
     setError(null);
@@ -216,7 +238,7 @@ export default function DeckRoastPanel({
         body: JSON.stringify({
           deckText: deckText.trim(),
           format,
-          commanderName: commander.trim() || undefined,
+          commanderName: pickedCommander.trim() || undefined,
           savageness: ROAST_LEVELS.find((l) => l.id === roastLevel)!.savageness,
         }),
       });
@@ -270,7 +292,11 @@ export default function DeckRoastPanel({
         <label className="text-xs text-neutral-400">Format:</label>
         <select
           value={format}
-          onChange={(e) => setFormat(e.target.value as AnalyzeFormat)}
+          onChange={(e) => {
+            const next = e.target.value as AnalyzeFormat;
+            setFormat(next);
+            if (next !== "Commander") clearPickedCommander();
+          }}
           className="px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-sm text-neutral-200"
         >
           <option value="Commander">Commander</option>
@@ -286,36 +312,42 @@ export default function DeckRoastPanel({
 
       {format === "Commander" && (
         <div>
-          <label className="text-xs text-neutral-400 block mb-1">First, set your commander</label>
-          <div className="flex gap-3 items-start">
-            {commanderArt && (
-              <div className="relative shrink-0 group">
+          <label className="text-xs text-neutral-400 block mb-1">Commander</label>
+          {pickedCommander ? (
+            <div className="flex items-center gap-2 rounded-full border border-amber-600/45 bg-amber-950/35 py-1 pl-1 pr-1.5">
+              {commanderArt ? (
                 <img
                   src={commanderArt}
-                  alt={commander}
-                  className="w-16 h-auto rounded border border-neutral-700 cursor-pointer hover:ring-2 hover:ring-amber-500/50 transition-shadow"
-                  title="Hover for full view"
+                  alt=""
+                  className="h-10 w-7 shrink-0 rounded-md border border-neutral-700 object-cover"
                 />
-                <div className="absolute left-full top-0 ml-2 z-[150] opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150">
-                  <img
-                    src={commanderArt}
-                    alt={commander}
-                    className="max-w-[280px] max-h-[400px] w-auto h-auto rounded-lg border-2 border-amber-600 shadow-2xl bg-neutral-950"
-                  />
+              ) : (
+                <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-700 bg-neutral-900 text-[10px] text-neutral-500">
+                  ?
                 </div>
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
+              )}
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-amber-100">{pickedCommander}</span>
+              <button
+                type="button"
+                onClick={clearPickedCommander}
+                className="shrink-0 rounded-full border border-amber-700/50 px-2.5 py-1 text-xs font-bold text-amber-200 transition hover:bg-amber-900/50"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="mb-1.5 text-[11px] text-neutral-500">Search and pick the exact card from the list.</p>
               <CardAutocomplete
-                value={commander}
-                onChange={setCommander}
-                onPick={(name) => setCommander(name)}
+                value={commanderDraft}
+                onChange={setCommanderDraft}
+                onPick={confirmCommanderPick}
                 placeholder="Search commander..."
                 minChars={2}
                 searchUrl="/api/cards/search-commanders"
               />
-            </div>
-          </div>
+            </>
+          )}
         </div>
       )}
 
@@ -413,7 +445,7 @@ export default function DeckRoastPanel({
                           body: JSON.stringify({
                             roastText: roast,
                             roastScore: roastScore ?? null,
-                            commander: commander || null,
+                            commander: pickedCommander || null,
                             format,
                             roastLevel,
                             commanderArtUrl: commanderArt || null,
@@ -447,7 +479,7 @@ export default function DeckRoastPanel({
                           body: JSON.stringify({
                             roastText: roast,
                             roastScore: roastScore ?? null,
-                            commander: commander || null,
+                            commander: pickedCommander || null,
                             format,
                             roastLevel,
                             commanderArtUrl: commanderArt || null,
@@ -486,7 +518,7 @@ export default function DeckRoastPanel({
                           body: JSON.stringify({
                             roastText: roast,
                             roastScore: roastScore ?? null,
-                            commander: commander || null,
+                            commander: pickedCommander || null,
                             format,
                             roastLevel,
                             commanderArtUrl: commanderArt || null,
@@ -509,12 +541,12 @@ export default function DeckRoastPanel({
           {format === "Commander" && commanderArt && (
             <div
               className="flex justify-center"
-              onMouseEnter={(e) => handleCardHoverEnter(e, commanderArt, commander)}
+              onMouseEnter={(e) => handleCardHoverEnter(e, commanderArt, pickedCommander)}
               onMouseLeave={() => setHoverCard(null)}
             >
               <img
                 src={commanderArt}
-                alt={commander}
+                alt={pickedCommander}
                 className="w-48 h-auto rounded-lg border border-neutral-700 shadow-lg cursor-pointer hover:ring-2 hover:ring-amber-500/50 transition-shadow"
                 title="Hover for full view"
               />
