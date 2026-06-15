@@ -49,7 +49,7 @@ export default function HomeProblemFinder() {
               </Link>
 
               {problem.tools.length > 0 ? (
-                <div className="relative mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
+                <div className="relative flex flex-wrap gap-2 overflow-hidden border-t border-white/5 pt-0 opacity-0 max-h-0 -translate-y-1 transition-all duration-300 ease-out group-hover:mt-4 group-hover:max-h-32 group-hover:pt-4 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:mt-4 group-focus-within:max-h-32 group-focus-within:pt-4 group-focus-within:opacity-100 group-focus-within:translate-y-0 motion-reduce:transition-none [@media(hover:none)]:mt-4 [@media(hover:none)]:max-h-none [@media(hover:none)]:pt-4 [@media(hover:none)]:opacity-100 [@media(hover:none)]:translate-y-0">
                   {problem.tools.map((tool) => (
                     <Link
                       key={`${problem.id}-${tool.href}-${tool.label}`}

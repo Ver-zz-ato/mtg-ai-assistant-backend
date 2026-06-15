@@ -133,10 +133,21 @@ export default function PopularCommanderGuides({ embedded = false }: { embedded?
     >
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-neutral-200">📚 Popular Commander Guides</h2>
-          <p className="mt-0.5 text-xs text-neutral-500">
-            Best cards, budget upgrades & mulligan strategy for top commanders
-          </p>
+          {embedded ? (
+            <>
+              <h2 className="text-2xl font-black text-white sm:text-3xl">Popular Commander Guides</h2>
+              <p className="mt-1.5 text-sm text-neutral-400 sm:text-base">
+                Best cards, budget upgrades, and mulligan strategy for top commanders.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold text-neutral-200">📚 Popular Commander Guides</h2>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Best cards, budget upgrades & mulligan strategy for top commanders
+              </p>
+            </>
+          )}
         </div>
         <Link
           href="/commanders"

@@ -8,6 +8,8 @@ import { useHomeMobilePlatform } from "@/lib/home/useHomeMobilePlatform";
 
 const primaryBtn =
   "inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-3 text-center text-sm font-bold text-white shadow-[0_12px_30px_rgba(139,92,246,0.35)] transition hover:from-violet-400 hover:to-fuchsia-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70";
+const aiBtn =
+  "inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 px-6 py-3 text-center text-sm font-bold text-white shadow-[0_12px_30px_rgba(34,211,238,0.35)] transition hover:from-cyan-400 hover:to-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70";
 const secondaryBtn =
   "inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-center text-sm font-bold text-white transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30";
 
@@ -53,8 +55,8 @@ export default function HomeHero() {
                 <Link href="/tools" className={primaryBtn}>
                   Explore Tools
                 </Link>
-                <Link href="/" className={secondaryBtn}>
-                  Ask ManaTap AI
+                <Link href="/" className={aiBtn}>
+                  Ask ManaTap AI ✨
                 </Link>
               </>
             )}
@@ -87,9 +89,6 @@ export default function HomeHero() {
                       {tool.alt}
                     </div>
                   )}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-6">
-                    <span className="text-[11px] font-bold text-white sm:text-xs">{tool.alt}</span>
-                  </div>
                 </Link>
               ))}
             </div>
