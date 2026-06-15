@@ -143,7 +143,6 @@ export default function MetaDeckPanel() {
                   <span className="text-fuchsia-300 font-semibold mr-2">{i + 1}.</span>
                   {cmd.name}
                 </span>
-                <span className="text-gray-500 text-xs ml-2">{cmd.count} new</span>
               </Link>
             ))}
           </div>
@@ -168,7 +167,6 @@ export default function MetaDeckPanel() {
                   <span className="text-purple-400 font-semibold mr-2">{i + 1}.</span>
                   {cmd.name}
                 </span>
-                <span className="text-gray-500 text-xs ml-2">{cmd.count} decks</span>
               </Link>
             ))}
           </div>
