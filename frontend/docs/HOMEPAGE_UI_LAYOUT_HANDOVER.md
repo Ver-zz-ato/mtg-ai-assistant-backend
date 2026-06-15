@@ -13,9 +13,11 @@ Experimental **Concept 10** companion-first homepage lives at **`/new-home`** (n
 | Route | `app/new-home/page.tsx` (`robots: noindex`) |
 | Page composer | `components/home/HybridHomePage.tsx` |
 | Config (pillars, tools, store URLs) | `lib/home/homeConfig.ts` |
-| Sections | `HomeHero`, `HomePillarGrid`, `HomePopularTools`, `HomeTrendingSection`, `HomeAppSection`, `HomeTrustRow` |
+| Sections | `HomeHero`, `HomeMobileInstallBanner` (mobile only), `HomeProblemFinder`, `HomeWhyManaTap`, `HomePillarGrid`, `HomePopularTools`, `HomeTrendingSection` |
 
-**Trending section reuses:** `MetaDeckPanel`, `RecentPublicDecks`, `PopularCommanderGuides` (no data refactor).
+**Retained but unused on `/new-home`:** `HomeAppSection`, `HomeAppScreenshots`, `HomeTrustRow`.
+
+**Trending section reuses:** `MetaDeckPanel` (with card preview modal), `TrendingCommandersStrip`, `HomeCommanderGuideRotator`, `PopularCommanderGuides`.
 
 **Root `/` unchanged** — still chat-first (`app/page.tsx`). AI Chat links on `/new-home` point to `/` until owner approves swap to hybrid + `/chat`.
 

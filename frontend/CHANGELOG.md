@@ -7,9 +7,16 @@
 - **Route:** New experimental homepage at `/new-home` (Concept 10 hybrid layout) — `robots: noindex` until owner approves root swap.
 - **Layout:** Hero with tool discovery CTAs, six pillar tiles (Build / Improve / Track / Play / Discover / AI), popular tools grid, trending section (reuses `MetaDeckPanel`, `RecentPublicDecks`, `PopularCommanderGuides`), mobile app section, trust feature row.
 - **Polish pass:** Stronger hero copy; **Why ManaTap?** scan section; mobile app moved below hero (iOS live, Android coming soon — no live Play button); phone-frame tool showcase; pillar icons + AI highlight; popularity badges on select tools; commander-first trending (`TrendingCommandersStrip` marketing mode); capability trust row with optional live public-deck count from meta API; Meta Snapshot lists no longer show per-commander `N new` / `N decks` counts.
-- **Config:** Pillar and tool link data centralized in `lib/home/homeConfig.ts`; Deck Checker label used (not “Analyze a Deck”); Life Counter omitted (no web route); AI Chat links to `/` until Phase 4.
+- **Layout refinement:** Desktop drops large app showcase; mobile-only compact install banner after hero (`HomeMobileInstallBanner` + `useHomeMobilePlatform`). Section order: Hero → (mobile install) → Problem Finder → Why ManaTap → Categories → Popular Tools → Trending.
+- **Problem finder (Concept 8 merge):** New `HomeProblemFinder` section with six problem-first cards (`HOME_PROBLEM_FINDER` in config) — weak deck, too expensive, need commander, bad mana, collection help, MTG question — each with accent colour, primary link, and tool chips.
+- **Compact pass:** `HomePillarGrid` and `HomeWhyManaTap` tightened to reduce page length below the new onboarding block.
+- **Pillar pills:** Each workflow link pill in `HomePillarGrid` has its own accent color (configured via `pillClass` on `HOME_PILLARS` links).
+- **Removed:** `HomeTrustRow` (“Built for real MTG workflows” capability checklist) dropped from `/new-home` layout.
+- **Commander guides:** Rotating flagship guide pill (`HomeCommanderGuideRotator`) replaces static box in trending grid; shared `FLAGSHIP_COMMANDER_GUIDES` in `lib/home/commanderGuides.ts` (also used by `PopularCommanderGuides`).
+- **Meta Snapshot:** Trending card thumbnails with click-to-open `WebsiteCardDetailModal` (images via `/api/cards/batch-images`).
+- **Config:** Pillar and tool link data centralized in `lib/home/homeConfig.ts`; Deck Checker label used (not “Analyze a Deck”); Life Counter omitted (no web route); AI Chat links to `/` until Phase 4; `ANDROID_APP_LIVE` flag for pre-launch Android.
 - **Unchanged:** Root `/` remains chat-first homepage; no API/backend/mobile changes.
-- **Files:** `app/new-home/page.tsx`, `components/home/*`, `components/TrendingCommandersStrip.tsx`, `lib/home/homeConfig.ts`.
+- **Files:** `app/new-home/page.tsx`, `components/home/*`, `components/MetaDeckPanel.tsx`, `components/PopularCommanderGuides.tsx`, `components/TrendingCommandersStrip.tsx`, `lib/home/homeConfig.ts`, `lib/home/commanderGuides.ts`, `lib/home/useHomeMobilePlatform.ts`.
 
 ### Tools hub fixes (audit follow-up)
 

@@ -9,23 +9,17 @@ import { fetchCommanderArtBatch } from "@/lib/commander-art-batch";
  * Shows high-value commander pages with art pills to boost their internal link equity
  */
 
+import { FLAGSHIP_COMMANDER_GUIDES } from "@/lib/home/commanderGuides";
+
 interface CommanderGuide {
   slug: string;
   name: string;
   colors: string;
 }
 
-// Top commanders by search volume/popularity - prioritize these for indexing
-const POPULAR_COMMANDERS: CommanderGuide[] = [
-  { slug: "the-ur-dragon", name: "The Ur-Dragon", colors: "WUBRG" },
-  { slug: "edgar-markov", name: "Edgar Markov", colors: "WBR" },
-  { slug: "atraxa-praetors-voice", name: "Atraxa, Praetors' Voice", colors: "WUBG" },
-  { slug: "krenko-mob-boss", name: "Krenko, Mob Boss", colors: "R" },
-  { slug: "kaalia-of-the-vast", name: "Kaalia of the Vast", colors: "WBR" },
-  { slug: "muldrotha-the-gravetide", name: "Muldrotha, the Gravetide", colors: "UBG" },
-  { slug: "korvold-fae-cursed-king", name: "Korvold, Fae-Cursed King", colors: "BRG" },
-  { slug: "yuriko-the-tiger-s-shadow", name: "Yuriko, the Tiger's Shadow", colors: "UB" },
-];
+const POPULAR_COMMANDERS: CommanderGuide[] = FLAGSHIP_COMMANDER_GUIDES.map(
+  ({ slug, name, colors }) => ({ slug, name, colors }),
+);
 
 const COLOR_STYLES: Record<string, string> = {
   W: "bg-amber-100 text-amber-900 border-amber-300",

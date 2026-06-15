@@ -1,12 +1,17 @@
 import {
   Bot,
   Boxes,
+  Coins,
   Compass,
+  Crown,
+  Droplet,
   GitCompare,
   HeartHandshake,
   LineChart,
   ListChecks,
+  MessageCircleQuestion,
   Sparkles,
+  Swords,
   Wand2,
   type LucideIcon,
 } from "lucide-react";
@@ -15,6 +20,9 @@ export const APP_STORE_URLS = {
   ios: "https://apps.apple.com/app/id6774626559",
   android: "https://play.google.com/store/apps/details?id=com.manatap.app",
 } as const;
+
+/** Flip to true when Google Play listing is live */
+export const ANDROID_APP_LIVE = false;
 
 export const HOME_HERO_COPY = {
   kicker: "ManaTap companion",
@@ -33,9 +41,138 @@ export const HOME_WHY_ITEMS = [
   "Get AI-powered MTG help",
 ] as const;
 
+export type HomeProblemTool = {
+  label: string;
+  href: string;
+};
+
+export type HomeProblemCard = {
+  id: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  accent: string;
+  border: string;
+  glow: string;
+  iconShell: string;
+  toolChipClass: string;
+  primaryHref: string;
+  tools: HomeProblemTool[];
+};
+
+/** Problem-first onboarding cards (Concept 8 merged into /new-home) */
+export const HOME_PROBLEM_FINDER: HomeProblemCard[] = [
+  {
+    id: "weak-deck",
+    title: "My deck feels weak",
+    description: "Find weak spots and smarter upgrades.",
+    icon: Swords,
+    accent: "text-emerald-200",
+    border: "border-emerald-400/35",
+    glow: "from-emerald-500/20 to-transparent",
+    iconShell: "border-emerald-300/35 bg-emerald-500/12 text-emerald-100",
+    toolChipClass:
+      "border-emerald-300/30 bg-emerald-500/10 text-emerald-100 hover:border-emerald-300/50 hover:bg-emerald-500/16",
+    primaryHref: "/mtg-deck-checker",
+    tools: [
+      { label: "Deck Checker", href: "/mtg-deck-checker" },
+      { label: "AI Workshop", href: "/ai-workshop" },
+      { label: "Deck Compare", href: "/compare-decks" },
+    ],
+  },
+  {
+    id: "too-expensive",
+    title: "It's too expensive",
+    description: "Find cheaper swaps without losing the plan.",
+    icon: Coins,
+    accent: "text-amber-200",
+    border: "border-amber-400/35",
+    glow: "from-amber-500/20 to-transparent",
+    iconShell: "border-amber-300/35 bg-amber-500/12 text-amber-100",
+    toolChipClass:
+      "border-amber-300/30 bg-amber-500/10 text-amber-100 hover:border-amber-300/50 hover:bg-amber-500/16",
+    primaryHref: "/deck/swap-suggestions",
+    tools: [
+      { label: "Budget Swaps", href: "/deck/swap-suggestions" },
+      { label: "Price Tracker", href: "/price-tracker" },
+      { label: "Collections", href: "/collections" },
+    ],
+  },
+  {
+    id: "need-commander",
+    title: "I need a commander",
+    description: "Discover commanders, archetypes, and guides.",
+    icon: Crown,
+    accent: "text-violet-200",
+    border: "border-violet-400/35",
+    glow: "from-violet-500/20 to-transparent",
+    iconShell: "border-violet-300/35 bg-violet-500/12 text-violet-100",
+    toolChipClass:
+      "border-violet-300/30 bg-violet-500/10 text-violet-100 hover:border-violet-300/50 hover:bg-violet-500/16",
+    primaryHref: "/commanders",
+    tools: [
+      { label: "Commander Browser", href: "/commanders" },
+      { label: "Commander Guides", href: "/commanders" },
+      { label: "Meta", href: "/meta" },
+    ],
+  },
+  {
+    id: "mana-feels-bad",
+    title: "My mana feels bad",
+    description: "Check ramp, fixing, lands, and curve.",
+    icon: Droplet,
+    accent: "text-sky-200",
+    border: "border-sky-400/35",
+    glow: "from-sky-500/20 to-transparent",
+    iconShell: "border-sky-300/35 bg-sky-500/12 text-sky-100",
+    toolChipClass:
+      "border-sky-300/30 bg-sky-500/10 text-sky-100 hover:border-sky-300/50 hover:bg-sky-500/16",
+    primaryHref: "/mtg-deck-checker",
+    tools: [
+      { label: "Deck Checker", href: "/mtg-deck-checker" },
+      { label: "AI Workshop", href: "/ai-workshop" },
+      { label: "Probability Calculator", href: "/tools/mulligan#probability" },
+    ],
+  },
+  {
+    id: "collection-help",
+    title: "I need collection help",
+    description: "Organise cards and build from what you own.",
+    icon: Boxes,
+    accent: "text-teal-200",
+    border: "border-teal-400/35",
+    glow: "from-teal-500/20 to-transparent",
+    iconShell: "border-teal-300/35 bg-teal-500/12 text-teal-100",
+    toolChipClass:
+      "border-teal-300/30 bg-teal-500/10 text-teal-100 hover:border-teal-300/50 hover:bg-teal-500/16",
+    primaryHref: "/collections",
+    tools: [
+      { label: "Collections", href: "/collections" },
+      { label: "Wishlist", href: "/wishlist" },
+      { label: "Card Search", href: "/cards" },
+    ],
+  },
+  {
+    id: "mtg-question",
+    title: "I have an MTG question",
+    description: "Ask rules, strategy, deckbuilding, or card questions.",
+    icon: MessageCircleQuestion,
+    accent: "text-fuchsia-200",
+    border: "border-fuchsia-400/40",
+    glow: "from-fuchsia-500/25 to-transparent",
+    iconShell: "border-fuchsia-300/35 bg-fuchsia-500/12 text-fuchsia-100",
+    toolChipClass:
+      "border-fuchsia-300/30 bg-fuchsia-500/10 text-fuchsia-100 hover:border-fuchsia-300/50 hover:bg-fuchsia-500/16",
+    primaryHref: "/",
+    tools: [{ label: "AI Chat", href: "/" }],
+  },
+];
+
 export type HomePillarLink = {
   href: string;
   label: string;
+  /** Tailwind classes for pill border, background, text, and hover */
+  pillClass: string;
 };
 
 export type HomePillar = {
@@ -60,9 +197,24 @@ export const HOME_PILLARS: HomePillar[] = [
     border: "border-emerald-400/35",
     glow: "from-emerald-500/20 to-transparent",
     links: [
-      { href: "/build-a-deck", label: "Deck Builder" },
-      { href: "/commanders", label: "Commander Browser" },
-      { href: "/decks/browse", label: "Browse Decks" },
+      {
+        href: "/build-a-deck",
+        label: "Deck Builder",
+        pillClass:
+          "border-emerald-300/35 bg-emerald-500/12 text-emerald-100 hover:border-emerald-300/55 hover:bg-emerald-500/18",
+      },
+      {
+        href: "/commanders",
+        label: "Commander Browser",
+        pillClass:
+          "border-teal-300/35 bg-teal-500/12 text-teal-100 hover:border-teal-300/55 hover:bg-teal-500/18",
+      },
+      {
+        href: "/decks/browse",
+        label: "Browse Decks",
+        pillClass:
+          "border-lime-300/35 bg-lime-500/12 text-lime-100 hover:border-lime-300/55 hover:bg-lime-500/18",
+      },
     ],
   },
   {
@@ -74,10 +226,30 @@ export const HOME_PILLARS: HomePillar[] = [
     border: "border-violet-400/35",
     glow: "from-violet-500/20 to-transparent",
     links: [
-      { href: "/deck/swap-suggestions", label: "Budget Swaps" },
-      { href: "/compare-decks", label: "Deck Compare" },
-      { href: "/mtg-deck-checker", label: "Deck Checker" },
-      { href: "/ai-workshop", label: "AI Workshop" },
+      {
+        href: "/deck/swap-suggestions",
+        label: "Budget Swaps",
+        pillClass:
+          "border-violet-300/35 bg-violet-500/12 text-violet-100 hover:border-violet-300/55 hover:bg-violet-500/18",
+      },
+      {
+        href: "/compare-decks",
+        label: "Deck Compare",
+        pillClass:
+          "border-purple-300/35 bg-purple-500/12 text-purple-100 hover:border-purple-300/55 hover:bg-purple-500/18",
+      },
+      {
+        href: "/mtg-deck-checker",
+        label: "Deck Checker",
+        pillClass:
+          "border-cyan-300/35 bg-cyan-500/12 text-cyan-100 hover:border-cyan-300/55 hover:bg-cyan-500/18",
+      },
+      {
+        href: "/ai-workshop",
+        label: "AI Workshop",
+        pillClass:
+          "border-fuchsia-300/35 bg-fuchsia-500/12 text-fuchsia-100 hover:border-fuchsia-300/55 hover:bg-fuchsia-500/18",
+      },
     ],
   },
   {
@@ -89,10 +261,30 @@ export const HOME_PILLARS: HomePillar[] = [
     border: "border-amber-400/35",
     glow: "from-amber-500/20 to-transparent",
     links: [
-      { href: "/collections", label: "Collections" },
-      { href: "/wishlist", label: "Wishlist" },
-      { href: "/price-tracker", label: "Price Tracker" },
-      { href: "/cards", label: "Card Search" },
+      {
+        href: "/collections",
+        label: "Collections",
+        pillClass:
+          "border-amber-300/35 bg-amber-500/12 text-amber-100 hover:border-amber-300/55 hover:bg-amber-500/18",
+      },
+      {
+        href: "/wishlist",
+        label: "Wishlist",
+        pillClass:
+          "border-orange-300/35 bg-orange-500/12 text-orange-100 hover:border-orange-300/55 hover:bg-orange-500/18",
+      },
+      {
+        href: "/price-tracker",
+        label: "Price Tracker",
+        pillClass:
+          "border-sky-300/35 bg-sky-500/12 text-sky-100 hover:border-sky-300/55 hover:bg-sky-500/18",
+      },
+      {
+        href: "/cards",
+        label: "Card Search",
+        pillClass:
+          "border-yellow-300/35 bg-yellow-500/12 text-yellow-100 hover:border-yellow-300/55 hover:bg-yellow-500/18",
+      },
     ],
   },
   {
@@ -104,8 +296,18 @@ export const HOME_PILLARS: HomePillar[] = [
     border: "border-sky-400/35",
     glow: "from-sky-500/20 to-transparent",
     links: [
-      { href: "/tools/mulligan", label: "Mulligan Simulator" },
-      { href: "/tools/mulligan#probability", label: "Probability Calculator" },
+      {
+        href: "/tools/mulligan",
+        label: "Mulligan Simulator",
+        pillClass:
+          "border-sky-300/35 bg-sky-500/12 text-sky-100 hover:border-sky-300/55 hover:bg-sky-500/18",
+      },
+      {
+        href: "/tools/mulligan#probability",
+        label: "Probability Calculator",
+        pillClass:
+          "border-cyan-300/35 bg-cyan-500/12 text-cyan-100 hover:border-cyan-300/55 hover:bg-cyan-500/18",
+      },
     ],
   },
   {
@@ -117,10 +319,30 @@ export const HOME_PILLARS: HomePillar[] = [
     border: "border-rose-400/35",
     glow: "from-rose-500/20 to-transparent",
     links: [
-      { href: "/meta", label: "Meta" },
-      { href: "/commanders", label: "Commander Guides" },
-      { href: "/commander-archetypes", label: "Archetypes" },
-      { href: "/decks/browse", label: "Browse Decks" },
+      {
+        href: "/meta",
+        label: "Meta",
+        pillClass:
+          "border-rose-300/35 bg-rose-500/12 text-rose-100 hover:border-rose-300/55 hover:bg-rose-500/18",
+      },
+      {
+        href: "/commanders",
+        label: "Commander Guides",
+        pillClass:
+          "border-pink-300/35 bg-pink-500/12 text-pink-100 hover:border-pink-300/55 hover:bg-pink-500/18",
+      },
+      {
+        href: "/commander-archetypes",
+        label: "Archetypes",
+        pillClass:
+          "border-orange-300/35 bg-orange-500/12 text-orange-100 hover:border-orange-300/55 hover:bg-orange-500/18",
+      },
+      {
+        href: "/decks/browse",
+        label: "Browse Decks",
+        pillClass:
+          "border-red-300/35 bg-red-500/12 text-red-100 hover:border-red-300/55 hover:bg-red-500/18",
+      },
     ],
   },
   {
@@ -133,9 +355,24 @@ export const HOME_PILLARS: HomePillar[] = [
     glow: "from-fuchsia-500/30 via-violet-500/15 to-transparent",
     featured: true,
     links: [
-      { href: "/", label: "AI Chat" },
-      { href: "/roast", label: "Roast My Deck" },
-      { href: "/ai-workshop", label: "AI Workshop" },
+      {
+        href: "/",
+        label: "AI Chat",
+        pillClass:
+          "border-fuchsia-300/40 bg-fuchsia-500/14 text-fuchsia-100 hover:border-fuchsia-300/60 hover:bg-fuchsia-500/22",
+      },
+      {
+        href: "/roast",
+        label: "Roast My Deck",
+        pillClass:
+          "border-violet-300/40 bg-violet-500/14 text-violet-100 hover:border-violet-300/60 hover:bg-violet-500/22",
+      },
+      {
+        href: "/ai-workshop",
+        label: "AI Workshop",
+        pillClass:
+          "border-purple-300/40 bg-purple-500/14 text-purple-100 hover:border-purple-300/60 hover:bg-purple-500/22",
+      },
     ],
   },
 ];
