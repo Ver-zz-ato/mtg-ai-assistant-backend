@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Apple, X } from "lucide-react";
+import { X } from "lucide-react";
 import { APP_STORE_URLS } from "@/lib/home/homeConfig";
 import { useHomeMobilePlatform, type HomeMobilePlatform } from "@/lib/home/useHomeMobilePlatform";
 import { capture } from "@/lib/ph";
-import { GooglePlayIcon } from "@/components/mobile/mobileStoreIcons";
+import { AppStoreBadge, GooglePlayBadge } from "@/components/mobile/mobileStoreIcons";
 
 const DISMISS_KEY = "mtg:mobile_app_install_banner:dismissed_until";
 const DISMISS_DAYS = 30;
@@ -102,16 +102,16 @@ export default function MobileAppInstallStickyBanner() {
     });
   };
 
-  const onClick = () => {
+  const onStoreClick = (url: string = destinationUrl, targetPlatform: HomeMobilePlatform = platform) => {
     capture("app_install_banner_clicked", {
       source: "mobile_web_sticky_banner",
       pathname,
-      platform_detected: platform,
+      platform_detected: targetPlatform,
       placement: "sticky_bottom",
       release_context: "ios_android_public_launch",
-      destination_url: destinationUrl,
+      destination_url: url,
     });
-    window.location.href = destinationUrl;
+    window.location.href = url;
   };
 
   return (
@@ -147,17 +147,39 @@ export default function MobileAppInstallStickyBanner() {
               and Android.
             </div>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={onClick}
-                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-bold text-amber-100 transition hover:border-amber-200/60 hover:bg-amber-400/15"
-              >
-                {platform === "ios" ? (
-                  <Apple aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2.5} />
-                ) : null}
-                {platform === "android" ? <GooglePlayIcon /> : null}
-                Get the app
-              </button>
+              {platform === "other" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onStoreClick(APP_STORE_URLS.ios, "ios")}
+                    className="group inline-flex flex-1 transition active:scale-[0.98]"
+                    aria-label="Download ManaTap on the App Store"
+                  >
+                    <AppStoreBadge className="transition group-hover:border-white/35" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onStoreClick(APP_STORE_URLS.android, "android")}
+                    className="group inline-flex flex-1 transition active:scale-[0.98]"
+                    aria-label="Get ManaTap on Google Play"
+                  >
+                    <GooglePlayBadge className="transition group-hover:border-white/35" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onStoreClick()}
+                  className="group inline-flex flex-1 transition active:scale-[0.98]"
+                  aria-label={platform === "ios" ? "Download ManaTap on the App Store" : "Get ManaTap on Google Play"}
+                >
+                  {platform === "ios" ? (
+                    <AppStoreBadge className="transition group-hover:border-white/35" />
+                  ) : (
+                    <GooglePlayBadge className="transition group-hover:border-white/35" />
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onDismiss}
@@ -166,17 +188,6 @@ export default function MobileAppInstallStickyBanner() {
                 Not now
               </button>
             </div>
-            {platform === "other" ? (
-              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-400">
-                <a className="underline underline-offset-2 hover:text-neutral-200" href={APP_STORE_URLS.ios}>
-                  App Store
-                </a>
-                <span className="opacity-60">·</span>
-                <a className="underline underline-offset-2 hover:text-neutral-200" href={APP_STORE_URLS.android}>
-                  Google Play
-                </a>
-              </div>
-            ) : null}
           </div>
         </div>
       </div>

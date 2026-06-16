@@ -17,6 +17,7 @@
 ### Mobile install banner polish
 
 - **Sticky banner copy:** Added “ManaTap mobile” pill header, updated headline/body, and platform store icons on the primary CTA (Apple on iOS, Google Play on Android).
+- **Store badges:** Replaced the custom “Get the app” pill with App Store / Google Play style badge CTAs in the sticky mobile banner.
 - **Support widget:** `SupportWidgets` no longer renders on mobile viewports so it does not overlap the sticky install banner.
 - **Homepage:** Removed inline mobile install pill (`HomeMobileInstallBanner`); site-wide sticky banner replaces it.
 - **Files:** `components/mobile/MobileAppInstallStickyBanner.tsx`, `components/mobile/mobileStoreIcons.tsx`, `components/SupportWidgets.tsx`, `components/home/HybridHomePage.tsx` (deleted `HomeMobileInstallBanner.tsx`).
