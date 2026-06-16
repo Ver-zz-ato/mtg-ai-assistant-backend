@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { Apple, X } from "lucide-react";
 import { APP_STORE_URLS } from "@/lib/home/homeConfig";
 import { useHomeMobilePlatform, type HomeMobilePlatform } from "@/lib/home/useHomeMobilePlatform";
 import { capture } from "@/lib/ph";
+import { GooglePlayIcon } from "@/components/mobile/mobileStoreIcons";
 
 const DISMISS_KEY = "mtg:mobile_app_install_banner:dismissed_until";
 const DISMISS_DAYS = 30;
@@ -123,8 +124,15 @@ export default function MobileAppInstallStickyBanner() {
       <div className="mx-auto max-w-xl rounded-2xl border border-amber-300/20 bg-[linear-gradient(135deg,rgba(10,10,12,0.96),rgba(16,13,10,0.92))] shadow-[0_-10px_40px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.05)]">
         <div className="flex items-start gap-3 p-3.5">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-black text-white">ManaTap is now on mobile</div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300">
+                  ManaTap mobile
+                </p>
+                <div className="mt-1 text-sm font-black text-white">
+                  Get the full ManaTap experience on your phone
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={onDismiss}
@@ -135,14 +143,19 @@ export default function MobileAppInstallStickyBanner() {
               </button>
             </div>
             <div className="mt-1 text-xs leading-5 text-neutral-300">
-              Build, analyse and manage your MTG decks on iPhone and Android.
+              Deck tools, scans, collections, life counter, tournaments and AI help in your pocket - on iOS
+              and Android.
             </div>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={onClick}
-                className="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-bold text-amber-100 transition hover:border-amber-200/60 hover:bg-amber-400/15"
+                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-bold text-amber-100 transition hover:border-amber-200/60 hover:bg-amber-400/15"
               >
+                {platform === "ios" ? (
+                  <Apple aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+                ) : null}
+                {platform === "android" ? <GooglePlayIcon /> : null}
                 Get the app
               </button>
               <button

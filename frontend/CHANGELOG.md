@@ -1,5 +1,20 @@
 # Frontend changelog
 
+## 2026-06-16
+
+### Removed iOS App Store review Discord cron
+
+- **Removed:** `/api/cron/apple-reviews`, `lib/apple-app-store/*`, Vercel cron, setup doc. Use App Store Connect app push notifications for review alerts instead.
+- **Optional DB cleanup:** `DROP TABLE IF EXISTS public.app_store_review_notifications;`
+- **Vercel:** Remove `APPLE_ASC_*`, `DISCORD_APP_REVIEWS_WEBHOOK_URL`, `APP_REVIEW_ALERT_SECRET` when convenient.
+
+### Mobile install banner polish
+
+- **Sticky banner copy:** Added “ManaTap mobile” pill header, updated headline/body, and platform store icons on the primary CTA (Apple on iOS, Google Play on Android).
+- **Support widget:** `SupportWidgets` no longer renders on mobile viewports so it does not overlap the sticky install banner.
+- **Homepage:** Removed inline mobile install pill (`HomeMobileInstallBanner`); site-wide sticky banner replaces it.
+- **Files:** `components/mobile/MobileAppInstallStickyBanner.tsx`, `components/mobile/mobileStoreIcons.tsx`, `components/SupportWidgets.tsx`, `components/home/HybridHomePage.tsx` (deleted `HomeMobileInstallBanner.tsx`).
+
 ## 2026-06-15
 
 ### Mobile app banners (iOS + Android live)

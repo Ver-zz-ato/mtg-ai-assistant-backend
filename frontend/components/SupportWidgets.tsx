@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { useHomeMobilePlatform } from "@/lib/home/useHomeMobilePlatform";
 
 /**
  * Support widgets (Stripe, Ko‑fi). The Ko‑fi script was causing a full‑screen
@@ -43,6 +44,7 @@ export default function SupportWidgets() {
   const [remoteAllow, setRemoteAllow] = React.useState<boolean | null>(null);
   const [isExpanded, setIsExpanded] = React.useState<boolean>(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const { ready: mobileReady, isMobile } = useHomeMobilePlatform();
 
   React.useEffect(() => {
     // Compute actual value on client after hydration
@@ -102,6 +104,8 @@ export default function SupportWidgets() {
 
   if (remoteAllow === false) return null;
   if (!showWidgets) return null;
+  // Sticky app install banner owns bottom-right on mobile; avoid overlap.
+  if (mobileReady && isMobile) return null;
 
   return (
     <>

@@ -5,7 +5,6 @@
     "app/api/cron/card-tag-refresh/route.ts": { "maxDuration": 800 },
     "app/api/cron/marketing-radar-daily/route.ts": { "maxDuration": 120 },
     "app/api/cron/marketing-radar-review/route.ts": { "maxDuration": 120 },
-    "app/api/cron/apple-reviews/route.ts": { "maxDuration": 60 },
     "app/api/admin/marketing-radar/daily-run/route.ts": { "maxDuration": 120 }
   },
   "crons": [
@@ -28,7 +27,6 @@
     { "path": "/api/shout/cleanup", "schedule": "0 3 * * *" },
     { "path": "/api/cron/budget-swaps-update", "schedule": "0 3 * * 0" },
     { "path": "/api/cron/mtg-legality-refresh", "schedule": "0 2 * * 0" },
-    { "path": "/api/cron/card-tag-refresh", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/apple-reviews", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/card-tag-refresh", "schedule": "0 3 * * *" }
   ]
 }
