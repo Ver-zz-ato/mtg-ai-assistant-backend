@@ -32,18 +32,14 @@ export default function HomeMobileInstallBanner() {
             ManaTap mobile
           </p>
           <p className="mt-1 text-sm font-bold text-white">
-            {isIos
-              ? "Get the full ManaTap experience on your iPhone."
-              : isAndroid && !ANDROID_APP_LIVE
-                ? "Android version arriving soon."
-                : "Take ManaTap to game night."}
+            {isIos || isAndroid
+              ? "Get the full ManaTap experience on your phone."
+              : "Take ManaTap to game night."}
           </p>
           <p className="mt-1 text-xs leading-5 text-neutral-400">
-            {isIos
-              ? "Deck tools, scans, collections, and AI help in your pocket."
-              : isAndroid && !ANDROID_APP_LIVE
-                ? "iPhone is live now — Android is launching in the next few days."
-                : "Install the app for the best mobile workflow."}
+            {isIos || isAndroid
+              ? "Deck tools, scans, collections, and AI help in your pocket — on iOS and Android."
+              : "Install the app for the best mobile workflow."}
           </p>
         </div>
 
@@ -65,10 +61,6 @@ export default function HomeMobileInstallBanner() {
               <GooglePlayIcon />
               Google Play
             </a>
-          ) : isAndroid ? (
-            <span className="inline-flex min-h-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-500">
-              Google Play — coming soon
-            </span>
           ) : null}
           <Link
             href="/get"

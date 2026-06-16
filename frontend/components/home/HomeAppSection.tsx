@@ -28,8 +28,8 @@ export default function HomeAppSection() {
               Take ManaTap to game night
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-7 text-neutral-300 sm:text-base">
-              Now available on iPhone. The MTG tools you use on desktop — deck tuning, collections,
-              scans, and AI help — in your pocket. Android launching soon.
+              Now available on iPhone and Android. The MTG tools you use on desktop — deck tuning,
+              collections, scans, and AI help — in your pocket.
             </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -40,13 +40,13 @@ export default function HomeAppSection() {
                 <Apple aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={2.5} />
                 Download on App Store
               </a>
-              <span
-                className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-neutral-500"
-                title="Android app launching soon"
+              <a
+                href={APP_STORE_URLS.android}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-cyan-300/25 bg-cyan-300/12 px-5 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/60 hover:bg-cyan-300/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
               >
                 <GooglePlayIcon />
-                Android coming soon
-              </span>
+                Get it on Google Play
+              </a>
               <Link
                 href="/get"
                 className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-neutral-200 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"

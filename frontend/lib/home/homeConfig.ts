@@ -24,7 +24,7 @@ export const APP_STORE_URLS = {
 } as const;
 
 /** Flip to true when Google Play listing is live */
-export const ANDROID_APP_LIVE = false;
+export const ANDROID_APP_LIVE = true;
 
 export const HOME_HERO_COPY = {
   kicker: "ManaTap companion",

@@ -2,6 +2,12 @@
 
 ## 2026-06-15
 
+### Mobile app banners (iOS + Android live)
+
+- **Home app section:** Updated copy and buttons now advertise both iOS and Android; Google Play pill links to the live Play Store listing instead of a disabled “coming soon” badge.
+- **Mobile install banner:** Android visitors now see a real Google Play CTA; shared copy mentions iOS and Android instead of “Android arriving soon”.
+- **Config:** `ANDROID_APP_LIVE` flipped to `true` and Play Store URL wired via `APP_STORE_URLS.android`.
+
 ### Chat handoff pipeline
 
 - **Shared helpers:** `openChatPrompt`, `buildChatDraftUrl`, `hasEmbeddedChatShell`, and `isChatReferrer` in `lib/navigation/chatRoute.ts` — single source for card modal, commander hero, trending strip, and pricing attribution.
