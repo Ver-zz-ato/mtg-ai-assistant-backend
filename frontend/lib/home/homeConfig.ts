@@ -19,7 +19,7 @@ import { HOME_COMMANDER_GUIDE_COUNT } from "@/lib/home/commanderGuideCount";
 import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 
 export const APP_STORE_URLS = {
-  ios: "https://apps.apple.com/app/id6774626559",
+  ios: "https://apps.apple.com/us/app/manatap/id6774626559",
   android: "https://play.google.com/store/apps/details?id=com.manatap.app",
 } as const;
 

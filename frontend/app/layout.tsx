@@ -32,6 +32,7 @@ import EmailVerificationReminder from "@/components/EmailVerificationReminder";
 import TopLoadingBar from "@/components/TopLoadingBar";
 import GlobalBackground from "@/components/GlobalBackground";
 import SecureConnectionsGuard from "@/components/SecureConnectionsGuard";
+import MobileAppInstallStickyBanner from "@/components/mobile/MobileAppInstallStickyBanner";
 import { ActiveUsersProvider } from "@/lib/active-users-context";
 import {
   HOME_DESCRIPTION,
@@ -137,6 +138,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <GuestExitWarning />
                     {/* <IOSInstallPrompt /> */} {/* DISABLED: Remove install popup per user request */}
                     <EmailVerificationReminder />
+                    <MobileAppInstallStickyBanner />
                   </KeyboardShortcutsProvider>
                 </ActiveUsersProvider>
               </ProProvider>

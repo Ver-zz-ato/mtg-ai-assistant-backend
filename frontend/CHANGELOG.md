@@ -8,6 +8,11 @@
 - **Mobile install banner:** Android visitors now see a real Google Play CTA; shared copy mentions iOS and Android instead of “Android arriving soon”.
 - **Config:** `ANDROID_APP_LIVE` flipped to `true` and Play Store URL wired via `APP_STORE_URLS.android`.
 
+### Mobile sticky install banner
+
+- **Mobile-only sticky CTA:** Added a dismissible sticky bottom banner across public pages that links to the correct app store for iOS/Android, remembers dismissal for 30 days, and tracks PostHog events (`app_install_banner_viewed`, `app_install_banner_clicked`, `app_install_banner_dismissed`) with consent guard.
+- **Files:** `components/mobile/MobileAppInstallStickyBanner.tsx`, `app/layout.tsx`.
+
 ### Chat handoff pipeline
 
 - **Shared helpers:** `openChatPrompt`, `buildChatDraftUrl`, `hasEmbeddedChatShell`, and `isChatReferrer` in `lib/navigation/chatRoute.ts` — single source for card modal, commander hero, trending strip, and pricing attribution.
