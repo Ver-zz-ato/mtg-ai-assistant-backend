@@ -2,10 +2,16 @@
 
 ## 2026-06-16
 
+### Blog launch announcement
+
+- **New post artifact:** Added the SQL-first launch post payload and paste-ready Supabase SQL for `ManaTap Is Now Live on iOS & Android`, using the public store-badges hero image.
+- **Asset:** Added the App Store / Google Play badges image for blog hero usage.
+- **Files:** `scripts/posts/manatap-now-live-ios-android.json`, `db/migrations/145_blog_manatap_now_live_ios_android.sql`, `public/blog-assets/manatap-store-badges.png`.
+
 ### Removed iOS App Store review Discord cron
 
 - **Removed:** `/api/cron/apple-reviews`, `lib/apple-app-store/*`, Vercel cron, setup doc. Use App Store Connect app push notifications for review alerts instead.
-- **Optional DB cleanup:** `DROP TABLE IF EXISTS public.app_store_review_notifications;`
+- **DB:** `app_store_review_notifications` dropped in production (feature removed; migration `144_app_store_review_notifications.sql` deleted from repo).
 - **Vercel:** Remove `APPLE_ASC_*`, `DISCORD_APP_REVIEWS_WEBHOOK_URL`, `APP_REVIEW_ALERT_SECRET` when convenient.
 
 ### Mobile install banner polish
