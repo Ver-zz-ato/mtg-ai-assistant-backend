@@ -3,6 +3,7 @@ import {
   SOCIAL_PREVIEW_OG_IMAGE,
   SOCIAL_PREVIEW_TWITTER_IMAGE_URL,
 } from "@/lib/seo/metadata";
+import BlogAppInstallCta from "@/components/blog/BlogAppInstallCta";
 
 export const metadata: Metadata = {
   title: "MTG Deck Building Blog | ManaTap AI",
@@ -25,5 +26,10 @@ export const metadata: Metadata = {
 };
 
 export default function BlogLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      {children}
+      <BlogAppInstallCta />
+    </>
+  );
 }
