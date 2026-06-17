@@ -11,6 +11,9 @@ import Logo from './Logo';
 import { getEmailSignupRedirectTo } from '@/lib/auth/emailVerificationRedirect';
 import { MANATAP_DISCORD_INVITE_URL } from '@/lib/manatap-links';
 
+const desktopNavLinkBase =
+  'whitespace-nowrap shrink-0 text-[13px] xl:text-sm font-medium px-1 xl:px-1.5 py-0.5 rounded transition-all hover:underline';
+
 export default function Header() {
   const [isHydrated, setIsHydrated] = useState(false);
   const supabase = useMemo(() => createBrowserSupabaseClient(), []); // Use singleton
@@ -300,74 +303,92 @@ export default function Header() {
 
   return (
     <header className="w-full overflow-x-clip border-b">
-      <div className="mx-auto flex w-full max-w-[1500px] min-w-0 items-center justify-between gap-3 px-4 py-3">
-        <Link href="/" className="font-semibold flex items-center gap-2 flex-shrink-0">
-          <Logo size={63} />
-          <span className="hidden sm:block text-3xl font-bold whitespace-nowrap">ManaTap AI</span>
+      <div className="mx-auto flex w-full min-w-0 flex-nowrap items-center justify-between gap-2 px-3 py-2 xl:gap-3 xl:px-4 xl:py-3">
+        <Link href="/" className="font-semibold flex shrink-0 items-center gap-1.5">
+          <Logo size={50} />
+          <span className="hidden sm:block text-xl font-bold whitespace-nowrap xl:text-2xl 2xl:text-3xl">ManaTap AI</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain lg:flex">
+        <nav className="hidden min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex xl:gap-1">
           <Link 
             href="/changelog" 
-            className="text-sm hover:underline text-green-500 font-medium flex items-center gap-1 px-2 py-1 rounded transition-all hover:bg-green-500/10 hover:shadow-sm"
+            className={`${desktopNavLinkBase} text-green-500 flex items-center gap-1 hover:bg-green-500/10 hover:shadow-sm`}
             onClick={() => capture('nav_link_clicked', { destination: '/changelog', source: 'header' })}
           >
             <span className="text-xs">✨</span>
             What's New
           </Link>
           <Link 
-            href="/commanders" 
-            className="text-sm hover:underline text-indigo-400 font-medium px-2 py-1 rounded transition-all hover:bg-indigo-400/10 hover:shadow-sm"
-            onClick={() => capture('nav_link_clicked', { destination: '/commanders', source: 'header' })}
-          >
-            Commanders
-          </Link>
-          <Link 
-            href="/decks/browse" 
-            className="text-sm hover:underline text-purple-400 font-medium px-2 py-1 rounded transition-all hover:bg-purple-400/10 hover:shadow-sm"
-            onClick={() => capture('nav_link_clicked', { destination: '/decks/browse', source: 'header' })}
-          >
-            Browse Decks
-          </Link>
-          <Link 
-            href="/build-a-deck" 
-            className="text-sm hover:underline text-blue-400 font-medium px-2 py-1 rounded transition-all hover:bg-blue-400/10 hover:shadow-sm"
-            onClick={() => capture('nav_link_clicked', { destination: '/build-a-deck', source: 'header' })}
-          >
-            Deck Builder
-          </Link>
-          <Link
-            href="/tools"
-            className="text-sm hover:underline text-teal-400 font-medium px-2 py-1 rounded transition-all hover:bg-teal-400/10 hover:shadow-sm"
-            onClick={() => capture('nav_link_clicked', { destination: '/tools', source: 'header' })}
-          >
-            Tools
-          </Link>
-          <Link
-            href="/cards"
-            className="text-sm hover:underline text-orange-300 font-medium px-2 py-1 rounded transition-all hover:bg-orange-300/10 hover:shadow-sm"
-            onClick={() => capture('nav_link_clicked', { destination: '/cards', source: 'header' })}
-          >
-            Cards
-          </Link>
-          <Link 
             href="/blog" 
-            className="text-sm hover:underline text-red-400 font-medium px-2 py-1 rounded transition-all hover:bg-red-400/10 hover:shadow-sm"
+            className={`${desktopNavLinkBase} text-red-400 hover:bg-red-400/10 hover:shadow-sm`}
             onClick={() => capture('nav_link_clicked', { destination: '/blog', source: 'header' })}
           >
             Blog
           </Link>
           <Link 
+            href="/decks/browse" 
+            className={`${desktopNavLinkBase} text-purple-400 hover:bg-purple-400/10 hover:shadow-sm`}
+            onClick={() => capture('nav_link_clicked', { destination: '/decks/browse', source: 'header' })}
+          >
+            <span className="hidden 2xl:inline">Browse Decks</span>
+            <span className="2xl:hidden">Browse</span>
+          </Link>
+          <Link 
+            href="/build-a-deck" 
+            className={`${desktopNavLinkBase} text-blue-400 hover:bg-blue-400/10 hover:shadow-sm`}
+            onClick={() => capture('nav_link_clicked', { destination: '/build-a-deck', source: 'header' })}
+          >
+            <span className="hidden 2xl:inline">Deck Builder</span>
+            <span className="2xl:hidden">Builder</span>
+          </Link>
+          <Link
+            href="/chat"
+            className={`${desktopNavLinkBase} text-fuchsia-400 hover:bg-fuchsia-400/10 hover:shadow-sm`}
+            onClick={() => capture('nav_link_clicked', { destination: '/chat', source: 'header' })}
+          >
+            AI Chat
+          </Link>
+          <Link
+            href="/ai-workshop"
+            className={`${desktopNavLinkBase} text-violet-400 hover:bg-violet-400/10 hover:shadow-sm`}
+            onClick={() => capture('nav_link_clicked', { destination: '/ai-workshop', source: 'header' })}
+          >
+            <span className="hidden 2xl:inline">AI Workshop</span>
+            <span className="2xl:hidden">Workshop</span>
+          </Link>
+          <Link
+            href="/mtg-deck-checker"
+            className={`${desktopNavLinkBase} text-amber-400 hover:bg-amber-400/10 hover:shadow-sm`}
+            onClick={() => capture('nav_link_clicked', { destination: '/mtg-deck-checker', source: 'header' })}
+          >
+            <span className="hidden 2xl:inline">Analyze a Deck</span>
+            <span className="2xl:hidden">Analyze</span>
+          </Link>
+          <Link
+            href="/cards"
+            className={`${desktopNavLinkBase} text-orange-300 hover:bg-orange-300/10 hover:shadow-sm`}
+            onClick={() => capture('nav_link_clicked', { destination: '/cards', source: 'header' })}
+          >
+            Cards
+          </Link>
+          <Link 
+            href="/commanders" 
+            className={`${desktopNavLinkBase} text-indigo-400 hover:bg-indigo-400/10 hover:shadow-sm`}
+            onClick={() => capture('nav_link_clicked', { destination: '/commanders', source: 'header' })}
+          >
+            Commanders
+          </Link>
+          <Link 
             href="/pricing" 
-            className="text-sm hover:underline text-yellow-400 font-medium px-2 py-1 rounded transition-all hover:bg-yellow-400/10 hover:shadow-sm"
+            className={`${desktopNavLinkBase} text-yellow-400 hover:bg-yellow-400/10 hover:shadow-sm`}
             onClick={() => capture('nav_link_clicked', { destination: '/pricing', source: 'header' })}
           >
             Pricing
           </Link>
           
           {/* Help Menu */}
-          <div className="relative" ref={helpMenuRef}>
+          <div className="relative shrink-0" ref={helpMenuRef}>
             <button
               ref={helpButtonRef}
               type="button"
@@ -375,7 +396,7 @@ export default function Header() {
               aria-haspopup="menu"
               aria-controls="header-help-menu"
               onClick={() => setShowHelpMenu(!showHelpMenu)}
-              className="text-sm hover:underline text-orange-400 font-medium flex items-center gap-1"
+              className={`${desktopNavLinkBase} text-orange-400 flex items-center gap-0.5`}
             >
               Help
               <span className="text-xs" aria-hidden="true">▾</span>
@@ -431,56 +452,59 @@ export default function Header() {
 
           <Link 
             href="/my-decks" 
-            className="text-sm hover:underline text-pink-400 font-medium px-2 py-1 rounded transition-all hover:bg-pink-400/10 hover:shadow-sm"
+            className={`${desktopNavLinkBase} text-pink-400 hover:bg-pink-400/10 hover:shadow-sm`}
             onClick={() => {
               capture('nav_link_clicked', { destination: '/my-decks', source: 'header' });
               trackFeatureDiscovered('deck_management', 'navigation');
             }}
           >
-            My Decks
+            <span className="hidden 2xl:inline">My Decks</span>
+            <span className="2xl:hidden">Decks</span>
           </Link>
           <Link 
             href="/collections" 
-            className="text-sm hover:underline text-cyan-400 font-medium px-2 py-1 rounded transition-all hover:bg-cyan-400/10 hover:shadow-sm"
+            className={`${desktopNavLinkBase} text-cyan-400 hover:bg-cyan-400/10 hover:shadow-sm`}
             onClick={() => {
               capture('nav_link_clicked', { destination: '/collections', source: 'header' });
               trackFeatureDiscovered('collection_management', 'navigation');
             }}
           >
-            My Collections
+            <span className="hidden 2xl:inline">My Collections</span>
+            <span className="2xl:hidden">Collections</span>
           </Link>
           <Link 
             href="/wishlist" 
-            className="text-sm hover:underline text-rose-400 font-medium px-2 py-1 rounded transition-all hover:bg-rose-400/10 hover:shadow-sm"
+            className={`${desktopNavLinkBase} text-rose-400 hover:bg-rose-400/10 hover:shadow-sm`}
             onClick={() => capture('nav_link_clicked', { destination: '/wishlist', source: 'header' })}
           >
-            My Wishlist
+            <span className="hidden 2xl:inline">My Wishlist</span>
+            <span className="2xl:hidden">Wishlist</span>
           </Link>
         </nav>
 
         {/* Right side: Auth */}
-        <div className="flex flex-shrink-0 items-center gap-3" suppressHydrationWarning>
+        <div className="flex shrink-0 items-center gap-2 xl:gap-3" suppressHydrationWarning>
           {!isHydrated ? (
             <div className="h-[38px]" /> 
           ) : sessionUser ? (
-            <div className="flex items-center gap-2 ml-3">
+            <div className="flex items-center gap-1.5 xl:gap-2 xl:ml-3">
               <Link
                 href="/profile"
                 prefetch={false}
-                className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0 flex items-center gap-1"
+                className="rounded-lg border border-neutral-700 px-2 py-1 text-[13px] hover:bg-neutral-800 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 xl:px-3 xl:py-1.5 xl:text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                Profile
+                <span className="hidden 2xl:inline">Profile</span>
             </Link>
             <span className="flex items-center gap-2 text-xs opacity-90 max-w-[120px] truncate">
-              {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />) : null}
-                <span className="hidden md:block truncate">{displayName || sessionUser}</span>
+              {avatar ? (<img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover shrink-0" />) : null}
+                <span className="hidden 2xl:block truncate">{displayName || sessionUser}</span>
               </span>
               <button
                 onClick={signOut}
-                className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors whitespace-nowrap flex-shrink-0"
+                className="rounded-lg border border-neutral-700 px-2 py-1 text-[13px] hover:bg-neutral-800 transition-colors whitespace-nowrap shrink-0 xl:px-3 xl:py-1.5 xl:text-sm"
               >
                 Sign out
               </button>
@@ -494,9 +518,10 @@ export default function Header() {
                 trackSignupStarted('email', 'header_button');
                 setShowSignUp(true);
               }}
-              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-black/5 whitespace-nowrap flex-shrink-0"
+              className="rounded-lg border px-2 py-1 text-[13px] hover:bg-black/5 whitespace-nowrap shrink-0 xl:px-3 xl:py-1.5 xl:text-sm"
             >
-              Sign in / Sign up
+              <span className="hidden xl:inline">Sign in / Sign up</span>
+              <span className="xl:hidden">Sign in</span>
             </button>
           )}
         </div>
@@ -539,15 +564,15 @@ export default function Header() {
               <span className="text-xs">✨</span>
               What's New
             </Link>
-            <Link 
-              href="/commanders" 
-              className="block min-h-[44px] py-2 px-1 text-sm text-indigo-400 font-medium flex items-center touch-manipulation"
+            <Link
+              href="/blog"
+              className="block min-h-[44px] py-2 px-1 text-sm text-red-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/commanders', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/blog', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
               }}
             >
-              Commanders
+              Blog
             </Link>
             <Link 
               href="/decks/browse" 
@@ -570,14 +595,34 @@ export default function Header() {
               Deck Builder
             </Link>
             <Link
-              href="/tools"
-              className="block min-h-[44px] py-2 px-1 text-sm text-teal-400 font-medium flex items-center touch-manipulation"
+              href="/chat"
+              className="block min-h-[44px] py-2 px-1 text-sm text-fuchsia-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/tools', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/chat', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
               }}
             >
-              Tools
+              AI Chat
+            </Link>
+            <Link
+              href="/ai-workshop"
+              className="block min-h-[44px] py-2 px-1 text-sm text-violet-400 font-medium flex items-center touch-manipulation"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/ai-workshop', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              AI Workshop
+            </Link>
+            <Link
+              href="/mtg-deck-checker"
+              className="block min-h-[44px] py-2 px-1 text-sm text-amber-400 font-medium flex items-center touch-manipulation"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/mtg-deck-checker', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Analyze a Deck
             </Link>
             <Link
               href="/cards"
@@ -589,15 +634,15 @@ export default function Header() {
             >
               Cards
             </Link>
-            <Link
-              href="/blog"
-              className="block min-h-[44px] py-2 px-1 text-sm text-red-400 font-medium flex items-center touch-manipulation"
+            <Link 
+              href="/commanders" 
+              className="block min-h-[44px] py-2 px-1 text-sm text-indigo-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/blog', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/commanders', source: 'mobile_menu' });
                 setMobileMenuOpen(false);
               }}
             >
-              Blog
+              Commanders
             </Link>
             <Link 
               href="/pricing" 
