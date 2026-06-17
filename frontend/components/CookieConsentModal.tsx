@@ -261,9 +261,16 @@ export default function CookieConsentModal() {
                 </div>
 
                 <div className="flex flex-col gap-3 pt-2">
+                  <button
+                    ref={firstButtonRef}
+                    type="button"
+                    onClick={handleAcceptAll}
+                    className="w-full px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-blue-600 via-violet-600 to-purple-600 hover:from-blue-500 hover:via-violet-500 hover:to-purple-500 shadow-[0_0_10px_rgba(139,92,246,0.5)] text-white transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                  >
+                    Accept all
+                  </button>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <button
-                      ref={firstButtonRef}
                       type="button"
                       onClick={handleDecline}
                       className="w-full px-4 py-2 rounded-lg font-medium bg-neutral-800 border border-neutral-700 text-neutral-300 hover:bg-neutral-700 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
@@ -273,18 +280,11 @@ export default function CookieConsentModal() {
                     <button
                       type="button"
                       onClick={handleManagePreferences}
-                      className="w-full px-4 py-2 rounded-lg font-medium bg-neutral-800/60 border border-neutral-600 text-neutral-200 hover:bg-neutral-700/80 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                      className="w-full px-4 py-2 rounded-lg font-medium bg-neutral-800 border border-neutral-700 text-neutral-300 hover:bg-neutral-700 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
                     >
                       Manage preferences
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleAcceptAll}
-                    className="w-full px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-blue-600 via-violet-600 to-purple-600 hover:from-blue-500 hover:via-violet-500 hover:to-purple-500 shadow-[0_0_10px_rgba(139,92,246,0.5)] text-white transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
-                  >
-                    Accept all
-                  </button>
                 </div>
               </>
             )}
