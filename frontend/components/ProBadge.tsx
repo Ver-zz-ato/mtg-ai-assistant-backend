@@ -58,7 +58,7 @@ export default function ProBadge({ showUpgradeTooltip = false }: ProBadgeProps) 
               • Price tracking<br/>
               • Priority support
             </div>
-            <div className="text-[11px] text-blue-300 font-semibold">£1.99/month or £14.99/year</div>
+            <div className="text-[11px] text-blue-300 font-semibold">£3.99/month or £29.99/year</div>
             <div className="text-[10px] text-neutral-400 mt-1 max-w-[220px] whitespace-normal text-center leading-snug">{WEBSITE_APP_PRICING_NOTE}</div>
             <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
           </div>
@@ -89,7 +89,7 @@ export function ProTagLink({ className = '', onClick }: { className?: string; on
       </Link>
       {showBubble && (
         <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1.5 bg-gray-900 text-white text-[10px] font-medium rounded shadow-lg max-w-[200px] text-center leading-snug z-50 pointer-events-none">
-          only £1.99 per month
+          only £3.99 per month
           <span className="block text-[9px] text-neutral-400 font-normal mt-1">{WEBSITE_APP_PRICING_NOTE}</span>
           <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-900" />
         </span>

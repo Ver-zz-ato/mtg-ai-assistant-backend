@@ -52,7 +52,7 @@ export default function ProUpsellBanner({ context, deckCount }: ProUpsellBannerP
             {getMessage()}
           </p>
           <p className="text-blue-200 text-xs">
-            Just £1.99/mo • Cancel anytime
+            Just £3.99/mo • Cancel anytime
           </p>
           <p className="text-blue-300/70 text-[11px] mt-1">{WEBSITE_APP_PRICING_NOTE}</p>
         </div>

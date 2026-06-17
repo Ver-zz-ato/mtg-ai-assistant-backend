@@ -171,7 +171,7 @@ async function runProductionTests() {
     console.log('✅ Your production Stripe integration is FULLY FUNCTIONAL!');
     console.log('💰 Ready to process real payments!');
     console.log('\n🚀 Next steps:');
-    console.log('1. Test a real £1.99 purchase');
+    console.log('1. Test a real Pro purchase');
     console.log('2. Verify Pro features activate');
     console.log('3. Check Stripe Dashboard for transactions');
     console.log('4. Announce your Pro features! 🎊');

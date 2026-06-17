@@ -753,7 +753,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="text-sm font-medium">Â£1.99/month or Â£14.99/year</div>
+                        <div className="text-sm font-medium">£3.99/month or £29.99/year</div>
                         <div className="flex flex-col gap-2 sm:flex-row">
                           <a 
                             href="/pricing" 
@@ -1253,7 +1253,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="bg-neutral-950 rounded-lg border border-neutral-700 p-4 space-y-2">
                         <div className="text-xs text-neutral-400 uppercase tracking-wide">Monthly</div>
-                        <div className="text-3xl font-bold">Â£1.99</div>
+                        <div className="text-3xl font-bold">£3.99</div>
                         <div className="text-xs text-neutral-400">per month</div>
                         <button onClick={()=>startCheckout('monthly')} className="w-full px-4 py-2 rounded bg-white text-black hover:bg-gray-200 text-sm font-medium mt-3">
                           Upgrade to Pro
@@ -1264,7 +1264,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                           Save 37%
                         </div>
                         <div className="text-xs text-neutral-400 uppercase tracking-wide">Yearly</div>
-                        <div className="text-3xl font-bold">Â£14.99</div>
+                        <div className="text-3xl font-bold">£29.99</div>
                         <div className="text-xs text-neutral-400">per year</div>
                         <button onClick={()=>startCheckout('yearly')} className="w-full px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium mt-3">
                           Upgrade to Pro

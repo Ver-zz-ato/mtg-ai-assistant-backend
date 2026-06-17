@@ -28,7 +28,7 @@ This document describes Pro status, access levels (Guest / Logged-in / Pro), and
 
 ## 3. Pro UX Helpers
 
-- **`lib/pro-ux.ts`** → `showProToast()`. Toast: *"This is a Pro feature. Upgrade to Pro for just £1.99/month…"*
+- **`lib/pro-ux.ts`** → `showProToast()`. Toast: *"This is a Pro feature. Upgrade to Pro for just £3.99/month…"*
 - **Pro guard pattern:** Many components check `isPro` before opening Pro features; if not Pro, they call `showProToast()` (or `alert`) and return.
 
 ---

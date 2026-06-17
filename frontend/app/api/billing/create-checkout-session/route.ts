@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/server-supabase';
 import { stripe } from '@/lib/stripe';
-import { getProductIdForPlan, getPriceIdForProduct } from '@/lib/billing';
+import { getPriceIdForPlan } from '@/lib/billing';
 import {
   ensureStripeCustomerForUser,
   findExistingBlockingSubscription,
@@ -86,9 +86,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Resolve product ID and price ID
-    const productId = getProductIdForPlan(plan);
-    const priceId = await getPriceIdForProduct(productId);
+    // Resolve the explicit Stripe Price ID for new purchases only.
+    const priceId = getPriceIdForPlan(plan);
 
     // Build URLs from canonical domain ONLY (never from req.headers.host)
     // This prevents www/non-www cookie mismatch issues

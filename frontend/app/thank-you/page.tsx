@@ -212,7 +212,7 @@ function ThankYouContent() {
 
   // Success state - show thank you message
   const planName = plan === 'yearly' ? 'Yearly' : 'Monthly';
-  const planPrice = plan === 'yearly' ? '£14.99/year' : '£1.99/month';
+  const planPrice = plan === 'yearly' ? '£29.99/year' : '£3.99/month';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">

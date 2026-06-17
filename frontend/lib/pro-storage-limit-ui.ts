@@ -34,7 +34,7 @@ function cleanProLimitMessage(payload: ProLimitPayload, code: ProStorageLimitCod
 }
 
 const PRO_SELL_LINE =
-  "Pro unlocks unlimited collection size, unlimited collections, higher AI limits, and more — from £1.99/month.";
+  "Pro unlocks unlimited collection size, unlimited collections, higher AI limits, and more — from £3.99/month.";
 
 export function isProStorageLimitPayload(payload: ProLimitPayload | null | undefined): boolean {
   return (

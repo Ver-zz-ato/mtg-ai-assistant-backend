@@ -1,5 +1,14 @@
 # Frontend changelog
 
+## 2026-06-17
+
+### Pro pricing update (£3.99 / £29.99)
+
+- **Website copy:** Updated visible Pro pricing across pricing page, profile upgrade UI, thank-you page, Pro badge/tooltips, upsell banner, and Pro toast/storage-limit copy to **£3.99/month** and **£29.99/year** (including annual savings math).
+- **Stripe checkout:** New purchases use explicit Stripe Price IDs via `PLAN_TO_PRICE` / `getPriceIdForPlan()` — existing subscribers unchanged.
+- **Admin estimate:** Admin pricing dashboard rough MRR estimate uses **3.99** instead of **1.99**.
+- **Files:** `app/pricing/page.tsx`, `app/profile/Client.tsx`, `app/thank-you/page.tsx`, `components/ProBadge.tsx`, `components/ProUpsellBanner.tsx`, `components/ProValueTooltip.tsx`, `lib/pro-ux.ts`, `lib/pro-storage-limit-ui.ts`, `lib/billing.ts`, `app/api/billing/create-checkout-session/route.ts`, `app/api/admin/pricing/route.ts`, `test-production.js`, `docs/PRO_IMPLEMENTATION_OVERVIEW.md`.
+
 ## 2026-06-16
 
 ### Blog launch announcement

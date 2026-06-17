@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     const proUsers = allUsers.filter((u) => isActiveProfilePro(profileMap.get(u.id) ?? null)).length;
     const freeUsers = totalUsers - proUsers;
     const conversionRate = totalUsers > 0 ? proUsers / totalUsers : 0;
-    const monthlyRevenue = proUsers * 1.99; // $1.99/month
+    const monthlyRevenue = proUsers * 3.99; // Rough estimate using current monthly Pro price.
 
     // Generate mock metrics for demo (in production, you'd pull from actual analytics)
     const daysBack = parseInt(timeRange);

@@ -347,7 +347,7 @@ export default function PricingPage() {
                 </p>
               </div>
               <div className="text-center">
-                <div className="text-4xl font-bold text-white">£1.99</div>
+                <div className="text-4xl font-bold text-white">£3.99</div>
                 <div className="text-sm text-emerald-200">per month</div>
               </div>
             </div>
@@ -391,7 +391,7 @@ export default function PricingPage() {
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              Save £8.89/year with annual billing (37% off)
+              Save £17.89/year with annual billing (37% off)
             </div>
           )}
         </div>
@@ -456,18 +456,18 @@ export default function PricingPage() {
               <h3 className="text-2xl font-bold mb-4">Pro</h3>
               {billingInterval === 'monthly' ? (
                 <>
-                  <div className="text-5xl font-bold mb-2">£1.99</div>
+                  <div className="text-5xl font-bold mb-2">£3.99</div>
                   <div className="text-blue-100">per month</div>
                 </>
               ) : (
                 <>
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="text-3xl font-bold line-through opacity-60">£23.88</div>
-                    <div className="text-5xl font-bold">£14.99</div>
+                    <div className="text-3xl font-bold line-through opacity-60">£47.88</div>
+                    <div className="text-5xl font-bold">£29.99</div>
                   </div>
                   <div className="text-blue-100 mb-1">per year</div>
                   <div className="text-sm text-emerald-300 font-semibold">
-                    💰 Just £1.25/month - Save £8.89/year (37%)
+                    💰 Just £2.50/month - Save £17.89/year (37%)
                   </div>
                 </>
               )}
@@ -556,8 +556,8 @@ export default function PricingPage() {
               >
                 {upgrading ? 'Processing...' : 
                   billingInterval === 'monthly' 
-                    ? 'Upgrade to Pro - £1.99/mo' 
-                    : 'Upgrade to Pro - £14.99/yr'}
+                    ? 'Upgrade to Pro - £3.99/mo' 
+                    : 'Upgrade to Pro - £29.99/yr'}
               </button>
             )}
           </div>
@@ -790,8 +790,8 @@ export default function PricingPage() {
             >
               {upgrading ? 'Processing...' : 
                 billingInterval === 'monthly' 
-                  ? 'Start Your Pro Journey - £1.99/mo' 
-                  : 'Start Your Pro Journey - £14.99/yr (Save 37%)'}
+                  ? 'Start Your Pro Journey - £3.99/mo' 
+                  : 'Start Your Pro Journey - £29.99/yr (Save 37%)'}
             </button>
           )}
 

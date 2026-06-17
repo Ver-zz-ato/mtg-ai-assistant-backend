@@ -12,6 +12,13 @@ export const PLAN_TO_PRODUCT: Record<'monthly' | 'yearly', string> = {
   yearly: 'prod_TDaRNmnrBcfWlZ',
 };
 
+// Price IDs for new Stripe Checkout purchases. Existing subscribers remain on
+// their original subscription items until they change plans in Stripe.
+export const PLAN_TO_PRICE: Record<'monthly' | 'yearly', string> = {
+  monthly: 'price_1TjNHQLeE3sVc9QprG2iB3R2',
+  yearly: 'price_1TjNIaLeE3sVc9Qp5I6vNMua',
+};
+
 // Price cache to avoid repeated API calls
 const priceCache = new Map<string, { priceId: string; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -66,6 +73,17 @@ export function getProductIdForPlan(plan: 'monthly' | 'yearly'): string {
     throw new Error(`Unknown plan: ${plan}`);
   }
   return productId;
+}
+
+/**
+ * Get Stripe price ID from plan name for new checkout sessions.
+ */
+export function getPriceIdForPlan(plan: 'monthly' | 'yearly'): string {
+  const priceId = PLAN_TO_PRICE[plan];
+  if (!priceId) {
+    throw new Error(`Unknown plan: ${plan}`);
+  }
+  return priceId;
 }
 
 /**
