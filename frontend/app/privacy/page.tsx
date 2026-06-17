@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useCookieConsentModal } from '@/components/CookieConsentContext';
 
 function formatToday(): string {
   try {
@@ -13,25 +14,32 @@ function formatToday(): string {
 
 export default function PrivacyPage() {
   const today = formatToday();
+  const { openPreferences } = useCookieConsentModal();
   const [analyticsConsent, setAnalyticsConsent] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
   const [expandedPanels, setExpandedPanels] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setMounted(true);
-    try {
-      // Dynamic import to avoid SSR issues
-      import('@/lib/consent').then(({ getConsentStatus }) => {
-        const consent = getConsentStatus() === 'accepted';
-        setAnalyticsConsent(consent);
-      }).catch(() => {
-        // Fallback to legacy check
+    let cleanup: (() => void) | undefined;
+
+    import('@/lib/consent')
+      .then(({ getConsentStatus, onConsentChange }) => {
+        setAnalyticsConsent(getConsentStatus() === 'accepted');
+        cleanup = onConsentChange((status) => {
+          setAnalyticsConsent(status === 'accepted');
+        });
+      })
+      .catch(() => {
         try {
           const consent = window.localStorage.getItem('analytics:consent') === 'granted';
           setAnalyticsConsent(consent);
         } catch {}
       });
-    } catch {}
+
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
   const toggleAnalytics = (enabled: boolean) => {
@@ -213,6 +221,13 @@ export default function PrivacyPage() {
               </div>
             </label>
           </div>
+          <button
+            type="button"
+            onClick={openPreferences}
+            className="mt-3 text-xs text-blue-400 hover:text-blue-300 underline"
+          >
+            Open cookie preferences
+          </button>
         </div>
       )}
 

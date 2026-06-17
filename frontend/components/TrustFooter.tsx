@@ -6,11 +6,11 @@ import { MANATAP_DISCORD_INVITE_URL } from '@/lib/manatap-links';
 import { capture } from '@/lib/ph';
 
 function CookieSettingsLink() {
-  const { openModal } = useCookieConsentModal();
-  
+  const { openPreferences } = useCookieConsentModal();
+
   return (
-    <button 
-      onClick={openModal}
+    <button
+      onClick={openPreferences}
       className="hover:text-gray-200 transition-colors text-xs"
     >
       Cookie Settings

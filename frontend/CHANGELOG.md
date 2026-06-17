@@ -2,6 +2,13 @@
 
 ## 2026-06-17
 
+### Cookie consent UI (Phase 1)
+
+- **Banner:** Retitled to “Your Privacy Choices” with clearer essential vs optional analytics copy; added **Manage preferences** alongside Decline and Accept all.
+- **Preferences modal:** Essential cookies shown as always on; analytics cookies toggle with **Save preferences** (maps to accepted/declined in existing `manatap_cookie_consent` localStorage).
+- **Cookie Settings:** Footer, privacy page, and in-modal link now reopen the preferences view directly.
+- **Files:** `components/CookieConsentModal.tsx`, `components/CookieConsentContext.tsx`, `components/TrustFooter.tsx`, `app/privacy/page.tsx`.
+
 ### Pro pricing update (£3.99 / £29.99)
 
 - **Website copy:** Updated visible Pro pricing across pricing page, profile upgrade UI, thank-you page, Pro badge/tooltips, upsell banner, and Pro toast/storage-limit copy to **£3.99/month** and **£29.99/year** (including annual savings math).

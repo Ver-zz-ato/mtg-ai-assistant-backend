@@ -3,23 +3,36 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { getConsentStatus } from "@/lib/consent";
 
+export type ConsentModalMode = "banner" | "preferences";
+
 interface CookieConsentContextType {
   isOpen: boolean;
+  mode: ConsentModalMode;
   openModal: () => void;
+  openPreferences: () => void;
   closeModal: () => void;
+  setMode: (mode: ConsentModalMode) => void;
 }
 
 const CookieConsentContext = createContext<CookieConsentContextType | null>(null);
 
 export function CookieConsentProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mode, setMode] = useState<ConsentModalMode>("banner");
 
   const openModal = useCallback(() => {
+    setMode("banner");
+    setIsOpen(true);
+  }, []);
+
+  const openPreferences = useCallback(() => {
+    setMode("preferences");
     setIsOpen(true);
   }, []);
 
   const closeModal = useCallback(() => {
     setIsOpen(false);
+    setMode("banner");
   }, []);
 
   // Check on mount if consent is unknown
@@ -30,12 +43,15 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
 
     const status = getConsentStatus();
     if (status === "unknown") {
+      setMode("banner");
       setIsOpen(true);
     }
   }, []);
 
   return (
-    <CookieConsentContext.Provider value={{ isOpen, openModal, closeModal }}>
+    <CookieConsentContext.Provider
+      value={{ isOpen, mode, openModal, openPreferences, closeModal, setMode }}
+    >
       {children}
     </CookieConsentContext.Provider>
   );
@@ -48,4 +64,3 @@ export function useCookieConsentModal() {
   }
   return context;
 }
-
