@@ -303,14 +303,15 @@ export default function Header() {
 
   return (
     <header className="w-full overflow-x-clip border-b">
-      <div className="mx-auto grid w-full min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2 xl:gap-3 xl:px-4 xl:py-3">
-        <Link href="/" className="justify-self-start font-semibold flex shrink-0 items-center gap-1.5">
-          <Logo size={50} />
-          <span className="hidden sm:block text-xl font-bold whitespace-nowrap xl:text-2xl 2xl:text-3xl">ManaTap AI</span>
-        </Link>
+      <div className="mx-auto flex w-full items-center px-3 py-2 lg:justify-center xl:px-4 xl:py-3">
+        <div className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:w-auto xl:gap-1">
+          <Link href="/" className="shrink-0 font-semibold flex items-center gap-1.5 pr-0.5">
+            <Logo size={50} />
+            <span className="hidden sm:block text-xl font-bold whitespace-nowrap xl:text-2xl 2xl:text-3xl">ManaTap AI</span>
+          </Link>
 
-        {/* Desktop Navigation — centered in the header */}
-        <nav className="hidden max-w-full flex-nowrap items-center justify-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex xl:gap-1">
+          {/* Desktop Navigation — tight row with logo and auth */}
+          <nav className="hidden shrink-0 flex-nowrap items-center gap-0.5 lg:flex xl:gap-1">
           <Link 
             href="/changelog" 
             className={`${desktopNavLinkBase} text-green-500 flex items-center gap-1 hover:bg-green-500/10 hover:shadow-sm`}
@@ -482,12 +483,12 @@ export default function Header() {
           </Link>
         </nav>
 
-        {/* Right side: Auth + mobile menu */}
-        <div className="flex shrink-0 items-center justify-end gap-2 justify-self-end xl:gap-3" suppressHydrationWarning>
+        {/* Auth + mobile menu */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-0.5 lg:ml-0 xl:gap-2" suppressHydrationWarning>
           {!isHydrated ? (
             <div className="h-[38px]" /> 
           ) : sessionUser ? (
-            <div className="flex items-center gap-1.5 xl:gap-2 xl:ml-3">
+            <div className="flex items-center gap-1.5 xl:gap-2">
               <Link
                 href="/profile"
                 prefetch={false}
@@ -524,9 +525,9 @@ export default function Header() {
               <span className="xl:hidden">Sign in</span>
             </button>
           )}
-        
-        {/* Mobile Navigation */}
-        <div className="lg:hidden flex items-center gap-2" suppressHydrationWarning>
+
+          {/* Mobile Navigation */}
+          <div className="flex items-center gap-2 lg:hidden" suppressHydrationWarning>
           {isHydrated && sessionUser && avatar && (
             <img src={avatar} alt="avatar" className="w-6 h-6 rounded-full object-cover" />
           )}
@@ -543,7 +544,9 @@ export default function Header() {
               )}
             </svg>
           </button>
+          </div>
         </div>
+      </div>
       </div>
 
       {/* Mobile Menu - touch targets min 44px for tap comfort */}
