@@ -8,6 +8,7 @@
 - **Preferences modal:** Essential cookies shown as always on; analytics cookies toggle with **Save preferences** (maps to accepted/declined in existing `manatap_cookie_consent` localStorage).
 - **Cookie Settings:** Footer, privacy page, and in-modal link now reopen the preferences view directly.
 - **Banner layout:** Accept all is the top primary CTA; Decline and Manage preferences share matching secondary styling.
+- **Preferences default:** Analytics toggle defaults to on for new visitors; stays off if the user previously declined.
 - **Files:** `components/CookieConsentModal.tsx`, `components/CookieConsentContext.tsx`, `components/TrustFooter.tsx`, `app/privacy/page.tsx`.
 
 ### Pro pricing update (£3.99 / £29.99)

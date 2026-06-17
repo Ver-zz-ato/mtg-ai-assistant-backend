@@ -20,7 +20,7 @@ export default function CookieConsentModal() {
   const modalRef = useRef<HTMLDivElement>(null);
   const firstButtonRef = useRef<HTMLButtonElement>(null);
   const [source, setSource] = React.useState<"modal" | "privacy_page" | "preferences">("modal");
-  const [analyticsEnabled, setAnalyticsEnabled] = React.useState(false);
+  const [analyticsEnabled, setAnalyticsEnabled] = React.useState(true);
   const [cameFromBanner, setCameFromBanner] = React.useState(false);
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export default function CookieConsentModal() {
   useEffect(() => {
     if (!mounted || !isOpen || mode !== "preferences") return;
     const status = getConsentStatus();
-    setAnalyticsEnabled(status === "accepted");
+    setAnalyticsEnabled(status !== "declined");
   }, [mounted, isOpen, mode]);
 
   // Listen for reopen event (Cookie Settings elsewhere)
@@ -129,7 +129,7 @@ export default function CookieConsentModal() {
     setSource("preferences");
     setCameFromBanner(true);
     const status = getConsentStatus();
-    setAnalyticsEnabled(status === "accepted");
+    setAnalyticsEnabled(status !== "declined");
     setMode("preferences");
   }
 
