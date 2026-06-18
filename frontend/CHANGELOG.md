@@ -2,6 +2,12 @@
 
 ## 2026-06-18
 
+### My Decks — DOM reconciliation fix (Sentry NEXTJS-35)
+
+- **Coach bubbles:** Pick mulligan vs budget variant once when the delayed timer fires — no longer re-roll `Math.random()` on every parent re-render (could swap component type mid-commit and trigger React `removeChild` errors).
+- **Playstyle quiz modal:** Render at page root beside other modals instead of nested inside the sidebar widget flex row.
+- **Files:** `app/my-decks/ClientWithCoach.tsx`, `app/my-decks/page.tsx`.
+
 ### Deck Checker — DOM reconciliation fix (Sentry NEXTJS-3A / NEXTJS-37)
 
 - **Verdict panel animations:** Replaced dual `AnimatePresence` overlays and keyed results remount with stable DOM — CSS fade-in for preview ribbon and analyzing overlay, `useAnimationControls` spring reveal on a single persistent panel node.

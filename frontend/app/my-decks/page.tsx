@@ -10,6 +10,7 @@ import { NoDecksEmptyState } from "@/components/EmptyState";
 import DeckPageCoachBubbles from "./ClientWithCoach";
 import CompareDecksWidget from "@/components/CompareDecksWidget";
 import ImportDeckModal from "@/components/ImportDeckModal";
+import PlaystyleQuizModal from "@/components/PlaystyleQuizModal";
 import { capture } from "@/lib/ph";
 
 type DeckRow = {
@@ -343,36 +344,26 @@ function MyDecksPageContent() {
             </div>
             
             {/* Find my playstyle widget */}
-            {(()=>{ 
-              try { 
-                const PlaystyleQuizModal = require('@/components/PlaystyleQuizModal').default;
-                return (
-                  <div className="p-4 rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-900/20 to-pink-900/20">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-sm font-semibold mb-1">Not sure where to start?</h3>
-                        <p className="text-xs text-gray-400">Find your playstyle and get personalized deck recommendations</p>
-                      </div>
-                      <button
-                        onClick={() => setShowQuizModal(true)}
-                        className="relative px-6 py-3 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:from-purple-500 hover:via-pink-500 hover:to-purple-500 transition-all shadow-xl hover:shadow-purple-500/50 hover:scale-105 transform duration-200 border-2 border-purple-400/50"
-                      >
-                        <span className="relative z-10 flex items-center gap-2">
-                          <span>🎯</span>
-                          <span>
-                            <span className="block text-yellow-300 text-[10px] font-extrabold uppercase tracking-wider mb-0.5">FIND MY</span>
-                            <span className="text-xs">Playstyle</span>
-                          </span>
-                        </span>
-                      </button>
-                      {showQuizModal && <PlaystyleQuizModal onClose={() => setShowQuizModal(false)} />}
-                    </div>
-                  </div>
-                );
-              } catch { 
-                return null; 
-              } 
-            })()}
+            <div className="p-4 rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-900/20 to-pink-900/20">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Not sure where to start?</h3>
+                  <p className="text-xs text-gray-400">Find your playstyle and get personalized deck recommendations</p>
+                </div>
+                <button
+                  onClick={() => setShowQuizModal(true)}
+                  className="relative px-6 py-3 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:from-purple-500 hover:via-pink-500 hover:to-purple-500 transition-all shadow-xl hover:shadow-purple-500/50 hover:scale-105 transform duration-200 border-2 border-purple-400/50"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <span>🎯</span>
+                    <span>
+                      <span className="block text-yellow-300 text-[10px] font-extrabold uppercase tracking-wider mb-0.5">FIND MY</span>
+                      <span className="text-xs">Playstyle</span>
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </div>
             </div>
           </div>
         </div>
@@ -390,6 +381,7 @@ function MyDecksPageContent() {
       <DeckPageCoachBubbles deckCount={decks.length} />
 
       <ImportDeckModal open={showImport} onClose={handleImportClose} onImported={handleImported} />
+      {showQuizModal ? <PlaystyleQuizModal onClose={() => setShowQuizModal(false)} /> : null}
     </div>
   );
 }

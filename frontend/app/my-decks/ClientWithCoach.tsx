@@ -3,24 +3,29 @@
 import { useEffect, useState } from 'react';
 import { MulliganCoachBubble, BudgetSwapsCoachBubble } from '@/components/CoachBubble';
 
+type CoachVariant = 'mulligan' | 'budget';
+
 export default function DeckPageCoachBubbles({ deckCount }: { deckCount: number }) {
   const [showCoach, setShowCoach] = useState(false);
+  const [variant, setVariant] = useState<CoachVariant | null>(null);
 
   useEffect(() => {
-    // Only show coach bubbles if user has at least 1 deck
-    if (deckCount > 0) {
-      // Randomly choose which coach bubble to show (50/50 split)
-      const timer = setTimeout(() => {
-        setShowCoach(true);
-      }, 2000);
-      
-      return () => clearTimeout(timer);
+    if (deckCount <= 0) {
+      setShowCoach(false);
+      setVariant(null);
+      return;
     }
+
+    const timer = setTimeout(() => {
+      setVariant(Math.random() > 0.5 ? 'mulligan' : 'budget');
+      setShowCoach(true);
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [deckCount]);
 
-  if (!showCoach) return null;
+  if (!showCoach || !variant) return null;
 
-  // Show mulligan coach 50% of the time, budget swaps 50%
-  return Math.random() > 0.5 ? <MulliganCoachBubble /> : <BudgetSwapsCoachBubble />;
+  return variant === 'mulligan' ? <MulliganCoachBubble /> : <BudgetSwapsCoachBubble />;
 }
 
