@@ -1,5 +1,13 @@
 # Frontend changelog
 
+## 2026-06-18
+
+### Deck Checker — DOM reconciliation fix (Sentry NEXTJS-3A / NEXTJS-37)
+
+- **Verdict panel animations:** Replaced dual `AnimatePresence` overlays and keyed results remount with stable DOM — CSS fade-in for preview ribbon and analyzing overlay, `useAnimationControls` spring reveal on a single persistent panel node.
+- **Why:** Concurrent Framer Motion exit + React 19 remount caused `NotFoundError` on `insertBefore` in production (Safari + Chrome on `/mtg-deck-checker`).
+- **Files:** `app/mtg-deck-checker/DeckCheckerClient.tsx`.
+
 ## 2026-06-17
 
 ### Cookie consent UI (Phase 1)

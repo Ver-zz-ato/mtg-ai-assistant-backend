@@ -13,9 +13,8 @@ import {
   Wand2,
   Zap,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { motion, useAnimationControls } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import EligibleSavedDeckSelect from "@/components/tools/EligibleSavedDeckSelect";
 import { useEligibleSavedDecks } from "@/hooks/useEligibleSavedDecks";
@@ -174,6 +173,7 @@ export default function DeckCheckerClient() {
   const [whatsGood, setWhatsGood] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [resultRevealKey, setResultRevealKey] = useState(0);
+  const verdictPanelControls = useAnimationControls();
 
   const busy = busyPhase !== null;
   const hasResult = score !== null || counts !== null;
@@ -184,6 +184,20 @@ export default function DeckCheckerClient() {
   const fixes = useMemo(() => buildFixes(format, counts, quickFixes, suggestions), [counts, format, quickFixes, suggestions]);
   const currentScore = hasResult && score !== null ? score : 72;
   const deckLines = lineCount(deckText);
+
+  useEffect(() => {
+    if (resultRevealKey === 0) return;
+    const frameId = requestAnimationFrame(() => {
+      verdictPanelControls.set({ opacity: 0.85, scale: 0.94, y: 14 });
+      void verdictPanelControls.start({
+        opacity: 1,
+        scale: 1,
+        y: 0,
+        transition: { type: "spring", stiffness: 380, damping: 26 },
+      });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [resultRevealKey, verdictPanelControls]);
 
   useEffect(() => {
     try {
@@ -495,50 +509,34 @@ export default function DeckCheckerClient() {
               </div>
 
               <div className="relative overflow-hidden p-4 sm:p-5">
-                <AnimatePresence>
-                  {showPreviewRibbon ? (
-                    <motion.div
-                      key="preview-ribbon"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="pointer-events-none absolute inset-0 z-20 overflow-hidden"
-                      aria-hidden
-                    >
-                      <div className="absolute left-1/2 top-[42%] w-[155%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg]">
-                        <div className="border-y-[3px] border-amber-200/90 bg-gradient-to-r from-amber-300 via-amber-200 to-amber-300 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
-                          <p className="text-center text-[11px] font-black uppercase tracking-[0.28em] text-zinc-950 sm:text-xs sm:tracking-[0.34em]">
-                            Example preview — run a deck check
-                          </p>
-                        </div>
+                {showPreviewRibbon ? (
+                  <div
+                    className="pointer-events-none absolute inset-0 z-20 overflow-hidden animate-in fade-in duration-200"
+                    aria-hidden
+                  >
+                    <div className="absolute left-1/2 top-[42%] w-[155%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg]">
+                      <div className="border-y-[3px] border-amber-200/90 bg-gradient-to-r from-amber-300 via-amber-200 to-amber-300 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+                        <p className="text-center text-[11px] font-black uppercase tracking-[0.28em] text-zinc-950 sm:text-xs sm:tracking-[0.34em]">
+                          Example preview — run a deck check
+                        </p>
                       </div>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+                    </div>
+                  </div>
+                ) : null}
 
-                <AnimatePresence>
-                  {showVerdictAnalyzing ? (
-                    <motion.div
-                      key="verdict-loading"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/72 backdrop-blur-[2px]"
-                    >
-                      <div className="rounded-md border border-cyan-300/30 bg-black/55 px-5 py-4 text-center">
-                        <Zap className="mx-auto h-6 w-6 animate-pulse text-cyan-300" aria-hidden />
-                        <p className="mt-2 text-sm font-bold text-white">Running deck check…</p>
-                        <p className="mt-1 text-xs text-zinc-400">Results will replace the preview</p>
-                      </div>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+                {showVerdictAnalyzing ? (
+                  <div className="absolute inset-0 z-10 flex animate-in fade-in duration-200 items-center justify-center bg-zinc-950/72 backdrop-blur-[2px]">
+                    <div className="rounded-md border border-cyan-300/30 bg-black/55 px-5 py-4 text-center">
+                      <Zap className="mx-auto h-6 w-6 animate-pulse text-cyan-300" aria-hidden />
+                      <p className="mt-2 text-sm font-bold text-white">Running deck check…</p>
+                      <p className="mt-1 text-xs text-zinc-400">Results will replace the preview</p>
+                    </div>
+                  </div>
+                ) : null}
 
                 <motion.div
-                  key={hasResult ? `result-${resultRevealKey}` : "preview"}
-                  initial={hasResult ? { opacity: 0, scale: 0.94, y: 14 } : false}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 26 }}
+                  animate={verdictPanelControls}
+                  initial={false}
                   className={isPreview ? "relative opacity-[0.68] saturate-[0.55] contrast-[0.92]" : "relative"}
                 >
                 <div className="flex items-start justify-between gap-4">
