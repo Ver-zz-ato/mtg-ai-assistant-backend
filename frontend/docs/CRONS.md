@@ -54,19 +54,20 @@ npx tsx scripts/run-crons.ts all https://www.manatap.ai
 ## Dependencies
 
 - **bulk-price-import** -> external GitHub Actions schedule calls Render `/bulk-price-import` daily at 02:00 UTC; streams Scryfall `default_cards` and upserts `price_cache` for cards in `scryfall_cache`.
-- **price-snapshot** → writes full daily `price_snapshots` history (USD/EUR/GBP) from Scryfall bulk data, keeps ~60 days.
+- **price-snapshot** → Vercel `/api/cron/price/snapshot` is the canonical daily owner at 02:00 UTC. In production it delegates to Render `/price-snapshot` when `BULK_JOBS_URL` is configured; the worker snapshots `price_cache` into `price_snapshots` (USD/EUR/GBP), keeps ~60 days.
 - **deck-costs** → populates `deck_costs` from `deck_cards` + `price_cache`
 - **commander-aggregates** → needs `deck_costs`; populates `commander_aggregates` (deck_count, median_deck_cost, top_cards, etc.). **Commander Intelligence** on commander pages reads from this cache — run this cron after bulk-importing decks to refresh deck counts.
 - **meta-signals** → populates `meta_signals` (blended **Scryfall** EDHREC + ManaTap decks), optional rows in **`meta_commander_daily`** / **`meta_card_daily`** when those tables exist (migration in Manatap-APP `docs/supabase/migrations/20260419_meta_external_daily.sql`). Does **not** require `commander_aggregates`. `trending-cards` still starts from internal trend deltas, but if that list is too sparse for Discover it is topped up from filtered global popular-card rows before publish. Writes `app_config`: `job:last:meta-signals`, `job:meta-signals:attempt`, `job:meta-signals:detail` (JSON status for admin QA).
 - **cleanup-shared-links** → deletes expired rows from `shared_health_reports`, `shared_analysis_reports`, and related `shared_item_comments`. This keeps public share links and comment visibility aligned with expiry behavior used by the mobile app and website.
 - **Tournament Manager V1** currently has invite/event `expires_at` columns but no scheduled cleanup cron. Expired tournament invites are rejected by `/api/mobile/tournaments/join`; add a dedicated cleanup cron later if storage volume becomes meaningful during beta.
 
-Run in order: price-snapshot → deck-costs → commander-aggregates → meta-signals → top-cards. `cleanup-shared-links` is independent but should stay scheduled before launch if expiring share links are user-facing.
+Run in order: bulk-price-import → price-snapshot → deck-costs → commander-aggregates → meta-signals → top-cards. `cleanup-shared-links` is independent but should stay scheduled before launch if expiring share links are user-facing.
 
 ## Snapshot source of truth
 
 - The production daily history source is the website cron route **`/api/cron/price/snapshot`** (Vercel cron).
-- Legacy external schedulers may still exist; keep this route as canonical for historical trackers.
+- GitHub Actions no longer schedules snapshots daily; the backup snapshot workflow is manual-only.
+- Keep Render `/price-snapshot` available for Vercel delegation and emergency manual runs.
 
 ## Operator note
 

@@ -344,8 +344,10 @@ jobs:
           echo "⏸️ Waiting 5 seconds before next job..."
           sleep 5
       
+      # Job 3 is disabled here: Vercel /api/cron/price/snapshot is the canonical daily owner.
       - name: Job 3 - Historical Price Snapshots
         id: job3
+        if: ${{ false }}
         continue-on-error: false
         run: |
           echo "📈 =========================================="
@@ -406,6 +408,7 @@ jobs:
       
       - name: Verify Job 3 Completion
         id: verify_job3
+        if: ${{ false }}
         continue-on-error: true
         run: |
           echo ""
@@ -538,8 +541,8 @@ jobs:
             Job Results:
             - Job 2 (Price Import): ${{ steps.job2.outputs.job2_status || 'FAILED' }}
             - Job 2 Verification: ${{ steps.verify_job2.outputs.verify_job2_status || 'FAILED' }}
-            - Job 3 (Price Snapshots): ${{ steps.job3.outputs.job3_status || 'FAILED' }}
-            - Job 3 Verification: ${{ steps.verify_job3.outputs.verify_job3_status || 'FAILED' }}
+            - Job 3 (Price Snapshots): DISABLED - Vercel /api/cron/price/snapshot is canonical
+            - Job 3 Verification: DISABLED
             
             Please check the logs at the workflow link above.
             
@@ -560,14 +563,13 @@ jobs:
           echo "  🎨 Job 1 (Metadata):  ${{ steps.job1.outputs.job1_status || 'DISABLED' }} - ${{ steps.job1.outputs.job1_duration || 'N/A' }}s"
           echo "  💰 Job 2 (Prices):    ${{ steps.job2.outputs.job2_status || 'FAILED' }} - ${{ steps.job2.outputs.job2_duration || 'N/A' }}s"
           echo "  🔍 Job 2 Verification: ${{ steps.verify_job2.outputs.verify_job2_status || 'FAILED' }}"
-          echo "  📈 Job 3 (Snapshots): ${{ steps.job3.outputs.job3_status || 'FAILED' }} - ${{ steps.job3.outputs.job3_duration || 'N/A' }}s"
-          echo "  🔍 Job 3 Verification: ${{ steps.verify_job3.outputs.verify_job3_status || 'FAILED' }}"
+          echo "  📈 Job 3 (Snapshots): DISABLED - Vercel /api/cron/price/snapshot is canonical"
+          echo "  🔍 Job 3 Verification: DISABLED"
           echo ""
           
           TOTAL_TIME=$((
             ${{ steps.job1.outputs.job1_duration || 0 }} +
-            ${{ steps.job2.outputs.job2_duration || 0 }} +
-            ${{ steps.job3.outputs.job3_duration || 0 }}
+            ${{ steps.job2.outputs.job2_duration || 0 }}
           ))
           echo "⏱️ Total runtime: ${TOTAL_TIME} seconds (~$((TOTAL_TIME / 60)) minutes)"
           echo ""

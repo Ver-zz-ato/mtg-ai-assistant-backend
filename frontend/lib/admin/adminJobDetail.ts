@@ -19,6 +19,7 @@ export const ADMIN_JOB_IDS = [
   "weekly_ops_report",
   "card-tag-refresh",
   "card-tag-backfill",
+  "mtg-legality-refresh",
 ] as const;
 
 export type AdminJobId = (typeof ADMIN_JOB_IDS)[number];
@@ -75,9 +76,11 @@ export function adminJobLastSuccessKey(jobId: string): string | null {
     price_snapshot_bulk: "job:last:price_snapshot_bulk",
     "meta-signals": "job:last:meta-signals",
     "budget-swaps-update": "job:last:budget-swaps-update",
-    "mtg-legality-refresh": "job:last:mtg-legality-refresh",
     "card-tag-refresh": "job:last:card-tag-refresh",
     "card-tag-backfill": "job:last:card-tag-backfill",
+    "mtg-legality-refresh": "job:last:mtg-legality-refresh",
+    daily_ops_report: "job:last:daily_ops_report",
+    weekly_ops_report: "job:last:weekly_ops_report",
   };
   return m[jobId] ?? null;
 }

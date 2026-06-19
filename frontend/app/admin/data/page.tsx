@@ -213,11 +213,11 @@ export default function DataPage(){
         '🎯 CONSOLIDATION: Reduced from 6 jobs to 3 essential ones for simplicity and reliability',
         '🔍 Card Lookup: Check individual card cache data (manual tool below)',
         '🔄 Refresh Cache: Force-update a specific card if data is stale',
-        '🤖 AUTOMATED: Jobs 2 & 3 run daily via GitHub Actions (UTC). Job 1 runs weekly on production (Sunday ~2 AM UTC); use RUN NOW locally for dev/catch-up.',
+        '🤖 AUTOMATED: Job 2 runs daily via GitHub Actions → Render. Job 3 runs daily via Vercel cron and delegates to Render when configured. Job 1 runs weekly on production (Sunday ~2 AM UTC); use RUN NOW locally for dev/catch-up.',
         '📊 Job 1: Bulk Scryfall Import - ALL 110k+ cards metadata (images, rarity, types)',
         '💰 Job 2: Bulk Price Import - Live prices for ALL cached cards',
         '📈 Job 3: Daily FULL Snapshot - Historical price tracking for charts',
-        '⏱️ Typical nightly runtime (jobs 2+3): ~10-15 minutes',
+        '⏱️ Typical daily runtime: Job 2 ~3-5 minutes; Job 3 several minutes after the Vercel cron delegates',
         '💡 Each job shows when it last ran successfully below'
       ]} />
 
@@ -379,12 +379,13 @@ export default function DataPage(){
 
       {/* Essential Jobs Monitor (3 consolidated jobs) */}
       <section className="rounded border border-neutral-800 p-3 space-y-3">
-        <div className="font-medium">Essential Jobs Monitor (3 Jobs) <HelpTip text="Consolidated to 3 essential jobs that run automatically nightly via GitHub Actions. Manual triggers available for testing or emergency updates." /></div>
+        <div className="font-medium">Essential Jobs Monitor (3 Jobs) <HelpTip text="Consolidated to 3 essential jobs. Prices run daily via GitHub Actions to Render; snapshots run daily via Vercel cron and delegate to Render when configured. Manual triggers available for testing or emergency updates." /></div>
         
         <div className="bg-blue-900/20 border border-blue-800 rounded p-3 mb-4">
           <div className="text-sm text-blue-200 space-y-1">
             <div className="font-semibold">🤖 Automated schedule (GitHub Actions)</div>
-            <div>• Job 2 (prices) &amp; Job 3 (snapshots): nightly <code className="bg-black/40 px-1 rounded">Nightly Bulk Data Import</code> on GitHub → Render <code className="bg-black/40 px-1 rounded">mtg-bulk-jobs</code> (same paths as the buttons when <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> is set on Vercel)</div>
+            <div>• Job 2 (prices): nightly <code className="bg-black/40 px-1 rounded">Nightly Bulk Data Import</code> on GitHub → Render <code className="bg-black/40 px-1 rounded">mtg-bulk-jobs</code>.</div>
+            <div>• Job 3 (snapshots): daily Vercel cron <code className="bg-black/40 px-1 rounded">/api/cron/price/snapshot</code> → Render <code className="bg-black/40 px-1 rounded">/price-snapshot</code> when <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> is set.</div>
             <div>• Job 1 (bulk Scryfall): weekly Sunday ~2:00 AM UTC on production — <code className="bg-black/40 px-1 rounded">weekly-scryfall-import.yml</code></div>
             <div>• RUN NOW (Job 2 &amp; 3): <strong>production</strong> uses your Render worker if <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> + <code className="bg-black/40 px-1 rounded">CRON_KEY</code> are set; otherwise the same Next.js routes as local dev.</div>
           </div>
@@ -575,7 +576,7 @@ export default function DataPage(){
               <div className="text-blue-200">Same admin proxy as Job 2. With <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code>, forwards to Render <code className="bg-black/40 px-1 rounded">/price-snapshot</code>. Otherwise runs <code className="bg-black/40 px-1 rounded">/api/bulk-jobs/price-snapshot</code> on this host.</div>
               
               <div className="font-semibold text-blue-300 mt-2">What it does:</div>
-              <div>🔄 Downloads Scryfall bulk <code className="bg-black/40 px-1 rounded">default_cards</code>, median USD/EUR per card name, GBP from FX → rows in <code className="bg-black/40 px-1 rounded">price_snapshots</code> for today. Powers price history for the price tracker and movers (same pipeline as production cron).</div>
+              <div>Reads existing <code className="bg-black/40 px-1 rounded">price_cache</code>, writes today&apos;s USD/EUR/GBP rows into <code className="bg-black/40 px-1 rounded">price_snapshots</code>, and powers price history for the price tracker and movers.</div>
               
               <div className="font-semibold text-blue-300 mt-2">Database table:</div>
               <div><code className="bg-black/40 px-1 rounded">price_snapshots</code> - Historical price data (snapshot_date, name_norm, currency, unit)</div>
@@ -587,18 +588,18 @@ export default function DataPage(){
               <div>• Supports price spike detection</div>
               
               <div className="font-semibold text-blue-300 mt-2">Runtime & Schedule:</div>
-              <div>• Takes several minutes (downloads Scryfall bulk <code className="bg-black/40 px-1 rounded">default_cards</code>, median prices per name → <code className="bg-black/40 px-1 rounded">price_snapshots</code>)</div>
-              <div>• Production: same pipeline — <code className="bg-black/40 px-1 rounded">CRON_URL</code> should hit <code className="bg-black/40 px-1 rounded">/api/cron/price/snapshot</code> (daily ~2:00 AM UTC, <code className="bg-black/40 px-1 rounded">price-snapshot.yml</code>)</div>
+              <div>• Takes several minutes (reads <code className="bg-black/40 px-1 rounded">price_cache</code> and writes daily <code className="bg-black/40 px-1 rounded">price_snapshots</code>)</div>
+              <div>• Production owner: Vercel cron hits <code className="bg-black/40 px-1 rounded">/api/cron/price/snapshot</code> daily ~2:00 AM UTC and delegates to Render when configured.</div>
               <div>• Recommended prod config: set <code className="bg-black/40 px-1 rounded">BULK_JOBS_URL</code> on Vercel to your Render service (e.g. <code className="bg-black/40 px-1 rounded">https://mtg-bulk-jobs.onrender.com</code>) so cron delegates long runs safely.</div>
               <div>• Manual button: <code className="bg-black/40 px-1 rounded">POST /api/admin/essential-bulk-job</code> with <code className="bg-black/40 px-1 rounded">job: &quot;price_snapshot_bulk&quot;</code></div>
               
               <div className="font-semibold text-blue-300 mt-2">Dependencies:</div>
-              <div>⚠️ Snapshots no longer read <code className="bg-black/40 px-1 rounded">price_cache</code> — Job 3 can run even if Job 2 failed. You still want Job 2 for live deck/collection prices elsewhere.</div>
+              <div>Snapshots read <code className="bg-black/40 px-1 rounded">price_cache</code>, so Job 2 should run before Job 3 for the freshest price history.</div>
               
               <div className="font-semibold text-blue-300 mt-2">Last successful run:</div>
               <div className="text-white font-mono">{fmt(lastRun['job:last:price_snapshot_bulk'])}</div>
               <div className="font-semibold text-amber-300 mt-2">Price Tracker & Top Movers:</div>
-              <div className="text-amber-200 text-xs">If the snapshot cron hasn&apos;t run for 2+ days, the Price Tracker will show &quot;No price history&quot; and Top Movers will be empty. Run Job 3 above, or ensure the nightly workflow (Render /price-snapshot or Vercel cron) runs daily.</div>
+              <div className="text-amber-200 text-xs">If the snapshot cron hasn&apos;t run for 2+ days, the Price Tracker will show &quot;No price history&quot; and Top Movers will be empty. Run Job 3 above, or ensure the Vercel <code className="bg-black/40 px-1 rounded">/api/cron/price/snapshot</code> cron is running daily.</div>
             </div>
           </div>
         </div>

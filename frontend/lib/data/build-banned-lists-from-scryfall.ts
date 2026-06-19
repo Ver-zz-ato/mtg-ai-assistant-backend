@@ -34,6 +34,10 @@ const SCRYFALL_TO_OUR_KEY: Record<string, keyof BannedCardsData> = {
   brawl: "Brawl",
 };
 
+const SCRYFALL_HEADERS = {
+  "User-Agent": "ManaTap/1.0 (https://www.manatap.ai; mtg-legality-refresh)",
+};
+
 function emptyBanned(): BannedCardsData {
   return {
     Commander: [],
@@ -47,12 +51,38 @@ function emptyBanned(): BannedCardsData {
 
 type CardLike = { name?: string; legalities?: Record<string, string> };
 
+export async function fetchScryfallWithRetry(url: string): Promise<Response> {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: SCRYFALL_HEADERS,
+      });
+      if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429)) {
+        return res;
+      }
+      const preview = await res.text().catch(() => "");
+      lastError = new Error(`Scryfall fetch ${res.status}: ${preview.slice(0, 300)}`);
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 750));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Scryfall fetch failed");
+}
+
 /**
  * Fetch Scryfall bulk manifest and return download_uri for oracle_cards.
  */
 export async function getOracleCardsBulkUri(): Promise<string> {
-  const res = await fetch("https://api.scryfall.com/bulk-data");
-  if (!res.ok) throw new Error(`Scryfall bulk-data: ${res.status}`);
+  const res = await fetchScryfallWithRetry("https://api.scryfall.com/bulk-data");
+  if (!res.ok) {
+    const preview = await res.text().catch(() => "");
+    throw new Error(`Scryfall bulk-data: ${res.status}: ${preview.slice(0, 300)}`);
+  }
   const data = (await res.json()) as { data?: Array<{ type: string; download_uri?: string }> };
   const oracle = data.data?.find((d) => d.type === "oracle_cards");
   if (!oracle?.download_uri) throw new Error("Scryfall: oracle_cards bulk not found");
@@ -107,7 +137,11 @@ export async function buildBannedListsFromStream(
  */
 export async function fetchAndBuildBannedLists(): Promise<BannedCardsData> {
   const uri = await getOracleCardsBulkUri();
-  const res = await fetch(uri);
+  const res = await fetchScryfallWithRetry(uri);
+  if (!res.ok) {
+    const preview = await res.text().catch(() => "");
+    throw new Error(`Scryfall oracle_cards: ${res.status}: ${preview.slice(0, 300)}`);
+  }
   if (!res.body) throw new Error("Scryfall bulk response has no body");
   return buildBannedListsFromStream(res.body);
 }

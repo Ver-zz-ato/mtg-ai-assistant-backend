@@ -90,6 +90,101 @@ function priceNumber(value) {
   return value ? Number.parseFloat(value) : null;
 }
 
+const ADMIN_JOB_RUN_LOG_RETENTION = 12;
+
+function adminJobDetailKey(jobId) {
+  return `job:${jobId}:detail`;
+}
+
+function adminJobAttemptKey(jobId) {
+  return `job:${jobId}:attempt`;
+}
+
+function adminJobLastSuccessKey(jobId) {
+  const keys = {
+    bulk_price_import: 'job:last:bulk_price_import',
+    price_snapshot_bulk: 'job:last:price_snapshot_bulk',
+  };
+  return keys[jobId] || `job:last:${jobId}`;
+}
+
+function runResultFromDetail(detail) {
+  return detail.runResult || (detail.ok ? 'success' : 'failed');
+}
+
+async function markWorkerJobAttempt(jobId, attemptStartedAt = new Date().toISOString()) {
+  try {
+    await supabase
+      .from('app_config')
+      .upsert(
+        { key: adminJobAttemptKey(jobId), value: attemptStartedAt, updated_at: attemptStartedAt },
+        { onConflict: 'key' },
+      );
+  } catch (error) {
+    console.warn(`[admin-job] attempt mark ${jobId}:`, error.message || error);
+  }
+}
+
+async function persistWorkerJobRun(jobId, detail, options = {}) {
+  try {
+    const updateLastSuccess = options.updateLastSuccess !== false;
+    const finishedAt = detail.finishedAt || new Date().toISOString();
+    const fullDetail = { ...detail, jobId, finishedAt };
+    const startedMs = fullDetail.attemptStartedAt ? new Date(fullDetail.attemptStartedAt).getTime() : NaN;
+    const finishedMs = new Date(finishedAt).getTime();
+    const durationMs = typeof fullDetail.durationMs === 'number'
+      ? fullDetail.durationMs
+      : Number.isFinite(startedMs) && Number.isFinite(finishedMs)
+        ? Math.max(0, Math.round(finishedMs - startedMs))
+        : null;
+
+    await supabase
+      .from('app_config')
+      .upsert(
+        { key: adminJobDetailKey(jobId), value: JSON.stringify(fullDetail), updated_at: finishedAt },
+        { onConflict: 'key' },
+      );
+
+    if (updateLastSuccess && fullDetail.ok && fullDetail.runResult !== 'failed') {
+      await supabase
+        .from('app_config')
+        .upsert(
+          { key: adminJobLastSuccessKey(jobId), value: finishedAt, updated_at: finishedAt },
+          { onConflict: 'key' },
+        );
+    }
+
+    const { error: insertError } = await supabase.from('admin_job_run_log').insert({
+      job_name: jobId,
+      started_at: fullDetail.attemptStartedAt || finishedAt,
+      finished_at: finishedAt,
+      duration_ms: durationMs,
+      run_result: runResultFromDetail(fullDetail),
+      ok: fullDetail.ok,
+      compact_summary: fullDetail.compactLine,
+      summary_json: fullDetail,
+    });
+    if (insertError) {
+      console.warn(`[admin-job] run log insert ${jobId}:`, insertError.message);
+      return;
+    }
+
+    const { data: rows, error: selectError } = await supabase
+      .from('admin_job_run_log')
+      .select('id')
+      .eq('job_name', jobId)
+      .order('finished_at', { ascending: false });
+    if (selectError || !rows || rows.length <= ADMIN_JOB_RUN_LOG_RETENTION) return;
+
+    const idsToDelete = rows.slice(ADMIN_JOB_RUN_LOG_RETENTION).map((row) => row.id);
+    if (idsToDelete.length) {
+      await supabase.from('admin_job_run_log').delete().in('id', idsToDelete);
+    }
+  } catch (error) {
+    console.warn(`[admin-job] persistWorkerJobRun ${jobId}:`, error.message || error);
+  }
+}
+
 function deriveTypeFlagsFromTypeLine(typeLine) {
   const nil = {
     is_land: null,
@@ -295,8 +390,12 @@ app.post('/bulk-price-import', checkAuth, async (req, res) => {
 });
 
 async function runBulkPriceImport() {
+  const JOB_ID = 'bulk_price_import';
+  const attemptStartedAt = new Date().toISOString();
+  const startedAt = new Date(attemptStartedAt);
+  await markWorkerJobAttempt(JOB_ID, attemptStartedAt);
+
   try {
-    const startedAt = new Date();
     console.log('Starting full streaming bulk price import...');
     console.log('This streams Scryfall default_cards and upserts price_cache rows for all cached cards');
 
@@ -325,6 +424,26 @@ async function runBulkPriceImport() {
 
     if (cachedCardNames.size === 0) {
       console.log('No cached cards found to update prices for');
+      const finishedAt = new Date().toISOString();
+      await persistWorkerJobRun(JOB_ID, {
+        jobId: JOB_ID,
+        attemptStartedAt,
+        finishedAt,
+        ok: true,
+        runResult: 'success',
+        compactLine: 'No cached cards found to update prices for',
+        destination: 'price_cache',
+        source: 'Scryfall default_cards bulk',
+        durationMs: Math.max(0, new Date(finishedAt) - startedAt),
+        counts: {
+          cached_cards_total: 0,
+          price_rows_upserted: 0,
+          unique_cards_with_prices: 0,
+        },
+        labels: {
+          schedule: 'Daily 02:00 UTC via GitHub Actions',
+        },
+      });
       return;
     }
     console.log(`Found ${cachedCardNames.size} cached cards to update prices for`);
@@ -397,17 +516,36 @@ async function runBulkPriceImport() {
     }
 
     const finishedAt = new Date();
-    const { error: configError } = await supabase
-      .from('app_config')
-      .upsert(
-        { key: 'job:last:bulk_price_import', value: finishedAt.toISOString() },
-        { onConflict: 'key' },
-      );
-    if (configError) {
-      console.warn('Failed to update app_config timestamp:', configError.message);
-    } else {
-      console.log('Updated verification timestamp in app_config');
-    }
+    const coveragePct = cachedCardNames.size ? Math.round((rows.length / cachedCardNames.size) * 1000) / 10 : 0;
+    await persistWorkerJobRun(JOB_ID, {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt: finishedAt.toISOString(),
+      ok: true,
+      runResult: 'success',
+      compactLine: `Updated ${updated} price_cache rows, ${rows.length} unique cards, ${coveragePct}% coverage`,
+      destination: 'price_cache',
+      source: `Scryfall default_cards bulk (${fileSize}MB, updated ${defaultCardsInfo.updated_at})`,
+      durationMs: Math.max(0, finishedAt - startedAt),
+      counts: {
+        price_rows_upserted: updated,
+        unique_cards_with_prices: rows.length,
+        cached_cards_total: cachedCardNames.size,
+        bulk_cards_processed: processed,
+        price_matches_in_bulk: found,
+        coverage_pct_x10: Math.round(coveragePct * 10),
+      },
+      labels: {
+        schedule: 'Daily 02:00 UTC via GitHub Actions',
+        currencies: 'USD, USD foil, EUR, TIX',
+      },
+      extra: {
+        source_bulk_updated_at: defaultCardsInfo.updated_at,
+        source_bulk_size_mb: fileSize,
+        coverage_pct: coveragePct,
+      },
+    });
+    console.log('Updated admin job telemetry in app_config and admin_job_run_log');
 
     try {
       const { error: auditError } = await supabase
@@ -431,6 +569,20 @@ async function runBulkPriceImport() {
         `${updated} rows, ${Math.round((rows.length / cachedCardNames.size) * 100)}% coverage`,
     );
   } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    const finishedAt = new Date().toISOString();
+    await persistWorkerJobRun(JOB_ID, {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: false,
+      runResult: 'failed',
+      compactLine: `Failed: ${message.slice(0, 180)}`,
+      destination: 'price_cache',
+      source: 'Scryfall default_cards bulk',
+      durationMs: Math.max(0, new Date(finishedAt) - startedAt),
+      lastError: message,
+    }, { updateLastSuccess: false });
     console.error('Price import failed:', error);
     throw error;
   }
@@ -457,6 +609,11 @@ app.post('/price-snapshot', checkAuth, async (req, res) => {
 });
 
 async function runPriceSnapshot() {
+  const JOB_ID = 'price_snapshot_bulk';
+  const attemptStartedAt = new Date().toISOString();
+  const startedAt = new Date(attemptStartedAt);
+  await markWorkerJobAttempt(JOB_ID, attemptStartedAt);
+
   try {
     console.log('Starting lightweight price snapshot...');
     console.log('This uses existing price_cache data (no bulk download)');
@@ -557,23 +714,47 @@ async function runPriceSnapshot() {
 
     console.log(`Price snapshot completed! Inserted ${processed} snapshots for ${today}`);
 
-    // Record last run timestamp for verification
-    try {
-      const { error: configError } = await supabase
-        .from('app_config')
-        .upsert(
-          { key: 'job:last:price_snapshot_bulk', value: new Date().toISOString() },
-          { onConflict: 'key' },
-        );
-      if (configError) {
-        console.warn('Failed to update app_config timestamp:', configError.message);
-      } else {
-        console.log('Updated verification timestamp in app_config');
-      }
-    } catch (configErr) {
-      console.warn('Error updating app_config:', configErr.message);
-    }
+    const finishedAt = new Date().toISOString();
+    await persistWorkerJobRun(JOB_ID, {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: true,
+      runResult: 'success',
+      compactLine: `Inserted ${processed} price snapshot rows for ${cards.length} cards on ${today}`,
+      destination: 'price_snapshots',
+      source: 'price_cache',
+      durationMs: Math.max(0, new Date(finishedAt) - startedAt),
+      counts: {
+        cards_with_price: cards.length,
+        snapshot_rows_generated: snapshots.length,
+        snapshot_rows_upserted: processed,
+      },
+      labels: {
+        schedule: 'Daily 02:00 UTC via Vercel cron delegated to Render',
+        currencies: 'USD, EUR, GBP',
+      },
+      extra: {
+        snapshot_date: today,
+        usd_gbp_rate: usdGbp,
+      },
+    });
+    console.log('Updated admin job telemetry in app_config and admin_job_run_log');
   } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    const finishedAt = new Date().toISOString();
+    await persistWorkerJobRun(JOB_ID, {
+      jobId: JOB_ID,
+      attemptStartedAt,
+      finishedAt,
+      ok: false,
+      runResult: 'failed',
+      compactLine: `Failed: ${message.slice(0, 180)}`,
+      destination: 'price_snapshots',
+      source: 'price_cache',
+      durationMs: Math.max(0, new Date(finishedAt) - startedAt),
+      lastError: message,
+    }, { updateLastSuccess: false });
     console.error('Price snapshot failed:', error);
     throw error;
   }

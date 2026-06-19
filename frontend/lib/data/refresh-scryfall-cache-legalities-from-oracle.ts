@@ -10,7 +10,7 @@ const StreamArray = require("stream-json/streamers/StreamArray") as {
   withParser: (opts?: unknown) => NodeJS.ReadWriteStream;
 };
 
-import { getOracleCardsBulkUri } from "./build-banned-lists-from-scryfall";
+import { fetchScryfallWithRetry, getOracleCardsBulkUri } from "./build-banned-lists-from-scryfall";
 import {
   mergeScryfallCacheRowFromApiCard,
   normalizeScryfallCacheName,
@@ -104,9 +104,11 @@ export async function refreshScryfallCacheLegalitiesFromOracle(
   const log = options?.log ?? (() => {});
 
   const uri = await getOracleCardsBulkUri();
-  // External Scryfall bulk stream (same as build-banned-lists-from-scryfall).
-  // eslint-disable-next-line no-restricted-globals -- Scryfall oracle_cards bulk URI
-  const res = await fetch(uri);
+  const res = await fetchScryfallWithRetry(uri);
+  if (!res.ok) {
+    const preview = await res.text().catch(() => "");
+    throw new Error(`oracle_cards bulk: ${res.status}: ${preview.slice(0, 300)}`);
+  }
   if (!res.body) throw new Error("oracle_cards bulk: empty body");
 
   const counters: RefreshScryfallLegalitiesResult = {
