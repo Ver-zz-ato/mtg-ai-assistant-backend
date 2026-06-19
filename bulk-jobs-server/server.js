@@ -416,7 +416,6 @@ async function runBulkPriceImport() {
           actor_id: 'cron',
           action: 'bulk_price_import',
           target: updated,
-          details: `${rows.length}_unique_${found}_matches_${processed}_processed_${fileSize}MB`,
         });
       if (auditError) {
         console.warn('Failed to write admin_audit row:', auditError.message);
