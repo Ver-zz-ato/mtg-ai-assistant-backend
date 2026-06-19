@@ -1,5 +1,13 @@
 # Frontend changelog
 
+## 2026-06-19
+
+### Chat markdown — recursion guard (Sentry JAVASCRIPT-NEXTJS-3B)
+
+- **Inline parser:** Cap nested `parseInlineMarkdown` depth at 8; beyond that render stripped plain text instead of recursing (prevents Firefox `InternalError: too much recursion` on pathological assistant markdown).
+- **ADD/CUT brackets:** Run `applyBracketEnforcement` only at depth 0 so inner bold segments are not re-processed.
+- **Files:** `lib/chat/markdownRenderer.tsx`.
+
 ## 2026-06-18
 
 ### My Decks — DOM reconciliation fix (Sentry NEXTJS-35)

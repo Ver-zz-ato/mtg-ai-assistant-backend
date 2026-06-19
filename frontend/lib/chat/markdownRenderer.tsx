@@ -55,6 +55,13 @@ export type RenderMarkdownOptions = {
   knownCardNames?: Set<string>;
 };
 
+/** Guard against pathological AI markdown blowing the JS stack (Sentry JAVASCRIPT-NEXTJS-3B). */
+const MAX_INLINE_MARKDOWN_DEPTH = 8;
+
+type InlineMarkdownOptions = RenderMarkdownOptions & {
+  depth?: number;
+};
+
 /**
  * Parse and render basic markdown in chat messages
  * Supports: ### headers, bold, italic, inline code, lists, links, and optional [[Card Name]] via renderCard
@@ -142,14 +149,20 @@ export function renderMarkdown(text: string, options?: RenderMarkdownOptions): R
 /**
  * Parse inline markdown (bold, italic, code, links, and optional [[Card Name]]) within a line
  */
-function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): React.ReactNode {
+function parseInlineMarkdown(text: string, options?: InlineMarkdownOptions): React.ReactNode {
+  const depth = options?.depth ?? 0;
+  if (depth >= MAX_INLINE_MARKDOWN_DEPTH) {
+    return cleanPlainTextSegment(text);
+  }
+
   const parts: React.ReactNode[] = [];
   let currentIndex = 0;
   let keyCounter = 0;
   const { renderCard, knownCardNames } = options ?? {};
+  const childOptions: InlineMarkdownOptions = { ...options, depth: depth + 1 };
 
-  // When renderCard is provided, normalize ADD X / CUT Y to ADD [[X]] / CUT [[Y]] so card names become linkable
-  if (renderCard) {
+  // Bracket enforcement runs once per line; inner bold segments are already normalized.
+  if (renderCard && depth === 0) {
     text = applyBracketEnforcement(text);
   }
 
@@ -171,7 +184,7 @@ function parseInlineMarkdown(text: string, options?: RenderMarkdownOptions): Rea
         matches.push({
           start,
           end,
-          element: <strong key={keyCounter++}>{parseInlineMarkdown(content, options)}</strong>,
+          element: <strong key={keyCounter++}>{parseInlineMarkdown(content, childOptions)}</strong>,
         });
       }
     }
