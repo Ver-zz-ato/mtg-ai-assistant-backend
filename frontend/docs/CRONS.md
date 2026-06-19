@@ -53,6 +53,7 @@ npx tsx scripts/run-crons.ts all https://www.manatap.ai
 
 ## Dependencies
 
+- **bulk-price-import** -> external GitHub Actions schedule calls Render `/bulk-price-import` daily at 02:00 UTC; streams Scryfall `default_cards` and upserts `price_cache` for cards in `scryfall_cache`.
 - **price-snapshot** → writes full daily `price_snapshots` history (USD/EUR/GBP) from Scryfall bulk data, keeps ~60 days.
 - **deck-costs** → populates `deck_costs` from `deck_cards` + `price_cache`
 - **commander-aggregates** → needs `deck_costs`; populates `commander_aggregates` (deck_count, median_deck_cost, top_cards, etc.). **Commander Intelligence** on commander pages reads from this cache — run this cron after bulk-importing decks to refresh deck counts.

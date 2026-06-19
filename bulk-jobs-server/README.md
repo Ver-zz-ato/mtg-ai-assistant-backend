@@ -10,7 +10,7 @@ Vercel mysteriously returns 405 on POST requests for these bulk import routes, e
 
 - `GET /health` - Health check
 - `POST /bulk-scryfall` - Import all 110k+ MTG cards with metadata
-- `POST /bulk-price-import` - Update prices for cached cards
+- `POST /bulk-price-import` - Stream Scryfall `default_cards` and upsert `price_cache` for cached cards
 - `POST /price-snapshot` - Create historical price snapshots
 
 All POST endpoints require the shared cron secret for authentication.
@@ -60,4 +60,5 @@ curl -X POST http://localhost:3001/bulk-scryfall \
 - Jobs return 202 Accepted immediately and run in background
 - Free Render tier spins down after 15min inactivity (~30s wake time)
 - Functions timeout at 15 minutes (perfect for these jobs)
+- `/bulk-price-import` uses a streaming parser so the 500MB+ Scryfall bulk file is not loaded into memory at once
 

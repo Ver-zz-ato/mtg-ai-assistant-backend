@@ -1,5 +1,8 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
+const { chain } = require('stream-chain');
+const { parser } = require('stream-json');
+const { streamArray } = require('stream-json/streamers/StreamArray');
 const fetch = (...args) => import('node-fetch').then(({ default: fetchImpl }) => fetchImpl(...args));
 require('dotenv').config();
 
@@ -70,6 +73,21 @@ function checkAuth(req, res, next) {
 // Helper: must stay byte-for-byte in sync with frontend `normalizeScryfallCacheName` (scryfallCacheRow.ts).
 function norm(name) {
   return String(name || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Price cache keying only. Keep aligned with frontend price route / bulk price importer.
+function priceNorm(name) {
+  return String(name || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['\u2019\u2018`´]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function priceNumber(value) {
+  return value ? Number.parseFloat(value) : null;
 }
 
 function deriveTypeFlagsFromTypeLine(typeLine) {
@@ -278,99 +296,143 @@ app.post('/bulk-price-import', checkAuth, async (req, res) => {
 
 async function runBulkPriceImport() {
   try {
-    console.log('Starting lightweight price refresh...');
-    console.log('This uses Scryfall API (no bulk download) to update existing price_cache entries');
+    const startedAt = new Date();
+    console.log('Starting full streaming bulk price import...');
+    console.log('This streams Scryfall default_cards and upserts price_cache rows for all cached cards');
 
-    // Get all cards from price_cache that need updating (older than 24 hours)
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: staleCards, error: fetchError } = await supabase
-      .from('price_cache')
-      .select('card_name')
-      .or(`updated_at.lt.${yesterday},updated_at.is.null`)
-      .limit(1000); // Only refresh 1000 cards per run to stay within memory
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch stale prices: ${fetchError.message}`);
+    const cachedCardNames = new Set();
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    while (true) {
+      const { data: page, error: pageError } = await supabase
+        .from('scryfall_cache')
+        .select('name')
+        .order('name')
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (pageError) {
+        throw new Error(`Failed to fetch cached cards: ${pageError.message}`);
+      }
+      if (!page || page.length === 0) break;
+      for (const row of page) {
+        cachedCardNames.add(priceNorm(row.name));
+      }
+      if (page.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+      if (offset % 10000 === 0) {
+        console.log(`Loaded ${offset} cached card names so far...`);
+      }
     }
 
-    if (!staleCards || staleCards.length === 0) {
-      console.log('All prices are up to date!');
+    if (cachedCardNames.size === 0) {
+      console.log('No cached cards found to update prices for');
       return;
     }
+    console.log(`Found ${cachedCardNames.size} cached cards to update prices for`);
 
-    console.log(`Found ${staleCards.length} cards needing price updates`);
+    const bulkResponse = await fetch('https://api.scryfall.com/bulk-data', {
+      headers: { 'User-Agent': 'ManaTap-BulkJobs/1.0' },
+    });
+    if (!bulkResponse.ok) {
+      throw new Error(`Failed to fetch bulk data info: ${bulkResponse.status} ${bulkResponse.statusText}`);
+    }
+    const bulkData = await bulkResponse.json();
+    const defaultCardsInfo = bulkData.data.find((item) => item.type === 'default_cards');
+    if (!defaultCardsInfo) {
+      throw new Error('Could not find default_cards bulk data');
+    }
 
-    // Update prices in chunks of 75 (Scryfall API limit)
-    const chunkSize = 75;
+    const fileSize = Math.round(defaultCardsInfo.size / 1024 / 1024);
+    console.log(`Downloading and streaming default_cards bulk data (${fileSize}MB, updated ${defaultCardsInfo.updated_at})`);
+    const cardsResponse = await fetch(defaultCardsInfo.download_uri, {
+      headers: { 'User-Agent': 'ManaTap-BulkJobs/1.0' },
+    });
+    if (!cardsResponse.ok) {
+      throw new Error(`Failed to download bulk data: ${cardsResponse.status} ${cardsResponse.statusText}`);
+    }
+
+    const priceMap = new Map();
+    let processed = 0;
+    let found = 0;
+    const stream = chain([cardsResponse.body, parser(), streamArray()]);
+
+    for await (const { value: card } of stream) {
+      processed++;
+      if (!card?.name || !card.prices) continue;
+
+      const cardName = priceNorm(card.name);
+      if (!cachedCardNames.has(cardName)) continue;
+
+      found++;
+      priceMap.set(cardName, {
+        card_name: cardName,
+        usd_price: priceNumber(card.prices.usd),
+        usd_foil_price: priceNumber(card.prices.usd_foil),
+        eur_price: priceNumber(card.prices.eur),
+        tix_price: priceNumber(card.prices.tix),
+        updated_at: new Date().toISOString(),
+      });
+
+      if (processed % 25000 === 0) {
+        console.log(`Processed ${processed} cards, ${found} matches, ${priceMap.size} unique price rows`);
+      }
+    }
+
+    console.log(`Bulk stream complete: ${processed} cards processed, ${found} price matches, ${priceMap.size} unique cards`);
+
+    const BATCH_SIZE = 1000;
     let updated = 0;
-
-    for (let i = 0; i < staleCards.length; i += chunkSize) {
-      const chunk = staleCards.slice(i, i + chunkSize);
-      const identifiers = chunk.map((c) => ({ name: c.card_name }));
-
-      try {
-        const response = await fetch('https://api.scryfall.com/cards/collection', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ identifiers }),
-        });
-
-        if (!response.ok) {
-          console.warn(`Scryfall API error for chunk ${i}:`, response.status);
-          continue;
-        }
-
-        const result = await response.json();
-        const cards = result.data || [];
-
-        // Update price_cache with fresh prices (using bulk import schema)
-        const rows = cards.map((card) => ({
-          card_name: card.name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim(),
-          usd_price: card.prices?.usd ? parseFloat(card.prices.usd) : null,
-          usd_foil_price: card.prices?.usd_foil ? parseFloat(card.prices.usd_foil) : null,
-          eur_price: card.prices?.eur ? parseFloat(card.prices.eur) : null,
-          tix_price: card.prices?.tix ? parseFloat(card.prices.tix) : null,
-          updated_at: new Date().toISOString(),
-        }));
-
-        const { error: upsertError } = await supabase
-          .from('price_cache')
-          .upsert(rows, { onConflict: 'card_name' });
-
-        if (upsertError) {
-          console.error(`Error updating chunk ${i}:`, upsertError.message);
-        } else {
-          updated += rows.length;
-          console.log(`Updated ${updated}/${staleCards.length} prices`);
-        }
-
-        // Rate limit: wait 100ms between requests
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (chunkError) {
-        console.error(`Error processing chunk ${i}:`, chunkError.message);
+    const rows = Array.from(priceMap.values());
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      const { error: upsertError } = await supabase
+        .from('price_cache')
+        .upsert(batch, { onConflict: 'card_name' });
+      if (upsertError) {
+        throw new Error(`Failed to upsert price batch ${i}-${i + batch.length}: ${upsertError.message}`);
+      }
+      updated += batch.length;
+      if (updated % 10000 < batch.length || updated === batch.length) {
+        console.log(`Upserted ${updated}/${rows.length} price rows`);
       }
     }
 
-    console.log(`Price refresh completed! Updated ${updated}/${staleCards.length} prices`);
+    const finishedAt = new Date();
+    const { error: configError } = await supabase
+      .from('app_config')
+      .upsert(
+        { key: 'job:last:bulk_price_import', value: finishedAt.toISOString() },
+        { onConflict: 'key' },
+      );
+    if (configError) {
+      console.warn('Failed to update app_config timestamp:', configError.message);
+    } else {
+      console.log('Updated verification timestamp in app_config');
+    }
 
-    // Record last run timestamp for verification
     try {
-      const { error: configError } = await supabase
-        .from('app_config')
-        .upsert(
-          { key: 'job:last:bulk_price_import', value: new Date().toISOString() },
-          { onConflict: 'key' },
-        );
-      if (configError) {
-        console.warn('Failed to update app_config timestamp:', configError.message);
+      const { error: auditError } = await supabase
+        .from('admin_audit')
+        .insert({
+          actor_id: 'cron',
+          action: 'bulk_price_import',
+          target: updated,
+          details: `${rows.length}_unique_${found}_matches_${processed}_processed_${fileSize}MB`,
+        });
+      if (auditError) {
+        console.warn('Failed to write admin_audit row:', auditError.message);
       } else {
-        console.log('Updated verification timestamp in app_config');
+        console.log('Wrote admin_audit row');
       }
-    } catch (configErr) {
-      console.warn('Error updating app_config:', configErr.message);
+    } catch (auditErr) {
+      console.warn('Error writing admin_audit row:', auditErr.message);
     }
+
+    console.log(
+      `Full price import completed in ${Math.round((finishedAt - startedAt) / 1000)}s: ` +
+        `${updated} rows, ${Math.round((rows.length / cachedCardNames.size) * 100)}% coverage`,
+    );
   } catch (error) {
-    console.error('Price refresh failed:', error);
+    console.error('Price import failed:', error);
     throw error;
   }
 }

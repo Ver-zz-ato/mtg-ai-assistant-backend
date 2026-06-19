@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enrichPreconRowsFromScryfall } from "@/lib/precons-scryfall-release";
+import { SUPPLEMENTAL_PRECON_ROWS } from "@/lib/precons-supplemental";
 
 export const WESTLY_PRECON_SOURCE =
   "https://github.com/Westly/CommanderPrecons/tree/main/precon_json";
@@ -32,6 +33,25 @@ type MoxfieldJson = {
   main?: { name?: string; color_identity?: string[]; colors?: string[] };
   mainboard?: Record<string, { quantity?: number; card?: { quantity?: number } }>;
 };
+
+function preconKey(row: Pick<WestlyPreconRow, "name" | "set_name">): string {
+  return `${row.name.trim().toLowerCase()}|${row.set_name.trim().toLowerCase()}`;
+}
+
+function appendSupplementalPrecons(rows: WestlyPreconRow[]): number {
+  const seen = new Set(rows.map(preconKey));
+  let appended = 0;
+
+  for (const row of SUPPLEMENTAL_PRECON_ROWS) {
+    const key = preconKey(row);
+    if (seen.has(key)) continue;
+    rows.push(row);
+    seen.add(key);
+    appended++;
+  }
+
+  return appended;
+}
 
 export function parseDeckName(name: string) {
   const match = name.match(/\s*\((.+?)\)\s*$/);
@@ -129,6 +149,8 @@ export async function fetchWestlyPreconRows(
   } catch (e) {
     console.warn("[precons-westly-sync] Scryfall enrichment failed:", e);
   }
+
+  appendSupplementalPrecons(rows);
 
   return { rows, fileErrors, scryfallMatched };
 }
