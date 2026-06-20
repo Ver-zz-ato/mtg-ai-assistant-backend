@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { MetaLabelPayload } from "@/lib/meta/freshness";
+import {
+  buildCommanderMetaShadowReport,
+  fetchApprovedExternalCommanderProfiles,
+  readPublicCommanderExternalMetaFlags,
+} from "@/lib/meta/publicCommanderExternalBlend";
 
 export const runtime = 'edge';
 export const revalidate = 300; // 5 minutes
@@ -39,6 +45,42 @@ function parseCardRows(data: unknown): CardRow[] {
       count: typeof row.count === "number" ? row.count : 0,
     }))
     .filter((row) => row.name.length > 0);
+}
+
+function getExternalMetaAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
+  if (!url || !key) return null;
+  return createSupabaseClient(url, key, { auth: { persistSession: false } });
+}
+
+async function logCommanderExternalMetaShadowReport(
+  trendingCommanders: CommanderRow[],
+  mostPlayedCommanders: CommanderRow[]
+) {
+  try {
+    const admin = getExternalMetaAdminClient();
+    if (!admin) return;
+    const flags = await readPublicCommanderExternalMetaFlags(admin);
+    if (!flags.apiMetaTrendingShadow) return;
+
+    const names = [
+      ...trendingCommanders.map((row) => row.name),
+      ...mostPlayedCommanders.map((row) => row.name),
+    ];
+    const profiles = await fetchApprovedExternalCommanderProfiles(admin, names);
+    const trendingBase = trendingCommanders.map((row, index) => ({ ...row, rank: index + 1 }));
+    const mostPlayedBase = mostPlayedCommanders.map((row, index) => ({ ...row, rank: index + 1 }));
+    const report = {
+      surface: "/api/meta/trending",
+      generatedAt: new Date().toISOString(),
+      trendingCommanders: buildCommanderMetaShadowReport(trendingBase, profiles, flags.weight),
+      mostPlayedCommanders: buildCommanderMetaShadowReport(mostPlayedBase, profiles, flags.weight),
+    };
+    console.info("[public-external-meta-shadow]", JSON.stringify(report));
+  } catch (error) {
+    console.warn("[public-external-meta-shadow] skipped", error instanceof Error ? error.message : "unknown_error");
+  }
 }
 
 /**
@@ -97,6 +139,7 @@ export async function GET(request: Request) {
         (sum, row) => sum + (typeof row.count === "number" ? row.count : 0),
         0,
       );
+      await logCommanderExternalMetaShadowReport(trendingCommanders, mostPlayedCommanders);
 
       if (
         primaryCommanders.length > 0 ||

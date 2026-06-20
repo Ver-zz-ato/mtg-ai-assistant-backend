@@ -4,6 +4,11 @@ import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getAdmin } from "@/lib/supa";
 import { createClient } from "@/lib/supabase/server";
 import { fetchGlobalBudgetCommanders, SCRYFALL_META } from "@/lib/meta/scryfallGlobalMeta";
+import {
+  blendCommanderMetaWithExternalProfiles,
+  fetchApprovedExternalCommanderProfiles,
+  readPublicCommanderExternalMetaFlags,
+} from "@/lib/meta/publicCommanderExternalBlend";
 
 type MetaTable = "meta_commander_daily" | "meta_card_daily";
 
@@ -123,6 +128,21 @@ async function commanderImages(items: ExternalCommanderMetaItem[]) {
   return imageMap;
 }
 
+async function maybeBlendWebsiteCommanderMeta(
+  db: SupabaseClient,
+  items: ExternalCommanderMetaItem[]
+): Promise<ExternalCommanderMetaItem[]> {
+  try {
+    const flags = await readPublicCommanderExternalMetaFlags(db);
+    if (!flags.websiteCommanderMetaPages) return items;
+    const profiles = await fetchApprovedExternalCommanderProfiles(db, items.map((item) => item.name));
+    const result = blendCommanderMetaWithExternalProfiles(items, profiles, flags.weight);
+    return result.items as ExternalCommanderMetaItem[];
+  } catch {
+    return items;
+  }
+}
+
 async function cardImages(items: ExternalCardMetaItem[]) {
   const detailsMap = await getImagesForNamesCached(items.map((item) => item.name));
   const imageMap = new Map<string, string>();
@@ -163,9 +183,11 @@ export async function getExternalMostPlayedCommanders(limit = 48): Promise<{
     })
     .filter((row): row is ExternalCommanderMetaItem => Boolean(row));
 
+  const blendedItems = await maybeBlendWebsiteCommanderMeta(db, items);
+
   return {
-    items,
-    imageMap: await commanderImages(items),
+    items: blendedItems,
+    imageMap: await commanderImages(blendedItems),
     updatedAt: rows.find((row) => row.updated_at)?.updated_at ?? null,
     snapshotDate,
   };
@@ -228,10 +250,11 @@ export async function getExternalTrendingCommanders(limit = 48): Promise<{
   const items = (positive.length > 0 ? positive : scored)
     .sort((a, b) => (b.rankDelta ?? 0) - (a.rankDelta ?? 0) || a.rank - b.rank)
     .slice(0, limit);
+  const blendedItems = await maybeBlendWebsiteCommanderMeta(db, items);
 
   return {
-    items,
-    imageMap: await commanderImages(items),
+    items: blendedItems,
+    imageMap: await commanderImages(blendedItems),
     updatedAt: rows.find((row) => row.updated_at)?.updated_at ?? null,
     snapshotDate,
   };

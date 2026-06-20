@@ -13,6 +13,7 @@ import { CommanderActionBar } from "@/components/commander/CommanderActionBar";
 import { CommanderHero } from "@/components/commander/CommanderHero";
 import { CommanderSynergyTeaser, getSynergyBullets } from "@/components/commander/CommanderSynergyTeaser";
 import { CoreStaples } from "@/components/commander/CoreStaples";
+import { CommunityProfileSection } from "@/components/commander/CommunityProfileSection";
 import { CommunityBuildsTabs } from "@/components/commander/CommunityBuildsTabs";
 import { SimilarCommanders } from "@/components/commander/SimilarCommanders";
 import { DeepDiveLinks } from "@/components/commander/DeepDiveLinks";
@@ -20,6 +21,7 @@ import { GuideInlineText } from "@/components/commander/GuideInlineText";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
 import { getCommanderMetaBadge } from "@/lib/commander-meta-badge";
+import { getCommanderPageCommunityProfile } from "@/lib/external-deck-meta/commanderPageProfile";
 import { getCostLandingData } from "@/lib/seo/cost-landing-data";
 import { getCommanderFromDecksBySlug } from "@/lib/commander-fallback";
 
@@ -106,11 +108,12 @@ export default async function CommanderHubPage({ params }: Props) {
 
   const cleanName = name.replace(/\s*\(.*?\)\s*$/, "").trim();
   // Guard DB calls: on failure, render fallback so page returns 200 (avoid 5xx)
-  const [imgMap, aggregates, metaBadge, costLanding] = await Promise.all([
+  const [imgMap, aggregates, metaBadge, costLanding, communityProfile] = await Promise.all([
     getImagesForNamesCached([cleanName]).catch(() => new Map<string, { art_crop?: string; normal?: string; small?: string }>()),
     getCommanderAggregates(slug).catch(() => null),
     getCommanderMetaBadge(slug, name).catch(() => null),
     profile ? getCostLandingData(slug).catch(() => ({ costSnapshot: null, costDrivers: [], deckCount: 0 })) : Promise.resolve({ costSnapshot: null, costDrivers: [], deckCount: 0 }),
+    getCommanderPageCommunityProfile(name).catch(() => null),
   ]);
   const medianCostFallback =
     aggregates?.medianDeckCost == null && costLanding?.costSnapshot?.mid != null
@@ -203,6 +206,8 @@ export default async function CommanderHubPage({ params }: Props) {
             deckCount={aggregates.deckCount}
           />
         )}
+
+        {communityProfile && <CommunityProfileSection profile={communityProfile} />}
 
         {profile && <CommanderSynergyTeaser profile={profile} />}
 
