@@ -8,6 +8,7 @@ const links = [
   { href: "/admin/datadashboard/suggestions", label: "Suggestions" },
   { href: "/admin/datadashboard/deck-metrics", label: "Deck Metrics" },
   { href: "/admin/datadashboard/meta-trends", label: "Meta Trends" },
+  { href: "/admin/datadashboard/external-deck-meta", label: "External Meta" },
   { href: "/admin/datadashboard/test", label: "Test" },
 ];
 

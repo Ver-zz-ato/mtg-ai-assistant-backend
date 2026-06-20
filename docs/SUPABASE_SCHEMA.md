@@ -225,6 +225,22 @@ Migrations: `138_marketing_radar.sql`, `139_marketing_radar_phase2.sql`, `140_ma
 
 Cron (ingest + brief only, no auto-post): `GET /api/cron/marketing-radar-daily` at 06:30 UTC (`CRON_SECRET`).
 
+### External Deck Meta Ingest (2026-06-20)
+
+Admin-only QA pipeline for public Archidekt/Moxfield deck data. Service-role-only access; no public/mobile reads in V1.
+
+- `external_deck_sources` — source configuration, cooldowns, rate-limit caps, discovery flags, approval-for-profile flags
+- `external_deck_ingest_queue` — admin-submitted public deck URLs and cron/manual processing state
+- `external_decks` — normalized external deck metadata with format, commanders, deck hash, validity, aggregate approval, and exclusion reason
+- `external_deck_cards` — normalized deck card rows by board zone and quantity
+- `external_meta_rollups_daily` — daily source/format/card/commander aggregate counts
+- `external_commander_profiles` — commander profile snapshots with `raw_sample_size`, `approved_sample_size`, `excluded_count`, `exclusion_reasons`, source breakdown, common cards, support gaps, deck-shape averages, confidence, attribution, and admin approval status
+
+Pipeline: `external_decks` → `external_deck_cards` → `external_meta_rollups_daily` → `external_commander_profiles` → later approved blending into `meta_signals` / Deck Analysis. Public claims must use `approved_sample_size`, not `raw_sample_size`.
+
+Migration: `frontend/db/migrations/146_external_deck_meta.sql`.
+Cron: `GET /api/cron/external-deck-meta` every 4 hours at minute 17 (`CRON_SECRET`).
+
 - Free signed-in users are capped at **15 decks**, **10 collections**, **500 total card quantity per collection**, **10 wishlists**, and **100 total card quantity per wishlist**.
 - Pro is resolved from `profiles.is_pro` / active `profiles.pro_until` and is unlimited. Guests remain on local/demo behavior and are not gated by persisted-storage triggers.
 - Migration `frontend/db/migrations/133_pro_storage_limits.sql` adds a private helper plus triggers on `public.decks`, `public.collections`, `public.collection_cards`, `public.wishlists`, and `public.wishlist_items`.

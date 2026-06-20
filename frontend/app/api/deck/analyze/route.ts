@@ -1143,6 +1143,62 @@ function cleanGenericFragments(input: string | undefined): string {
     .trim();
 }
 
+function isGenericRecommendationReason(input: string): boolean {
+  if (!input.trim()) return true;
+  return /\b(supports .* plan|improves consistency|fits .* plan|good option|solid option|useful option|role upgrade|aligned to your current deck context)\b/i.test(input);
+}
+
+function buildCommanderSpecificReason(args: {
+  card: SfCard;
+  context: InferredDeckContext;
+  role: "ramp" | "draw" | "removal" | "land" | "synergy" | "generic";
+}): string {
+  const commander = args.context.commander?.trim();
+  if (!commander) return "";
+
+  const name = args.card.name.toLowerCase();
+  const oracle = String(args.card.oracle_text || "").toLowerCase();
+  const haystack = `${name} ${oracle}`;
+  const archetype = args.context.archetype || "";
+  const isSacrificePlan = /korvold/i.test(commander) || archetype === "token_sac" || archetype === "aristocrats";
+
+  if (isSacrificePlan) {
+    if (/\b(hexproof|indestructible|protection|phase out|safekeeping)\b/.test(haystack)) {
+      return `With ${commander}, this protects the engine turn so removal does not break the sacrifice chain after you commit resources.`;
+    }
+    if (/\b(sacrifice|altar|goblin bombardment|viscera seer|as an additional cost)\b/.test(haystack) && args.role !== "removal") {
+      return `With ${commander}, this gives you a reliable way to trigger the commander on demand while converting expendable permanents into value.`;
+    }
+    if (/\b(treasure|add .*mana|pitiless plunderer|dockside|tireless provisioner)\b/.test(haystack)) {
+      return `With ${commander}, this turns sacrifice resources into mana that helps recast engines and keep explosive turns moving.`;
+    }
+    if (/\b(graveyard|escape|return .*from .*graveyard|underworld breach|victimize|living death|eternal witness|reassembling skeleton)\b/.test(haystack)) {
+      return `With ${commander}, this lets sacrificed resources come back as repeatable value instead of one-shot fuel.`;
+    }
+    if (/\b(draw .*card|draw a card|whenever .* dies|skullclamp|grim haruspex|midnight reaper)\b/.test(haystack)) {
+      return `With ${commander}, this keeps sacrifice turns stocked so sacrificing permanents turns into more cards.`;
+    }
+    if (/\b(each opponent loses|deals .*damage|whenever .* dies|whenever .* sacrifice|blood artist|zulaport|poison-tip archer|mayhem devil)\b/.test(haystack)) {
+      return `With ${commander}, this converts sacrifice chains into direct pressure so the deck can close games without relying only on combat.`;
+    }
+  }
+
+  if (args.role === "removal") {
+    return `For ${commander}, this answers opposing hate pieces or blockers without pulling the deck away from its main game plan.`;
+  }
+  if (args.role === "ramp") {
+    return `For ${commander}, this helps cast the commander on time and still leaves mana to turn the engine on.`;
+  }
+  if (args.role === "draw") {
+    return `For ${commander}, this keeps your hand stocked after the table trades resources with your board.`;
+  }
+  if (args.role === "land") {
+    return `For ${commander}, cleaner fixing makes it easier to curve into the commander and still hold up interaction.`;
+  }
+
+  return "";
+}
+
 function generateHighQualityReason(args: {
   card: SfCard;
   suggestion: CardSuggestion;
@@ -1183,14 +1239,15 @@ function generateHighQualityReason(args: {
   }
 
   const synergyBits: string[] = [];
-  if (commander) synergyBits.push(`Supports ${commander}'s plan.`);
+  const commanderSpecificReason = buildCommanderSpecificReason({ card, context, role });
+  if (commanderSpecificReason) synergyBits.push(commanderSpecificReason);
   if (archetype === "token_sac") synergyBits.push("Fits your token-sacrifice game plan.");
   if (archetype === "aristocrats") synergyBits.push("Supports aristocrats-style value loops.");
   if (lowRamp && role !== "ramp") synergyBits.push("Helps offset your current low ramp support.");
   if (highTopEnd && (typeof card.cmc === "number" && card.cmc <= 3)) synergyBits.push("Adds earlier play patterns to offset a top-heavy curve.");
 
   const baseClean = cleanGenericFragments(suggestion.reason);
-  const sentenceTwo = synergyBits[0] || "";
+  const sentenceTwo = synergyBits[0] || (!isGenericRecommendationReason(baseClean) ? baseClean : "");
   const combined = [primary, sentenceTwo].filter(Boolean).join(" ");
   if (combined.trim().length > 0) return combined.trim();
   if (baseClean) return baseClean;
