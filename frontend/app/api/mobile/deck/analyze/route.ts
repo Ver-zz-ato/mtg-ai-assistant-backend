@@ -41,7 +41,7 @@ type MobileCommanderComparison = {
     targetRange?: string;
     status: "low" | "healthy" | "high" | "unknown";
   }>;
-  missingCommonCards: Array<{ card: string; inclusionPercent: number; reason: string }>;
+  missingCommonCards: Array<{ card: string; inclusionPercent?: number; reason: string }>;
   unusualCards: Array<{ card: string; inclusionPercent?: number; reason: string; confidence: "medium" | "low" }>;
 };
 
@@ -243,16 +243,21 @@ function parseCommanderComparison(raw: unknown): MobileCommanderComparison | nul
   }
   const missingCommonCards = Array.isArray(obj.missingCommonCards)
     ? obj.missingCommonCards
-        .map((item) => {
-          if (!item || typeof item !== "object") return null;
+        .flatMap((item) => {
+          if (!item || typeof item !== "object") return [];
           const row = item as Record<string, unknown>;
           const card = pickTrimmedString(row.card);
-          const inclusionPercent = parseFiniteNumber(row.inclusionPercent);
           const reason = pickTrimmedString(row.reason);
-          if (!card || inclusionPercent == null || !reason) return null;
-          return { card, inclusionPercent, reason };
+          const inclusionPercent = parseFiniteNumber(row.inclusionPercent);
+          if (!card || !reason) return [];
+          return [
+            {
+              card,
+              ...(inclusionPercent != null ? { inclusionPercent } : {}),
+              reason,
+            },
+          ];
         })
-        .filter((item): item is MobileCommanderComparison["missingCommonCards"][number] => Boolean(item))
     : [];
   const unusualCards: MobileCommanderComparison["unusualCards"] = [];
   if (Array.isArray(obj.unusualCards)) {
@@ -1408,6 +1413,7 @@ export async function POST(req: NextRequest) {
       suggestedCuts,
       analysisQuality,
       commanderComparison,
+      counts,
       analysis,
       validationErrors,
       validationWarnings,

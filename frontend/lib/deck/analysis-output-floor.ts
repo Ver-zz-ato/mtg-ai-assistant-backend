@@ -29,7 +29,7 @@ export type CommanderComparison = {
   commander: string;
   comparedDeckCount: number;
   metrics: CommanderComparisonMetric[];
-  missingCommonCards: Array<{ card: string; inclusionPercent: number; reason: string }>;
+  missingCommonCards: Array<{ card: string; inclusionPercent?: number; reason: string }>;
   unusualCards: Array<{ card: string; inclusionPercent?: number; reason: string; confidence: "medium" | "low" }>;
 };
 
@@ -97,6 +97,8 @@ function buildIssueLines(format: string, counts: Counts, quickFixes: string[]): 
   if (counts.draw < targets.draw.min) out.push(`Card draw is below the recommended ${targets.draw.range} range.`);
   if (counts.removal < targets.removal.min) out.push(`Interaction is below the recommended ${targets.removal.range} range.`);
   out.push("Prioritize changes that fix consistency before adding more flashy top-end cards.");
+  out.push("Review flexible slots against the deck's main plan before making upgrades.");
+  out.push(format === "Commander" ? "Make sure the commander has enough protection and setup to matter when cast." : "Keep the sideboard plan focused on the matchups this archetype expects to face.");
   return dedupeStrings(out).slice(0, 3);
 }
 
@@ -115,11 +117,11 @@ function cardText(entry: DeckEntry, byName: Map<string, SfCard>): string {
 
 function hasSacrificeValuePlan(input: OutputFloorInput): boolean {
   const commanderText = input.commander?.toLowerCase() ?? "";
-  if (/korvold|sacrifice|aristocrat|dies|treasure|token/.test(commanderText)) return true;
+  if (/korvold|sacrifice|aristocrat|dies/.test(commanderText)) return true;
   let hits = 0;
   for (const entry of input.entries) {
     const text = cardText(entry, input.byName);
-    if (/sacrifice|whenever .* dies|whenever .* is put into a graveyard|create .* treasure|treasure token|blood artist|aristocrat/.test(text)) {
+    if (/sacrifice|whenever .* dies|whenever .* is put into a graveyard|blood artist|aristocrat|zulaport|bastion of remembrance|pitiless plunderer|mayhem devil/.test(text)) {
       hits += 1;
     }
     if (hits >= 3) return true;
@@ -192,6 +194,17 @@ function buildDeterministicAdds(input: OutputFloorInput, limit: number): Analyze
   if (isCommander) {
     if (input.colors.includes("G")) add("Tamiyo's Safekeeping", "Cheap protection helps keep your key engine or commander alive through removal.", "protection");
     add("Swiftfoot Boots", "Protects the commander and lets important creatures affect the game sooner.", "protection", "low");
+    add("Wayfarer's Bauble", "Adds a low-cost ramp slot that helps the deck keep pace without changing its core plan.", "ramp", "low");
+    add("Mind Stone", "Adds early mana and can cash itself in later when the deck needs another card.", "ramp", "low");
+    add("War Room", "Utility land that turns stable mana into extra cards in longer Commander games.", "draw", "low");
+  } else if (input.format === "Modern" && input.colors.includes("R")) {
+    add("Lava Dart", "Cheap extra reach that fits low-curve red aggressive plans.", "burn", "low");
+    add("Skewer the Critics", "Efficient damage spell that rewards the deck for consistently dealing early damage.", "burn", "low");
+    add("Roiling Vortex", "Pressure piece that helps punish lifegain and slower decks.", "pressure", "low");
+  } else if (input.format === "Pioneer" && input.colors.includes("B") && input.colors.includes("R")) {
+    add("Unlicensed Hearse", "Graveyard pressure that also becomes a real threat in longer midrange games.", "sideboard", "low");
+    add("Go Blank", "Hand and graveyard attack for matchups where Rakdos wants to trade resources.", "sideboard", "low");
+    add("Sheoldred's Edict", "Flexible interaction that answers single large threats and planeswalkers cleanly.", "removal", "low");
   }
 
   add(isCommander ? "Skullclamp" : firstBasicLand(input.colors), "A low-cost consistency upgrade that helps convert spare resources into progress.", "consistency", "low");
@@ -199,23 +212,24 @@ function buildDeterministicAdds(input: OutputFloorInput, limit: number): Analyze
 }
 
 const CORE_CARD_NAME_PATTERNS = [
-  /pitiless plunderer/,
-  /bastion of remembrance/,
-  /blood artist/,
-  /zulaport cutthroat/,
-  /mayhem devil/,
-  /viscera seer/,
+  /pitiless\s*plunderer/,
+  /bastion\s*of\s*remembrance/,
+  /blood\s*artist/,
+  /zulaport\s*cutthroat/,
+  /mayhem\s*devil/,
+  /viscera\s*seer/,
   /skullclamp/,
-  /reassembling skeleton/,
-  /squee,? goblin nabob/,
-  /phyrexian altar/,
-  /ashnod'?s altar/,
-  /goblin bombardment/,
+  /reassembling\s*skeleton/,
+  /squee,?\s*goblin\s*nabob/,
+  /phyrexian\s*altar/,
+  /ashnod'?s\s*altar/,
+  /goblin\s*bombardment/,
 ];
 
 function isLikelyCoreSynergyCard(entry: DeckEntry, input: OutputFloorInput): boolean {
   const key = normalizeCardName(entry.name);
-  if (CORE_CARD_NAME_PATTERNS.some((pattern) => pattern.test(key))) return true;
+  const rawName = entry.name.toLowerCase();
+  if (CORE_CARD_NAME_PATTERNS.some((pattern) => pattern.test(key) || pattern.test(rawName))) return true;
   const text = cardText(entry, input.byName);
   const sacrificeDeck = hasSacrificeValuePlan(input);
   if (sacrificeDeck && /whenever .* dies|whenever .* is put into a graveyard|create .* treasure|sacrifice .* draw|each opponent loses/.test(text)) {
@@ -256,10 +270,20 @@ function buildDeterministicCuts(input: OutputFloorInput, limit: number, avoidCar
   const seen = new Set<string>();
   for (const item of candidates) {
     const category = item.cmc >= 6 ? "curve" : item.typeLine.includes("land") ? "mana" : "flex slot";
+    const manaValueLabel = item.cmc > 0 ? `${item.cmc}-mana` : "lower-impact";
+    const roleLabel = item.typeLine.includes("planeswalker")
+      ? "value piece"
+      : item.typeLine.includes("creature")
+        ? "creature slot"
+        : item.typeLine.includes("artifact")
+          ? "artifact slot"
+          : item.typeLine.includes("enchantment")
+            ? "enchantment slot"
+            : "flex slot";
     const reason =
       item.cmc >= 6
-        ? `Review this high-mana-value slot if you need room for earlier plays or needed interaction.`
-        : `Review this flexible slot if you need room for the higher-priority adds.`;
+        ? `${manaValueLabel} ${roleLabel} that competes with setup, interaction, or protection turns. Review if you need a lower-curve upgrade slot.`
+        : `Flexible ${roleLabel} that is less tied to the main plan than protected engine pieces. Review this slot if you need room for the higher-priority adds.`;
     addIfUnique(out, seen, {
       card: item.entry.name,
       reason,
@@ -381,19 +405,29 @@ export async function buildCommanderComparisonFromAggregates(args: {
   const commanderKey = normalizeCardName(args.commander);
   const topSet = new Set(topCards.map((row) => normalizeCardName(row.cardName ?? row.card ?? "")));
   const missingCommonCards = topCards
-    .map((row) => {
+    .flatMap((row) => {
       const card = String(row.cardName ?? row.card ?? "").trim();
-      const inclusionPercent = Number(row.percent);
-      if (!card || !Number.isFinite(inclusionPercent)) return null;
+      const storedPercent = Number(row.percent);
+      const storedCount = Number(row.count);
+      const inclusionPercent = Number.isFinite(storedPercent)
+        ? storedPercent
+        : Number.isFinite(storedCount) && deckCount > 0
+          ? (storedCount / deckCount) * 100
+          : undefined;
+      if (!card) return [];
       const key = normalizeCardName(card);
-      if (!key || deckNames.has(key) || key === commanderKey) return null;
-      return {
-        card,
-        inclusionPercent,
-        reason: `${card} appears in ${Math.round(inclusionPercent)}% of ManaTap public ${args.commander} decks.`,
-      };
+      if (!key || deckNames.has(key) || key === commanderKey) return [];
+      return [
+        {
+          card,
+          ...(typeof inclusionPercent === "number" ? { inclusionPercent } : {}),
+          reason:
+            typeof inclusionPercent === "number"
+              ? `${card} appears in ${Math.round(inclusionPercent)}% of ManaTap community ${args.commander} decks.`
+              : `${card} is one of the common ManaTap community cards for ${args.commander}.`,
+        },
+      ];
     })
-    .filter((row): row is { card: string; inclusionPercent: number; reason: string } => Boolean(row))
     .slice(0, 5);
   const unusualCards = args.entries
     .filter((entry) => {

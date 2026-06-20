@@ -5,8 +5,7 @@
       {
         "appID": "7AMBB8P8C5.com.manatap.app",
         "paths": [
-          "/auth/callback",
-          "/auth/*",
+          "/app/auth/callback",
           "/app/tournament",
           "/decks/*",
           "/binder/*",
