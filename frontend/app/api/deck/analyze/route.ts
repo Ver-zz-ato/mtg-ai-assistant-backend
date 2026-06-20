@@ -1265,18 +1265,27 @@ function deckTally(
   const curve = [0, 0, 0, 0, 0];
 
   const landRe = /land/i;
+  const creatureRe = /creature/i;
   const drawRe = /draw a card|scry [1-9]|investigate/i;
-  const rampRe = /add \{[wubrg]\}|search your library for (a|up to .*?) land/i;
+  const manaRockNameRe = /signet|talisman|sol ring|fellwar stone|mind stone|coldsteel heart|thought vessel|commander'?s sphere|arcane signet/i;
+  const landRampRe = /search your library for (?:a|an|up to (?:one|two|three|\d+)) .{0,50}land|search your library for .{0,50}(?:forest|plains|island|swamp|mountain)|put .{0,80}land .{0,40}onto the battlefield|you may play an additional land/i;
+  const manaDorkRe = /(?:\{t\}|tap):? add \{[wubrg]\}|add one mana of any color/i;
   const killRe = /destroy target|exile target|counter target|fight target|deal .* damage to any target/i;
 
   for (const { name, count } of entries) {
     const card = byName.get(name.toLowerCase());
     const typeLine = card?.type_line || "";
     const oracle = card?.oracle_text || "";
+    const isLand = landRe.test(typeLine);
 
-    if (landRe.test(typeLine)) lands += count;
+    if (isLand) lands += count;
     if (drawRe.test(oracle)) draw += count;
-    if (rampRe.test(oracle) || /signet|talisman|sol ring/i.test(name)) ramp += count;
+    if (
+      !isLand &&
+      (manaRockNameRe.test(name) || landRampRe.test(oracle) || (creatureRe.test(typeLine) && manaDorkRe.test(oracle) && !/treasure/i.test(oracle)))
+    ) {
+      ramp += count;
+    }
     if (killRe.test(oracle)) removal += count;
 
     const cmc = typeof card?.cmc === "number" ? card!.cmc : undefined;
