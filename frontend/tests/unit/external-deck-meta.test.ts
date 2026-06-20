@@ -3,8 +3,11 @@
  */
 import assert from "node:assert";
 import { stableDeckHash } from "@/lib/external-deck-meta/hash";
+import { buildCommunityProfileComparison } from "@/lib/external-deck-meta/publicComparison";
+import type { BuildCommunityProfileComparisonInput } from "@/lib/external-deck-meta/publicComparison";
 import { retryAfterToCooldownIso } from "@/lib/external-deck-meta/rateLimit";
 import { parseExternalDeckUrl } from "@/lib/external-deck-meta/url";
+import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
 {
   const parsed = parseExternalDeckUrl("https://archidekt.com/decks/123456/my-deck");
@@ -56,4 +59,158 @@ import { parseExternalDeckUrl } from "@/lib/external-deck-meta/url";
   assert(delta >= 119_000 && delta <= 121_000);
 }
 
-console.log("OK external-deck-meta");
+type FakeExternalProfile = {
+  commander_name: string;
+  approved_sample_size: number;
+  confidence_score: number;
+  averages?: Record<string, number>;
+  common_cards?: Array<{ name: string; inclusion_rate?: number }>;
+  source_breakdown?: Record<string, number>;
+  profile_warnings?: string[];
+  support_gaps?: Array<{ name: string }>;
+};
+
+type FakeAdmin = BuildCommunityProfileComparisonInput["admin"];
+
+function fakeComparisonClient(profile: FakeExternalProfile | null, facts: Array<{ name: string; color_identity?: string[] }>): FakeAdmin {
+  return {
+    from(table: string) {
+      if (table === "external_commander_profiles") {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  order() {
+                    return {
+                      limit() {
+                        return {
+                          async maybeSingle() {
+                            return { data: profile, error: null };
+                          },
+                        };
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      if (table === "scryfall_cache") {
+        return {
+          select() {
+            return {
+              async in(_column: string, keys: string[]) {
+                return {
+                  data: facts.filter((fact) => keys.includes(normalizeScryfallCacheName(fact.name))),
+                  error: null,
+                };
+              },
+            };
+          },
+        };
+      }
+      throw new Error(`unexpected table:${table}`);
+    },
+  } as unknown as FakeAdmin;
+}
+
+const eligibleProfile = {
+  commander_name: "Korvold, Fae-Cursed King",
+  approved_sample_size: 64,
+  confidence_score: 0.589,
+  averages: { lands: 37, ramp: 23.7, draw: 7.4, removal: 7.6, protection: 2.8 },
+  source_breakdown: { archidekt: 64 },
+  profile_warnings: ["single_source_profile"],
+  support_gaps: [{ name: "Do Not Leak" }],
+  common_cards: [
+    { name: "Sol Ring", inclusion_rate: 0.88 },
+    { name: "Mayhem Devil", inclusion_rate: 0.78 },
+    { name: "Tireless Provisioner", inclusion_rate: 0.63 },
+    { name: "Pitiless Plunderer", inclusion_rate: 0.47 },
+    { name: "Deadly Dispute", inclusion_rate: 0.41 },
+    { name: "Rhystic Study", inclusion_rate: 0.4 },
+    { name: "Forest", inclusion_rate: 0.86 },
+  ],
+};
+
+async function runCommunityProfileComparisonTests() {
+  const result = await buildCommunityProfileComparison({
+    admin: fakeComparisonClient(eligibleProfile, [
+      { name: "Korvold, Fae-Cursed King", color_identity: ["B", "G", "R"] },
+      { name: "Sol Ring", color_identity: [] },
+      { name: "Mayhem Devil", color_identity: ["B", "R"] },
+      { name: "Tireless Provisioner", color_identity: ["G"] },
+      { name: "Pitiless Plunderer", color_identity: ["B"] },
+      { name: "Deadly Dispute", color_identity: ["B"] },
+      { name: "Rhystic Study", color_identity: ["U"] },
+      { name: "Forest", color_identity: [] },
+    ]),
+    format: "Commander",
+    commander: "Korvold, Fae-Cursed King",
+    deckCards: [{ name: "Forest", qty: 1 }],
+    counts: { lands: 34, ramp: 8, draw: 7, removal: 5, protection: 2 },
+  });
+  assert(result);
+  assert.strictEqual(result.title, "Community Profile");
+  assert.strictEqual(result.subtitle, "Based on 64 approved community decklists");
+  assert.strictEqual(result.approvedSampleSize, 64);
+  assert.deepStrictEqual(result.metrics.find((m) => m.label === "Protection"), {
+    label: "Protection",
+    yourDeck: 2,
+    profileAverage: 2.8,
+    delta: -0.8,
+  });
+  assert.deepStrictEqual(result.missingCommonCards.map((card) => card.name), [
+    "Sol Ring",
+    "Mayhem Devil",
+    "Tireless Provisioner",
+    "Pitiless Plunderer",
+    "Deadly Dispute",
+  ]);
+  const serialized = JSON.stringify(result);
+  assert(!serialized.includes("confidence"));
+  assert(!serialized.includes("source_breakdown"));
+  assert(!serialized.includes("profile_warnings"));
+  assert(!serialized.includes("support_gaps"));
+  assert(!serialized.includes("Rhystic Study"));
+  assert(!serialized.includes("Forest"));
+
+  const lowSample = await buildCommunityProfileComparison({
+    admin: fakeComparisonClient({ ...eligibleProfile, approved_sample_size: 49 }, []),
+    format: "Commander",
+    commander: "Korvold, Fae-Cursed King",
+    deckCards: [],
+    counts: { lands: 34, ramp: 8, draw: 7, removal: 5, protection: 2 },
+  });
+  assert.strictEqual(lowSample, null);
+
+  const lowConfidence = await buildCommunityProfileComparison({
+    admin: fakeComparisonClient({ ...eligibleProfile, confidence_score: 0.54 }, []),
+    format: "Commander",
+    commander: "Korvold, Fae-Cursed King",
+    deckCards: [],
+    counts: { lands: 34, ramp: 8, draw: 7, removal: 5, protection: 2 },
+  });
+  assert.strictEqual(lowConfidence, null);
+
+  const nonCommander = await buildCommunityProfileComparison({
+    admin: fakeComparisonClient(eligibleProfile, []),
+    format: "Modern",
+    commander: "Korvold, Fae-Cursed King",
+    deckCards: [],
+    counts: { lands: 20, ramp: 0, draw: 4, removal: 6, protection: 0 },
+  });
+  assert.strictEqual(nonCommander, null);
+}
+
+runCommunityProfileComparisonTests()
+  .then(() => {
+    console.log("OK external-deck-meta");
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

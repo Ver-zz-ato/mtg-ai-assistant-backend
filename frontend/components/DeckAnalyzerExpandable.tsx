@@ -3,6 +3,30 @@
 import React, { useState, useRef } from "react";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 
+type CommunityProfileComparison = {
+  title: "Community Profile";
+  subtitle: string;
+  commander: string;
+  approvedSampleSize: number;
+  metrics: Array<{
+    label: "Lands" | "Ramp" | "Draw" | "Removal" | "Protection";
+    yourDeck: number;
+    profileAverage: number;
+    delta: number;
+  }>;
+  missingCommonCards: Array<{ name: string; inclusionRate?: number }>;
+};
+
+function formatDelta(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return "0";
+  return value > 0 ? `+${value.toFixed(1)}` : value.toFixed(1);
+}
+
+function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
 /**
  * Expandable Deck Analyzer Panel
  * Clicking the Deck Snapshot button expands this panel to analyze decklists
@@ -19,6 +43,7 @@ export default function DeckAnalyzerExpandable() {
   const [rawCounts, setRawCounts] = useState<{ lands: number; ramp: number; draw: number; removal: number } | null>(null);
   const [illegal, setIllegal] = useState<{ banned?: string[]; ci?: string[] }>({});
   const [meta, setMeta] = useState<Array<{ card: string; inclusion_rate: string; commanders: string[] }> | null>(null);
+  const [communityProfile, setCommunityProfile] = useState<CommunityProfileComparison | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -142,6 +167,7 @@ export default function DeckAnalyzerExpandable() {
       if (j?.counts) setRawCounts(j.counts);
       setIllegal({ banned: j?.bannedExamples || [], ci: j?.illegalExamples || [] });
       setMeta(Array.isArray(j?.metaHints) ? j.metaHints.slice(0, 12) : []);
+      setCommunityProfile(j?.communityProfileComparison ?? null);
     } catch (e: any) {
       if (e.name === 'AbortError') {
         setError('Analysis timed out after 4 minutes. Large decks can take longer - try again or contact support if this persists.');
@@ -151,6 +177,7 @@ export default function DeckAnalyzerExpandable() {
       setScore(null);
       setBands(null);
       setRawCounts(null);
+      setCommunityProfile(null);
     } finally {
       setBusy(false);
     }
@@ -327,6 +354,48 @@ export default function DeckAnalyzerExpandable() {
                       {(illegal?.ci?.length || 0) > 0 && (
                         <div className="text-amber-300">CI conflicts: {(illegal?.ci || []).slice(0, 5).join(", ")}</div>
                       )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {communityProfile && (
+                <div className="rounded-lg border border-amber-700/40 bg-amber-950/15 p-3 text-xs text-neutral-200">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-amber-200">{communityProfile.title}</div>
+                      <div className="text-[11px] text-neutral-400">{communityProfile.subtitle}</div>
+                    </div>
+                    <div className="text-[11px] text-neutral-500">{communityProfile.commander}</div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-[1.1fr_0.8fr_0.8fr_0.7fr] gap-2 text-[11px]">
+                    <div className="text-neutral-500">Role</div>
+                    <div className="text-neutral-500">Your deck</div>
+                    <div className="text-neutral-500">Profile</div>
+                    <div className="text-right text-neutral-500">Delta</div>
+                    {communityProfile.metrics.map((metric) => (
+                      <React.Fragment key={metric.label}>
+                        <div className="font-medium text-neutral-300">{metric.label}</div>
+                        <div className="font-mono">{formatNumber(metric.yourDeck)}</div>
+                        <div className="font-mono">{formatNumber(metric.profileAverage)}</div>
+                        <div className={`text-right font-mono ${metric.delta < 0 ? "text-amber-200" : metric.delta > 0 ? "text-sky-200" : "text-neutral-300"}`}>
+                          {formatDelta(metric.delta)}
+                        </div>
+                      </React.Fragment>
+                    ))}
+                  </div>
+
+                  {communityProfile.missingCommonCards.length > 0 && (
+                    <div className="mt-3 border-t border-amber-700/25 pt-2">
+                      <div className="mb-1 text-[11px] font-medium text-neutral-400">Missing common cards</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {communityProfile.missingCommonCards.map((card) => (
+                          <span key={card.name} className="rounded border border-neutral-700 bg-neutral-900/70 px-2 py-1 text-[11px] text-neutral-200">
+                            {card.name}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

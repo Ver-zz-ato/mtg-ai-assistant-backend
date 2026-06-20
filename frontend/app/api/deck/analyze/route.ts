@@ -10,6 +10,7 @@ import {
   fetchCardsBatch,
   inferDeckContext,
 } from "@/lib/deck/inference";
+import type { EnrichedCard } from "@/lib/deck/deck-enrichment";
 import { DEFAULT_FALLBACK_MODEL } from "@/lib/ai/default-models";
 import { getActivePromptVersion, getPromptVersion } from "@/lib/config/prompts";
 import { COMMANDER_PROFILES } from "@/lib/deck/archetypes";
@@ -52,6 +53,9 @@ import {
   buildCommanderComparisonFromAggregates,
   enforceDeckAnalysisOutputFloor,
 } from "@/lib/deck/analysis-output-floor";
+import { summarizeDeckRoles } from "@/lib/deck/role-classifier";
+import { buildCommunityProfileComparison } from "@/lib/external-deck-meta/publicComparison";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Slot planning: JSON-only output, 3–6 slots. No reply shortening. */
 const MAX_SLOT_PLANNING_TOKENS = 2048;
@@ -194,6 +198,20 @@ const COMMANDER_ONLY_CARDS = new Set([
   "Exotic Orchard",
   "Reflecting Pool",
 ]);
+
+async function isCommanderComparisonBetaEnabled(supabase: Pick<SupabaseClient, "from">): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "flags")
+      .maybeSingle();
+    const flags = (data as { value?: Record<string, unknown> } | null)?.value;
+    return flags?.deck_analysis_commander_comparison_beta === true;
+  } catch {
+    return false;
+  }
+}
 
 const GENERIC_COMMANDER_PROFILES: Record<string, CommanderProfileEnriched> = {
   tokens: {
@@ -2318,6 +2336,46 @@ export async function runDeckAnalyzeCore(
     counts: { lands: totals.lands, ramp: totals.ramp, draw: totals.draw, removal: totals.removal },
     colors: context.colors ?? [],
   }).catch(() => null);
+  const communityProfileComparison = await (async () => {
+    if (!(await isCommanderComparisonBetaEnabled(supabase))) return null;
+    const admin = (await import("@/app/api/_lib/supa")).getAdmin();
+    if (!admin) return null;
+    const deckCards: EnrichedCard[] = entries.map((entry) => {
+      const card = byName.get(entry.name.toLowerCase());
+      return {
+        name: entry.name,
+        qty: entry.count,
+        type_line: card?.type_line,
+        oracle_text: card?.oracle_text ?? undefined,
+        color_identity: card?.color_identity,
+        cmc: card?.cmc,
+        mana_cost: card?.mana_cost,
+        legalities: card?.legalities,
+        power: card?.power,
+        toughness: card?.toughness,
+        loyalty: card?.loyalty,
+        colors: card?.colors,
+        keywords: card?.keywords,
+        is_land: card?.is_land,
+        is_creature: card?.is_creature,
+        cache_miss: !card,
+      };
+    });
+    const roleSummary = summarizeDeckRoles(deckCards);
+    return buildCommunityProfileComparison({
+      admin,
+      format,
+      commander: context.commander,
+      deckCards,
+      counts: {
+        lands: totals.lands,
+        ramp: totals.ramp,
+        draw: totals.draw,
+        removal: totals.removal,
+        protection: roleSummary.byRole.protection,
+      },
+    });
+  })().catch(() => null);
   const expectedDeckSize = format === "Commander" ? 100 : 60;
   const incompleteDeck = totalCardCount > 0 && totalCardCount < (format === "Commander" ? 90 : 55);
   const landFloor = format === "Commander" ? 30 : 20;
@@ -2355,6 +2413,7 @@ export async function runDeckAnalyzeCore(
       suggestedCuts: outputFloor.suggestedCuts,
       analysisQuality: outputFloor.analysisQuality,
       commanderComparison,
+      ...(communityProfileComparison ? { communityProfileComparison } : {}),
       partial: required > 0 && filled < required,
       tokenNeeds: [],
       metaHints: [],

@@ -125,6 +125,7 @@ Important behavior:
 - Filters recommendations for legality.
 - Guarantees completed responses include at least three issues, strengths, actions, suggested adds, and suggested cuts by filling gaps with deterministic deck metrics.
 - May include `commanderComparison` for Commander decks when `commander_aggregates` has a high-confidence public-deck sample.
+- May include beta-only `communityProfileComparison` when `app_config.flags.deck_analysis_commander_comparison_beta === true`, the deck is Commander, and an approved `external_commander_profiles` row meets sample/confidence thresholds. This response is sanitized to omit confidence, sources, warnings, support gaps, and QA-only fields.
 - Logs usage to `ai_usage`.
 
 Risk notes:
