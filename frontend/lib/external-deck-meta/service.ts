@@ -489,6 +489,31 @@ async function fetchDeckCardsPage<T>(
   return rows;
 }
 
+async function fetchExternalDeckRowsPage<T>(
+  admin: SupabaseClient,
+  operation: string,
+  select: string,
+  filter: (query: any) => any
+): Promise<T[]> {
+  const rows: T[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await withSupabaseRetry(
+      {
+        operation,
+        table: "external_decks",
+        range: `${from}-${from + pageSize - 1}`,
+      },
+      async () => filter(admin.from("external_decks").select(select).range(from, from + pageSize - 1))
+    );
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as T[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return rows;
+}
+
 async function persistDeck(
   admin: SupabaseClient,
   deck: NormalizedExternalDeck,
@@ -662,20 +687,12 @@ async function processQueueForSource(
 
 export async function writeExternalMetaRollups(admin: SupabaseClient): Promise<number> {
   const snapshotDate = new Date().toISOString().slice(0, 10);
-  const { data: decks, error: decksError } = await withSupabaseRetry(
-    {
-      operation: "rollups_fetch_approved_decks",
-      table: "external_decks",
-      range: "all_approved",
-    },
-    async () =>
-      admin
-        .from("external_decks")
-        .select("id, source_key, format, commanders, aggregate_approved")
-        .eq("aggregate_approved", true)
+  const deckRows = await fetchExternalDeckRowsPage<{ id: string; source_key: string; format: string | null; commanders: string[]; aggregate_approved: boolean }>(
+    admin,
+    "rollups_fetch_approved_decks",
+    "id, source_key, format, commanders, aggregate_approved",
+    (query) => query.eq("aggregate_approved", true)
   );
-  if (decksError) throw new Error(decksError.message);
-  const deckRows = (decks ?? []) as Array<{ id: string; source_key: string; format: string | null; commanders: string[]; aggregate_approved: boolean }>;
   if (deckRows.length === 0) return 0;
   const deckIds = deckRows.map((d) => d.id);
   const cards = await fetchDeckCardsPage<{ external_deck_id: string; source_key: string; card_name: string; card_name_norm?: string | null }>(
@@ -845,20 +862,7 @@ function categoryHits(name: string, facts: { type_line?: string | null; oracle_t
 
 export async function writeExternalCommanderProfiles(admin: SupabaseClient): Promise<number> {
   const snapshotDate = new Date().toISOString().slice(0, 10);
-  const { data: decksRaw, error: decksError } = await withSupabaseRetry(
-    {
-      operation: "profiles_fetch_commander_decks",
-      table: "external_decks",
-      range: "format=commander",
-    },
-    async () =>
-      admin
-        .from("external_decks")
-        .select("id, source_key, format, commanders, is_valid, aggregate_approved, exclusion_reason")
-        .eq("format", "commander")
-  );
-  if (decksError) throw new Error(decksError.message);
-  const decks = (decksRaw ?? []) as Array<{
+  const decks = await fetchExternalDeckRowsPage<{
     id: string;
     source_key: string;
     format: string | null;
@@ -866,7 +870,12 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
     is_valid: boolean;
     aggregate_approved: boolean;
     exclusion_reason: ExclusionReason | null;
-  }>;
+  }>(
+    admin,
+    "profiles_fetch_commander_decks",
+    "id, source_key, format, commanders, is_valid, aggregate_approved, exclusion_reason",
+    (query) => query.eq("format", "commander")
+  );
   if (decks.length === 0) return 0;
   const cards = await fetchDeckCardsPage<{ external_deck_id: string; card_name: string; card_name_norm: string | null; quantity: number; board: string; category?: string | null }>(
     admin,
