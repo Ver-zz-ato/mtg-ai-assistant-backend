@@ -123,6 +123,8 @@ Important behavior:
 - Strictly rejects unsupported formats.
 - Builds and reuses `deck_context_summary` where possible.
 - Filters recommendations for legality.
+- Guarantees completed responses include at least three issues, strengths, actions, suggested adds, and suggested cuts by filling gaps with deterministic deck metrics.
+- May include `commanderComparison` for Commander decks when `commander_aggregates` has a high-confidence public-deck sample.
 - Logs usage to `ai_usage`.
 
 Risk notes:
@@ -146,6 +148,8 @@ Cache:
 - Cache is checked before the core analyzer runs.
 - Only non-partial successful responses are written.
 - Cached responses return `cacheHit: true` and `cacheKind: "mobile_deck_analyze"`.
+- Signed-in free users with remaining Deck Analysis trial credits bypass the response cache for that run so the server can return Pro-depth analysis and decrement credits accurately.
+- Additive fields include `suggestedAdds`, `suggestedCuts`, `analysisQuality`, `commanderComparison`, `scoreConfidence`, `completenessWarning`, `trialProAnalysesRemaining`, and `usedTrialProAnalysis`.
 
 Why this exists:
 

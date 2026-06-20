@@ -48,6 +48,10 @@ import {
   buildOwnershipContextForUserDeck,
   formatOwnershipContextForPrompt,
 } from "@/lib/collections/ownership-context";
+import {
+  buildCommanderComparisonFromAggregates,
+  enforceDeckAnalysisOutputFloor,
+} from "@/lib/deck/analysis-output-floor";
 
 /** Slot planning: JSON-only output, 3–6 slots. No reply shortening. */
 const MAX_SLOT_PLANNING_TOKENS = 2048;
@@ -1514,7 +1518,13 @@ function rebalanceSuggestionsByCategory(list: CardSuggestion[]): CardSuggestion[
 
 export async function runDeckAnalyzeCore(
   req: Request,
-  options?: { includeValidatedNarrative?: boolean; /** When set, use this instead of reading req.json() (mobile wrapper must not double-read the body). */ parsedBody?: Record<string, unknown> }
+  options?: {
+    includeValidatedNarrative?: boolean;
+    /** When set, use this instead of reading req.json() (mobile wrapper must not double-read the body). */
+    parsedBody?: Record<string, unknown>;
+    /** Per-request Deck Analysis depth entitlement. Does not grant global Pro or change rate-limit tier. */
+    proAnalysisEntitled?: boolean;
+  }
 ) {
   const includeValidatedNarrative = options?.includeValidatedNarrative !== false;
   // Get user and supabase first (needed throughout the function)
@@ -1548,6 +1558,7 @@ export async function runDeckAnalyzeCore(
     const { checkProStatus } = await import('@/lib/server-pro-check');
     isPro = await checkProStatus(user.id);
   }
+  const isProDepth = isPro || options?.proAnalysisEntitled === true;
   
   // Durable rate limiting (expensive AI operation - limit abuse)
   // Admin users bypass limits (for AI test batches, self-optimization, etc.)
@@ -1675,7 +1686,7 @@ export async function runDeckAnalyzeCore(
   const deckOverlayTier = resolveOverlayTier({
     isGuest: !user,
     userId: user?.id ?? null,
-    isPro,
+    isPro: isProDepth,
     clientForceTier: body.forceTier,
     allowClientOverrides,
   });
@@ -1684,7 +1695,7 @@ export async function runDeckAnalyzeCore(
       ? resolveModelForRequest({
           isGuest: !user,
           userId: user?.id ?? null,
-          isPro,
+          isPro: isProDepth,
           useCase: "deck_analysis",
           clientModelOverride: body.forceModel,
           allowClientOverrides: true,
@@ -1985,7 +1996,7 @@ export async function runDeckAnalyzeCore(
   const deckAnalyzePromptVersionId = promptResult.promptVersionId ?? null;
 
   // Tier overlay (guest/free/pro) — after base prompt, before fingerprint
-  const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isPro ?? false, useCase: "deck_analysis" });
+  const deckTierRes = getModelForTier({ isGuest: !user, userId: user?.id ?? null, isPro: isProDepth, useCase: "deck_analysis" });
   if (deckAnalysisSystemPrompt) {
     try {
       const { getTierOverlay, getTierOverlayResolved } = await import("@/lib/ai/tier-overlays");
@@ -2054,8 +2065,8 @@ export async function runDeckAnalyzeCore(
   const sourcePage = body.sourcePage?.trim() || null;
   const evalRunId = typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null;
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -2068,7 +2079,7 @@ export async function runDeckAnalyzeCore(
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isPro, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -2124,7 +2135,7 @@ export async function runDeckAnalyzeCore(
         commanderProfile,
         deckSize,
         userId: user?.id ?? null,
-        isPro: isPro ?? false,
+        isPro: isProDepth,
         requestId: deckAnalyzeRequestId,
         sourcePage: sourcePage ?? undefined,
         usageSource: deckAnalyzeUsageSource,
@@ -2220,16 +2231,64 @@ export async function runDeckAnalyzeCore(
       })()
     : { validated_analysis_ok: null as null };
 
+  const outputFloor = enforceDeckAnalysisOutputFloor({
+    format,
+    commander: context.commander,
+    colors: context.colors ?? [],
+    entries,
+    byName,
+    counts: { lands: totals.lands, ramp: totals.ramp, draw: totals.draw, removal: totals.removal },
+    whatsGood,
+    quickFixes,
+    suggestions,
+    isProDepth,
+    lockedNormalized,
+  });
+  const commanderComparison = await buildCommanderComparisonFromAggregates({
+    supabase,
+    format,
+    commander: context.commander,
+    entries,
+    counts: { lands: totals.lands, ramp: totals.ramp, draw: totals.draw, removal: totals.removal },
+    colors: context.colors ?? [],
+  }).catch(() => null);
+  const expectedDeckSize = format === "Commander" ? 100 : 60;
+  const incompleteDeck = totalCardCount > 0 && totalCardCount < (format === "Commander" ? 90 : 55);
+  const landFloor = format === "Commander" ? 30 : 20;
+  const veryLowLands = totals.lands > 0 && totals.lands < landFloor;
+  const scoreConfidence =
+    incompleteDeck || veryLowLands
+      ? "low"
+      : outputFloor.analysisQuality.suggestionSource === "deterministic"
+        ? "medium"
+        : "high";
+  const completenessWarning = incompleteDeck
+    ? `Deck has ${totalCardCount}/${expectedDeckSize} cards, so the score is capped until the list is closer to complete.`
+    : veryLowLands
+      ? `Land count is far below the expected ${format} baseline, so the score is capped.`
+      : null;
+  const displayScore = Math.min(score, incompleteDeck ? 72 : veryLowLands ? 78 : score);
+
   return new Response(
     JSON.stringify({
-    score,
+    score: displayScore,
+    rawScore: score,
+    scoreConfidence,
+    completenessWarning,
     note,
     bands,
       counts: { lands: totals.lands, ramp: totals.ramp, draw: totals.draw, removal: totals.removal },
-      whatsGood,
-      quickFixes,
+      issues: outputFloor.issues,
+      fixes: outputFloor.recommendations,
+      priority: outputFloor.recommendations,
+      whatsGood: outputFloor.strengths,
+      quickFixes: outputFloor.recommendations,
       curveBuckets: totals.curve,
-      suggestions,
+      suggestions: outputFloor.suggestions,
+      suggestedAdds: outputFloor.suggestedAdds,
+      suggestedCuts: outputFloor.suggestedCuts,
+      analysisQuality: outputFloor.analysisQuality,
+      commanderComparison,
       partial: required > 0 && filled < required,
       tokenNeeds: [],
       metaHints: [],

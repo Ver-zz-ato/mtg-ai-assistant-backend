@@ -46,6 +46,21 @@ The legacy compatibility surface remains:
 - `profiles_public.badges` is still populated for public profile compatibility
 - `profiles_public.pinned_badges` remains unchanged
 
+### Deck Analysis trial credits (2026-06-20)
+
+Additive Deck Analysis-only Pro-depth trial ledger:
+
+- `deck_analysis_trial_credits`
+  - one row per signed-in `user_id`
+  - `granted_count` defaults to `3`
+  - `used_count` increments only after a successful non-partial mobile Deck Analysis trial run
+  - does not change `profiles.is_pro` and does not grant global Pro entitlement
+
+RLS expectations:
+
+- authenticated users can read their own row
+- writes are intended to happen server-side with service-role clients
+
 ### Badge system additions (phase 2 instrumentation, 2026-05-22)
 
 Additive instrumentation for the second badge batch:

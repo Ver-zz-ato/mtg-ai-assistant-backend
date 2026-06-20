@@ -18,6 +18,41 @@ type MobileAnalyzeCounts = {
   removal?: number;
 };
 
+type MobileAnalyzeAddCut = {
+  card: string;
+  reason: string;
+  category?: string;
+  confidence: "high" | "medium" | "low";
+  source: "ai" | "deterministic";
+};
+
+type MobileAnalyzeQuality = {
+  suggestionSource: "ai" | "mixed" | "deterministic";
+  warnings: string[];
+};
+
+type MobileCommanderComparison = {
+  commander: string;
+  comparedDeckCount: number;
+  metrics: Array<{
+    label: string;
+    yours: number;
+    average?: number;
+    targetRange?: string;
+    status: "low" | "healthy" | "high" | "unknown";
+  }>;
+  missingCommonCards: Array<{ card: string; inclusionPercent: number; reason: string }>;
+  unusualCards: Array<{ card: string; inclusionPercent?: number; reason: string; confidence: "medium" | "low" }>;
+};
+
+type TrialCreditState = {
+  remaining: number;
+  usedThisRun: boolean;
+  availableForRun: boolean;
+  grantedCount: number;
+  usedCount: number;
+};
+
 type MobileAnalyzeBenchKey = "mana" | "ramp" | "draw" | "removal" | "curve";
 
 type MobileAnalyzeBenchItem = {
@@ -139,6 +174,156 @@ function parseCounts(raw: unknown): MobileAnalyzeCounts | undefined {
     if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
   }
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function parseAddCuts(raw: unknown): MobileAnalyzeAddCut[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  const out: MobileAnalyzeAddCut[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const obj = item as Record<string, unknown>;
+    const card = pickTrimmedString(obj.card);
+    const reason = pickTrimmedString(obj.reason);
+    const confidence = pickTrimmedString(obj.confidence);
+    const source = pickTrimmedString(obj.source);
+    if (!card || !reason) continue;
+    out.push({
+      card,
+      reason,
+      category: pickTrimmedString(obj.category) ?? undefined,
+      confidence:
+        confidence === "high" || confidence === "medium" || confidence === "low"
+          ? confidence
+          : "medium",
+      source: source === "ai" || source === "deterministic" ? source : "deterministic",
+    });
+  }
+  return out;
+}
+
+function parseAnalyzeQuality(raw: unknown): MobileAnalyzeQuality | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const source = pickTrimmedString(obj.suggestionSource);
+  if (source !== "ai" && source !== "mixed" && source !== "deterministic") return null;
+  return {
+    suggestionSource: source,
+    warnings: parseStringArray(obj.warnings),
+  };
+}
+
+function parseCommanderComparison(raw: unknown): MobileCommanderComparison | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const commander = pickTrimmedString(obj.commander);
+  const comparedDeckCount = parseFiniteNumber(obj.comparedDeckCount);
+  if (!commander || !comparedDeckCount) return null;
+  const metrics: MobileCommanderComparison["metrics"] = [];
+  if (Array.isArray(obj.metrics)) {
+    for (const item of obj.metrics) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const label = pickTrimmedString(row.label);
+      const yours = parseFiniteNumber(row.yours);
+      const status = pickTrimmedString(row.status);
+      if (!label || yours == null) continue;
+      metrics.push({
+        label,
+        yours,
+        average: parseFiniteNumber(row.average) ?? undefined,
+        targetRange: pickTrimmedString(row.targetRange) ?? undefined,
+        status:
+          status === "low" || status === "healthy" || status === "high" || status === "unknown"
+            ? status
+            : "unknown",
+      });
+    }
+  }
+  const missingCommonCards = Array.isArray(obj.missingCommonCards)
+    ? obj.missingCommonCards
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as Record<string, unknown>;
+          const card = pickTrimmedString(row.card);
+          const inclusionPercent = parseFiniteNumber(row.inclusionPercent);
+          const reason = pickTrimmedString(row.reason);
+          if (!card || inclusionPercent == null || !reason) return null;
+          return { card, inclusionPercent, reason };
+        })
+        .filter((item): item is MobileCommanderComparison["missingCommonCards"][number] => Boolean(item))
+    : [];
+  const unusualCards: MobileCommanderComparison["unusualCards"] = [];
+  if (Array.isArray(obj.unusualCards)) {
+    for (const item of obj.unusualCards) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const card = pickTrimmedString(row.card);
+      const reason = pickTrimmedString(row.reason);
+      const confidence = pickTrimmedString(row.confidence);
+      if (!card || !reason) continue;
+      unusualCards.push({
+        card,
+        inclusionPercent: parseFiniteNumber(row.inclusionPercent) ?? undefined,
+        reason,
+        confidence: confidence === "medium" || confidence === "low" ? confidence : "low",
+      });
+    }
+  }
+  return { commander, comparedDeckCount, metrics, missingCommonCards, unusualCards };
+}
+
+async function getTrialCreditState(userId: string | null, isPro: boolean): Promise<TrialCreditState> {
+  if (!userId || isPro) return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
+  try {
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const admin = getAdmin();
+    if (!admin) return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
+    const select = "user_id, granted_count, used_count";
+    let { data, error } = await admin
+      .from("deck_analysis_trial_credits")
+      .select(select)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
+    if (!data) {
+      const inserted = await admin
+        .from("deck_analysis_trial_credits")
+        .insert({ user_id: userId, granted_count: 3, used_count: 0 })
+        .select(select)
+        .maybeSingle();
+      data = inserted.data;
+      if (inserted.error || !data) return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
+    }
+    const granted = Number((data as { granted_count?: number }).granted_count) || 0;
+    const used = Number((data as { used_count?: number }).used_count) || 0;
+    const remaining = Math.max(0, granted - used);
+    return { remaining, usedThisRun: false, availableForRun: remaining > 0, grantedCount: granted, usedCount: used };
+  } catch {
+    return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
+  }
+}
+
+async function consumeTrialCredit(userId: string | null, state: TrialCreditState): Promise<TrialCreditState> {
+  if (!userId || !state.availableForRun || state.remaining <= 0) return state;
+  try {
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const admin = getAdmin();
+    if (!admin) return state;
+    const nextUsedCount = Math.min(state.grantedCount, state.usedCount + 1);
+    await admin
+      .from("deck_analysis_trial_credits")
+      .update({ used_count: nextUsedCount, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    return {
+      remaining: Math.max(0, state.remaining - 1),
+      usedThisRun: true,
+      availableForRun: state.remaining - 1 > 0,
+      grantedCount: state.grantedCount,
+      usedCount: nextUsedCount,
+    };
+  } catch {
+    return state;
+  }
 }
 
 function parseBands(raw: unknown): Record<string, number> | undefined {
@@ -999,9 +1184,12 @@ export async function POST(req: NextRequest) {
       const { checkProStatus } = await import("@/lib/server-pro-check");
       isPro = await checkProStatus(auth.user.id);
     }
+    let trialCredits = await getTrialCreditState(auth?.user?.id ?? null, isPro);
+    const useTrialProDepth = !isPro && trialCredits.availableForRun;
     const cacheKey = await resolveMobileAnalyzeCacheKey(req, parsedBody).catch(() => null);
     const cacheSupabase = cacheKey ? await getServerSupabase() : null;
-    if (cacheKey && cacheSupabase) {
+    const canUseResponseCache = !(auth?.user && !isPro && trialCredits.availableForRun);
+    if (canUseResponseCache && cacheKey && cacheSupabase) {
       const cached = await supabaseCacheGet(cacheSupabase, "ai_private_cache", cacheKey);
       if (cached?.text) {
         try {
@@ -1029,6 +1217,8 @@ export async function POST(req: NextRequest) {
               ...cachedBody,
               cacheHit: true,
               cacheKind: "mobile_deck_analyze",
+              trialProAnalysesRemaining: trialCredits.remaining,
+              usedTrialProAnalysis: false,
             },
             { status: 200 }
           );
@@ -1041,6 +1231,7 @@ export async function POST(req: NextRequest) {
     const coreRes = await runDeckAnalyzeCore(req, {
       includeValidatedNarrative: false,
       parsedBody,
+      proAnalysisEntitled: useTrialProDepth,
     });
     const status = coreRes.status;
     const body = (await coreRes.json().catch(() => ({}))) as Record<string, unknown>;
@@ -1093,6 +1284,10 @@ export async function POST(req: NextRequest) {
     const counts = parseCounts(body.counts);
     const bands = parseBands(body.bands);
     const curveBuckets = parseCurveBuckets(body.curveBuckets);
+    const suggestedAdds = parseAddCuts(body.suggestedAdds);
+    const suggestedCuts = parseAddCuts(body.suggestedCuts);
+    const analysisQuality = parseAnalyzeQuality(body.analysisQuality);
+    const commanderComparison = parseCommanderComparison(body.commanderComparison);
     const filteredSummary = pickTrimmedString(body.filteredSummary);
     const filteredReasons = parseStringArray(body.filteredReasons);
     const filteredCount = parseFiniteNumber(body.filteredCount);
@@ -1167,7 +1362,7 @@ export async function POST(req: NextRequest) {
       validationErrorSample: validationErrors[0]?.slice(0, 200),
     });
     const proAnalysis =
-      isPro
+      isPro || useTrialProDepth
         ? buildProAnalysis({
             score,
             counts,
@@ -1184,6 +1379,9 @@ export async function POST(req: NextRequest) {
             suggestions,
           })
         : null;
+    if (useTrialProDepth && !partial) {
+      trialCredits = await consumeTrialCredit(auth?.user?.id ?? null, trialCredits);
+    }
     const responseBody = {
       ok: true,
       partial,
@@ -1196,13 +1394,21 @@ export async function POST(req: NextRequest) {
       whatsGood,
       quickFixes,
       suggestions,
+      suggestedAdds,
+      suggestedCuts,
+      analysisQuality,
+      commanderComparison,
       analysis,
       validationErrors,
       validationWarnings,
       promptVersion,
+      scoreConfidence: pickTrimmedString(body.scoreConfidence) ?? null,
+      completenessWarning: pickTrimmedString(body.completenessWarning) ?? null,
+      trialProAnalysesRemaining: trialCredits.remaining,
+      usedTrialProAnalysis: trialCredits.usedThisRun,
       ...(proAnalysis ? { proAnalysis } : {}),
     };
-    if (cacheKey && cacheSupabase && !partial) {
+    if (canUseResponseCache && cacheKey && cacheSupabase && !partial) {
       await supabaseCacheSet(cacheSupabase, "ai_private_cache", cacheKey, {
         text: JSON.stringify(responseBody),
         usage: { route: "/api/mobile/deck/analyze", cache_version: MOBILE_ANALYZE_CACHE_VERSION },
