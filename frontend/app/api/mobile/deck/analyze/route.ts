@@ -9,7 +9,7 @@ import { hashCacheKey, supabaseCacheGet, supabaseCacheSet } from "@/lib/utils/su
 
 export const runtime = "nodejs";
 const MOBILE_ANALYZE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const MOBILE_ANALYZE_CACHE_VERSION = 6;
+const MOBILE_ANALYZE_CACHE_VERSION = 7;
 
 type MobileAnalyzeCounts = {
   lands?: number;
@@ -43,6 +43,20 @@ type MobileCommanderComparison = {
   }>;
   missingCommonCards: Array<{ card: string; inclusionPercent?: number; reason: string }>;
   unusualCards: Array<{ card: string; inclusionPercent?: number; reason: string; confidence: "medium" | "low" }>;
+};
+
+type MobileCommunityProfileComparison = {
+  title: "Community Profile";
+  subtitle: string;
+  commander: string;
+  approvedSampleSize: number;
+  metrics: Array<{
+    label: "Lands" | "Ramp" | "Draw" | "Removal" | "Protection";
+    yourDeck: number;
+    profileAverage: number;
+    delta: number;
+  }>;
+  missingCommonCards: Array<{ name: string; inclusionRate?: number }>;
 };
 
 type TrialCreditState = {
@@ -277,6 +291,63 @@ function parseCommanderComparison(raw: unknown): MobileCommanderComparison | nul
     }
   }
   return { commander, comparedDeckCount, metrics, missingCommonCards, unusualCards };
+}
+
+function parseCommunityProfileComparison(raw: unknown): MobileCommunityProfileComparison | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const title = pickTrimmedString(obj.title);
+  const subtitle = pickTrimmedString(obj.subtitle);
+  const commander = pickTrimmedString(obj.commander);
+  const approvedSampleSize = parseFiniteNumber(obj.approvedSampleSize);
+  if (title !== "Community Profile" || !subtitle || !commander || approvedSampleSize == null) return null;
+
+  const allowedLabels = new Set(["Lands", "Ramp", "Draw", "Removal", "Protection"]);
+  const metrics: MobileCommunityProfileComparison["metrics"] = [];
+  if (Array.isArray(obj.metrics)) {
+    for (const item of obj.metrics) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const label = pickTrimmedString(row.label);
+      const yourDeck = parseFiniteNumber(row.yourDeck);
+      const profileAverage = parseFiniteNumber(row.profileAverage);
+      const delta = parseFiniteNumber(row.delta);
+      if (!label || !allowedLabels.has(label) || yourDeck == null || profileAverage == null || delta == null) continue;
+      metrics.push({
+        label: label as MobileCommunityProfileComparison["metrics"][number]["label"],
+        yourDeck,
+        profileAverage,
+        delta,
+      });
+    }
+  }
+
+  const missingCommonCards = Array.isArray(obj.missingCommonCards)
+    ? obj.missingCommonCards
+        .flatMap((item) => {
+          if (!item || typeof item !== "object") return [];
+          const row = item as Record<string, unknown>;
+          const name = pickTrimmedString(row.name);
+          if (!name) return [];
+          const inclusionRate = parseFiniteNumber(row.inclusionRate);
+          return [
+            {
+              name,
+              ...(inclusionRate != null ? { inclusionRate } : {}),
+            },
+          ];
+        })
+        .slice(0, 5)
+    : [];
+
+  return {
+    title: "Community Profile",
+    subtitle,
+    commander,
+    approvedSampleSize,
+    metrics,
+    missingCommonCards,
+  };
 }
 
 async function getTrialCreditState(userId: string | null, isPro: boolean): Promise<TrialCreditState> {
@@ -1303,6 +1374,7 @@ export async function POST(req: NextRequest) {
     const suggestedCuts = parseAddCuts(body.suggestedCuts);
     const analysisQuality = parseAnalyzeQuality(body.analysisQuality);
     const commanderComparison = parseCommanderComparison(body.commanderComparison);
+    const communityProfileComparison = parseCommunityProfileComparison(body.communityProfileComparison);
     const filteredSummary = pickTrimmedString(body.filteredSummary);
     const filteredReasons = parseStringArray(body.filteredReasons);
     const filteredCount = parseFiniteNumber(body.filteredCount);
@@ -1413,6 +1485,7 @@ export async function POST(req: NextRequest) {
       suggestedCuts,
       analysisQuality,
       commanderComparison,
+      ...(communityProfileComparison ? { communityProfileComparison } : {}),
       counts,
       analysis,
       validationErrors,

@@ -139,6 +139,8 @@ File: `frontend/app/api/mobile/deck/analyze/route.ts`
 
 Purpose: App-safe wrapper around `/api/deck/analyze`. It calls the core route, then generates mobile-friendly structured explanation via `generateAppSafeDeckExplanation()`.
 
+It passes through sanitized `communityProfileComparison` when the core route returns it; the mobile wrapper does not rebuild external profile comparisons or expose QA-only fields.
+
 Format support: Commander, Modern, Pioneer, Standard, Pauper.
 
 Cache:

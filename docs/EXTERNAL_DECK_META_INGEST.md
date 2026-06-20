@@ -1,8 +1,8 @@
 # External Deck Meta Ingest
 
-External deck meta is a QA-first admin pipeline. It stores public deck data from approved external sources for commander comparison work, but it does not power public Discover, mobile APIs, or `meta_signals`.
+External deck meta is a QA-first admin pipeline. It stores public deck data from approved external sources for commander comparison work, but it does not power public Discover or `meta_signals`.
 
-Deck Analysis may read approved `external_commander_profiles` only through the website-only beta comparison block, gated by `app_config.flags.deck_analysis_commander_comparison_beta === true` plus minimum sample/confidence thresholds. The beta response is sanitized and does not expose confidence, source breakdowns, warnings, support gaps, or QA-only fields.
+Deck Analysis may read approved `external_commander_profiles` only through the beta comparison block, gated by `app_config.flags.deck_analysis_commander_comparison_beta === true` plus minimum sample/confidence thresholds. Website and mobile responses are sanitized and do not expose confidence, source breakdowns, warnings, support gaps, or QA-only fields.
 
 ## Flow
 
