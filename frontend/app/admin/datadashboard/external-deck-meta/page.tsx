@@ -17,7 +17,14 @@ type StatusData = {
   queue_total: number;
   queue_by_status: Record<string, number>;
   decks_total: number;
+  summary?: {
+    total_external_decks: number;
+    valid_commander_decks: number;
+    excluded_decks: number;
+    commander_profiles_generated: number;
+  };
   decks_by_state: Record<string, number>;
+  excluded_by_reason?: Record<string, number>;
   profiles: Array<{
     id: string;
     commander_name: string;
@@ -26,6 +33,15 @@ type StatusData = {
     excluded_count: number;
     exclusion_reasons: Record<string, number>;
     source_breakdown: Record<string, number>;
+    common_cards?: Array<{ name: string; deck_count: number; inclusion_rate: number }>;
+    averages?: {
+      lands?: number;
+      ramp?: number;
+      draw?: number;
+      removal?: number;
+      protection?: number;
+      average_mv?: number;
+    };
     confidence_score: number;
     approved_for_public: boolean;
     attribution?: { copy?: string };
@@ -75,6 +91,12 @@ export default function ExternalDeckMetaPage() {
   }
 
   const urlList = urls.split(/\r?\n/).map((u) => u.trim()).filter(Boolean);
+  const summary = data?.summary ?? {
+    total_external_decks: data?.decks_total ?? 0,
+    valid_commander_decks: 0,
+    excluded_decks: 0,
+    commander_profiles_generated: data?.profiles.length ?? 0,
+  };
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-6">
@@ -143,17 +165,40 @@ export default function ExternalDeckMetaPage() {
 
           <section className="rounded border border-neutral-800 p-4 text-sm">
             <h2 className="font-medium mb-3">Counts</h2>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div>Queue total: <span className="font-mono">{data.queue_total}</span></div>
-              <div>Decks total: <span className="font-mono">{data.decks_total}</span></div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded bg-neutral-900 border border-neutral-800 p-3">
+                <div className="text-xs text-neutral-500">Total external decks</div>
+                <div className="font-mono text-lg">{summary.total_external_decks}</div>
+              </div>
+              <div className="rounded bg-neutral-900 border border-neutral-800 p-3">
+                <div className="text-xs text-neutral-500">Valid Commander decks</div>
+                <div className="font-mono text-lg text-emerald-300">{summary.valid_commander_decks}</div>
+              </div>
+              <div className="rounded bg-neutral-900 border border-neutral-800 p-3">
+                <div className="text-xs text-neutral-500">Excluded decks</div>
+                <div className="font-mono text-lg text-amber-300">{summary.excluded_decks}</div>
+              </div>
+              <div className="rounded bg-neutral-900 border border-neutral-800 p-3">
+                <div className="text-xs text-neutral-500">Commander profiles</div>
+                <div className="font-mono text-lg">{summary.commander_profiles_generated}</div>
+              </div>
             </div>
             <pre className="mt-3 text-xs text-neutral-400 bg-neutral-950 rounded p-3 overflow-auto">
-              {JSON.stringify({ queue_by_status: data.queue_by_status, decks_by_state: data.decks_by_state }, null, 2)}
+              {JSON.stringify(
+                {
+                  queue_total: data.queue_total,
+                  queue_by_status: data.queue_by_status,
+                  decks_by_state: data.decks_by_state,
+                  excluded_by_reason: data.excluded_by_reason ?? {},
+                },
+                null,
+                2
+              )}
             </pre>
           </section>
 
           <section className="rounded border border-neutral-800 p-4">
-            <h2 className="font-medium mb-3">Commander profiles QA</h2>
+            <h2 className="font-medium mb-3">Top commander profiles QA</h2>
             <div className="space-y-3">
               {data.profiles.length === 0 && <div className="text-sm text-neutral-500">No profiles yet.</div>}
               {data.profiles.map((p) => (
@@ -177,7 +222,22 @@ export default function ExternalDeckMetaPage() {
                     <div>Approved sample: {p.approved_sample_size}</div>
                     <div>Excluded: {p.excluded_count}</div>
                     <div>Confidence: {p.confidence_score}</div>
+                    <div>Public: {p.approved_for_public ? "approved" : "not approved"}</div>
+                    <div>Avg lands: {p.averages?.lands ?? 0}</div>
+                    <div>Avg ramp: {p.averages?.ramp ?? 0}</div>
+                    <div>Avg draw: {p.averages?.draw ?? 0}</div>
+                    <div>Avg removal: {p.averages?.removal ?? 0}</div>
+                    <div>Avg protection: {p.averages?.protection ?? 0}</div>
                   </div>
+                  {Boolean(p.common_cards?.length) && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {p.common_cards?.slice(0, 10).map((card) => (
+                        <span key={card.name} className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-xs text-neutral-300">
+                          {card.name} <span className="text-neutral-500">{Math.round(card.inclusion_rate * 100)}%</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <pre className="mt-2 text-xs text-neutral-500 bg-neutral-950 rounded p-2 overflow-auto">
                     {JSON.stringify({ sources: p.source_breakdown, exclusions: p.exclusion_reasons }, null, 2)}
                   </pre>

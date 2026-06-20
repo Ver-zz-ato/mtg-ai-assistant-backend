@@ -116,14 +116,13 @@ function validateDeck(deck: NormalizedExternalDeck): { valid: boolean; reason: E
 }
 
 async function hasDuplicateApprovedHash(admin: SupabaseClient, deckHash: string, sourceKey: string, externalId: string): Promise<boolean> {
-  const { count } = await admin
+  const { data } = await admin
     .from("external_decks")
-    .select("id", { count: "exact", head: true })
+    .select("source_key, external_id")
     .eq("deck_hash", deckHash)
     .eq("aggregate_approved", true)
-    .not("source_key", "eq", sourceKey)
-    .neq("external_id", externalId);
-  return (count ?? 0) > 0;
+    .limit(5);
+  return (data ?? []).some((row) => row.source_key !== sourceKey || row.external_id !== externalId);
 }
 
 async function fetchCardFacts(
@@ -143,6 +142,32 @@ async function fetchCardFacts(
     }
   }
   return out;
+}
+
+async function fetchDeckCardsPage<T>(
+  admin: SupabaseClient,
+  deckIds: string[],
+  columns: string,
+  boards: string[]
+): Promise<T[]> {
+  const rows: T[] = [];
+  const pageSize = 1000;
+  for (let i = 0; i < deckIds.length; i += 100) {
+    const ids = deckIds.slice(i, i + 100);
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await admin
+        .from("external_deck_cards")
+        .select(columns)
+        .in("external_deck_id", ids)
+        .in("board", boards)
+        .range(from, from + pageSize - 1);
+      if (error) throw new Error(error.message);
+      const page = (data ?? []) as T[];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
+  }
+  return rows;
 }
 
 async function persistDeck(
@@ -325,11 +350,12 @@ export async function writeExternalMetaRollups(admin: SupabaseClient): Promise<n
   const deckRows = (decks ?? []) as Array<{ id: string; source_key: string; format: string | null; commanders: string[]; aggregate_approved: boolean }>;
   if (deckRows.length === 0) return 0;
   const deckIds = deckRows.map((d) => d.id);
-  const { data: cards } = await admin
-    .from("external_deck_cards")
-    .select("external_deck_id, source_key, card_name, card_name_norm, board")
-    .in("external_deck_id", deckIds)
-    .in("board", ["mainboard", "commander"]);
+  const cards = await fetchDeckCardsPage<{ external_deck_id: string; source_key: string; card_name: string; card_name_norm?: string | null }>(
+    admin,
+    deckIds,
+    "external_deck_id, source_key, card_name, card_name_norm, board",
+    ["mainboard", "commander"]
+  );
 
   const payload = new Map<string, { source_key: string; format: string; entity_type: "commander" | "card"; entity_name: string; entity_name_norm: string; deckIds: Set<string>; sources: Record<string, number> }>();
   const add = (sourceKey: string, format: string, type: "commander" | "card", name: string, deckId: string) => {
@@ -356,7 +382,7 @@ export async function writeExternalMetaRollups(admin: SupabaseClient): Promise<n
     const format = d.format ?? "unknown";
     for (const c of d.commanders ?? []) add(d.source_key, format, "commander", c, d.id);
   }
-  for (const c of cards ?? []) {
+  for (const c of cards) {
     const row = c as { external_deck_id: string; source_key: string; card_name: string; card_name_norm?: string | null };
     const deck = deckRows.find((d) => d.id === row.external_deck_id);
     if (!deck) continue;
@@ -412,12 +438,12 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
     exclusion_reason: ExclusionReason | null;
   }>;
   if (decks.length === 0) return 0;
-  const cardsRaw = await admin
-    .from("external_deck_cards")
-    .select("external_deck_id, card_name, card_name_norm, quantity, board")
-    .in("external_deck_id", decks.map((d) => d.id))
-    .in("board", ["mainboard", "commander"]);
-  const cards = (cardsRaw.data ?? []) as Array<{ external_deck_id: string; card_name: string; card_name_norm: string | null; quantity: number; board: string }>;
+  const cards = await fetchDeckCardsPage<{ external_deck_id: string; card_name: string; card_name_norm: string | null; quantity: number; board: string }>(
+    admin,
+    decks.map((d) => d.id),
+    "external_deck_id, card_name, card_name_norm, quantity, board",
+    ["mainboard", "commander"]
+  );
   const facts = await fetchCardFacts(admin, cards.map((c) => c.card_name));
   const cardsByDeck = new Map<string, typeof cards>();
   for (const c of cards) cardsByDeck.set(c.external_deck_id, [...(cardsByDeck.get(c.external_deck_id) ?? []), c]);
@@ -575,11 +601,11 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
       .from("external_deck_sources")
       .select("source_key, display_name, enabled, discovery_enabled, cooldown_until, last_fetched_at, last_success_at, last_error, consecutive_failures, max_decks_per_run"),
     admin.from("external_deck_ingest_queue").select("id, status", { count: "exact" }),
-    admin.from("external_decks").select("id, source_key, format, is_valid, aggregate_approved", { count: "exact" }),
+    admin.from("external_decks").select("id, source_key, format, is_valid, aggregate_approved, exclusion_reason", { count: "exact" }),
     admin
       .from("external_commander_profiles")
-      .select("id, commander_name, raw_sample_size, approved_sample_size, excluded_count, exclusion_reasons, source_breakdown, confidence_score, approved_for_public, attribution, last_refreshed_at")
-      .order("last_refreshed_at", { ascending: false })
+      .select("id, commander_name, raw_sample_size, approved_sample_size, excluded_count, exclusion_reasons, source_breakdown, common_cards, missing_common_support, averages, curve_summary, confidence_score, approved_for_public, attribution, last_refreshed_at")
+      .order("approved_sample_size", { ascending: false })
       .limit(50),
     admin
       .from("external_meta_rollups_daily")
@@ -591,6 +617,13 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
   if (queuePending.error) throw new Error(queuePending.error.message);
   if (decks.error) throw new Error(decks.error.message);
   if (profiles.error) throw new Error(profiles.error.message);
+  const deckRows = (decks.data ?? []) as Array<{
+    source_key?: string;
+    format?: string | null;
+    is_valid?: boolean;
+    aggregate_approved?: boolean;
+    exclusion_reason?: string | null;
+  }>;
   return {
     sources: sources.data ?? [],
     queue_total: queuePending.count ?? 0,
@@ -600,12 +633,25 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
       return acc;
     }, {}),
     decks_total: decks.count ?? 0,
-    decks_by_state: (decks.data ?? []).reduce((acc: Record<string, number>, row: { source_key?: string; format?: string; is_valid?: boolean; aggregate_approved?: boolean }) => {
+    summary: {
+      total_external_decks: decks.count ?? 0,
+      valid_commander_decks: deckRows.filter((row) => row.format === "commander" && row.is_valid && row.aggregate_approved).length,
+      excluded_decks: deckRows.filter((row) => !row.aggregate_approved).length,
+      commander_profiles_generated: profiles.data?.length ?? 0,
+    },
+    decks_by_state: deckRows.reduce((acc: Record<string, number>, row) => {
       const key = `${row.source_key ?? "unknown"}:${row.format ?? "unknown"}:${row.aggregate_approved ? "approved" : row.is_valid ? "valid" : "excluded"}`;
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
     }, {}),
+    excluded_by_reason: deckRows.reduce((acc: Record<string, number>, row) => {
+      if (row.aggregate_approved) return acc;
+      const key = row.exclusion_reason ?? "not_approved";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {}),
     profiles: profiles.data ?? [],
+    top_profiles: profiles.data ?? [],
     latest_rollups: latestRollups.data ?? [],
   };
 }
