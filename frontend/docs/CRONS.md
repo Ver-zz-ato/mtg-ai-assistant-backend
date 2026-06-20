@@ -12,7 +12,7 @@
 | meta-signals | `/api/cron/meta-signals` | 05:15 daily |
 | marketing-radar-daily | `/api/cron/marketing-radar-daily` | 06:30 daily |
 | marketing-radar-review | `/api/cron/marketing-radar-review` | 08:00 every 2 days (ingest + brief + Discord review link) |
-| external-deck-meta | `/api/cron/external-deck-meta` | every 4 hours at :17 |
+| external-deck-meta | `/api/cron/external-deck-meta` | hourly at :17 |
 | top-cards | `/api/cron/top-cards` | 05:30 daily |
 | cleanup-rate-limits | `/api/cron/cleanup-rate-limits` | 06:00 Sundays |
 | cleanup-shared-links | `/api/cron/cleanup-shared-links` | 06:15 daily |
@@ -59,7 +59,7 @@ npx tsx scripts/run-crons.ts all https://www.manatap.ai
 - **deck-costs** → populates `deck_costs` from `deck_cards` + `price_cache`
 - **commander-aggregates** → needs `deck_costs`; populates `commander_aggregates` (deck_count, median_deck_cost, top_cards, etc.). **Commander Intelligence** on commander pages reads from this cache — run this cron after bulk-importing decks to refresh deck counts.
 - **meta-signals** → populates `meta_signals` (blended **Scryfall** EDHREC + ManaTap decks), optional rows in **`meta_commander_daily`** / **`meta_card_daily`** when those tables exist (migration in Manatap-APP `docs/supabase/migrations/20260419_meta_external_daily.sql`). Does **not** require `commander_aggregates`. `trending-cards` still starts from internal trend deltas, but if that list is too sparse for Discover it is topped up from filtered global popular-card rows before publish. Writes `app_config`: `job:last:meta-signals`, `job:meta-signals:attempt`, `job:meta-signals:detail` (JSON status for admin QA).
-- **external-deck-meta** → admin-only QA pipeline for public Archidekt/Moxfield deck data. It processes queued deck URLs, performs conservative Archidekt recent-deck discovery, writes `external_decks`, `external_deck_cards`, `external_meta_rollups_daily`, and `external_commander_profiles`, and never writes public `meta_signals` or mobile output. Moxfield is curated URL only in V1. Source cooldowns respect `Retry-After`; repeated 403/timeouts cool down the source.
+- **external-deck-meta** → admin-only QA pipeline for public Archidekt/Moxfield deck data. It runs hourly through a target-driven allocator with a hard cap of 15 Archidekt detail fetches per run. Before 100 Community Profile-eligible commanders exist, it biases toward focused Archidekt growth for popular commanders below 50 approved samples; after that target it biases toward refreshing old eligible deck data. It writes `external_decks`, `external_deck_cards`, `external_meta_rollups_daily`, and `external_commander_profiles`, and never writes public `meta_signals` or mobile output. Moxfield is curated URL only in V1; Moxfield discovery remains disabled. Source cooldowns respect `Retry-After`; repeated 403/timeouts cool down the source. Allocator summaries are stored in `app_config.external_deck_meta:last_allocator_summary` for admin QA.
 - **cleanup-shared-links** → deletes expired rows from `shared_health_reports`, `shared_analysis_reports`, and related `shared_item_comments`. This keeps public share links and comment visibility aligned with expiry behavior used by the mobile app and website.
 - **Tournament Manager V1** currently has invite/event `expires_at` columns but no scheduled cleanup cron. Expired tournament invites are rejected by `/api/mobile/tournaments/join`; add a dedicated cleanup cron later if storage volume becomes meaningful during beta.
 

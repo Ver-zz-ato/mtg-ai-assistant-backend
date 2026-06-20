@@ -73,9 +73,67 @@ type StatusData = {
     aggregate_approved: boolean;
     exclusion_reason: string | null;
   }>;
+  coverage?: {
+    top100: CoverageTarget[];
+    top250: CoverageTarget[];
+    top100_summary: CoverageSummary;
+    top250_summary: CoverageSummary;
+    community_profile_eligible_count: number;
+    remaining_growth_opportunities: number;
+  };
+  last_allocator_summary?: {
+    ok: boolean;
+    mode: string;
+    detail_fetch_cap: number;
+    growth_budget: number;
+    refresh_budget: number;
+    queued_growth: number;
+    queued_refresh: number;
+    next_work_bucket: string;
+    cooldown_until?: string | null;
+    errors?: string[];
+    ran_at: string;
+    processed_summary?: {
+      processed: number;
+      insertedOrUpdated: number;
+      unchanged: number;
+      failed: number;
+      errors: string[];
+    } | null;
+    coverage_before?: {
+      top100: CoverageSummary;
+      top250: CoverageSummary;
+      community_profile_eligible_count: number;
+    };
+    coverage_after?: {
+      top100: CoverageSummary;
+      top250: CoverageSummary;
+      community_profile_eligible_count: number;
+    };
+  } | null;
   profiles: ProfileQa[];
   top_profiles_by_confidence?: ProfileQa[];
   recently_refreshed_profiles?: ProfileQa[];
+};
+
+type CoverageSummary = {
+  total: number;
+  eligible: number;
+  near_eligible: number;
+  early_signal: number;
+  not_ready: number;
+  needs_confidence_review: number;
+};
+
+type CoverageTarget = {
+  rank: number;
+  commander: string;
+  approved_sample_size: number;
+  confidence_score: number;
+  readiness_bucket: string;
+  needed_to_50: number;
+  community_profile_eligible: boolean;
+  warnings: string[];
 };
 
 type ComparisonQaResult = {
@@ -110,6 +168,8 @@ type ComparisonQaResult = {
 };
 
 function readinessLabel(key: string) {
+  if (key === "eligible") return "Eligible";
+  if (key === "needs_confidence_review") return "Needs confidence review";
   if (key === "not_ready") return "Not ready";
   if (key === "early_signal") return "Early signal";
   if (key === "usable_qa") return "Usable QA";
@@ -191,6 +251,8 @@ export default function ExternalDeckMetaPage() {
     commander_profiles_generated: data?.profiles.length ?? 0,
   };
   const readiness = data?.readiness_buckets ?? { not_ready: 0, early_signal: 0, usable_qa: 0, public_candidate: 0 };
+  const coverage = data?.coverage;
+  const allocator = data?.last_allocator_summary ?? null;
   const profileLists = [
     { title: "Top 25 by approved sample", rows: data?.profiles ?? [] },
     { title: "Top 25 by confidence", rows: data?.top_profiles_by_confidence ?? [] },
@@ -428,6 +490,77 @@ export default function ExternalDeckMetaPage() {
               ))}
             </div>
           </section>
+
+          {coverage && (
+            <section className="rounded border border-neutral-800 p-4 space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-medium">Popularity coverage</h2>
+                  <p className="text-xs text-neutral-500 mt-1">Admin-only target tracking. Ranking uses internal commander popularity; profile samples are joined from external QA data.</p>
+                </div>
+                <div className="text-xs text-neutral-400">
+                  Eligible profiles: <span className="font-mono text-emerald-300">{coverage.community_profile_eligible_count}</span>
+                  <span className="mx-2 text-neutral-700">/</span>
+                  Target: <span className="font-mono">100</span>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 text-sm">
+                {[
+                  { label: "Top 100", summary: coverage.top100_summary },
+                  { label: "Top 250", summary: coverage.top250_summary },
+                ].map((item) => (
+                  <div key={item.label} className="rounded bg-neutral-900 border border-neutral-800 p-3">
+                    <div className="font-medium">{item.label}</div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-neutral-400">
+                      <div>Eligible: <span className="font-mono text-emerald-300">{item.summary.eligible}</span></div>
+                      <div>Near: <span className="font-mono">{item.summary.near_eligible}</span></div>
+                      <div>Early: <span className="font-mono">{item.summary.early_signal}</span></div>
+                      <div>Not ready: <span className="font-mono">{item.summary.not_ready}</span></div>
+                      <div>Confidence review: <span className="font-mono">{item.summary.needs_confidence_review}</span></div>
+                      <div>Total: <span className="font-mono">{item.summary.total}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded bg-neutral-900 border border-neutral-800 p-3 text-xs text-neutral-400">
+                <div className="flex flex-wrap gap-x-5 gap-y-1">
+                  <div>Next cron work bucket: <span className="font-mono text-neutral-200">{allocator?.next_work_bucket ?? "unknown"}</span></div>
+                  <div>Last run: <span className="font-mono">{allocator?.ran_at ? new Date(allocator.ran_at).toLocaleString() : "never"}</span></div>
+                  <div>Queued growth/refresh: <span className="font-mono">{allocator ? `${allocator.queued_growth}/${allocator.queued_refresh}` : "0/0"}</span></div>
+                  <div>Processed: <span className="font-mono">{allocator?.processed_summary?.processed ?? 0}</span></div>
+                  <div>Remaining growth opportunities: <span className="font-mono">{coverage.remaining_growth_opportunities}</span></div>
+                </div>
+                {allocator?.cooldown_until && <div className="mt-2 text-amber-300">Cooldown until: {allocator.cooldown_until}</div>}
+                {Boolean(allocator?.errors?.length) && <div className="mt-2 text-red-300">Errors: {allocator?.errors?.join(", ")}</div>}
+              </div>
+              <div className="overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-neutral-500">
+                    <tr>
+                      <th className="text-left py-1">Rank</th>
+                      <th className="text-left py-1">Commander</th>
+                      <th className="text-right py-1">Approved</th>
+                      <th className="text-right py-1">Confidence</th>
+                      <th className="text-left py-1">Bucket</th>
+                      <th className="text-right py-1">Need</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coverage.top100.slice(0, 25).map((row) => (
+                      <tr key={`${row.rank}-${row.commander}`} className="border-t border-neutral-800">
+                        <td className="py-1 font-mono">{row.rank}</td>
+                        <td className="py-1 text-neutral-200">{row.commander}</td>
+                        <td className="py-1 text-right font-mono">{row.approved_sample_size}</td>
+                        <td className="py-1 text-right font-mono">{row.confidence_score}</td>
+                        <td className="py-1">{readinessLabel(row.readiness_bucket)}</td>
+                        <td className="py-1 text-right font-mono">{row.needed_to_50}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           <section className="rounded border border-neutral-800 p-4">
             <h2 className="font-medium mb-3">Sanity flags</h2>

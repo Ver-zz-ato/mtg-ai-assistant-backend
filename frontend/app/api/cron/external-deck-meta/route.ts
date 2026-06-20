@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/app/api/_lib/supa";
-import { runExternalDeckMetaIngest } from "@/lib/external-deck-meta/service";
+import { runExternalDeckMetaCronAllocator } from "@/lib/external-deck-meta/service";
 import { verifyCronRequest } from "@/lib/server/verifyCronRequest";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const admin = getAdmin();
     if (!admin) return NextResponse.json({ ok: false, error: "admin_client_unavailable" }, { status: 500 });
-    const summary = await runExternalDeckMetaIngest(admin, { source: "all", discover: true });
+    const summary = await runExternalDeckMetaCronAllocator(admin);
     return NextResponse.json({ ok: true, summary });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "server_error" }, { status: 500 });

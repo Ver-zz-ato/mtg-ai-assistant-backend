@@ -1,9 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
-import { fetchExternalDeck, discoverArchidektRecentDecks } from "./adapters";
+import { fetchExternalDeck, discoverArchidektCommanderSearchDecks, discoverArchidektRecentDecks } from "./adapters";
+import {
+  buildExternalCommanderCoverageReport,
+  commanderCoverageKey,
+  COMMUNITY_PROFILE_MIN_SAMPLE,
+} from "./coverage";
 import { countCards, stableDeckHash } from "./hash";
 import { isSourceCoolingDown, markSourceFailure, markSourceSuccess, politeDelay, retryAfterToCooldownIso } from "./rateLimit";
 import type {
+  ExternalCommanderCoverageReport,
+  ExternalCommanderCoverageTarget,
   ExclusionReason,
   ExternalDeckIngestSummary,
   ExternalDeckSourceKey,
@@ -16,6 +23,54 @@ const COMMANDER_MIN_CARDS = 80;
 const CONSTRUCTED_MIN_CARDS = 40;
 const PUBLIC_CANDIDATE_CONFIDENCE = 0.45;
 const ROLE_KEYS = ["lands", "ramp", "draw", "removal", "protection"] as const;
+const ALLOCATOR_APP_CONFIG_KEY = "external_deck_meta:last_allocator_summary";
+const ALLOCATOR_CURSOR_APP_CONFIG_KEY = "external_deck_meta:archidekt_search_cursors";
+const TARGET_ELIGIBLE_PROFILES = 100;
+const HOURLY_DETAIL_FETCH_CAP = 15;
+
+type ExternalDeckMetaAllocatorSummary = {
+  ok: boolean;
+  mode: "growth" | "refresh" | "cooldown" | "disabled" | "idle";
+  target_eligible_profiles: number;
+  detail_fetch_cap: number;
+  growth_budget: number;
+  refresh_budget: number;
+  queued_growth: number;
+  queued_refresh: number;
+  search_events: Array<{
+    commander: string;
+    bucket: string;
+    page: number;
+    query: string;
+    status: number;
+    found: number;
+    queued: number;
+    retry_after?: string | null;
+  }>;
+  selected_growth_targets: Array<{
+    rank: number;
+    commander: string;
+    approved_sample_size: number;
+    confidence_score: number;
+    readiness_bucket: string;
+    needed_to_50: number;
+  }>;
+  processed_summary: ExternalDeckIngestSummary | null;
+  coverage_before?: {
+    top100: ExternalCommanderCoverageReport["top100_summary"];
+    top250: ExternalCommanderCoverageReport["top250_summary"];
+    community_profile_eligible_count: number;
+  };
+  coverage_after?: {
+    top100: ExternalCommanderCoverageReport["top100_summary"];
+    top250: ExternalCommanderCoverageReport["top250_summary"];
+    community_profile_eligible_count: number;
+  };
+  next_work_bucket: string;
+  cooldown_until?: string | null;
+  errors: string[];
+  ran_at: string;
+};
 
 type ExternalCommanderProfileStatusRow = {
   id: string;
@@ -135,6 +190,205 @@ export async function discoverArchidektQueue(admin: SupabaseClient): Promise<num
     null
   );
   return queued;
+}
+
+function archidektCommanderQuery(commander: string): string {
+  const name = String(commander || "").trim();
+  if (/^the ur-dragon$/i.test(name)) return "Ur-Dragon";
+  return name.split(",")[0]?.trim() || name;
+}
+
+async function readAppConfigJson<T>(admin: SupabaseClient, key: string, fallback: T): Promise<T> {
+  const { data } = await admin.from("app_config").select("value").eq("key", key).maybeSingle();
+  const value = (data as { value?: unknown } | null)?.value;
+  if (value && typeof value === "object") return value as T;
+  return fallback;
+}
+
+async function writeAppConfigJson(admin: SupabaseClient, key: string, value: unknown): Promise<void> {
+  await admin.from("app_config").upsert(
+    {
+      key,
+      value,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "key" }
+  );
+}
+
+async function existingArchidektIds(admin: SupabaseClient, ids: string[]): Promise<Set<string>> {
+  const existing = new Set<string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    const [decks, queue] = await Promise.all([
+      admin.from("external_decks").select("external_id").eq("source_key", "archidekt").in("external_id", chunk),
+      admin.from("external_deck_ingest_queue").select("external_id").eq("source_key", "archidekt").in("external_id", chunk),
+    ]);
+    if (decks.error) throw new Error(decks.error.message);
+    if (queue.error) throw new Error(queue.error.message);
+    for (const row of decks.data ?? []) existing.add(String((row as { external_id?: string }).external_id ?? ""));
+    for (const row of queue.data ?? []) existing.add(String((row as { external_id?: string }).external_id ?? ""));
+  }
+  return existing;
+}
+
+function growthTargetSort(a: ExternalCommanderCoverageTarget, b: ExternalCommanderCoverageTarget): number {
+  const bucketWeight = (row: ExternalCommanderCoverageTarget) => {
+    if (row.readiness_bucket === "usable_qa") return 0;
+    if (row.readiness_bucket === "early_signal") return 1;
+    if (row.readiness_bucket === "not_ready" && row.rank <= 100) return 2;
+    return 3;
+  };
+  return bucketWeight(a) - bucketWeight(b) || a.needed_to_50 - b.needed_to_50 || a.rank - b.rank;
+}
+
+async function queueFocusedArchidektGrowth(
+  admin: SupabaseClient,
+  source: Pick<ExternalDeckSourceRow, "source_key" | "consecutive_failures" | "min_delay_ms">,
+  targets: ExternalCommanderCoverageTarget[],
+  desiredDecks: number
+): Promise<{
+  queued: number;
+  events: ExternalDeckMetaAllocatorSummary["search_events"];
+  selected: ExternalDeckMetaAllocatorSummary["selected_growth_targets"];
+  cooldownUntil?: string | null;
+}> {
+  const selected = targets
+    .filter((row) => row.approved_sample_size < COMMUNITY_PROFILE_MIN_SAMPLE)
+    .sort(growthTargetSort)
+    .slice(0, 10);
+  const cursors = await readAppConfigJson<Record<string, number>>(admin, ALLOCATOR_CURSOR_APP_CONFIG_KEY, {});
+  const events: ExternalDeckMetaAllocatorSummary["search_events"] = [];
+  let queued = 0;
+  let cooldownUntil: string | null | undefined;
+
+  for (const target of selected) {
+    if (queued >= desiredDecks) break;
+    const key = target.commander_key || commanderCoverageKey(target.commander);
+    const page = Math.max(1, Math.floor(Number(cursors[key]) || 1));
+    const query = archidektCommanderQuery(target.commander);
+    const found = await discoverArchidektCommanderSearchDecks(query, { page, maxIds: 60 });
+    cursors[key] = page + 1;
+    if (!found.ok) {
+      const status = found.status || 0;
+      events.push({
+        commander: target.commander,
+        bucket: target.readiness_bucket,
+        page,
+        query,
+        status,
+        found: 0,
+        queued: 0,
+        retry_after: found.retryAfter ?? null,
+      });
+      if (status === 429 || status === 403) {
+        cooldownUntil = status === 429 ? retryAfterToCooldownIso(found.retryAfter ?? null, 6) : retryAfterToCooldownIso(null, 24);
+        await markSourceFailure(admin, source, found.error, { cooldownUntil });
+        break;
+      }
+      await politeDelay(source.min_delay_ms);
+      continue;
+    }
+
+    const existing = await existingArchidektIds(admin, found.ids);
+    const ids = found.ids.filter((id) => !existing.has(id)).slice(0, Math.max(0, desiredDecks - queued));
+    if (ids.length > 0) {
+      const now = new Date().toISOString();
+      const rows = ids.map((id) => ({
+        source_key: "archidekt",
+        external_id: id,
+        url: sourceDeckUrl("archidekt", id),
+        submitted_by: null,
+        status: "pending",
+        next_attempt_at: now,
+        updated_at: now,
+      }));
+      const { error } = await admin.from("external_deck_ingest_queue").upsert(rows, {
+        onConflict: "source_key,external_id",
+        ignoreDuplicates: true,
+      });
+      if (error) throw new Error(error.message);
+      queued += rows.length;
+    }
+
+    events.push({
+      commander: target.commander,
+      bucket: target.readiness_bucket,
+      page,
+      query,
+      status: 200,
+      found: found.ids.length,
+      queued: ids.length,
+    });
+    await politeDelay(source.min_delay_ms);
+  }
+
+  await writeAppConfigJson(admin, ALLOCATOR_CURSOR_APP_CONFIG_KEY, cursors);
+  return {
+    queued,
+    events,
+    selected: selected.map((target) => ({
+      rank: target.rank,
+      commander: target.commander,
+      approved_sample_size: target.approved_sample_size,
+      confidence_score: target.confidence_score,
+      readiness_bucket: target.readiness_bucket,
+      needed_to_50: target.needed_to_50,
+    })),
+    cooldownUntil,
+  };
+}
+
+async function queueArchidektRefresh(
+  admin: SupabaseClient,
+  eligibleCommanders: Set<string>,
+  desiredDecks: number
+): Promise<number> {
+  if (desiredDecks <= 0 || eligibleCommanders.size === 0) return 0;
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from("external_decks")
+    .select("source_key, external_id, url, commanders, fetched_at")
+    .eq("source_key", "archidekt")
+    .eq("format", "commander")
+    .eq("aggregate_approved", true)
+    .lt("fetched_at", cutoff)
+    .order("fetched_at", { ascending: true })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  const rows = [];
+  const now = new Date().toISOString();
+  for (const row of (data ?? []) as Array<{ external_id?: string; url?: string | null; commanders?: string[] }>) {
+    if (rows.length >= desiredDecks) break;
+    const commanders = Array.isArray(row.commanders) ? row.commanders : [];
+    if (!commanders.some((name) => eligibleCommanders.has(commanderCoverageKey(name)))) continue;
+    const externalId = String(row.external_id ?? "");
+    if (!/^\d+$/.test(externalId)) continue;
+    rows.push({
+      source_key: "archidekt",
+      external_id: externalId,
+      url: row.url || sourceDeckUrl("archidekt", externalId),
+      submitted_by: null,
+      status: "pending",
+      next_attempt_at: now,
+      updated_at: now,
+    });
+  }
+  if (rows.length === 0) return 0;
+  const { error: upsertError } = await admin.from("external_deck_ingest_queue").upsert(rows, {
+    onConflict: "source_key,external_id",
+    ignoreDuplicates: false,
+  });
+  if (upsertError) throw new Error(upsertError.message);
+  return rows.length;
+}
+
+function coverageSummaryForAllocator(report: ExternalCommanderCoverageReport) {
+  return {
+    top100: report.top100_summary,
+    top250: report.top250_summary,
+    community_profile_eligible_count: report.community_profile_eligible_count,
+  };
 }
 
 function normalizeFormat(format: string | null | undefined): string | null {
@@ -762,8 +1016,109 @@ export async function runExternalDeckMetaIngest(
   return summary;
 }
 
+export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): Promise<ExternalDeckMetaAllocatorSummary> {
+  const ranAt = new Date().toISOString();
+  const base: ExternalDeckMetaAllocatorSummary = {
+    ok: true,
+    mode: "idle",
+    target_eligible_profiles: TARGET_ELIGIBLE_PROFILES,
+    detail_fetch_cap: HOURLY_DETAIL_FETCH_CAP,
+    growth_budget: 0,
+    refresh_budget: 0,
+    queued_growth: 0,
+    queued_refresh: 0,
+    search_events: [],
+    selected_growth_targets: [],
+    processed_summary: null,
+    next_work_bucket: "none",
+    errors: [],
+    ran_at: ranAt,
+  };
+
+  try {
+    const coverageBefore = await buildExternalCommanderCoverageReport(admin);
+    base.coverage_before = coverageSummaryForAllocator(coverageBefore);
+
+    const { data: sourceData, error: sourceError } = await admin
+      .from("external_deck_sources")
+      .select("source_key, display_name, enabled, discovery_enabled, approved_for_profiles, cooldown_until, min_delay_ms, max_decks_per_run, max_discovery_pages_per_run, consecutive_failures, last_error")
+      .eq("source_key", "archidekt")
+      .maybeSingle();
+    if (sourceError) throw new Error(sourceError.message);
+    const source = sourceData as ExternalDeckSourceRow | null;
+    if (!source?.enabled) {
+      const summary = { ...base, mode: "disabled" as const, next_work_bucket: "source_disabled" };
+      await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, summary);
+      return summary;
+    }
+    if (isSourceCoolingDown(source)) {
+      const summary = {
+        ...base,
+        mode: "cooldown" as const,
+        cooldown_until: source.cooldown_until,
+        next_work_bucket: "cooldown",
+      };
+      await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, summary);
+      return summary;
+    }
+
+    const targetReached = coverageBefore.community_profile_eligible_count >= TARGET_ELIGIBLE_PROFILES;
+    const growthBudget = targetReached ? 3 : 10;
+    const refreshBudget = HOURLY_DETAIL_FETCH_CAP - growthBudget;
+    base.mode = targetReached ? "refresh" : "growth";
+    base.growth_budget = growthBudget;
+    base.refresh_budget = refreshBudget;
+
+    const eligibleCommanders = new Set(
+      coverageBefore.top250.filter((row) => row.community_profile_eligible).map((row) => row.commander_key)
+    );
+    const growthTargets = coverageBefore.top100.filter((row) => row.approved_sample_size < COMMUNITY_PROFILE_MIN_SAMPLE);
+
+    if (growthBudget > 0 && growthTargets.length > 0) {
+      const growth = await queueFocusedArchidektGrowth(admin, source, growthTargets, growthBudget);
+      base.queued_growth = growth.queued;
+      base.search_events = growth.events;
+      base.selected_growth_targets = growth.selected;
+      if (growth.cooldownUntil) {
+        const summary = {
+          ...base,
+          ok: false,
+          mode: "cooldown" as const,
+          cooldown_until: growth.cooldownUntil,
+          next_work_bucket: "cooldown_after_search",
+        };
+        await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, summary);
+        return summary;
+      }
+    }
+
+    base.queued_refresh = await queueArchidektRefresh(admin, eligibleCommanders, refreshBudget);
+    base.next_work_bucket =
+      base.queued_growth > 0 ? "growth" : base.queued_refresh > 0 ? "refresh" : growthTargets.length > 0 ? "growth_search_exhausted" : "idle";
+
+    base.processed_summary = await runExternalDeckMetaIngest(admin, {
+      source: "archidekt",
+      limit: HOURLY_DETAIL_FETCH_CAP,
+      discover: false,
+    });
+    const coverageAfter = await buildExternalCommanderCoverageReport(admin);
+    base.coverage_after = coverageSummaryForAllocator(coverageAfter);
+    await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, base);
+    return base;
+  } catch (e) {
+    const summary = {
+      ...base,
+      ok: false,
+      errors: [e instanceof Error ? e.message : "allocator_failed"],
+      next_work_bucket: "error",
+    };
+    await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, summary);
+    return summary;
+  }
+}
+
 export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
-  const [sources, queuePending, decks, allProfiles, profilesBySample, profilesByConfidence, profilesByRefresh, latestRollups] = await Promise.all([
+  const [sources, queuePending, decks, allProfiles, profilesBySample, profilesByConfidence, profilesByRefresh, latestRollups, coverage, lastAllocator] = await Promise.all([
     admin
       .from("external_deck_sources")
       .select("source_key, display_name, enabled, discovery_enabled, cooldown_until, last_fetched_at, last_success_at, last_error, consecutive_failures, max_decks_per_run"),
@@ -796,6 +1151,8 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
       .select("snapshot_date, entity_type, deck_count")
       .order("snapshot_date", { ascending: false })
       .limit(10),
+    buildExternalCommanderCoverageReport(admin),
+    readAppConfigJson<ExternalDeckMetaAllocatorSummary | null>(admin, ALLOCATOR_APP_CONFIG_KEY, null),
   ]);
   if (sources.error) throw new Error(sources.error.message);
   if (queuePending.error) throw new Error(queuePending.error.message);
@@ -885,6 +1242,8 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
     }, {}),
     suspicious_profiles: suspiciousProfiles,
     deck_sanity_flags: deckSanityFlags.slice(0, 50),
+    coverage,
+    last_allocator_summary: lastAllocator,
     profiles: sampleProfiles,
     top_profiles: sampleProfiles,
     top_profiles_by_confidence: confidenceProfiles,

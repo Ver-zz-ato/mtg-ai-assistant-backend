@@ -184,3 +184,25 @@ export async function discoverArchidektRecentDecks(): Promise<string[]> {
   }
   return [...new Set(ids)].slice(0, 20);
 }
+
+export async function discoverArchidektCommanderSearchDecks(
+  query: string,
+  opts?: { page?: number; maxIds?: number }
+): Promise<{ ok: true; ids: string[] } | { ok: false; status: number; error: string; retryAfter?: string | null }> {
+  const q = String(query || "").trim();
+  if (!q) return { ok: true, ids: [] };
+  const page = Math.max(1, Math.floor(Number(opts?.page) || 1));
+  const maxIds = Math.max(1, Math.min(60, Math.floor(Number(opts?.maxIds) || 60)));
+  const url = `https://archidekt.com/api/decks/v3/?orderBy=-createdAt&deckFormat=3&name=${encodeURIComponent(q)}&page=${page}`;
+  const res = await fetchJson(url, "archidekt");
+  if (!res.ok) return res;
+  const root = asRecord(res.json);
+  const rows = asArray(root.results ?? root.data ?? res.json);
+  const ids: string[] = [];
+  for (const item of rows) {
+    const row = asRecord(item);
+    const id = text(row.id) ?? (typeof row.id === "number" ? String(row.id) : null);
+    if (id && /^\d+$/.test(id)) ids.push(id);
+  }
+  return { ok: true, ids: [...new Set(ids)].slice(0, maxIds) };
+}

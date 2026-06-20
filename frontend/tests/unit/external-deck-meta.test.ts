@@ -2,6 +2,7 @@
  * Run: npx tsx tests/unit/external-deck-meta.test.ts
  */
 import assert from "node:assert";
+import { commanderCoverageKey, communityProfileCoverageBucket } from "@/lib/external-deck-meta/coverage";
 import { stableDeckHash } from "@/lib/external-deck-meta/hash";
 import { buildCommunityProfileComparison } from "@/lib/external-deck-meta/publicComparison";
 import type { BuildCommunityProfileComparisonInput } from "@/lib/external-deck-meta/publicComparison";
@@ -30,6 +31,15 @@ import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 {
   assert.strictEqual(parseExternalDeckUrl("https://example.com/decks/123"), null);
   assert.strictEqual(parseExternalDeckUrl("https://moxfield.com/users/name"), null);
+}
+
+{
+  assert.strictEqual(commanderCoverageKey("Atraxa, Praetors' Voice"), commanderCoverageKey("Atraxa Praetors Voice"));
+  assert.strictEqual(communityProfileCoverageBucket(50, 0.55), "eligible");
+  assert.strictEqual(communityProfileCoverageBucket(64, 0.54), "needs_confidence_review");
+  assert.strictEqual(communityProfileCoverageBucket(25, 0.1), "usable_qa");
+  assert.strictEqual(communityProfileCoverageBucket(10, 0.1), "early_signal");
+  assert.strictEqual(communityProfileCoverageBucket(9, 0.9), "not_ready");
 }
 
 {
