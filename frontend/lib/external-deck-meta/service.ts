@@ -151,6 +151,13 @@ async function persistDeck(
   source: ExternalDeckSourceRow
 ): Promise<"updated" | "unchanged" | "skipped"> {
   const hash = stableDeckHash(deck);
+  const validation = validateDeck(deck);
+  let isValid = validation.valid;
+  let reason = validation.reason;
+  if (isValid && (await hasDuplicateApprovedHash(admin, hash, deck.sourceKey, deck.externalId))) {
+    isValid = false;
+    reason = "duplicate_deck_hash";
+  }
   const existing = await admin
     .from("external_decks")
     .select("id, deck_hash")
@@ -160,17 +167,19 @@ async function persistDeck(
   if (existing.data?.deck_hash === hash) {
     await admin
       .from("external_decks")
-      .update({ fetched_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({
+        format: validation.format,
+        commanders: deck.commanders,
+        mainboard_count: countCards(deck.cards, ["mainboard", "commander"]),
+        sideboard_count: countCards(deck.cards, ["sideboard"]),
+        is_valid: isValid,
+        aggregate_approved: isValid && source.approved_for_profiles,
+        exclusion_reason: reason,
+        fetched_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", (existing.data as { id: string }).id);
     return "unchanged";
-  }
-
-  const validation = validateDeck(deck);
-  let isValid = validation.valid;
-  let reason = validation.reason;
-  if (isValid && (await hasDuplicateApprovedHash(admin, hash, deck.sourceKey, deck.externalId))) {
-    isValid = false;
-    reason = "duplicate_deck_hash";
   }
 
   const mainboardCount = countCards(deck.cards, ["mainboard", "commander"]);

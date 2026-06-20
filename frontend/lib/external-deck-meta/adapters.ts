@@ -94,6 +94,33 @@ function archidektCardName(row: Record<string, unknown>): string | null {
   return text(oracle.name) ?? text(card.name) ?? text(row.name);
 }
 
+function archidektFormatName(raw: unknown): string | null {
+  const objName = text(asRecord(raw).name);
+  if (objName) return objName;
+  const stringValue = text(raw);
+  if (stringValue) return stringValue;
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric)) return null;
+  const known: Record<number, string> = {
+    1: "standard",
+    2: "modern",
+    3: "commander",
+    4: "legacy",
+    5: "vintage",
+    6: "pauper",
+    7: "frontier",
+    8: "penny",
+    9: "future standard",
+    10: "historic",
+    11: "pioneer",
+    12: "brawl",
+    13: "oathbreaker",
+    14: "alchemy",
+    15: "explorer",
+  };
+  return known[numeric] ?? null;
+}
+
 function normalizeArchidekt(json: unknown, externalId: string): NormalizedExternalDeck {
   const root = asRecord(json);
   const cards: ExternalDeckCard[] = [];
@@ -118,7 +145,7 @@ function normalizeArchidekt(json: unknown, externalId: string): NormalizedExtern
     url: sourceDeckUrl("archidekt", externalId),
     title: text(root.name),
     ownerName: text(asRecord(root.owner).username) ?? text(asRecord(root.user).username),
-    format: text(asRecord(root.deckFormat).name) ?? text(root.format) ?? text(root.deckFormat),
+    format: archidektFormatName(root.deckFormat) ?? text(root.format),
     commanders: [...new Set(commanders)],
     cards,
     publishedAt: text(root.createdAt),
