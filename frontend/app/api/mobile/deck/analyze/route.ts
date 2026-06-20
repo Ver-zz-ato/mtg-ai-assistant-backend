@@ -9,7 +9,7 @@ import { hashCacheKey, supabaseCacheGet, supabaseCacheSet } from "@/lib/utils/su
 
 export const runtime = "nodejs";
 const MOBILE_ANALYZE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const MOBILE_ANALYZE_CACHE_VERSION = 5;
+const MOBILE_ANALYZE_CACHE_VERSION = 6;
 
 type MobileAnalyzeCounts = {
   lands?: number;
