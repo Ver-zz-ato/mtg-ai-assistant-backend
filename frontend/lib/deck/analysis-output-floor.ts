@@ -100,15 +100,54 @@ function buildIssueLines(format: string, counts: Counts, quickFixes: string[]): 
   return dedupeStrings(out).slice(0, 3);
 }
 
+function isAnalysisMetadataLine(line: string): boolean {
+  const text = line.toLowerCase();
+  return (
+    /commander identity is set|format (is|was) detected|deck (was )?parsed|recommendations can stay focused/.test(text) ||
+    /color identity|analysis metadata|enough structure to produce concrete/.test(text)
+  );
+}
+
+function cardText(entry: DeckEntry, byName: Map<string, SfCard>): string {
+  const card = cardForEntry(entry, byName);
+  return `${entry.name} ${card?.type_line ?? ""} ${card?.oracle_text ?? ""}`.toLowerCase();
+}
+
+function hasSacrificeValuePlan(input: OutputFloorInput): boolean {
+  const commanderText = input.commander?.toLowerCase() ?? "";
+  if (/korvold|sacrifice|aristocrat|dies|treasure|token/.test(commanderText)) return true;
+  let hits = 0;
+  for (const entry of input.entries) {
+    const text = cardText(entry, input.byName);
+    if (/sacrifice|whenever .* dies|whenever .* is put into a graveyard|create .* treasure|treasure token|blood artist|aristocrat/.test(text)) {
+      hits += 1;
+    }
+    if (hits >= 3) return true;
+  }
+  return false;
+}
+
 function buildStrengthLines(format: string, counts: Counts, whatsGood: string[], commander?: string | null): string[] {
   const targets = roleTargets(format);
-  const out = [...whatsGood];
-  if (commander) out.push(`Commander identity is set, so recommendations can stay focused on ${commander}'s plan.`);
+  const out = whatsGood.filter((line) => !isAnalysisMetadataLine(line));
   if (counts.lands >= targets.lands.min) out.push("Mana base count is close enough to support normal opening hands.");
   if (counts.draw >= targets.draw.min) out.push("Card-flow package gives the deck ways to keep playing after the first wave.");
   if (counts.removal >= targets.removal.min) out.push("Interaction count gives you tools to answer opposing threats.");
-  out.push("The list has enough structure to produce concrete upgrade targets.");
+  if (commander) out.push(`The commander plan is cohesive enough to build around ${commander}.`);
+  out.push("The deck has a clear core plan, even if the support counts still need tuning.");
   return dedupeStrings(out).slice(0, 3);
+}
+
+function buildStrengthLinesForInput(input: OutputFloorInput): string[] {
+  const sacrificePlan = hasSacrificeValuePlan(input);
+  const base = buildStrengthLines(input.format, input.counts, input.whatsGood, input.commander);
+  if (sacrificePlan) {
+    return dedupeStrings([
+      "The deck already has a clear sacrifice/value engine to build around.",
+      ...base,
+    ]).slice(0, 3);
+  }
+  return base;
 }
 
 function buildDeterministicAdds(input: OutputFloorInput, limit: number): AnalyzeAddCut[] {
@@ -159,13 +198,41 @@ function buildDeterministicAdds(input: OutputFloorInput, limit: number): Analyze
   return out.slice(0, limit);
 }
 
-function buildDeterministicCuts(input: OutputFloorInput, limit: number): AnalyzeAddCut[] {
+const CORE_CARD_NAME_PATTERNS = [
+  /pitiless plunderer/,
+  /bastion of remembrance/,
+  /blood artist/,
+  /zulaport cutthroat/,
+  /mayhem devil/,
+  /viscera seer/,
+  /skullclamp/,
+  /reassembling skeleton/,
+  /squee,? goblin nabob/,
+  /phyrexian altar/,
+  /ashnod'?s altar/,
+  /goblin bombardment/,
+];
+
+function isLikelyCoreSynergyCard(entry: DeckEntry, input: OutputFloorInput): boolean {
+  const key = normalizeCardName(entry.name);
+  if (CORE_CARD_NAME_PATTERNS.some((pattern) => pattern.test(key))) return true;
+  const text = cardText(entry, input.byName);
+  const sacrificeDeck = hasSacrificeValuePlan(input);
+  if (sacrificeDeck && /whenever .* dies|whenever .* is put into a graveyard|create .* treasure|sacrifice .* draw|each opponent loses/.test(text)) {
+    return true;
+  }
+  if (/commander you control|your commander/.test(text)) return true;
+  return false;
+}
+
+function buildDeterministicCuts(input: OutputFloorInput, limit: number, avoidCards: Set<string>): AnalyzeAddCut[] {
   const commanderNorm = input.commander ? normalizeCardName(input.commander) : "";
   const locked = input.lockedNormalized ?? new Set<string>();
   const candidates = input.entries
     .filter((entry) => {
       const key = normalizeCardName(entry.name);
-      if (!key || key === commanderNorm || locked.has(key)) return false;
+      if (!key || key === commanderNorm || locked.has(key) || avoidCards.has(key)) return false;
+      if (isLikelyCoreSynergyCard(entry, input)) return false;
       const card = cardForEntry(entry, input.byName);
       const typeLine = String(card?.type_line ?? "").toLowerCase();
       return !typeLine.includes("basic land");
@@ -178,6 +245,7 @@ function buildDeterministicCuts(input: OutputFloorInput, limit: number): Analyze
       let score = cmc;
       if (typeLine.includes("land")) score -= 5;
       if (cmc >= 6) score += 4;
+      if (isLikelyCoreSynergyCard(entry, input)) score -= 8;
       if (/draw a card|destroy|exile|counter target|add \{|search your library/.test(oracle)) score -= 2;
       if (/enters tapped|can't attack|doesn't untap|at the beginning of your upkeep/.test(oracle)) score += 1;
       return { entry, cmc, typeLine, score };
@@ -190,13 +258,13 @@ function buildDeterministicCuts(input: OutputFloorInput, limit: number): Analyze
     const category = item.cmc >= 6 ? "curve" : item.typeLine.includes("land") ? "mana" : "flex slot";
     const reason =
       item.cmc >= 6
-        ? `High mana value card; trimming one expensive flex slot makes room for earlier plays or needed interaction.`
-        : `Reasonable flex-slot cut if you need room for the higher-priority adds.`;
+        ? `Review this high-mana-value slot if you need room for earlier plays or needed interaction.`
+        : `Review this flexible slot if you need room for the higher-priority adds.`;
     addIfUnique(out, seen, {
       card: item.entry.name,
       reason,
       category,
-      confidence: item.cmc >= 6 ? "medium" : "low",
+      confidence: item.cmc >= 6 && item.score >= 8 ? "medium" : "low",
       source: "deterministic",
     });
     if (out.length >= limit) break;
@@ -248,9 +316,10 @@ export function enforceDeckAnalysisOutputFloor(input: OutputFloorInput): {
     if (suggestedAdds.length >= limit) break;
   }
 
-  const deterministicCuts = buildDeterministicCuts(input, limit);
+  const avoidCutCards = new Set(suggestedAdds.map((item) => normalizeCardName(item.card)));
+  const deterministicCuts = buildDeterministicCuts(input, limit, avoidCutCards);
   const issues = buildIssueLines(input.format, input.counts, input.quickFixes);
-  const strengths = buildStrengthLines(input.format, input.counts, input.whatsGood, input.commander);
+  const strengths = buildStrengthLinesForInput(input);
   const recommendations = dedupeStrings([
     ...input.quickFixes,
     ...suggestedAdds.slice(0, 3).map((item) => `Add ${item.card}: ${item.reason}`),

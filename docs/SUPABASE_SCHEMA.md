@@ -52,7 +52,7 @@ Additive Deck Analysis-only Pro-depth trial ledger:
 
 - `deck_analysis_trial_credits`
   - one row per signed-in `user_id`
-  - `granted_count` defaults to `3`
+  - `granted_count` defaults to `5`
   - `used_count` increments only after a successful non-partial mobile Deck Analysis trial run
   - does not change `profiles.is_pro` and does not grant global Pro entitlement
 

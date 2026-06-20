@@ -53,6 +53,8 @@ type TrialCreditState = {
   usedCount: number;
 };
 
+const DECK_ANALYSIS_TRIAL_CREDIT_GRANT = 5;
+
 type MobileAnalyzeBenchKey = "mana" | "ramp" | "draw" | "removal" | "curve";
 
 type MobileAnalyzeBenchItem = {
@@ -288,14 +290,22 @@ async function getTrialCreditState(userId: string | null, isPro: boolean): Promi
     if (!data) {
       const inserted = await admin
         .from("deck_analysis_trial_credits")
-        .insert({ user_id: userId, granted_count: 3, used_count: 0 })
+        .insert({ user_id: userId, granted_count: DECK_ANALYSIS_TRIAL_CREDIT_GRANT, used_count: 0 })
         .select(select)
         .maybeSingle();
       data = inserted.data;
       if (inserted.error || !data) return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
     }
-    const granted = Number((data as { granted_count?: number }).granted_count) || 0;
+    let granted = Number((data as { granted_count?: number }).granted_count) || 0;
     const used = Number((data as { used_count?: number }).used_count) || 0;
+    if (granted < DECK_ANALYSIS_TRIAL_CREDIT_GRANT) {
+      granted = DECK_ANALYSIS_TRIAL_CREDIT_GRANT;
+      await admin
+        .from("deck_analysis_trial_credits")
+        .update({ granted_count: granted, updated_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .lt("granted_count", DECK_ANALYSIS_TRIAL_CREDIT_GRANT);
+    }
     const remaining = Math.max(0, granted - used);
     return { remaining, usedThisRun: false, availableForRun: remaining > 0, grantedCount: granted, usedCount: used };
   } catch {

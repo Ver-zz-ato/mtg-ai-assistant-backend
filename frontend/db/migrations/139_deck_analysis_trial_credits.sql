@@ -3,11 +3,19 @@
 
 CREATE TABLE IF NOT EXISTS public.deck_analysis_trial_credits (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  granted_count integer NOT NULL DEFAULT 3 CHECK (granted_count >= 0),
+  granted_count integer NOT NULL DEFAULT 5 CHECK (granted_count >= 0),
   used_count integer NOT NULL DEFAULT 0 CHECK (used_count >= 0 AND used_count <= granted_count),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.deck_analysis_trial_credits
+  ALTER COLUMN granted_count SET DEFAULT 5;
+
+UPDATE public.deck_analysis_trial_credits
+SET granted_count = 5,
+    updated_at = now()
+WHERE granted_count < 5;
 
 COMMENT ON TABLE public.deck_analysis_trial_credits IS 'Per-user ledger for free Pro-depth Deck Analysis trial credits. Does not grant global Pro entitlement.';
 COMMENT ON COLUMN public.deck_analysis_trial_credits.granted_count IS 'Total Deck Analysis-only Pro-depth trial credits granted to the user.';

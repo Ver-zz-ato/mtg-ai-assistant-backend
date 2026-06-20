@@ -148,7 +148,7 @@ Cache:
 - Cache is checked before the core analyzer runs.
 - Only non-partial successful responses are written.
 - Cached responses return `cacheHit: true` and `cacheKind: "mobile_deck_analyze"`.
-- Signed-in free users with remaining Deck Analysis trial credits bypass the response cache for that run so the server can return Pro-depth analysis and decrement credits accurately.
+- Signed-in free users with remaining Deck Analysis trial credits bypass the response cache for that run so the server can return Pro-depth analysis and decrement credits accurately. New and upgraded rows grant 5 total trial credits.
 - Additive fields include `suggestedAdds`, `suggestedCuts`, `analysisQuality`, `commanderComparison`, `scoreConfidence`, `completenessWarning`, `trialProAnalysesRemaining`, and `usedTrialProAnalysis`.
 
 Why this exists:
