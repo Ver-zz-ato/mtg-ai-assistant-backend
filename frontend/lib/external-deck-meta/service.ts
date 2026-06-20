@@ -14,19 +14,66 @@ import { parseExternalDeckUrl, sourceDeckUrl } from "./url";
 
 const COMMANDER_MIN_CARDS = 80;
 const CONSTRUCTED_MIN_CARDS = 40;
-const SUPPORT_CARDS = [
-  "Sol Ring",
-  "Arcane Signet",
-  "Command Tower",
-  "Swords to Plowshares",
-  "Path to Exile",
-  "Cyclonic Rift",
-  "Heroic Intervention",
-  "Swiftfoot Boots",
-  "Lightning Greaves",
-  "Rhystic Study",
-  "Smothering Tithe",
-] as const;
+const PUBLIC_CANDIDATE_CONFIDENCE = 0.45;
+const ROLE_KEYS = ["lands", "ramp", "draw", "removal", "protection"] as const;
+
+type ExternalCommanderProfileStatusRow = {
+  id: string;
+  commander_name: string;
+  raw_sample_size: number;
+  approved_sample_size: number;
+  excluded_count: number;
+  exclusion_reasons: Record<string, number>;
+  source_breakdown: Record<string, number>;
+  common_cards?: Array<{ name: string; deck_count: number; inclusion_rate: number }>;
+  missing_common_support?: Array<{ name: string }>;
+  confidence_components?: Record<string, unknown>;
+  profile_consistency?: Record<string, unknown>;
+  role_variance?: Record<string, unknown>;
+  profile_warnings?: string[];
+  off_color_support_gap_count?: number;
+  averages?: {
+    lands?: number;
+    ramp?: number;
+    draw?: number;
+    removal?: number;
+    protection?: number;
+    average_mv?: number;
+  };
+  curve_summary?: Record<string, number>;
+  confidence_score: number;
+  approved_for_public: boolean;
+  attribution?: { copy?: string };
+  last_refreshed_at: string;
+};
+
+function profileReadinessBucket(profile: ExternalCommanderProfileStatusRow): "not_ready" | "early_signal" | "usable_qa" | "public_candidate" {
+  if (profile.approved_sample_size < 10) return "not_ready";
+  if (profile.approved_sample_size < 25) return "early_signal";
+  if (profile.approved_sample_size < 50) return "usable_qa";
+  return profile.confidence_score >= PUBLIC_CANDIDATE_CONFIDENCE ? "public_candidate" : "usable_qa";
+}
+
+function profileSuspiciousMetrics(profile: ExternalCommanderProfileStatusRow): string[] {
+  if (profile.approved_sample_size <= 0) return [];
+  const avg = profile.averages ?? {};
+  const flags: string[] = [];
+  if ((avg.ramp ?? 0) > 25) flags.push("ramp_gt_25");
+  if ((avg.lands ?? 0) < 25) flags.push("lands_lt_25");
+  if ((avg.lands ?? 0) > 45) flags.push("lands_gt_45");
+  if ((avg.removal ?? 0) > 25) flags.push("removal_gt_25");
+  if ((avg.draw ?? 0) > 35) flags.push("draw_gt_35");
+  if ((avg.protection ?? 0) > 20) flags.push("protection_gt_20");
+  return flags;
+}
+
+function withProfileQa(profile: ExternalCommanderProfileStatusRow) {
+  return {
+    ...profile,
+    readiness_bucket: profileReadinessBucket(profile),
+    suspicious_metrics: profileSuspiciousMetrics(profile),
+  };
+}
 
 function emptySummary(): ExternalDeckIngestSummary {
   return {
@@ -128,17 +175,17 @@ async function hasDuplicateApprovedHash(admin: SupabaseClient, deckHash: string,
 async function fetchCardFacts(
   admin: SupabaseClient,
   names: string[]
-): Promise<Map<string, { type_line?: string | null; oracle_text?: string | null; cmc?: number | null }>> {
+): Promise<Map<string, { type_line?: string | null; oracle_text?: string | null; cmc?: number | null; color_identity?: string[] | null }>> {
   const keys = [...new Set(names.map(normalizeScryfallCacheName).filter(Boolean))];
-  const out = new Map<string, { type_line?: string | null; oracle_text?: string | null; cmc?: number | null }>();
+  const out = new Map<string, { type_line?: string | null; oracle_text?: string | null; cmc?: number | null; color_identity?: string[] | null }>();
   for (let i = 0; i < keys.length; i += 100) {
     const { data } = await admin
       .from("scryfall_cache")
-      .select("name, type_line, oracle_text, cmc")
+      .select("name, type_line, oracle_text, cmc, color_identity")
       .in("name", keys.slice(i, i + 100));
     for (const row of data ?? []) {
-      const r = row as { name: string; type_line?: string | null; oracle_text?: string | null; cmc?: number | null };
-      out.set(r.name, { type_line: r.type_line, oracle_text: r.oracle_text, cmc: r.cmc });
+      const r = row as { name: string; type_line?: string | null; oracle_text?: string | null; cmc?: number | null; color_identity?: string[] | null };
+      out.set(r.name, { type_line: r.type_line, oracle_text: r.oracle_text, cmc: r.cmc, color_identity: r.color_identity });
     }
   }
   return out;
@@ -411,13 +458,98 @@ export async function writeExternalMetaRollups(admin: SupabaseClient): Promise<n
   return rows.length;
 }
 
-function categoryHits(name: string, facts: { type_line?: string | null; oracle_text?: string | null } | undefined) {
+function variance(values: number[]): number {
+  if (values.length <= 1) return 0;
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Number((values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length).toFixed(2));
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function isColorIdentityLegal(cardColors: string[] | null | undefined, commanderColors: string[] | null | undefined): boolean {
+  const allowed = new Set((commanderColors ?? []).map((color) => String(color).toUpperCase()));
+  return (cardColors ?? []).every((color) => allowed.has(String(color).toUpperCase()));
+}
+
+function sourceEntropyScore(sourceBreakdown: Record<string, number>, sampleSize: number): number {
+  const counts = Object.values(sourceBreakdown).filter((count) => count > 0);
+  if (counts.length <= 1 || sampleSize <= 0) return 0;
+  const entropy = counts.reduce((sum, count) => {
+    const p = count / sampleSize;
+    return sum - p * Math.log(p);
+  }, 0);
+  return Math.min(1, entropy / Math.log(counts.length));
+}
+
+function buildProfileQaMetrics(input: {
+  approvedCount: number;
+  rawSample: number;
+  sourceBreakdown: Record<string, number>;
+  commonCards: Array<{ name: string; deck_count: number; inclusion_rate: number }>;
+  roleSamples: Record<(typeof ROLE_KEYS)[number], number[]>;
+  supportGapRejected: number;
+  commanderName: string;
+}) {
+  const top10 = input.commonCards.slice(0, 10);
+  const top20 = input.commonCards.slice(0, 20);
+  const top10Concentration = Number(average(top10.map((card) => card.inclusion_rate)).toFixed(3));
+  const top20Concentration = Number(average(top20.map((card) => card.inclusion_rate)).toFixed(3));
+  const roleVariance = Object.fromEntries(
+    ROLE_KEYS.map((key) => [key, variance(input.roleSamples[key])])
+  ) as Record<(typeof ROLE_KEYS)[number], number>;
+  const normalizedRoleVariance = Math.min(
+    1,
+    ROLE_KEYS.reduce((sum, key) => sum + roleVariance[key], 0) / ROLE_KEYS.length / 50
+  );
+  const consistencyScore = Number(Math.max(0, Math.min(1, top20Concentration * 0.7 + (1 - normalizedRoleVariance) * 0.3)).toFixed(3));
+  const sourceDiversityScore = Number(sourceEntropyScore(input.sourceBreakdown, input.approvedCount).toFixed(3));
+  const sampleScore = Number(Math.min(1, input.approvedCount / 50).toFixed(3));
+  const dataQualityScore = Number((input.rawSample ? input.approvedCount / input.rawSample : 0).toFixed(3));
+  const confidenceComponents = {
+    sample_size: Number((sampleScore * 0.4).toFixed(3)),
+    source_diversity: Number((sourceDiversityScore * 0.2).toFixed(3)),
+    profile_consistency: Number((consistencyScore * 0.2).toFixed(3)),
+    data_quality: Number((dataQualityScore * 0.1).toFixed(3)),
+    deck_match: 0,
+    missing_components: ["deck_match"],
+  };
+  const warnings: string[] = [];
+  if (input.approvedCount < 25) warnings.push("low_sample_size");
+  if (Object.keys(input.sourceBreakdown).length < 2) warnings.push("single_source_profile");
+  if (top20Concentration < 0.45) warnings.push("archetype_spread_low_common_card_concentration");
+  if (normalizedRoleVariance > 0.65) warnings.push("high_role_variance");
+  if (/atraxa/i.test(input.commanderName) && input.approvedCount < 25) warnings.push("profile_mixed_archetype_review_recommended");
+  if (input.supportGapRejected > 0) warnings.push("off_color_support_gaps_rejected");
+  return {
+    confidenceScore: Number(Object.values(confidenceComponents).filter((value): value is number => typeof value === "number").reduce((sum, value) => sum + value, 0).toFixed(3)),
+    confidenceComponents,
+    profileConsistency: {
+      common_card_concentration_top10: top10Concentration,
+      common_card_concentration_top20: top20Concentration,
+      consistency_score: consistencyScore,
+      source_diversity_score: sourceDiversityScore,
+      data_quality_score: dataQualityScore,
+    },
+    roleVariance,
+    warnings,
+  };
+}
+
+function categoryHits(name: string, facts: { type_line?: string | null; oracle_text?: string | null } | undefined, category?: string | null) {
+  const typeLine = String(facts?.type_line ?? "").toLowerCase();
+  const oracle = String(facts?.oracle_text ?? "").toLowerCase();
+  const cardName = String(name ?? "").toLowerCase();
+  const isLand = /\bland\b/.test(typeLine) || /\blands?\b/i.test(String(category ?? ""));
+  const isNonlandManaPermanent = !isLand && /\b(artifact|creature|enchantment)\b/.test(typeLine) && /(add \{[wubrgc]+\}|add (one|two|three|x)? ?mana|treasure token)/i.test(oracle);
   const lower = `${name} ${facts?.type_line ?? ""} ${facts?.oracle_text ?? ""}`.toLowerCase();
   return {
-    land: /\bland\b/.test(String(facts?.type_line ?? "").toLowerCase()),
-    ramp: /(add .*mana|search your library.*land|treasure token|arcane signet|sol ring|mana rock|cultivate|kodama's reach|farseek|nature's lore)/i.test(lower),
-    draw: /(draw (a|two|three|x|that many) cards?|whenever .* draw|rhystic study|esper sentinel)/i.test(lower),
-    removal: /(destroy target|exile target|counter target|return target|deals .* damage to target|swords to plowshares|path to exile)/i.test(lower),
+    land: isLand,
+    ramp: !isLand && (isNonlandManaPermanent || /(search your library.*land|cultivate|kodama's reach|farseek|nature's lore|three visits|skyshroud claim|rampant growth|arcane signet|sol ring|\bsignet\b|\btalisman\b)/i.test(`${cardName} ${oracle}`)),
+    draw: /(draw (a|one|two|three|x|that many) cards?|whenever .* draw|rhystic study|esper sentinel)/i.test(lower),
+    removal: /(destroy target (creature|artifact|enchantment|planeswalker|permanent)|exile target (creature|artifact|enchantment|planeswalker|permanent)|counter target spell|return target (creature|nonland permanent|spell)|deals .* damage to (any target|target creature|target planeswalker)|destroy all|exile all|swords to plowshares|path to exile)/i.test(lower),
     protection: /(hexproof|indestructible|protection from|phase out|prevent all damage|heroic intervention|teferi's protection|lightning greaves|swiftfoot boots)/i.test(lower),
   };
 }
@@ -438,13 +570,13 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
     exclusion_reason: ExclusionReason | null;
   }>;
   if (decks.length === 0) return 0;
-  const cards = await fetchDeckCardsPage<{ external_deck_id: string; card_name: string; card_name_norm: string | null; quantity: number; board: string }>(
+  const cards = await fetchDeckCardsPage<{ external_deck_id: string; card_name: string; card_name_norm: string | null; quantity: number; board: string; category?: string | null }>(
     admin,
     decks.map((d) => d.id),
-    "external_deck_id, card_name, card_name_norm, quantity, board",
+    "external_deck_id, card_name, card_name_norm, quantity, board, category",
     ["mainboard", "commander"]
   );
-  const facts = await fetchCardFacts(admin, cards.map((c) => c.card_name));
+  const facts = await fetchCardFacts(admin, [...cards.map((c) => c.card_name), ...decks.flatMap((d) => d.commanders ?? [])]);
   const cardsByDeck = new Map<string, typeof cards>();
   for (const c of cards) cardsByDeck.set(c.external_deck_id, [...(cardsByDeck.get(c.external_deck_id) ?? []), c]);
 
@@ -469,6 +601,13 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
     const sourceBreakdown: Record<string, number> = {};
     const cardDeckCounts = new Map<string, { name: string; count: number }>();
     const totals = { lands: 0, ramp: 0, draw: 0, removal: 0, protection: 0, mv: 0, mvCards: 0 };
+    const roleSamples = {
+      lands: [] as number[],
+      ramp: [] as number[],
+      draw: [] as number[],
+      removal: [] as number[],
+      protection: [] as number[],
+    };
     const curve: Record<string, number> = {};
     for (const d of approved) {
       sourceBreakdown[d.source_key] = (sourceBreakdown[d.source_key] ?? 0) + 1;
@@ -486,7 +625,7 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
           entry.count += 1;
           cardDeckCounts.set(norm, entry);
         }
-        const hits = categoryHits(c.card_name, fact);
+        const hits = categoryHits(c.card_name, fact, c.category);
         if (hits.land) local.lands += qty;
         if (hits.ramp) local.ramp += qty;
         if (hits.draw) local.draw += qty;
@@ -507,15 +646,38 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
       totals.protection += local.protection;
       totals.mv += local.mv;
       totals.mvCards += local.mvCards;
+      roleSamples.lands.push(local.lands);
+      roleSamples.ramp.push(local.ramp);
+      roleSamples.draw.push(local.draw);
+      roleSamples.removal.push(local.removal);
+      roleSamples.protection.push(local.protection);
     }
     const approvedCount = approved.length;
     const commonCards = [...cardDeckCounts.values()]
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .slice(0, 40)
       .map((c) => ({ name: c.name, deck_count: c.count, inclusion_rate: approvedCount ? Number((c.count / approvedCount).toFixed(3)) : 0 }));
-    const presentNorms = new Set(commonCards.map((c) => normalizeScryfallCacheName(c.name)));
-    const missingCommonSupport = SUPPORT_CARDS.filter((name) => !presentNorms.has(normalizeScryfallCacheName(name))).map((name) => ({ name }));
-    const confidence = Math.min(1, Math.max(0, approvedCount / 100) * 0.7 + Math.min(0.3, Object.keys(sourceBreakdown).length * 0.1));
+    const commanderColors = facts.get(commanderNorm)?.color_identity ?? [];
+    let supportGapRejected = 0;
+    const missingCommonSupport = commonCards
+      .filter((card) => card.inclusion_rate >= 0.5)
+      .filter((card) => {
+        const fact = facts.get(normalizeScryfallCacheName(card.name));
+        const isLegal = isColorIdentityLegal(fact?.color_identity, commanderColors);
+        if (!isLegal) supportGapRejected += 1;
+        return isLegal && !categoryHits(card.name, fact).land;
+      })
+      .slice(0, 12)
+      .map((card) => ({ name: card.name, inclusion_rate: card.inclusion_rate, deck_count: card.deck_count }));
+    const qaMetrics = buildProfileQaMetrics({
+      approvedCount,
+      rawSample,
+      sourceBreakdown,
+      commonCards,
+      roleSamples,
+      supportGapRejected,
+      commanderName,
+    });
     rows.push({
       commander_name: commanderName,
       commander_name_norm: commanderNorm,
@@ -536,7 +698,12 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
         average_mv: totals.mvCards ? Number((totals.mv / totals.mvCards).toFixed(2)) : 0,
       },
       curve_summary: curve,
-      confidence_score: Number(confidence.toFixed(3)),
+      confidence_score: qaMetrics.confidenceScore,
+      confidence_components: qaMetrics.confidenceComponents,
+      profile_consistency: qaMetrics.profileConsistency,
+      role_variance: qaMetrics.roleVariance,
+      profile_warnings: qaMetrics.warnings,
+      off_color_support_gap_count: supportGapRejected,
       attribution: {
         claim_sample_size: approvedCount,
         source_breakdown: sourceBreakdown,
@@ -596,17 +763,34 @@ export async function runExternalDeckMetaIngest(
 }
 
 export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
-  const [sources, queuePending, decks, profiles, latestRollups] = await Promise.all([
+  const [sources, queuePending, decks, allProfiles, profilesBySample, profilesByConfidence, profilesByRefresh, latestRollups] = await Promise.all([
     admin
       .from("external_deck_sources")
       .select("source_key, display_name, enabled, discovery_enabled, cooldown_until, last_fetched_at, last_success_at, last_error, consecutive_failures, max_decks_per_run"),
     admin.from("external_deck_ingest_queue").select("id, status", { count: "exact" }),
-    admin.from("external_decks").select("id, source_key, format, is_valid, aggregate_approved, exclusion_reason", { count: "exact" }),
+    admin.from("external_decks").select("id, source_key, external_id, format, commanders, mainboard_count, deck_hash, is_valid, aggregate_approved, exclusion_reason", { count: "exact" }),
     admin
       .from("external_commander_profiles")
-      .select("id, commander_name, raw_sample_size, approved_sample_size, excluded_count, exclusion_reasons, source_breakdown, common_cards, missing_common_support, averages, curve_summary, confidence_score, approved_for_public, attribution, last_refreshed_at")
+      .select("id, commander_name, raw_sample_size, approved_sample_size, excluded_count, exclusion_reasons, source_breakdown, common_cards, missing_common_support, averages, curve_summary, confidence_score, confidence_components, profile_consistency, role_variance, profile_warnings, off_color_support_gap_count, approved_for_public, attribution, last_refreshed_at", { count: "exact" })
       .order("approved_sample_size", { ascending: false })
-      .limit(50),
+      .limit(1000),
+    admin
+      .from("external_commander_profiles")
+      .select("id, commander_name, raw_sample_size, approved_sample_size, excluded_count, exclusion_reasons, source_breakdown, common_cards, missing_common_support, averages, curve_summary, confidence_score, confidence_components, profile_consistency, role_variance, profile_warnings, off_color_support_gap_count, approved_for_public, attribution, last_refreshed_at")
+      .order("approved_sample_size", { ascending: false })
+      .order("raw_sample_size", { ascending: false })
+      .limit(25),
+    admin
+      .from("external_commander_profiles")
+      .select("id, commander_name, raw_sample_size, approved_sample_size, excluded_count, exclusion_reasons, source_breakdown, common_cards, missing_common_support, averages, curve_summary, confidence_score, confidence_components, profile_consistency, role_variance, profile_warnings, off_color_support_gap_count, approved_for_public, attribution, last_refreshed_at")
+      .order("confidence_score", { ascending: false })
+      .order("approved_sample_size", { ascending: false })
+      .limit(25),
+    admin
+      .from("external_commander_profiles")
+      .select("id, commander_name, raw_sample_size, approved_sample_size, excluded_count, exclusion_reasons, source_breakdown, common_cards, missing_common_support, averages, curve_summary, confidence_score, confidence_components, profile_consistency, role_variance, profile_warnings, off_color_support_gap_count, approved_for_public, attribution, last_refreshed_at")
+      .order("last_refreshed_at", { ascending: false })
+      .limit(25),
     admin
       .from("external_meta_rollups_daily")
       .select("snapshot_date, entity_type, deck_count")
@@ -616,14 +800,62 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
   if (sources.error) throw new Error(sources.error.message);
   if (queuePending.error) throw new Error(queuePending.error.message);
   if (decks.error) throw new Error(decks.error.message);
-  if (profiles.error) throw new Error(profiles.error.message);
+  if (allProfiles.error) throw new Error(allProfiles.error.message);
+  if (profilesBySample.error) throw new Error(profilesBySample.error.message);
+  if (profilesByConfidence.error) throw new Error(profilesByConfidence.error.message);
+  if (profilesByRefresh.error) throw new Error(profilesByRefresh.error.message);
   const deckRows = (decks.data ?? []) as Array<{
     source_key?: string;
+    external_id?: string;
     format?: string | null;
+    commanders?: string[];
+    mainboard_count?: number;
+    deck_hash?: string | null;
     is_valid?: boolean;
     aggregate_approved?: boolean;
     exclusion_reason?: string | null;
   }>;
+  const sampleProfiles = ((profilesBySample.data ?? []) as ExternalCommanderProfileStatusRow[]).map(withProfileQa);
+  const confidenceProfiles = ((profilesByConfidence.data ?? []) as ExternalCommanderProfileStatusRow[]).map(withProfileQa);
+  const refreshedProfiles = ((profilesByRefresh.data ?? []) as ExternalCommanderProfileStatusRow[]).map(withProfileQa);
+  const qaProfiles = ((allProfiles.data ?? []) as ExternalCommanderProfileStatusRow[]).map(withProfileQa);
+  const readinessBuckets = qaProfiles.reduce(
+    (acc, row) => {
+      acc[row.readiness_bucket] = (acc[row.readiness_bucket] ?? 0) + 1;
+      return acc;
+    },
+    { not_ready: 0, early_signal: 0, usable_qa: 0, public_candidate: 0 } as Record<string, number>
+  );
+  const deckHashes = deckRows.reduce((acc: Record<string, number>, row) => {
+    if (!row.deck_hash) return acc;
+    acc[row.deck_hash] = (acc[row.deck_hash] ?? 0) + 1;
+    return acc;
+  }, {});
+  const deckSanityFlags = deckRows.flatMap((row) => {
+    const flags: string[] = [];
+    if ((row.mainboard_count ?? 0) < COMMANDER_MIN_CARDS && row.format === "commander") flags.push("mainboard_count_below_commander_threshold");
+    if (row.format === "commander" && (!row.commanders || row.commanders.length === 0)) flags.push("missing_commander");
+    if (row.deck_hash && deckHashes[row.deck_hash] > 1) flags.push("duplicate_deck_hash");
+    return flags.map((flag) => ({
+      flag,
+      source_key: row.source_key ?? "unknown",
+      external_id: row.external_id ?? "unknown",
+      format: row.format ?? "unknown",
+      mainboard_count: row.mainboard_count ?? 0,
+      aggregate_approved: Boolean(row.aggregate_approved),
+      exclusion_reason: row.exclusion_reason ?? null,
+    }));
+  });
+  const suspiciousProfiles = qaProfiles
+    .filter((profile) => profile.suspicious_metrics.length > 0)
+    .slice(0, 25)
+    .map((profile) => ({
+      commander_name: profile.commander_name,
+      approved_sample_size: profile.approved_sample_size,
+      confidence_score: profile.confidence_score,
+      averages: profile.averages ?? {},
+      suspicious_metrics: profile.suspicious_metrics,
+    }));
   return {
     sources: sources.data ?? [],
     queue_total: queuePending.count ?? 0,
@@ -637,8 +869,9 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
       total_external_decks: decks.count ?? 0,
       valid_commander_decks: deckRows.filter((row) => row.format === "commander" && row.is_valid && row.aggregate_approved).length,
       excluded_decks: deckRows.filter((row) => !row.aggregate_approved).length,
-      commander_profiles_generated: profiles.data?.length ?? 0,
+      commander_profiles_generated: allProfiles.count ?? qaProfiles.length,
     },
+    readiness_buckets: readinessBuckets,
     decks_by_state: deckRows.reduce((acc: Record<string, number>, row) => {
       const key = `${row.source_key ?? "unknown"}:${row.format ?? "unknown"}:${row.aggregate_approved ? "approved" : row.is_valid ? "valid" : "excluded"}`;
       acc[key] = (acc[key] ?? 0) + 1;
@@ -650,8 +883,12 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
     }, {}),
-    profiles: profiles.data ?? [],
-    top_profiles: profiles.data ?? [],
+    suspicious_profiles: suspiciousProfiles,
+    deck_sanity_flags: deckSanityFlags.slice(0, 50),
+    profiles: sampleProfiles,
+    top_profiles: sampleProfiles,
+    top_profiles_by_confidence: confidenceProfiles,
+    recently_refreshed_profiles: refreshedProfiles,
     latest_rollups: latestRollups.data ?? [],
   };
 }
