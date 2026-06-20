@@ -8,6 +8,7 @@ import {
 } from "./coverage";
 import { countCards, stableDeckHash } from "./hash";
 import { isSourceCoolingDown, markSourceFailure, markSourceSuccess, politeDelay, retryAfterToCooldownIso } from "./rateLimit";
+import { withSupabaseRetry } from "./supabaseRetry";
 import type {
   ExternalCommanderCoverageReport,
   ExternalCommanderCoverageTarget,
@@ -433,10 +434,19 @@ async function fetchCardFacts(
   const keys = [...new Set(names.map(normalizeScryfallCacheName).filter(Boolean))];
   const out = new Map<string, { type_line?: string | null; oracle_text?: string | null; cmc?: number | null; color_identity?: string[] | null }>();
   for (let i = 0; i < keys.length; i += 100) {
-    const { data } = await admin
-      .from("scryfall_cache")
-      .select("name, type_line, oracle_text, cmc, color_identity")
-      .in("name", keys.slice(i, i + 100));
+    const { data, error } = await withSupabaseRetry(
+      {
+        operation: "profile_fetch_card_facts",
+        table: "scryfall_cache",
+        range: `${i}-${Math.min(i + 99, keys.length - 1)}`,
+      },
+      async () =>
+        admin
+          .from("scryfall_cache")
+          .select("name, type_line, oracle_text, cmc, color_identity")
+          .in("name", keys.slice(i, i + 100))
+    );
+    if (error) throw new Error(error.message);
     for (const row of data ?? []) {
       const r = row as { name: string; type_line?: string | null; oracle_text?: string | null; cmc?: number | null; color_identity?: string[] | null };
       out.set(r.name, { type_line: r.type_line, oracle_text: r.oracle_text, cmc: r.cmc, color_identity: r.color_identity });
@@ -456,12 +466,20 @@ async function fetchDeckCardsPage<T>(
   for (let i = 0; i < deckIds.length; i += 100) {
     const ids = deckIds.slice(i, i + 100);
     for (let from = 0; ; from += pageSize) {
-      const { data, error } = await admin
-        .from("external_deck_cards")
-        .select(columns)
-        .in("external_deck_id", ids)
-        .in("board", boards)
-        .range(from, from + pageSize - 1);
+      const { data, error } = await withSupabaseRetry(
+        {
+          operation: "fetch_deck_cards_page",
+          table: "external_deck_cards",
+          range: `decks ${i}-${Math.min(i + 99, deckIds.length - 1)} rows ${from}-${from + pageSize - 1}`,
+        },
+        async () =>
+          admin
+            .from("external_deck_cards")
+            .select(columns)
+            .in("external_deck_id", ids)
+            .in("board", boards)
+            .range(from, from + pageSize - 1)
+      );
       if (error) throw new Error(error.message);
       const page = (data ?? []) as T[];
       rows.push(...page);
@@ -644,10 +662,19 @@ async function processQueueForSource(
 
 export async function writeExternalMetaRollups(admin: SupabaseClient): Promise<number> {
   const snapshotDate = new Date().toISOString().slice(0, 10);
-  const { data: decks } = await admin
-    .from("external_decks")
-    .select("id, source_key, format, commanders, aggregate_approved")
-    .eq("aggregate_approved", true);
+  const { data: decks, error: decksError } = await withSupabaseRetry(
+    {
+      operation: "rollups_fetch_approved_decks",
+      table: "external_decks",
+      range: "all_approved",
+    },
+    async () =>
+      admin
+        .from("external_decks")
+        .select("id, source_key, format, commanders, aggregate_approved")
+        .eq("aggregate_approved", true)
+  );
+  if (decksError) throw new Error(decksError.message);
   const deckRows = (decks ?? []) as Array<{ id: string; source_key: string; format: string | null; commanders: string[]; aggregate_approved: boolean }>;
   if (deckRows.length === 0) return 0;
   const deckIds = deckRows.map((d) => d.id);
@@ -704,9 +731,17 @@ export async function writeExternalMetaRollups(admin: SupabaseClient): Promise<n
     updated_at: new Date().toISOString(),
   }));
   for (let i = 0; i < rows.length; i += 500) {
-    const { error } = await admin.from("external_meta_rollups_daily").upsert(rows.slice(i, i + 500), {
-      onConflict: "snapshot_date,source_key,format,entity_type,entity_name_norm",
-    });
+    const { error } = await withSupabaseRetry(
+      {
+        operation: "rollups_upsert_chunk",
+        table: "external_meta_rollups_daily",
+        range: `${i}-${Math.min(i + 499, rows.length - 1)}`,
+      },
+      async () =>
+        admin.from("external_meta_rollups_daily").upsert(rows.slice(i, i + 500), {
+          onConflict: "snapshot_date,source_key,format,entity_type,entity_name_norm",
+        })
+    );
     if (error) throw new Error(error.message);
   }
   return rows.length;
@@ -810,10 +845,19 @@ function categoryHits(name: string, facts: { type_line?: string | null; oracle_t
 
 export async function writeExternalCommanderProfiles(admin: SupabaseClient): Promise<number> {
   const snapshotDate = new Date().toISOString().slice(0, 10);
-  const { data: decksRaw } = await admin
-    .from("external_decks")
-    .select("id, source_key, format, commanders, is_valid, aggregate_approved, exclusion_reason")
-    .eq("format", "commander");
+  const { data: decksRaw, error: decksError } = await withSupabaseRetry(
+    {
+      operation: "profiles_fetch_commander_decks",
+      table: "external_decks",
+      range: "format=commander",
+    },
+    async () =>
+      admin
+        .from("external_decks")
+        .select("id, source_key, format, commanders, is_valid, aggregate_approved, exclusion_reason")
+        .eq("format", "commander")
+  );
+  if (decksError) throw new Error(decksError.message);
   const decks = (decksRaw ?? []) as Array<{
     id: string;
     source_key: string;
@@ -842,7 +886,7 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
     }
   }
 
-  const rows = [];
+  const rows: Array<{ commander_name: string; commander_name_norm: string; [key: string]: unknown }> = [];
   for (const [commanderNorm, commanderName] of commanderKeys.entries()) {
     const related = decks.filter((d) => (d.commanders ?? []).some((c) => normalizeScryfallCacheName(c) === commanderNorm));
     const rawSample = related.length;
@@ -968,9 +1012,20 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
     });
   }
   for (let i = 0; i < rows.length; i += 100) {
-    const { error } = await admin.from("external_commander_profiles").upsert(rows.slice(i, i + 100), {
-      onConflict: "commander_name_norm,snapshot_date",
-    });
+    const commanderStart = rows[i]?.commander_name;
+    const commanderEnd = rows[Math.min(i + 99, rows.length - 1)]?.commander_name;
+    const { error } = await withSupabaseRetry(
+      {
+        operation: "profiles_upsert_chunk",
+        table: "external_commander_profiles",
+        commander: commanderStart === commanderEnd ? commanderStart : `${commanderStart}..${commanderEnd}`,
+        range: `${i}-${Math.min(i + 99, rows.length - 1)}`,
+      },
+      async () =>
+        admin.from("external_commander_profiles").upsert(rows.slice(i, i + 100), {
+          onConflict: "commander_name_norm,snapshot_date",
+        })
+    );
     if (error) throw new Error(error.message);
   }
   return rows.length;

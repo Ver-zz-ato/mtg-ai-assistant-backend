@@ -5,6 +5,7 @@ import type {
   ExternalCommanderCoverageSummary,
   ExternalCommanderCoverageTarget,
 } from "./types";
+import { withSupabaseRetry } from "./supabaseRetry";
 
 export const COMMUNITY_PROFILE_MIN_SAMPLE = 50;
 export const COMMUNITY_PROFILE_MIN_CONFIDENCE = 0.55;
@@ -81,9 +82,18 @@ async function fetchAll<T>(
 ): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += 1000) {
-    let query = admin.from(table).select(select).range(from, from + 999);
-    if (order) query = query.order(order.column, { ascending: order.ascending ?? false });
-    const { data, error } = await query;
+    const { data, error } = await withSupabaseRetry(
+      {
+        operation: "coverage_fetch_page",
+        table,
+        range: `${from}-${from + 999}`,
+      },
+      async () => {
+        let query = admin.from(table).select(select).range(from, from + 999);
+        if (order) query = query.order(order.column, { ascending: order.ascending ?? false });
+        return query;
+      }
+    );
     if (error) throw new Error(`${table}:${error.message}`);
     rows.push(...((data ?? []) as T[]));
     if (!data || data.length < 1000) break;

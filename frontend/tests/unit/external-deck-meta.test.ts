@@ -7,6 +7,7 @@ import { stableDeckHash } from "@/lib/external-deck-meta/hash";
 import { buildCommunityProfileComparison } from "@/lib/external-deck-meta/publicComparison";
 import type { BuildCommunityProfileComparisonInput } from "@/lib/external-deck-meta/publicComparison";
 import { retryAfterToCooldownIso } from "@/lib/external-deck-meta/rateLimit";
+import { isTransientSupabaseError, supabaseBackoffDelayMs, withSupabaseRetry } from "@/lib/external-deck-meta/supabaseRetry";
 import { parseExternalDeckUrl } from "@/lib/external-deck-meta/url";
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 
@@ -67,6 +68,14 @@ import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
   const iso = retryAfterToCooldownIso("120", 6);
   const delta = Date.parse(iso) - before;
   assert(delta >= 119_000 && delta <= 121_000);
+}
+
+{
+  assert.strictEqual(isTransientSupabaseError(new Error("TypeError: fetch failed")), true);
+  assert.strictEqual(isTransientSupabaseError(new Error("timeout waiting for response")), true);
+  assert.strictEqual(isTransientSupabaseError(new Error("column does not exist")), false);
+  assert.strictEqual(supabaseBackoffDelayMs(1, 100, 1000), 125);
+  assert.strictEqual(supabaseBackoffDelayMs(4, 100, 500), 500);
 }
 
 type FakeExternalProfile = {
@@ -147,6 +156,48 @@ const eligibleProfile = {
 };
 
 async function runCommunityProfileComparisonTests() {
+  let attempts = 0;
+  const delays: number[] = [];
+  const retried = await withSupabaseRetry(
+    {
+      operation: "unit_retry",
+      table: "external_deck_cards",
+      range: "0-999",
+      attempts: 3,
+      baseDelayMs: 1,
+      maxDelayMs: 2,
+      sleep: async (ms) => {
+        delays.push(ms);
+      },
+    },
+    async () => {
+      attempts += 1;
+      if (attempts < 2) throw new Error("fetch failed");
+      return "ok";
+    }
+  );
+  assert.strictEqual(retried, "ok");
+  assert.strictEqual(attempts, 2);
+  assert.strictEqual(delays.length, 1);
+
+  let nonTransientAttempts = 0;
+  await assert.rejects(
+    () =>
+      withSupabaseRetry(
+        {
+          operation: "unit_non_transient",
+          attempts: 3,
+          sleep: async () => undefined,
+        },
+        async () => {
+          nonTransientAttempts += 1;
+          throw new Error("column does not exist");
+        }
+      ),
+    /column does not exist/
+  );
+  assert.strictEqual(nonTransientAttempts, 1);
+
   const result = await buildCommunityProfileComparison({
     admin: fakeComparisonClient(eligibleProfile, [
       { name: "Korvold, Fae-Cursed King", color_identity: ["B", "G", "R"] },
