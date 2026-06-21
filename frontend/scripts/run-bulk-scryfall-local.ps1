@@ -20,7 +20,8 @@ Push-Location $FrontendDir
 try {
     # Configuration
     $Port = 3000
-    $LocalUrl = "http://localhost:$Port"
+    $HostName = "127.0.0.1"
+    $LocalUrl = "http://${HostName}:$Port"
     $Endpoint = "$LocalUrl/api/cron/bulk-scryfall"
     $CronKey = if ($env:CRON_SECRET) { $env:CRON_SECRET } elseif ($env:CRON_KEY) { $env:CRON_KEY } else { $null }
 
@@ -84,7 +85,7 @@ try {
         # Start npm run dev in background
         # Use cmd.exe to properly execute npm (avoids file association issues)
         $CurrentDir = Get-Location
-        $DevServerProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npm run dev" -PassThru -WindowStyle Hidden -WorkingDirectory $CurrentDir
+        $DevServerProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npm run dev -- --hostname $HostName --port $Port" -PassThru -WindowStyle Hidden -WorkingDirectory $CurrentDir
         
         Write-Host "Waiting for server to be ready..." -ForegroundColor Yellow
         
