@@ -21,6 +21,9 @@ type ExternalProfileCoverageRow = {
   approved_sample_size: number | null;
   confidence_score: number | null;
   profile_warnings?: string[] | null;
+  last_refreshed_at?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
 };
 
 function num(value: unknown): number {
@@ -141,7 +144,7 @@ export async function buildExternalCommanderCoverageReport(admin: SupabaseClient
     fetchAll<ExternalProfileCoverageRow>(
       admin,
       "external_commander_profiles",
-      "commander_name, approved_sample_size, confidence_score, profile_warnings"
+      "commander_name, approved_sample_size, confidence_score, profile_warnings, last_refreshed_at, updated_at, created_at"
     ),
   ]);
 
@@ -171,9 +174,16 @@ export async function buildExternalCommanderCoverageReport(admin: SupabaseClient
   let communityProfileEligibleCount = 0;
   for (const profile of profiles) {
     if (!profile.commander_name) continue;
+    const key = commanderCoverageKey(profile.commander_name);
+    const existing = profileByKey.get(key);
+    const profileTime = Date.parse(profile.last_refreshed_at ?? profile.updated_at ?? profile.created_at ?? "");
+    const existingTime = existing ? Date.parse(existing.last_refreshed_at ?? existing.updated_at ?? existing.created_at ?? "") : 0;
+    if (!existing || profileTime >= existingTime) profileByKey.set(key, profile);
+  }
+
+  for (const profile of profileByKey.values()) {
     const approved = num(profile.approved_sample_size);
     const confidence = num(profile.confidence_score);
-    profileByKey.set(commanderCoverageKey(profile.commander_name), profile);
     if (approved >= COMMUNITY_PROFILE_MIN_SAMPLE && confidence >= COMMUNITY_PROFILE_MIN_CONFIDENCE) {
       communityProfileEligibleCount += 1;
     }

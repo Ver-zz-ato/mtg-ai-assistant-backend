@@ -45,7 +45,28 @@ async function main() {
   );
   includesAll(src, ['generateValidatedDeckAnalysis']);
 
-  // 3) Deterministic + narrative + additive metadata fields should remain present.
+  // 3) Cost-control guardrails should stay in place.
+  includesAll(src, [
+    "const MAX_SLOT_CANDIDATES_TOKENS = 512;",
+    "const WEBSITE_DECK_ANALYZE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;",
+    "function resolveDeckAnalyzeCostProfile",
+    "maxPlannedSlots: 3",
+    "maxCandidateCalls: 3",
+    "maxPlannedSlots: 5",
+    "maxCandidateCalls: 5",
+    "maxPlannedSlots: 8",
+    "maxCandidateCalls: 8",
+    "buildCompactSlotCandidatePromptContext",
+    "website_deck_analyze",
+    'request_kind: "CACHE_HIT"',
+    'cache_kind: "website_deck_analyze"',
+  ]);
+  assert.ok(
+    !src.includes("Deck excerpt:"),
+    "Slot candidate prompts should not include raw deck excerpts"
+  );
+
+  // 4) Deterministic + narrative + additive metadata fields should remain present.
   includesAll(src, [
     "score,",
     "note,",
@@ -71,7 +92,7 @@ async function main() {
     "validated_analysis_errors:",
   ]);
 
-  // 4) Intentional soft-fail pattern: response remains status 200.
+  // 5) Intentional soft-fail pattern: response remains status 200.
   assert.match(
     src,
     /return\s+new\s+Response\([\s\S]*\{\s*status:\s*200,\s*headers:\s*\{\s*"content-type":\s*"application\/json"\s*\}\s*\}\s*\);/m,
@@ -85,4 +106,3 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-

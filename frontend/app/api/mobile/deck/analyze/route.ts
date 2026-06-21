@@ -357,11 +357,13 @@ async function getTrialCreditState(userId: string | null, isPro: boolean): Promi
     const admin = getAdmin();
     if (!admin) return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
     const select = "user_id, granted_count, used_count";
-    let { data, error } = await admin
+    const trialCreditResult = await admin
       .from("deck_analysis_trial_credits")
       .select(select)
       .eq("user_id", userId)
       .maybeSingle();
+    let data = trialCreditResult.data;
+    const error = trialCreditResult.error;
     if (error) return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
     if (!data) {
       const inserted = await admin
@@ -370,7 +372,17 @@ async function getTrialCreditState(userId: string | null, isPro: boolean): Promi
         .select(select)
         .maybeSingle();
       data = inserted.data;
-      if (inserted.error || !data) return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
+      if (inserted.error || !data) {
+        const reread = await admin
+          .from("deck_analysis_trial_credits")
+          .select(select)
+          .eq("user_id", userId)
+          .maybeSingle();
+        data = reread.data;
+        if (reread.error || !data) {
+          return { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
+        }
+      }
     }
     let granted = Number((data as { granted_count?: number }).granted_count) || 0;
     const used = Number((data as { used_count?: number }).used_count) || 0;
@@ -389,24 +401,60 @@ async function getTrialCreditState(userId: string | null, isPro: boolean): Promi
   }
 }
 
-async function consumeTrialCredit(userId: string | null, state: TrialCreditState): Promise<TrialCreditState> {
+type TrialCreditRpcRow = {
+  remaining?: number | null;
+  used_this_run?: boolean | null;
+  available_for_run?: boolean | null;
+  granted_count?: number | null;
+  used_count?: number | null;
+};
+
+function trialCreditStateFromRpc(row: TrialCreditRpcRow | null | undefined, fallback?: TrialCreditState): TrialCreditState {
+  if (!row) {
+    return fallback ?? { remaining: 0, usedThisRun: false, availableForRun: false, grantedCount: 0, usedCount: 0 };
+  }
+  const grantedCount = Math.max(0, Number(row.granted_count ?? 0) || 0);
+  const usedCount = Math.max(0, Number(row.used_count ?? 0) || 0);
+  const remaining = Math.max(0, Number(row.remaining ?? grantedCount - usedCount) || 0);
+  return {
+    remaining,
+    usedThisRun: row.used_this_run === true,
+    availableForRun: row.available_for_run === true,
+    grantedCount,
+    usedCount,
+  };
+}
+
+async function reserveTrialCredit(userId: string | null, state: TrialCreditState): Promise<TrialCreditState> {
   if (!userId || !state.availableForRun || state.remaining <= 0) return state;
   try {
     const { getAdmin } = await import("@/app/api/_lib/supa");
     const admin = getAdmin();
     if (!admin) return state;
-    const nextUsedCount = Math.min(state.grantedCount, state.usedCount + 1);
-    await admin
-      .from("deck_analysis_trial_credits")
-      .update({ used_count: nextUsedCount, updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
-    return {
-      remaining: Math.max(0, state.remaining - 1),
-      usedThisRun: true,
-      availableForRun: state.remaining - 1 > 0,
-      grantedCount: state.grantedCount,
-      usedCount: nextUsedCount,
-    };
+    const { data, error } = await admin
+      .rpc("reserve_deck_analysis_trial_credit", {
+        p_user_id: userId,
+        p_grant_count: DECK_ANALYSIS_TRIAL_CREDIT_GRANT,
+      })
+      .maybeSingle();
+    if (error || !data) {
+      return { ...state, availableForRun: false };
+    }
+    return trialCreditStateFromRpc(data as TrialCreditRpcRow, state);
+  } catch {
+    return { ...state, availableForRun: false };
+  }
+}
+
+async function refundReservedTrialCredit(userId: string | null, state: TrialCreditState): Promise<TrialCreditState> {
+  if (!userId || !state.usedThisRun) return state;
+  try {
+    const { getAdmin } = await import("@/app/api/_lib/supa");
+    const admin = getAdmin();
+    if (!admin) return state;
+    const { data, error } = await admin.rpc("refund_deck_analysis_trial_credit", { p_user_id: userId }).maybeSingle();
+    if (error || !data) return state;
+    return trialCreditStateFromRpc(data as TrialCreditRpcRow, { ...state, usedThisRun: false });
   } catch {
     return state;
   }
@@ -1271,10 +1319,13 @@ export async function POST(req: NextRequest) {
       isPro = await checkProStatus(auth.user.id);
     }
     let trialCredits = await getTrialCreditState(auth?.user?.id ?? null, isPro);
-    const useTrialProDepth = !isPro && trialCredits.availableForRun;
+    if (!isPro && trialCredits.availableForRun) {
+      trialCredits = await reserveTrialCredit(auth?.user?.id ?? null, trialCredits);
+    }
+    const useTrialProDepth = !isPro && trialCredits.usedThisRun;
     const cacheKey = await resolveMobileAnalyzeCacheKey(req, parsedBody).catch(() => null);
     const cacheSupabase = cacheKey ? await getServerSupabase() : null;
-    const canUseResponseCache = !(auth?.user && !isPro && trialCredits.availableForRun);
+    const canUseResponseCache = !(auth?.user && !isPro && (trialCredits.availableForRun || trialCredits.usedThisRun));
     if (canUseResponseCache && cacheKey && cacheSupabase) {
       const cached = await supabaseCacheGet(cacheSupabase, "ai_private_cache", cacheKey);
       if (cached?.text) {
@@ -1314,11 +1365,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const coreRes = await runDeckAnalyzeCore(req, {
-      includeValidatedNarrative: false,
-      parsedBody,
-      proAnalysisEntitled: useTrialProDepth,
-    });
+    let coreRes: Response;
+    try {
+      coreRes = await runDeckAnalyzeCore(req, {
+        includeValidatedNarrative: false,
+        parsedBody,
+        proAnalysisEntitled: useTrialProDepth,
+      });
+    } catch (coreError) {
+      if (useTrialProDepth) {
+        trialCredits = await refundReservedTrialCredit(auth?.user?.id ?? null, trialCredits);
+      }
+      throw coreError;
+    }
     const status = coreRes.status;
     const body = (await coreRes.json().catch(() => ({}))) as Record<string, unknown>;
     const coreKeys = Object.keys(body);
@@ -1340,6 +1399,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (!coreRes.ok) {
+      if (useTrialProDepth) {
+        trialCredits = await refundReservedTrialCredit(auth?.user?.id ?? null, trialCredits);
+      }
       const code = pickTrimmedString(body.code) ?? `HTTP_${status}`;
       const message =
         pickTrimmedString(body.error) ??
@@ -1466,8 +1528,8 @@ export async function POST(req: NextRequest) {
             suggestions,
           })
         : null;
-    if (useTrialProDepth && !partial) {
-      trialCredits = await consumeTrialCredit(auth?.user?.id ?? null, trialCredits);
+    if (useTrialProDepth && partial) {
+      trialCredits = await refundReservedTrialCredit(auth?.user?.id ?? null, trialCredits);
     }
     const responseBody = {
       ok: true,

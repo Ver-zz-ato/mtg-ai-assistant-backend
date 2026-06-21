@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { motion, useAnimationControls } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
+import { useProStatus } from "@/hooks/useProStatus";
 import EligibleSavedDeckSelect from "@/components/tools/EligibleSavedDeckSelect";
 import { useEligibleSavedDecks } from "@/hooks/useEligibleSavedDecks";
 import type { SavedDeckPickerRow } from "@/lib/deck/tool-deck-eligibility";
@@ -157,6 +158,7 @@ function busyLabel(phase: BusyPhase) {
 
 export default function DeckCheckerClient() {
   const { user } = useAuth();
+  const { isPro, loading: proStatusLoading } = useProStatus();
   const { eligibleDecks, hiddenCount, loading: savedDecksLoading } = useEligibleSavedDecks(user?.id);
   const [selectedDeckId, setSelectedDeckId] = useState("");
   const [deckText, setDeckText] = useState("");
@@ -184,6 +186,21 @@ export default function DeckCheckerClient() {
   const fixes = useMemo(() => buildFixes(format, counts, quickFixes, suggestions), [counts, format, quickFixes, suggestions]);
   const currentScore = hasResult && score !== null ? score : 72;
   const deckLines = lineCount(deckText);
+  const analyzeUpgradeHint = !proStatusLoading && !isPro
+    ? user
+      ? {
+          href: "/pricing",
+          label: "Free tier",
+          body: "Sign up to Pro for deeper analysis, stronger upgrade picks, and higher daily limits.",
+          cta: "See Pro",
+        }
+      : {
+          href: "/profile",
+          label: "Guest run",
+          body: "Log in for better results, saved deck context, and more accurate follow-up reports.",
+          cta: "Log in",
+        }
+    : null;
 
   useEffect(() => {
     if (resultRevealKey === 0) return;
@@ -469,6 +486,25 @@ export default function DeckCheckerClient() {
                   {busy ? <Zap className="h-4 w-4 animate-pulse" aria-hidden /> : <Wand2 className="h-4 w-4" aria-hidden />}
                   {busyLabel(busyPhase)}
                 </button>
+                {analyzeUpgradeHint ? (
+                  <Link
+                    href={analyzeUpgradeHint.href}
+                    className="mt-3 flex items-center gap-3 rounded-md border border-amber-300/25 bg-gradient-to-r from-amber-300/10 via-white/[0.03] to-cyan-300/10 px-3 py-3 text-left transition hover:border-amber-200/45 hover:bg-amber-300/10"
+                  >
+                    <span className="flex h-9 w-9 flex-none items-center justify-center rounded-md border border-amber-300/30 bg-amber-300/10 text-[11px] font-black text-amber-100">
+                      AI
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-black uppercase text-amber-100">
+                        {analyzeUpgradeHint.label}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-5 text-zinc-300">
+                        {analyzeUpgradeHint.body}
+                      </span>
+                    </span>
+                    <span className="flex-none text-xs font-black text-cyan-100">{analyzeUpgradeHint.cta}</span>
+                  </Link>
+                ) : null}
                 {needsCommanderConfirm && (
                   <div className="mt-3 rounded-md border border-amber-300/35 bg-amber-950/25 p-3">
                     <label htmlFor="commander-name" className="text-xs font-bold uppercase tracking-[0.14em] text-amber-100">

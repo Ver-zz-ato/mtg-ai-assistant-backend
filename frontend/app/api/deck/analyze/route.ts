@@ -60,9 +60,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 /** Slot planning: JSON-only output, 3–6 slots. No reply shortening. */
 const MAX_SLOT_PLANNING_TOKENS = 2048;
 /** Slot candidates: JSON-only, candidate list with reasons. No reply shortening. */
-const MAX_SLOT_CANDIDATES_TOKENS = 1024;
+const MAX_SLOT_CANDIDATES_TOKENS = 512;
+const WEBSITE_DECK_ANALYZE_CACHE_VERSION = 1;
+const WEBSITE_DECK_ANALYZE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type DeckAnalyzeLLMByFeature = { validated: number; slot_planning: number; slot_candidates: number };
+
+type DeckAnalyzeCostProfile = {
+  tier: "guest" | "free" | "pro";
+  maxPlannedSlots: number;
+  maxCandidateCalls: number;
+};
 
 type RoleBaselineEntry = {
   min?: number;
@@ -407,6 +415,105 @@ function extractJsonObject(raw: string): any | null {
   }
 }
 
+function resolveDeckAnalyzeCostProfile(input: {
+  isGuest: boolean;
+  isProDepth: boolean;
+}): DeckAnalyzeCostProfile {
+  if (input.isProDepth) {
+    return { tier: "pro", maxPlannedSlots: 8, maxCandidateCalls: 8 };
+  }
+  if (input.isGuest) {
+    return { tier: "guest", maxPlannedSlots: 3, maxCandidateCalls: 3 };
+  }
+  return { tier: "free", maxPlannedSlots: 5, maxCandidateCalls: 5 };
+}
+
+function summarizeDeckNamesForSlot(
+  entries: Array<{ count: number; name: string }>,
+  slot: SuggestionSlotPlan
+): string {
+  const role = `${slot.role || ""} ${slot.requestedType || ""} ${slot.notes || ""}`.toLowerCase();
+  const names = entries.map((entry) => entry.name.trim()).filter(Boolean);
+  const matching = names.filter((name) => {
+    const n = name.toLowerCase();
+    if (/\bramp|mana|rock|land\b/.test(role)) return /sol ring|signet|talisman|cultivate|kodama|ramp|lantern|dork|elves|land/i.test(n);
+    if (/\bremoval|interaction|answer|wipe|kill|exile|counter\b/.test(role)) return /swords|path|beast within|counter|removal|destroy|exile|wipe|wrath/i.test(n);
+    if (/\bdraw|card advantage|refill\b/.test(role)) return /draw|study|remora|clamp|harmonize|arena|read|sign in blood/i.test(n);
+    return false;
+  });
+  const selected = (matching.length ? matching : names).slice(0, 28);
+  return selected.join(", ");
+}
+
+function buildCompactSlotCandidatePromptContext(input: {
+  slot: SuggestionSlotPlan;
+  context: InferredDeckContext;
+  deckEntries: Array<{ count: number; name: string }>;
+}): string[] {
+  const names = input.deckEntries.map((entry) => entry.name.trim()).filter(Boolean);
+  const avoidNames = names.slice(0, 80).join(", ");
+  const relevantNames = summarizeDeckNamesForSlot(input.deckEntries, input.slot);
+  return [
+    relevantNames ? `Relevant cards already in deck: ${relevantNames}` : "",
+    avoidNames ? `Do not suggest cards already in deck: ${avoidNames}` : "",
+    input.context.archetype ? `Detected archetype: ${input.context.archetype}` : "",
+    input.context.userIntent ? `Detected user intent: ${input.context.userIntent}` : "",
+  ].filter(Boolean);
+}
+
+function isPublicSafeDeckAnalyzeCacheRequest(input: {
+  userId: string | null;
+  deckId?: string;
+  lockCards?: string[];
+  forceModel?: string;
+  forceTier?: string;
+  evalRunId?: string | null;
+  ownershipPrompt?: string;
+}): boolean {
+  return (
+    !input.userId &&
+    !input.deckId &&
+    !(Array.isArray(input.lockCards) && input.lockCards.length > 0) &&
+    !input.forceModel &&
+    !input.forceTier &&
+    !input.evalRunId &&
+    !input.ownershipPrompt
+  );
+}
+
+async function buildDeckAnalyzeCacheKey(input: {
+  deckHash: string;
+  format: AnalyzeFormat;
+  commander: string | null;
+  plan: "Budget" | "Optimized" | undefined;
+  sourcePage: string | null;
+  userMessage?: string;
+  promptVersionId: string | null;
+  promptVersion: string;
+  tier: string;
+  scope: string;
+}): Promise<string> {
+  const { hashCacheKey, normalizeCacheText } = await import("@/lib/utils/supabase-cache");
+  return hashCacheKey({
+    cache_version: WEBSITE_DECK_ANALYZE_CACHE_VERSION,
+    model: "website-deck-analyze-response",
+    sysPromptHash: input.promptVersionId || input.promptVersion,
+    intent: "website_deck_analyze",
+    normalized_user_text: normalizeCacheText(input.userMessage || "", true),
+    deck_context_included: true,
+    deck_hash: input.deckHash,
+    tier: input.tier,
+    locale: null,
+    scope: [
+      input.scope,
+      input.format,
+      input.commander?.toLowerCase() ?? "",
+      input.plan ?? "Optimized",
+      input.sourcePage ?? "",
+    ].join("|"),
+  });
+}
+
 /** Compact deterministic deck metrics for LLM user prompts (server-computed in inferDeckContext only). */
 function formatDeckMetricsFromServer(context: InferredDeckContext): string {
   const lines: string[] = [];
@@ -620,6 +727,7 @@ async function planSuggestionSlots(
 async function fetchSlotCandidates(
   slot: SuggestionSlotPlan,
   context: InferredDeckContext,
+  deckEntries: Array<{ count: number; name: string }>,
   deckText: string,
   userMessage: string | undefined,
   mode: "normal" | "strict" = "normal",
@@ -668,6 +776,7 @@ async function fetchSlotCandidates(
   const profileNoteLines = isCmd ? buildCommanderProfileNotes(profile) : [];
   const baselineSummary = isCmd ? buildCommanderBaselineSummary(context.format) : "";
   const colorSummary = buildFormatColorSummary(context.format, context.colors);
+  const compactDeckContext = buildCompactSlotCandidatePromptContext({ slot, context, deckEntries });
 
   const userPrompt = [
     `Format: ${context.format}`,
@@ -684,8 +793,7 @@ async function fetchSlotCandidates(
     isCmd ? DECK_ANALYZE_SLOT_INTENT_PRECISION : "",
     slot.notes ? `Slot note: ${slot.notes}` : "",
     userMessage ? `User prompt: ${userMessage}` : "",
-    "Deck excerpt:",
-    deckText.slice(0, 1800),
+    ...compactDeckContext,
     "",
     mode === "strict"
       ? "Return 5 legal, on-color replacements that obey the requested type."
@@ -722,6 +830,7 @@ async function fetchSlotCandidates(
 async function retrySlotCandidates(
   slot: SuggestionSlotPlan,
   context: InferredDeckContext,
+  deckEntries: Array<{ count: number; name: string }>,
   deckText: string,
   userMessage: string | undefined,
   mode: "normal" | "strict" = "normal",
@@ -764,6 +873,7 @@ async function retrySlotCandidates(
   const profileNoteLines = isCmd ? buildCommanderProfileNotes(profile) : [];
   const baselineSummary = isCmd ? buildCommanderBaselineSummary(context.format) : "";
   const colorSummary = buildFormatColorSummary(context.format, context.colors);
+  const compactDeckContext = buildCompactSlotCandidatePromptContext({ slot, context, deckEntries });
 
   const userPrompt = [
     `Format: ${context.format}`,
@@ -777,8 +887,7 @@ async function retrySlotCandidates(
     isCmd ? DECK_METRICS_INTERPRETATION_GUIDANCE : DECK_METRICS_INTERPRETATION_CONSTRUCTED,
     DECK_ANALYZE_PROBLEM_WEIGHTING,
     isCmd ? DECK_ANALYZE_SLOT_INTENT_PRECISION : "",
-    "Deck excerpt:",
-    deckText.slice(0, 1500),
+    ...compactDeckContext,
     userMessage ? `User prompt: ${userMessage}` : "",
     "",
     mode === "strict"
@@ -833,7 +942,8 @@ async function validateSlots(
   sourcePage?: string | null,
   anonId?: string | null,
   evalRunId?: string | null,
-  usageSource?: string | null
+  usageSource?: string | null,
+  costProfile?: DeckAnalyzeCostProfile
 ): Promise<{
   suggestions: CardSuggestion[];
   filtered: FilteredCandidate[];
@@ -849,7 +959,15 @@ async function validateSlots(
 
   for (const slot of slots) {
     const quantity = Math.max(1, slot.quantity ?? 1);
-    const baseCandidates = await fetchSlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, overlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, usageSource);
+    if (
+      costProfile &&
+      llmCallCounter &&
+      llmCallCounter.slot_candidates >= costProfile.maxCandidateCalls
+    ) {
+      filtered.push({ slotRole: slot.role, name: "", reason: "candidate call budget reached", source: "gpt" });
+      break;
+    }
+    const baseCandidates = await fetchSlotCandidates(slot, context, deckEntries, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, overlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, usageSource);
     let picked = 0;
 
     const attempt = async (candidates: SlotCandidate[], source: "gpt" | "retry") => {
@@ -934,8 +1052,13 @@ async function validateSlots(
     };
 
     await attempt(baseCandidates, "gpt");
-    if (picked < quantity) {
-      const retry = await retrySlotCandidates(slot, context, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, overlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, usageSource);
+    if (
+      picked < quantity &&
+      (!costProfile ||
+        !llmCallCounter ||
+        llmCallCounter.slot_candidates < costProfile.maxCandidateCalls)
+    ) {
+      const retry = await retrySlotCandidates(slot, context, deckEntries, deckText, userMessage, strict ? "strict" : "normal", deckAnalysisSystemPrompt, userId, isPro, llmCallCounter, forceModel, overlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, usageSource);
       await attempt(retry, "retry");
     }
   }
@@ -1921,6 +2044,13 @@ export async function runDeckAnalyzeCore(
 
   // Re-parse with potentially corrected deckText (mainboard only — sideboard excluded for Commander too)
   const entries = parseMainboardEntriesForAnalysis(deckText, format);
+  let deckAnalyzeDeckHash: string | null = null;
+  try {
+    const { deckHash } = await import("@/lib/deck/deck-context-summary");
+    deckAnalyzeDeckHash = deckHash(deckText);
+  } catch {
+    deckAnalyzeDeckHash = null;
+  }
   const ownershipContext = await buildOwnershipContextForUserDeck({
     supabase,
     userId: user?.id,
@@ -2111,6 +2241,10 @@ export async function runDeckAnalyzeCore(
   }
 
   const deckAnalyzeLLMByFeature: DeckAnalyzeLLMByFeature = { validated: 0, slot_planning: 0, slot_candidates: 0 };
+  const deckAnalyzeCostProfile = resolveDeckAnalyzeCostProfile({
+    isGuest: !user,
+    isProDepth,
+  });
   let deckAnalyzeRequestId: string | undefined;
   let promptLogged = false;
   if (!promptLogged) {
@@ -2148,9 +2282,82 @@ export async function runDeckAnalyzeCore(
 
   const sourcePage = body.sourcePage?.trim() || null;
   const evalRunId = typeof body.eval_run_id === "string" && body.eval_run_id.trim() ? body.eval_run_id.trim() : null;
+  const publicSafeAnalyzeCache = isPublicSafeDeckAnalyzeCacheRequest({
+    userId: user?.id ?? null,
+    deckId: typeof body.deckId === "string" ? body.deckId.trim() : undefined,
+    lockCards: Array.isArray(body.lockCards) ? body.lockCards : undefined,
+    forceModel: allowClientOverrides && typeof body.forceModel === "string" ? body.forceModel.trim() : undefined,
+    forceTier: allowClientOverrides && typeof body.forceTier === "string" ? body.forceTier.trim() : undefined,
+    evalRunId,
+    ownershipPrompt,
+  });
+  const analyzeCacheTable = "ai_public_cache" as const;
+  const analyzeCacheScope = publicSafeAnalyzeCache
+    ? "shared"
+    : user?.id
+      ? `user:${user.id}`
+      : anonId
+        ? `guest:${anonId}`
+        : "guest:unknown";
+  const analyzeCacheKey =
+    useGPT && deckAnalyzeDeckHash && publicSafeAnalyzeCache
+      ? await buildDeckAnalyzeCacheKey({
+          deckHash: deckAnalyzeDeckHash,
+          format,
+          commander: context.commander || reqCommander,
+          plan: body.plan,
+          sourcePage,
+          userMessage: body.userMessage,
+          promptVersionId: deckAnalyzePromptVersionId,
+          promptVersion: getActivePromptVersion(),
+          tier: deckAnalyzeCostProfile.tier,
+          scope: analyzeCacheScope,
+        }).catch(() => null)
+      : null;
+  const analyzeCacheSupabase = analyzeCacheKey
+    ? (await import("@/app/api/_lib/supa")).getAdmin()
+    : null;
+  if (analyzeCacheKey && analyzeCacheSupabase) {
+    const { supabaseCacheGet } = await import("@/lib/utils/supabase-cache");
+    const cached = await supabaseCacheGet(analyzeCacheSupabase, analyzeCacheTable, analyzeCacheKey).catch(() => undefined);
+    if (cached?.text) {
+      try {
+        const cachedBody = JSON.parse(cached.text) as Record<string, unknown>;
+        const { recordAiUsage } = await import("@/lib/ai/log-usage");
+        void recordAiUsage({
+          user_id: user?.id ?? null,
+          anon_id: anonId ?? null,
+          thread_id: null,
+          model: "cache",
+          input_tokens: 0,
+          output_tokens: 0,
+          cost_usd: 0,
+          route: "deck_analyze",
+          request_kind: "CACHE_HIT",
+          layer0_mode: "CACHE_HIT",
+          deck_hash: deckAnalyzeDeckHash,
+          cache_hit: true,
+          cache_kind: "website_deck_analyze",
+          source_page: sourcePage,
+          eval_run_id: evalRunId,
+          source: deckAnalyzeUsageSource,
+          user_tier: deckAnalyzeCostProfile.tier,
+          is_guest: !user,
+        }).catch(() => {});
+        return new Response(
+          JSON.stringify({ ...cachedBody, cacheHit: true, cacheKind: "website_deck_analyze" }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      } catch {
+        // Bad cache entries are ignored; continue with fresh analysis.
+      }
+    }
+  }
+
   if (useGPT) {
-    const slots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
-    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+    const plannedSlots = await planSuggestionSlots(deckText, body.userMessage, context, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+    const slots = plannedSlots.slice(0, deckAnalyzeCostProfile.maxPlannedSlots);
+    let validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, false, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource, deckAnalyzeCostProfile);
     let normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
     let profile = commanderProfile;
     let post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -2163,7 +2370,7 @@ export async function runDeckAnalyzeCore(
 
     if (suggestions.length === 0 && validation.suggestions.length > 0) {
       // Retry with stricter instructions
-      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource);
+      validation = await validateSlots(slots, context, entries, byName, deckText, body.userMessage, lockedNormalized, true, bannedLists, deckAnalysisSystemPrompt, user?.id || null, isProDepth, deckAnalyzeLLMByFeature, adminForceModel, deckOverlayTier, allowClientOverrides, sourcePage, anonId, evalRunId, deckAnalyzeUsageSource, deckAnalyzeCostProfile);
       normalizedDeck = new Set(entries.map((e) => normalizeCardName(e.name)));
       profile = getCommanderProfileData(context.commander, context);
       post = await postFilterSuggestions(validation.suggestions, context, byName, normalizedDeck, body.currency ?? "USD", entries, null, profile, lockedNormalized, bannedLists);
@@ -2393,8 +2600,7 @@ export async function runDeckAnalyzeCore(
       : null;
   const displayScore = Math.min(score, incompleteDeck ? 72 : veryLowLands ? 78 : score);
 
-  return new Response(
-    JSON.stringify({
+  const responseBody = {
     score: displayScore,
     rawScore: score,
     scoreConfidence,
@@ -2441,7 +2647,29 @@ export async function runDeckAnalyzeCore(
         analysis_validation_warnings: validatedAnalysis.validationWarnings,
       } : {}),
       ...validatedAnalysisMeta,
-    }),
+    };
+
+  if (analyzeCacheKey && analyzeCacheSupabase) {
+    const { supabaseCacheSet } = await import("@/lib/utils/supabase-cache");
+    await supabaseCacheSet(
+      analyzeCacheSupabase,
+      analyzeCacheTable,
+      analyzeCacheKey,
+      {
+        text: JSON.stringify(responseBody),
+        usage: {
+          route: "/api/deck/analyze",
+          cache_version: WEBSITE_DECK_ANALYZE_CACHE_VERSION,
+          public_safe: publicSafeAnalyzeCache,
+        },
+        fallback: false,
+      },
+      WEBSITE_DECK_ANALYZE_CACHE_TTL_MS
+    ).catch(() => undefined);
+  }
+
+  return new Response(
+    JSON.stringify(responseBody),
     { status: 200, headers: { "content-type": "application/json" } }
   );
 }

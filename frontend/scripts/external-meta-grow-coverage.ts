@@ -165,14 +165,14 @@ function diffProfiles(before: Awaited<ReturnType<typeof snapshot>>, after: Await
 
 function defaultCandidates(): Candidate[] {
   return [
-    { commander: "Omnath, Locus of Creation", query: "Omnath Locus of Creation", page: 1 },
-    { commander: "Etali, Primal Storm", query: "Etali", page: 1 },
-    { commander: "Hakbal of the Surging Soul", query: "Hakbal of the Surging Soul", page: 1 },
-    { commander: "Zada, Hedron Grinder", query: "Zada Hedron Grinder", page: 1 },
-    { commander: "Omnath, Locus of Rage", query: "Omnath Locus of Rage", page: 1 },
-    { commander: "Tasigur, the Golden Fang", query: "Tasigur the Golden Fang", page: 1 },
-    { commander: "Dina, Soul Steeper", query: "Dina Soul Steeper", page: 1 },
-    { commander: "Braids, Arisen Nightmare", query: "Braids Arisen Nightmare", page: 1 },
+    { commander: "Korvold, Fae-Cursed King", query: "Korvold Fae-Cursed King", page: 2 },
+    { commander: "Chulane, Teller of Tales", query: "Chulane Teller of Tales", page: 2 },
+    { commander: "Chulane, Teller of Tales", query: "Chulane", page: 1 },
+    { commander: "Pantlaza, Sun-Favored", query: "Pantlaza Sun-Favored", page: 2 },
+    { commander: "Pantlaza, Sun-Favored", query: "Pantlaza", page: 1 },
+    { commander: "Winota, Joiner of Forces", query: "Winota Joiner of Forces", page: 2 },
+    { commander: "Winota, Joiner of Forces", query: "Winota", page: 1 },
+    { commander: "Etali, Primal Conqueror // Etali, Primal Sickness", query: "Etali Primal Conqueror", page: 1 },
     { commander: "Azusa, Lost but Seeking", query: "Azusa Lost but Seeking", page: 1 },
     { commander: "Yawgmoth, Thran Physician", query: "Yawgmoth Thran Physician", page: 1 },
   ];

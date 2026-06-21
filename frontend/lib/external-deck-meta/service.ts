@@ -478,6 +478,8 @@ async function fetchDeckCardsPage<T>(
             .select(columns)
             .in("external_deck_id", ids)
             .in("board", boards)
+            .order("external_deck_id", { ascending: true })
+            .order("id", { ascending: true })
             .range(from, from + pageSize - 1)
       );
       if (error) throw new Error(error.message);
@@ -504,7 +506,7 @@ async function fetchExternalDeckRowsPage<T>(
         table: "external_decks",
         range: `${from}-${from + pageSize - 1}`,
       },
-      async () => filter(admin.from("external_decks").select(select).range(from, from + pageSize - 1))
+      async () => filter(admin.from("external_decks").select(select).order("id", { ascending: true }).range(from, from + pageSize - 1))
     );
     if (error) throw new Error(error.message);
     const page = (data ?? []) as T[];
