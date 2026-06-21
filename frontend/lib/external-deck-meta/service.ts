@@ -31,6 +31,8 @@ const ALLOCATOR_TARGET_STATS_APP_CONFIG_KEY = "external_deck_meta:growth_target_
 const TARGET_ELIGIBLE_PROFILES = 100;
 const HOURLY_DETAIL_FETCH_CAP = 25;
 const HOURLY_GROWTH_QUEUE_CAP = 60;
+const CRON_DETAIL_PROCESSING_BUDGET_MS = 85_000;
+const CRON_FINAL_COVERAGE_BUDGET_MS = 108_000;
 const TARGET_POOR_YIELD_BACKOFF_MS = 12 * 60 * 60 * 1000;
 const TARGET_POOR_YIELD_STREAK_LIMIT = 3;
 
@@ -235,14 +237,23 @@ async function readAppConfigJson<T>(admin: SupabaseClient, key: string, fallback
 }
 
 async function writeAppConfigJson(admin: SupabaseClient, key: string, value: unknown): Promise<void> {
-  await admin.from("app_config").upsert(
+  const { error } = await withSupabaseRetry(
     {
-      key,
-      value,
-      updated_at: new Date().toISOString(),
+      operation: "app_config_upsert",
+      table: "app_config",
+      range: key,
     },
-    { onConflict: "key" }
+    async () =>
+      admin.from("app_config").upsert(
+        {
+          key,
+          value,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key" }
+      )
   );
+  if (error) throw new Error(error.message);
 }
 
 async function existingArchidektIds(admin: SupabaseClient, ids: string[]): Promise<Set<string>> {
@@ -743,7 +754,8 @@ async function processQueueForSource(
   admin: SupabaseClient,
   source: ExternalDeckSourceRow,
   summary: ExternalDeckIngestSummary,
-  touchedCommanders: Set<string>
+  touchedCommanders: Set<string>,
+  opts: { deadlineMs?: number } = {}
 ): Promise<void> {
   if (!source.enabled || isSourceCoolingDown(source)) {
     summary.skipped += 1;
@@ -759,6 +771,10 @@ async function processQueueForSource(
     .limit(source.max_decks_per_run);
 
   for (const raw of queueRows ?? []) {
+    if (opts.deadlineMs && Date.now() >= opts.deadlineMs) {
+      summary.errors.push("cron_processing_budget_reached");
+      return;
+    }
     const q = raw as { id: string; external_id: string; attempts: number };
     summary.processed += 1;
     await admin.from("external_deck_ingest_queue").update({ status: "processing", updated_at: new Date().toISOString() }).eq("id", q.id);
@@ -1203,6 +1219,7 @@ export async function runExternalDeckMetaIngest(
     discover?: boolean;
     rollupRegeneration?: "full" | "none";
     profileRegeneration?: "full" | "touched" | "none";
+    processingDeadlineMs?: number;
   }
 ): Promise<ExternalDeckIngestSummary> {
   const summary = emptySummary();
@@ -1238,7 +1255,7 @@ export async function runExternalDeckMetaIngest(
 
   for (const source of sourceRows(sourceData)) {
     const capped = opts?.limit ? { ...source, max_decks_per_run: Math.min(source.max_decks_per_run, opts.limit) } : source;
-    await processQueueForSource(admin, capped, summary, touchedCommanders);
+    await processQueueForSource(admin, capped, summary, touchedCommanders, { deadlineMs: opts?.processingDeadlineMs });
   }
 
   summary.rollupsWritten = rollupRegeneration === "full" ? await writeExternalMetaRollups(admin) : 0;
@@ -1381,9 +1398,14 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
       discover: false,
       rollupRegeneration: "none",
       profileRegeneration: "touched",
+      processingDeadlineMs: startedAtMs + CRON_DETAIL_PROCESSING_BUDGET_MS,
     });
-    const coverageAfter = await buildExternalCommanderCoverageReport(admin);
-    base.coverage_after = coverageSummaryForAllocator(coverageAfter);
+    if (Date.now() - startedAtMs < CRON_FINAL_COVERAGE_BUDGET_MS) {
+      const coverageAfter = await buildExternalCommanderCoverageReport(admin);
+      base.coverage_after = coverageSummaryForAllocator(coverageAfter);
+    } else {
+      base.errors.push("cron_final_coverage_skipped_time_budget");
+    }
     return finish(base, "finished");
   } catch (e) {
     const summary = {
