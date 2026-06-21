@@ -34,7 +34,13 @@ const HOURLY_GROWTH_QUEUE_CAP = 60;
 const CRON_DETAIL_PROCESSING_BUDGET_MS = 85_000;
 const CRON_FINAL_COVERAGE_BUDGET_MS = 108_000;
 const TARGET_POOR_YIELD_BACKOFF_MS = 12 * 60 * 60 * 1000;
-const TARGET_POOR_YIELD_STREAK_LIMIT = 3;
+const TARGET_POOR_YIELD_STREAK_LIMIT = 2;
+const MAX_GROWTH_SEARCH_PAGES_BY_BUCKET: Record<string, number> = {
+  usable_qa: 3,
+  early_signal: 2,
+  not_ready: 1,
+  needs_confidence_review: 1,
+};
 
 type ExternalDeckMetaAllocatorSummary = {
   ok: boolean;
@@ -299,16 +305,31 @@ function growthTargetSort(
   const yieldPenalty = (row: ExternalCommanderCoverageTarget) => {
     const stat = targetStatFor(stats, row);
     if (!stat) return 0;
-    return Math.min(30, (stat.no_queue_streak || 0) * 10);
+    const searches = Math.max(1, Number(stat.searches) || 1);
+    const queueRate = (Number(stat.queued) || 0) / searches;
+    const foundRate = (Number(stat.found) || 0) / searches;
+    const noQueuePenalty = (stat.no_queue_streak || 0) * 25;
+    const lowQueuePenalty = queueRate < 5 ? 15 : queueRate < 15 ? 8 : 0;
+    const lowFoundPenalty = foundRate < 10 ? 10 : 0;
+    return Math.min(60, noQueuePenalty + lowQueuePenalty + lowFoundPenalty);
+  };
+  const sampleCloseness = (row: ExternalCommanderCoverageTarget) => {
+    if (row.approved_sample_size >= 25) return row.needed_to_50;
+    if (row.approved_sample_size >= 10) return row.needed_to_50 + 25;
+    return row.needed_to_50 + 75;
   };
   return (
     bucketWeight(a) - bucketWeight(b) ||
     yieldPenalty(a) - yieldPenalty(b) ||
-    a.needed_to_50 - b.needed_to_50 ||
+    sampleCloseness(a) - sampleCloseness(b) ||
     confidenceTrajectory(b) - confidenceTrajectory(a) ||
     b.popularity_score - a.popularity_score ||
     a.rank - b.rank
   );
+}
+
+function maxSearchPagesForTarget(target: ExternalCommanderCoverageTarget): number {
+  return MAX_GROWTH_SEARCH_PAGES_BY_BUCKET[target.readiness_bucket] ?? 1;
 }
 
 async function queueFocusedArchidektGrowth(
@@ -327,7 +348,7 @@ async function queueFocusedArchidektGrowth(
     .filter((row) => row.approved_sample_size < COMMUNITY_PROFILE_MIN_SAMPLE)
     .filter((row) => !isTargetBackedOff(stats, row))
     .sort((a, b) => growthTargetSort(stats, a, b))
-    .slice(0, 10);
+    .slice(0, 8);
   const cursors = await readAppConfigJson<Record<string, number>>(admin, ALLOCATOR_CURSOR_APP_CONFIG_KEY, {});
   const events: ExternalDeckMetaAllocatorSummary["search_events"] = [];
   let queued = 0;
@@ -336,115 +357,121 @@ async function queueFocusedArchidektGrowth(
   for (const target of selected) {
     if (queued >= desiredDecks) break;
     const key = target.commander_key || commanderCoverageKey(target.commander);
-    const page = Math.max(1, Math.floor(Number(cursors[key]) || 1));
-    const query = archidektCommanderQuery(target.commander);
-    const found = await discoverArchidektCommanderSearchDecks(query, { page, maxIds: 60 });
-    cursors[key] = page + 1;
-    if (!found.ok) {
-      const status = found.status || 0;
+    const pagesForTarget = maxSearchPagesForTarget(target);
+    for (let targetPage = 0; targetPage < pagesForTarget; targetPage += 1) {
+      if (queued >= desiredDecks || cooldownUntil) break;
+      if (isTargetBackedOff(stats, target)) break;
+      const page = Math.max(1, Math.floor(Number(cursors[key]) || 1));
+      const query = archidektCommanderQuery(target.commander);
+      const found = await discoverArchidektCommanderSearchDecks(query, { page, maxIds: 60 });
+      cursors[key] = page + 1;
+      if (!found.ok) {
+        const status = found.status || 0;
+        const now = new Date().toISOString();
+        const existing = stats[key] ?? {
+          commander: target.commander,
+          searches: 0,
+          found: 0,
+          queued: 0,
+          no_queue_streak: 0,
+          last_page: page,
+          last_status: status,
+          last_searched_at: now,
+          skip_until: null,
+        };
+        const noQueueStreak = existing.no_queue_streak + 1;
+        stats[key] = {
+          ...existing,
+          commander: target.commander,
+          searches: existing.searches + 1,
+          last_page: page,
+          last_status: status,
+          last_searched_at: now,
+          no_queue_streak: noQueueStreak,
+          skip_until:
+            noQueueStreak >= TARGET_POOR_YIELD_STREAK_LIMIT
+              ? new Date(Date.now() + TARGET_POOR_YIELD_BACKOFF_MS).toISOString()
+              : existing.skip_until ?? null,
+        };
+        events.push({
+          commander: target.commander,
+          bucket: target.readiness_bucket,
+          page,
+          query,
+          status,
+          found: 0,
+          queued: 0,
+          retry_after: found.retryAfter ?? null,
+        });
+        if (status === 429 || status === 403) {
+          cooldownUntil = status === 429 ? retryAfterToCooldownIso(found.retryAfter ?? null, 6) : retryAfterToCooldownIso(null, 24);
+          await markSourceFailure(admin, source, found.error, { cooldownUntil });
+          break;
+        }
+        await politeDelay(source.min_delay_ms);
+        continue;
+      }
+
+      const existing = await existingArchidektIds(admin, found.ids);
+      const ids = found.ids.filter((id) => !existing.has(id)).slice(0, Math.max(0, desiredDecks - queued));
+      if (ids.length > 0) {
+        const now = new Date().toISOString();
+        const rows = ids.map((id) => ({
+          source_key: "archidekt",
+          external_id: id,
+          url: sourceDeckUrl("archidekt", id),
+          submitted_by: null,
+          status: "pending",
+          next_attempt_at: now,
+          updated_at: now,
+        }));
+        const { error } = await admin.from("external_deck_ingest_queue").upsert(rows, {
+          onConflict: "source_key,external_id",
+          ignoreDuplicates: true,
+        });
+        if (error) throw new Error(error.message);
+        queued += rows.length;
+      }
       const now = new Date().toISOString();
-      const existing = stats[key] ?? {
+      const existingStats = stats[key] ?? {
         commander: target.commander,
         searches: 0,
         found: 0,
         queued: 0,
         no_queue_streak: 0,
         last_page: page,
-        last_status: status,
+        last_status: 200,
         last_searched_at: now,
         skip_until: null,
       };
+      const noQueueStreak = ids.length > 0 ? 0 : existingStats.no_queue_streak + 1;
       stats[key] = {
-        ...existing,
+        ...existingStats,
         commander: target.commander,
-        searches: existing.searches + 1,
+        searches: existingStats.searches + 1,
+        found: existingStats.found + found.ids.length,
+        queued: existingStats.queued + ids.length,
+        no_queue_streak: noQueueStreak,
         last_page: page,
-        last_status: status,
+        last_status: 200,
         last_searched_at: now,
-        no_queue_streak: existing.no_queue_streak + 1,
         skip_until:
-          existing.no_queue_streak + 1 >= TARGET_POOR_YIELD_STREAK_LIMIT
+          noQueueStreak >= TARGET_POOR_YIELD_STREAK_LIMIT
             ? new Date(Date.now() + TARGET_POOR_YIELD_BACKOFF_MS).toISOString()
-            : existing.skip_until ?? null,
+            : null,
       };
+
       events.push({
         commander: target.commander,
         bucket: target.readiness_bucket,
         page,
         query,
-        status,
-        found: 0,
-        queued: 0,
-        retry_after: found.retryAfter ?? null,
+        status: 200,
+        found: found.ids.length,
+        queued: ids.length,
       });
-      if (status === 429 || status === 403) {
-        cooldownUntil = status === 429 ? retryAfterToCooldownIso(found.retryAfter ?? null, 6) : retryAfterToCooldownIso(null, 24);
-        await markSourceFailure(admin, source, found.error, { cooldownUntil });
-        break;
-      }
       await politeDelay(source.min_delay_ms);
-      continue;
     }
-
-    const existing = await existingArchidektIds(admin, found.ids);
-    const ids = found.ids.filter((id) => !existing.has(id)).slice(0, Math.max(0, desiredDecks - queued));
-    if (ids.length > 0) {
-      const now = new Date().toISOString();
-      const rows = ids.map((id) => ({
-        source_key: "archidekt",
-        external_id: id,
-        url: sourceDeckUrl("archidekt", id),
-        submitted_by: null,
-        status: "pending",
-        next_attempt_at: now,
-        updated_at: now,
-      }));
-      const { error } = await admin.from("external_deck_ingest_queue").upsert(rows, {
-        onConflict: "source_key,external_id",
-        ignoreDuplicates: true,
-      });
-      if (error) throw new Error(error.message);
-      queued += rows.length;
-    }
-    const now = new Date().toISOString();
-    const existingStats = stats[key] ?? {
-      commander: target.commander,
-      searches: 0,
-      found: 0,
-      queued: 0,
-      no_queue_streak: 0,
-      last_page: page,
-      last_status: 200,
-      last_searched_at: now,
-      skip_until: null,
-    };
-    const noQueueStreak = ids.length > 0 ? 0 : existingStats.no_queue_streak + 1;
-    stats[key] = {
-      ...existingStats,
-      commander: target.commander,
-      searches: existingStats.searches + 1,
-      found: existingStats.found + found.ids.length,
-      queued: existingStats.queued + ids.length,
-      no_queue_streak: noQueueStreak,
-      last_page: page,
-      last_status: 200,
-      last_searched_at: now,
-      skip_until:
-        noQueueStreak >= TARGET_POOR_YIELD_STREAK_LIMIT
-          ? new Date(Date.now() + TARGET_POOR_YIELD_BACKOFF_MS).toISOString()
-          : null,
-    };
-
-    events.push({
-      commander: target.commander,
-      bucket: target.readiness_bucket,
-      page,
-      query,
-      status: 200,
-      found: found.ids.length,
-      queued: ids.length,
-    });
-    await politeDelay(source.min_delay_ms);
   }
 
   await writeAppConfigJson(admin, ALLOCATOR_CURSOR_APP_CONFIG_KEY, cursors);
