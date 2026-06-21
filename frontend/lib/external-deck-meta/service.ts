@@ -27,8 +27,12 @@ const ROLE_KEYS = ["lands", "ramp", "draw", "removal", "protection"] as const;
 const ALLOCATOR_APP_CONFIG_KEY = "external_deck_meta:last_allocator_summary";
 const ALLOCATOR_HEARTBEAT_APP_CONFIG_KEY = "external_deck_meta:last_cron_heartbeat";
 const ALLOCATOR_CURSOR_APP_CONFIG_KEY = "external_deck_meta:archidekt_search_cursors";
+const ALLOCATOR_TARGET_STATS_APP_CONFIG_KEY = "external_deck_meta:growth_target_stats";
 const TARGET_ELIGIBLE_PROFILES = 100;
-const HOURLY_DETAIL_FETCH_CAP = 15;
+const HOURLY_DETAIL_FETCH_CAP = 25;
+const HOURLY_GROWTH_QUEUE_CAP = 60;
+const TARGET_POOR_YIELD_BACKOFF_MS = 12 * 60 * 60 * 1000;
+const TARGET_POOR_YIELD_STREAK_LIMIT = 3;
 
 type ExternalDeckMetaAllocatorSummary = {
   ok: boolean;
@@ -37,6 +41,7 @@ type ExternalDeckMetaAllocatorSummary = {
   detail_fetch_cap: number;
   growth_budget: number;
   refresh_budget: number;
+  queued_growth_target: number;
   queued_growth: number;
   queued_refresh: number;
   search_events: Array<{
@@ -77,6 +82,21 @@ type ExternalDeckMetaAllocatorSummary = {
   errors: string[];
   ran_at: string;
 };
+
+type ExternalDeckMetaTargetStats = Record<
+  string,
+  {
+    commander: string;
+    searches: number;
+    found: number;
+    queued: number;
+    no_queue_streak: number;
+    last_page: number;
+    last_status: number;
+    last_searched_at: string;
+    skip_until?: string | null;
+  }
+>;
 
 type ExternalCommanderProfileStatusRow = {
   id: string;
@@ -147,6 +167,7 @@ function emptySummary(): ExternalDeckIngestSummary {
     discovered: 0,
     rollupsWritten: 0,
     profilesWritten: 0,
+    rollupRegenerationMode: "full",
     profileRegenerationMode: "full",
     touchedCommanders: [],
     errors: [],
@@ -240,14 +261,43 @@ async function existingArchidektIds(admin: SupabaseClient, ids: string[]): Promi
   return existing;
 }
 
-function growthTargetSort(a: ExternalCommanderCoverageTarget, b: ExternalCommanderCoverageTarget): number {
+function targetStatFor(stats: ExternalDeckMetaTargetStats, target: ExternalCommanderCoverageTarget) {
+  return stats[target.commander_key || commanderCoverageKey(target.commander)];
+}
+
+function isTargetBackedOff(stats: ExternalDeckMetaTargetStats, target: ExternalCommanderCoverageTarget): boolean {
+  const stat = targetStatFor(stats, target);
+  return Boolean(stat?.skip_until && Date.parse(stat.skip_until) > Date.now());
+}
+
+function growthTargetSort(
+  stats: ExternalDeckMetaTargetStats,
+  a: ExternalCommanderCoverageTarget,
+  b: ExternalCommanderCoverageTarget
+): number {
   const bucketWeight = (row: ExternalCommanderCoverageTarget) => {
     if (row.readiness_bucket === "usable_qa") return 0;
     if (row.readiness_bucket === "early_signal") return 1;
     if (row.readiness_bucket === "not_ready" && row.rank <= 100) return 2;
     return 3;
   };
-  return bucketWeight(a) - bucketWeight(b) || a.needed_to_50 - b.needed_to_50 || a.rank - b.rank;
+  const confidenceTrajectory = (row: ExternalCommanderCoverageTarget) => {
+    if (row.approved_sample_size <= 0) return 0;
+    return row.confidence_score / Math.max(1, Math.min(row.approved_sample_size, COMMUNITY_PROFILE_MIN_SAMPLE));
+  };
+  const yieldPenalty = (row: ExternalCommanderCoverageTarget) => {
+    const stat = targetStatFor(stats, row);
+    if (!stat) return 0;
+    return Math.min(30, (stat.no_queue_streak || 0) * 10);
+  };
+  return (
+    bucketWeight(a) - bucketWeight(b) ||
+    yieldPenalty(a) - yieldPenalty(b) ||
+    a.needed_to_50 - b.needed_to_50 ||
+    confidenceTrajectory(b) - confidenceTrajectory(a) ||
+    b.popularity_score - a.popularity_score ||
+    a.rank - b.rank
+  );
 }
 
 async function queueFocusedArchidektGrowth(
@@ -261,9 +311,11 @@ async function queueFocusedArchidektGrowth(
   selected: ExternalDeckMetaAllocatorSummary["selected_growth_targets"];
   cooldownUntil?: string | null;
 }> {
+  const stats = await readAppConfigJson<ExternalDeckMetaTargetStats>(admin, ALLOCATOR_TARGET_STATS_APP_CONFIG_KEY, {});
   const selected = targets
     .filter((row) => row.approved_sample_size < COMMUNITY_PROFILE_MIN_SAMPLE)
-    .sort(growthTargetSort)
+    .filter((row) => !isTargetBackedOff(stats, row))
+    .sort((a, b) => growthTargetSort(stats, a, b))
     .slice(0, 10);
   const cursors = await readAppConfigJson<Record<string, number>>(admin, ALLOCATOR_CURSOR_APP_CONFIG_KEY, {});
   const events: ExternalDeckMetaAllocatorSummary["search_events"] = [];
@@ -279,6 +331,31 @@ async function queueFocusedArchidektGrowth(
     cursors[key] = page + 1;
     if (!found.ok) {
       const status = found.status || 0;
+      const now = new Date().toISOString();
+      const existing = stats[key] ?? {
+        commander: target.commander,
+        searches: 0,
+        found: 0,
+        queued: 0,
+        no_queue_streak: 0,
+        last_page: page,
+        last_status: status,
+        last_searched_at: now,
+        skip_until: null,
+      };
+      stats[key] = {
+        ...existing,
+        commander: target.commander,
+        searches: existing.searches + 1,
+        last_page: page,
+        last_status: status,
+        last_searched_at: now,
+        no_queue_streak: existing.no_queue_streak + 1,
+        skip_until:
+          existing.no_queue_streak + 1 >= TARGET_POOR_YIELD_STREAK_LIMIT
+            ? new Date(Date.now() + TARGET_POOR_YIELD_BACKOFF_MS).toISOString()
+            : existing.skip_until ?? null,
+      };
       events.push({
         commander: target.commander,
         bucket: target.readiness_bucket,
@@ -318,6 +395,34 @@ async function queueFocusedArchidektGrowth(
       if (error) throw new Error(error.message);
       queued += rows.length;
     }
+    const now = new Date().toISOString();
+    const existingStats = stats[key] ?? {
+      commander: target.commander,
+      searches: 0,
+      found: 0,
+      queued: 0,
+      no_queue_streak: 0,
+      last_page: page,
+      last_status: 200,
+      last_searched_at: now,
+      skip_until: null,
+    };
+    const noQueueStreak = ids.length > 0 ? 0 : existingStats.no_queue_streak + 1;
+    stats[key] = {
+      ...existingStats,
+      commander: target.commander,
+      searches: existingStats.searches + 1,
+      found: existingStats.found + found.ids.length,
+      queued: existingStats.queued + ids.length,
+      no_queue_streak: noQueueStreak,
+      last_page: page,
+      last_status: 200,
+      last_searched_at: now,
+      skip_until:
+        noQueueStreak >= TARGET_POOR_YIELD_STREAK_LIMIT
+          ? new Date(Date.now() + TARGET_POOR_YIELD_BACKOFF_MS).toISOString()
+          : null,
+    };
 
     events.push({
       commander: target.commander,
@@ -332,6 +437,7 @@ async function queueFocusedArchidektGrowth(
   }
 
   await writeAppConfigJson(admin, ALLOCATOR_CURSOR_APP_CONFIG_KEY, cursors);
+  await writeAppConfigJson(admin, ALLOCATOR_TARGET_STATS_APP_CONFIG_KEY, stats);
   return {
     queued,
     events,
@@ -389,6 +495,17 @@ async function queueArchidektRefresh(
   });
   if (upsertError) throw new Error(upsertError.message);
   return rows.length;
+}
+
+async function countDueQueuedDecks(admin: SupabaseClient, sourceKey: ExternalDeckSourceKey): Promise<number> {
+  const { count, error } = await admin
+    .from("external_deck_ingest_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("source_key", sourceKey)
+    .in("status", ["pending", "failed"])
+    .lte("next_attempt_at", new Date().toISOString());
+  if (error) throw new Error(error.message);
+  return count ?? 0;
 }
 
 function coverageSummaryForAllocator(report: ExternalCommanderCoverageReport) {
@@ -1080,11 +1197,19 @@ export async function writeExternalCommanderProfiles(
 
 export async function runExternalDeckMetaIngest(
   admin: SupabaseClient,
-  opts?: { source?: ExternalDeckSourceKey | "all"; limit?: number; discover?: boolean; profileRegeneration?: "full" | "touched" | "none" }
+  opts?: {
+    source?: ExternalDeckSourceKey | "all";
+    limit?: number;
+    discover?: boolean;
+    rollupRegeneration?: "full" | "none";
+    profileRegeneration?: "full" | "touched" | "none";
+  }
 ): Promise<ExternalDeckIngestSummary> {
   const summary = emptySummary();
+  const rollupRegeneration = opts?.rollupRegeneration ?? "full";
   const profileRegeneration = opts?.profileRegeneration ?? "full";
   const touchedCommanders = new Set<string>();
+  summary.rollupRegenerationMode = rollupRegeneration;
   summary.profileRegenerationMode = profileRegeneration;
   const sourceFilter = opts?.source && opts.source !== "all" ? opts.source : null;
   if (opts?.discover !== false) {
@@ -1116,7 +1241,7 @@ export async function runExternalDeckMetaIngest(
     await processQueueForSource(admin, capped, summary, touchedCommanders);
   }
 
-  summary.rollupsWritten = await writeExternalMetaRollups(admin);
+  summary.rollupsWritten = rollupRegeneration === "full" ? await writeExternalMetaRollups(admin) : 0;
   summary.touchedCommanders = [...touchedCommanders].sort((a, b) => a.localeCompare(b));
   if (profileRegeneration === "full") {
     summary.profilesWritten = await writeExternalCommanderProfiles(admin);
@@ -1138,6 +1263,7 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
     detail_fetch_cap: HOURLY_DETAIL_FETCH_CAP,
     growth_budget: 0,
     refresh_budget: 0,
+    queued_growth_target: 0,
     queued_growth: 0,
     queued_refresh: 0,
     search_events: [],
@@ -1166,8 +1292,11 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
       duration_ms: finished.duration_ms,
       next_work_bucket: finished.next_work_bucket,
       queued_growth: finished.queued_growth,
+      queued_growth_target: finished.queued_growth_target,
       queued_refresh: finished.queued_refresh,
       processed: finished.processed_summary?.processed ?? 0,
+      rollups_written: finished.processed_summary?.rollupsWritten ?? 0,
+      rollup_regeneration_mode: finished.processed_summary?.rollupRegenerationMode ?? null,
       profiles_written: finished.processed_summary?.profilesWritten ?? 0,
       profile_regeneration_mode: finished.processed_summary?.profileRegenerationMode ?? null,
       touched_commanders: finished.processed_summary?.touchedCommanders ?? [],
@@ -1212,19 +1341,21 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
     }
 
     const targetReached = coverageBefore.community_profile_eligible_count >= TARGET_ELIGIBLE_PROFILES;
+    const dueQueueBefore = await countDueQueuedDecks(admin, "archidekt");
     const growthBudget = targetReached ? 3 : HOURLY_DETAIL_FETCH_CAP;
     const refreshBudget = HOURLY_DETAIL_FETCH_CAP - growthBudget;
     base.mode = targetReached ? "refresh" : "growth";
     base.growth_budget = growthBudget;
     base.refresh_budget = refreshBudget;
+    base.queued_growth_target = targetReached ? growthBudget : Math.max(0, HOURLY_GROWTH_QUEUE_CAP - dueQueueBefore);
 
     const eligibleCommanders = new Set(
       coverageBefore.top250.filter((row) => row.community_profile_eligible).map((row) => row.commander_key)
     );
     const growthTargets = coverageBefore.top100.filter((row) => row.approved_sample_size < COMMUNITY_PROFILE_MIN_SAMPLE);
 
-    if (growthBudget > 0 && growthTargets.length > 0) {
-      const growth = await queueFocusedArchidektGrowth(admin, source, growthTargets, growthBudget);
+    if (base.queued_growth_target > 0 && growthTargets.length > 0) {
+      const growth = await queueFocusedArchidektGrowth(admin, source, growthTargets, base.queued_growth_target);
       base.queued_growth = growth.queued;
       base.search_events = growth.events;
       base.selected_growth_targets = growth.selected;
@@ -1248,6 +1379,7 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
       source: "archidekt",
       limit: HOURLY_DETAIL_FETCH_CAP,
       discover: false,
+      rollupRegeneration: "none",
       profileRegeneration: "touched",
     });
     const coverageAfter = await buildExternalCommanderCoverageReport(admin);
@@ -1265,7 +1397,7 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
 }
 
 export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
-  const [sources, queuePending, decks, allProfiles, profilesBySample, profilesByConfidence, profilesByRefresh, latestRollups, coverage, lastAllocator, lastCronHeartbeat] = await Promise.all([
+  const [sources, queuePending, decks, allProfiles, profilesBySample, profilesByConfidence, profilesByRefresh, latestRollups, coverage, lastAllocator, lastCronHeartbeat, growthTargetStats] = await Promise.all([
     admin
       .from("external_deck_sources")
       .select("source_key, display_name, enabled, discovery_enabled, cooldown_until, last_fetched_at, last_success_at, last_error, consecutive_failures, max_decks_per_run"),
@@ -1301,6 +1433,7 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
     buildExternalCommanderCoverageReport(admin),
     readAppConfigJson<ExternalDeckMetaAllocatorSummary | null>(admin, ALLOCATOR_APP_CONFIG_KEY, null),
     readAppConfigJson<Record<string, unknown> | null>(admin, ALLOCATOR_HEARTBEAT_APP_CONFIG_KEY, null),
+    readAppConfigJson<ExternalDeckMetaTargetStats>(admin, ALLOCATOR_TARGET_STATS_APP_CONFIG_KEY, {}),
   ]);
   if (sources.error) throw new Error(sources.error.message);
   if (queuePending.error) throw new Error(queuePending.error.message);
@@ -1393,6 +1526,7 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
     coverage,
     last_allocator_summary: lastAllocator,
     last_cron_heartbeat: lastCronHeartbeat,
+    growth_target_stats: growthTargetStats,
     profiles: sampleProfiles,
     top_profiles: sampleProfiles,
     top_profiles_by_confidence: confidenceProfiles,

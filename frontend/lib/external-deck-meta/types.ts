@@ -51,6 +51,7 @@ export type ExternalDeckIngestSummary = {
   discovered: number;
   rollupsWritten: number;
   profilesWritten: number;
+  rollupRegenerationMode?: "full" | "none";
   profileRegenerationMode?: "full" | "touched" | "none";
   touchedCommanders?: string[];
   errors: string[];
