@@ -25,6 +25,7 @@ const CONSTRUCTED_MIN_CARDS = 40;
 const PUBLIC_CANDIDATE_CONFIDENCE = 0.45;
 const ROLE_KEYS = ["lands", "ramp", "draw", "removal", "protection"] as const;
 const ALLOCATOR_APP_CONFIG_KEY = "external_deck_meta:last_allocator_summary";
+const ALLOCATOR_HEARTBEAT_APP_CONFIG_KEY = "external_deck_meta:last_cron_heartbeat";
 const ALLOCATOR_CURSOR_APP_CONFIG_KEY = "external_deck_meta:archidekt_search_cursors";
 const TARGET_ELIGIBLE_PROFILES = 100;
 const HOURLY_DETAIL_FETCH_CAP = 15;
@@ -57,6 +58,10 @@ type ExternalDeckMetaAllocatorSummary = {
     needed_to_50: number;
   }>;
   processed_summary: ExternalDeckIngestSummary | null;
+  heartbeat_key?: string;
+  started_at?: string;
+  finished_at?: string;
+  duration_ms?: number;
   coverage_before?: {
     top100: ExternalCommanderCoverageReport["top100_summary"];
     top250: ExternalCommanderCoverageReport["top250_summary"];
@@ -142,6 +147,8 @@ function emptySummary(): ExternalDeckIngestSummary {
     discovered: 0,
     rollupsWritten: 0,
     profilesWritten: 0,
+    profileRegenerationMode: "full",
+    touchedCommanders: [],
     errors: [],
   };
 }
@@ -392,6 +399,16 @@ function coverageSummaryForAllocator(report: ExternalCommanderCoverageReport) {
   };
 }
 
+async function writeExternalMetaCronHeartbeat(
+  admin: SupabaseClient,
+  value: Record<string, unknown>
+): Promise<void> {
+  await writeAppConfigJson(admin, ALLOCATOR_HEARTBEAT_APP_CONFIG_KEY, {
+    ...value,
+    updated_at: new Date().toISOString(),
+  });
+}
+
 function normalizeFormat(format: string | null | undefined): string | null {
   const f = String(format || "").trim().toLowerCase();
   if (!f) return null;
@@ -520,7 +537,7 @@ async function persistDeck(
   admin: SupabaseClient,
   deck: NormalizedExternalDeck,
   source: ExternalDeckSourceRow
-): Promise<"updated" | "unchanged" | "skipped"> {
+): Promise<{ status: "updated" | "unchanged" | "skipped"; commanders: string[]; format: string | null; aggregateApproved: boolean }> {
   const hash = stableDeckHash(deck);
   const validation = validateDeck(deck);
   let isValid = validation.valid;
@@ -529,6 +546,7 @@ async function persistDeck(
     isValid = false;
     reason = "duplicate_deck_hash";
   }
+  const aggregateApproved = isValid && source.approved_for_profiles;
   const existing = await admin
     .from("external_decks")
     .select("id, deck_hash")
@@ -544,13 +562,13 @@ async function persistDeck(
         mainboard_count: countCards(deck.cards, ["mainboard", "commander"]),
         sideboard_count: countCards(deck.cards, ["sideboard"]),
         is_valid: isValid,
-        aggregate_approved: isValid && source.approved_for_profiles,
+        aggregate_approved: aggregateApproved,
         exclusion_reason: reason,
         fetched_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", (existing.data as { id: string }).id);
-    return "unchanged";
+    return { status: "unchanged", commanders: deck.commanders, format: validation.format, aggregateApproved };
   }
 
   const mainboardCount = countCards(deck.cards, ["mainboard", "commander"]);
@@ -567,7 +585,7 @@ async function persistDeck(
     sideboard_count: sideboardCount,
     deck_hash: hash,
     is_valid: isValid,
-    aggregate_approved: isValid && source.approved_for_profiles,
+    aggregate_approved: aggregateApproved,
     exclusion_reason: reason,
     source_payload: deck.sourcePayload ?? {},
     published_at: deck.publishedAt ?? null,
@@ -601,13 +619,14 @@ async function persistDeck(
     const { error: cardsError } = await admin.from("external_deck_cards").insert(cardRows);
     if (cardsError) throw new Error(cardsError.message);
   }
-  return "updated";
+  return { status: aggregateApproved ? "updated" : "skipped", commanders: deck.commanders, format: validation.format, aggregateApproved };
 }
 
 async function processQueueForSource(
   admin: SupabaseClient,
   source: ExternalDeckSourceRow,
-  summary: ExternalDeckIngestSummary
+  summary: ExternalDeckIngestSummary,
+  touchedCommanders: Set<string>
 ): Promise<void> {
   if (!source.enabled || isSourceCoolingDown(source)) {
     summary.skipped += 1;
@@ -653,13 +672,19 @@ async function processQueueForSource(
     } else {
       try {
         const result = await persistDeck(admin, fetched.deck, source);
-        if (result === "unchanged") summary.unchanged += 1;
+        if (result.status === "unchanged") summary.unchanged += 1;
         else summary.insertedOrUpdated += 1;
+        if (result.status === "updated" && result.aggregateApproved && result.format === "commander") {
+          for (const commander of result.commanders) {
+            const name = String(commander || "").trim();
+            if (name) touchedCommanders.add(name);
+          }
+        }
         await markSourceSuccess(admin, source.source_key);
         await admin
           .from("external_deck_ingest_queue")
           .update({
-            status: result === "unchanged" ? "skipped" : "done",
+            status: result.status === "unchanged" ? "skipped" : "done",
             processed_at: new Date().toISOString(),
             last_error: null,
             last_error_code: null,
@@ -862,8 +887,14 @@ function categoryHits(name: string, facts: { type_line?: string | null; oracle_t
   };
 }
 
-export async function writeExternalCommanderProfiles(admin: SupabaseClient): Promise<number> {
+export async function writeExternalCommanderProfiles(
+  admin: SupabaseClient,
+  opts: { commanderNames?: string[] } = {}
+): Promise<number> {
   const snapshotDate = new Date().toISOString().slice(0, 10);
+  const commanderNames = [...new Set((opts.commanderNames ?? []).map((name) => String(name || "").trim()).filter(Boolean))];
+  if (opts.commanderNames && commanderNames.length === 0) return 0;
+  const requestedCommanderNorms = new Set(commanderNames.map(normalizeScryfallCacheName).filter(Boolean));
   const decks = await fetchExternalDeckRowsPage<{
     id: string;
     source_key: string;
@@ -878,28 +909,33 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
     "id, source_key, format, commanders, is_valid, aggregate_approved, exclusion_reason",
     (query) => query.eq("format", "commander")
   );
-  if (decks.length === 0) return 0;
+  const candidateDecks =
+    requestedCommanderNorms.size > 0
+      ? decks.filter((deck) => (deck.commanders ?? []).some((commander) => requestedCommanderNorms.has(normalizeScryfallCacheName(commander))))
+      : decks;
+  if (candidateDecks.length === 0) return 0;
   const cards = await fetchDeckCardsPage<{ external_deck_id: string; card_name: string; card_name_norm: string | null; quantity: number; board: string; category?: string | null }>(
     admin,
-    decks.map((d) => d.id),
+    candidateDecks.map((d) => d.id),
     "external_deck_id, card_name, card_name_norm, quantity, board, category",
     ["mainboard", "commander"]
   );
-  const facts = await fetchCardFacts(admin, [...cards.map((c) => c.card_name), ...decks.flatMap((d) => d.commanders ?? [])]);
+  const facts = await fetchCardFacts(admin, [...cards.map((c) => c.card_name), ...candidateDecks.flatMap((d) => d.commanders ?? [])]);
   const cardsByDeck = new Map<string, typeof cards>();
   for (const c of cards) cardsByDeck.set(c.external_deck_id, [...(cardsByDeck.get(c.external_deck_id) ?? []), c]);
 
   const commanderKeys = new Map<string, string>();
-  for (const d of decks) {
+  for (const d of candidateDecks) {
     for (const c of d.commanders ?? []) {
       const norm = normalizeScryfallCacheName(c);
+      if (requestedCommanderNorms.size > 0 && !requestedCommanderNorms.has(norm)) continue;
       if (norm && !commanderKeys.has(norm)) commanderKeys.set(norm, c);
     }
   }
 
   const rows: Array<{ commander_name: string; commander_name_norm: string; [key: string]: unknown }> = [];
   for (const [commanderNorm, commanderName] of commanderKeys.entries()) {
-    const related = decks.filter((d) => (d.commanders ?? []).some((c) => normalizeScryfallCacheName(c) === commanderNorm));
+    const related = candidateDecks.filter((d) => (d.commanders ?? []).some((c) => normalizeScryfallCacheName(c) === commanderNorm));
     const rawSample = related.length;
     const approved = related.filter((d) => d.aggregate_approved);
     const exclusionReasons: Record<string, number> = {};
@@ -1044,9 +1080,12 @@ export async function writeExternalCommanderProfiles(admin: SupabaseClient): Pro
 
 export async function runExternalDeckMetaIngest(
   admin: SupabaseClient,
-  opts?: { source?: ExternalDeckSourceKey | "all"; limit?: number; discover?: boolean }
+  opts?: { source?: ExternalDeckSourceKey | "all"; limit?: number; discover?: boolean; profileRegeneration?: "full" | "touched" | "none" }
 ): Promise<ExternalDeckIngestSummary> {
   const summary = emptySummary();
+  const profileRegeneration = opts?.profileRegeneration ?? "full";
+  const touchedCommanders = new Set<string>();
+  summary.profileRegenerationMode = profileRegeneration;
   const sourceFilter = opts?.source && opts.source !== "all" ? opts.source : null;
   if (opts?.discover !== false) {
     const { data: archidekt } = await admin
@@ -1074,16 +1113,24 @@ export async function runExternalDeckMetaIngest(
 
   for (const source of sourceRows(sourceData)) {
     const capped = opts?.limit ? { ...source, max_decks_per_run: Math.min(source.max_decks_per_run, opts.limit) } : source;
-    await processQueueForSource(admin, capped, summary);
+    await processQueueForSource(admin, capped, summary, touchedCommanders);
   }
 
   summary.rollupsWritten = await writeExternalMetaRollups(admin);
-  summary.profilesWritten = await writeExternalCommanderProfiles(admin);
+  summary.touchedCommanders = [...touchedCommanders].sort((a, b) => a.localeCompare(b));
+  if (profileRegeneration === "full") {
+    summary.profilesWritten = await writeExternalCommanderProfiles(admin);
+  } else if (profileRegeneration === "touched") {
+    summary.profilesWritten = await writeExternalCommanderProfiles(admin, { commanderNames: summary.touchedCommanders });
+  } else {
+    summary.profilesWritten = 0;
+  }
   return summary;
 }
 
 export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): Promise<ExternalDeckMetaAllocatorSummary> {
   const ranAt = new Date().toISOString();
+  const startedAtMs = Date.now();
   const base: ExternalDeckMetaAllocatorSummary = {
     ok: true,
     mode: "idle",
@@ -1096,10 +1143,48 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
     search_events: [],
     selected_growth_targets: [],
     processed_summary: null,
+    heartbeat_key: ALLOCATOR_HEARTBEAT_APP_CONFIG_KEY,
+    started_at: ranAt,
     next_work_bucket: "none",
     errors: [],
     ran_at: ranAt,
   };
+  const finish = async <T extends ExternalDeckMetaAllocatorSummary>(summary: T, status: string): Promise<T> => {
+    const finishedAt = new Date().toISOString();
+    const finished = {
+      ...summary,
+      finished_at: finishedAt,
+      duration_ms: Date.now() - startedAtMs,
+    };
+    await writeExternalMetaCronHeartbeat(admin, {
+      status,
+      ok: finished.ok,
+      mode: finished.mode,
+      ran_at: finished.ran_at,
+      started_at: finished.started_at,
+      finished_at: finished.finished_at,
+      duration_ms: finished.duration_ms,
+      next_work_bucket: finished.next_work_bucket,
+      queued_growth: finished.queued_growth,
+      queued_refresh: finished.queued_refresh,
+      processed: finished.processed_summary?.processed ?? 0,
+      profiles_written: finished.processed_summary?.profilesWritten ?? 0,
+      profile_regeneration_mode: finished.processed_summary?.profileRegenerationMode ?? null,
+      touched_commanders: finished.processed_summary?.touchedCommanders ?? [],
+      errors: finished.errors,
+    });
+    await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, finished);
+    return finished as T;
+  };
+
+  await writeExternalMetaCronHeartbeat(admin, {
+    status: "started",
+    ok: true,
+    mode: "starting",
+    ran_at: ranAt,
+    started_at: ranAt,
+    next_work_bucket: "starting",
+  });
 
   try {
     const coverageBefore = await buildExternalCommanderCoverageReport(admin);
@@ -1114,8 +1199,7 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
     const source = sourceData as ExternalDeckSourceRow | null;
     if (!source?.enabled) {
       const summary = { ...base, mode: "disabled" as const, next_work_bucket: "source_disabled" };
-      await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, summary);
-      return summary;
+      return finish(summary, "disabled");
     }
     if (isSourceCoolingDown(source)) {
       const summary = {
@@ -1124,12 +1208,11 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
         cooldown_until: source.cooldown_until,
         next_work_bucket: "cooldown",
       };
-      await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, summary);
-      return summary;
+      return finish(summary, "cooldown");
     }
 
     const targetReached = coverageBefore.community_profile_eligible_count >= TARGET_ELIGIBLE_PROFILES;
-    const growthBudget = targetReached ? 3 : 10;
+    const growthBudget = targetReached ? 3 : HOURLY_DETAIL_FETCH_CAP;
     const refreshBudget = HOURLY_DETAIL_FETCH_CAP - growthBudget;
     base.mode = targetReached ? "refresh" : "growth";
     base.growth_budget = growthBudget;
@@ -1153,8 +1236,7 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
           cooldown_until: growth.cooldownUntil,
           next_work_bucket: "cooldown_after_search",
         };
-        await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, summary);
-        return summary;
+        return finish(summary, "cooldown");
       }
     }
 
@@ -1166,11 +1248,11 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
       source: "archidekt",
       limit: HOURLY_DETAIL_FETCH_CAP,
       discover: false,
+      profileRegeneration: "touched",
     });
     const coverageAfter = await buildExternalCommanderCoverageReport(admin);
     base.coverage_after = coverageSummaryForAllocator(coverageAfter);
-    await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, base);
-    return base;
+    return finish(base, "finished");
   } catch (e) {
     const summary = {
       ...base,
@@ -1178,13 +1260,12 @@ export async function runExternalDeckMetaCronAllocator(admin: SupabaseClient): P
       errors: [e instanceof Error ? e.message : "allocator_failed"],
       next_work_bucket: "error",
     };
-    await writeAppConfigJson(admin, ALLOCATOR_APP_CONFIG_KEY, summary);
-    return summary;
+    return finish(summary, "error");
   }
 }
 
 export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
-  const [sources, queuePending, decks, allProfiles, profilesBySample, profilesByConfidence, profilesByRefresh, latestRollups, coverage, lastAllocator] = await Promise.all([
+  const [sources, queuePending, decks, allProfiles, profilesBySample, profilesByConfidence, profilesByRefresh, latestRollups, coverage, lastAllocator, lastCronHeartbeat] = await Promise.all([
     admin
       .from("external_deck_sources")
       .select("source_key, display_name, enabled, discovery_enabled, cooldown_until, last_fetched_at, last_success_at, last_error, consecutive_failures, max_decks_per_run"),
@@ -1219,6 +1300,7 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
       .limit(10),
     buildExternalCommanderCoverageReport(admin),
     readAppConfigJson<ExternalDeckMetaAllocatorSummary | null>(admin, ALLOCATOR_APP_CONFIG_KEY, null),
+    readAppConfigJson<Record<string, unknown> | null>(admin, ALLOCATOR_HEARTBEAT_APP_CONFIG_KEY, null),
   ]);
   if (sources.error) throw new Error(sources.error.message);
   if (queuePending.error) throw new Error(queuePending.error.message);
@@ -1310,6 +1392,7 @@ export async function getExternalDeckMetaStatus(admin: SupabaseClient) {
     deck_sanity_flags: deckSanityFlags.slice(0, 50),
     coverage,
     last_allocator_summary: lastAllocator,
+    last_cron_heartbeat: lastCronHeartbeat,
     profiles: sampleProfiles,
     top_profiles: sampleProfiles,
     top_profiles_by_confidence: confidenceProfiles,
