@@ -1800,15 +1800,29 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               let inFeaturesSection = false;
               let currentFeature: { title: string; content: string[]; image?: string } | null = null;
               const features: Array<{ title: string; content: string[]; image?: string }> = [];
+              const isMarkdownListItem = (value: string) => /^[-*]\s+/.test(value) || /^\d+\.\s+/.test(value);
+              const renderInlineMarkdown = (value: string) =>
+                value
+                  .replace(
+                    /(^|[\s>])(https?:\/\/[^\s<]+)/g,
+                    '$1<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noreferrer">$2</a>',
+                  )
+                  .replace(
+                    /\[([^\]]+)\]\(([^)]+)\)/g,
+                    '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>',
+                  )
+                  .replace(/\[\[([^\]]+)\]\]/g, (_match, cardName: string) => {
+                    const label = String(cardName).trim();
+                    const params = new URLSearchParams({ q: `!"${label}"` });
+                    return `<a href="https://scryfall.com/search?${params.toString()}" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noreferrer">${label}</a>`;
+                  })
+                  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                  .replace(/\*([^*]+)\*/g, '<em>$1</em>');
               
               const flushParagraph = () => {
                 if (currentParagraph.length > 0) {
                   const text = currentParagraph.join(' ');
-                  // Process markdown inline formatting
-                  let processed = text
-                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
+                  const processed = renderInlineMarkdown(text);
                   // Check if this is the opening paragraph after H1 - make it tighter
                   const isOpeningPara = elements.length > 0 && elements[elements.length - 1]?.includes('<h2');
                   elements.push(`<p class="${isOpeningPara ? 'mb-4 text-lg' : 'mb-4'}">${processed}</p>`);
@@ -1853,24 +1867,21 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   if (features.length > 0) {
                     elements.push('<div class="my-12 grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">');
                     features.forEach((feature, idx) => {
-                      let content = feature.content.join(' ')
-                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-                        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
+                      let content = renderInlineMarkdown(feature.content.join(' '));
                       
                       // Extract list items
-                      const listItems = feature.content.filter(c => c.trim().startsWith('- '));
+                      const listItems = feature.content.filter(c => isMarkdownListItem(c.trim()));
                       const hasLists = listItems.length > 0;
                       
                       if (hasLists) {
                         content = feature.content
                           .map(c => {
-                            if (c.trim().startsWith('- ')) {
-                              const text = c.replace(/^-\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                            if (isMarkdownListItem(c.trim())) {
+                              const text = renderInlineMarkdown(c.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, ''));
                               return `<li class="mb-2">${text}</li>`;
                             }
                             if (c.trim() === '') return '';
-                            return `<p class="mb-3">${c.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>')}</p>`;
+                            return `<p class="mb-3">${renderInlineMarkdown(c)}</p>`;
                           })
                           .filter(c => c !== '')
                           .join('');
@@ -1958,7 +1969,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                     }
                     nextLineIndex++;
                   }
-                  const hasSubtitle = nextLine && !nextLine.startsWith('#') && !nextLine.startsWith('##') && !nextLine.startsWith('###') && !nextLine.startsWith('-') && !nextLine.startsWith('*') && nextLine.length > 0 && !nextLine.startsWith('Building');
+                  const hasSubtitle = nextLine && !nextLine.startsWith('#') && !nextLine.startsWith('##') && !nextLine.startsWith('###') && !isMarkdownListItem(nextLine) && nextLine.length > 0 && !nextLine.startsWith('Building');
                   
                   if (hasSubtitle) {
                     // Main title
@@ -2002,17 +2013,13 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 }
                 
                 // List items
-                if (trimmed.startsWith('- ') || trimmed.match(/^\d+\.\s/)) {
+                if (isMarkdownListItem(trimmed)) {
                   flushParagraph();
                   if (!inList) {
                     elements.push('<ul class="list-disc list-inside space-y-2 mb-6 ml-4">');
                     inList = true;
                   }
-                  let itemText = trimmed.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '');
-                  itemText = itemText
-                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>');
+                  const itemText = renderInlineMarkdown(trimmed.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, ''));
                   elements.push(`<li class="mb-1.5">${itemText}</li>`);
                   continue;
                 }
@@ -2041,22 +2048,20 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 if (features.length > 0) {
                   elements.push('<div class="my-12 grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">');
                   features.forEach((feature) => {
-                    let content = feature.content.join(' ')
-                      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+                    let content = renderInlineMarkdown(feature.content.join(' '));
                     
-                    const listItems = feature.content.filter(c => c.trim().startsWith('- '));
+                    const listItems = feature.content.filter(c => isMarkdownListItem(c.trim()));
                     const hasLists = listItems.length > 0;
                     
                     if (hasLists) {
                       content = feature.content
                         .map(c => {
-                          if (c.trim().startsWith('- ')) {
-                            const text = c.replace(/^-\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                          if (isMarkdownListItem(c.trim())) {
+                            const text = renderInlineMarkdown(c.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, ''));
                             return `<li class="mb-2">${text}</li>`;
                           }
                           if (c.trim() === '') return '';
-                          return `<p class="mb-3">${c.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</p>`;
+                          return `<p class="mb-3">${renderInlineMarkdown(c)}</p>`;
                         })
                         .filter(c => c !== '')
                         .join('');

@@ -24,6 +24,7 @@ export const ATTRIBUTION_COOKIE_MAX_AGE = 60 * 60 * 24 * 90;
 export type AnalyticsPlatform = 'web' | 'app' | 'server';
 export type AnalyticsSurface = 'website' | 'mobile_app' | 'api' | 'admin';
 export type AnalyticsTier = 'guest' | 'free' | 'pro' | 'unknown';
+export type AnalyticsActorType = 'user' | 'visitor' | 'device' | 'distinct' | 'unknown';
 export type DeckFormatAnalytics =
   | 'commander'
   | 'standard'
@@ -47,6 +48,23 @@ export type AnalyticsCommonProps = {
   environment: string;
   deck_id_present: boolean;
   deck_format: DeckFormatAnalytics;
+  analytics_actor_id: string | null;
+  analytics_actor_type: AnalyticsActorType;
+  user_id_present: boolean;
+  visitor_id_present: boolean;
+};
+
+export type AnalyticsIdentityInput = {
+  user_id?: string | null;
+  userId?: string | null;
+  visitor_id?: string | null;
+  visitorId?: string | null;
+  device_id?: string | null;
+  deviceId?: string | null;
+  distinct_id?: string | null;
+  distinctId?: string | null;
+  analytics_actor_id?: string | null;
+  analytics_actor_type?: AnalyticsActorType | null;
 };
 
 export type AttributionData = {
@@ -151,8 +169,9 @@ export function readBrowserCookie(name: string): string | null {
 }
 
 export function buildAnalyticsCommonProps(
-  input: Partial<AnalyticsCommonProps> & Pick<AnalyticsCommonProps, 'platform' | 'app_surface'>
+  input: Partial<AnalyticsCommonProps> & AnalyticsIdentityInput & Pick<AnalyticsCommonProps, 'platform' | 'app_surface'>
 ): AnalyticsCommonProps {
+  const identity = buildAnalyticsIdentityProps(input);
   return {
     platform: input.platform,
     app_surface: input.app_surface,
@@ -172,7 +191,73 @@ export function buildAnalyticsCommonProps(
       'development',
     deck_id_present: input.deck_id_present ?? false,
     deck_format: input.deck_format ?? null,
+    ...identity,
   };
+}
+
+export function buildAnalyticsIdentityProps(input: AnalyticsIdentityInput): Pick<
+  AnalyticsCommonProps,
+  'analytics_actor_id' | 'analytics_actor_type' | 'user_id_present' | 'visitor_id_present'
+> {
+  const explicitActorId = cleanIdentityValue(input.analytics_actor_id);
+  const explicitActorType = input.analytics_actor_type ?? null;
+  const userId = cleanIdentityValue(input.user_id ?? input.userId);
+  const visitorId = cleanIdentityValue(input.visitor_id ?? input.visitorId);
+  const deviceId = cleanIdentityValue(input.device_id ?? input.deviceId);
+  const distinctId = cleanIdentityValue(input.distinct_id ?? input.distinctId);
+
+  if (explicitActorId) {
+    return {
+      analytics_actor_id: explicitActorId,
+      analytics_actor_type: explicitActorType ?? 'unknown',
+      user_id_present: Boolean(userId),
+      visitor_id_present: Boolean(visitorId),
+    };
+  }
+  if (userId) {
+    return {
+      analytics_actor_id: userId,
+      analytics_actor_type: 'user',
+      user_id_present: true,
+      visitor_id_present: Boolean(visitorId),
+    };
+  }
+  if (visitorId) {
+    return {
+      analytics_actor_id: visitorId,
+      analytics_actor_type: 'visitor',
+      user_id_present: false,
+      visitor_id_present: true,
+    };
+  }
+  if (deviceId) {
+    return {
+      analytics_actor_id: deviceId,
+      analytics_actor_type: 'device',
+      user_id_present: false,
+      visitor_id_present: false,
+    };
+  }
+  if (distinctId) {
+    return {
+      analytics_actor_id: distinctId,
+      analytics_actor_type: 'distinct',
+      user_id_present: false,
+      visitor_id_present: false,
+    };
+  }
+  return {
+    analytics_actor_id: null,
+    analytics_actor_type: 'unknown',
+    user_id_present: false,
+    visitor_id_present: false,
+  };
+}
+
+function cleanIdentityValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 export function formatIsoWeek(dateInput: string | number | Date | null | undefined): string | null {

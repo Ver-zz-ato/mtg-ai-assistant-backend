@@ -11,6 +11,7 @@
  */
 
 import { hasConsent } from '@/lib/ph';
+import { buildAnalyticsIdentityProps } from '@/lib/analytics/common';
 
 type TrackProps = {
   area: string;
@@ -133,6 +134,15 @@ export async function track(
         enrichedProps.isPro = context.isPro;
       }
     }
+    Object.assign(
+      enrichedProps,
+      buildAnalyticsIdentityProps({
+        user_id: context?.userId ?? null,
+        visitor_id: typeof document !== 'undefined'
+          ? document.cookie.match(/\bvisitor_id=([^;]+)/)?.[1] ?? null
+          : null,
+      })
+    );
 
     // Try PostHog first (if consented and available)
     if (hasConsent() && typeof window !== 'undefined' && (window as any).posthog) {
@@ -177,4 +187,3 @@ export async function track(
     }
   }
 }
-

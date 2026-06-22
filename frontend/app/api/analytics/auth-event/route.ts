@@ -86,6 +86,9 @@ export async function POST(req: NextRequest) {
       session_id: sessionId,
       source_surface: null,
       source_feature: null,
+      user_id: userId,
+      visitor_id: visitorId,
+      distinct_id: distinctId,
       deck_id_present: false,
       deck_format: null,
     });

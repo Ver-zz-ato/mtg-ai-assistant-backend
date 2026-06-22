@@ -83,6 +83,14 @@ Centralized names live in `lib/analytics/events.ts` (`AnalyticsEvents`). Example
 - **Performance:** `web_vital_CLS`, `web_vital_LCP`, etc.
 - **Workflows:** `workflow.started`, `workflow.step_completed`, `workflow.abandoned`, `workflow.completed`
 
+Most client and server events include normalized identity fields for funnel joins:
+
+- `analytics_actor_id`: stable join key, preferring verified `user_id`, then `visitor_id`, then device/distinct fallback.
+- `analytics_actor_type`: `user`, `visitor`, `device`, `distinct`, or `unknown`.
+- `user_id_present` / `visitor_id_present`: quick quality flags for identity coverage.
+
+Use `analytics_actor_id` for new funnels instead of raw `person_id`. Keep raw `user_id`, `visitor_id`, and `distinct_id` available where existing event paths already send them.
+
 Many of these are sent via `capture()` (consent-gated) or `useCapture()` (adds auth context). Server-side events use `captureServer()` and do not check consent.
 
 ### 3.3 `track()` vs `capture()`

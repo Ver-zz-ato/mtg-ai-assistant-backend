@@ -97,6 +97,10 @@ export async function captureServer(
         session_id: resolvedSessionId,
         source_surface: typeof properties.source_surface === 'string' ? properties.source_surface : null,
         source_feature: typeof properties.source_feature === 'string' ? properties.source_feature : null,
+        user_id: typeof properties.user_id === 'string' ? properties.user_id : null,
+        visitor_id: typeof properties.visitor_id === 'string' ? properties.visitor_id : null,
+        device_id: typeof properties.device_id === 'string' ? properties.device_id : null,
+        distinct_id: id,
         deck_id_present: Boolean(properties.deck_id_present ?? properties.deck_id),
         deck_format:
           typeof properties.deck_format === 'string'
@@ -134,6 +138,9 @@ export async function captureAiServerEvent(
     event,
     {
       analytics_request_id: analyticsRequestId,
+      user_id: properties.user_id ?? null,
+      visitor_id: properties.visitor_id ?? null,
+      device_id: properties.device_id ?? null,
       streamed: properties.streamed ?? null,
       cache_hit: properties.cache_hit ?? null,
       input_tokens: properties.input_tokens ?? null,

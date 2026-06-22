@@ -159,6 +159,8 @@ export async function callLLM(
       route: config.route,
       streamed: false,
       success: false,
+      user_id: config.userId ?? null,
+      device_id: !config.userId ? config.anonId ?? null : null,
       user_tier: analyticsUserTier,
     }, config.userId ?? config.anonId ?? null);
   } catch {}
@@ -429,6 +431,8 @@ export async function callLLM(
           (tokens.input ?? 0) || (tokens.output ?? 0)
             ? (tokens.input ?? 0) + (tokens.output ?? 0)
             : null,
+        user_id: config.userId ?? null,
+        device_id: !config.userId ? config.anonId ?? null : null,
         user_tier: analyticsUserTier,
       }, config.userId ?? config.anonId ?? null);
     } catch {}
@@ -474,6 +478,8 @@ export async function callLLM(
       streamed: false,
       success: true,
       total_tokens: it + ot,
+      user_id: config.userId ?? null,
+      device_id: !config.userId ? config.anonId ?? null : null,
       user_tier: analyticsUserTier,
     }, config.userId ?? config.anonId ?? null);
   } catch {}
