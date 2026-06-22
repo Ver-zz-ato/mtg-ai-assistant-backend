@@ -77,7 +77,7 @@ Centralized names live in `lib/analytics/events.ts` (`AnalyticsEvents`). Example
 - **Decks:** `deck_created`, `deck_saved`, `deck_updated`, `deck_deleted`, `deck_analyzed`, `deck_import_completed`, etc.
 - **Chat:** `chat_sent`, `chat_guest_limit`, `guest_limit_warning_*`, `chat_feedback`, etc.
 - **Collections / wishlist / watchlist:** `collection_created`, `collection_deleted`, `wishlist_item_added`, `watchlist_item_added`, etc.
-- **Pro funnel:** `pro_gate_viewed`, `pro_gate_clicked`, `pro_upgrade_started`, `pro_upgrade_completed`, `pro_feature_used`, `pro_downgrade`
+- **Pro funnel:** `pro_gate_viewed`, `pro_gate_clicked`, `pro_gate_cta_clicked`, `pro_gate_dismissed`, `pro_upgrade_started`, `pro_upgrade_completed`, `checkout_failed`, `checkout_cancelled`, `purchase_error`, `pro_feature_used`, `pro_downgrade`
 - **Guests:** `guest_limit_modal_shown`, `guest_limit_signup_clicked`, `guest_limit_sigin_clicked`, `guest_exit_warning_*`, etc.
 - **UI:** `ui_click` (area, action, pathname, etc.), `theme_changed`, `content_shared`
 - **Performance:** `web_vital_CLS`, `web_vital_LCP`, etc.

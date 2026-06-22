@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context'; // NEW: Use push-based auth
 import { useProStatus } from '@/hooks/useProStatus';
 import { capture } from '@/lib/ph';
 import { trackPricingPageViewed, trackUpgradeAbandoned } from '@/lib/analytics-enhanced';
-import { trackProUpgradeStarted, setActiveProFeature } from '@/lib/analytics-pro';
+import { trackCheckoutFailed, trackProGateClicked, trackProUpgradeStarted, setActiveProFeature } from '@/lib/analytics-pro';
 import { track } from '@/lib/analytics/track';
 import Link from 'next/link';
 import { isChatReferrer } from '@/lib/navigation/chatRoute';
@@ -44,6 +44,13 @@ export default function PricingPage() {
 
   const handleUpgradeClick = async (plan: 'monthly' | 'yearly') => {
     if (!user) {
+      trackCheckoutFailed('pricing', {
+        feature: 'pricing_page',
+        location: 'pricing_page',
+        plan,
+        error: 'auth_required',
+        includePurchaseError: false,
+      });
       showAuthToast(AUTH_MESSAGES.SIGN_IN_REQUIRED);
       return;
     }
@@ -86,6 +93,7 @@ export default function PricingPage() {
 
     // Pro funnel: started (so funnel started ≥ completed)
     setActiveProFeature('pricing_page');
+    trackProGateClicked('pricing_page', 'pricing_page', { reason: 'pricing_cta' });
     trackProUpgradeStarted('pricing', { feature: 'pricing_page', location: 'pricing_page' });
 
     setUpgrading(true);
@@ -107,6 +115,13 @@ export default function PricingPage() {
       window.location.href = data.url;
     } catch (error: any) {
       console.error('Upgrade failed:', error);
+      trackCheckoutFailed('pricing', {
+        feature: 'pricing_page',
+        location: 'pricing_page',
+        plan,
+        error: error?.message || 'checkout_session_failed',
+        includePurchaseError: true,
+      });
       trackUpgradeAbandoned('payment', error.message || 'payment_error');
       alert(error.message || 'Failed to start upgrade process. Please try again.');
     } finally {

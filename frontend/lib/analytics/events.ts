@@ -131,8 +131,13 @@ export const AnalyticsEvents = {
   BILLING_PORTAL_CLICKED: 'billing_portal_clicked',
   PRO_GATE_VIEWED: 'pro_gate_viewed',
   PRO_GATE_CLICKED: 'pro_gate_clicked',
+  PRO_GATE_CTA_CLICKED: 'pro_gate_cta_clicked',
+  PRO_GATE_DISMISSED: 'pro_gate_dismissed',
   PRO_UPGRADE_STARTED: 'pro_upgrade_started',
   PRO_UPGRADE_COMPLETED: 'pro_upgrade_completed',
+  CHECKOUT_FAILED: 'checkout_failed',
+  CHECKOUT_CANCELLED: 'checkout_cancelled',
+  PURCHASE_ERROR: 'purchase_error',
   PRO_FEATURE_USED: 'pro_feature_used',
   PRO_FEATURE_AWARENESS: 'pro_feature_awareness',
   PRO_FEATURE_CTA_CLICKED: 'pro_feature_cta_clicked',
@@ -274,5 +279,4 @@ export const AnalyticsEvents = {
  */
 export type AnalyticsEventName =
   (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];
-
 

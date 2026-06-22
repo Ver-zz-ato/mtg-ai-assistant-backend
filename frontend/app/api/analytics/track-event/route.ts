@@ -26,9 +26,14 @@ type TrackEventBody = {
 // Pro funnel events we store locally for admin analytics
 const PRO_FUNNEL_EVENTS = new Set([
   'pro_gate_viewed',
-  'pro_gate_clicked', 
+  'pro_gate_clicked',
+  'pro_gate_cta_clicked',
+  'pro_gate_dismissed',
   'pro_upgrade_started',
   'pro_upgrade_completed',
+  'checkout_failed',
+  'checkout_cancelled',
+  'purchase_error',
 ]);
 
 /**

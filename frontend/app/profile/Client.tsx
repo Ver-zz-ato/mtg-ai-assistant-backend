@@ -433,6 +433,11 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     // TEMP FIX: Redirect to pricing page which has working Stripe integration
     // The profile page Stripe calls seem to have issues, so use pricing page instead
     try {
+      const { setActiveProFeature, trackProGateClicked } = await import('@/lib/analytics-pro');
+      setActiveProFeature('profile_upgrade');
+      trackProGateClicked('profile_upgrade', 'profile', { reason: 'profile_cta' });
+    } catch {}
+    try {
       window.location.href = `/pricing`;
       return;
     } catch {}

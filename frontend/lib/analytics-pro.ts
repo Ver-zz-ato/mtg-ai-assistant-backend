@@ -33,8 +33,13 @@ export function getActiveProFeature(): string | null {
 export type ProEventType =
   | 'pro_gate_viewed'
   | 'pro_gate_clicked'
+  | 'pro_gate_cta_clicked'
+  | 'pro_gate_dismissed'
   | 'pro_upgrade_started'
   | 'pro_upgrade_completed'
+  | 'checkout_failed'
+  | 'checkout_cancelled'
+  | 'purchase_error'
   | 'pro_feature_used'
   | 'pro_downgrade';
 
@@ -48,6 +53,9 @@ export interface ProEventProps {
   reason?: string;
   subscription_tier?: string;
   upgrade_source?: string;
+  error_type?: string;
+  error_code?: string;
+  plan?: string;
   user_tenure_days?: number;
   workflow_run_id?: string;
   is_logged_in?: boolean;
@@ -58,8 +66,13 @@ export interface ProEventProps {
 /** Pro funnel events we also send server-side so they show in PostHog even if client is blocked. */
 const PRO_EVENTS_ALSO_SERVER = new Set<ProEventType>([
   'pro_gate_viewed',
+  'pro_gate_cta_clicked',
+  'pro_gate_dismissed',
   'pro_upgrade_started',
   'pro_upgrade_completed',
+  'checkout_failed',
+  'checkout_cancelled',
+  'purchase_error',
 ]);
 
 export function captureProEvent(event: ProEventType, props?: ProEventProps) {
@@ -135,7 +148,7 @@ export function trackProGateClicked(
   location: string,
   options?: { plan_suggested?: string; reason?: string }
 ) {
-  captureProEvent('pro_gate_clicked', {
+  const props = {
     pro_feature: feature,
     feature,
     gate_location: location,
@@ -143,6 +156,23 @@ export function trackProGateClicked(
     source_path: typeof window !== 'undefined' ? getCurrentPath() : undefined,
     plan_suggested: options?.plan_suggested || 'monthly',
     reason: options?.reason || 'feature_required',
+  };
+  captureProEvent('pro_gate_clicked', props);
+  captureProEvent('pro_gate_cta_clicked', props);
+}
+
+export function trackProGateDismissed(
+  feature: string,
+  location: string,
+  options?: { reason?: string }
+) {
+  captureProEvent('pro_gate_dismissed', {
+    pro_feature: feature,
+    feature,
+    gate_location: location,
+    location,
+    source_path: typeof window !== 'undefined' ? getCurrentPath() : undefined,
+    reason: options?.reason || 'dismissed',
   });
 }
 
@@ -166,4 +196,24 @@ export function trackProUpgradeStarted(
 
 export function trackProFeatureUsed(feature: string) {
   captureProEvent('pro_feature_used', { pro_feature: feature, feature });
+}
+
+export function trackCheckoutFailed(
+  source: 'pricing' | 'gate' | 'profile',
+  options?: { feature?: string; location?: string; plan?: string; error?: string; includePurchaseError?: boolean }
+) {
+  const error = options?.error || 'checkout_failed';
+  const props = {
+    pro_feature: getActiveProFeature() ?? options?.feature,
+    feature: options?.feature,
+    gate_location: options?.location,
+    location: options?.location,
+    source_path: typeof window !== 'undefined' ? getCurrentPath() : undefined,
+    upgrade_source: source,
+    plan: options?.plan,
+    error_type: /network|internet|timeout|fetch/i.test(error) ? 'network' : 'backend',
+    error_code: String(error).slice(0, 64),
+  };
+  captureProEvent('checkout_failed', props);
+  if (options?.includePurchaseError !== false) captureProEvent('purchase_error', props);
 }
