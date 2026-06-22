@@ -36,7 +36,7 @@ That's important because Wizards of the Coast isn't trying to build the stronges
 
 For many players, that's exactly what they want.
 
-When Doctor Doom feels like Doctor Doom, or when the Avengers deck feels like assembling a team of heroes, the deck succeeds even if every card isn't perfectly optimized.
+When [[Doctor Doom, King of Latveria]] feels like Doctor Doom, or when the Avengers deck feels like assembling a team of heroes, the deck succeeds even if every card isn't perfectly optimized.
 
 ## The Biggest Strength of Marvel Commander Decks
 
@@ -108,9 +108,7 @@ That's often enough to make the deck feel significantly smoother.
 
 Instead of replacing the deck's personality, you're helping it execute its existing game plan more consistently.
 
-If you want help finding lower-cost replacements, ManaTap's Budget Swaps tool can suggest alternatives that match your deck's goals without requiring expensive staples.
-
-https://www.manatap.ai/budget-swaps?utm_source=blog&utm_medium=organic&utm_campaign=marvel-precons-worth-it
+If you want help finding lower-cost replacements, [ManaTap's Budget Swaps tool](https://www.manatap.ai/budget-swaps?utm_source=blog&utm_medium=organic&utm_campaign=marvel-precons-worth-it) can suggest alternatives that match your deck's goals without requiring expensive staples.
 
 ## Are They Good for New Commander Players?
 
@@ -182,9 +180,7 @@ You can:
 * Identify curve issues
 * Spot weak slots before spending money
 
-Get started here:
-
-https://www.manatap.ai/get
+[Get started with ManaTap](https://www.manatap.ai/get).
 
 Available on iOS, Android, and web.
 

@@ -25,25 +25,27 @@ async function main() {
   const [users, sessions, scannerSessions, hourly] = await Promise.all([
     posthogHogql(`
       SELECT
-        uniq(distinct_id) AS distinct_users,
+        uniqIf(toString(properties.analytics_actor_id), properties.analytics_actor_id IS NOT NULL AND toString(properties.analytics_actor_id) != '') AS actors,
         uniq(properties.session_id) AS session_ids
       FROM events
       WHERE timestamp >= now() - INTERVAL 24 HOUR
         AND ${STRICT_APP}
     `),
     posthogHogql(`
-      SELECT distinct_id, count() AS events
+      SELECT
+        ifNull(nullIf(toString(properties.analytics_actor_id), ''), '(missing actor)') AS actor_id,
+        count() AS events
       FROM events
       WHERE timestamp >= now() - INTERVAL 24 HOUR
         AND ${STRICT_APP}
-      GROUP BY distinct_id
+      GROUP BY actor_id
       ORDER BY events DESC
       LIMIT 10
     `),
     posthogHogql(`
       SELECT
         count() AS scan_sessions_completed,
-        uniq(distinct_id) AS users_with_scanner
+        uniqIf(toString(properties.analytics_actor_id), properties.analytics_actor_id IS NOT NULL AND toString(properties.analytics_actor_id) != '') AS actors_with_scanner
       FROM events
       WHERE timestamp >= now() - INTERVAL 24 HOUR
         AND event = 'scan_card_session_completed'
@@ -63,12 +65,12 @@ async function main() {
   ]);
 
   console.log("\n=== Strict mobile app (last 24h) ===\n");
-  console.log("Distinct users:", users.results[0]?.[0]);
+  console.log("Analytics actors:", users.results[0]?.[0]);
   console.log("Distinct session_ids:", users.results[0]?.[1]);
   console.log("Scanner sessions completed:", scannerSessions.results[0]?.[0]);
-  console.log("Users who completed a scan session:", scannerSessions.results[0]?.[1]);
+  console.log("Actors who completed a scan session:", scannerSessions.results[0]?.[1]);
 
-  console.log("\n--- Top distinct_ids by event count ---");
+  console.log("\n--- Top analytics_actor_ids by event count ---");
   for (const row of sessions.results) {
     const id = String(row[0]);
     const masked = id.length > 12 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;

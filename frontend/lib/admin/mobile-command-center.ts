@@ -609,6 +609,7 @@ async function getPosthogAnalytics(days: number) {
     return {
       configured: false,
       rows: [] as JsonRecord[],
+      toolFailures: [] as JsonRecord[],
       eventCount: 0,
       uniqueUsers: 0,
       scannerEventCount: 0,
@@ -635,15 +636,46 @@ async function getPosthogAnalytics(days: number) {
   `;
   const totalsQuery = `
     SELECT
-      uniq(distinct_id) AS unique_users,
+      uniqIf(toString(properties.analytics_actor_id), properties.analytics_actor_id IS NOT NULL AND toString(properties.analytics_actor_id) != '') AS unique_users,
       count() AS event_count
     FROM events
     WHERE ${windowClause}
       AND ${appClause}
   `;
+  const toolFailuresQuery = `
+    SELECT
+      ifNull(nullIf(toString(properties.tool), ''), '(unset)') AS tool,
+      ifNull(nullIf(toString(properties.error_type), ''), '(unset)') AS error_type,
+      ifNull(nullIf(toString(properties.error_code), ''), '(unset)') AS error_code,
+      ifNull(nullIf(toString(properties.user_tier), ''), '(unset)') AS user_tier,
+      ifNull(nullIf(toString(properties.source_screen), ''), '(unset)') AS source_screen,
+      uniqIf(toString(properties.analytics_actor_id), properties.analytics_actor_id IS NOT NULL AND toString(properties.analytics_actor_id) != '') AS actors,
+      count() AS count
+    FROM events
+    WHERE ${windowClause}
+      AND ${appClause}
+      AND event = 'tool_action_failed'
+      AND properties.tool IN ('card_search', 'deck_analyze')
+    GROUP BY tool, error_type, error_code, user_tier, source_screen
+    ORDER BY count DESC
+    LIMIT 25
+  `;
   try {
-    const [result, totalsResult] = await Promise.all([posthogHogql(query), posthogHogql(totalsQuery)]);
+    const [result, totalsResult, toolFailuresResult] = await Promise.all([
+      posthogHogql(query),
+      posthogHogql(totalsQuery),
+      posthogHogql(toolFailuresQuery),
+    ]);
     const rows = result.results.map((row) => ({ event: row[0], count: Number(row[1] || 0) })) as JsonRecord[];
+    const toolFailures = toolFailuresResult.results.map((row) => ({
+      tool: String(row[0] ?? ""),
+      error_type: String(row[1] ?? ""),
+      error_code: String(row[2] ?? ""),
+      user_tier: String(row[3] ?? ""),
+      source_screen: String(row[4] ?? ""),
+      actors: Number(row[5] || 0),
+      count: Number(row[6] || 0),
+    })) as JsonRecord[];
     const totalsRow = totalsResult.results[0] || [];
     const uniqueUsers = Number(totalsRow[0] || 0);
     const countFor = (matcher: (event: string) => boolean) =>
@@ -662,6 +694,7 @@ async function getPosthogAnalytics(days: number) {
     return {
       configured: true,
       rows,
+      toolFailures,
       eventCount: rows.reduce((sum, row) => sum + (Number(row.count) || 0), 0),
       uniqueUsers,
       scannerEventCount: countFor((event) => event.startsWith("scan_")),
@@ -676,6 +709,7 @@ async function getPosthogAnalytics(days: number) {
     return {
       configured: true,
       rows: [] as JsonRecord[],
+      toolFailures: [] as JsonRecord[],
       eventCount: 0,
       uniqueUsers: 0,
       scannerEventCount: 0,
@@ -749,6 +783,9 @@ export async function getMobileCommandCenterAnalytics(days: number): Promise<Com
         { metric: "tool_action_completed", count: toolRows.filter((row) => row.event === "tool_action_completed").reduce((sum, row) => sum + Number(row.count || 0), 0) },
         { metric: "tool_action_failed", count: toolRows.filter((row) => row.event === "tool_action_failed").reduce((sum, row) => sum + Number(row.count || 0), 0) },
       ],
+      "Tool failure diagnostics": posthog.toolFailures?.length
+        ? posthog.toolFailures
+        : [{ tool: "card_search/deck_analyze", count: 0, note: posthog.error ? "PostHog unavailable." : "No recent failures for tracked tools." }],
       "Monetization funnel health": monetizationRows.length
         ? monetizationRows
         : [{ event: "No recent monetization events", count: 0, note: "Expected before active launch traffic." }],
@@ -771,6 +808,7 @@ export async function getMobileCommandCenterAnalytics(days: number): Promise<Com
     },
     notes: [
       posthog.error ? `PostHog warning: ${posthog.error}` : "",
+      "PostHog actor counts use properties.analytics_actor_id; pre-identity windows may undercount actors.",
       `Last successful PostHog query shape check: ${nowIso()}.`,
       "Quiet prelaunch scanner or feedback metrics are treated as informational, not launch alerts.",
     ].filter(Boolean),

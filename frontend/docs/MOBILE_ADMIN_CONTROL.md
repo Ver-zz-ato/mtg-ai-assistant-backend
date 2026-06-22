@@ -114,13 +114,14 @@ Suggested PostHog launch dashboards:
 
 1. App Tool Funnel Health
    - Trends/funnels: `tool_opened`, `tool_action_started`, `tool_action_completed`, `tool_action_failed`
-   - Break down by `tool`, `source_screen`, `user_tier`, `is_guest`
+   - Break down by `tool`, `source_screen`, `user_tier`, `is_guest`, `analytics_actor_id`
+   - For Pro-user failures, inspect `tool_action_failed` where `tool IN ('card_search', 'deck_analyze')` by `error_type`, `error_code`, `user_tier`, and `source_screen`
 2. Scanner Funnel
    - Trends: `scan_card_capture_completed`, `scan_card_match_completed`, `scan_card_add_completed`, `scan_card_session_completed`
    - Break down by `result_state`, `match_source`, `source_screen`, `is_guest`
 3. Monetization Funnel
    - Trends/funnels: `pro_gate_viewed`, `pro_upgrade_started`, `pro_upgrade_completed`
-   - Break down by `source_path`, `context`, `platform`, `source_feature`
+   - Break down by `source_path`, `context`, `platform`, `source_feature`, `analytics_actor_id`
 4. Feedback + Friction
    - Trends: `feedback_sent`, `analysis_feedback_submitted`, `chat_issue_report_submitted`, `feedback_submission_failed`
    - Break down by `source`, `source_surface`, `source_feature`, `context`

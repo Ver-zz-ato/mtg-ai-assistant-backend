@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/server-supabase';
 import { appendEmailToConfirmedUrl } from '@/lib/auth/emailVerificationRedirect';
+import { captureServer } from '@/lib/server/analytics';
 
 export const runtime = 'nodejs';
 
@@ -15,6 +16,38 @@ export const runtime = 'nodejs';
  *   https://www.manatap.ai/auth/callback, http://localhost:3000/auth/callback
  */
 const DEFAULT_REDIRECT = '/';
+
+function authErrorCategory(message: string): string {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('code challenge') || normalized.includes('code verifier')) {
+    return 'pkce_code_verifier_mismatch';
+  }
+  if (normalized.includes('expired')) return 'expired_or_invalid_code';
+  if (normalized.includes('invalid')) return 'expired_or_invalid_code';
+  return 'callback_exchange_failed';
+}
+
+async function captureAuthCallbackError(
+  req: NextRequest,
+  category: string,
+  sourcePath: string,
+) {
+  const visitorId = req.cookies.get('visitor_id')?.value ?? null;
+  await captureServer(
+    'auth_callback_failed',
+    {
+      app_surface: 'website',
+      source_surface: 'auth',
+      source_feature: 'oauth_callback',
+      route_path: '/auth/callback',
+      source_path: sourcePath,
+      auth_error_category: category,
+      visitor_id: visitorId,
+      logged_in: false,
+    },
+    visitorId,
+  );
+}
 
 function safeNext(next: string | null, base: string): string {
   const p = (next ?? '').trim();
@@ -40,8 +73,10 @@ export async function GET(req: NextRequest) {
   const cookieVal = req.cookies.get('auth_return_to')?.value ?? null;
   const fromCookie = cookieVal ? (() => { try { return decodeURIComponent(cookieVal); } catch { return cookieVal; } })() : null;
   const next = safeNext(decodedNext || rawNext || fromCookie, url.origin);
+  const callbackSourcePath = url.pathname;
 
   if (!code) {
+    await captureAuthCallbackError(req, 'missing_code', callbackSourcePath);
     return NextResponse.redirect(new URL('/', req.url));
   }
 
@@ -50,6 +85,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       console.error('[auth/callback] exchangeCodeForSession error:', error.message);
+      await captureAuthCallbackError(req, authErrorCategory(error.message), callbackSourcePath);
       return NextResponse.redirect(new URL(`/?auth_error=${encodeURIComponent(error.message)}`, req.url));
     }
     const dest = enrichConfirmedRedirect(next, data.session?.user?.email);
@@ -58,6 +94,7 @@ export async function GET(req: NextRequest) {
     return res;
   } catch (e) {
     console.error('[auth/callback] error:', e);
+    await captureAuthCallbackError(req, 'callback_exception', callbackSourcePath);
     return NextResponse.redirect(new URL('/?auth_error=callback_failed', req.url));
   }
 }

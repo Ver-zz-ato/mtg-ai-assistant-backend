@@ -89,7 +89,11 @@ Most client and server events include normalized identity fields for funnel join
 - `analytics_actor_type`: `user`, `visitor`, `device`, `distinct`, or `unknown`.
 - `user_id_present` / `visitor_id_present`: quick quality flags for identity coverage.
 
-Use `analytics_actor_id` for new funnels instead of raw `person_id`. Keep raw `user_id`, `visitor_id`, and `distinct_id` available where existing event paths already send them.
+Use `analytics_actor_id` for new funnels instead of raw `person_id`. Keep raw `user_id`, `visitor_id`, and `distinct_id` available where existing event paths already send them. Reports that compare periods before this field was deployed should be labelled identity-contaminated; rerun conversion analysis on a clean post-change window before changing Pro gates or chat UX.
+
+Auth callback failures emit `auth_callback_failed` server-side with a safe `auth_error_category` such as `pkce_code_verifier_mismatch`. Use this event instead of relying on homepage URLs containing `auth_error`.
+
+For Pro analysis, `/tools` `tools_hub` is a Pro card impression/CTA, not a hard paywall. Treat hover/card `pro_gate_viewed` counts as awareness; use `pro_gate_cta_clicked`, `pro_upgrade_started`, and `pro_upgrade_completed` for conversion.
 
 Many of these are sent via `capture()` (consent-gated) or `useCapture()` (adds auth context). Server-side events use `captureServer()` and do not check consent.
 

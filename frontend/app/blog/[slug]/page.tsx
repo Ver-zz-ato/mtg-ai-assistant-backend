@@ -1866,7 +1866,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   // Render the features grid - wider grid for more space
                   if (features.length > 0) {
                     elements.push('<div class="my-12 grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">');
-                    features.forEach((feature, idx) => {
+                    features.forEach((feature) => {
                       let content = renderInlineMarkdown(feature.content.join(' '));
                       
                       // Extract list items
@@ -2103,18 +2103,18 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             Explore commanders, cards, and tools to build better decks.
           </p>
           <div className="flex flex-wrap gap-3">
-            <a href="/commanders" className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-sm font-medium">
+            <Link href="/commanders" className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-sm font-medium">
               Browse Commanders
-            </a>
-            <a href="/cards" className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-sm font-medium">
+            </Link>
+            <Link href="/cards" className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-sm font-medium">
               Top Commander Cards
-            </a>
-            <a href="/deck/swap-suggestions" className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-500 text-sm font-medium">
+            </Link>
+            <Link href="/deck/swap-suggestions" className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-500 text-sm font-medium">
               Budget Swap Tool
-            </a>
-            <a href="/tools/mulligan" className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-500 text-sm font-medium">
+            </Link>
+            <Link href="/tools/mulligan" className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-500 text-sm font-medium">
               Mulligan Simulator
-            </a>
+            </Link>
           </div>
         </section>
 
