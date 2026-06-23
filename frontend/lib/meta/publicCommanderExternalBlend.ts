@@ -15,6 +15,7 @@ export type PublicCommanderExternalMetaFlags = {
   enabled: boolean;
   websiteCommanderMetaPages: boolean;
   apiMetaTrendingShadow: boolean;
+  apiMetaTrending: boolean;
   weight: number;
 };
 
@@ -91,6 +92,7 @@ export async function readPublicCommanderExternalMetaFlags(
         enabled &&
         flags.public_external_meta_shadow_mode === true &&
         nestedFlag(flags, "api_meta_trending_shadow"),
+      apiMetaTrending: enabled && nestedFlag(flags, "api_meta_trending"),
       weight: clampWeight(flags.public_external_meta_weight),
     };
   } catch {
@@ -98,6 +100,7 @@ export async function readPublicCommanderExternalMetaFlags(
       enabled: false,
       websiteCommanderMetaPages: false,
       apiMetaTrendingShadow: false,
+      apiMetaTrending: false,
       weight: DEFAULT_EXTERNAL_WEIGHT,
     };
   }

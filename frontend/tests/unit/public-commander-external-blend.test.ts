@@ -150,6 +150,7 @@ async function runFlagTests() {
   } as never);
   assert.strictEqual(off.websiteCommanderMetaPages, false);
   assert.strictEqual(off.apiMetaTrendingShadow, false);
+  assert.strictEqual(off.apiMetaTrending, false);
 
   const on = await readPublicCommanderExternalMetaFlags({
     from() {
@@ -170,6 +171,7 @@ async function runFlagTests() {
                 public_external_meta_surfaces: {
                   website_commander_meta_pages: true,
                   api_meta_trending_shadow: true,
+                  api_meta_trending: true,
                 },
               },
             },
@@ -181,6 +183,7 @@ async function runFlagTests() {
   } as never);
   assert.strictEqual(on.websiteCommanderMetaPages, true);
   assert.strictEqual(on.apiMetaTrendingShadow, true);
+  assert.strictEqual(on.apiMetaTrending, true);
   assert.strictEqual(on.weight, 0.35);
 }
 

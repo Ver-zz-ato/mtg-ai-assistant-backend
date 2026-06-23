@@ -16,7 +16,9 @@ Phase C1/C2 implementation boundary:
 
 - Website `/meta/trending-commanders` and `/meta/most-played-commanders` may apply a low-weight approved `external_commander_profiles` boost only when `app_config.flags.public_external_meta_enabled === true` and `app_config.flags.public_external_meta_surfaces.website_commander_meta_pages === true`.
 - `/api/meta/trending` may compute and server-log a sanitized commander shadow report only when `app_config.flags.public_external_meta_enabled === true`, `app_config.flags.public_external_meta_shadow_mode === true`, and `app_config.flags.public_external_meta_surfaces.api_meta_trending_shadow === true`.
-- `/api/meta/trending` public JSON is unchanged in C2; C3 low-weight API blending and C4 homepage inherited movers are not implemented yet.
+- `/api/meta/trending` C3 may apply low-weight commander-only blending when `app_config.flags.public_external_meta_surfaces.api_meta_trending === true`; response shape remains unchanged, cards remain current-source only, and guarded fallback returns the current rankings when blend output is empty or unstable.
+- C4 homepage meta movers inherit from `/api/meta/trending` only. Homepage components must not query approved external profiles, raw external deck tables, or expose external sample/QA fields; rollback is the same `/api/meta/trending` flag/weight path.
+- Mobile Discover is not implemented yet.
 - Rollback: set `public_external_meta_enabled` false, disable the specific surface flag, or set `public_external_meta_weight` to `0`.
 
 ## Flow
@@ -121,7 +123,8 @@ Do not enable public output if more than roughly 20-30% of the top 10 changes un
    - Flag: inherited from `/api/meta/trending`.
    - Shock control: fallback to current API rows; do not show external sample counts in homepage copy initially.
    - Rollback: API flag off.
-   - Tests: mocked blended API renders without layout changes and no QA fields.
+   - Implementation: active via existing homepage consumers of `/api/meta/trending`; no direct homepage external data query.
+   - Tests: homepage meta mover components inherit `/api/meta/trending`, keep empty/failure fallback, and do not reference raw external tables or external QA/internal fields.
 
 4. Mobile Discover Meta
    - Use external data: yes, but only after website `/api/meta/trending` has been stable for at least 7 days.

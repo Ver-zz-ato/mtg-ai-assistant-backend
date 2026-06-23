@@ -3,10 +3,11 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { MetaLabelPayload } from "@/lib/meta/freshness";
 import {
-  buildCommanderMetaShadowReport,
+  blendCommanderMetaWithExternalProfiles,
   fetchApprovedExternalCommanderProfiles,
   readPublicCommanderExternalMetaFlags,
 } from "@/lib/meta/publicCommanderExternalBlend";
+import type { PublicCommanderMetaItem } from "@/lib/meta/publicCommanderExternalBlend";
 
 export const runtime = 'edge';
 export const revalidate = 300; // 5 minutes
@@ -54,32 +55,69 @@ function getExternalMetaAdminClient() {
   return createSupabaseClient(url, key, { auth: { persistSession: false } });
 }
 
-async function logCommanderExternalMetaShadowReport(
+function toRankedCommanderItems(rows: CommanderRow[]): PublicCommanderMetaItem[] {
+  return rows.map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+function toCommanderRows(items: PublicCommanderMetaItem[]): CommanderRow[] {
+  return items.map((item) => ({ name: item.name, count: item.count ?? 0 }));
+}
+
+async function applyCommanderExternalMetaBlend(
   trendingCommanders: CommanderRow[],
   mostPlayedCommanders: CommanderRow[]
-) {
+): Promise<{
+  trendingCommanders: CommanderRow[];
+  mostPlayedCommanders: CommanderRow[];
+}> {
   try {
     const admin = getExternalMetaAdminClient();
-    if (!admin) return;
+    if (!admin) return { trendingCommanders, mostPlayedCommanders };
+
     const flags = await readPublicCommanderExternalMetaFlags(admin);
-    if (!flags.apiMetaTrendingShadow) return;
+    if (!flags.apiMetaTrending && !flags.apiMetaTrendingShadow) {
+      return { trendingCommanders, mostPlayedCommanders };
+    }
 
     const names = [
       ...trendingCommanders.map((row) => row.name),
       ...mostPlayedCommanders.map((row) => row.name),
     ];
     const profiles = await fetchApprovedExternalCommanderProfiles(admin, names);
-    const trendingBase = trendingCommanders.map((row, index) => ({ ...row, rank: index + 1 }));
-    const mostPlayedBase = mostPlayedCommanders.map((row, index) => ({ ...row, rank: index + 1 }));
-    const report = {
-      surface: "/api/meta/trending",
-      generatedAt: new Date().toISOString(),
-      trendingCommanders: buildCommanderMetaShadowReport(trendingBase, profiles, flags.weight),
-      mostPlayedCommanders: buildCommanderMetaShadowReport(mostPlayedBase, profiles, flags.weight),
+    const trendingResult = blendCommanderMetaWithExternalProfiles(
+      toRankedCommanderItems(trendingCommanders),
+      profiles,
+      flags.weight
+    );
+    const mostPlayedResult = blendCommanderMetaWithExternalProfiles(
+      toRankedCommanderItems(mostPlayedCommanders),
+      profiles,
+      flags.weight
+    );
+
+    if (flags.apiMetaTrendingShadow) {
+      const report = {
+        surface: "/api/meta/trending",
+        generatedAt: new Date().toISOString(),
+        trendingCommanders: trendingResult.report,
+        mostPlayedCommanders: mostPlayedResult.report,
+      };
+      console.info("[public-external-meta-shadow]", JSON.stringify(report));
+    }
+
+    if (!flags.apiMetaTrending) return { trendingCommanders, mostPlayedCommanders };
+
+    return {
+      trendingCommanders: trendingResult.report.applied
+        ? toCommanderRows(trendingResult.items)
+        : trendingCommanders,
+      mostPlayedCommanders: mostPlayedResult.report.applied
+        ? toCommanderRows(mostPlayedResult.items)
+        : mostPlayedCommanders,
     };
-    console.info("[public-external-meta-shadow]", JSON.stringify(report));
   } catch (error) {
-    console.warn("[public-external-meta-shadow] skipped", error instanceof Error ? error.message : "unknown_error");
+    console.warn("[public-external-meta-blend] fallback", error instanceof Error ? error.message : "unknown_error");
+    return { trendingCommanders, mostPlayedCommanders };
   }
 }
 
@@ -134,12 +172,15 @@ export async function GET(request: Request) {
         }
       }
 
+      const blendedCommanders = await applyCommanderExternalMetaBlend(trendingCommanders, mostPlayedCommanders);
+      trendingCommanders = blendedCommanders.trendingCommanders;
+      mostPlayedCommanders = blendedCommanders.mostPlayedCommanders;
+
       const primaryCommanders = useToday ? trendingCommanders : mostPlayedCommanders;
       const totalDecks = mostPlayedCommanders.reduce(
         (sum, row) => sum + (typeof row.count === "number" ? row.count : 0),
         0,
       );
-      await logCommanderExternalMetaShadowReport(trendingCommanders, mostPlayedCommanders);
 
       if (
         primaryCommanders.length > 0 ||
