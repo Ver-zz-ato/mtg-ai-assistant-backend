@@ -164,7 +164,7 @@ export async function precheckFixLegalitySourceDeck(
   const alreadyLegal =
     !requiresRepair &&
     finalQty === rules.mainDeckTarget;
-  const needsDeckSizeOnlyReview = !requiresRepair && finalQty !== rules.mainDeckTarget;
+  const needsDeckSizeOnlyReview = !requiresRepair && finalQty < rules.mainDeckTarget;
 
   return {
     alreadyLegal,

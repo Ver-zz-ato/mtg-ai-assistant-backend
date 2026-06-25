@@ -191,7 +191,14 @@ Caching: `Cache-Control: public, s-maxage=60, stale-while-revalidate=120`.
     "mobile.enable_roast": { "enabled": true, "value": {} }
   },
   "remoteConfig": {
-    "mobile.home.hero": { "title": "…" }
+    "mobile.home.hero": { "title": "…" },
+    "mobile.update": {
+      "minSupportedVersion": "1.0.80",
+      "recommendedVersion": "1.0.82",
+      "severity": "recommended",
+      "title": "Update available",
+      "body": "Get the latest ManaTap fixes and improvements."
+    }
   },
   "tierLimits": {
     "guest": {
@@ -294,6 +301,30 @@ Set `enabled = true` and `platform = all` unless testing only one platform. The 
 1. Open `/admin/remote-config`.
 2. Use a dotted key (e.g. `mobile.home.hero`) and valid JSON (object or array).
 3. Save. Clients read `remoteConfig[key]` from bootstrap.
+
+### App update banner
+
+Use remote config key `mobile.update` to show a small Home banner when an installed iOS or Android app is behind the configured version.
+
+Recommended value:
+
+```json
+{
+  "minSupportedVersion": "1.0.80",
+  "recommendedVersion": "1.0.82",
+  "severity": "recommended",
+  "title": "Update available",
+  "body": "Get the latest ManaTap fixes and improvements."
+}
+```
+
+Fields:
+
+- `minSupportedVersion`: app versions below this show a required, non-dismissible banner.
+- `recommendedVersion`: app versions below this show a dismissible update banner.
+- `latestVersion`: optional fallback if `recommendedVersion` is omitted.
+- `severity`: optional `recommended` or `required`; `minSupportedVersion` always wins.
+- `iosUrl` / `androidUrl`: optional store links. If omitted, the app uses its built-in App Store / Google Play URL.
 
 ## Mobile client usage
 

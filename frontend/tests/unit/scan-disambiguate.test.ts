@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { POST } from "@/app/api/cards/scan-disambiguate/route";
 import { buildScanDisambiguatePrompt } from "@/lib/scanner/scan-disambiguate-prompt";
 import {
+  normScannerName,
   parseScanAiJsonResponse,
   preferFuzzyCandidateForValidatedName,
   snapParsedPrimaryToFuzzyCandidates,
@@ -51,6 +52,22 @@ async function main() {
     );
     assert.ok(parsed);
     assert.equal(parsed!.primary, "Lightning Bolt");
+  }
+
+  {
+    assert.equal(normScannerName("Spider\u2011Man 2099"), "spider-man 2099");
+  }
+
+  {
+    const preferred = preferFuzzyCandidateForValidatedName(
+      "spiderman 2099",
+      "Spiderman 2099",
+      [
+        { name: "Spider-Man 2099", score: 0.58 },
+        { name: "Spider-Man 2099, Miguel O'Hara", score: 0.52 },
+      ]
+    );
+    assert.equal(preferred, "Spider-Man 2099");
   }
 
   {

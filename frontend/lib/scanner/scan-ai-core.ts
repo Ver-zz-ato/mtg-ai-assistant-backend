@@ -31,6 +31,10 @@ export function normScannerName(s: string): string {
   return normalizeScannerText(s);
 }
 
+function compactScannerName(s: string): string {
+  return normScannerName(s).replace(/[^a-z0-9]+/g, "");
+}
+
 export function parseScanAiJsonResponse(text: string): ParsedScanAiJson | null {
   const trimmed = text.trim();
   const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
@@ -58,8 +62,32 @@ export async function fuzzyValidateCardName(
   const q0 = cleanCardName(guessed);
   if (!q0 || q0.length < 2) return { validated: "", alternatives: [] };
   const qn = normScannerName(q0);
+  const queryVariants = [
+    q0,
+    q0.replace(/\bspider\s*[- ]?\s*man\b/gi, "Spider-Man"),
+  ].filter((value, index, arr) => value && arr.findIndex((item) => normScannerName(item) === normScannerName(value)) === index);
 
   try {
+    try {
+      const { findCardNameMatches } = await import("@/lib/server/cardNameResolution");
+      for (const query of queryVariants) {
+        const matches = await findCardNameMatches(supabase, query, 5);
+        const best = matches[0];
+        if (best && best.score >= 0.4) {
+          return {
+            validated: best.name,
+            alternatives: matches
+              .slice(1, 4)
+              .map((m) => m.name)
+              .filter(Boolean),
+            source: best.source,
+          };
+        }
+      }
+    } catch {
+      /* fall through to legacy direct checks */
+    }
+
     const { data: exact } = await supabase.from("scryfall_cache").select("name").ilike("name", q0).limit(1);
     if (exact?.length) return { validated: exact[0].name, alternatives: [], source: "cache_exact" };
 
@@ -118,6 +146,7 @@ export async function fuzzyValidateCardName(
 
     const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(q0)}`, {
       cache: "no-store",
+      headers: { "User-Agent": "Manatap scanner recognition" },
     });
     const j = (await r.json().catch(() => ({}))) as { name?: string };
     if (j?.name) return { validated: String(j.name).trim(), alternatives: [], source: "scryfall_named_fuzzy" };
@@ -193,6 +222,8 @@ export function preferFuzzyCandidateForValidatedName(
   if (!fuzzyMatches?.length) return validatedName;
   const vk = normScannerName(validatedName);
   const gk = normScannerName(guessedName);
+  const vc = compactScannerName(validatedName);
+  const gc = compactScannerName(guessedName);
   const ordered = [...fuzzyMatches].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const minPrefix = 4;
 
@@ -200,10 +231,15 @@ export function preferFuzzyCandidateForValidatedName(
     const name = String(row.name ?? "").trim();
     if (!name) continue;
     const fk = normScannerName(name);
+    const fc = compactScannerName(name);
     if (fk === vk || fk === gk) return name;
+    if (fc && (fc === vc || fc === gc)) return name;
     if (vk.length >= minPrefix && fk.startsWith(vk)) return name;
     if (gk.length >= minPrefix && fk.startsWith(gk)) return name;
     if (fk.length >= minPrefix && vk.startsWith(fk)) return name;
+    if (vc.length >= minPrefix && fc.startsWith(vc)) return name;
+    if (gc.length >= minPrefix && fc.startsWith(gc)) return name;
+    if (fc.length >= minPrefix && vc.startsWith(fc)) return name;
   }
   return validatedName;
 }

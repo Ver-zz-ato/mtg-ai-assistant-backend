@@ -171,7 +171,7 @@ async function main() {
 
     assert.ok(result);
     assert.equal(result?.alreadyLegal, false);
-    assert.equal(result?.needsDeckSizeOnlyReview, true, "clean 101-card Commander list should become review-only, not AI-swap-driven");
+    assert.equal(result?.needsDeckSizeOnlyReview, false, "clean overfull Commander list should continue to the cut-producing legality transform");
     assert.match(result?.warnings.join("\n") ?? "", /101 cards after validation; target is 100/i);
     assert.equal(result?.validatedRows.reduce((sum, row) => sum + row.qty, 0), 101);
   }
