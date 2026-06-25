@@ -617,6 +617,17 @@ export function detectPowerLevel(
   return 'mid';
 }
 
+export function canOverrideInferredColors(
+  format: AnalyzeFormat,
+  commander: string | null,
+  currentColors: string[],
+  nextColors: string[]
+): boolean {
+  if (nextColors.length === 0) return false;
+  if (format !== "Commander") return true;
+  return !commander || currentColors.length === 0;
+}
+
 /**
  * Infer deck aim/strategy based on commander, cards, and archetype patterns
  * Returns a concise description of the deck's goal/strategy
@@ -1414,8 +1425,8 @@ export async function inferDeckContext(
     }
   }
 
-  // Use selectedColors if provided (from UI presets)
-  if (selectedColors.length > 0) {
+  // Use selectedColors if provided, but do not let stale UI deck colors override a known Commander identity.
+  if (canOverrideInferredColors(format, context.commander, context.colors, selectedColors)) {
     context.colors = selectedColors.map(c => c.toUpperCase());
   }
 
@@ -1471,7 +1482,10 @@ export async function inferDeckContext(
     };
     
     for (const [key, colors] of Object.entries(colorWords)) {
-      if (new RegExp(`\\b${key}\\b`).test(msgLower)) {
+      if (
+        new RegExp(`\\b${key}\\b`).test(msgLower) &&
+        canOverrideInferredColors(format, context.commander, context.colors, colors)
+      ) {
         context.colors = colors;
         break;
       }

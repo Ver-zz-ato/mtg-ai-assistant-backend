@@ -167,18 +167,50 @@ export function resolveCommanderNameFromRows(
 /** WUBRG color identity for a commander name (handles Partner // Partner). */
 export async function getCommanderColorIdentity(commanderName: string): Promise<string[]> {
   if (!commanderName?.trim()) return [];
-  const parts = commanderName.split(/\s*\/\/\s*/);
   const allColors = new Set<string>();
   try {
-    const details = await getDetailsForNamesCached(parts);
+    const fullDetails = await getDetailsForNamesCached([commanderName]);
+    const fullCardData = fullDetails.get(norm(commanderName));
+    if (Array.isArray(fullCardData?.color_identity) && fullCardData.color_identity.length > 0) {
+      fullCardData.color_identity.forEach((c: string) => allColors.add(c.toUpperCase()));
+    }
+
+    const parts = commanderName.split(/\s*\/\/\s*/);
+    if (allColors.size === 0 && parts.length > 1) {
+      const details = await getDetailsForNamesCached(parts);
+      for (const part of parts) {
+        const cardData = details.get(norm(part));
+        if (cardData?.color_identity && Array.isArray(cardData.color_identity)) {
+          cardData.color_identity.forEach((c: string) => allColors.add(c.toUpperCase()));
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  const wubrgOrder = ["W", "U", "B", "R", "G"];
+  return wubrgOrder.filter((c) => allColors.has(c));
+}
+
+export function getCommanderColorIdentityFromDetails(
+  commanderName: string,
+  details: Map<string, { color_identity?: string[] | null }>
+): string[] {
+  if (!commanderName?.trim()) return [];
+  const allColors = new Set<string>();
+  const fullCardData = details.get(norm(commanderName));
+  if (Array.isArray(fullCardData?.color_identity) && fullCardData.color_identity.length > 0) {
+    fullCardData.color_identity.forEach((c) => allColors.add(c.toUpperCase()));
+  }
+
+  const parts = commanderName.split(/\s*\/\/\s*/);
+  if (allColors.size === 0 && parts.length > 1) {
     for (const part of parts) {
       const cardData = details.get(norm(part));
       if (cardData?.color_identity && Array.isArray(cardData.color_identity)) {
         cardData.color_identity.forEach((c: string) => allColors.add(c.toUpperCase()));
       }
     }
-  } catch {
-    // ignore
   }
   const wubrgOrder = ["W", "U", "B", "R", "G"];
   return wubrgOrder.filter((c) => allColors.has(c));

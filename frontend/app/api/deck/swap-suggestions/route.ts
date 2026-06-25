@@ -44,6 +44,7 @@ import {
   resolveSwapSuggestionsEmptyReason,
   type AiRunMetrics,
 } from "@/lib/deck/swap-suggestions-empty-reason";
+import { getCommanderColorIdentity } from "@/lib/deck/generation-helpers";
 
 // Very light-weight, research-aware swap suggester.
 // Loads budget swaps from data file for easy maintenance and expansion.
@@ -544,11 +545,7 @@ export async function POST(req: NextRequest) {
     const isCommanderFormat = format.toLowerCase().includes('commander') || format.toLowerCase().includes('edh');
     if (isCommanderFormat && commander) {
       try {
-        const { getDetailsForNamesCached } = await import('@/lib/server/scryfallCache');
-        const commanderDetails = await getDetailsForNamesCached([commander]);
-        const commanderEntry = commanderDetails.get(commander.toLowerCase()) || 
-          Array.from(commanderDetails.values())[0];
-        allowedColors = (commanderEntry?.color_identity || []).map((c: string) => c.toUpperCase());
+        allowedColors = (await getCommanderColorIdentity(commander)).map((c: string) => c.toUpperCase());
         if (allowedColors.length > 0) {
           console.log('[swap-suggestions] Commander color identity:', allowedColors.join(','));
         }
@@ -705,9 +702,8 @@ export async function POST(req: NextRequest) {
           const cardDetails = await getDetailsForNamesCached(toCardNames);
           const beforeCount = pipeline.length;
           pipeline = pipeline.filter((s) => {
-            const cardKey = s.to.toLowerCase();
-            const cardEntry = cardDetails.get(cardKey)
-              || Array.from(cardDetails.entries()).find(([k]) => k.toLowerCase() === cardKey)?.[1];
+            const cardKey = normalizeScryfallCacheName(s.to);
+            const cardEntry = cardDetails.get(cardKey);
             if (!cardEntry) return false;
             const cardColors = cardEntry.color_identity || [];
             return isWithinColorIdentity({ color_identity: cardColors } as SfCard, allowedColors);

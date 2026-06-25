@@ -993,12 +993,12 @@ async function validateSlots(
           continue;
         }
 
-        let card = byName.get(candidate.name.toLowerCase());
+        let card = byName.get(normalizeScryfallCacheName(candidate.name));
         if (!card) {
           const fetched = await fetchCard(candidate.name);
           if (fetched) {
             card = fetched;
-            byName.set(fetched.name.toLowerCase(), fetched);
+            byName.set(normalizeScryfallCacheName(fetched.name), fetched);
           }
         }
         if (!card) {
@@ -1093,12 +1093,12 @@ async function postFilterSuggestions(
   const banNormSet = banNormSetForUserFormat(bannedLists, context.format);
 
   for (const suggestion of candidates) {
-    let card = byName.get(suggestion.card.toLowerCase());
+    let card = byName.get(normalizeScryfallCacheName(suggestion.card));
     if (!card) {
       const fetched = await fetchCard(suggestion.card);
       if (fetched) {
         card = fetched;
-        byName.set(fetched.name.toLowerCase(), fetched);
+        byName.set(normalizeScryfallCacheName(fetched.name), fetched);
       }
     }
     if (!card) {
@@ -1410,11 +1410,11 @@ async function findFastManaReplacement(
   for (const candidateName of candidates) {
     const norm = normalizeCardName(candidateName);
     if (normalizedDeck.has(norm)) continue;
-    let candidate: SfCard | null | undefined = byName.get(candidateName.toLowerCase());
+    let candidate: SfCard | null | undefined = byName.get(normalizeScryfallCacheName(candidateName));
     if (!candidate) {
       candidate = await fetchCard(candidateName);
       if (candidate) {
-        byName.set(candidate.name.toLowerCase(), candidate);
+        byName.set(normalizeScryfallCacheName(candidate.name), candidate);
       }
     }
     if (!candidate) continue;
@@ -1471,7 +1471,7 @@ function deckTally(
   const killRe = /destroy target|exile target|counter target|fight target|deal .* damage to any target/i;
 
   for (const { name, count } of entries) {
-    const card = byName.get(name.toLowerCase());
+    const card = byName.get(normalizeScryfallCacheName(name));
     const typeLine = card?.type_line || "";
     const oracle = card?.oracle_text || "";
     const isLand = landRe.test(typeLine);
@@ -2071,8 +2071,12 @@ export async function runDeckAnalyzeCore(
 
   if (useScryfall && uniqueNames.length) {
     const batch = await fetchCardsBatch(uniqueNames);
+    for (const name of uniqueNames) {
+      const card = batch.get(normalizeScryfallCacheName(name));
+      if (card) byName.set(normalizeScryfallCacheName(name), card);
+    }
     for (const card of batch.values()) {
-      byName.set(card.name.toLowerCase(), card);
+      byName.set(normalizeScryfallCacheName(card.name), card);
     }
   }
 
@@ -2548,7 +2552,7 @@ export async function runDeckAnalyzeCore(
     const admin = (await import("@/app/api/_lib/supa")).getAdmin();
     if (!admin) return null;
     const deckCards: EnrichedCard[] = entries.map((entry) => {
-      const card = byName.get(entry.name.toLowerCase());
+      const card = byName.get(normalizeScryfallCacheName(entry.name));
       return {
         name: entry.name,
         qty: entry.count,
