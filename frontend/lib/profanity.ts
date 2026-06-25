@@ -1,5 +1,7 @@
 
 // lib/profanity.ts
+import { parseDeckText } from "@/lib/deck/parseDeckText";
+
 // Lightweight profanity checker used on client and server.
 // Word-boundary, case-insensitive, avoids false positives like "class".
 // Also matches simple inflections (s/es/ed/ing) for each base term.
@@ -10,6 +12,10 @@ const WORDS = [
   "retard","foxtard","fag",
   "boob","boobie","boobies","boobs","tits","titties","tit",
   "penis","vagina","clit","cum","jizz","semen","porn","porno"
+];
+
+const SEVERE_CHAT_WORDS = [
+  "nigger","faggot","retard","foxtard","fag"
 ];
 
 const EVASIVE_PATTERNS = [
@@ -36,6 +42,8 @@ function patternFor(word: string) {
 
 const rx = new RegExp(`\\b(${WORDS.map(patternFor).join('|')})\\b`, 'i');
 const compactWords = WORDS.map((word) => word.replace(/[^a-z0-9]/gi, "").toLowerCase());
+const severeChatRx = new RegExp(`\\b(${SEVERE_CHAT_WORDS.map(patternFor).join('|')})\\b`, 'i');
+const severeChatCompactWords = SEVERE_CHAT_WORDS.map((word) => word.replace(/[^a-z0-9]/gi, "").toLowerCase());
 
 function normalizeLoose(input: string): string {
   return String(input || "")
@@ -63,6 +71,50 @@ export function containsProfanity(input: string): boolean {
   return EVASIVE_PATTERNS.some((pattern) => pattern.test(compact));
 }
 
+export function containsSevereChatAbuse(input: string): boolean {
+  if (!input) return false;
+  const raw = String(input);
+  if (severeChatRx.test(raw)) return true;
+  const compactTokens = raw.split(/\s+/).map(normalizeLoose).filter(Boolean);
+  return compactTokens.some((token) => severeChatCompactWords.includes(token));
+}
+
+const CHAT_DECKLIST_LINE_SPLIT_RE = /\r\n|[\n\r\u2028\u2029]/;
+
+function splitChatDecklistLines(input: string): string[] {
+  return String(input || "").split(CHAT_DECKLIST_LINE_SPLIT_RE);
+}
+
+function isLikelyDecklistCardLine(line: string): boolean {
+  const trimmed = String(line || "").trim();
+  if (!trimmed) return false;
+  if (/^(COMMANDER|SIDEBOARD|MAINBOARD|MAYBEBOARD|LANDS?|CREATURES?|INSTANTS?|SORCERY|SORCERIES|ARTIFACTS?|ENCHANTMENTS?|PLANESWALKERS?|BATTLES?|CONSIDERING|COMPANION):?\s*$/i.test(trimmed)) {
+    return true;
+  }
+  if (/^\s*(?:SB:|Sideboard:|CMDR:|Commander:)\s+\S+/i.test(trimmed)) {
+    return parseDeckText(trimmed).length > 0;
+  }
+  if (!/^\s*(?:\d+\s*x?\s+|x\s*\d+\s+)/i.test(trimmed)) return false;
+  return parseDeckText(trimmed).length > 0;
+}
+
+function stripLikelyDecklistLines(input: string): string {
+  const lines = splitChatDecklistLines(input);
+  const decklistLineCount = lines.filter(isLikelyDecklistCardLine).length;
+  if (decklistLineCount < 8) return input;
+  return lines.filter((line) => !isLikelyDecklistCardLine(line)).join("\n");
+}
+
+export function containsProfanityOutsideLikelyDecklist(input: string): boolean {
+  if (!input) return false;
+  return containsProfanity(stripLikelyDecklistLines(input));
+}
+
+export function containsSevereChatAbuseOutsideLikelyDecklist(input: string): boolean {
+  if (!input) return false;
+  return containsSevereChatAbuse(stripLikelyDecklistLines(input));
+}
+
 export function sanitizeName(input: string, max = 120): string {
   const s = String(input || '').trim().slice(0, max);
   if (!s) return s;
@@ -71,6 +123,9 @@ export function sanitizeName(input: string, max = 120): string {
 
 export const PROFANITY_REJECTION_MESSAGE =
   "Please rephrase that without profanity, and I'll be happy to help.";
+
+export const CHAT_ABUSE_REJECTION_MESSAGE =
+  "Please rephrase that without abusive language, and I'll be happy to help.";
 
 const PUBLIC_TEXT_ERROR =
   "Please rephrase that without offensive language before sharing it.";

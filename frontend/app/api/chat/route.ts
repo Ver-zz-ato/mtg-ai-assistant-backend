@@ -43,7 +43,7 @@ import {
 } from "@/lib/ai/intelligence/packet";
 import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registry";
 import { GENERAL_COMMANDER_FORMAT_INSTRUCTION } from "@/lib/ai/commander-format-instruction";
-import { containsProfanity, PROFANITY_REJECTION_MESSAGE } from "@/lib/profanity";
+import { containsSevereChatAbuseOutsideLikelyDecklist, CHAT_ABUSE_REJECTION_MESSAGE } from "@/lib/profanity";
 import { isDeckAnalysisRequest } from "@/lib/ai/layer0-gate";
 
 export const runtime = "nodejs";
@@ -1869,10 +1869,10 @@ export async function POST(req: NextRequest) {
     // Users will now get full AI responses even for simple preference queries.
     // The AI prompt should handle format/budget/color context appropriately.
 
-    // Very light moderation pass (profanity guard)
+    // Severe-only private chat moderation; public/shared text stays stricter elsewhere.
     try {
-      if (containsProfanity(String(text || ""))) {
-        return err(PROFANITY_REJECTION_MESSAGE, "content_blocked", 400);
+      if (containsSevereChatAbuseOutsideLikelyDecklist(String(text || ""))) {
+        return err(CHAT_ABUSE_REJECTION_MESSAGE, "content_blocked", 400);
       }
     } catch {}
 
