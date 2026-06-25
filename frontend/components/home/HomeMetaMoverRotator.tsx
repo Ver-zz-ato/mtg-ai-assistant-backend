@@ -1,158 +1,204 @@
-"use client";
+import HomeMetaMoverRotatorClient, {
+  type HomeMetaSpotlightItem,
+} from "@/components/home/HomeMetaMoverRotatorClient";
+import {
+  getExternalMostPlayedCards,
+  getExternalMostPlayedCommanders,
+  getExternalTrendingCards,
+  getExternalTrendingCommanders,
+} from "@/lib/meta/externalDailyMeta";
+import { formatMetaUpdatedPhrase } from "@/lib/meta/freshness";
+import {
+  getGlobalMetaCards,
+  getGlobalMetaCommanders,
+} from "@/lib/meta/global-meta-entities";
+import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { fetchCommanderArtBatch } from "@/lib/commander-art-batch";
-import { formatMetaFreshnessPill, type MetaLabelPayload } from "@/lib/meta/freshness";
-import { fetchJson } from "@/lib/http";
+function norm(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-type TrendingCommander = {
-  name: string;
-  count: number;
-  slug?: string;
-};
+function toSlug(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
-type TrendingResponse = {
-  ok?: boolean;
-  topCommanders?: TrendingCommander[];
-  lastUpdated?: string | null;
-  labelPayload?: MetaLabelPayload | null;
-};
+function freshnessLabel(updatedAt: string | null, snapshotDate: string | null): string | null {
+  if (updatedAt) return `Updated ${formatMetaUpdatedPhrase(updatedAt)}`;
+  if (snapshotDate) return `Snapshot ${snapshotDate}`;
+  return null;
+}
 
-const ROTATE_MS = 6000;
+function addUniqueItem(
+  items: HomeMetaSpotlightItem[],
+  seen: Set<string>,
+  item: HomeMetaSpotlightItem,
+) {
+  const key = `${item.kind}:${norm(item.name)}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  items.push(item);
+}
 
-export default function HomeMetaMoverRotator() {
-  const [commanders, setCommanders] = useState<TrendingCommander[]>([]);
-  const [artMap, setArtMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [index, setIndex] = useState(0);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [labelPayload, setLabelPayload] = useState<MetaLabelPayload | null>(null);
+async function getFallbackItems(limit: number): Promise<HomeMetaSpotlightItem[]> {
+  const [commanders, cards] = await Promise.all([
+    getGlobalMetaCommanders(limit).catch(() => []),
+    getGlobalMetaCards(limit).catch(() => []),
+  ]);
+  const names = [
+    ...commanders.slice(0, limit).map((item) => item.name),
+    ...cards.slice(0, limit).map((item) => item.name),
+  ];
+  const imageMap = await getImagesForNamesCached(names).catch(() => new Map());
+  const getImage = (name: string) => {
+    const details = imageMap.get(norm(name)) ?? imageMap.get(name);
+    return details?.art_crop ?? details?.normal ?? details?.small ?? null;
+  };
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await fetchJson<TrendingResponse>("/api/meta/trending?window=today", {
-          cache: "no-store",
-        });
-        if (!cancelled && data?.ok && Array.isArray(data.topCommanders)) {
-          const list = data.topCommanders.slice(0, 8);
-          setCommanders(list);
-          setLastUpdated(data.lastUpdated ?? null);
-          setLabelPayload(data.labelPayload ?? null);
-          const map = await fetchCommanderArtBatch(list.map((cmd) => cmd.name));
-          if (!cancelled) setArtMap(map);
-        }
-      } catch {
-        // Optional spotlight when meta unavailable
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const items: HomeMetaSpotlightItem[] = [];
+  const seen = new Set<string>();
+  const max = Math.max(commanders.length, cards.length, limit);
 
-  useEffect(() => {
-    if (commanders.length <= 1) return;
-    const id = window.setInterval(() => {
-      setIndex((prev) => (prev + 1) % commanders.length);
-    }, ROTATE_MS);
-    return () => window.clearInterval(id);
-  }, [commanders.length]);
+  for (let i = 0; i < max && items.length < limit; i += 1) {
+    const commander = commanders[i];
+    if (commander) {
+      const label = commander.isTrending
+        ? `Trending #${commander.trendingRank ?? i + 1}`
+        : `Most played #${commander.mostPlayedRank ?? i + 1}`;
+      addUniqueItem(items, seen, {
+        kind: "commander",
+        name: commander.name,
+        href: `/commanders/${commander.slug}`,
+        imageUrl: getImage(commander.name),
+        metaLabel: label,
+        description: "Commander meta signal from ManaTap public deck activity.",
+      });
+    }
 
-  const freshness = useMemo(
-    () => formatMetaFreshnessPill(lastUpdated, labelPayload),
-    [lastUpdated, labelPayload],
-  );
-
-  const active = commanders[index % Math.max(commanders.length, 1)];
-  const art = active ? artMap[active.name] : undefined;
-  const href = active?.slug
-    ? `/commanders/${active.slug}`
-    : active
-      ? `/decks/browse?search=${encodeURIComponent(active.name)}`
-      : "/meta/trending-commanders";
-
-  if (!loading && commanders.length === 0) {
-    return null;
+    const card = cards[i];
+    if (card && items.length < limit) {
+      const label = card.isTrending
+        ? `Trending #${card.trendingRank ?? i + 1}`
+        : `Most played #${card.mostPlayedRank ?? i + 1}`;
+      addUniqueItem(items, seen, {
+        kind: "card",
+        name: card.name,
+        href: `/cards/${card.slug}`,
+        imageUrl: getImage(card.name),
+        metaLabel: label,
+        description: "Card meta signal from ManaTap public deck activity.",
+      });
+    }
   }
 
-  return (
-    <div className="flex h-full flex-col rounded-2xl border border-fuchsia-400/25 bg-neutral-950/50 p-4 shadow-[0_0_32px_rgba(192,38,211,0.06)] sm:p-5">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-fuchsia-300/90">
-            Meta movers
-          </p>
-          <h3 className="mt-1 text-lg font-bold text-neutral-100 sm:text-xl">Commander trends</h3>
-          <p className="mt-1 text-sm text-neutral-500">
-            {freshness ?? "Leaders climbing in the shared Commander meta feed."}
-          </p>
-        </div>
-        <Link
-          href="/meta/trending-commanders"
-          className="shrink-0 text-xs font-semibold text-fuchsia-300 transition hover:text-fuchsia-200"
-        >
-          View meta →
-        </Link>
-      </div>
+  return items;
+}
 
-      {loading || !active ? (
-        <div className="min-h-[240px] animate-pulse rounded-xl bg-neutral-800/80 sm:min-h-[280px]" />
-      ) : (
-        <Link
-          href={href}
-          className="group relative mt-1 flex min-h-[240px] flex-1 overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80 transition hover:border-fuchsia-400/40 sm:min-h-[280px]"
-        >
-          {art ? (
-            <img
-              src={art}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover object-[center_15%] transition duration-700 group-hover:scale-[1.02]"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-neutral-800" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-transparent" />
-          <div className="relative flex h-full w-full flex-col justify-end p-4 sm:p-5">
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {commanders.map((cmd, i) => (
-                <button
-                  key={cmd.name}
-                  type="button"
-                  aria-label={`Show ${cmd.name}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIndex(i);
-                  }}
-                  className={`h-1.5 rounded-full transition-all ${
-                    i === index % commanders.length
-                      ? "w-6 bg-fuchsia-300"
-                      : "w-1.5 bg-white/25 hover:bg-white/40"
-                  }`}
-                />
-              ))}
-            </div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-fuchsia-300/90">
-              Trending now
-            </p>
-            <h4 className="mt-1 text-xl font-black text-white transition group-hover:text-fuchsia-100 sm:text-2xl">
-              {active.name}
-            </h4>
-            <p className="mt-2 text-sm text-neutral-300">
-              See decks, guides, and upgrades for this commander.
-            </p>
-            <span className="mt-3 text-sm font-semibold text-fuchsia-300 group-hover:text-fuchsia-200">
-              View commander →
-            </span>
-          </div>
-        </Link>
-      )}
-    </div>
+export default async function HomeMetaMoverRotator() {
+  const limit = 8;
+  const [
+    trendingCommanders,
+    popularCommanders,
+    trendingCards,
+    popularCards,
+  ] = await Promise.all([
+    getExternalTrendingCommanders(limit).catch(() => ({
+      items: [],
+      imageMap: new Map<string, string>(),
+      updatedAt: null,
+      snapshotDate: null,
+    })),
+    getExternalMostPlayedCommanders(limit).catch(() => ({
+      items: [],
+      imageMap: new Map<string, string>(),
+      updatedAt: null,
+      snapshotDate: null,
+    })),
+    getExternalTrendingCards(limit).catch(() => ({
+      items: [],
+      imageMap: new Map<string, string>(),
+      updatedAt: null,
+      snapshotDate: null,
+    })),
+    getExternalMostPlayedCards(limit).catch(() => ({
+      items: [],
+      imageMap: new Map<string, string>(),
+      updatedAt: null,
+      snapshotDate: null,
+    })),
+  ]);
+
+  const commanderImageMap = new Map([
+    ...popularCommanders.imageMap,
+    ...trendingCommanders.imageMap,
+  ]);
+  const cardImageMap = new Map([
+    ...popularCards.imageMap,
+    ...trendingCards.imageMap,
+  ]);
+  const items: HomeMetaSpotlightItem[] = [];
+  const seen = new Set<string>();
+  const commanderPool = [
+    ...trendingCommanders.items,
+    ...popularCommanders.items,
+  ];
+  const cardPool = [
+    ...trendingCards.items,
+    ...popularCards.items,
+  ];
+  const max = Math.max(commanderPool.length, cardPool.length, limit);
+
+  for (let i = 0; i < max && items.length < limit; i += 1) {
+    const commander = commanderPool[i];
+    if (commander) {
+      addUniqueItem(items, seen, {
+        kind: "commander",
+        name: commander.name,
+        href: `/commanders/${commander.slug}`,
+        imageUrl: commanderImageMap.get(norm(commander.name)) ?? null,
+        metaLabel: commander.metaLabel,
+        description: "Commander popularity from external EDHREC-order meta snapshots.",
+      });
+    }
+
+    const card = cardPool[i];
+    if (card && items.length < limit) {
+      addUniqueItem(items, seen, {
+        kind: "card",
+        name: card.name,
+        href: `/cards/${toSlug(card.name)}`,
+        imageUrl: cardImageMap.get(norm(card.name)) ?? null,
+        metaLabel: card.metaLabel,
+        description: "Commander staple from external EDHREC-order card snapshots.",
+      });
+    }
+  }
+
+  const spotlightItems = items.length > 0 ? items : await getFallbackItems(limit);
+  if (spotlightItems.length === 0) return null;
+
+  const updatedAt =
+    trendingCommanders.updatedAt ??
+    popularCommanders.updatedAt ??
+    trendingCards.updatedAt ??
+    popularCards.updatedAt;
+  const snapshotDate =
+    trendingCommanders.snapshotDate ??
+    popularCommanders.snapshotDate ??
+    trendingCards.snapshotDate ??
+    popularCards.snapshotDate;
+
+  return (
+    <HomeMetaMoverRotatorClient
+      items={spotlightItems}
+      freshness={freshnessLabel(updatedAt, snapshotDate)}
+    />
   );
 }
