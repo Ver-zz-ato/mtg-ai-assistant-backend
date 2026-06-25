@@ -23,6 +23,7 @@ import type {
 import {
   AI_WORKSHOP_HANDOFF_KEY,
   WORKSHOP_ACTIONS,
+  WORKSHOP_FORMATS,
   type AiWorkshopHandoff,
 } from "@/lib/deck/ai-workshop-actions";
 import {
@@ -142,6 +143,7 @@ export default function AiWorkshopClient() {
   const [sourcePreflight, setSourcePreflight] = useState<WorkshopSourcePreflight | null>(null);
   const [sourcePreflightLoading, setSourcePreflightLoading] = useState(false);
   const [sourceWarningConfirmed, setSourceWarningConfirmed] = useState(false);
+  const [sourceSetupConfirmed, setSourceSetupConfirmed] = useState(false);
 
   const transformAbortRef = useRef<AbortController | null>(null);
   const preflightAbortRef = useRef<AbortController | null>(null);
@@ -185,6 +187,10 @@ export default function AiWorkshopClient() {
     !sourceWarningConfirmed;
   const isCommanderDeck = isCommanderFormatString(format);
   const commanderName = deckCommander.trim() || deriveCommanderFromDeckText(activeDeckText, deckTitle);
+  const needsSourceSetupConfirmation =
+    Boolean(activeDeckText.trim()) &&
+    sourceLabel === "Pasted list" &&
+    !sourceSetupConfirmed;
 
   const preserveCards = useMemo(
     () =>
@@ -392,6 +398,7 @@ export default function AiWorkshopClient() {
       if (handoff.commander) setDeckCommander(handoff.commander);
       if (handoff.title) setDeckTitle(handoff.title);
       if (handoff.sourceLabel) setSourceLabel(handoff.sourceLabel);
+      setSourceSetupConfirmed(true);
     } catch {
       /* ignore */
     }
@@ -424,6 +431,7 @@ export default function AiWorkshopClient() {
         setDeckCommander(row.commander?.trim() || detectCommander(text) || "");
         if (row.format?.trim()) setFormat(row.format.trim());
         setSourceLabel("Saved deck");
+        setSourceSetupConfirmed(true);
       } catch {
         /* ignore */
       } finally {
@@ -507,8 +515,25 @@ export default function AiWorkshopClient() {
     setSourceWarningConfirmed(false);
   }, [activeDeckText, format, deckCommander]);
 
+  const handlePastedDeckText = useCallback((value: string) => {
+    setDeckText(value);
+    setSelectedDeckId("");
+    setSourceLabel(value.trim() ? "Pasted list" : "Loaded deck");
+    setSourceSetupConfirmed(false);
+  }, []);
+
+  const handleFormatChange = useCallback((value: string) => {
+    setFormat(value);
+    if (sourceLabel === "Pasted list") setSourceSetupConfirmed(false);
+  }, [sourceLabel]);
+
+  const handleCommanderChange = useCallback((value: string) => {
+    setDeckCommander(value);
+    if (sourceLabel === "Pasted list") setSourceSetupConfirmed(false);
+  }, [sourceLabel]);
+
   useEffect(() => {
-    if (!user || workshopBlocked || !activeDeckText.trim()) {
+    if (!user || workshopBlocked || needsSourceSetupConfirmation || !activeDeckText.trim()) {
       setSourcePreflight(null);
       setSourcePreflightLoading(false);
       return;
@@ -558,12 +583,12 @@ export default function AiWorkshopClient() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [user, workshopBlocked, activeDeckText, format, commanderName]);
+  }, [user, workshopBlocked, needsSourceSetupConfirmation, activeDeckText, format, commanderName]);
 
   const requireSignIn = useCallback(() => {
-    router.push(`/login?redirect=${encodeURIComponent("/ai-workshop")}`);
+    window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "signin" } }));
     return false;
-  }, [router]);
+  }, []);
 
   const runWorkshopPass = useCallback(async () => {
     if (!user) {
@@ -573,6 +598,10 @@ export default function AiWorkshopClient() {
     const raw = (workingDeckText.trim() || deckText.trim());
     if (!raw) {
       setError("Load a deck list before running the workshop.");
+      return;
+    }
+    if (needsSourceSetupConfirmation) {
+      setError("Confirm the format and commander before running a refinement.");
       return;
     }
     if (sourceRunBlocked) {
@@ -792,6 +821,7 @@ export default function AiWorkshopClient() {
     deckTitle,
     isPro,
     sourceRunBlocked,
+    needsSourceSetupConfirmation,
   ]);
 
   const applyPendingPreview = useCallback(() => {
@@ -971,6 +1001,7 @@ export default function AiWorkshopClient() {
     setShowWhy(false);
     setError(null);
     setSourceLabel("Loaded deck");
+    setSourceSetupConfirmed(false);
   }, []);
 
   return (
@@ -1056,13 +1087,63 @@ export default function AiWorkshopClient() {
           hiddenDeckCount={savedDeckPicker.hiddenCount}
           selectedDeckId={selectedDeckId}
           bootLoading={bootLoading}
-          onDeckText={setDeckText}
-          onFormat={setFormat}
-          onCommander={setDeckCommander}
+          onDeckText={handlePastedDeckText}
+          onFormat={handleFormatChange}
+          onCommander={handleCommanderChange}
           onDeckTitle={setDeckTitle}
           onSelectDeckId={setSelectedDeckId}
           onFixNames={openFixNames}
         />
+      ) : needsSourceSetupConfirmation ? (
+        <div className="space-y-4 rounded-xl border border-violet-500/35 bg-violet-950/15 p-4">
+          <div>
+            <h3 className="text-base font-bold text-white">Confirm source setup</h3>
+            <p className="mt-1 text-sm text-neutral-300">
+              Check the format before running a pass. Commander lists also need the commander confirmed.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {WORKSHOP_FORMATS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => handleFormatChange(f)}
+                className={`min-h-[40px] rounded-full border px-3 py-1.5 text-sm font-semibold touch-manipulation ${
+                  format === f
+                    ? "border-violet-400/50 bg-violet-500/20 text-violet-100"
+                    : "border-neutral-700 text-neutral-300 hover:border-neutral-600"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {isCommanderDeck ? (
+            <label className="block min-w-0">
+              <span className="mb-1 block text-xs font-medium text-neutral-400">Commander</span>
+              <input
+                value={deckCommander}
+                onChange={(e) => handleCommanderChange(e.target.value)}
+                className="w-full min-h-[40px] rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white"
+                placeholder="Commander name"
+              />
+            </label>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => {
+              setSourceSetupConfirmed(true);
+              setError(null);
+            }}
+            disabled={isCommanderDeck && !commanderName}
+            className="min-h-[44px] rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-60 touch-manipulation"
+          >
+            Continue with {format}
+          </button>
+        </div>
       ) : workshopBlocked ? (
         <WorkshopIncompleteGate
           format={format}

@@ -28,12 +28,12 @@ export function PopularCommandersRotator({ commanders }: { commanders: RotatorCo
 
   return (
     <div className="space-y-2">
-      <div className="relative h-10">
+      <div className="relative h-[4.5rem]">
         {commanders.map((commander, i) => (
           <Link
             key={commander.slug}
             href={`/commanders/${commander.slug}`}
-            className={`${PILL_BASE_CLASS} ${pillClassAt(i)} absolute left-0 top-0 max-w-full gap-2 pr-3 transition-all duration-500 ${
+            className={`${PILL_BASE_CLASS} ${pillClassAt(i)} absolute left-0 top-0 max-w-full gap-3 px-4 py-2.5 pr-5 text-sm shadow-lg shadow-black/25 transition-all duration-500 ${
               i === index
                 ? "z-10 translate-y-0 opacity-100"
                 : "pointer-events-none z-0 -translate-y-0.5 opacity-0"
@@ -43,10 +43,10 @@ export function PopularCommandersRotator({ commanders }: { commanders: RotatorCo
               <img
                 src={commander.artUrl}
                 alt=""
-                className="h-8 w-6 shrink-0 rounded object-cover object-top"
+                className="h-12 w-9 shrink-0 rounded-md object-cover object-top"
               />
             ) : (
-              <span className="h-8 w-6 shrink-0 rounded bg-neutral-800/80" aria-hidden />
+              <span className="h-12 w-9 shrink-0 rounded-md bg-neutral-800/80" aria-hidden />
             )}
             <span className="truncate">{commander.name}</span>
           </Link>

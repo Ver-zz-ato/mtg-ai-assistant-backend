@@ -14,7 +14,6 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { motion, useAnimationControls } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { useProStatus } from "@/hooks/useProStatus";
 import EligibleSavedDeckSelect from "@/components/tools/EligibleSavedDeckSelect";
@@ -174,8 +173,6 @@ export default function DeckCheckerClient() {
   const [quickFixes, setQuickFixes] = useState<string[]>([]);
   const [whatsGood, setWhatsGood] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [resultRevealKey, setResultRevealKey] = useState(0);
-  const verdictPanelControls = useAnimationControls();
 
   const busy = busyPhase !== null;
   const hasResult = score !== null || counts !== null;
@@ -201,20 +198,6 @@ export default function DeckCheckerClient() {
           cta: "Log in",
         }
     : null;
-
-  useEffect(() => {
-    if (resultRevealKey === 0) return;
-    const frameId = requestAnimationFrame(() => {
-      verdictPanelControls.set({ opacity: 0.85, scale: 0.94, y: 14 });
-      void verdictPanelControls.start({
-        opacity: 1,
-        scale: 1,
-        y: 0,
-        transition: { type: "spring", stiffness: 380, damping: 26 },
-      });
-    });
-    return () => cancelAnimationFrame(frameId);
-  }, [resultRevealKey, verdictPanelControls]);
 
   useEffect(() => {
     try {
@@ -344,7 +327,6 @@ export default function DeckCheckerClient() {
       setQuickFixes(Array.isArray(data?.quickFixes) ? data.quickFixes : []);
       setWhatsGood(Array.isArray(data?.whatsGood) ? data.whatsGood : []);
       setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions.slice(0, 5) : []);
-      setResultRevealKey((key) => key + 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Analysis failed.";
       setError(err instanceof Error && err.name === "AbortError" ? "Analysis timed out. Try a shorter list or run it again." : message);
@@ -570,9 +552,7 @@ export default function DeckCheckerClient() {
                   </div>
                 ) : null}
 
-                <motion.div
-                  animate={verdictPanelControls}
-                  initial={false}
+                <div
                   className={isPreview ? "relative opacity-[0.68] saturate-[0.55] contrast-[0.92]" : "relative"}
                 >
                 <div className="flex items-start justify-between gap-4">
@@ -680,7 +660,7 @@ export default function DeckCheckerClient() {
                     Save deck for full AI analysis
                   </Link>
                 </div>
-                </motion.div>
+                </div>
               </div>
             </div>
           </div>

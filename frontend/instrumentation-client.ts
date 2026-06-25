@@ -52,6 +52,11 @@ Sentry.init({
     const errorType = event.exception?.values?.[0]?.type || '';
     const eventTitle = (event as any).title || (event as any).metadata?.title || '';
     const browserName = (event.contexts?.browser as { name?: string })?.name || '';
+    const exceptionFrames = event.exception?.values?.flatMap((value) => value.stacktrace?.frames ?? []) ?? [];
+    const exceptionFrameText = exceptionFrames
+      .map((frame) => `${frame.filename ?? ''} ${frame.abs_path ?? ''} ${frame.function ?? ''}`)
+      .join(' ')
+      .toLowerCase();
 
     // Hydration errors from DuckDuckGo in-app browser: DDG injects DOM/scripts and uses non-standard APIs,
     // causing environmental mismatches we cannot fix. These recur and are not actionable.
@@ -105,6 +110,22 @@ Sentry.init({
 
     // invalid origin: Analytics/PostHog or CORS in restricted contexts (e.g. DuckDuckGo in-app browser). Not actionable.
     if (errorValue.includes('invalid origin')) return null;
+
+    // Browser extension wallet injection noise. These stack traces originate from injected app:// scripts
+    // such as extensionPageScript.js / sui.js, not ManaTap code.
+    if (
+      exceptionFrameText.includes('extensionpagescript.js') ||
+      exceptionFrameText.includes('app:///sui.js') ||
+      exceptionFrameText.includes('initsolanaconnect') ||
+      exceptionFrameText.includes('registersolanainjectedwallet')
+    ) {
+      return null;
+    }
+
+    // Browser/extension runtime messaging can fail when its owning tab disappears. Not app code.
+    if (errorValue.includes('runtime.sendMessage') && errorValue.includes('Tab not found')) {
+      return null;
+    }
 
     // Ignore errors from known malicious domains (browser extension/adware injection)
     const maliciousDomains = [

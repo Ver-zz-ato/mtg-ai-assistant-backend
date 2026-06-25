@@ -37,6 +37,7 @@ import {
   filterSwapSuggestionsByTagSimilarity,
   summarizeTagProfileForPrompt,
 } from "@/lib/recommendations/tag-grounding";
+import type { GroundedCardCandidate } from "@/lib/recommendations/tag-grounding";
 import { aiRerankRecommendations, buildRecommendationIntent, rankGroundedCandidates } from "@/lib/recommendations/recommendation-pipeline";
 import { getRecommendationTierConfig, resolveRecommendationTier } from "@/lib/recommendations/recommendation-tier";
 import {
@@ -74,6 +75,15 @@ type AiSuggestResult = {
   outcome: AiSuggestOutcome;
   suggestions: AiSwapResponse;
 };
+
+type AiSuggestOptions = {
+  timeoutMs?: number;
+  retry?: boolean;
+};
+
+const AI_SUGGEST_TIMEOUT_MS = 120_000;
+const WORKSHOP_AI_SUGGEST_TIMEOUT_MS = 18_000;
+const WORKSHOP_AI_FALLBACK_DEADLINE_MS = 95_000;
 
 type RoleGroup =
   | "mana"
@@ -243,6 +253,7 @@ async function aiSuggest(
   sourcePage?: string | null,
   recommendationTier?: "guest" | "free" | "pro",
   protectedRoleCardsPrompt = "",
+  options: AiSuggestOptions = {},
 ): Promise<AiSuggestResult> {
   const tierConfig = getRecommendationTierConfig(recommendationTier ?? "guest");
   const model = tierConfig.model || process.env.MODEL_SWAP_SUGGESTIONS || DEFAULT_FALLBACK_MODEL;
@@ -319,7 +330,7 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
           feature: 'swap_suggestions',
           model,
           fallbackModel: tierConfig.fallbackModel || DEFAULT_FALLBACK_MODEL,
-          timeout: 120000,
+          timeout: options.timeoutMs ?? AI_SUGGEST_TIMEOUT_MS,
           maxTokens: 4096,
           apiType: 'responses',
           retryOn429: true,
@@ -359,7 +370,7 @@ Quality over quantity. If no good swaps exist, return empty array [].`;
   };
 
   let result = await runOnce();
-  if (result.outcome === "call_failed" || result.outcome === "invalid_response") {
+  if (options.retry !== false && (result.outcome === "call_failed" || result.outcome === "invalid_response")) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     result = await runOnce();
   }
@@ -402,6 +413,7 @@ async function snapOrScryPrice(name: string, currency: string, useSnapshot: bool
 
 export async function POST(req: NextRequest) {
   try {
+    const startedAt = Date.now();
     const body = await req.json().catch(() => ({}));
     const { resolveAiUsageSourceForRequest } = await import("@/lib/ai/manatap-client-origin");
     const usageSource = resolveAiUsageSourceForRequest(req, body, null);
@@ -586,7 +598,22 @@ export async function POST(req: NextRequest) {
         ownershipPrompt,
       ].filter(Boolean).join("\n\n");
       const aiDeckText = aiContext || deckText;
-      const aiResult = await aiSuggest(aiDeckText, currency, budget, format, user?.id || null, isPro, anonId, isCommanderFormat ? commander || null : null, allowedColors.length > 0 ? allowedColors : null, usageSource ?? null, sourcePage, recommendationTier, protectedRoleCardsPrompt);
+      const aiResult = await aiSuggest(
+        aiDeckText,
+        currency,
+        budget,
+        format,
+        user?.id || null,
+        isPro,
+        anonId,
+        isCommanderFormat ? commander || null : null,
+        allowedColors.length > 0 ? allowedColors : null,
+        usageSource ?? null,
+        sourcePage,
+        recommendationTier,
+        protectedRoleCardsPrompt,
+        workshopBudgetSource ? { timeoutMs: WORKSHOP_AI_SUGGEST_TIMEOUT_MS, retry: false } : {},
+      );
       metrics.outcome = aiResult.outcome;
       metrics.rawCount = aiResult.suggestions.length;
 
@@ -737,7 +764,7 @@ export async function POST(req: NextRequest) {
           isPro,
           userId: user?.id ?? null,
         });
-        const rankedPool = rankGroundedCandidates(groundedToRows as any, deckProfile, intent).slice(0, tierConfig.candidateLimit);
+        const rankedPool = rankGroundedCandidates(groundedToRows as GroundedCardCandidate[], deckProfile, intent).slice(0, tierConfig.candidateLimit);
         const reranked = await aiRerankRecommendations({
           candidates: rankedPool,
           intent,
@@ -764,7 +791,12 @@ export async function POST(req: NextRequest) {
 
     let validatedSuggestions = await runValidationPipeline(suggestions);
 
-    if (useAI && workshopBudgetSource && validatedSuggestions.length === 0) {
+    if (
+      useAI &&
+      workshopBudgetSource &&
+      validatedSuggestions.length === 0 &&
+      Date.now() - startedAt < WORKSHOP_AI_FALLBACK_DEADLINE_MS
+    ) {
       await addAiSuggestions(aiRun);
       validatedSuggestions = await runValidationPipeline(suggestions);
     }
