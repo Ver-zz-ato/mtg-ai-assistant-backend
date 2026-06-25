@@ -58,7 +58,8 @@ export function containsProfanity(input: string): boolean {
   const raw = String(input);
   if (rx.test(raw)) return true;
   const compact = normalizeLoose(raw);
-  if (compactWords.some((word) => compact.includes(word))) return true;
+  const compactTokens = raw.split(/\s+/).map(normalizeLoose).filter(Boolean);
+  if (compactTokens.some((token) => compactWords.includes(token))) return true;
   return EVASIVE_PATTERNS.some((pattern) => pattern.test(compact));
 }
 
