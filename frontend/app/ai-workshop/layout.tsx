@@ -67,7 +67,7 @@ const IntroBlock = () => (
     <dl className="space-y-2 text-neutral-300 text-sm">
       {FAQ.map(({ q, a }) => (
         <div key={q}>
-          <dt className="font-medium text-neutral-100">{q}</dt>
+          <dt className="font-semibold text-violet-300">{q}</dt>
           <dd className="ml-0 mt-0.5">{a}</dd>
         </div>
       ))}

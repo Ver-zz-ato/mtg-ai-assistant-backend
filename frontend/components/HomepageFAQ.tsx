@@ -233,7 +233,13 @@ export default function HomepageFAQ({
                   }`}
                 >
                   <div className="px-4 pb-5 pt-0 md:px-5 md:pb-6">
-                    <div className="border-t border-slate-700/70 pt-4 text-sm leading-7 text-slate-300 md:text-[15px]">
+                    <div
+                      className={`border-t border-slate-700/70 pt-4 text-slate-300 ${
+                        compact
+                          ? "text-base leading-8 md:text-lg md:leading-9"
+                          : "text-[15px] leading-8 md:text-base md:leading-8"
+                      }`}
+                    >
                       {item.answer}
                     </div>
                   </div>
