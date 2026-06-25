@@ -331,7 +331,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
       // Profanity checks
       if (username && containsProfanity(username)) throw new Error('Username contains disallowed words.');
       if (favCommander && containsProfanity(favCommander)) throw new Error('Favorite commander contains disallowed words.');
-      for (const line of wishlist.split(/\r?\n/)) { if (line.trim() && containsProfanity(line)) throw new Error('Wishlist contains disallowed words.'); }
 
       // Username change throttle (30 days)
       try {

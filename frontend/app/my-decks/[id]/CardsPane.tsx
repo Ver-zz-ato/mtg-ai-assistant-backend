@@ -184,8 +184,6 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     const effectiveZone: "mainboard" | "sideboard" = isConstructed60
       ? (zoneFromCaller ?? (msTab === "main" ? "mainboard" : "sideboard"))
       : "mainboard";
-    try { const { containsProfanity } = await import("@/lib/profanity"); if (containsProfanity(n)) { alert('Please choose a different name.'); return; } } catch {}
-
     // If validatedName is provided, skip validation (already validated from autocomplete selection)
     // Also skip if the name exactly matches one of the search results (it's already valid)
     const isFromAutocomplete = validatedName === n;
@@ -389,13 +387,6 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
     let n = (validatedName || (typeof name === "string" ? name : name?.name) || "").trim();
     const q = Math.max(1, Number(qty) || 1);
     if (!n) return;
-    try {
-      const { containsProfanity } = await import("@/lib/profanity");
-      if (containsProfanity(n)) {
-        alert("Please choose a different name.");
-        return;
-      }
-    } catch {}
     if (!validatedName) {
       try {
         const validationRes = await fetch("/api/cards/fuzzy", {

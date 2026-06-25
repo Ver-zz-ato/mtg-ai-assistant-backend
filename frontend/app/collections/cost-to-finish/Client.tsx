@@ -532,13 +532,6 @@ export default function CostToFinishClient() {
       setError(null);
       setRows([]);
 
-      // Profanity guard on free-form deck text
-      try {
-        const { containsProfanity } = await import("@/lib/profanity");
-        const raw = String(deckText || "");
-        const lines = raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-        for (const l of lines) { if (containsProfanity(l)) { setBusy(false); setError('Please remove offensive words from the deck text.'); return; } }
-      } catch {}
       setTotal(null);
       setShopItems([]);
       setRiskMap({});
