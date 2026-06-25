@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
+import Image from "next/image";
 import { Apple } from "lucide-react";
+import AppScreenshotCarousel from "@/components/mobile/AppScreenshotCarousel";
 import { MANATAP_DISCORD_INVITE_URL } from "@/lib/manatap-links";
 import { capture } from "@/lib/ph";
 
@@ -41,11 +43,8 @@ function storeUrlFor(platform: PlatformTarget): string | null {
 }
 
 export default function GetAppClient() {
-  const [platform, setPlatform] = useState<PlatformTarget>("unknown");
-
   useEffect(() => {
     const detected = detectPlatform(window.navigator.userAgent);
-    setPlatform(detected);
 
     const target = storeUrlFor(detected);
     if (!target) return;
@@ -53,22 +52,11 @@ export default function GetAppClient() {
     window.location.replace(target);
   }, []);
 
-  const detectedLabel = useMemo(() => {
-    if (platform === "ios") return "iPhone or iPad detected";
-    if (platform === "android") return "Android detected";
-    return "Choose your device";
-  }, [platform]);
-
-  const statusCopy =
-    platform === "unknown"
-      ? "Choose the store for your device below."
-      : "Sending you to the right store. If nothing happens, choose below.";
-
   return (
-    <section className="mx-auto flex min-h-[72vh] w-full max-w-5xl items-center px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto flex min-h-[72vh] w-full max-w-7xl items-center px-4 py-10 sm:px-6 lg:px-10">
       <div className="w-full overflow-hidden rounded-[28px] border border-amber-300/25 bg-neutral-950/82 shadow-2xl shadow-black/45">
-        <div className="grid gap-0 lg:grid-cols-[1.04fr_0.96fr]">
-          <div className="relative p-6 sm:p-8 lg:p-10">
+        <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
+          <div className="relative p-6 sm:p-8 lg:p-14 xl:p-16">
             <div className="mb-5 inline-flex items-center rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-amber-200">
               ManaTap Mobile
             </div>
@@ -79,57 +67,60 @@ export default function GetAppClient() {
               ManaTap brings deck tuning, card scanning, collection tracking, and AI-backed upgrade ideas into your pocket.
             </p>
 
-            <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-200">{detectedLabel}</p>
-              <p className="mt-2 text-sm leading-6 text-neutral-300">{statusCopy}</p>
-            </div>
-
-            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <div className="mt-7 grid gap-4 sm:grid-cols-2">
               <a
                 href={IOS_STORE_URL}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-5 py-4 text-center text-sm font-black text-neutral-950 transition hover:bg-amber-100"
+                className="inline-flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white px-7 py-5 text-center text-base font-black text-neutral-950 transition hover:bg-amber-100"
               >
                 <Apple aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={2.5} />
                 Download on App Store
               </a>
               <a
                 href={ANDROID_STORE_URL}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-300/12 px-5 py-4 text-center text-sm font-black text-cyan-100 transition hover:bg-cyan-300/18"
+                className="inline-flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-cyan-300/25 bg-cyan-300/12 px-7 py-5 text-center text-base font-black text-cyan-100 transition hover:bg-cyan-300/18"
               >
                 <GooglePlayIcon />
                 Get it on Google Play
               </a>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-indigo-400/20 bg-indigo-500/10 p-4">
-              <p className="text-sm font-semibold text-indigo-100">Join the ManaTap community</p>
-              <p className="mt-1 text-sm leading-6 text-neutral-400">
-                Talk decks, share feedback, and meet other players on Discord.
-              </p>
-              <a
-                href={MANATAP_DISCORD_INVITE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex items-center justify-center rounded-xl border border-indigo-300/30 bg-indigo-600/80 px-4 py-2.5 text-sm font-black text-white transition hover:bg-indigo-500"
-                onClick={() => { try { capture('discord_join_clicked', { location: 'get_app' }); } catch {} }}
-              >
-                Join Discord
-              </a>
+            <div className="mt-6 grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-stretch">
+              <div className="mx-auto flex h-52 w-52 items-center justify-center rounded-3xl border border-amber-200/20 bg-white p-3 shadow-2xl shadow-black/35 sm:mx-0 lg:h-56 lg:w-56">
+                <Image
+                  src="/app-screenshots/manatap-get-qr-with-logo.png"
+                  alt="QR code for the ManaTap app download page"
+                  width={220}
+                  height={220}
+                  className="h-full w-full"
+                  sizes="(min-width: 1024px) 224px, (min-width: 640px) 208px, 176px"
+                />
+              </div>
+
+              <div className="flex min-h-52 flex-col justify-center rounded-3xl border border-indigo-400/25 bg-indigo-500/12 p-6 lg:min-h-56">
+                <p className="text-base font-black text-indigo-100">Join the ManaTap community</p>
+                <p className="mt-2 text-sm leading-6 text-neutral-300">
+                  Talk decks, share feedback, and meet other players on Discord.
+                </p>
+                <a
+                  href={MANATAP_DISCORD_INVITE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl border border-indigo-300/35 bg-indigo-600/85 px-6 py-3 text-base font-black text-white transition hover:bg-indigo-500 sm:w-fit"
+                  onClick={() => { try { capture('discord_join_clicked', { location: 'get_app' }); } catch {} }}
+                >
+                  Join Discord
+                </a>
+              </div>
             </div>
           </div>
 
-          <div className="border-t border-white/10 bg-gradient-to-br from-amber-300/14 via-indigo-500/12 to-cyan-400/10 p-6 sm:p-8 lg:border-l lg:border-t-0 lg:p-10">
-            <div className="flex h-full flex-col justify-center rounded-3xl border border-white/10 bg-black/28 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Built for game night</p>
-              <div className="mt-5 grid gap-3 text-sm font-semibold leading-6 text-neutral-200">
-                <p>Scan cards after trades.</p>
-                <p>Sharpen decks before round one.</p>
-                <p>Track collections and wishlists.</p>
-                <p>Ask for smarter upgrade paths when the brew gets messy.</p>
-              </div>
-              <p className="mt-7 text-xs leading-5 text-neutral-500">
-                This page is safe for printed QR codes: the URL can stay the same while store destinations change behind it.
-              </p>
+          <div className="border-t border-white/10 bg-gradient-to-br from-amber-300/14 via-indigo-500/12 to-cyan-400/10 p-4 sm:p-6 lg:border-l lg:border-t-0 lg:p-8 xl:p-10">
+            <div className="flex h-full items-center justify-center">
+              <AppScreenshotCarousel
+                className="w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[430px] xl:max-w-[460px]"
+                frameClassName="rounded-[2rem] border-amber-200/20"
+                sizes="(min-width: 1280px) 460px, (min-width: 1024px) 430px, (min-width: 640px) 360px, 320px"
+              />
             </div>
           </div>
         </div>
