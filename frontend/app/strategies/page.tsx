@@ -2,6 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { STRATEGIES } from "@/lib/data/strategies";
 
+const STRATEGY_ART: Record<string, string> = {
+  ramp: "https://cards.scryfall.io/art_crop/front/f/3/f3a8f16d-f1e8-4e74-a0ba-80f5b2a20bd3.jpg",
+  tokens: "https://cards.scryfall.io/art_crop/front/9/e/9e3c6f4e-708b-4be8-b68a-fb872cc68191.jpg",
+  sacrifice: "https://cards.scryfall.io/art_crop/front/8/f/8f672a95-b1c7-4514-a5b5-991def2143d8.jpg",
+  control: "https://cards.scryfall.io/art_crop/front/d/1/d18ee91b-c91c-4ecf-8abd-0ff40949e8d9.jpg",
+  aggro: "https://cards.scryfall.io/art_crop/front/e/3/e330b3fc-0f54-4835-a931-ad9f760ef045.jpg",
+  combo: "https://cards.scryfall.io/art_crop/front/b/a/ba5a871e-872c-4892-ad1c-07de02ae6a0c.jpg",
+};
+
 export const metadata: Metadata = {
   title: "Commander Strategies | Ramp, Tokens, Control | ManaTap",
   description:
@@ -11,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function StrategiesIndexPage() {
   return (
-    <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <article className="text-neutral-200">
         <nav className="text-sm text-neutral-400 mb-4">
           <Link href="/" className="hover:text-white">Home</Link>
@@ -21,18 +30,34 @@ export default function StrategiesIndexPage() {
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-6">
           Commander Strategies
         </h1>
-        <p className="text-neutral-300 mb-8 text-lg leading-relaxed">
-          Explore Commander strategies—ramp, tokens, sacrifice, control, aggro, and combo. Each strategy has commanders and links to our free tools.
-        </p>
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {STRATEGIES.map((s) => (
-            <li key={s.slug}>
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {STRATEGIES.map((strategy) => (
+            <li key={strategy.slug}>
               <Link
-                href={`/strategies/${s.slug}`}
-                className="block p-4 rounded-lg bg-neutral-800/80 border border-neutral-700 hover:border-blue-600 transition-colors"
+                href={`/strategies/${strategy.slug}`}
+                className="group relative block min-h-56 overflow-hidden rounded-xl border border-white/10 bg-neutral-950 transition hover:-translate-y-0.5 hover:border-cyan-300/60"
               >
-                <h2 className="font-semibold text-white">{s.title}</h2>
-                <p className="text-sm text-neutral-400 mt-1">{s.intro}</p>
+                <div
+                  className="absolute inset-0 bg-cover bg-center opacity-70 transition group-hover:scale-105"
+                  style={{ backgroundImage: `url(${STRATEGY_ART[strategy.slug] ?? STRATEGY_ART.ramp})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/10" />
+                <div className="relative flex h-full min-h-56 flex-col justify-end p-5">
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {strategy.tagMatches.slice(0, 4).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-cyan-200/30 bg-cyan-200/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-100"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <h2 className="text-2xl font-black text-white">{strategy.title}</h2>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-neutral-200">
+                    {strategy.intro}
+                  </p>
+                </div>
               </Link>
             </li>
           ))}

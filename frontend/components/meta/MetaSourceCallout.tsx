@@ -14,11 +14,6 @@ type Props = {
 
 export function MetaSourceCallout({ summary, compact = false, scope = "blended" }: Props) {
   const refreshed = summary.lastUpdated ? formatRelative(summary.lastUpdated) : null;
-  const externalRows =
-    (summary.globalCommanderRows ?? 0) +
-    (summary.budgetCommanderRows ?? 0) +
-    (summary.globalCardRows ?? 0) +
-    (summary.budgetCardRows ?? 0);
 
   const items = [
     ...(scope === "blended"
@@ -62,11 +57,6 @@ export function MetaSourceCallout({ summary, compact = false, scope = "blended" 
               : "ManaTap blends public Commander deck activity with Scryfall's EDHREC-ordered global rankings, price data, and recent-set signals."}
           </p>
         </div>
-        {externalRows > 0 ? (
-          <span className="w-fit rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-xs font-semibold text-emerald-100">
-            {externalRows.toLocaleString()} external rows
-          </span>
-        ) : null}
       </div>
       <div className={`mt-4 grid gap-3 ${compact ? "sm:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-4"}`}>
         {items.map(({ icon: Icon, label, value }) => (

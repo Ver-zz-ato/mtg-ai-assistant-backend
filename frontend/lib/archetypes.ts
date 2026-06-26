@@ -9,6 +9,15 @@ import { getArchetypeBySlug } from "@/lib/data/archetypes";
 import { getStrategyBySlug } from "@/lib/data/strategies";
 import { getGlobalMetaCommanders } from "@/lib/meta/global-meta-entities";
 
+const STRATEGY_ALIASES: Record<string, string[]> = {
+  ramp: ["ramp", "lands", "landfall", "big mana", "mana", "treasure", "value", "draw", "tokens"],
+  tokens: ["tokens", "token", "goblins", "elves", "vampires", "zombies", "go-wide", "combat", "anthem", "aristocrats"],
+  sacrifice: ["sacrifice", "aristocrats", "death", "graveyard", "recursion", "lifedrain", "food", "treasure", "reanimation"],
+  control: ["control", "stax", "tax", "pillowfort", "politics", "tempo", "spellslinger", "removal", "counter", "blink"],
+  aggro: ["aggro", "combat", "haste", "attack", "equipment", "voltron", "vampires", "warriors", "dragons", "extra combat"],
+  combo: ["combo", "storm", "toolbox", "untap", "bounce", "cost reduction", "reanimation", "artifacts", "spellslinger"],
+};
+
 async function sortByMetaSignal(commanders: CommanderProfile[]): Promise<CommanderProfile[]> {
   const metaRows = await getGlobalMetaCommanders(150).catch(() => []);
   const score = new Map(
@@ -53,11 +62,16 @@ export async function getCommandersByStrategy(slug: string): Promise<CommanderPr
   const strategy = getStrategyBySlug(slug);
   if (!strategy) return [];
 
-  const tagSet = new Set(strategy.tagMatches.map((t) => t.toLowerCase()));
+  const tagSet = new Set([
+    ...strategy.tagMatches,
+    ...(STRATEGY_ALIASES[slug] ?? []),
+  ].map((t) => t.toLowerCase()));
 
   const withTagMatch = COMMANDERS.filter((c) => {
     const tags = (c.tags ?? []).map((t) => t.toLowerCase());
-    return tags.some((t) => tagSet.has(t));
+    const haystack = `${c.name} ${tags.join(" ")}`.toLowerCase();
+    return tags.some((t) => tagSet.has(t) || [...tagSet].some((alias) => t.includes(alias))) ||
+      [...tagSet].some((alias) => haystack.includes(alias));
   });
 
   if (withTagMatch.length === 0) return [];
@@ -73,7 +87,23 @@ export async function getCommandersByStrategy(slug: string): Promise<CommanderPr
   );
 
   const grounded = withTagMatch.filter((c) => withDecks.has(c.slug));
-  return sortByMetaSignal(grounded.length > 0 ? grounded : withTagMatch);
+  const sorted = await sortByMetaSignal(grounded.length > 0 ? grounded : withTagMatch);
+  const bySlug = new Map(sorted.map((c) => [c.slug, c]));
+  const metaRows = await getGlobalMetaCommanders(220).catch(() => []);
+  const catalogBySlug = new Map(COMMANDERS.map((c) => [c.slug, c]));
+
+  for (const row of metaRows) {
+    if (bySlug.size >= 36) break;
+    const catalogProfile = catalogBySlug.get(row.slug);
+    if (!catalogProfile || bySlug.has(row.slug)) continue;
+    const tags = (catalogProfile.tags ?? []).map((t) => t.toLowerCase());
+    const haystack = `${catalogProfile.name} ${tags.join(" ")}`.toLowerCase();
+    if ([...tagSet].some((alias) => haystack.includes(alias))) {
+      bySlug.set(catalogProfile.slug, catalogProfile);
+    }
+  }
+
+  return Array.from(bySlug.values());
 }
 
 export { getArchetypeBySlug, getAllArchetypeSlugs } from "@/lib/data/archetypes";

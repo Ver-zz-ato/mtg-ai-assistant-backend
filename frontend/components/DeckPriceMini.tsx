@@ -7,7 +7,15 @@ import {
 } from "@/lib/observability/cost-audit";
 import { normalizeCurrency, usePrefs } from "@/components/PrefsContext";
 
-export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { deckId: string; initialCurrency?: 'USD'|'EUR'|'GBP' }){
+export default function DeckPriceMini({
+  deckId,
+  initialCurrency = 'USD',
+  compact = false,
+}: {
+  deckId: string;
+  initialCurrency?: 'USD'|'EUR'|'GBP';
+  compact?: boolean;
+}){
   const { currency: prefCurrency, setCurrency: setPrefCurrency } = usePrefs();
   const currency = normalizeCurrency(prefCurrency) || initialCurrency;
   const [busy, setBusy] = React.useState(false);
@@ -55,7 +63,7 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
           missingCount: Array.isArray(pj?.missing) ? pj.missing.length : undefined,
         });
       }
-      let prices: Record<string, number> = (pr.ok && pj?.ok && pj?.prices) ? pj.prices : {};
+      const prices: Record<string, number> = (pr.ok && pj?.ok && pj?.prices) ? pj.prices : {};
       
       // Step 2: Fallback to Scryfall live prices for missing cards (only if cache didn't have them)
       const missingNames = names.filter(name => !prices[norm(name)] || prices[norm(name)] === 0);
@@ -188,7 +196,7 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
         return acc + (price * Math.max(0, Number(it.qty||0)));
       }, 0);
       setTotal(sum);
-    } catch(e:any){ setError(e?.message||'failed'); }
+    } catch(e: unknown){ setError(e instanceof Error ? e.message : 'failed'); }
     finally{ setBusy(false); }
   }
 
@@ -197,6 +205,25 @@ export default function DeckPriceMini({ deckId, initialCurrency = 'USD' }: { dec
     setTotal(null); // Clear old total to force visual update
     refresh(); 
   }, [currency]);
+
+  const value = total==null? (busy? "..." : "-") : new Intl.NumberFormat(undefined, { style:'currency', currency }).format(total);
+
+  if (compact) {
+    return (
+      <div className="flex min-w-0 items-center justify-between gap-3 text-sm">
+        {error ? (
+          <div className="min-w-0 text-xs text-red-400">{error}</div>
+        ) : (
+          <div className="min-w-0 truncate font-mono text-xl font-black text-white">{value}</div>
+        )}
+        <select value={currency} onChange={e=> setPrefCurrency?.(e.currentTarget.value)} className="shrink-0 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-xs">
+          <option>USD</option>
+          <option>EUR</option>
+          <option>GBP</option>
+        </select>
+      </div>
+    );
+  }
 
   return (
     <div className="text-sm">

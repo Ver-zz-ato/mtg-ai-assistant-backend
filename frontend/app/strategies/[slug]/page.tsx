@@ -72,7 +72,7 @@ export default async function StrategyPage({ params }: Props) {
   ];
 
   return (
-    <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd(faqs) }} />
       <article className="text-neutral-200">
         <nav className="text-sm text-neutral-400 mb-4">
@@ -85,10 +85,6 @@ export default async function StrategyPage({ params }: Props) {
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
           {strategy.title} Commander Decks
         </h1>
-        <div className="text-neutral-300 mb-8 space-y-4 text-lg leading-relaxed">
-          <p>{strategy.intro}</p>
-        </div>
-
         <div className="mb-8 flex flex-wrap gap-2">
           {strategy.tagMatches.slice(0, 8).map((tag) => (
             <span
@@ -110,7 +106,7 @@ export default async function StrategyPage({ params }: Props) {
                 {commanders.length} commander{commanders.length !== 1 ? "s" : ""}
               </span>
             </div>
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
               {commanders.map((c) => {
                 const meta = metaBySlug.get(c.slug);
                 const badge = meta?.trendingRank

@@ -641,7 +641,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
             <div className="grid grid-cols-2 gap-2">
               <button 
                 disabled={busy==='check'} 
-                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors" 
+                className="hidden px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors"
                 onClick={(e)=>checkLegalityAndTokens(e)}
               >
                 <div className="font-semibold text-xs">✓ Legality and Colour Check</div>
@@ -649,7 +649,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               </button>
               <button 
                 disabled={busy==='curve'}
-                className="px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors" 
+                className="hidden px-3 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 disabled:opacity-60 text-left transition-colors"
                 onClick={(e)=>{ if (!proGuard()) return; runBalanceCurve(e); }}
               >
                 <div className="font-semibold text-xs flex items-center gap-1">

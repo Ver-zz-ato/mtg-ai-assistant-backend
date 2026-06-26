@@ -13,6 +13,7 @@ import Link from "next/link";
 import FormatSelector from "./FormatSelector";
 import PanelWrapper from "./PanelWrapper";
 import DeckPriceMini from "@/components/DeckPriceMini";
+import DeckOverview from "./DeckOverview";
 import { getMainboardCardCount } from "@/lib/deck/formatRules";
 import { enrichDeck } from "@/lib/deck/deck-enrichment";
 import { tagCards } from "@/lib/deck/card-role-tags";
@@ -307,6 +308,20 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               {(() => { const Del = require('@/components/DeckDeleteButton').default; return <Del deckId={id} deckName={title} small redirectTo="/my-decks" />; })()}
             </div>
           </header>
+          <DeckOverview
+            deckId={id}
+            initialCommander={deck?.commander || null}
+            initialColors={Array.isArray((deck as any)?.colors) ? (deck as any).colors : []}
+            initialAim={(deck as any)?.deck_aim || null}
+            format={format}
+            healthMetrics={core}
+            typeBreakdown={types}
+            playstyleRadar={radar}
+            curveBreakdown={curve}
+            archetypeLabels={['Aggro','Control','Combo','Midrange','Stax']}
+            isPro={isPro}
+          />
+          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} format={format} />
           {/* Build Assistant (sticky) */}
           {(() => {
             const BA = require("./BuildAssistantSticky").default;
@@ -322,8 +337,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             );
           })()}
           {/* key forces remount when ?r= changes */}
-          {/* Functions panel */}
-          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} format={format} />
           <Client 
             deckId={id} 
             isPro={isPro} 
@@ -356,24 +369,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               return null;
             }
           })()}
-
-          {/* Mana Curve - THIRD (default showing) */}
-          <PanelWrapper title="Mana Curve" colorFrom="emerald-400" colorTo="teal-500" defaultHiddenOnMobile={true}>
-            <div className="grid grid-cols-7 gap-1 items-end h-24">
-              {(['1','2','3','4','5','6','7+'] as const).map(k => {
-                const max = Math.max(1, ...(['1','2','3','4','5','6','7+'] as const).map(x=>curve[x]||0));
-                const h = Math.round(((curve[k]||0)/max)*100);
-                return (
-                  <div key={`curve-${k}`} className="flex flex-col items-center gap-1 h-full justify-end">
-                    <div className="relative w-6 bg-emerald-600/80" style={{ height: `${Math.max(6,h)}%` }}>
-                      <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{curve[k]||0}</span>
-                    </div>
-                    <div className="text-[10px] opacity-70">{k}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </PanelWrapper>
 
           {false && (
           <>

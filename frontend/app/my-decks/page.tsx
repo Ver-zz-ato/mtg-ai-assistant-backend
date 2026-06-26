@@ -279,22 +279,6 @@ function MyDecksPageContent() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="mb-4 flex justify-end">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {/* Primary: Create Deck - stronger visual presence */}
-          <div className="flex-1 md:flex-none">
-            {(()=>{ try{ const New = require('@/components/NewDeckInline').default; return <New />; } catch { return null; } })()}
-          </div>
-          {/* Secondary: Import Deck */}
-          <button
-            onClick={openImportModal}
-            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:border-neutral-600"
-          >
-            Import Deck
-          </button>
-        </div>
-      </div>
-
       {loading ? (
         <div className="text-center py-8">Loading your decks...</div>
       ) : decks.length === 0 ? (
@@ -303,6 +287,17 @@ function MyDecksPageContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column: Deck list */}
           <div className="lg:col-span-2">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex-1 md:flex-none">
+                {(()=>{ try{ const New = require('@/components/NewDeckInline').default; return <New />; } catch { return null; } })()}
+              </div>
+              <button
+                onClick={openImportModal}
+                className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800 hover:border-neutral-600"
+              >
+                Import Deck
+              </button>
+            </div>
             <MyDecksList rows={decks} pinnedIds={pinnedIds} />
             {hasMore && (
               <div ref={observerTarget} className="h-16 flex items-center justify-center py-4">

@@ -71,10 +71,14 @@ function HandTestingWidgetWithHide({
   deckCards,
   deckId,
   commanderName,
+  isPro,
+  format,
 }: {
   deckCards: Array<{ name: string; qty: number }>;
   deckId: string;
   commanderName?: string | null;
+  isPro: boolean;
+  format?: string;
 }) {
   const [open, setOpen] = React.useState(true);
 
@@ -122,6 +126,9 @@ function HandTestingWidgetWithHide({
             compact={false}
             className="w-full border-0 rounded-none bg-transparent p-0"
           />
+          <div className="mt-3">
+            <DeckProbabilityWithHide deckId={deckId} isPro={isPro} format={format} />
+          </div>
         </div>
       )}
     </section>
@@ -387,6 +394,8 @@ export default function DeckSidebar({
             deckCards={deckCards}
             deckId={deckId}
             commanderName={commander}
+            isPro={isPro}
+            format={format}
           />
         </div>
       </div>

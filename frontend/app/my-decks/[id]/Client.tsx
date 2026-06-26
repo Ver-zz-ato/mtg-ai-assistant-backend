@@ -9,7 +9,6 @@ import PopularCardsPanel from "./PopularCardsPanel";
 import NextDynamic from "next/dynamic";
 import DeckAssistant from "./DeckAssistant";
 import HandTestingWidget from "@/components/HandTestingWidget";
-import DeckOverview from "./DeckOverview";
 import UnrecognizedCardsBanner from "@/components/UnrecognizedCardsBanner";
 import ColorIdentityBanner from "@/components/ColorIdentityBanner";
 import FormatCardCountBanner from "@/components/FormatCardCountBanner";
@@ -229,6 +228,7 @@ export default function Client({
 }) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
   const [fixModalOpen, setFixModalOpen] = useState(false);
+  const [warningsOpen, setWarningsOpen] = useState(false);
   
   // Track deck editor opened and fetch deck cards for hand testing
   useEffect(() => {
@@ -277,65 +277,58 @@ export default function Client({
   return (
     <div className="max-w-full overflow-x-auto">
       <div className="min-w-0">
-        {/* Unrecognized Cards Banner - shows above decklist if cards need fixing */}
-        <UnrecognizedCardsBanner 
-          type="deck" 
-          id={deckId} 
-          onFix={() => {
-            // Only open if Pro (checking Pro status from parent)
-            if (!isPro) {
-              try {
-                import('@/lib/pro-ux').then(({ showProToast }) => showProToast()).catch(() => {
-                  alert('This is a Pro feature. Upgrade to unlock.');
-                });
-              } catch {
-                alert('This is a Pro feature. Upgrade to unlock.');
-              }
-              return;
-            }
-            setFixModalOpen(true);
-          }} 
-        />
-
-        {/* Format-specific warning banners */}
-        {format && (
-          <>
-            <FormatCardCountBanner deckId={deckId!} format={format} />
-            {format.toLowerCase() === "commander" && (
-              <SingletonViolationBanner deckId={deckId!} />
-            )}
-            {format.toLowerCase() !== "commander" && (
-              <CopyCountWarningBanner deckId={deckId!} format={format} />
-            )}
-            <BannedCardsBanner deckId={deckId!} format={format} />
-          </>
-        )}
-        
-        {/* Color Identity Banner - shows if deck has illegal colors */}
-        {format?.toLowerCase() === 'commander' && commander && (colors || []).length > 0 && (
-          <ColorIdentityBanner 
-            deckId={deckId!}
-            commander={commander}
-            allowedColors={colors || []}
-            format={format}
-          />
-        )}
-        
-        {/* Deck Overview - right above decklist */}
-        {format?.toLowerCase() === 'commander' && (
-          <DeckOverview 
-            deckId={deckId!}
-            initialCommander={commander || null}
-            initialColors={colors || []}
-            initialAim={deckAim || null}
-            format={format}
-            healthMetrics={healthMetrics || null}
-            typeBreakdown={typeBreakdown}
-            playstyleRadar={playstyleRadar}
-            archetypeLabels={archetypeLabels}
-            isPro={isPro || false}
-          />
-        )}
+        <section className="mb-4 overflow-hidden rounded-xl border border-red-500/40 bg-red-950/20">
+          <button
+            type="button"
+            onClick={() => setWarningsOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+          >
+            <span className="text-sm font-bold text-red-200">Warnings and legality checks</span>
+            <span className="rounded bg-red-500/20 px-2 py-1 text-[10px] font-semibold text-red-100">
+              {warningsOpen ? "Hide" : "Show"}
+            </span>
+          </button>
+          {warningsOpen ? (
+            <div className="space-y-2 border-t border-red-500/20 p-3">
+              <UnrecognizedCardsBanner
+                type="deck"
+                id={deckId}
+                onFix={() => {
+                  if (!isPro) {
+                    try {
+                      import('@/lib/pro-ux').then(({ showProToast }) => showProToast()).catch(() => {
+                        alert('This is a Pro feature. Upgrade to unlock.');
+                      });
+                    } catch {
+                      alert('This is a Pro feature. Upgrade to unlock.');
+                    }
+                    return;
+                  }
+                  setFixModalOpen(true);
+                }}
+              />
+              {format && (
+                <>
+                  <FormatCardCountBanner deckId={deckId!} format={format} />
+                  {format.toLowerCase() === "commander" ? (
+                    <SingletonViolationBanner deckId={deckId!} />
+                  ) : (
+                    <CopyCountWarningBanner deckId={deckId!} format={format} />
+                  )}
+                  <BannedCardsBanner deckId={deckId!} format={format} />
+                </>
+              )}
+              {format?.toLowerCase() === 'commander' && commander && (colors || []).length > 0 && (
+                <ColorIdentityBanner
+                  deckId={deckId!}
+                  commander={commander}
+                  allowedColors={colors || []}
+                  format={format}
+                />
+              )}
+            </div>
+          ) : null}
+        </section>
         <CardsPane deckId={deckId} format={format} allowedColors={colors || []} />
       </div>
       

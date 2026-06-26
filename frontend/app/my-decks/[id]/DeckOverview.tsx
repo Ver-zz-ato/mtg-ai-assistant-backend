@@ -16,6 +16,7 @@ type DeckOverviewProps = {
   isPro?: boolean; // Pro status for gating deck health features
   typeBreakdown?: Record<string, number>;
   playstyleRadar?: Record<string, number>;
+  curveBreakdown?: Record<string, number>;
   archetypeLabels?: string[];
 };
 
@@ -26,10 +27,11 @@ export default function DeckOverview({
   initialAim,
   format,
   readOnly = false,
-  healthMetrics = null,
-  isPro = false,
+  healthMetrics: _healthMetrics = null,
+  isPro: _isPro = false,
   typeBreakdown,
   playstyleRadar,
+  curveBreakdown,
   archetypeLabels = []
 }: DeckOverviewProps) {
   const [commander, setCommander] = React.useState(initialCommander || "");
@@ -41,8 +43,10 @@ export default function DeckOverview({
   const [error, setError] = React.useState<string | null>(null);
   const [commanderImage, setCommanderImage] = React.useState<ImageInfo | null>(null);
   const [hoverImage, setHoverImage] = React.useState(false);
-  const [typesOpen, setTypesOpen] = React.useState(false);
-  const [radarOpen, setRadarOpen] = React.useState(false);
+  const [curveOpen, setCurveOpen] = React.useState(true);
+  const [typesOpen, setTypesOpen] = React.useState(true);
+  const [radarOpen, setRadarOpen] = React.useState(true);
+  const isCommander = String(format || "").toLowerCase() === "commander";
 
   // Update when initial values change
   React.useEffect(() => {
@@ -62,7 +66,7 @@ export default function DeckOverview({
         const images = await getImagesForNames([commander]);
         const imageInfo = images.get(commander.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim());
         setCommanderImage(imageInfo || null);
-      } catch (err) {
+      } catch {
         setCommanderImage(null);
       }
     })();
@@ -115,8 +119,8 @@ export default function DeckOverview({
       }
       setEditingCommander(false);
       window.dispatchEvent(new Event('deck:changed'));
-    } catch (e: any) {
-      setError(e?.message || "Update failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Update failed");
     } finally {
       setBusy(false);
     }
@@ -152,8 +156,8 @@ export default function DeckOverview({
       setAim(a);
       setEditingAim(false);
       window.dispatchEvent(new Event('deck:changed'));
-    } catch (e: any) {
-      setError(e?.message || "Update failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Update failed");
     } finally {
       setBusy(false);
     }
@@ -168,26 +172,19 @@ export default function DeckOverview({
     }
   }
 
-  const colorNames: Record<string, string> = {
-    'W': 'White',
-    'U': 'Blue',
-    'B': 'Black',
-    'R': 'Red',
-    'G': 'Green'
-  };
-
-  const colorClasses: Record<string, string> = {
-    'W': 'bg-gray-200 text-gray-900',
-    'U': 'bg-blue-400 text-blue-900',
-    'B': 'bg-gray-600 text-white',
-    'R': 'bg-red-500 text-white',
-    'G': 'bg-green-500 text-white'
+  const manaClasses: Record<string, string> = {
+    W: "bg-stone-100 text-neutral-950 border-stone-300",
+    U: "bg-sky-400 text-sky-950 border-sky-200",
+    B: "bg-neutral-800 text-white border-neutral-500",
+    R: "bg-red-500 text-white border-red-300",
+    G: "bg-emerald-500 text-emerald-950 border-emerald-200",
   };
 
   const typeRows = Object.entries(typeBreakdown || {}).filter(([, count]) => Number(count) > 0);
   const typeTotal = typeRows.reduce((sum, [, count]) => sum + Number(count || 0), 0) || 1;
   const radarRows = Object.entries(playstyleRadar || {}).filter(([, score]) => Number(score) > 0);
-  const topRadar = [...radarRows].sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 2);
+  const curveRows = Object.entries(curveBreakdown || {});
+  const curveMax = Math.max(1, ...curveRows.map(([, value]) => Number(value || 0)));
 
   function ToggleSection({
     title,
@@ -215,30 +212,44 @@ export default function DeckOverview({
     );
   }
 
-  // Only show for Commander format
-  if (format?.toLowerCase() !== 'commander') {
-    return null;
+  function ManaPip({ value }: { value: string }) {
+    return (
+      <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-black shadow ${manaClasses[value] || "border-neutral-600 bg-neutral-800 text-white"}`}>
+        {value}
+      </span>
+    );
   }
 
+  function toggleColor(value: string) {
+    if (isCommander || readOnly) return;
+    setColors((current) => current.includes(value) ? current.filter((c) => c !== value) : [...current, value]);
+  }
+
+  const heroArt = commanderImage?.art_crop ?? commanderImage?.normal ?? commanderImage?.small ?? null;
+
   return (
-    <div className="rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-neutral-900/50 to-purple-950/20 p-4 shadow-md mb-4">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="relative mb-4 overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-neutral-900/50 to-purple-950/20 p-4 shadow-md">
+      {heroArt ? (
+        <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: `url(${heroArt})` }} />
+      ) : null}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/45" />
+      <div className="relative flex items-center gap-2 mb-3">
         <div className="h-1 w-1 rounded-full bg-blue-400 animate-pulse"></div>
         <h3 className="text-sm font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           Deck Overview
         </h3>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2 xl:grid-cols-4">
+      <div className="relative grid grid-cols-1 gap-4 text-xs lg:grid-cols-[1.2fr_1fr_0.9fr]">
         {/* Commander */}
-        <div>
+        <div className="rounded-xl border border-white/10 bg-black/35 p-4">
           <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide flex items-center justify-between">
-            <span>Commander</span>
+            <span>{isCommander ? "Commander" : "Deck identity"}</span>
             {!readOnly && !editingCommander && (
               <button
                 type="button"
                 onClick={() => setEditingCommander(true)}
-                className="rounded bg-neutral-900 px-2 py-1 text-[10px] font-semibold text-blue-300 transition-colors hover:bg-blue-500/10 hover:text-blue-200"
+                className="rounded bg-red-500/15 px-2 py-1 text-[10px] font-semibold text-red-300 transition-colors hover:bg-red-500/25 hover:text-red-200"
                 title="Edit commander"
               >
                 <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -293,37 +304,54 @@ export default function DeckOverview({
                   )}
                 </div>
               )}
-              <div className="text-sm font-semibold text-blue-400 flex-1">
-                {commander || "Not set"}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-2xl font-black text-white">
+                  {commander || (isCommander ? "Set commander" : "No feature card set")}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {archetypeLabels.length > 0 ? archetypeLabels.map((label) => (
+                    <span key={label} className="rounded-full border border-neutral-500/70 bg-neutral-950/70 px-2 py-1 text-[10px] font-semibold text-neutral-100">
+                      {label}
+                    </span>
+                  )) : null}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Colors - Read-only */}
-        <div>
+        <div className="rounded-xl border border-white/10 bg-black/35 p-4">
           <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide flex items-center gap-1">
             <span>Color Identity</span>
-            <span className="text-[8px] opacity-50" title="From commander or deck metadata">(from Commander)</span>
+            <span className="text-[8px] opacity-50" title={isCommander ? "Locked from commander" : "Editable for constructed legality"}>
+              {isCommander ? "(from Commander)" : "(editable)"}
+            </span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {colors.length > 0 ? (
               colors.map((c) => (
-                <span
+                <button
                   key={c}
-                  className={`px-2 py-0.5 rounded text-[10px] font-semibold ${colorClasses[c] || 'bg-neutral-700 text-white'}`}
+                  type="button"
+                  onClick={() => toggleColor(c)}
+                  className={isCommander || readOnly ? "cursor-default" : "transition hover:scale-105"}
                 >
-                  {colorNames[c] || c}
-                </span>
+                  <ManaPip value={c} />
+                </button>
               ))
             ) : (
-              <span className="text-[10px] text-neutral-400 italic">No colors detected</span>
+              <span className="text-[10px] text-neutral-400 italic">No colors set</span>
             )}
+            {!isCommander && !readOnly ? (["W", "U", "B", "R", "G"].filter((c) => !colors.includes(c)).map((c) => (
+              <button key={c} type="button" onClick={() => toggleColor(c)} className="opacity-45 transition hover:scale-105 hover:opacity-100">
+                <ManaPip value={c} />
+              </button>
+            ))) : null}
           </div>
         </div>
 
         {/* Aim/Goal */}
-        <div>
+        <div className="rounded-xl border border-white/10 bg-black/35 p-4">
           <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide flex items-center justify-between">
             <span>Deck Aim / Goal</span>
             {!readOnly && !editingAim && (
@@ -367,30 +395,30 @@ export default function DeckOverview({
           )}
         </div>
 
-        <div>
-          <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide">Deck Value</div>
-          <div className="min-h-[4.25rem] rounded border border-neutral-800 bg-neutral-950/50 p-2">
-            <DeckPriceMini deckId={deckId} />
-          </div>
-        </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <div className="rounded-lg border border-neutral-800 bg-neutral-950/35 p-3">
-          <div className="text-[10px] opacity-70 mb-2 uppercase tracking-wide">Deck Signals</div>
-          <div className="flex flex-wrap gap-1.5">
-            {archetypeLabels.length > 0 ? archetypeLabels.map((label) => (
-              <span key={label} className="rounded-full border border-neutral-700 bg-neutral-900/70 px-2 py-1 text-[10px] font-semibold text-neutral-200">
-                {label}
-              </span>
-            )) : <span className="text-[10px] text-neutral-500">No signals yet</span>}
+      <div className="relative mt-3 rounded-xl border border-white/10 bg-black/35 p-4">
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-neutral-400">Deck Value</div>
+        <DeckPriceMini deckId={deckId} compact />
+      </div>
+
+      <div className="relative mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <ToggleSection title="Mana Curve" open={curveOpen} onToggle={() => setCurveOpen((v) => !v)}>
+          <div className="grid h-24 grid-cols-7 items-end gap-1">
+            {(["1", "2", "3", "4", "5", "6", "7+"] as const).map((key) => {
+              const count = Number(curveBreakdown?.[key] || 0);
+              const height = Math.round((count / curveMax) * 100);
+              return (
+                <div key={key} className="flex h-full flex-col items-center justify-end gap-1">
+                  <div className="relative w-6 rounded-t bg-emerald-500/85" style={{ height: `${Math.max(6, height)}%` }}>
+                    <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{count}</span>
+                  </div>
+                  <div className="text-[10px] opacity-70">{key}</div>
+                </div>
+              );
+            })}
           </div>
-          {topRadar.length > 0 ? (
-            <div className="mt-2 text-[10px] text-neutral-400">
-              Strongest: {topRadar.map(([name, score]) => `${name} ${Number(score).toFixed(1)}`).join(" / ")}
-            </div>
-          ) : null}
-        </div>
+        </ToggleSection>
 
         <ToggleSection title="Card Types" open={typesOpen} onToggle={() => setTypesOpen((v) => !v)}>
           <div className="space-y-2">
