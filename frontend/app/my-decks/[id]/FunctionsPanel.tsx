@@ -229,8 +229,8 @@ export default function FunctionsPanel({
 
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
             <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-amber-200">Deck tools</div>
-            <div className="grid gap-2">
-              <div className="deck-tool-row">
+            <div className="grid w-full grid-cols-1 gap-2 [&_button]:w-full">
+              <div className="w-full">
                 <RecomputeButton />
               </div>
               <DeckVersionHistory deckId={deckId} isPro={isPro} />

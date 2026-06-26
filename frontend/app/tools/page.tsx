@@ -43,6 +43,8 @@ type JourneyStage = {
   kicker: string;
   icon: LucideIcon;
   accent: string;
+  titleClass: string;
+  hoverClass: string;
   node: string;
   tools: ToolDef[];
 };
@@ -54,6 +56,8 @@ const JOURNEY: JourneyStage[] = [
     kicker: "Bring your idea into a real list.",
     icon: Wand2,
     accent: "from-violet-400/60 to-amber-300/45",
+    titleClass: "text-violet-200 group-hover:text-violet-100",
+    hoverClass: "hover:border-violet-300/45 hover:bg-violet-500/10 hover:shadow-[0_0_38px_rgba(139,92,246,0.16)]",
     node: "border-violet-300/45 bg-violet-500/15 text-violet-100 shadow-violet-500/25",
     tools: [
       {
@@ -82,6 +86,8 @@ const JOURNEY: JourneyStage[] = [
     kicker: "Find what the list is really doing.",
     icon: Bot,
     accent: "from-sky-400/60 to-cyan-300/45",
+    titleClass: "text-sky-200 group-hover:text-sky-100",
+    hoverClass: "hover:border-sky-300/45 hover:bg-sky-500/10 hover:shadow-[0_0_38px_rgba(56,189,248,0.16)]",
     node: "border-sky-300/45 bg-sky-500/15 text-sky-100 shadow-sky-500/25",
     tools: [
       {
@@ -110,6 +116,8 @@ const JOURNEY: JourneyStage[] = [
     kicker: "Fix weak slots and sharpen the plan.",
     icon: Sparkles,
     accent: "from-emerald-400/60 to-cyan-300/45",
+    titleClass: "text-emerald-200 group-hover:text-emerald-100",
+    hoverClass: "hover:border-emerald-300/45 hover:bg-emerald-500/10 hover:shadow-[0_0_38px_rgba(52,211,153,0.16)]",
     node: "border-emerald-300/45 bg-emerald-500/15 text-emerald-100 shadow-emerald-500/25",
     tools: [
       {
@@ -145,6 +153,8 @@ const JOURNEY: JourneyStage[] = [
     kicker: "Keep cards, prices, and wants organized.",
     icon: Search,
     accent: "from-amber-400/60 to-sky-300/45",
+    titleClass: "text-amber-200 group-hover:text-amber-100",
+    hoverClass: "hover:border-amber-300/45 hover:bg-amber-500/10 hover:shadow-[0_0_38px_rgba(251,191,36,0.16)]",
     node: "border-amber-300/45 bg-amber-500/15 text-amber-100 shadow-amber-500/25",
     tools: [
       {
@@ -188,6 +198,8 @@ const JOURNEY: JourneyStage[] = [
     kicker: "Find ideas from commanders and meta signals.",
     icon: BarChart3,
     accent: "from-orange-400/60 to-red-300/45",
+    titleClass: "text-orange-200 group-hover:text-orange-100",
+    hoverClass: "hover:border-orange-300/45 hover:bg-orange-500/10 hover:shadow-[0_0_38px_rgba(251,146,60,0.16)]",
     node: "border-orange-300/45 bg-orange-500/15 text-orange-100 shadow-orange-500/25",
     tools: [
       {
@@ -230,6 +242,8 @@ const JOURNEY: JourneyStage[] = [
     kicker: "Test the hands before game night.",
     icon: HeartHandshake,
     accent: "from-pink-400/60 to-rose-300/45",
+    titleClass: "text-rose-200 group-hover:text-rose-100",
+    hoverClass: "hover:border-rose-300/45 hover:bg-rose-500/10 hover:shadow-[0_0_38px_rgba(244,63,94,0.16)]",
     node: "border-rose-300/45 bg-rose-500/15 text-rose-100 shadow-rose-500/25",
     tools: [
       {
@@ -339,13 +353,18 @@ export default function ToolsIndexPage() {
           {JOURNEY.map((stage) => {
             const StageIcon = stage.icon;
             return (
-              <section key={stage.title} className="relative grid gap-3 lg:block">
+              <section
+                key={stage.title}
+                className={`group relative grid gap-3 rounded-2xl border border-transparent p-2 transition duration-200 ${stage.hoverClass} lg:block`}
+              >
                 <div className="flex items-center gap-3 lg:min-h-36 lg:flex-col lg:text-center">
                   <div className="min-w-0 lg:min-h-16">
-                    <div className="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">{stage.step}. {stage.title}</div>
-                    <p className="mt-1 text-xs leading-5 text-neutral-400">{stage.kicker}</p>
+                    <div className={`text-xs font-black uppercase tracking-[0.18em] transition-colors ${stage.titleClass}`}>
+                      {stage.step}. {stage.title}
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-neutral-300/75 transition-colors group-hover:text-neutral-100">{stage.kicker}</p>
                   </div>
-                  <div className={`relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-full border shadow-2xl ${stage.node}`}>
+                  <div className={`relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-full border shadow-2xl transition duration-200 group-hover:scale-105 group-hover:brightness-125 ${stage.node}`}>
                     <StageIcon size={25} aria-hidden="true" />
                   </div>
                 </div>

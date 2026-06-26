@@ -22,7 +22,16 @@ export default function ProFeatureCard({
   cta = "Upgrade",
   compact = false,
 }: ProFeatureCardProps) {
-  const { isPro } = useProStatus();
+  const { isPro, loading } = useProStatus();
+
+  if (loading) {
+    return (
+      <div className="inline-flex w-full items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-neutral-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <span className="h-6 w-6 shrink-0 animate-pulse rounded-full bg-white/10" />
+        <span className="h-4 w-24 animate-pulse rounded bg-white/10" />
+      </div>
+    );
+  }
 
   if (isPro) {
     return (

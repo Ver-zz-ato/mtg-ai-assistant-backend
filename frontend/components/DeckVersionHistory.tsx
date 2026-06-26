@@ -142,11 +142,11 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
   }
 
   return (
-    <div className="space-y-2">
-      <div className="grid gap-2">
+    <div className="w-full space-y-2">
+      <div className="grid w-full grid-cols-1 gap-2">
         <button
           onClick={() => setOpen(!open)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700"
+          className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700"
           title="View saved deck snapshots and restore an older version."
         >
           <span aria-hidden="true">⏱</span>
@@ -158,7 +158,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
         <button
           onClick={() => saveVersion()}
           disabled={saving}
-          className="w-full rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-10 w-full rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
           title="Save the current deck as a new version snapshot."
         >
           {saving ? 'Saving...' : 'Save Version'}
@@ -166,7 +166,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
         
         <button
           onClick={() => setChangelogOpen(true)}
-          className="w-full rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700"
+          className="min-h-10 w-full rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700"
           title="Open the deck changelog for recent edits."
         >
           View Changelog
