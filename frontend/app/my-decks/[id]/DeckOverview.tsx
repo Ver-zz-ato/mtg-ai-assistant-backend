@@ -213,7 +213,11 @@ export default function DeckOverview({
 
   async function saveCommander(newCommander: string) {
     const c = newCommander.trim();
-    if (c === commander) return setEditingCommander(false);
+    if (c === commander) {
+      setCommanderQuery(c);
+      setCommanderSearchOpen(false);
+      return setEditingCommander(false);
+    }
     setBusy(true);
     setError(null);
     try {
@@ -440,7 +444,7 @@ export default function DeckOverview({
                 onFocus={() => {
                   if (commanderSuggestions.length > 0) setCommanderSearchOpen(true);
                 }}
-                onBlur={(e) => saveCommander(e.currentTarget.value)}
+                onBlur={(e) => void saveCommander(e.currentTarget.value)}
                 onKeyDown={onCommanderKey}
                 disabled={busy}
                 placeholder="Commander name"
