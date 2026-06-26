@@ -1,6 +1,7 @@
 // app/my-decks/[id]/DeckOverview.tsx
 "use client";
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { validatePublicText } from "@/lib/profanity";
 import DeckPriceMini from "@/components/DeckPriceMini";
@@ -19,6 +20,25 @@ type DeckOverviewProps = {
   curveBreakdown?: Record<string, number>;
   archetypeLabels?: string[];
 };
+
+function normalizeSearchResponse(json: unknown): string[] {
+  if (!json || typeof json !== "object") return [];
+  const obj = json as Record<string, unknown>;
+  const normalizeArray = (rows: unknown): string[] =>
+    Array.isArray(rows)
+      ? rows
+          .map((row) => (typeof row === "string" ? row : (row as { name?: string })?.name))
+          .filter((name): name is string => Boolean(name))
+      : [];
+  if (Array.isArray(obj.cards)) return normalizeArray(obj.cards);
+  if (Array.isArray(obj.items)) return normalizeArray(obj.items);
+  if (Array.isArray(obj.data)) return normalizeArray(obj.data);
+  if (obj.data && typeof obj.data === "object") {
+    const data = obj.data as Record<string, unknown>;
+    if (Array.isArray(data.items)) return normalizeArray(data.items);
+  }
+  return [];
+}
 
 export default function DeckOverview({ 
   deckId, 
@@ -43,15 +63,109 @@ export default function DeckOverview({
   const [error, setError] = React.useState<string | null>(null);
   const [commanderImage, setCommanderImage] = React.useState<ImageInfo | null>(null);
   const [hoverImage, setHoverImage] = React.useState(false);
-  const [analyticsOpen, setAnalyticsOpen] = React.useState(true);
+  const [analyticsOpen, setAnalyticsOpen] = React.useState(false);
+  const [commanderQuery, setCommanderQuery] = React.useState(initialCommander || "");
+  const [commanderSuggestions, setCommanderSuggestions] = React.useState<string[]>([]);
+  const [commanderSearchOpen, setCommanderSearchOpen] = React.useState(false);
+  const [commanderSearchLoading, setCommanderSearchLoading] = React.useState(false);
+  const [commanderHi, setCommanderHi] = React.useState(0);
+  const [commanderDdPos, setCommanderDdPos] = React.useState<{ top: number; left: number; width: number } | null>(null);
+  const commanderInputRef = React.useRef<HTMLInputElement>(null);
+  const commanderListRef = React.useRef<HTMLDivElement>(null);
+  const commanderLatestQ = React.useRef("");
   const isCommander = String(format || "").toLowerCase() === "commander";
 
   // Update when initial values change
   React.useEffect(() => {
     setCommander(initialCommander || "");
+    setCommanderQuery(initialCommander || "");
     setColors(initialColors || []);
     setAim(initialAim || "");
   }, [initialCommander, initialColors, initialAim]);
+
+  const updateCommanderDropdownPosition = React.useCallback(() => {
+    if (!commanderInputRef.current) return;
+    const rect = commanderInputRef.current.getBoundingClientRect();
+    setCommanderDdPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  }, []);
+
+  React.useEffect(() => {
+    if (!editingCommander) {
+      setCommanderSuggestions([]);
+      setCommanderSearchOpen(false);
+      return;
+    }
+
+    const q = commanderQuery.trim();
+    if (q.length < 2) {
+      setCommanderSuggestions([]);
+      setCommanderSearchOpen(false);
+      return;
+    }
+
+    let aborted = false;
+    setCommanderSearchLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        commanderLatestQ.current = q;
+        const res = await fetch(`/api/cards/search-commanders?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        if (aborted || commanderLatestQ.current !== q) return;
+        const list = normalizeSearchResponse(json).slice(0, 12);
+        setCommanderSuggestions(list);
+        setCommanderSearchOpen(list.length > 0);
+        setCommanderHi(0);
+      } catch {
+        if (!aborted) {
+          setCommanderSuggestions([]);
+          setCommanderSearchOpen(false);
+        }
+      } finally {
+        if (!aborted) setCommanderSearchLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      aborted = true;
+      window.clearTimeout(timer);
+    };
+  }, [commanderQuery, editingCommander]);
+
+  React.useEffect(() => {
+    if (!commanderSearchOpen) {
+      setCommanderDdPos(null);
+      return;
+    }
+    updateCommanderDropdownPosition();
+    const update = () => updateCommanderDropdownPosition();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    try {
+      window.visualViewport?.addEventListener("resize", update);
+    } catch {
+      /* ignore */
+    }
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+      try {
+        window.visualViewport?.removeEventListener("resize", update);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [commanderSearchOpen, updateCommanderDropdownPosition]);
+
+  React.useEffect(() => {
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (commanderInputRef.current?.contains(target)) return;
+      if (commanderListRef.current?.contains(target)) return;
+      setCommanderSearchOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, []);
 
   // Fetch commander image
   React.useEffect(() => {
@@ -115,7 +229,9 @@ export default function DeckOverview({
       if (Array.isArray(json?.colors)) {
         setColors(json.colors);
       }
+      setCommanderQuery(c);
       setEditingCommander(false);
+      setCommanderSearchOpen(false);
       window.dispatchEvent(new Event('deck:changed'));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Update failed");
@@ -126,10 +242,24 @@ export default function DeckOverview({
 
   function onCommanderKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
-      e.currentTarget.blur();
+      e.preventDefault();
+      if (commanderSearchOpen && commanderSuggestions.length > 0) {
+        const pick = commanderSuggestions[commanderHi];
+        if (pick) void saveCommander(pick);
+      } else {
+        e.currentTarget.blur();
+      }
+    } else if (e.key === "ArrowDown" && commanderSearchOpen && commanderSuggestions.length > 0) {
+      e.preventDefault();
+      setCommanderHi((current) => (current + 1) % commanderSuggestions.length);
+    } else if (e.key === "ArrowUp" && commanderSearchOpen && commanderSuggestions.length > 0) {
+      e.preventDefault();
+      setCommanderHi((current) => (current - 1 + commanderSuggestions.length) % commanderSuggestions.length);
     } else if (e.key === "Escape") {
       setEditingCommander(false);
       setCommander(initialCommander || "");
+      setCommanderQuery(initialCommander || "");
+      setCommanderSearchOpen(false);
     }
   }
 
@@ -222,9 +352,51 @@ export default function DeckOverview({
   }
 
   const heroArt = commanderImage?.art_crop ?? commanderImage?.normal ?? commanderImage?.small ?? null;
+  const commanderSuggestionList =
+    commanderSearchOpen &&
+    typeof document !== "undefined" &&
+    commanderDdPos &&
+    createPortal(
+      <div
+        ref={commanderListRef}
+        className="max-h-56 overflow-auto rounded border border-neutral-600 bg-neutral-900 shadow-2xl"
+        style={{
+          position: "fixed",
+          zIndex: 50000,
+          top: commanderDdPos.top,
+          left: commanderDdPos.left,
+          width: Math.min(commanderDdPos.width, typeof window !== "undefined" ? window.innerWidth - 16 : commanderDdPos.width),
+          maxWidth: "calc(100vw - 16px)",
+        }}
+      >
+        {commanderSearchLoading ? <div className="px-3 py-2 text-sm text-neutral-400">Searching...</div> : null}
+        {!commanderSearchLoading &&
+          commanderSuggestions.map((name, index) => (
+            <button
+              key={`${name}-${index}`}
+              type="button"
+              className={`block w-full cursor-pointer px-3 py-2.5 text-left text-sm ${
+                commanderHi === index ? "bg-emerald-900/50 text-white" : "text-neutral-200 hover:bg-neutral-800"
+              }`}
+              onMouseEnter={() => setCommanderHi(index)}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                void saveCommander(name);
+              }}
+            >
+              {name}
+            </button>
+          ))}
+        {!commanderSearchLoading && commanderSuggestions.length === 0 ? (
+          <div className="px-3 py-2 text-sm text-neutral-500">No commander matches</div>
+        ) : null}
+      </div>,
+      document.body
+    );
 
   return (
     <div className="relative mb-4 overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-neutral-900/50 to-purple-950/20 p-4 shadow-md">
+      {commanderSuggestionList}
       {heroArt ? (
         <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: `url(${heroArt})` }} />
       ) : null}
@@ -244,7 +416,10 @@ export default function DeckOverview({
             {!readOnly && !editingCommander && (
               <button
                 type="button"
-                onClick={() => setEditingCommander(true)}
+                onClick={() => {
+                  setCommanderQuery(commander);
+                  setEditingCommander(true);
+                }}
                 className="rounded bg-red-500/15 px-2 py-1 text-[10px] font-semibold text-red-300 transition-colors hover:bg-red-500/25 hover:text-red-200"
                 title="Edit commander"
               >
@@ -258,8 +433,13 @@ export default function DeckOverview({
           {editingCommander ? (
             <div className="flex flex-col">
               <input
+                ref={commanderInputRef}
                 autoFocus
-                defaultValue={commander}
+                value={commanderQuery}
+                onChange={(e) => setCommanderQuery(e.currentTarget.value)}
+                onFocus={() => {
+                  if (commanderSuggestions.length > 0) setCommanderSearchOpen(true);
+                }}
                 onBlur={(e) => saveCommander(e.currentTarget.value)}
                 onKeyDown={onCommanderKey}
                 disabled={busy}
@@ -399,12 +579,18 @@ export default function DeckOverview({
       </div>
 
       <div className="relative mt-3">
-        <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/35 px-3 py-2">
-          <div className="text-xs font-semibold text-cyan-300">Deck analytics</div>
+        <div className={`mb-2 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-all ${
+          analyticsOpen
+            ? "border-cyan-500/30 bg-neutral-950/35"
+            : "border-cyan-300/45 bg-gradient-to-r from-cyan-400/14 via-sky-500/10 to-emerald-400/12 shadow-[0_0_22px_rgba(34,211,238,0.14),inset_0_1px_0_rgba(255,255,255,0.08)]"
+        }`}>
+          <div className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200 drop-shadow-[0_0_8px_rgba(34,211,238,0.45)]">
+            Deck analytics
+          </div>
           <button
             type="button"
             onClick={() => setAnalyticsOpen((v) => !v)}
-            className="rounded bg-neutral-800 px-2.5 py-1 text-[10px] font-semibold text-neutral-200 transition-colors hover:bg-neutral-700"
+            className="rounded-lg border border-cyan-300/35 bg-cyan-400/12 px-3 py-1 text-[10px] font-bold text-cyan-100 transition-colors hover:border-cyan-200/65 hover:bg-cyan-400/22"
           >
             {analyticsOpen ? "Hide" : "Show"}
           </button>

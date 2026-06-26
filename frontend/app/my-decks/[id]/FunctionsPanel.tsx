@@ -21,7 +21,7 @@ export default function FunctionsPanel({
   format?: string;
 }) {
   const router = useRouter();
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const [allPanelsHidden, setAllPanelsHidden] = React.useState(false);
   const [fixOpen, setFixOpen] = React.useState(false);
   const [urlOpen, setUrlOpen] = React.useState(false);
@@ -143,12 +143,18 @@ export default function FunctionsPanel({
   }
 
   return (
-    <section className="rounded-xl border border-neutral-800 bg-neutral-900/45 p-3 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-neutral-300">Deck actions</h3>
+    <section className={`rounded-xl border p-3 transition-all ${
+      expanded
+        ? "border-violet-500/35 bg-neutral-900/45 shadow-sm"
+        : "border-fuchsia-400/50 bg-gradient-to-r from-fuchsia-500/18 via-violet-500/12 to-cyan-500/14 shadow-[0_0_30px_rgba(217,70,239,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]"
+    }`}>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-black uppercase tracking-[0.18em] text-fuchsia-100 drop-shadow-[0_0_10px_rgba(217,70,239,0.55)]">
+          Deck actions
+        </h3>
         <button
           onClick={toggleExpanded}
-          className="rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:bg-neutral-700"
+          className="rounded-lg border border-fuchsia-300/40 bg-fuchsia-400/15 px-3 py-1.5 text-xs font-bold text-fuchsia-100 transition-colors hover:border-fuchsia-200/70 hover:bg-fuchsia-400/25"
         >
           {expanded ? "Hide" : "Show"}
         </button>
