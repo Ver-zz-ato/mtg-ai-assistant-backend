@@ -18,7 +18,7 @@ const APP_SCREENSHOTS = [
   },
   {
     src: "/app-screenshots/screenshot4-analyze-deck.png",
-    alt: "ManaTap analyze a deck screen",
+    alt: "ManaTap deck checker screen",
   },
   {
     src: "/app-screenshots/screenshot5-life-counter.png",

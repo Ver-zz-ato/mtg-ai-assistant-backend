@@ -111,7 +111,7 @@ const messageTemplates = [
   "anyone else hyped for the next set?",
   "just built my first reanimator deck, pretty happy with it",
   "the mana base is always the expensive part smh",
-  "this deck analyzer saved me so much time",
+  "this deck checker saved me so much time",
   "love how the mulligan sim works here",
   "deck just went infinite turn 4 haha",
   "brewing something spicy for friday",

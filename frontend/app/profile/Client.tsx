@@ -21,7 +21,6 @@ import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import { rowsToDeckTextForAnalysis } from "@/lib/deck/formatCompliance";
 import { badgeRarityLabel, getBadgeRarityClasses, type BadgeRarity } from "@/lib/badges/rarity-ui";
 import QRShareModal from "@/components/share/QRShareModal";
-import SavingsAnalytics from "@/components/SavingsAnalytics";
 
 const AVATAR_FILES = Array.from({ length: 20 }).map((_, i) => `/avatars/${String(i+1).padStart(2,'0')}.svg`);
 const COLOR_PIE = ["W","U","B","R","G"] as const;
@@ -35,7 +34,7 @@ function norm(name: string): string { return String(name||'').toLowerCase().norm
 function cleanName(s: string): string {
   return String(s||'')
     .replace(/\s*\(.*?\)\s*/g, '') // remove parentheticals
-    .replace(/\s*[-â€“â€”:|].*$/, '')   // strip trailing descriptors after dash/colon/pipe
+    .replace(/\s*[-:|].*$/, '')   // strip trailing descriptors after dash/colon/pipe
     .replace(/\[[^\]]+\]/g, '')   // remove bracketed tags
     .replace(/\s+/g, ' ')
     .trim();
@@ -59,7 +58,7 @@ function mapCanonicalEarnedBadges(rows: BadgeProgressItem[]): DisplayBadge[] {
     .map((row) => ({
       key: row.id,
       label: row.name,
-      emoji: row.icon || 'ðŸ†',
+      emoji: row.icon || 'Award',
       desc: row.description,
       rarity: row.rarity,
     }));
@@ -99,11 +98,11 @@ function EmailVerificationSection({ sb }: { sb: any }) {
       if (error) throw error;
 
       const { toast } = await import('@/lib/toast-client');
-      toast('âœ… Verification email sent! Check your inbox.', 'success');
+      toast('Verification email sent! Check your inbox.', 'success');
       capture('email_verification_resent_from_profile', { email_present: Boolean(userEmail) });
     } catch (error: any) {
       const { toast } = await import('@/lib/toast-client');
-      toast(`âŒ ${error.message}`, 'error');
+      toast(error.message, 'error');
     } finally {
       setResending(false);
     }
@@ -537,17 +536,17 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
   // Legacy website badge list remains as the fallback if canonical badge progress is unavailable.
   const legacyBadges = useMemo(() => {
     const out: DisplayBadge[] = [];
-    if (deckCount >= 1) out.push({ key: 'first_deck', label: 'First Deck', emoji: 'ðŸ†', desc: 'Created your first deck' });
-    if (deckCount >= 5) out.push({ key: 'brewer_i', label: 'Brewer I', emoji: 'âš—ï¸', desc: 'Built 5+ decks' });
-    if (deckCount >= 15) out.push({ key: 'brewer_ii', label: 'Brewer II', emoji: 'âš—ï¸', desc: 'Built 15+ decks' });
-    if (deckCount >= 30) out.push({ key: 'brewer_iii', label: 'Brewer III', emoji: 'âš—ï¸', desc: 'Built 30+ decks' });
-    if (collectionCount >= 3) out.push({ key: 'curator_i', label: 'Curator I', emoji: 'ðŸ“š', desc: 'Maintain 3+ collections' });
-    if (collectionCount >= 10) out.push({ key: 'curator_ii', label: 'Curator II', emoji: 'ðŸ“š', desc: 'Maintain 10+ collections' });
-    if (collectionCount >= 25) out.push({ key: 'curator_iii', label: 'Curator III', emoji: 'ðŸ“š', desc: 'Maintain 25+ collections' });
-    if ((usage?.messages || 0) >= 50) out.push({ key: 'chatterbox', label: 'Chatterbox', emoji: 'ðŸ’¬', desc: '50+ messages in 30d' });
-    if ((tools?.prob_runs||0) >= 10) out.push({ key:'mathlete', label:'Mathlete', emoji:'âˆ‘', desc:'Run Probability tool 10 times' });
-    if ((tools?.prob_saves||0) >= 5) out.push({ key:'scenario_collector', label:'Scenario Collector', emoji:'ðŸ’¾', desc:'Save 5 probability scenarios' });
-    if ((tools?.mull_iters_total||0) >= 25000) out.push({ key:'mulligan_master', label:'Mulligan Master', emoji:'â™»ï¸', desc:'Run 25k+ mulligan iterations' });
+    if (deckCount >= 1) out.push({ key: 'first_deck', label: 'First Deck', emoji: 'Award', desc: 'Created your first deck' });
+    if (deckCount >= 5) out.push({ key: 'brewer_i', label: 'Brewer I', emoji: 'Brew', desc: 'Built 5+ decks' });
+    if (deckCount >= 15) out.push({ key: 'brewer_ii', label: 'Brewer II', emoji: 'Brew', desc: 'Built 15+ decks' });
+    if (deckCount >= 30) out.push({ key: 'brewer_iii', label: 'Brewer III', emoji: 'Brew', desc: 'Built 30+ decks' });
+    if (collectionCount >= 3) out.push({ key: 'curator_i', label: 'Curator I', emoji: 'Library', desc: 'Maintain 3+ collections' });
+    if (collectionCount >= 10) out.push({ key: 'curator_ii', label: 'Curator II', emoji: 'Library', desc: 'Maintain 10+ collections' });
+    if (collectionCount >= 25) out.push({ key: 'curator_iii', label: 'Curator III', emoji: 'Library', desc: 'Maintain 25+ collections' });
+    if ((usage?.messages || 0) >= 50) out.push({ key: 'chatterbox', label: 'Chatterbox', emoji: 'Chat', desc: '50+ messages in 30d' });
+    if ((tools?.prob_runs||0) >= 10) out.push({ key:'mathlete', label:'Mathlete', emoji:'Math', desc:'Run Probability tool 10 times' });
+    if ((tools?.prob_saves||0) >= 5) out.push({ key:'scenario_collector', label:'Scenario Collector', emoji:'Save', desc:'Save 5 probability scenarios' });
+    if ((tools?.mull_iters_total||0) >= 25000) out.push({ key:'mulligan_master', label:'Mulligan Master', emoji:'Loop', desc:'Run 25k+ mulligan iterations' });
     return out;
   }, [deckCount, collectionCount, usage?.messages, tools?.prob_runs, tools?.prob_saves, tools?.mull_iters_total]);
   const [canonicalBadgeProgress, setCanonicalBadgeProgress] = useState<BadgeProgressItem[] | null>(null);
@@ -586,7 +585,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
     ? mergeDisplayBadges(canonicalEarnedBadges, legacyBadges)
     : legacyBadges;
 
-  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'savings'|'security'|'billing'>('profile');
+  const [tab, setTab] = useState<'profile'|'wallet'|'stats'|'security'|'billing'>('profile');
 
   // Extra analytical badges derived from recent decks: On-Curve 90, Mana Maestro, Combomancer
   // Deferred and gated so we don't run heavy /api/deck/analyze on every profile load (causes 12s spikes if user navigates away).
@@ -629,9 +628,9 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           }
           if (ac.signal.aborted) return;
           const extra: any[] = [];
-          if (onCurve) extra.push({ key:'on_curve_90', label:'On-Curve 90', emoji:'ðŸ“ˆ', desc:'â‰¥90% to hit land drops T1â€“T4' });
-          if (maestro) extra.push({ key:'mana_maestro', label:'Mana Maestro', emoji:'ðŸ’§', desc:'High color odds by T3' });
-          if (combo) extra.push({ key:'combomancer', label:'Combomancer', emoji:'âœ¨', desc:'Includes at least one detected combo' });
+          if (onCurve) extra.push({ key:'on_curve_90', label:'On-Curve 90', emoji:'Trend', desc:'>=90% to hit land drops T1-T4' });
+          if (maestro) extra.push({ key:'mana_maestro', label:'Mana Maestro', emoji:'Mana', desc:'High color odds by T3' });
+          if (combo) extra.push({ key:'combomancer', label:'Combomancer', emoji:'Combo', desc:'Includes at least one detected combo' });
           setExtraBadges(extra);
         } catch{ if (!ac.signal.aborted) setExtraBadges([]); }
       })();
@@ -657,12 +656,16 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               <div className="text-xl font-semibold truncate">{username || userEmail || 'Anonymous Mage'}</div>
               <div className="text-xs opacity-80 flex items-center gap-2">
                 {pro ? <ProTagLink /> : <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">Free</span>}
-                <span>â€¢</span>
+                <span>-</span>
                 <span>Decks {deckCount}</span>
-                <span>â€¢</span>
+                <span>-</span>
                 <span>Collections {collectionCount}</span>
               </div>
               <PinnedBadgesChips />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: true }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) { navigator.clipboard?.writeText?.(j.url); setProfileShareQrUrl(String(j.url || '')); alert('Share link copied to clipboard'); } else { alert(j?.error || 'Share failed'); } } catch (e:any) { alert(e?.message || 'Share failed'); } }} className="rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20">Share profile</button>
+                <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: false }) }); const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Unshare failed'); alert('Profile set to private'); } catch (e:any) { alert(e?.message || 'Unshare failed'); } }} className="rounded-lg border border-neutral-600 bg-black/35 px-3 py-1.5 text-xs font-semibold text-neutral-100 hover:bg-neutral-900">Disable sharing</button>
+              </div>
             </div>
           </div>
         </div>
@@ -673,7 +676,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
         {/* Left menu */}
         <aside className="col-span-12 xl:col-span-3">
           <nav className="rounded-xl border border-neutral-800 p-3 space-y-2 sticky top-4">
-            {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['savings','Budget Savings'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
+            {([['profile','Profile'],['wallet','Custom Card Wallet'],['stats','Deck Stats'],['security','Security/Account'],['billing','Pro Subscription']] as const).map(([k,label]) => (
               <button key={k} onClick={()=>setTab(k as any)} className={`w-full text-left px-3 py-2 rounded border ${tab===k?'border-emerald-500 bg-emerald-600/10':'border-neutral-800 hover:bg-neutral-900'}`}>{label}</button>
             ))}
           </nav>
@@ -684,7 +687,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           {tab==='profile' && (
             <>
               {/* Share profile at top */}
-              <section className="rounded-xl border border-neutral-800 p-4 space-y-2">
+              <section className="hidden rounded-xl border border-neutral-800 p-4 space-y-2">
                 <div className="text-lg font-semibold">Share</div>
                 <div className="text-sm opacity-80">Click to generate a public link to show off your decks and badges.</div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -720,7 +723,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-lg font-semibold flex items-center gap-2">
-                    {pro ? 'âœ¨ Pro Member' : 'ðŸ’Ž Upgrade to Pro'}
+                    {pro ? 'Pro Member' : 'Upgrade to Pro'}
                   </div>
                   {pro && (
                     <span className="px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-xs font-medium text-amber-400">
@@ -733,13 +736,13 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="space-y-2">
                     <div className="text-sm opacity-80">Thanks for supporting ManaTap AI Pro! You have access to:</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-2"><span className="text-green-400">âœ“</span> Higher AI usage limits</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">âœ“</span> Advanced deck statistics</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">âœ“</span> Price tracking & alerts</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">âœ“</span> Priority support</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">OK</span> Higher AI usage limits</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">OK</span> Advanced deck statistics</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">OK</span> Price tracking & alerts</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400">OK</span> Priority support</div>
                     </div>
                     <div className="pt-2 border-t border-neutral-700">
-                      <a href="/pricing" className="text-xs text-blue-400 hover:underline">View all Pro features â†’</a>
+                      <a href="/pricing" className="text-xs text-blue-400 hover:underline">View all Pro features</a>
                     </div>
                   </div>
                 ) : (
@@ -750,10 +753,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     
                     <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-blue-500/20 rounded-lg p-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs mb-3">
-                        <div className="flex items-center gap-2"><span className="text-blue-400">âš¡</span> Higher AI usage limits</div>
-                        <div className="flex items-center gap-2"><span className="text-blue-400">ðŸ“Š</span> Advanced deck stats</div>
-                        <div className="flex items-center gap-2"><span className="text-blue-400">ðŸ“ˆ</span> Price tracking & alerts</div>
-                        <div className="flex items-center gap-2"><span className="text-blue-400">ðŸŽ¯</span> Personalized recommendations</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">AI</span> Higher AI usage limits</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">Stats</span> Advanced deck stats</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">Price</span> Price tracking & alerts</div>
+                        <div className="flex items-center gap-2"><span className="text-blue-400">Rec</span> Personalized recommendations</div>
                       </div>
                       
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -846,8 +849,8 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   </div>
                 </details>
                 {/* Favorite formats */}
-                <div className="text-sm">
-                  <div className="opacity-70 mb-1">Favorite formats</div>
+                <details className="rounded border border-neutral-800 bg-neutral-950/30 p-3">
+                  <summary className="cursor-pointer select-none text-sm font-semibold text-neutral-100">Favorite formats</summary>
                   <div className="flex flex-wrap gap-2">
                     {FORMATS.map(f => {
                       const active = formats.includes(f);
@@ -857,10 +860,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       );
                     })}
                   </div>
-                </div>
+                </details>
                 {/* Color pie alignment */}
-                <div className="text-sm">
-                  <div className="opacity-70 mb-1">Color pie alignment</div>
+                <details className="rounded border border-neutral-800 bg-neutral-950/30 p-3">
+                  <summary className="cursor-pointer select-none text-sm font-semibold text-neutral-100">Color pie alignment</summary>
                   <div className="text-xs opacity-60 mb-2">
                     Select your preferred MTG colors. This helps personalize your deck trends and recommendations.
                   </div>
@@ -873,7 +876,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       );
                     })}
                   </div>
-                </div>
+                </details>
 
                 {/* Compact pinned decks editor inside Identity */}
                 <details className="rounded border border-neutral-800 bg-neutral-950/30 p-3">
@@ -884,7 +887,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="text-xs opacity-80">Pick up to 3 decks to show on your public profile.</div>
                   {pinnedDeckIds.length > 0 && recentDecks.length > 0 && pinnedDeckIds.every(id => !recentDecks.find(d => d.id === id)) && (
                     <div className="text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-700 rounded p-2">
-                      âš ï¸ You have {pinnedDeckIds.length} pinned deck(s) that no longer exist. Click "Clear all" to reset.
+                      Warning: You have {pinnedDeckIds.length} pinned deck(s) that no longer exist. Click "Clear all" to reset.
                     </div>
                   )}
                   <div className="max-h-60 overflow-y-auto border border-neutral-800 rounded bg-neutral-950/50 p-2">
@@ -925,7 +928,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                                 style={{ pointerEvents: canSelect ? 'auto' : 'none' }}
                               />
                               <span className="truncate flex-1">{d.title}</span>
-                              {checked && <span className="text-emerald-400 text-xs flex-shrink-0">âœ“</span>}
+                              {checked && <span className="text-emerald-400 text-xs flex-shrink-0">OK</span>}
                             </label>
                           </li>
                         );
@@ -954,7 +957,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 </details>
 
                 <div className="text-right mt-4">
-                  <button onClick={save} disabled={saving} className={`px-3 py-2 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving? 'Savingâ€¦':'Save profile'}</button>
+                  <button onClick={save} disabled={saving} className={`px-3 py-2 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving? 'Saving...':'Save profile'}</button>
                 </div>
 
                 </section>
@@ -978,7 +981,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     signatureSet={!!signatureDeckId}
                   />
                   <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
-                    <div className="text-lg font-semibold flex items-center gap-2"><span>ðŸ†</span> Achievement Progress</div>
+                    <div className="text-lg font-semibold flex items-center gap-2">Achievement Progress</div>
                     <ProfileAchievementProgressRarity badges={canonicalBadgeProgress} />
                   </section>
                 </aside>
@@ -1046,7 +1049,6 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               </div>
             </div>
           )}
-          {tab==='savings' && <SavingsAnalytics />}
           {tab==='security' && (
             <div className="space-y-6">
               {/* Privacy Section */}
@@ -1169,7 +1171,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 <div className="space-y-4">
                   <div className="bg-gradient-to-br from-purple-900/30 via-blue-900/20 to-emerald-900/20 border-2 border-emerald-500/50 rounded-xl p-6 shadow-xl">
                     <div className="flex items-start gap-3 mb-3">
-                      <span className="text-5xl">âœ¨</span>
+                      <span className="rounded-full border border-emerald-400/40 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-emerald-200">Pro</span>
                       <div className="flex-1">
                         <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-blue-300 mb-2">
                           Thank You for Being Pro!
@@ -1183,12 +1185,12 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
 
                   <div className="space-y-3">
                     <div className="text-base font-bold text-neutral-200 flex items-center gap-2">
-                      <span className="text-emerald-400">âœ…</span> Your Pro Features
+                      Your Pro Features
                     </div>
                     <div className="grid grid-cols-1 gap-2.5">
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-blue-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-blue-400 text-2xl flex-shrink-0">ðŸ¤–</span>
+                          <span className="text-blue-400 text-sm font-bold flex-shrink-0">AI</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Higher AI Usage Limits</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Higher limits on deck analysis & AI chat</div>
@@ -1197,7 +1199,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-emerald-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-emerald-400 text-2xl flex-shrink-0">ðŸ“Š</span>
+                          <span className="text-emerald-400 text-sm font-bold flex-shrink-0">Stats</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Advanced Probability Tools</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Hand testing, mulligan simulator, probability calculator</div>
@@ -1206,7 +1208,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-amber-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-amber-400 text-2xl flex-shrink-0">ðŸ’°</span>
+                          <span className="text-amber-400 text-sm font-bold flex-shrink-0">Price</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Price Tracking & History</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Real-time prices, historical charts, budget optimization</div>
@@ -1215,7 +1217,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-purple-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-purple-400 text-2xl flex-shrink-0">ðŸ“¤</span>
+                          <span className="text-purple-400 text-sm font-bold flex-shrink-0">Export</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Export to Moxfield & MTGO</div>
                             <div className="text-xs text-neutral-400 mt-0.5">One-click export in multiple formats</div>
@@ -1224,7 +1226,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                       </div>
                       <div className="bg-neutral-900/50 border border-neutral-700 rounded-lg p-3.5 hover:border-pink-500/30 transition-colors">
                         <div className="flex items-start gap-3">
-                          <span className="text-pink-400 text-2xl flex-shrink-0">âš¡</span>
+                          <span className="text-pink-400 text-sm font-bold flex-shrink-0">Fast</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-neutral-100">Priority Support & Badge</div>
                             <div className="text-xs text-neutral-400 mt-0.5">Faster help, exclusive badge, early access to features</div>
@@ -1282,30 +1284,30 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                     <div className="text-sm font-semibold">Pro Features Include:</div>
                     <ul className="text-sm text-neutral-300 space-y-1.5 ml-4">
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">â€¢</span>
+                        <span className="text-blue-400 mt-0.5">-</span>
                         <span>Higher limits on AI deck analysis (Free tier has daily limits)</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">â€¢</span>
+                        <span className="text-blue-400 mt-0.5">-</span>
                         <span>Advanced probability calculations and hand testing</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">â€¢</span>
+                        <span className="text-blue-400 mt-0.5">-</span>
                         <span>Full price history and tracking alerts</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">â€¢</span>
+                        <span className="text-blue-400 mt-0.5">-</span>
                         <span>Export decks to Moxfield, MTGO, and more</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">â€¢</span>
+                        <span className="text-blue-400 mt-0.5">-</span>
                         <span>Collection bulk operations and fixes</span>
                       </li>
                     </ul>
                   </div>
 
                   <a href="/pricing" className="inline-block text-sm text-blue-400 hover:text-blue-300 underline">
-                    View full plan details â†’
+                    View full plan details
                   </a>
                 </div>
               )}
@@ -1395,7 +1397,7 @@ function ProfileAchievementProgress({ badges: initialBadges }: { badges: BadgePr
         {badges.map(b => (
           <li key={b.id} className={`rounded-lg border p-3 text-xs ${getBadgeRarityClasses(b.rarity).card}`}>
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2"><span className="text-base">{b.icon}</span><span>{b.name}</span>{b.unlocked && <span className="text-emerald-400 text-[10px]">âœ“</span>}</div>
+              <div className="flex items-center gap-2"><span className="text-base">{b.icon}</span><span>{b.name}</span>{b.unlocked && <span className="text-emerald-400 text-[10px]">OK</span>}</div>
               <div className="font-mono">{b.current}/{b.target}</div>
             </div>
             <div className="mt-1 h-2 w-full rounded bg-neutral-800 overflow-hidden">
@@ -1410,6 +1412,7 @@ function ProfileAchievementProgress({ badges: initialBadges }: { badges: BadgePr
 function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: BadgeProgressItem[] | null }){
   const [badges, setBadges] = React.useState<BadgeProgressItem[]>(initialBadges ?? []);
   const [loading, setLoading] = React.useState(true);
+  const [showAll, setShowAll] = React.useState(false);
   React.useEffect(()=>{
     if (initialBadges && initialBadges.length > 0) {
       setBadges(initialBadges);
@@ -1427,9 +1430,11 @@ function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: B
   }, [initialBadges]);
   if (loading) return <div className="text-xs opacity-70">Loading achievements...</div>;
   if (badges.length === 0) return null;
+  const visibleBadges = showAll ? badges : badges.slice(0, 2);
   return (
+    <div className="space-y-3">
     <ul className="space-y-2">
-      {badges.map((b) => (
+      {visibleBadges.map((b) => (
         <li key={b.id} className={`rounded-lg border p-3 text-xs ${getBadgeRarityClasses(b.rarity).card}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
@@ -1440,7 +1445,7 @@ function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: B
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] ${getBadgeRarityClasses(b.rarity).chip}`}>
                     {badgeRarityLabel(b.rarity)}
                   </span>
-                  {b.unlocked && <span className="text-emerald-400 text-[10px]">âœ“</span>}
+                  {b.unlocked && <span className="text-emerald-400 text-[10px]">OK</span>}
                 </div>
               </div>
             </div>
@@ -1452,6 +1457,12 @@ function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: B
         </li>
       ))}
     </ul>
+    {badges.length > 2 ? (
+      <button type="button" onClick={()=>setShowAll(v=>!v)} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800">
+        {showAll ? "Show less" : `Show more (${badges.length - 2})`}
+      </button>
+    ) : null}
+    </div>
   );
 }
 
@@ -1460,10 +1471,10 @@ function NextBadgesProgress(props: NextBadgesProgressProps){
   const { deckCount, collectionCount, pinnedCount, signatureSet } = props;
   function nextTarget(thresholds:number[], val:number){ for (const t of thresholds){ if (val < t) return t; } return null; }
   const items: Array<{ key:string; label:string; current:number; target:number; emoji:string }> = [];
-  const tBrewer = nextTarget([5,15,30], deckCount); if (tBrewer!=null) items.push({ key:'brewer_next', label:`Brewer ${tBrewer===5?'I':tBrewer===15?'II':'III'}`, current: deckCount, target: tBrewer, emoji:'âš—ï¸' });
-  const tCurator = nextTarget([3,10,25], collectionCount); if (tCurator!=null) items.push({ key:'curator_next', label:`Curator ${tCurator===3?'I':tCurator===10?'II':'III'}`, current: collectionCount, target: tCurator, emoji:'ðŸ“š' });
-  if (!signatureSet) items.push({ key:'signature', label:'Signature Commander', current: 0, target: 1, emoji:'ðŸ‘‘' });
-  if (pinnedCount < 3) items.push({ key:'showcase', label:'Showcase (pin 3 decks)', current: pinnedCount, target: 3, emoji:'ðŸ“Œ' });
+  const tBrewer = nextTarget([5,15,30], deckCount); if (tBrewer!=null) items.push({ key:'brewer_next', label:`Brewer ${tBrewer===5?'I':tBrewer===15?'II':'III'}`, current: deckCount, target: tBrewer, emoji:'Brew' });
+  const tCurator = nextTarget([3,10,25], collectionCount); if (tCurator!=null) items.push({ key:'curator_next', label:`Curator ${tCurator===3?'I':tCurator===10?'II':'III'}`, current: collectionCount, target: tCurator, emoji:'Library' });
+  if (!signatureSet) items.push({ key:'signature', label:'Signature Commander', current: 0, target: 1, emoji:'Crown' });
+  if (pinnedCount < 3) items.push({ key:'showcase', label:'Showcase (pin 3 decks)', current: pinnedCount, target: 3, emoji:'Pin' });
 
   if (items.length === 0) return null;
   return (
@@ -1508,9 +1519,9 @@ function ToolUsageMini(props: ToolUsageMiniProps){
     <div className="mt-3 rounded border border-neutral-800 p-2 text-[11px]">
       <div className="font-medium mb-1">Tool usage</div>
       <ul className="grid grid-cols-1 gap-1">
-        <li title="Run Probability tool 10 times to unlock Mathlete">Mathlete âˆ‘ â€” runs: <span className="font-mono">{runs}</span>{needRuns>0?` (need ${needRuns} more)`:''}</li>
-        <li title="Save 5 scenarios to unlock Scenario Collector">Scenario Collector ðŸ’¾ â€” saves: <span className="font-mono">{saves}</span>{needSaves>0?` (need ${needSaves} more)`:''}</li>
-        <li title="Accumulate 25,000 mulligan iterations to unlock Mulligan Master">Mulligan Master â™»ï¸ â€” iterations: <span className="font-mono">{iters}</span>{needIters>0?` (need ${needIters} more)`:''}</li>
+        <li title="Run Probability tool 10 times to unlock Mathlete">Mathlete - runs: <span className="font-mono">{runs}</span>{needRuns>0?` (need ${needRuns} more)`:''}</li>
+        <li title="Save 5 scenarios to unlock Scenario Collector">Scenario Collector - saves: <span className="font-mono">{saves}</span>{needSaves>0?` (need ${needSaves} more)`:''}</li>
+        <li title="Accumulate 25,000 mulligan iterations to unlock Mulligan Master">Mulligan Master - iterations: <span className="font-mono">{iters}</span>{needIters>0?` (need ${needIters} more)`:''}</li>
       </ul>
     </div>
   );
@@ -1528,7 +1539,7 @@ function Wallet(){
     })();
   }, []);
   async function del(id:string){ if(!confirm('Delete this custom card?')) return; const r = await fetch('/api/custom-cards/delete', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ id }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setRows(rs=>rs.filter(x=>x.id!==id)); else alert(j?.error||'Delete failed'); }
-  if (loading) return <div className="text-xs opacity-70">Loadingâ€¦</div>;
+  if (loading) return <div className="text-xs opacity-70">Loading...</div>;
   if (error) return <div className="text-xs text-red-400">{error}</div>;
   if (!rows.length) return (
     <div className="text-xs opacity-80">
@@ -1548,7 +1559,7 @@ function Wallet(){
               {require('react').createElement(require('@/components/AuthenticMTGCard').default, { mode:'view', width:'320px', value: {
                 nameParts: Array.isArray(val?.nameParts)? val.nameParts : ['','',title].slice(0,3),
                 subtext: String(val?.subtext||val?.sub||''),
-                typeLine: String(val?.typeLine||'Creature â€” Wizard'),
+                typeLine: String(val?.typeLine||'Creature - Wizard'),
                 pt: val?.pt || { p:1, t:1 },
                 cost: Number(val?.cost||3),
                 manaCost: Array.isArray(val?.manaCost)? val.manaCost : ['2', String(val?.colorHint||'U')],
@@ -1618,15 +1629,17 @@ function PinnedBadgesSelector({ badges, username }: { badges: DisplayBadge[]; us
   const [pins, setPins] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
   const [showShareBanner, setShowShareBanner] = React.useState<any>(null);
+  const [showAll, setShowAll] = React.useState(false);
   React.useEffect(()=>{ (async()=>{ try{ const r = await fetch('/api/profile/badges', { cache:'no-store' }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) setPins(Array.isArray(j.pinned_badges)? j.pinned_badges : []); } catch{} })(); }, []);
   const pinnedSet = new Set(pins);
+  const visibleBadges = showAll ? badges : badges.slice(0, 2);
   function togglePin(k:string){ setPins(prev=>{ const has = prev.includes(k); if (has) return prev.filter(x=>x!==k); if (prev.length>=3) return prev; return [...prev, k]; }); }
 async function save(){ try{ setSaving(true); const r = await fetch('/api/profile/badges', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ pinned_badges: pins.slice(0,3) }) }); const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error||'Save failed'); try{ const tc = await fetch('/api/profile/badges'); const jj = await tc.json().catch(()=>({})); setPins(Array.isArray(jj?.pinned_badges)? jj.pinned_badges : pins); } catch{} alert('Pinned badges saved'); } catch(e:any){ alert(e?.message||'Save failed'); } finally{ setSaving(false);} }
   return (
     <div className="space-y-2">
       <div className="text-xs opacity-80">Pin up to 3 badges to display on your public profile.</div>
       <ul className="space-y-2">
-        {badges.map(b => (
+        {visibleBadges.map(b => (
           <li key={b.key} className={`rounded-lg overflow-hidden border ${getBadgeRarityClasses(b.rarity).card}`}>
             <div className="p-3 space-y-3">
               <div className="flex items-center gap-3">
@@ -1649,7 +1662,7 @@ async function save(){ try{ setSaving(true); const r = await fetch('/api/profile
                   className="px-2 py-1 rounded text-xs border border-blue-600 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 transition-colors"
                   title="Share this badge"
                 >
-                  ðŸ“¤ Share
+                  Share
                 </button>
                 <button 
                   onClick={()=>togglePin(b.label)} 
@@ -1659,15 +1672,20 @@ async function save(){ try{ setSaving(true); const r = await fetch('/api/profile
                       : 'border-neutral-700 hover:bg-neutral-800 text-neutral-300'
                   }`}
                 >
-                  {pinnedSet.has(b.label) ? 'ðŸ“Œ Pinned' : 'Pin'}
+                  {pinnedSet.has(b.label) ? 'Pinned' : 'Pin'}
                 </button>
               </div>
             </div>
           </li>
         ))}
       </ul>
+      {badges.length > 2 ? (
+        <button type="button" onClick={()=>setShowAll(v=>!v)} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800">
+          {showAll ? "Show less" : `Show more (${badges.length - 2})`}
+        </button>
+      ) : null}
       <div className="text-right text-xs opacity-80">Pinned: {pins.length}/3</div>
-      <div className="text-right"><button onClick={save} disabled={saving} className={`px-3 py-1.5 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving?'Savingâ€¦':'Save pinned badges'}</button></div>
+      <div className="text-right"><button onClick={save} disabled={saving} className={`px-3 py-1.5 rounded ${saving?'bg-gray-300 text-black':'bg-white text-black hover:bg-gray-100'}`}>{saving?'Saving...':'Save pinned badges'}</button></div>
       
       {/* Share Banner Modal */}
       {showShareBanner && (
@@ -1806,7 +1824,7 @@ function StatsCharts(props: StatsChartsProps) {
             if (type.includes('Instant') || type.includes('Sorcery')) { w.control += 0.2*q; w.combo += 0.1*q; }
             if (/counter target/.test(text) || /destroy all/.test(text) || /board wipe/.test(text)) { w.control += 0.6*q; }
             if (/search your library/.test(text) || /tutor/.test(text)) { w.combo += 0.6*q; }
-            if (/players can\'t|canâ€™t|canâ€™t cast|doesn\'t untap|skip your|skip their|each player|unless you pay|pay \{/.test(text)
+            if (/players can\'t|can't|can't cast|doesn\'t untap|skip your|skip their|each player|unless you pay|pay \{/.test(text)
                || /rule of law|winter orb|static orb|stasis|ghostly prison|sphere of resistance|archon of/.test(text)) {
               w.stax += 0.8*q;
             }
@@ -1953,7 +1971,7 @@ function StatsCharts(props: StatsChartsProps) {
         </div>
       ) : (
         <div className="text-center py-8 text-sm opacity-70">
-          <div className="mb-2">ðŸ“Š No deck trends data available</div>
+          <div className="mb-2">No deck trends data available</div>
           <div className="text-xs">
             Create some decks and add cards to see your deck trends here.
           </div>
@@ -2119,7 +2137,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
   if (!pro) {
     return (
       <div className="text-sm opacity-70 p-4 bg-neutral-900/50 rounded border border-neutral-800 text-center">
-        <div className="mb-2">ðŸ’Ž</div>
+        <div className="mb-2">Pro</div>
         <div>Price Watchlist is a Pro feature</div>
         <a href="/pricing" className="text-blue-400 hover:text-blue-300 underline text-xs mt-2 inline-block">
           Upgrade to Pro
@@ -2182,7 +2200,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
                         <span className="text-xs font-mono text-emerald-400">{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(price)}</span>
                         {delta24h !== 0 && (
                           <span className={`text-[10px] font-mono ${delta24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {delta24h >= 0 ? 'â–²' : 'â–¼'} {delta24h >= 0 ? '+' : ''}{delta24h.toFixed(1)}%
+                            {delta24h >= 0 ? '+' : '-'} {delta24h >= 0 ? '+' : ''}{delta24h.toFixed(1)}%
                           </span>
                         )}
                       </div>
@@ -2202,7 +2220,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
             href="/watchlist"
             className="text-sm text-blue-400 hover:text-blue-300 underline block text-center"
           >
-            â†’ View full watchlist ({items.length} card{items.length !== 1 ? 's' : ''})
+            View full watchlist ({items.length} card{items.length !== 1 ? 's' : ''})
           </a>
         </>
       )}
@@ -2212,7 +2230,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
         <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => { setShowAddValidation(false); setAddValidationItems([]); }}>
           <div className="max-w-xl w-full rounded-xl border border-orange-700 bg-neutral-900 p-5 text-sm shadow-2xl" onClick={(e)=>e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">âœï¸</span>
+              <span className="text-2xl">Edit</span>
               <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
                 Fix Card Name Before Adding
               </h3>

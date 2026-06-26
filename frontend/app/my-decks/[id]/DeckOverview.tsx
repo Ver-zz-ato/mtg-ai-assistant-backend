@@ -3,6 +3,7 @@
 import * as React from "react";
 import { getImagesForNames, type ImageInfo } from "@/lib/scryfall-cache";
 import { validatePublicText } from "@/lib/profanity";
+import DeckPriceMini from "@/components/DeckPriceMini";
 
 type DeckOverviewProps = {
   deckId: string;
@@ -13,6 +14,9 @@ type DeckOverviewProps = {
   readOnly?: boolean; // If true, don't show edit buttons (for public deck pages)
   healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null;
   isPro?: boolean; // Pro status for gating deck health features
+  typeBreakdown?: Record<string, number>;
+  playstyleRadar?: Record<string, number>;
+  archetypeLabels?: string[];
 };
 
 export default function DeckOverview({ 
@@ -23,7 +27,10 @@ export default function DeckOverview({
   format,
   readOnly = false,
   healthMetrics = null,
-  isPro = false
+  isPro = false,
+  typeBreakdown,
+  playstyleRadar,
+  archetypeLabels = []
 }: DeckOverviewProps) {
   const [commander, setCommander] = React.useState(initialCommander || "");
   const [colors, setColors] = React.useState(initialColors || []);
@@ -34,6 +41,8 @@ export default function DeckOverview({
   const [error, setError] = React.useState<string | null>(null);
   const [commanderImage, setCommanderImage] = React.useState<ImageInfo | null>(null);
   const [hoverImage, setHoverImage] = React.useState(false);
+  const [typesOpen, setTypesOpen] = React.useState(false);
+  const [radarOpen, setRadarOpen] = React.useState(false);
 
   // Update when initial values change
   React.useEffect(() => {
@@ -175,13 +184,44 @@ export default function DeckOverview({
     'G': 'bg-green-500 text-white'
   };
 
+  const typeRows = Object.entries(typeBreakdown || {}).filter(([, count]) => Number(count) > 0);
+  const typeTotal = typeRows.reduce((sum, [, count]) => sum + Number(count || 0), 0) || 1;
+  const radarRows = Object.entries(playstyleRadar || {}).filter(([, score]) => Number(score) > 0);
+  const topRadar = [...radarRows].sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 2);
+
+  function ToggleSection({
+    title,
+    open,
+    onToggle,
+    children,
+  }: {
+    title: string;
+    open: boolean;
+    onToggle: () => void;
+    children: React.ReactNode;
+  }) {
+    return (
+      <div className="rounded-lg border border-neutral-800 bg-neutral-950/35">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
+        >
+          <span className="text-xs font-semibold text-cyan-300">{title}</span>
+          <span className="rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200">{open ? "Hide" : "Show"}</span>
+        </button>
+        {open ? <div className="border-t border-neutral-800 p-3">{children}</div> : null}
+      </div>
+    );
+  }
+
   // Only show for Commander format
   if (format?.toLowerCase() !== 'commander') {
     return null;
   }
 
   return (
-    <div className="rounded-lg border border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-neutral-900/50 to-purple-950/20 p-3 shadow-md mb-4">
+    <div className="rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-neutral-900/50 to-purple-950/20 p-4 shadow-md mb-4">
       <div className="flex items-center gap-2 mb-3">
         <div className="h-1 w-1 rounded-full bg-blue-400 animate-pulse"></div>
         <h3 className="text-sm font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
@@ -189,7 +229,7 @@ export default function DeckOverview({
         </h3>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+      <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2 xl:grid-cols-4">
         {/* Commander */}
         <div>
           <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide flex items-center justify-between">
@@ -198,10 +238,10 @@ export default function DeckOverview({
               <button
                 type="button"
                 onClick={() => setEditingCommander(true)}
-                className="text-[20px] leading-none font-bold text-red-500 hover:text-red-400 transition-colors flex items-center gap-1 shrink-0"
+                className="rounded bg-neutral-900 px-2 py-1 text-[10px] font-semibold text-blue-300 transition-colors hover:bg-blue-500/10 hover:text-blue-200"
                 title="Edit commander"
               >
-                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
                 Edit
@@ -326,6 +366,70 @@ export default function DeckOverview({
             </div>
           )}
         </div>
+
+        <div>
+          <div className="text-[10px] opacity-70 mb-1 uppercase tracking-wide">Deck Value</div>
+          <div className="min-h-[4.25rem] rounded border border-neutral-800 bg-neutral-950/50 p-2">
+            <DeckPriceMini deckId={deckId} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-950/35 p-3">
+          <div className="text-[10px] opacity-70 mb-2 uppercase tracking-wide">Deck Signals</div>
+          <div className="flex flex-wrap gap-1.5">
+            {archetypeLabels.length > 0 ? archetypeLabels.map((label) => (
+              <span key={label} className="rounded-full border border-neutral-700 bg-neutral-900/70 px-2 py-1 text-[10px] font-semibold text-neutral-200">
+                {label}
+              </span>
+            )) : <span className="text-[10px] text-neutral-500">No signals yet</span>}
+          </div>
+          {topRadar.length > 0 ? (
+            <div className="mt-2 text-[10px] text-neutral-400">
+              Strongest: {topRadar.map(([name, score]) => `${name} ${Number(score).toFixed(1)}`).join(" / ")}
+            </div>
+          ) : null}
+        </div>
+
+        <ToggleSection title="Card Types" open={typesOpen} onToggle={() => setTypesOpen((v) => !v)}>
+          <div className="space-y-2">
+            {typeRows.length ? typeRows.map(([name, count]) => {
+              const pct = Math.round((Number(count || 0) / typeTotal) * 100);
+              return (
+                <div key={name}>
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span>{name}</span>
+                    <span className="font-mono text-neutral-400">{pct}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded bg-neutral-800">
+                    <div className="h-full rounded bg-cyan-500" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            }) : <div className="text-xs text-neutral-500">No card type data yet.</div>}
+          </div>
+        </ToggleSection>
+
+        <ToggleSection title="Playstyle Radar" open={radarOpen} onToggle={() => setRadarOpen((v) => !v)}>
+          <div className="space-y-2">
+            {radarRows.length ? radarRows.map(([name, score]) => {
+              const max = Math.max(1, ...radarRows.map(([, value]) => Number(value || 0)));
+              const pct = Math.round((Number(score || 0) / max) * 100);
+              return (
+                <div key={name}>
+                  <div className="mb-1 flex items-center justify-between text-[11px] capitalize">
+                    <span>{name}</span>
+                    <span className="font-mono text-neutral-400">{Number(score).toFixed(1)}</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded bg-neutral-800">
+                    <div className="h-full rounded bg-purple-500" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            }) : <div className="text-xs text-neutral-500">No playstyle data yet.</div>}
+          </div>
+        </ToggleSection>
       </div>
     </div>
   );

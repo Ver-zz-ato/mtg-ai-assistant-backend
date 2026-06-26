@@ -161,7 +161,7 @@ You need to reliably cast your commander. Don't skimp on lands.
 
 ## Use ManaTap AI to Optimize Your Mana Base
 
-Our AI deck analyzer checks your land count and suggests improvements:
+Our AI deck checker checks your land count and suggests improvements:
 
 - Identifies if you're running too few or too many lands
 - Suggests utility lands for your strategy

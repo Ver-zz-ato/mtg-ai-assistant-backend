@@ -95,7 +95,7 @@ Even experienced players make these mistakes. Learn to spot and fix them before 
 3. **Review suggestions** - Get AI-powered fixes for each problem
 4. **Optimize** - Apply suggestions and rebuild
 
-[Analyze Your Deck Now →](/build-a-deck)
+[Check Your Deck Now →](/build-a-deck)
 
 ## Quick Checklist
 
@@ -115,7 +115,7 @@ If you answered "no" to any, fix it before playing!
 
 These seven mistakes are the most common reasons decks fail. Fix them, and you'll see immediate improvement in your win rate. The key is balance: ramp, draw, removal, and win conditions in the right ratios.
 
-**Want to check if your deck has these problems?** [Use ManaTap AI's free deck analyzer →](/my-decks)
+**Want to check if your deck has these problems?** [Use ManaTap AI's free deck checker →](/my-decks)
 
 ---
 

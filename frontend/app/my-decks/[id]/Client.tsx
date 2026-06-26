@@ -204,7 +204,29 @@ function DeckProbabilityWithHide({ deckId, isPro, format }: { deckId: string; is
   );
 }
 
-export default function Client({ deckId, isPro, format, commander, colors, deckAim, healthMetrics }: { deckId?: string; isPro?: boolean; format?: string; commander?: string | null; colors?: string[]; deckAim?: string | null; healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null }) {
+export default function Client({
+  deckId,
+  isPro,
+  format,
+  commander,
+  colors,
+  deckAim,
+  healthMetrics,
+  typeBreakdown,
+  playstyleRadar,
+  archetypeLabels,
+}: {
+  deckId?: string;
+  isPro?: boolean;
+  format?: string;
+  commander?: string | null;
+  colors?: string[];
+  deckAim?: string | null;
+  healthMetrics?: { lands: number; ramp: number; draw: number; removal: number } | null;
+  typeBreakdown?: Record<string, number>;
+  playstyleRadar?: Record<string, number>;
+  archetypeLabels?: string[];
+}) {
   const [deckCards, setDeckCards] = useState<Array<{name: string; qty: number}>>([]);
   const [fixModalOpen, setFixModalOpen] = useState(false);
   
@@ -308,6 +330,9 @@ export default function Client({ deckId, isPro, format, commander, colors, deckA
             initialAim={deckAim || null}
             format={format}
             healthMetrics={healthMetrics || null}
+            typeBreakdown={typeBreakdown}
+            playstyleRadar={playstyleRadar}
+            archetypeLabels={archetypeLabels}
             isPro={isPro || false}
           />
         )}

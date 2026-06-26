@@ -6,7 +6,7 @@ import BlogImage from '@/components/BlogImage';
 export const metadata: Metadata = {
   title: 'How ManaTap\'s MTG AI Deck Builder Works | ManaTap AI',
   description: 'A plain-English explanation (plus a technical deep dive) of how ManaTap analyzes MTG decks for legality, colour identity, balance, and synergy.',
-  keywords: 'how manatap ai works, mtg ai deck builder, ai deck analysis, mtg deck analyzer how it works, magic the gathering ai',
+  keywords: 'how manatap ai works, mtg ai deck builder, ai deck analysis, mtg deck checker how it works, magic the gathering ai',
   alternates: {
     canonical: '/blog/how-manatap-ai-works',
   },

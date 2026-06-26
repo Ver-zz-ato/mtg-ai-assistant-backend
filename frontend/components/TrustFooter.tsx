@@ -157,7 +157,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
     <footer className={`border-t border-gray-800 py-6 text-sm text-gray-400 ${className}`}>
       <div className="max-w-full mx-auto px-4">
         {/* Trust Information */}
-        <div className="mb-4 pb-4 border-b border-gray-700">
+        <div className="hidden">
           <div className="flex flex-wrap items-center justify-between gap-4 text-xs">
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">

@@ -80,6 +80,7 @@ export const HOME_PROBLEM_FINDER: HomeProblemCard[] = [
       { label: "Deck Checker", href: "/mtg-deck-checker" },
       { label: "AI Workshop", href: "/ai-workshop" },
       { label: "Deck Compare", href: "/compare-decks" },
+      { label: "All tools", href: "/tools" },
     ],
   },
   {

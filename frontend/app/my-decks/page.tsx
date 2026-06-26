@@ -279,9 +279,8 @@ function MyDecksPageContent() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-xl font-semibold">My Decks</h1>
-        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+      <div className="mb-4 flex justify-end">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {/* Primary: Create Deck - stronger visual presence */}
           <div className="flex-1 md:flex-none">
             {(()=>{ try{ const New = require('@/components/NewDeckInline').default; return <New />; } catch { return null; } })()}

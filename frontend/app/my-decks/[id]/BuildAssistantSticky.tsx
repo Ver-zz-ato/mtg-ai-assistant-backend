@@ -100,8 +100,23 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   const [aiScanSuggestions, setAiScanSuggestions] = React.useState<Array<{ card: string; reason: string }>>([]);
   const [aiScanError, setAiScanError] = React.useState<string | null>(null);
   const [showFinishDeck, setShowFinishDeck] = React.useState(false);
+  const [scanOpen, setScanOpen] = React.useState(true);
+  const [constraintsOpen, setConstraintsOpen] = React.useState(false);
+  const [actionsOpen, setActionsOpen] = React.useState(true);
 
   function chip(label:string){ return (<span className="px-2 py-0.5 rounded border border-neutral-700 bg-neutral-900/60 text-[11px]">{label}</span>); }
+  function sectionToggle(title: string, open: boolean, onClick: () => void) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center justify-between rounded-lg border border-neutral-800 bg-neutral-950/45 px-3 py-2 text-left"
+      >
+        <span className="text-xs font-semibold text-neutral-200">{title}</span>
+        <span className="rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200">{open ? "Hide" : "Show"}</span>
+      </button>
+    );
+  }
 
   function proGuard(): boolean { if (entitledPro) return true; try { const { showProToast } = require('@/lib/pro-ux'); showProToast(); } catch { alert('This is a Pro feature. Upgrade to unlock.'); } return false; }
 
@@ -374,12 +389,12 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   }
 
   return (
-    <section className="sticky top-4 z-10 min-w-0 rounded-xl border-2 border-pink-500/45 bg-gradient-to-br from-pink-950/30 via-purple-950/30 to-pink-950/30 p-4 backdrop-blur shadow-xl shadow-pink-500/15 ring-1 ring-pink-400/20">
+    <section className="min-w-0 rounded-xl border border-purple-500/35 bg-neutral-950/55 p-4 backdrop-blur shadow-lg shadow-black/20">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span className="text-2xl flex-shrink-0">🎯</span>
           <div className="min-w-0">
-            <div className="text-base font-bold bg-gradient-to-r from-pink-400/75 via-purple-400/75 to-pink-400/75 bg-clip-text text-transparent">
+            <div className="text-base font-bold text-purple-300">
               Build Assistant
             </div>
             <div className="text-xs text-gray-400 font-medium">AI suggestions available</div>
@@ -403,6 +418,9 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
       </div>
       {expanded && (
         <div className="mt-2 space-y-3">
+          {sectionToggle("AI deck scan", scanOpen, () => setScanOpen((v) => !v))}
+          {scanOpen && (
+          <>
           {/* AI Deck Scan - Nested inside Build Assistant */}
           {healthMetrics && format?.toLowerCase() === 'commander' && (() => {
             const { lands, ramp, draw, removal } = healthMetrics;
@@ -546,9 +564,12 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               </div>
             );
           })()}
+          </>
+          )}
 
           {/* Constraints */}
-          <div className="text-[11px]">
+          {sectionToggle("Constraints", constraintsOpen, () => setConstraintsOpen((v) => !v))}
+          {constraintsOpen && <div className="text-[11px] rounded-lg border border-neutral-800 bg-neutral-950/35 p-3">
             <div className="opacity-80 mb-1">Constraints</div>
             {!editing ? (
               <div className="flex flex-wrap gap-1">
@@ -609,10 +630,11 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 </div>
               </form>
             )}
-          </div>
+          </div>}
 
           {/* Quick Actions */}
-          <div className="text-[11px]">
+          {sectionToggle("Quick actions", actionsOpen, () => setActionsOpen((v) => !v))}
+          {actionsOpen && <div className="text-[11px] rounded-lg border border-neutral-800 bg-neutral-950/35 p-3">
             <div className="opacity-90 mb-2 font-semibold flex items-center gap-1">
               <span>⚡</span> Quick Actions
             </div>
@@ -680,7 +702,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 </Link>
               ) : null}
             </div>
-          </div>
+          </div>}
         </div>
       )}
 

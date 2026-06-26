@@ -23,6 +23,7 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true); // Auto-expand on load
   const [hidePanel, setHidePanel] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     loadRecommendations();
@@ -118,7 +119,7 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
       {/* Expanded Content */}
       {!hidePanel && expanded && (
         <div className="border-t border-neutral-800 p-3 space-y-3 bg-neutral-900/30">
-          {recommendations.map((rec, index) => (
+          {(showAll ? recommendations : recommendations.slice(0, 2)).map((rec, index) => (
             <div
               key={index}
               className="flex gap-2 p-3 rounded-lg bg-neutral-900/50 hover:bg-neutral-800/50 transition-colors group border border-neutral-700/30"
@@ -162,11 +163,19 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
               </div>
             </div>
           ))}
+          {recommendations.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-900/70 px-3 py-2 text-xs font-semibold text-neutral-200 transition-colors hover:bg-neutral-800"
+            >
+              {showAll ? "Show fewer" : `Show more (${recommendations.length - 2})`}
+            </button>
+          )}
         </div>
       )}
       {hoverPreview}
     </div>
   );
 }
-
 

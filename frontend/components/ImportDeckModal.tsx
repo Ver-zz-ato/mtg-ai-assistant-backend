@@ -26,12 +26,21 @@ const FORMATS: Array<{ value: string; label: string }> = [
 ];
 
 
-type ImportMode = "paste" | "csv" | "csv-batch";
+type ImportMode = "paste" | "url" | "csv" | "csv-batch";
+
+function countDeckTextEntries(text: string): number {
+  if (!text.trim()) return 0;
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => !!line && !line.startsWith("#") && !line.startsWith("//")).length;
+}
 
 export default function ImportDeckModal({ open, onClose, onImported }: ImportDeckModalProps) {
   const [importMode, setImportMode] = useState<ImportMode>("paste");
   const [title, setTitle] = useState("Imported Deck");
   const [deckText, setDeckText] = useState("");
+  const [deckUrl, setDeckUrl] = useState("");
   const [format, setFormat] = useState<string>("Commander");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +59,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       setBusy(false);
       setError(null);
       setDeckText("");
+      setDeckUrl("");
       setTitle("Imported Deck");
       setFormat("Commander");
       setImportMode("paste");
@@ -66,11 +76,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
   }, [open]);
 
   const cardCount = useMemo(() => {
-    if (!deckText.trim()) return 0;
-    return deckText
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => !!line && !line.startsWith("#") && !line.startsWith("//")).length;
+    return countDeckTextEntries(deckText);
   }, [deckText]);
 
   const handleClose = () => {
@@ -79,13 +85,19 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
   };
 
   // Complete the import with validated/fixed deck text
-  const completeImport = useCallback(async (finalDeckText: string) => {
-    const deckTitle = title.trim() || "Imported Deck";
+  const completeImport = useCallback(async (
+    finalDeckText: string,
+    options?: { title?: string; format?: string; cardCount?: number; mode?: ImportMode }
+  ) => {
+    const deckTitle = (options?.title ?? title).trim() || "Imported Deck";
+    const selectedFormat = options?.format ?? format;
+    const selectedMode = options?.mode ?? importMode;
+    const selectedCardCount = options?.cardCount ?? cardCount;
 
     const payload = {
       title: deckTitle,
       deckText: finalDeckText.trim(),
-      format: format === "Other" ? undefined : format,
+      format: selectedFormat === "Other" ? undefined : selectedFormat,
       plan: "Optimized" as const,
       currency: "USD", // Default to USD, users can change on deck page
       is_public: false,
@@ -95,8 +107,8 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       capture("deck_import_attempted", {
         format: payload.format || "Other",
         plan: "Optimized",
-        card_count: cardCount,
-        mode: importMode,
+        card_count: selectedCardCount,
+        mode: selectedMode,
       });
     } catch {}
 
@@ -116,8 +128,8 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
         capture("deck_import_completed", {
           format: payload.format || "Other",
           plan: "Optimized",
-          card_count: cardCount,
-          mode: importMode,
+          card_count: selectedCardCount,
+          mode: selectedMode,
         });
       } catch {}
 
@@ -170,6 +182,10 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
       setError("Paste a decklist first.");
       return;
     }
+    if (importMode === "url" && !deckUrl.trim()) {
+      setError("Paste a Moxfield or Archidekt link first.");
+      return;
+    }
     if (importMode === "csv" && !deckText.trim()) {
       setError("Upload a CSV file first.");
       return;
@@ -181,14 +197,39 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
 
     setBusy(true);
     setError(null);
-    setValidationStatus("Validating card names...");
+    setValidationStatus(importMode === "url" ? "Fetching deck link..." : "Validating card names...");
 
     try {
+      let workingDeckText = deckText.trim();
+      let importTitle = title.trim() || "Imported Deck";
+      let importFormat = format;
+      let importCardCount = cardCount;
+
+      if (importMode === "url") {
+        const linkRes = await fetch("/api/decks/import-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: deckUrl.trim() }),
+        });
+        const linkJson = await linkRes.json().catch(() => ({}));
+        if (!linkRes.ok || !linkJson?.ok || !linkJson?.deckText) {
+          throw new Error(linkJson?.error || "Failed to read that deck URL");
+        }
+        importTitle = String(linkJson.title || "Imported Deck");
+        importFormat = String(linkJson.format || "Other");
+        workingDeckText = String(linkJson.deckText || "").trim();
+        importCardCount = countDeckTextEntries(workingDeckText);
+        setTitle(importTitle);
+        setFormat(importFormat);
+        setDeckText(workingDeckText);
+        setValidationStatus("Validating card names...");
+      }
+
       // First validate and get unrecognized cards
       const validateRes = await fetch("/api/deck/parse-and-fix-names", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deckText: deckText.trim() }),
+        body: JSON.stringify({ deckText: workingDeckText }),
       });
 
       const validateJson = await validateRes.json().catch(() => ({}));
@@ -223,7 +264,12 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
         .map((c: any) => `${c.qty} ${c.name}`)
         .join('\n');
       
-      await completeImport(correctedDeckText || deckText.trim());
+      await completeImport(correctedDeckText || workingDeckText, {
+        title: importTitle,
+        format: importFormat,
+        cardCount: importCardCount,
+        mode: importMode,
+      });
     } catch (err: any) {
       setBusy(false);
       setValidationStatus(null);
@@ -395,6 +441,18 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           </button>
           <button
             type="button"
+            onClick={() => setImportMode("url")}
+            disabled={busy}
+            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              importMode === "url"
+                ? "bg-blue-600 text-white"
+                : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+            }`}
+          >
+            Moxfield / Archidekt
+          </button>
+          <button
+            type="button"
             onClick={() => setImportMode("csv")}
             disabled={busy}
             className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
@@ -453,13 +511,6 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           </select>
         </div>
 
-        <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-3 text-sm">
-          <span className="font-medium text-neutral-200">Imported decks start private</span>
-          <span className="block text-xs text-neutral-500 mt-0.5">
-            You can make a deck public later after the title is clean and the list is complete for its format.
-          </span>
-        </div>
-
         {importMode === "paste" ? (
           <div className="space-y-1">
             <label className="text-xs text-neutral-400" htmlFor="import-deck-text">
@@ -477,6 +528,33 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
             <div className="text-[11px] text-neutral-500">
               {cardCount > 0 ? `Detected ${cardCount} card ${cardCount === 1 ? "entry" : "entries"}.` : "Supports numbers like \"3 Command Tower\" or raw card-per-line lists."}
             </div>
+          </div>
+        ) : importMode === "url" ? (
+          <div className="space-y-1">
+            <label className="text-xs text-neutral-400" htmlFor="import-deck-url">
+              Deck link
+            </label>
+            <input
+              id="import-deck-url"
+              type="url"
+              value={deckUrl}
+              onChange={(e) => setDeckUrl(e.target.value)}
+              disabled={busy}
+              placeholder="https://www.moxfield.com/decks/... or https://archidekt.com/decks/..."
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-blue-500 focus:outline-none"
+            />
+            <div className="text-[11px] text-neutral-500">
+              Imports public Moxfield and Archidekt deck pages, then runs the same card-name validation before saving.
+            </div>
+            {deckText && (
+              <div className="mt-2 p-2 rounded border border-neutral-700 bg-neutral-900/50 max-h-32 overflow-y-auto">
+                <div className="text-xs text-neutral-400 mb-1">Preview ({cardCount} entries):</div>
+                <pre className="text-xs text-neutral-300 whitespace-pre-wrap font-mono">
+                  {deckText.split("\n").slice(0, 10).join("\n")}
+                  {deckText.split("\n").length > 10 && "\n..."}
+                </pre>
+              </div>
+            )}
           </div>
         ) : importMode === "csv" ? (
           <div className="space-y-1">
@@ -647,7 +725,7 @@ export default function ImportDeckModal({ open, onClose, onImported }: ImportDec
           </button>
           <button
             type="submit"
-            disabled={busy || (importMode === "paste" && !deckText.trim()) || (importMode === "csv" && csvProgress > 0 && csvProgress < 100) || importMode === "csv-batch"}
+            disabled={busy || (importMode === "paste" && !deckText.trim()) || (importMode === "url" && !deckUrl.trim()) || (importMode === "csv" && csvProgress > 0 && csvProgress < 100) || importMode === "csv-batch"}
             className="rounded-lg bg-gradient-to-r from-emerald-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:from-emerald-500 hover:to-blue-500 disabled:opacity-50"
           >
             {busy 

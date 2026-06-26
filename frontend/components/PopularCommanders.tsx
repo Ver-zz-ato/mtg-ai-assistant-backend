@@ -1,5 +1,6 @@
 import { CommanderLinkWithHover } from "@/components/CommanderLinkWithHover";
 import { PopularCommandersRotator } from "@/components/PopularCommandersRotator";
+import { getCommanderBySlug } from "@/lib/commanders";
 import {
   getExternalMostPlayedCommanders,
   getExternalTrendingCommanders,
@@ -66,11 +67,15 @@ export async function PopularCommanders({
     ? formatMetaUpdatedPhrase(played.updatedAt)
     : played.snapshotDate ?? null;
 
-  const rotatorItems = commanders.map((commander) => ({
-    name: commander.name,
-    slug: commander.slug,
-    artUrl: imageMap.get(commanderNorm(commander.name)) ?? null,
-  }));
+  const rotatorItems = commanders.map((commander) => {
+    const guideProfile = getCommanderBySlug(commander.slug);
+    return {
+      name: commander.name,
+      slug: commander.slug,
+      artUrl: imageMap.get(commanderNorm(commander.name)) ?? null,
+      hasGuide: Boolean(guideProfile && guideProfile.hasGuide !== false),
+    };
+  });
 
   return (
     <section

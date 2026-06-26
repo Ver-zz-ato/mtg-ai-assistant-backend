@@ -390,10 +390,6 @@ export default function DeckSidebar({
           />
         </div>
       </div>
-      
-      {/* Probability Calculator - SIXTH (default hidden) */}
-      <DeckProbabilityWithHide deckId={deckId} isPro={isPro} format={format} />
-
       {nameConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="card-name-confirm-title">
           <div className="max-w-md w-full rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-xl">

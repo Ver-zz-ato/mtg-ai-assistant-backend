@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import CardDetailLink from "@/components/cards/CardDetailLink";
 import { PILL_BASE_CLASS, pillClassAt } from "@/lib/ui/accentPills";
 
 export type RotatorCommander = {
   name: string;
   slug: string;
   artUrl?: string | null;
+  hasGuide?: boolean;
 };
 
 const ROTATE_MS = 5000;
@@ -29,28 +31,46 @@ export function PopularCommandersRotator({ commanders }: { commanders: RotatorCo
   return (
     <div className="space-y-2">
       <div className="relative h-[8.5rem]">
-        {commanders.map((commander, i) => (
-          <Link
-            key={commander.slug}
-            href={`/commanders/${commander.slug}`}
-            className={`${PILL_BASE_CLASS} ${pillClassAt(i)} absolute left-0 top-0 w-full max-w-full gap-4 px-5 py-4 pr-6 text-base shadow-xl shadow-black/30 transition-all duration-500 ${
-              i === index
-                ? "z-10 translate-y-0 opacity-100"
-                : "pointer-events-none z-0 -translate-y-0.5 opacity-0"
-            }`}
-          >
-            {commander.artUrl ? (
-              <img
-                src={commander.artUrl}
-                alt=""
-                className="h-24 w-16 shrink-0 rounded-lg object-cover object-top"
-              />
-            ) : (
-              <span className="h-24 w-16 shrink-0 rounded-lg bg-neutral-800/80" aria-hidden />
-            )}
-            <span className="truncate">{commander.name}</span>
-          </Link>
-        ))}
+        {commanders.map((commander, i) => {
+          const className = `${PILL_BASE_CLASS} ${pillClassAt(i)} absolute left-0 top-0 w-full max-w-full gap-4 px-5 py-4 pr-6 text-base shadow-xl shadow-black/30 transition-all duration-500 ${
+            i === index
+              ? "z-10 translate-y-0 opacity-100"
+              : "pointer-events-none z-0 -translate-y-0.5 opacity-0"
+          }`;
+          const content = (
+            <>
+              {commander.artUrl ? (
+                <img
+                  src={commander.artUrl}
+                  alt=""
+                  className="h-24 w-16 shrink-0 rounded-lg object-cover object-top"
+                />
+              ) : (
+                <span className="h-24 w-16 shrink-0 rounded-lg bg-neutral-800/80" aria-hidden />
+              )}
+              <span className="truncate">{commander.name}</span>
+            </>
+          );
+
+          return commander.hasGuide ? (
+            <Link
+              key={commander.slug}
+              href={`/commanders/${commander.slug}`}
+              className={className}
+            >
+              {content}
+            </Link>
+          ) : (
+            <CardDetailLink
+              key={commander.slug}
+              cardName={commander.name}
+              imageNormal={commander.artUrl ?? undefined}
+              className={`${className} text-left`}
+            >
+              {content}
+            </CardDetailLink>
+          );
+        })}
       </div>
       {count > 1 ? (
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Popular commanders">

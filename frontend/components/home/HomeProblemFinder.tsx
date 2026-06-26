@@ -11,9 +11,6 @@ export default function HomeProblemFinder() {
         >
           What do you need help with today?
         </h2>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-neutral-400 sm:text-base">
-          Pick a problem and ManaTap will point you to the right tools.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">

@@ -63,7 +63,7 @@ export default function HomeVariantB() {
     <div className="max-w-4xl mx-auto px-4 py-8 mb-8">
       <div className="bg-gradient-to-br from-blue-900/30 via-purple-900/20 to-pink-900/30 rounded-2xl border border-blue-800/30 p-8">
         <h2 className="text-3xl font-bold text-white mb-4 text-center">
-          Analyze Your Deck Instantly
+          Check Your Deck Instantly
         </h2>
         <p className="text-center text-gray-300 mb-6">
           Get AI-powered insights on mana curve, synergies, and improvements
@@ -74,7 +74,7 @@ export default function HomeVariantB() {
             onClick={handleAnalyzeDeck}
             className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-lg transition-all transform hover:scale-105"
           >
-            📊 Analyze a Deck
+            📊 Check Your Deck
           </button>
           <button
             onClick={handleImportSample}

@@ -1,7 +1,5 @@
 import HomeHero from "./HomeHero";
 import HomeProblemFinder from "./HomeProblemFinder";
-import HomePopularTools from "./HomePopularTools";
-import HomeCommunityHighlights from "./HomeCommunityHighlights";
 import HomeTrendingSection from "./HomeTrendingSection";
 import HomeFaqSection from "./HomeFaqSection";
 import HomeProCta from "./HomeProCta";
@@ -13,8 +11,6 @@ export default function HybridHomePage() {
       <div className="relative mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
         <HomeHero />
         <HomeProblemFinder />
-        <HomePopularTools />
-        <HomeCommunityHighlights />
         <HomeTrendingSection />
         <HomeFaqSection />
         <HomeProCta />

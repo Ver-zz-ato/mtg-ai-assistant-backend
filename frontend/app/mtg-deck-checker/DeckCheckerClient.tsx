@@ -359,7 +359,7 @@ export default function DeckCheckerClient() {
           <div className="max-w-2xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
               <Sparkles className="h-3.5 w-3.5" aria-hidden />
-              Free MTG deck analyzer
+              Free MTG deck checker
             </div>
             <h1 className="max-w-xl text-4xl font-black leading-[0.95] tracking-normal text-white sm:text-5xl lg:text-6xl">
               MTG Deck Checker
@@ -440,7 +440,6 @@ export default function DeckCheckerClient() {
                       onChange={handleSavedDeckChange}
                       label="Load a saved deck"
                       placeholder="Paste below or pick a saved deck"
-                      className="[&_select]:border-white/10 [&_select]:bg-black/45 [&_span]:text-zinc-500"
                     />
                   </div>
                 ) : null}

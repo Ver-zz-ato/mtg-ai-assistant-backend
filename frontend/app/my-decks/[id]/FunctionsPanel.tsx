@@ -1,17 +1,24 @@
 "use client";
 import React from "react";
 import Link from "next/link";
+import NextDynamic from "next/dynamic";
 import ExportDropdown from "@/components/ExportDropdown";
 import DeckCsvUpload from "@/components/DeckCsvUpload";
 import RecomputeButton from "./RecomputeButton";
 import FixNamesModal from "./FixNamesModal";
 import DeckVersionHistory from "@/components/DeckVersionHistory";
 
-export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: string; isPublic: boolean; isPro: boolean }) {
+const DeckProbabilityPanel = NextDynamic(() => import("./DeckProbabilityPanel"), {
+  ssr: false,
+  loading: () => <div className="rounded-xl border border-neutral-800 p-3 text-xs opacity-70">Loading probability...</div>,
+});
+
+export default function FunctionsPanel({ deckId, isPublic, isPro, format }: { deckId: string; isPublic: boolean; isPro: boolean; format?: string }) {
   const [expanded, setExpanded] = React.useState(false); // Start collapsed
   const [allPanelsHidden, setAllPanelsHidden] = React.useState(false);
   const [pub, setPub] = React.useState<boolean>(isPublic);
   const [fixOpen, setFixOpen] = React.useState(false);
+  const [probOpen, setProbOpen] = React.useState(false);
   React.useEffect(() => { setPub(isPublic); }, [isPublic]);
   React.useEffect(() => {
     const h = (e: any) => { if (typeof e?.detail?.isPublic === 'boolean') setPub(!!e.detail.isPublic); };
@@ -64,6 +71,13 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
             </svg>
             Compare with other decks
           </Link>
+          <button
+            type="button"
+            onClick={() => setProbOpen(true)}
+            className="w-full px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 hover:border-cyan-500/60 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 text-neutral-200"
+          >
+            Probability Calculator
+          </button>
 
           {/* Hide/Show All Side Panels */}
           <button
@@ -90,6 +104,32 @@ export default function FunctionsPanel({ deckId, isPublic, isPro }: { deckId: st
         </div>
       )}
       {fixOpen && <FixNamesModal deckId={deckId} open={fixOpen} onClose={()=>setFixOpen(false)} />}
+      {probOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="deck-probability-title"
+          onClick={() => setProbOpen(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-neutral-700 bg-neutral-950 p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 id="deck-probability-title" className="text-base font-semibold text-white">Probability Calculator</h2>
+              <button
+                type="button"
+                onClick={() => setProbOpen(false)}
+                className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-800"
+              >
+                Close
+              </button>
+            </div>
+            <DeckProbabilityPanel deckId={deckId} isPro={isPro} format={format} />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

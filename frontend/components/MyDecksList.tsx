@@ -170,39 +170,42 @@ function MyDeckGridCard({
             </Link>
 
             <div className="p-4 flex-1 flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-2">
-                <Link href={`/my-decks/${r.id}`} className="font-semibold text-base truncate hover:underline flex-1" title={title}>{title}</Link>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <Link href={`/my-decks/${r.id}`} className="block truncate text-base font-bold leading-5 hover:underline" title={title}>{title}</Link>
+                  {r.commander ? (
+                    <div className="mt-1 truncate text-xs text-gray-400" title={r.commander}>
+                      Commander: {r.commander}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-xs text-gray-500">{formatLabel(r.format)}</div>
+                  )}
+                </div>
                 <button
                   onClick={(e) => { e.preventDefault(); deleteDeck(r.id, title); }}
-                  className="text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-70 hover:opacity-100 transition-opacity"
+                  className="shrink-0 text-xs text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-70 hover:opacity-100 transition-opacity"
                   aria-label="Delete deck"
                 >
                   Delete
                 </button>
               </div>
 
-              {r.commander && (
-                <div className="text-xs text-gray-400 truncate" title={r.commander}>
-                  Commander: {r.commander}
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex flex-1 items-center gap-1.5 overflow-hidden">
                   {(deckTags.get(r.id) || []).slice(0, 3).map((tag) => {
                     const def = getTagByLabel(tag);
                     const borderColor = def?.color?.replace('text-', 'border-') || 'border-neutral-600';
                     return (
                       <span
                         key={tag}
-                        className={`px-4 py-1.5 rounded-full text-xs font-medium border ${borderColor} ${def?.color || 'text-neutral-300'} bg-transparent`}
+                        className={`max-w-[92px] truncate rounded-full border px-2.5 py-1 text-[11px] font-medium ${borderColor} ${def?.color || 'text-neutral-300'} bg-transparent`}
                       >
                         {tag}
                       </span>
                     );
                   })}
                   {(deckTags.get(r.id) || []).length > 3 && (
-                    <span className="text-xs text-neutral-500">+{(deckTags.get(r.id) || []).length - 3}</span>
+                    <span className="shrink-0 text-xs text-neutral-500">+{(deckTags.get(r.id) || []).length - 3}</span>
                   )}
                 </div>
                 <button
@@ -210,31 +213,31 @@ function MyDeckGridCard({
                     e.preventDefault();
                     setTagModalOpen(r.id);
                   }}
-                  className="px-4 py-1.5 rounded-full text-xs font-medium border border-blue-600/30 text-blue-400 hover:text-blue-300 hover:bg-blue-600/10 transition-colors"
+                  className="shrink-0 rounded-full border border-blue-600/30 px-3 py-1 text-[11px] font-medium text-blue-400 transition-colors hover:bg-blue-600/10 hover:text-blue-300"
                   aria-label="Edit tags"
                 >
                   {deckTags.get(r.id)?.length ? '✏️' : '+ Tags'}
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="px-4 py-1.5 rounded-full bg-amber-600/15 border border-amber-600/25 text-amber-200 font-medium">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <span className="rounded-md border border-amber-600/25 bg-amber-600/15 px-3 py-2 font-medium text-amber-200">
                   {formatLabel(r.format)}
                 </span>
-                <span className="px-4 py-1.5 rounded-full bg-blue-600/20 border border-blue-600/30 text-blue-300 font-medium">
+                <span className="rounded-md border border-blue-600/30 bg-blue-600/20 px-3 py-2 font-medium text-blue-300">
                   <span className="opacity-70">Cards:</span> <b className="font-mono ml-1">{stats?.cardCount || '—'}</b>
                 </span>
                 {valueLabel && (
-                  <span className="px-4 py-1.5 rounded-full bg-emerald-600/15 border border-emerald-600/25 text-emerald-300 font-medium">
+                  <span className="rounded-md border border-emerald-600/25 bg-emerald-600/15 px-3 py-2 font-medium text-emerald-300">
                     <span className="opacity-70">Value:</span> <b className="font-mono ml-1">{valueLabel}</b>
                   </span>
                 )}
-                <span className={`px-4 py-1.5 rounded-full ${r.is_public ? 'bg-emerald-600/20 border border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border border-neutral-700/30 text-neutral-400'}`}>
+                <span className={`rounded-md px-3 py-2 font-medium ${r.is_public ? 'bg-emerald-600/20 border border-emerald-600/30 text-emerald-300' : 'bg-neutral-700/20 border border-neutral-700/30 text-neutral-400'}`}>
                   {r.is_public ? '🌐 Public' : '🔒 Private'}
                 </span>
               </div>
 
-              <div className="flex items-center gap-3 mt-auto pt-3 pb-1 border-t border-neutral-800">
+              <div className="mt-auto flex items-center justify-end gap-2 border-t border-neutral-800 pt-3">
                 {(() => {
                   try {
                     const Pin = require('@/components/PinDeckButton').default;
@@ -648,7 +651,7 @@ export default function MyDecksList({ rows, pinnedIds }: MyDecksListProps) {
           No decks match that filter.
         </div>
       ) : (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
         {visibleRows.map((r) => (
           <MyDeckGridCard
             key={r.id}

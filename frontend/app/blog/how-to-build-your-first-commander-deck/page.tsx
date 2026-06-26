@@ -114,7 +114,7 @@ Playtest your deck! You'll quickly learn:
 - What's missing
 - What to cut
 
-Use ManaTap AI's deck analyzer to get instant feedback on your deck's curve, synergy, and balance.
+Use ManaTap AI's deck checker to get instant feedback on your deck's curve, synergy, and balance.
 
 ## Common Beginner Mistakes to Avoid
 

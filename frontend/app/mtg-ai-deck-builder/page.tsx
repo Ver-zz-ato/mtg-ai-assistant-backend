@@ -6,9 +6,9 @@ import {
 } from '@/lib/seo/metadata';
 
 export const metadata: Metadata = {
-  title: 'MTG AI Deck Builder | Free Magic: The Gathering AI Deck Analyzer - ManaTap AI',
+  title: 'MTG AI Deck Builder | Free Magic: The Gathering AI Deck Checker - ManaTap AI',
   description: 'Build and analyze Magic: The Gathering decks with AI. Free MTG AI deck builder for Commander, Modern, and Standard. Get instant deck analysis, budget swaps, and personalized card suggestions.',
-  keywords: 'mtg ai deck builder, mtg ai, magic the gathering ai, ai deck builder mtg, commander ai deck builder, modern ai deck builder, standard ai deck builder, mtg deck analyzer ai',
+  keywords: 'mtg ai deck builder, mtg ai, magic the gathering ai, ai deck builder mtg, commander ai deck builder, modern ai deck builder, standard ai deck builder, mtg deck checker ai',
   alternates: {
     canonical: '/mtg-ai-deck-builder',
   },
@@ -34,7 +34,7 @@ function jsonLd() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "ManaTap AI - MTG AI Deck Builder",
-    "description": "AI-powered Magic: The Gathering deck builder and analyzer. Build and analyze decks for Commander, Modern, and Standard formats with instant AI analysis, budget optimization, and personalized card suggestions.",
+    "description": "AI-powered Magic: The Gathering deck builder and deck checker. Build and check decks for Commander, Modern, and Standard formats with instant AI analysis, budget optimization, and personalized card suggestions.",
     "url": "https://www.manatap.ai/mtg-ai-deck-builder",
     "applicationCategory": "GameApplication",
     "operatingSystem": "Web Browser",
@@ -51,7 +51,7 @@ function jsonLd() {
       "Standard deck builder AI",
       "Budget card swaps",
       "Mana curve optimization",
-      "Free MTG deck analyzer"
+      "Free MTG deck checker"
     ],
     "aggregateRating": {
       "@type": "AggregateRating",

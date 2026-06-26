@@ -56,6 +56,7 @@ export default async function MetaPage({ params }: Props) {
   if (!META_SLUGS.includes(slug as MetaSlug)) notFound();
 
   const title = getMetaTitle(slug as MetaSlug);
+  const hideExternalMetaChrome = slug === "trending-commanders";
   const isCommander =
     slug === "trending-commanders" ||
     slug === "most-played-commanders" ||
@@ -72,7 +73,7 @@ export default async function MetaPage({ params }: Props) {
     items = data.items;
     imageMap = data.imageMap;
     updatedAt = data.updatedAt;
-    description = "Commanders climbing in external EDHREC-order daily rank snapshots.";
+    description = "";
   } else if (slug === "most-played-commanders") {
     const data = await getExternalMostPlayedCommanders();
     items = data.items;
@@ -131,17 +132,19 @@ export default async function MetaPage({ params }: Props) {
 
         <MetaSectionHeader
           title={title}
-          description={description}
+          description={hideExternalMetaChrome ? undefined : description}
           stats={
-            statStripStats.length > 0 ? (
+            !hideExternalMetaChrome && statStripStats.length > 0 ? (
               <MetaStatStrip stats={statStripStats} />
             ) : undefined
           }
         />
 
-        <div className="mb-8">
-          <MetaSourceCallout summary={sourceSummary} compact scope="external" />
-        </div>
+        {!hideExternalMetaChrome ? (
+          <div className="mb-8">
+            <MetaSourceCallout summary={sourceSummary} compact scope="external" />
+          </div>
+        ) : null}
 
         {items.length > 0 ? (
           <>

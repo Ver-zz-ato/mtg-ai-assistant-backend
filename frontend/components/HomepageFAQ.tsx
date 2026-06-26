@@ -16,7 +16,7 @@ const faqItems: FAQItem[] = [
       "Yes. Guests can try ManaTap's core deck tools with limited usage. Signed-in free users get more analysis and saved deck features. Pro unlocks deeper tools such as advanced deck analysis, deck version history, budget swaps, and more detailed recommendations.",
   },
   {
-    question: 'How does the AI deck analyzer work?',
+    question: 'How does the deck checker work?',
     answer: (
       <div className="space-y-4">
         <p>ManaTap evaluates decks more like a deckbuilding assistant than a chatbot.</p>
@@ -165,11 +165,7 @@ export default function HomepageFAQ({
                   Straight answers about what ManaTap&apos;s AI can do, what it checks, and where
                   human deckbuilding still matters.
                 </p>
-              ) : (
-                <p className="mx-auto max-w-[32rem] text-center text-sm leading-6 text-slate-400">
-                  Quick answers about free vs Pro, AI help, and Commander support.
-                </p>
-              )}
+              ) : null}
             </div>
 
             {!compact ? (

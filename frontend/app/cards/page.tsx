@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardSearchCommandCenter from "@/components/cards/CardSearchCommandCenter";
 import CardsInfiniteList from "@/components/cards/CardsInfiniteList";
-import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
 import { SCRYFALL_META } from "@/lib/meta/scryfallGlobalMeta";
-import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { getAdmin } from "@/lib/supa";
 import { createClient } from "@/lib/supabase/server";
@@ -160,10 +158,7 @@ async function getGlobalMetaCards(): Promise<CardListRow[]> {
 }
 
 export default async function CardsIndexPage() {
-  const [cards, sourceSummary] = await Promise.all([
-    getGlobalMetaCards(),
-    getMetaSourceSummary(),
-  ]);
+  const cards = await getGlobalMetaCards();
 
   return (
     <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -176,12 +171,6 @@ export default async function CardsIndexPage() {
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-6">
           Top Commander Cards
         </h1>
-        <p className="text-neutral-300 mb-6 max-w-3xl text-lg leading-relaxed">
-          Most-played Commander cards blended from ManaTap public decks, Scryfall card data, and EDHREC-order global popularity signals. Explore staples, prices, oracle text, and commander synergies.
-        </p>
-        <div className="mb-8">
-          <MetaSourceCallout summary={sourceSummary} compact />
-        </div>
         <CardSearchCommandCenter />
         <section className="mt-10">
           <h2 className="text-2xl font-bold text-white">Top Commander Cards</h2>

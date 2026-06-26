@@ -45,7 +45,7 @@ const messageTemplates = [
   "the mana base is always the expensive part smh",
   "proxies are totally fine for casual imo",
   "finally got my hands on a {card}",
-  "this deck analyzer saved me so much time",
+  "this deck checker saved me so much time",
   "love how the mulligan sim works here",
   "the meta snapshot feature is actually useful",
   "just realized I've been playing {card} wrong for years",

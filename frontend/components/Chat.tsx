@@ -53,6 +53,20 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 
 const DEV = process.env.NODE_ENV !== "production";
 
+const CHAT_FORMAT_OPTIONS = [
+  { value: "commander", label: "Commander" },
+  { value: "standard", label: "Standard" },
+  { value: "modern", label: "Modern" },
+  { value: "pioneer", label: "Pioneer" },
+  { value: "pauper", label: "Pauper" },
+] as const;
+
+const CHAT_VALUE_OPTIONS = [
+  { value: "budget", label: "Budget" },
+  { value: "optimized", label: "Optimized" },
+  { value: "luxury", label: "Luxury" },
+] as const;
+
 /** Pro-only: Save format/budget/colors as default for all chats */
 function SavePreferencesButton({ format, budget, colors }: { format: string; budget: string; colors: string[] }) {
   const [saving, setSaving] = useState(false);
@@ -1664,70 +1678,6 @@ function Chat(props: ChatProps = {}) {
           onSuccess={() => setCorrectedMessageIds((prev) => [...prev, correctionOpenForMessageId!])}
         />
       )}
-      {/* Mobile-optimized Header - compact on mobile, visually striking on larger screens */}
-      <div className="relative p-2 sm:p-4 md:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-900 to-amber-950/20" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(251,191,36,0.12),transparent)]" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
-        <div className="relative flex items-center justify-center">
-          <div className="flex flex-col items-center gap-1">
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-center bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(251,191,36,0.3)]">
-                  ManaTap AI
-                </h2>
-                {isLoggedIn === false && (
-                  <button
-                    onClick={() => {
-                      capture(AnalyticsEvents.SIGNUP_CTA_CLICKED, {
-                        source: 'guest_mode_badge',
-                        message_count: guestMessageCount
-                      });
-                      window.dispatchEvent(new CustomEvent('open-auth-modal', { 
-                        detail: { mode: 'signup' } 
-                      }));
-                    }}
-                    className={`text-xs px-2 py-1 rounded-full transition-all cursor-pointer hover:scale-105 ${
-                      guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
-                        ? 'bg-red-900 text-red-200 animate-pulse'
-                        : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
-                        ? 'bg-amber-900 text-amber-200'
-                        : 'bg-yellow-900 text-yellow-200'
-                    }`}
-                    title={guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
-                      ? 'Only a few messages left! Sign up to continue'
-                      : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
-                      ? 'Sign up to save your chat history'
-                      : 'Click to sign up and save your progress'
-                    }
-                  >
-                    Guest Mode ({guestMessageCount}/{GUEST_MESSAGE_LIMIT})
-                  </button>
-                )}
-              </div>
-              {/* Progress bar for guest users */}
-              {isLoggedIn === false && guestMessageCount > 0 && (
-                <div className="w-full max-w-xs">
-                  <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        guestMessageCount >= GUEST_MESSAGE_LIMIT - 3
-                          ? 'bg-red-500'
-                          : guestMessageCount >= GUEST_MESSAGE_LIMIT - 5
-                          ? 'bg-amber-500'
-                          : 'bg-yellow-500'
-                      }`}
-                      style={{ width: `${(guestMessageCount / GUEST_MESSAGE_LIMIT) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      
       {/* Controls strip: Mode, Format, Value, overflow menu - compact, no scroll to allow menu popout */}
       <div className="p-2 sm:p-3 space-y-2 border-b border-neutral-800 flex-shrink-0 overflow-visible">
         {extrasOn && (
@@ -1774,46 +1724,59 @@ function Chat(props: ChatProps = {}) {
               </div>
             </div>
 
-            {/* Format and Value - reduced styling */}
+            {/* Format and Value - compact dropdowns; both feed the chat prompt context */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-neutral-500">Format:</span>
-                <div className="flex gap-0.5">
-                  {(['commander','standard','modern','pioneer','pauper'] as const).map(f => (
-                    <button
-                      key={f}
-                      onClick={()=>setFmt(f)}
-                      className={`px-2.5 py-1.5 rounded text-xs font-medium ${
-                        fmt===f
-                          ? 'bg-neutral-600 text-white border border-neutral-500'
-                          : 'bg-neutral-800/80 text-neutral-400 border border-neutral-700 hover:bg-neutral-700/80 hover:text-neutral-300'
-                      }`}
-                    >{f}</button>
+                <select
+                  value={fmt}
+                  onChange={(event) => setFmt(event.currentTarget.value as typeof fmt)}
+                  className="min-h-8 rounded border border-cyan-400/25 bg-neutral-950 px-2.5 py-1.5 text-xs font-semibold text-neutral-100 outline-none hover:border-cyan-300/45 focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/15"
+                  aria-label="Chat format"
+                >
+                  {CHAT_FORMAT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-neutral-500">Value:</span>
-                <div className="flex gap-0.5">
-                  {(['budget','optimized','luxury'] as const).map(b => (
-                    <button
-                      key={b}
-                      onClick={()=>setBudget(b)}
-                      className={`px-2.5 py-1.5 rounded text-xs font-medium ${
-                        budget===b
-                          ? 'bg-neutral-600 text-white border border-neutral-500'
-                          : 'bg-neutral-800/80 text-neutral-400 border border-neutral-700 hover:bg-neutral-700/80 hover:text-neutral-300'
-                      }`}
-                    >{b}</button>
+                <select
+                  value={budget}
+                  onChange={(event) => setBudget(event.currentTarget.value as typeof budget)}
+                  className="min-h-8 rounded border border-amber-400/25 bg-neutral-950 px-2.5 py-1.5 text-xs font-semibold text-neutral-100 outline-none hover:border-amber-300/45 focus:border-amber-300/70 focus:ring-2 focus:ring-amber-300/15"
+                  aria-label="Chat value preference"
+                >
+                  {CHAT_VALUE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
               {isPro && (
-                <SavePreferencesButton
-                  format={fmt}
-                  budget={budget}
-                  colors={Object.entries(colors).filter(([,v])=>v).map(([k])=>k)}
-                />
+                <div className="flex items-center gap-1.5">
+                  <SavePreferencesButton
+                    format={fmt}
+                    budget={budget}
+                    colors={Object.entries(colors).filter(([,v])=>v).map(([k])=>k)}
+                  />
+                  <span className="group relative inline-flex">
+                    <span
+                      tabIndex={0}
+                      role="button"
+                      className="flex h-5 w-5 items-center justify-center rounded-full border border-amber-500/45 bg-amber-950/40 text-[11px] font-bold text-amber-200 outline-none hover:bg-amber-900/70 focus:ring-2 focus:ring-amber-300/30"
+                      aria-label="Remember saves your selected format, value preference, and colors as defaults for future chats."
+                    >
+                      ?
+                    </span>
+                    <span className="pointer-events-none absolute left-1/2 top-[calc(100%+8px)] z-50 hidden w-56 -translate-x-1/2 rounded-md border border-amber-400/25 bg-neutral-950 px-3 py-2 text-xs leading-5 text-amber-50 shadow-2xl shadow-black/50 group-hover:block group-focus-within:block">
+                      Pro: saves your selected format, value preference, and colors as defaults for future chats.
+                    </span>
+                  </span>
+                </div>
               )}
             </div>
 

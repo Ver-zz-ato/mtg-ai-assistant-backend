@@ -9,9 +9,7 @@ import {
   GitCompare,
   HeartHandshake,
   LineChart,
-  ListChecks,
   Search,
-  ShieldCheck,
   Sparkles,
   Wand2,
   Wrench,
@@ -23,7 +21,7 @@ import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 export const metadata: Metadata = {
   title: "MTG Tools | ManaTap AI",
   description:
-    "ManaTap tools for deck building, deck analysis, mulligans, probability, budget swaps, price tracking, card search, QR sharing, collections, and Commander discovery.",
+    "ManaTap tools for deck building, deck analysis, mulligans, budget swaps, price tracking, card search, collections, and Commander discovery.",
   alternates: { canonical: "https://www.manatap.ai/tools" },
 };
 
@@ -41,8 +39,8 @@ type ToolDef = {
 
 const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent: string; tools: ToolDef[] }> = [
   {
-    title: "Start Here",
-    kicker: "Build, analyze, and learn what your deck is trying to do.",
+    title: "Build & Analyze",
+    kicker: "Create a list, check it, then test the hands that actually matter.",
     icon: Wand2,
     accent: "from-amber-300/70 to-violet-300/60",
     tools: [
@@ -56,17 +54,8 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         priority: "recommended",
       },
       {
-        href: CHAT_ROUTE,
-        title: "AI Chat",
-        subtitle: "Ask rules questions, tune your deck, and get focused MTG help.",
-        badge: "Limited",
-        icon: Bot,
-        accent: "text-fuchsia-200 border-fuchsia-300/25 bg-fuchsia-300/10",
-        priority: "popular",
-      },
-      {
-        href: "/analyze",
-        title: "Analyze a Deck",
+        href: "/mtg-deck-checker",
+        title: "Deck Checker",
         subtitle: "Paste a list and get curve, role, legality, and upgrade notes.",
         badge: "Limited",
         icon: Bot,
@@ -82,18 +71,19 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         accent: "text-rose-200 border-rose-300/25 bg-rose-300/10",
       },
       {
-        href: "/tools/mulligan#probability",
-        title: "Probability Calculator",
-        subtitle: "Now lives inside the Mulligan Lab for hand and draw-odds testing.",
-        badge: "Free",
-        icon: BarChart3,
-        accent: "text-sky-200 border-sky-300/25 bg-sky-300/10",
+        href: CHAT_ROUTE,
+        title: "AI Chat",
+        subtitle: "Ask rules questions, tune your deck, and get focused MTG help.",
+        badge: "Limited",
+        icon: Bot,
+        accent: "text-fuchsia-200 border-fuchsia-300/25 bg-fuchsia-300/10",
+        priority: "popular",
       },
     ],
   },
   {
-    title: "Improve Your Deck",
-    kicker: "Find cheaper swaps, compare lists, and finish missing slots.",
+    title: "Upgrade & Compare",
+    kicker: "Refine weak slots, lower costs, compare builds, and finish missing cards.",
     icon: Sparkles,
     accent: "from-emerald-300/70 to-cyan-300/55",
     tools: [
@@ -124,12 +114,12 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         priority: "recommended",
       },
       {
-        href: "/mtg-deck-checker",
-        title: "Deck Checker",
-        subtitle: "Paste a list and check curve, mana, roles, and weak slots.",
+        href: "/collections/cost-to-finish",
+        title: "Cost to Finish",
+        subtitle: "See what your deck still needs and what it costs from your collection.",
         badge: "Limited",
-        icon: ListChecks,
-        accent: "text-cyan-200 border-cyan-300/25 bg-cyan-300/10",
+        icon: Boxes,
+        accent: "text-orange-200 border-orange-300/25 bg-orange-300/10",
       },
     ],
   },
@@ -175,19 +165,11 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
     ],
   },
   {
-    title: "Extras",
-    kicker: "Sharing, discovery, and fun table-talk helpers.",
-    icon: ShieldCheck,
+    title: "Discover & Play",
+    kicker: "Find commanders, follow the meta, and add a little table-talk chaos.",
+    icon: BarChart3,
     accent: "from-teal-300/70 to-red-300/45",
     tools: [
-      {
-        href: "/tools/scan-qr",
-        title: "Scan QR",
-        subtitle: "Open ManaTap share links from decks, collections, cards, and reports.",
-        badge: "Free",
-        icon: ShieldCheck,
-        accent: "text-emerald-200 border-emerald-300/25 bg-emerald-300/10",
-      },
       {
         href: "/roast",
         title: "Roast My Deck",
@@ -211,6 +193,14 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         badge: "Free",
         icon: BarChart3,
         accent: "text-teal-200 border-teal-300/25 bg-teal-300/10",
+      },
+      {
+        href: "/decks/browse",
+        title: "Public Decks",
+        subtitle: "Browse public lists for ideas, commanders, and upgrade paths.",
+        badge: "Free",
+        icon: BookOpen,
+        accent: "text-amber-200 border-amber-300/25 bg-amber-300/10",
       },
     ],
   },
@@ -282,13 +272,13 @@ export default function ToolsIndexPage() {
         <div className="pointer-events-none absolute -right-20 bottom-0 h-48 w-48 rounded-full bg-teal-300/10 blur-3xl" />
         <div className="relative grid gap-5 lg:grid-cols-[1fr_300px] lg:items-center">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-amber-300">ManaTap toolbox</p>
-            <h1 className="mt-3 text-3xl font-black leading-tight text-white md:text-4xl">MTG tools that actually connect</h1>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-amber-300">ManaTap tools</p>
+            <h1 className="mt-3 text-3xl font-black leading-tight text-white md:text-4xl">Build, tune, and track better MTG decks</h1>
             <p className="mt-3 max-w-3xl text-base leading-7 text-neutral-300">
-              Build, analyze, compare, search, price, and share from one place. Free tools stay easy to reach; Pro and sign-in features are labelled before you click.
+              A cleaner hub for deck building, analysis, mulligans, upgrades, card search, prices, and collection workflows.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {["Free tools available", "Deck intelligence", "Pro tools labelled"].map((label) => (
+              {["Deck building", "Card search", "Collection workflows"].map((label) => (
                 <span key={label} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-neutral-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                   {label}
                 </span>

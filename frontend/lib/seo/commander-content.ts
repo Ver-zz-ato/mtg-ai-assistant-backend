@@ -448,6 +448,6 @@ export const BEST_CARDS_FAQ = [
   { q: "What roles should every Commander deck fill?", a: "Ramp, card draw, removal, and win conditions. Cover these before adding niche synergies." },
   { q: "How many ramp pieces do I need?", a: "Most Commander decks run 8-12 ramp effects. Lower curves need less; higher curves need more." },
   { q: "What counts as card draw?", a: "Any effect that puts cards into your hand. One-off draw is fine, but repeatable engines scale better." },
-  { q: "How do I find cards for my commander?", a: "Browse ManaTap's public decks, use the deck analyzer, or try the AI assistant for suggestions." },
+  { q: "How do I find cards for my commander?", a: "Browse ManaTap's public decks, use the deck checker, or try the AI assistant for suggestions." },
   { q: "Should I include combos?", a: "That depends on your playgroup. Combo is viable; ensure you have tutors or redundancy if you go that route." },
 ];

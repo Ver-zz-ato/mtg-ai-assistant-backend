@@ -3,8 +3,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStrategyBySlug, getAllStrategySlugs, getCommandersByStrategy } from "@/lib/archetypes";
 import { getGlobalMetaCommanders } from "@/lib/meta/global-meta-entities";
+import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
+import { CommanderCard } from "@/components/meta/CommanderCard";
 
 const BASE = "https://www.manatap.ai";
+
+function norm(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function faqJsonLd(questions: Array<{ q: string; a: string }>) {
   return JSON.stringify({
@@ -41,7 +52,10 @@ export default async function StrategyPage({ params }: Props) {
   if (!strategy) notFound();
 
   const commanders = await getCommandersByStrategy(slug);
-  const metaRows = await getGlobalMetaCommanders(150).catch(() => []);
+  const [metaRows, imageMap] = await Promise.all([
+    getGlobalMetaCommanders(150).catch(() => []),
+    getImagesForNamesCached(commanders.map((c) => c.name)),
+  ]);
   const metaBySlug = new Map(metaRows.map((row) => [row.slug, row]));
 
   const faqs = [
@@ -75,10 +89,28 @@ export default async function StrategyPage({ params }: Props) {
           <p>{strategy.intro}</p>
         </div>
 
+        <div className="mb-8 flex flex-wrap gap-2">
+          {strategy.tagMatches.slice(0, 8).map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-amber-100"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+
         {commanders.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-neutral-100 mb-4">Commanders</h2>
-            <ul className="grid gap-2 sm:grid-cols-2">
+          <section className="mb-10">
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <h2 className="text-xl font-semibold text-neutral-100">
+                {strategy.title} Commanders
+              </h2>
+              <span className="text-sm text-neutral-400">
+                {commanders.length} commander{commanders.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {commanders.map((c) => {
                 const meta = metaBySlug.get(c.slug);
                 const badge = meta?.trendingRank
@@ -86,21 +118,22 @@ export default async function StrategyPage({ params }: Props) {
                   : meta?.mostPlayedRank
                     ? `Meta #${meta.mostPlayedRank}`
                     : null;
+                const img = imageMap.get(norm(c.name));
+                const url = img?.art_crop ?? img?.normal ?? img?.small;
                 return (
-                <li key={c.slug} className="flex items-center gap-2">
-                  <Link href={`/commanders/${c.slug}`} className="text-blue-400 hover:underline">
-                    {c.name}
-                  </Link>
-                  {badge ? (
-                    <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
-                      {badge}
-                    </span>
-                  ) : null}
-                </li>
+                  <CommanderCard
+                    key={c.slug}
+                    item={{
+                      name: c.name,
+                      slug: c.slug,
+                      metaLabel: badge ?? strategy.title,
+                    }}
+                    imageUrl={url}
+                  />
                 );
               })}
-            </ul>
-          </div>
+            </div>
+          </section>
         )}
 
         <h2 className="text-xl font-semibold text-neutral-100 mb-4">Related Tools</h2>

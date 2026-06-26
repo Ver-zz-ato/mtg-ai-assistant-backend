@@ -11,7 +11,7 @@ type Params = { id: string };
 export default async function Page({ params }: { params: Promise<Params> }) {
   const { id } = await params;
   return (
-    <main className="mx-auto max-w-7xl p-6">
+    <main className="mx-auto max-w-[1760px] p-6">
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1 min-w-0 space-y-4">
           <header className="space-y-4">
@@ -25,7 +25,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           </header>
           <CollectionEditor collectionId={id} mode="page" />
         </div>
-        <aside className="lg:w-[360px] shrink-0">
+        <aside className="lg:w-[380px] shrink-0">
           <div className="lg:sticky lg:top-6">
             <Suspense
               fallback={

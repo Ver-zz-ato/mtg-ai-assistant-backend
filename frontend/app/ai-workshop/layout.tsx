@@ -52,17 +52,6 @@ const IntroBlock = () => (
     aria-label="About AI Workshop"
   >
     <h2 className="text-xl md:text-2xl font-bold text-white mb-3">AI Workshop</h2>
-    <p className="text-neutral-300 mb-3 text-sm">
-      Load a decklist and run targeted AI passes: general cleanup, mana base, curve, interaction,
-      lower budget, raise power, make more casual, or fix legality. Review adds and cuts before
-      applying, then save a refined deck to your account.
-    </p>
-    <h2 className="text-base font-semibold text-neutral-100 mb-2">How it works</h2>
-    <p className="text-neutral-300 mb-3 text-sm">
-      Paste a list or pick a saved deck, choose a pass, tune power/budget and constraints, then
-      run. Most passes use the deck transform engine; the budget pass uses validated cheaper swaps.
-      Sign in to run — free users get 5 passes per day.
-    </p>
     <h2 className="text-base font-semibold text-neutral-100 mb-2">FAQ</h2>
     <dl className="space-y-2 text-neutral-300 text-sm">
       {FAQ.map(({ q, a }) => (

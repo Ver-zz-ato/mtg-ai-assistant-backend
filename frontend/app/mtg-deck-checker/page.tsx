@@ -5,7 +5,7 @@ import {
   SOCIAL_PREVIEW_TWITTER_IMAGE_URL,
 } from "@/lib/seo/metadata";
 
-const title = "MTG Deck Checker | Free Magic Deck Analyzer & Deck Rater";
+const title = "MTG Deck Checker | Free Magic Deck Checker & Deck Rater";
 const description =
   "Paste any Magic: The Gathering decklist and check legality, mana curve, lands, ramp, draw, removal, and upgrade suggestions. Free MTG deck checker for Commander, Modern, Standard, Pioneer, and Pauper.";
 
@@ -14,11 +14,10 @@ export const metadata: Metadata = {
   description,
   keywords: [
     "MTG deck checker",
-    "MTG deck analyzer",
     "Magic deck checker",
     "deck checker MTG",
     "MTG deck rater",
-    "EDH deck analyzer",
+    "EDH deck checker",
     "Commander deck checker",
   ],
   alternates: {
@@ -58,7 +57,7 @@ function jsonLd() {
           priceCurrency: "USD",
         },
         featureList: [
-          "MTG decklist analysis",
+          "MTG decklist checks",
           "Commander and constructed format checks",
           "Mana curve review",
           "Land, ramp, draw, and removal counts",

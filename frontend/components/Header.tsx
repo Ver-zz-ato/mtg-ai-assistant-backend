@@ -14,6 +14,48 @@ import { MANATAP_DISCORD_INVITE_URL } from '@/lib/manatap-links';
 const desktopNavLinkBase =
   'whitespace-nowrap shrink-0 text-[13px] xl:text-sm font-medium px-1 xl:px-1.5 py-0.5 rounded transition-all hover:underline';
 
+const desktopDropdownLinkBase =
+  'block px-4 py-2.5 text-sm font-medium transition-colors hover:bg-neutral-800';
+
+function DesktopNavDropdown({
+  label,
+  colorClass,
+  items,
+}: {
+  label: string;
+  colorClass: string;
+  items: Array<{ href: string; label: string; eventLabel: string }>;
+}) {
+  return (
+    <div className="group relative shrink-0">
+      <button
+        type="button"
+        className={`${desktopNavLinkBase} ${colorClass} flex items-center gap-0.5`}
+        aria-haspopup="menu"
+      >
+        {label}
+        <span className="text-xs" aria-hidden="true">▾</span>
+      </button>
+      <div
+        role="menu"
+        className="invisible absolute left-0 top-full z-50 w-48 rounded-lg border border-neutral-700 bg-neutral-950/95 py-2 text-neutral-100 opacity-0 shadow-xl shadow-black/40 transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+      >
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            role="menuitem"
+            className={`${desktopDropdownLinkBase} ${colorClass}`}
+            onClick={() => capture('nav_link_clicked', { destination: item.href, source: 'header', group: item.eventLabel })}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Header() {
   const [isHydrated, setIsHydrated] = useState(false);
   const supabase = useMemo(() => createBrowserSupabaseClient(), []); // Use singleton
@@ -317,7 +359,6 @@ export default function Header() {
             className={`${desktopNavLinkBase} text-green-500 flex items-center gap-1 hover:bg-green-500/10 hover:shadow-sm`}
             onClick={() => capture('nav_link_clicked', { destination: '/changelog', source: 'header' })}
           >
-            <span className="text-xs">✨</span>
             What's New
           </Link>
           <Link 
@@ -327,13 +368,30 @@ export default function Header() {
           >
             Blog
           </Link>
-          <Link 
-            href="/decks/browse" 
-            className={`${desktopNavLinkBase} text-purple-400 hover:bg-purple-400/10 hover:shadow-sm`}
-            onClick={() => capture('nav_link_clicked', { destination: '/decks/browse', source: 'header' })}
+          <DesktopNavDropdown
+            label="Explore"
+            colorClass="text-purple-400 hover:bg-purple-400/10 hover:shadow-sm"
+            items={[
+              { href: "/decks/browse", label: "Decks", eventLabel: "explore" },
+              { href: "/cards", label: "Cards", eventLabel: "explore" },
+              { href: "/commanders", label: "Commanders", eventLabel: "explore" },
+            ]}
+          />
+          <DesktopNavDropdown
+            label="✨ AI"
+            colorClass="text-fuchsia-400 hover:bg-fuchsia-400/10 hover:shadow-sm"
+            items={[
+              { href: "/chat", label: "AI Chat", eventLabel: "ai" },
+              { href: "/ai-workshop", label: "AI Workshop", eventLabel: "ai" },
+              { href: "/mtg-deck-checker", label: "Deck Checker", eventLabel: "ai" },
+            ]}
+          />
+          <Link
+            href="/tools"
+            className={`${desktopNavLinkBase} text-emerald-400 hover:bg-emerald-400/10 hover:shadow-sm`}
+            onClick={() => capture('nav_link_clicked', { destination: '/tools', source: 'header' })}
           >
-            <span className="hidden 2xl:inline">Browse Decks</span>
-            <span className="2xl:hidden">Browse</span>
+            Tools
           </Link>
           <Link 
             href="/build-a-deck" 
@@ -342,43 +400,6 @@ export default function Header() {
           >
             <span className="hidden 2xl:inline">Deck Builder</span>
             <span className="2xl:hidden">Builder</span>
-          </Link>
-          <Link
-            href="/chat"
-            className={`${desktopNavLinkBase} text-fuchsia-400 hover:bg-fuchsia-400/10 hover:shadow-sm`}
-            onClick={() => capture('nav_link_clicked', { destination: '/chat', source: 'header' })}
-          >
-            AI Chat
-          </Link>
-          <Link
-            href="/ai-workshop"
-            className={`${desktopNavLinkBase} text-violet-400 hover:bg-violet-400/10 hover:shadow-sm`}
-            onClick={() => capture('nav_link_clicked', { destination: '/ai-workshop', source: 'header' })}
-          >
-            <span className="hidden 2xl:inline">AI Workshop</span>
-            <span className="2xl:hidden">Workshop</span>
-          </Link>
-          <Link
-            href="/mtg-deck-checker"
-            className={`${desktopNavLinkBase} text-amber-400 hover:bg-amber-400/10 hover:shadow-sm`}
-            onClick={() => capture('nav_link_clicked', { destination: '/mtg-deck-checker', source: 'header' })}
-          >
-            <span className="hidden 2xl:inline">Analyze a Deck</span>
-            <span className="2xl:hidden">Analyze</span>
-          </Link>
-          <Link
-            href="/cards"
-            className={`${desktopNavLinkBase} text-orange-300 hover:bg-orange-300/10 hover:shadow-sm`}
-            onClick={() => capture('nav_link_clicked', { destination: '/cards', source: 'header' })}
-          >
-            Cards
-          </Link>
-          <Link 
-            href="/commanders" 
-            className={`${desktopNavLinkBase} text-indigo-400 hover:bg-indigo-400/10 hover:shadow-sm`}
-            onClick={() => capture('nav_link_clicked', { destination: '/commanders', source: 'header' })}
-          >
-            Commanders
           </Link>
           <Link 
             href="/pricing" 
@@ -563,7 +584,6 @@ export default function Header() {
                 setMobileMenuOpen(false);
               }}
             >
-              <span className="text-xs">✨</span>
               What's New
             </Link>
             <Link
@@ -576,18 +596,49 @@ export default function Header() {
             >
               Blog
             </Link>
-            <Link 
-              href="/decks/browse" 
-              className="block min-h-[44px] py-2 px-1 text-sm text-purple-400 font-medium flex items-center touch-manipulation"
+            <div className="block min-h-[44px] py-2 px-1 text-sm text-purple-400 font-medium flex items-center">Explore</div>
+            <Link
+              href="/decks/browse"
+              className="block min-h-[44px] py-2 px-2 text-sm text-purple-300 font-medium rounded transition-all hover:bg-purple-400/10 flex items-center touch-manipulation"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/decks/browse', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/decks/browse', source: 'mobile_menu', group: 'explore' });
                 setMobileMenuOpen(false);
               }}
             >
-              Browse Decks
+              Decks
             </Link>
-            <Link 
-              href="/build-a-deck" 
+            <Link
+              href="/cards"
+              className="block min-h-[44px] py-2 px-2 text-sm text-orange-300 font-medium rounded transition-all hover:bg-orange-300/10 flex items-center touch-manipulation"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/cards', source: 'mobile_menu', group: 'explore' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Cards
+            </Link>
+            <Link
+              href="/commanders"
+              className="block min-h-[44px] py-2 px-2 text-sm text-indigo-400 font-medium rounded transition-all hover:bg-indigo-400/10 flex items-center touch-manipulation"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/commanders', source: 'mobile_menu', group: 'explore' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Commanders
+            </Link>
+            <Link
+              href="/tools"
+              className="block min-h-[44px] py-2 px-1 text-sm text-emerald-400 font-medium flex items-center touch-manipulation"
+              onClick={() => {
+                capture('nav_link_clicked', { destination: '/tools', source: 'mobile_menu' });
+                setMobileMenuOpen(false);
+              }}
+            >
+              Tools
+            </Link>
+            <Link
+              href="/build-a-deck"
               className="block min-h-[44px] py-2 px-1 text-sm text-blue-400 font-medium flex items-center touch-manipulation"
               onClick={() => {
                 capture('nav_link_clicked', { destination: '/build-a-deck', source: 'mobile_menu' });
@@ -596,11 +647,12 @@ export default function Header() {
             >
               Deck Builder
             </Link>
+            <div className="block min-h-[44px] py-2 px-1 text-sm text-fuchsia-400 font-medium flex items-center">✨ AI</div>
             <Link
               href="/chat"
-              className="block min-h-[44px] py-2 px-1 text-sm text-fuchsia-400 font-medium flex items-center touch-manipulation"
+              className="block min-h-[44px] py-2 px-2 text-sm text-fuchsia-300 font-medium rounded transition-all hover:bg-fuchsia-400/10 flex items-center touch-manipulation"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/chat', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/chat', source: 'mobile_menu', group: 'ai' });
                 setMobileMenuOpen(false);
               }}
             >
@@ -608,9 +660,9 @@ export default function Header() {
             </Link>
             <Link
               href="/ai-workshop"
-              className="block min-h-[44px] py-2 px-1 text-sm text-violet-400 font-medium flex items-center touch-manipulation"
+              className="block min-h-[44px] py-2 px-2 text-sm text-violet-400 font-medium rounded transition-all hover:bg-violet-400/10 flex items-center touch-manipulation"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/ai-workshop', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/ai-workshop', source: 'mobile_menu', group: 'ai' });
                 setMobileMenuOpen(false);
               }}
             >
@@ -618,33 +670,13 @@ export default function Header() {
             </Link>
             <Link
               href="/mtg-deck-checker"
-              className="block min-h-[44px] py-2 px-1 text-sm text-amber-400 font-medium flex items-center touch-manipulation"
+              className="block min-h-[44px] py-2 px-2 text-sm text-amber-400 font-medium rounded transition-all hover:bg-amber-400/10 flex items-center touch-manipulation"
               onClick={() => {
-                capture('nav_link_clicked', { destination: '/mtg-deck-checker', source: 'mobile_menu' });
+                capture('nav_link_clicked', { destination: '/mtg-deck-checker', source: 'mobile_menu', group: 'ai' });
                 setMobileMenuOpen(false);
               }}
             >
-              Analyze a Deck
-            </Link>
-            <Link
-              href="/cards"
-              className="block min-h-[44px] py-2 px-1 text-sm text-orange-300 font-medium flex items-center touch-manipulation"
-              onClick={() => {
-                capture('nav_link_clicked', { destination: '/cards', source: 'mobile_menu' });
-                setMobileMenuOpen(false);
-              }}
-            >
-              Cards
-            </Link>
-            <Link 
-              href="/commanders" 
-              className="block min-h-[44px] py-2 px-1 text-sm text-indigo-400 font-medium flex items-center touch-manipulation"
-              onClick={() => {
-                capture('nav_link_clicked', { destination: '/commanders', source: 'mobile_menu' });
-                setMobileMenuOpen(false);
-              }}
-            >
-              Commanders
+              Deck Checker
             </Link>
             <Link 
               href="/pricing" 

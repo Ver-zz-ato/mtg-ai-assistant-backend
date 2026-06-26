@@ -36,7 +36,7 @@ function BarList({ data, total, colors, onClick }: { data: Array<{ label:string;
   );
 }
 
-function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick }: { collectionId: string; currency: 'USD'|'EUR'|'GBP'; onTypeClick?: (t:string)=>void; onBucketClick?: (b:string)=>void }){
+function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick, mode = "all" }: { collectionId: string; currency: 'USD'|'EUR'|'GBP'; onTypeClick?: (t:string)=>void; onBucketClick?: (b:string)=>void; mode?: "all" | "type" | "price" }){
   const [typeData, setTypeData] = React.useState<Array<{ label:string; value:number }>>([]);
   const [buckets, setBuckets] = React.useState<Array<{ label:string; value:number }>>([]);
   React.useEffect(()=>{ (async()=>{
@@ -101,26 +101,37 @@ function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick }: 
       setBuckets(allBrackets.map(label => ({ label, value: 0 })));
     }
   })(); }, [collectionId, currency]);
+  const typePanel = (
+    <details open={mode !== "all"} className="rounded-xl border border-neutral-700/60 bg-gradient-to-b from-neutral-900/80 to-neutral-950/80 shadow-md">
+      <summary className="cursor-pointer select-none px-4 py-2.5 list-none">
+        <div className="flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-sky-400/70 animate-pulse shadow-sm shadow-sky-400/30"></div>
+          <span className="text-sm font-semibold text-neutral-300">Type histogram</span>
+        </div>
+      </summary>
+      <div className="p-3"><BarList data={typeData} onClick={(label)=> onTypeClick?.(label)} /></div>
+    </details>
+  );
+
+  const pricePanel = (
+    <details open={mode !== "all"} className="rounded-xl border border-neutral-700/60 bg-gradient-to-b from-neutral-900/80 to-neutral-950/80 shadow-md">
+      <summary className="cursor-pointer select-none px-4 py-2.5 list-none">
+        <div className="flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-green-400/70 animate-pulse shadow-sm shadow-green-400/30"></div>
+          <span className="text-sm font-semibold text-neutral-300">Price distribution</span>
+        </div>
+      </summary>
+      <div className="p-3"><BarList data={buckets} onClick={(label)=> onBucketClick?.(label)} /></div>
+    </details>
+  );
+
+  if (mode === "type") return typePanel;
+  if (mode === "price") return pricePanel;
+
   return (
     <>
-      <details className="rounded-xl border border-neutral-700/60 bg-gradient-to-b from-neutral-900/80 to-neutral-950/80 shadow-md">
-        <summary className="cursor-pointer select-none px-4 py-2.5 list-none">
-          <div className="flex items-center gap-2">
-            <div className="h-1 w-1 rounded-full bg-sky-400/70 animate-pulse shadow-sm shadow-sky-400/30"></div>
-            <span className="text-sm font-semibold text-neutral-300">Type histogram</span>
-          </div>
-        </summary>
-        <div className="p-3"><BarList data={typeData} onClick={(label)=> onTypeClick?.(label)} /></div>
-      </details>
-      <details className="rounded-xl border border-neutral-700/60 bg-gradient-to-b from-neutral-900/80 to-neutral-950/80 shadow-md">
-        <summary className="cursor-pointer select-none px-4 py-2.5 list-none">
-          <div className="flex items-center gap-2">
-            <div className="h-1 w-1 rounded-full bg-green-400/70 animate-pulse shadow-sm shadow-green-400/30"></div>
-            <span className="text-sm font-semibold text-neutral-300">Price distribution</span>
-          </div>
-        </summary>
-        <div className="p-3"><BarList data={buckets} onClick={(label)=> onBucketClick?.(label)} /></div>
-      </details>
+      {typePanel}
+      {pricePanel}
     </>
   );
 }
@@ -402,6 +413,9 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const [pendingAddQty, setPendingAddQty] = React.useState<number>(1);
   const [searchModalOpen, setSearchModalOpen] = React.useState(false);
   const [searchModalQuery, setSearchModalQuery] = React.useState('');
+  const [searchPanelOpen, setSearchPanelOpen] = React.useState(false);
+  const [searchAdvancedOpen, setSearchAdvancedOpen] = React.useState(false);
+  const [statsModal, setStatsModal] = React.useState<null | "colors" | "types" | "prices" | "sets">(null);
   const { isPro } = useProStatus();
   const { user: authUser } = useAuth();
   /** Deck usage for “in your decks” badge, filters, and card detail modal (fail-open). */
@@ -1051,9 +1065,70 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
           id={collectionId} 
           onFix={() => setFixModalOpen(true)} 
         />
+
+        <div className="rounded-xl border border-cyan-500/25 bg-neutral-950/70 p-4 shadow-lg">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300/80">Collection overview</div>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-lg border border-neutral-800 bg-black/30 p-3">
+                  <div className="text-xs text-neutral-500">Cards</div>
+                  <div className="text-lg font-bold text-cyan-300">{totalCards}</div>
+                </div>
+                <div className="rounded-lg border border-neutral-800 bg-black/30 p-3">
+                  <div className="text-xs text-neutral-500">Unique</div>
+                  <div className="text-lg font-bold text-cyan-300">{unique}</div>
+                </div>
+                <div className="rounded-lg border border-neutral-800 bg-black/30 p-3 sm:col-span-2">
+                  <div className="text-xs text-neutral-500">Value</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-lg font-bold text-cyan-300">{valueUSD!=null? new Intl.NumberFormat(undefined, { style:'currency', currency }).format(valueUSD): '-'}</div>
+                    <select value={currency} onChange={e=>setPrefCurrency?.(e.target.value)} className="bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs"><option>USD</option><option>EUR</option><option>GBP</option></select>
+                    <button onClick={refreshValue} disabled={priceLoading} className="rounded border border-emerald-500/40 px-2 py-1 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/10 disabled:opacity-50">{priceLoading ? 'Refreshing...' : 'Refresh'}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <details className="rounded-lg border border-neutral-800 bg-black/25 p-3 xl:min-w-[360px]">
+              <summary className="cursor-pointer select-none text-sm font-semibold text-neutral-200">Advanced stats</summary>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" onClick={()=>setStatsModal("colors")} className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-left text-sm text-purple-100 hover:bg-purple-500/15">Color pie</button>
+                <button type="button" onClick={()=>setStatsModal("types")} className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-left text-sm text-sky-100 hover:bg-sky-500/15">Type histogram</button>
+                <button type="button" onClick={()=>setStatsModal("prices")} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-left text-sm text-emerald-100 hover:bg-emerald-500/15">Price distribution</button>
+                <button type="button" onClick={()=>setStatsModal("sets")} className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-left text-sm text-indigo-100 hover:bg-indigo-500/15">Sets</button>
+              </div>
+            </details>
+          </div>
+          {priceError ? <div className="mt-2 text-xs text-amber-400" title={priceError}>Some prices unavailable</div> : null}
+        </div>
+
+        <div className="rounded-xl border border-neutral-800 bg-black/25 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={()=>setSearchPanelOpen(v=>!v)}
+              className="rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/15"
+            >
+              {searchPanelOpen ? 'Hide search' : 'Search within collection'}
+            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {filterText.trim() && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-neutral-800 border border-neutral-700 text-xs">
+                  <span className="text-neutral-400">Filtering to:</span>
+                  <span className="font-medium text-neutral-200 truncate max-w-[160px]" title={filterText}>{filterText}</span>
+                  <button type="button" onClick={()=> setFilterText('')} className="text-neutral-500 hover:text-neutral-200" aria-label="Clear filter">x</button>
+                </span>
+              )}
+              {activeFilterCount > 0 ? <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-200">{activeFilterCount} advanced</span> : null}
+              <button onClick={saveAll} disabled={!changed||busySave} className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">{busySave?'Saving...':'Save'}</button>
+              <button onClick={()=>{ setPending(new Map()); reload(); }} disabled={busySave} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
+            </div>
+          </div>
+        </div>
         
-        {/* Sticky Save/Cancel + Search */}
-        <div className="sticky top-0 z-10 bg-neutral-950/95 backdrop-blur px-0 pt-0 pb-3 border-b border-neutral-900">
+        {/* Search / advanced filters */}
+        {searchPanelOpen && (
+        <div className="z-10 bg-neutral-950/95 backdrop-blur px-0 pt-0 pb-3 border-b border-neutral-900">
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-800 bg-black/20 p-3">
             <label className="flex min-w-[240px] flex-1 items-center gap-2 text-sm font-medium">Search<input ref={searchRef} value={filterText} onChange={e=>setFilterText(e.target.value)} className="min-w-0 flex-1 bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"/></label>
             <button type="button" onClick={()=> setSearchModalOpen(true)} className="px-3 py-1.5 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">Filter to card...</button>
@@ -1203,6 +1278,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             )}
           </div>
         </div>
+        )}
 
         {/* Add row */}
         <div className="flex items-center gap-2 px-0">
@@ -1291,7 +1367,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
       {/* Right: stats/tools panels - prevent horizontal scroll */}
       <aside className="h-full overflow-x-hidden overflow-y-auto space-y-3 lg:col-span-1 xl:col-span-3 min-w-0">
         {/* Overview - Visually dominant */}
-        <div className="rounded-xl border-2 border-neutral-600 bg-gradient-to-b from-neutral-900/95 to-neutral-950 shadow-xl">
+        <div className="hidden rounded-xl border-2 border-neutral-600 bg-gradient-to-b from-neutral-900/95 to-neutral-950 shadow-xl">
           <div className="p-5 space-y-3">
             <div className="flex items-center gap-2 mb-3">
               <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50"></div>
@@ -1309,7 +1385,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
           </div>
         </div>
         {/* Wishlist compare - Moved up below Overview */}
-        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+        <details open className="hidden rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
           <summary className="cursor-pointer select-none px-4 py-3 list-none">
             <div className="flex items-center gap-2">
               <div className="h-1 w-1 rounded-full bg-pink-400 animate-pulse shadow-lg shadow-pink-400/50"></div>
@@ -1322,7 +1398,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
           </div>
         </details>
         
-        <details open className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+        <details open className="hidden rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
           <summary className="cursor-pointer select-none px-4 py-3 list-none">
             <div className="flex items-center gap-2">
               <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse shadow-lg shadow-purple-400/50"></div>
@@ -1370,12 +1446,14 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             <CollectionPriceHistory collectionId={collectionId} currency={currency} />
           </div>
         </details>
-        {/* Analytics (advanced) hidden by default */}
+        {/* Analytics moved to overview modal */}
+        {false && (
         <AnalyticsCards collectionId={collectionId} currency={currency}
           onTypeClick={(t)=> setFilterTypes(p=> p.includes(t)? p : [...p,t])}
           onBucketClick={(b)=>{ const m:any = { '<$1':'<1', '$1–5':'1-5', '$5–20':'5-20', '$20–50':'20-50', '$50–100':'50-100', '$100+':'100+' }; setFilterPriceBand(m[b]||''); }}
         />
-        <details className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
+        )}
+        <details className="hidden rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 shadow-lg">
           <summary className="cursor-pointer select-none px-4 py-3 list-none">
             <div className="flex items-center gap-2">
               <div className="h-1 w-1 rounded-full bg-indigo-400 animate-pulse shadow-lg shadow-indigo-400/50"></div>
@@ -1474,6 +1552,35 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
             <div className="mt-4 flex justify-end">
               <button type="button" onClick={()=> { setSearchModalOpen(false); setSearchModalQuery(''); }} className="px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-sm font-medium transition-colors">Cancel</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {statsModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setStatsModal(null)}>
+          <div className="max-w-2xl w-full rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl" onClick={(e)=> e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-bold text-neutral-100">
+                {statsModal === "colors" ? "Color pie" : statsModal === "types" ? "Type histogram" : statsModal === "prices" ? "Price distribution" : "Sets"}
+              </h3>
+              <button type="button" onClick={()=>setStatsModal(null)} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800">Close</button>
+            </div>
+            {statsModal === "colors" ? (
+              <div className="rounded-xl border border-neutral-800 bg-black/25 p-4"><ColorPie /></div>
+            ) : null}
+            {statsModal === "types" ? (
+              <AnalyticsCards collectionId={collectionId} currency={currency} mode="type" onTypeClick={(t)=> setFilterTypes(p=> p.includes(t)? p : [...p,t])} />
+            ) : null}
+            {statsModal === "prices" ? (
+              <AnalyticsCards collectionId={collectionId} currency={currency} mode="price" onBucketClick={(b)=>{ const m:any = { '<$1':'<1', '$1â€“5':'1-5', '$5â€“20':'5-20', '$20â€“50':'20-50', '$50â€“100':'50-100', '$100+':'100+' }; setFilterPriceBand(m[b]||''); }} />
+            ) : null}
+            {statsModal === "sets" ? (
+              <div className="flex flex-wrap gap-2 text-sm">
+                {allSets.length ? allSets.map(s=> (
+                  <button key={s.set} onClick={()=> setFilterSets(p=> p.includes(s.set)? p : [...p, s.set])} className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-indigo-100 hover:bg-indigo-500/15">{s.set} - {s.count}</button>
+                )) : <span className="text-sm text-neutral-400">No set data yet.</span>}
+              </div>
+            ) : null}
           </div>
         </div>
       )}

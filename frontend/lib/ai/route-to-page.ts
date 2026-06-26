@@ -50,14 +50,14 @@ export const ROUTE_TO_PAGE: Record<string, { page: string; description: string; 
 
 /** Human-readable labels for source_page (where deck_analyze was called from) */
 export const SOURCE_PAGE_LABELS: Record<string, string> = {
-  deck_page_analyze: "Deck page (Analyze)",
+  deck_page_analyze: "Deck page (Check)",
   deck_page_health: "Deck page (AI health)",
   deck_page_legality: "Deck page (Legality)",
   deck_page_probability: "Deck page (Probability)",
   homepage: "Homepage",
   build_assistant: "Build assistant",
   profile: "Profile",
-  deck_analyzer_expandable: "Deck analyzer (expandable)",
+  deck_analyzer_expandable: "Deck checker (expandable)",
   banned_cards_banner: "Banned cards banner",
   color_identity_banner: "Color identity banner",
   my_decks_list: "My Decks list",

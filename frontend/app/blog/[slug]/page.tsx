@@ -861,7 +861,7 @@ Your late-game cards should be **finishers**—cards that close out games when t
 
 ## Build Your Perfect Curve with ManaTap AI
 
-Want to see your deck's curve visualized instantly? ManaTap AI's deck analyzer shows you exactly where your curve peaks, identifies gaps, and suggests improvements.
+Want to see your deck's curve visualized instantly? ManaTap AI's deck checker shows you exactly where your curve peaks, identifies gaps, and suggests improvements.
 
 **Try it now:**
 1. Import your deck to ManaTap

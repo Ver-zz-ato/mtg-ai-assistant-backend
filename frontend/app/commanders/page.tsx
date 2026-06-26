@@ -65,15 +65,10 @@ export default async function CommandersIndexPage() {
         </nav>
 
         {/* Hero */}
-        <section className="mb-10">
+        <section className="mb-10 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
             Commander Tools & Guides
           </h1>
-          <p className="text-neutral-300 text-lg leading-relaxed max-w-2xl">
-            Mulligan simulator, cost-to-finish calculator, budget swaps, and
-            deck browser for each commander. In-depth guides on strategy and best
-            cards. All SSR, indexable. No signup required.
-          </p>
         </section>
 
         <div className="mb-10">
@@ -148,7 +143,7 @@ export default async function CommandersIndexPage() {
         {/* Commander Directory Grid */}
         <section>
           <h2 className="text-2xl font-bold text-white mb-6">
-            Commander Directory
+            Commander Guides
           </h2>
           <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {COMMANDERS.map((c) => {

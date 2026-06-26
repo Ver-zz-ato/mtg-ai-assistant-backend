@@ -19,6 +19,11 @@ export default function FormatSelector({
 
   async function updateFormat(newFormat: Format) {
     if (newFormat === format) return;
+    const label = formats.find((f) => f.value === newFormat)?.label || newFormat;
+    const ok = window.confirm(
+      `Change this deck format to ${label}?\n\nThis affects AI recommendations, card-count checks, legality rules, and deck analysis.`
+    );
+    if (!ok) return;
     setUpdating(true);
     try {
       const res = await fetch(`/api/decks/${deckId}/format`, {
@@ -50,22 +55,21 @@ export default function FormatSelector({
   ];
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs opacity-70 mr-1">Format:</span>
-      {formats.map((f) => (
-        <button
-          key={f.value}
-          disabled={updating}
-          onClick={() => updateFormat(f.value)}
-          className={`px-3 py-1 text-xs rounded-full transition-all ${
-            format === f.value
-              ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/30"
-              : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-neutral-700"
-          } ${updating ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
-        >
-          {f.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-2">
+      <span className="text-xs opacity-70">Format:</span>
+      <select
+        value={format}
+        disabled={updating}
+        onChange={(e) => updateFormat(e.target.value as Format)}
+        className="rounded-full border border-cyan-500/40 bg-cyan-500/15 px-3 py-1 text-xs font-semibold text-cyan-100 outline-none transition-colors hover:bg-cyan-500/20 focus:border-cyan-300 disabled:cursor-wait disabled:opacity-60"
+        title="Change deck format"
+      >
+        {formats.map((f) => (
+          <option key={f.value} value={f.value} className="bg-neutral-950 text-white">
+            {f.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

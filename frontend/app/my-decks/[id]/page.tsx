@@ -294,13 +294,6 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               <div className="mt-2 mb-2">
                 <FormatSelector deckId={id} initialFormat={format} />
               </div>
-              <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
-                {['Aggro','Control','Combo','Midrange','Stax'].map((t)=> (
-                  <span key={`arch-${t}`} title={`Signals: ${t==='Aggro'?'creatures, low CMC attackers':t==='Control'?'counter/board wipes, instants/sorceries':t==='Combo'?'tutors, search your library':t==='Midrange'?'creatures at 5+ cmc':t==='Stax'?'tax/lock pieces like Rule of Law, Winter Orb':''}`} className="px-1.5 py-0.5 rounded border border-neutral-700 bg-neutral-900/60">
-                    {t}
-                  </span>
-                ))}
-              </div>
               {/* Deck ID removed per request */}
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -330,7 +323,7 @@ export default async function Page({ params, searchParams }: { params: Promise<P
           })()}
           {/* key forces remount when ?r= changes */}
           {/* Functions panel */}
-          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} />
+          <FunctionsPanel deckId={id} isPublic={deck?.is_public===true} isPro={isPro} format={format} />
           <Client 
             deckId={id} 
             isPro={isPro} 
@@ -339,16 +332,14 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             colors={Array.isArray((deck as any)?.colors) ? (deck as any).colors : []}
             deckAim={(deck as any)?.deck_aim || null}
             healthMetrics={core} // Always pass health metrics - Pro gating happens in component
+            typeBreakdown={types}
+            playstyleRadar={radar}
+            archetypeLabels={['Aggro','Control','Combo','Midrange','Stax']}
             key={r || "_"} 
           />
         </section>
 
         <aside className="col-span-12 xl:col-span-4 2xl:col-span-3 space-y-4">
-          {/* Deck Value - FIRST (default showing) */}
-          <PanelWrapper title="Deck Value" colorFrom="emerald-400" colorTo="teal-500">
-            <DeckPriceMini deckId={id} />
-          </PanelWrapper>
-
           {/* AI Assistant - SECOND (default showing, chatbox hidden until button clicked) */}
           {(() => {
             try {
@@ -384,6 +375,8 @@ export default async function Page({ params, searchParams }: { params: Promise<P
             </div>
           </PanelWrapper>
 
+          {false && (
+          <>
           {/* Card Types - FOURTH (default hidden) */}
           <PanelWrapper title="Card Types" colorFrom="emerald-400" colorTo="teal-500" defaultCollapsed={true}>
             <div className="space-y-1 text-[11px]">
@@ -426,6 +419,8 @@ export default async function Page({ params, searchParams }: { params: Promise<P
               </div>
             </div>
           </PanelWrapper>
+          </>
+          )}
         </aside>
         </div>
       </div>
