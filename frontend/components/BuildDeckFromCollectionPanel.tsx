@@ -40,13 +40,13 @@ export default function BuildDeckFromCollectionPanel({ collectionId }: BuildDeck
 
   return (
     <>
-      <div className="rounded-2xl border-2 border-purple-500/50 bg-gradient-to-br from-purple-950/80 via-indigo-950/60 to-neutral-950 p-6 shadow-xl shadow-purple-500/10">
+      <div className="rounded-xl border border-purple-500/50 bg-gradient-to-br from-purple-950/80 via-indigo-950/60 to-neutral-950 p-4 shadow-xl shadow-purple-500/10">
         <div className="flex flex-col h-full">
-          <h3 className="text-xl font-bold text-white mb-4">Build a Deck From This Collection</h3>
-          <p className="text-neutral-200 leading-relaxed mb-4">
+          <h3 className="text-lg font-bold text-white mb-3">Build a Deck From This Collection</h3>
+          <p className="text-sm text-neutral-200 leading-relaxed mb-3">
             Build manually from cards you own, or let AI suggest a full list.
           </p>
-          <ul className="space-y-2 text-sm text-neutral-300 mb-6">
+          <ul className="space-y-2 text-xs text-neutral-300 mb-4">
             <li className="flex items-center gap-2">
               <span className="text-purple-400">•</span> <strong>Build it myself</strong> — Pick format and add cards from your collection
             </li>
@@ -57,7 +57,7 @@ export default function BuildDeckFromCollectionPanel({ collectionId }: BuildDeck
           <button
             type="button"
             onClick={() => setShowChooser(true)}
-            className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 hover:from-purple-500 hover:via-pink-500 hover:to-purple-500 text-white font-bold text-lg shadow-lg hover:shadow-purple-500/25 transition-all border border-purple-500/30"
+            className="w-full rounded-lg border border-purple-500/30 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition-all hover:from-purple-500 hover:via-pink-500 hover:to-purple-500 hover:shadow-purple-500/25"
           >
             Build a Deck From This Collection →
           </button>

@@ -93,6 +93,14 @@ export default function HomeHero() {
                 </Link>
               ))}
             </div>
+            <div className="mt-4 flex justify-center">
+              <Link
+                href="/tools"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-violet-300/35 bg-violet-400/10 px-4 py-2 text-sm font-bold text-violet-100 transition hover:border-violet-200/60 hover:bg-violet-400/15"
+              >
+                View all tools
+              </Link>
+            </div>
           </div>
         </div>
       </div>

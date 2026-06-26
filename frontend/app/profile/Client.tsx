@@ -650,7 +650,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
           ) : (
             <SignatureBanner sb={sb} signatureDeckId={signatureDeckId} favCommander={favCommander} recentDecks={recentDecks} />
           )}
-          <div className="relative z-10 rounded-xl p-4 flex items-center gap-4" title={initialBannerArt ? 'banner:yes' : 'banner:none'}>
+          <div className="relative z-10 rounded-xl p-4 flex flex-col gap-4 sm:flex-row sm:items-start" title={initialBannerArt ? 'banner:yes' : 'banner:none'}>
             <img src={avatar || AVATAR_FILES[0]} alt="avatar" className="w-16 h-16 rounded-full object-cover bg-neutral-800" onError={(e:any)=>{e.currentTarget.src='/next.svg';}} />
             <div className="flex-1 min-w-0">
               <div className="text-xl font-semibold truncate">{username || userEmail || 'Anonymous Mage'}</div>
@@ -662,10 +662,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 <span>Collections {collectionCount}</span>
               </div>
               <PinnedBadgesChips />
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: true }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) { navigator.clipboard?.writeText?.(j.url); setProfileShareQrUrl(String(j.url || '')); alert('Share link copied to clipboard'); } else { alert(j?.error || 'Share failed'); } } catch (e:any) { alert(e?.message || 'Share failed'); } }} className="rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20">Share profile</button>
-                <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: false }) }); const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Unshare failed'); alert('Profile set to private'); } catch (e:any) { alert(e?.message || 'Unshare failed'); } }} className="rounded-lg border border-neutral-600 bg-black/35 px-3 py-1.5 text-xs font-semibold text-neutral-100 hover:bg-neutral-900">Disable sharing</button>
-              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2 sm:ml-auto sm:justify-end">
+              <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: true }) }); const j = await r.json().catch(()=>({})); if (r.ok && j?.ok) { navigator.clipboard?.writeText?.(j.url); setProfileShareQrUrl(String(j.url || '')); alert('Share link copied to clipboard'); } else { alert(j?.error || 'Share failed'); } } catch (e:any) { alert(e?.message || 'Share failed'); } }} className="rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/20">Share profile</button>
+              <button onClick={async () => { try { const r = await fetch('/api/profile/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ is_public: false }) }); const j = await r.json().catch(()=>({})); if (!r.ok || j?.ok===false) throw new Error(j?.error || 'Unshare failed'); alert('Profile set to private'); } catch (e:any) { alert(e?.message || 'Unshare failed'); } }} className="rounded-lg border border-neutral-600 bg-black/35 px-3 py-1.5 text-xs font-semibold text-neutral-100 hover:bg-neutral-900">Disable sharing</button>
             </div>
           </div>
         </div>
@@ -736,10 +736,10 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                   <div className="space-y-2">
                     <div className="text-sm opacity-80">Thanks for supporting ManaTap AI Pro! You have access to:</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-2"><span className="text-green-400">OK</span> Higher AI usage limits</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">OK</span> Advanced deck statistics</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">OK</span> Price tracking & alerts</div>
-                      <div className="flex items-center gap-2"><span className="text-green-400">OK</span> Priority support</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400" aria-hidden="true">&#10003;</span> Higher AI usage limits</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400" aria-hidden="true">&#10003;</span> Advanced deck statistics</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400" aria-hidden="true">&#10003;</span> Price tracking & alerts</div>
+                      <div className="flex items-center gap-2"><span className="text-green-400" aria-hidden="true">&#10003;</span> Priority support</div>
                     </div>
                     <div className="pt-2 border-t border-neutral-700">
                       <a href="/pricing" className="text-xs text-blue-400 hover:underline">View all Pro features</a>
@@ -928,7 +928,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                                 style={{ pointerEvents: canSelect ? 'auto' : 'none' }}
                               />
                               <span className="truncate flex-1">{d.title}</span>
-                              {checked && <span className="text-emerald-400 text-xs flex-shrink-0">OK</span>}
+                              {checked && <span className="text-emerald-400 text-xs flex-shrink-0" aria-hidden="true">&#10003;</span>}
                             </label>
                           </li>
                         );
@@ -1397,7 +1397,7 @@ function ProfileAchievementProgress({ badges: initialBadges }: { badges: BadgePr
         {badges.map(b => (
           <li key={b.id} className={`rounded-lg border p-3 text-xs ${getBadgeRarityClasses(b.rarity).card}`}>
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2"><span className="text-base">{b.icon}</span><span>{b.name}</span>{b.unlocked && <span className="text-emerald-400 text-[10px]">OK</span>}</div>
+              <div className="flex items-center gap-2"><span className="text-base">{b.icon}</span><span>{b.name}</span>{b.unlocked && <span className="text-emerald-400 text-[10px]" aria-hidden="true">&#10003;</span>}</div>
               <div className="font-mono">{b.current}/{b.target}</div>
             </div>
             <div className="mt-1 h-2 w-full rounded bg-neutral-800 overflow-hidden">
@@ -1445,7 +1445,7 @@ function ProfileAchievementProgressRarity({ badges: initialBadges }: { badges: B
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] ${getBadgeRarityClasses(b.rarity).chip}`}>
                     {badgeRarityLabel(b.rarity)}
                   </span>
-                  {b.unlocked && <span className="text-emerald-400 text-[10px]">OK</span>}
+                  {b.unlocked && <span className="text-emerald-400 text-[10px]" aria-hidden="true">&#10003;</span>}
                 </div>
               </div>
             </div>

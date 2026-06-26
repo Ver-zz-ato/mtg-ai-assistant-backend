@@ -344,9 +344,9 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="w-full overflow-x-clip border-b">
+    <header className="w-full overflow-visible border-b">
       <div className="mx-auto flex w-full items-center px-3 py-2 lg:justify-center xl:px-4 xl:py-3">
-        <div className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:w-auto xl:gap-1">
+        <div className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 overflow-visible lg:w-auto xl:gap-1">
           <Link href="/" className="shrink-0 font-semibold flex items-center gap-1.5 pr-0.5">
             <Logo size={50} />
             <span className="hidden sm:block text-xl font-bold whitespace-nowrap xl:text-2xl 2xl:text-3xl">ManaTap AI</span>

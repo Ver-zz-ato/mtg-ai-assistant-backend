@@ -12,6 +12,7 @@ import { DualRange } from "@/components/shared/DualRange";
 import { trackProGateViewed, trackProGateClicked, trackProFeatureUsed } from '@/lib/analytics-pro';
 import CardRowPreviewLeft from "@/components/shared/CardRowPreview";
 import CardAutocomplete from "@/components/CardAutocomplete";
+import BuildDeckFromCollectionPanel from "@/components/BuildDeckFromCollectionPanel";
 import QRShareModal from "@/components/share/QRShareModal";
 import {
   getDeckUsageForCard,
@@ -1366,6 +1367,17 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
 
       {/* Right: stats/tools panels - prevent horizontal scroll */}
       <aside className="h-full overflow-x-hidden overflow-y-auto space-y-3 lg:col-span-1 xl:col-span-3 min-w-0">
+        {mode === "page" ? (
+          <React.Suspense
+            fallback={
+              <div className="rounded-xl border border-neutral-700 bg-gradient-to-b from-neutral-900 to-neutral-950 p-4 text-sm text-neutral-400">
+                Loading build options...
+              </div>
+            }
+          >
+            <BuildDeckFromCollectionPanel collectionId={collectionId} />
+          </React.Suspense>
+        ) : null}
         {/* Overview - Visually dominant */}
         <div className="hidden rounded-xl border-2 border-neutral-600 bg-gradient-to-b from-neutral-900/95 to-neutral-950 shadow-xl">
           <div className="p-5 space-y-3">
@@ -1575,10 +1587,19 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
               <AnalyticsCards collectionId={collectionId} currency={currency} mode="price" onBucketClick={(b)=>{ const m:any = { '<$1':'<1', '$1â€“5':'1-5', '$5â€“20':'5-20', '$20â€“50':'20-50', '$50â€“100':'50-100', '$100+':'100+' }; setFilterPriceBand(m[b]||''); }} />
             ) : null}
             {statsModal === "sets" ? (
-              <div className="flex flex-wrap gap-2 text-sm">
-                {allSets.length ? allSets.map(s=> (
-                  <button key={s.set} onClick={()=> setFilterSets(p=> p.includes(s.set)? p : [...p, s.set])} className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-indigo-100 hover:bg-indigo-500/15">{s.set} - {s.count}</button>
-                )) : <span className="text-sm text-neutral-400">No set data yet.</span>}
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={()=>setFilterSets([])}
+                  className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm font-semibold text-neutral-200 hover:bg-neutral-800"
+                >
+                  Clear
+                </button>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  {allSets.length ? allSets.map(s=> (
+                    <button key={s.set} onClick={()=> setFilterSets(p=> p.includes(s.set)? p : [...p, s.set])} className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-indigo-100 hover:bg-indigo-500/15">{s.set} - {s.count}</button>
+                  )) : <span className="text-sm text-neutral-400">No set data yet.</span>}
+                </div>
               </div>
             ) : null}
           </div>

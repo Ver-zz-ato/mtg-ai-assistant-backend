@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -19,6 +20,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
+import CardAutocomplete from "@/components/CardAutocomplete";
+import ManaSymbol from "@/components/ManaSymbol";
 
 type BuildFormat = AnalyzeFormat;
 type Budget = "Budget" | "Moderate" | "High";
@@ -60,19 +63,19 @@ const sampleIdeas = [
     title: "Go-wide Goblins that win with token damage",
     commander: "Krenko, Mob Boss",
     idea: "Go-wide Goblins that win with token damage, haste, sacrifice mana, and damage finishers.",
-    art: "https://api.scryfall.com/cards/named?exact=Krenko%2C%20Mob%20Boss&format=image&version=art_crop",
+    art: "https://cards.scryfall.io/art_crop/front/8/2/824b2d73-2151-4e5e-9f05-8f63e2bdcaa9.jpg?1730632010",
   },
   {
     title: "Azorius artifacts with cheap interaction",
     commander: "Shorikai, Genesis Engine",
     idea: "Azorius artifacts with cheap interaction, value engines, vehicles, and a clean control finish.",
-    art: "https://api.scryfall.com/cards/named?exact=Shorikai%2C%20Genesis%20Engine&format=image&version=art_crop",
+    art: "https://cards.scryfall.io/art_crop/front/9/6/969ac7dd-f3aa-4888-9ff0-d16a31b5e7a9.jpg?1763728107",
   },
   {
     title: "Graveyard value with sacrifice loops",
     commander: "Meren of Clan Nel Toth",
     idea: "Graveyard value deck with sacrifice outlets, recursive creatures, and grindy Golgari payoffs.",
-    art: "https://api.scryfall.com/cards/named?exact=Meren%20of%20Clan%20Nel%20Toth&format=image&version=art_crop",
+    art: "https://cards.scryfall.io/art_crop/front/5/0/508b1442-bf2c-4ad6-9bcf-bd894e081ab6.jpg?1743207181",
   },
 ];
 
@@ -104,10 +107,13 @@ function parseIdeaTitle(idea: string) {
   return clean.length > 62 ? `${clean.slice(0, 59)}...` : clean;
 }
 
-function formatColors(colors: string[] | undefined) {
-  if (!colors?.length) return "Any";
-  return colors.join("");
-}
+const mtgColors = [
+  { key: "W", label: "White" },
+  { key: "U", label: "Blue" },
+  { key: "B", label: "Black" },
+  { key: "R", label: "Red" },
+  { key: "G", label: "Green" },
+] as const;
 
 export default function BuildADeckClient() {
   const [format, setFormat] = useState<BuildFormat>("Commander");
@@ -380,26 +386,51 @@ export default function BuildADeckClient() {
                     <label htmlFor="commander" className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">
                       Commander
                     </label>
-                    <input
-                      id="commander"
-                      value={commander}
-                      onChange={(event) => setCommander(event.target.value)}
-                      placeholder="Atraxa, Praetors' Voice"
-                      className="mt-2 w-full rounded-md border border-white/10 bg-black/45 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-700 focus:border-amber-300/70 focus:ring-2 focus:ring-amber-300/15"
-                    />
+                    <div id="commander" className="mt-2 [&_input]:rounded-md [&_input]:border-white/10 [&_input]:bg-black/45 [&_input]:px-4 [&_input]:py-3 [&_input]:text-sm [&_input]:text-zinc-100 [&_input]:placeholder:text-zinc-700 [&_input]:focus:border-amber-300/70 [&_input]:focus:ring-2 [&_input]:focus:ring-amber-300/15">
+                      <CardAutocomplete
+                        value={commander}
+                        onChange={setCommander}
+                        onPick={(name) => {
+                          setCommander(name);
+                          setResult(null);
+                          setError(null);
+                        }}
+                        placeholder="Atraxa, Praetors' Voice"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div>
-                    <label htmlFor="colors" className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">
+                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">
                       Colours
-                    </label>
-                    <input
-                      id="colors"
-                      value={colors}
-                      onChange={(event) => setColors(event.target.value.toUpperCase())}
-                      placeholder="WUBRG, UR, BG..."
-                      className="mt-2 w-full rounded-md border border-white/10 bg-black/45 px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-700 focus:border-amber-300/70 focus:ring-2 focus:ring-amber-300/15"
-                    />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {mtgColors.map((color) => {
+                        const selected = colors.includes(color.key);
+                        return (
+                          <button
+                            key={color.key}
+                            type="button"
+                            onClick={() => {
+                              setColors((current) => {
+                                const next = selected ? current.replace(color.key, "") : `${current}${color.key}`;
+                                return mtgColors.map((c) => c.key).filter((key) => next.includes(key)).join("");
+                              });
+                              setResult(null);
+                            }}
+                            aria-pressed={selected}
+                            className={`grid h-11 w-11 place-items-center rounded-full border transition ${
+                              selected
+                                ? "border-amber-300 bg-amber-300/15 shadow-[0_0_18px_rgba(251,191,36,0.18)]"
+                                : "border-white/10 bg-black/45 opacity-70 hover:opacity-100"
+                            }`}
+                            title={color.label}
+                          >
+                            <ManaSymbol symbol={color.key} size="large" />
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 <div>
@@ -433,11 +464,12 @@ export default function BuildADeckClient() {
                       className="group overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] text-left transition hover:border-cyan-300/35 hover:bg-white/[0.07]"
                     >
                       <div className="relative h-24 overflow-hidden">
-                        <img
+                        <Image
                           src={sample.art}
                           alt=""
-                          className="h-full w-full object-cover opacity-85 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
-                          loading="lazy"
+                          fill
+                          sizes="(max-width: 768px) 100vw, 260px"
+                          className="object-cover opacity-85 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent" />
                       </div>
