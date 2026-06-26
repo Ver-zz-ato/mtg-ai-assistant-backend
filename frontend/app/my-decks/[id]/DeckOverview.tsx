@@ -43,9 +43,7 @@ export default function DeckOverview({
   const [error, setError] = React.useState<string | null>(null);
   const [commanderImage, setCommanderImage] = React.useState<ImageInfo | null>(null);
   const [hoverImage, setHoverImage] = React.useState(false);
-  const [curveOpen, setCurveOpen] = React.useState(true);
-  const [typesOpen, setTypesOpen] = React.useState(true);
-  const [radarOpen, setRadarOpen] = React.useState(true);
+  const [analyticsOpen, setAnalyticsOpen] = React.useState(true);
   const isCommander = String(format || "").toLowerCase() === "commander";
 
   // Update when initial values change
@@ -186,28 +184,17 @@ export default function DeckOverview({
   const curveRows = Object.entries(curveBreakdown || {});
   const curveMax = Math.max(1, ...curveRows.map(([, value]) => Number(value || 0)));
 
-  function ToggleSection({
+  function AnalyticsSection({
     title,
-    open,
-    onToggle,
     children,
   }: {
     title: string;
-    open: boolean;
-    onToggle: () => void;
     children: React.ReactNode;
   }) {
     return (
-      <div className={`flex flex-col rounded-lg border border-neutral-800 bg-neutral-950/35 ${open ? "min-h-[18rem]" : ""}`}>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
-        >
-          <span className="text-xs font-semibold text-cyan-300">{title}</span>
-          <span className="rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200">{open ? "Hide" : "Show"}</span>
-        </button>
-        {open ? <div className="flex-1 border-t border-neutral-800 p-3">{children}</div> : null}
+      <div className="flex min-h-[18rem] flex-col rounded-lg border border-neutral-800 bg-neutral-950/35">
+        <div className="px-3 py-2 text-xs font-semibold text-cyan-300">{title}</div>
+        <div className="flex-1 border-t border-neutral-800 p-3">{children}</div>
       </div>
     );
   }
@@ -411,62 +398,77 @@ export default function DeckOverview({
         <DeckPriceMini deckId={deckId} compact />
       </div>
 
-      <div className="relative mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <ToggleSection title="Mana Curve" open={curveOpen} onToggle={() => setCurveOpen((v) => !v)}>
-          <div className="grid h-48 grid-cols-7 items-end gap-2">
-            {(["1", "2", "3", "4", "5", "6", "7+"] as const).map((key) => {
-              const count = Number(curveBreakdown?.[key] || 0);
-              const height = Math.round((count / curveMax) * 100);
-              return (
-                <div key={key} className="flex h-full flex-col items-center justify-end gap-1">
-                  <div className="relative w-full max-w-12 rounded-t bg-emerald-500/85 shadow-sm shadow-emerald-500/20" style={{ height: `${Math.max(8, height)}%` }}>
-                    <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{count}</span>
-                  </div>
-                  <div className="text-[10px] opacity-70">{key}</div>
-                </div>
-              );
-            })}
-          </div>
-        </ToggleSection>
+      <div className="relative mt-3">
+        <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/35 px-3 py-2">
+          <div className="text-xs font-semibold text-cyan-300">Deck analytics</div>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen((v) => !v)}
+            className="rounded bg-neutral-800 px-2.5 py-1 text-[10px] font-semibold text-neutral-200 transition-colors hover:bg-neutral-700"
+          >
+            {analyticsOpen ? "Hide" : "Show"}
+          </button>
+        </div>
 
-        <ToggleSection title="Card Types" open={typesOpen} onToggle={() => setTypesOpen((v) => !v)}>
-          <div className="space-y-2">
-            {typeRows.length ? typeRows.map(([name, count]) => {
-              const pct = Math.round((Number(count || 0) / typeTotal) * 100);
-              return (
-                <div key={name}>
-                  <div className="mb-1 flex items-center justify-between text-[11px]">
-                    <span>{name}</span>
-                    <span className="font-mono text-neutral-400">{pct}%</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded bg-neutral-800">
-                    <div className="h-full rounded bg-cyan-500" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            }) : <div className="text-xs text-neutral-500">No card type data yet.</div>}
-          </div>
-        </ToggleSection>
+        {analyticsOpen ? (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <AnalyticsSection title="Mana Curve">
+              <div className="grid h-48 grid-cols-7 items-end gap-2">
+                {(["1", "2", "3", "4", "5", "6", "7+"] as const).map((key) => {
+                  const count = Number(curveBreakdown?.[key] || 0);
+                  const height = Math.round((count / curveMax) * 100);
+                  return (
+                    <div key={key} className="flex h-full flex-col items-center justify-end gap-1">
+                      <div className="relative w-full max-w-12 rounded-t bg-emerald-500/85 shadow-sm shadow-emerald-500/20" style={{ height: `${Math.max(8, height)}%` }}>
+                        <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{count}</span>
+                      </div>
+                      <div className="text-[10px] opacity-70">{key}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </AnalyticsSection>
 
-        <ToggleSection title="Playstyle Radar" open={radarOpen} onToggle={() => setRadarOpen((v) => !v)}>
-          <div className="space-y-2">
-            {radarRows.length ? radarRows.map(([name, score]) => {
-              const max = Math.max(1, ...radarRows.map(([, value]) => Number(value || 0)));
-              const pct = Math.round((Number(score || 0) / max) * 100);
-              return (
-                <div key={name}>
-                  <div className="mb-1 flex items-center justify-between text-[11px] capitalize">
-                    <span>{name}</span>
-                    <span className="font-mono text-neutral-400">{Number(score).toFixed(1)}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded bg-neutral-800">
-                    <div className="h-full rounded bg-purple-500" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            }) : <div className="text-xs text-neutral-500">No playstyle data yet.</div>}
+            <AnalyticsSection title="Card Types">
+              <div className="space-y-2">
+                {typeRows.length ? typeRows.map(([name, count]) => {
+                  const pct = Math.round((Number(count || 0) / typeTotal) * 100);
+                  return (
+                    <div key={name}>
+                      <div className="mb-1 flex items-center justify-between text-[11px]">
+                        <span>{name}</span>
+                        <span className="font-mono text-neutral-400">{pct}%</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded bg-neutral-800">
+                        <div className="h-full rounded bg-cyan-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                }) : <div className="text-xs text-neutral-500">No card type data yet.</div>}
+              </div>
+            </AnalyticsSection>
+
+            <AnalyticsSection title="Playstyle Radar">
+              <div className="space-y-2">
+                {radarRows.length ? radarRows.map(([name, score]) => {
+                  const max = Math.max(1, ...radarRows.map(([, value]) => Number(value || 0)));
+                  const pct = Math.round((Number(score || 0) / max) * 100);
+                  return (
+                    <div key={name}>
+                      <div className="mb-1 flex items-center justify-between text-[11px] capitalize">
+                        <span>{name}</span>
+                        <span className="font-mono text-neutral-400">{Number(score).toFixed(1)}</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded bg-neutral-800">
+                        <div className="h-full rounded bg-purple-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                }) : <div className="text-xs text-neutral-500">No playstyle data yet.</div>}
+              </div>
+            </AnalyticsSection>
           </div>
-        </ToggleSection>
+        ) : null}
       </div>
     </div>
   );
