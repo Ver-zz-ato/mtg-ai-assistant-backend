@@ -229,10 +229,10 @@ export default function FunctionsPanel({
 
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
             <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-amber-200">Deck tools</div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <RecomputeButton />
-            </div>
-            <div className="mt-3">
+            <div className="grid gap-2">
+              <div className="deck-tool-row">
+                <RecomputeButton />
+              </div>
               <DeckVersionHistory deckId={deckId} isPro={isPro} />
             </div>
           </div>

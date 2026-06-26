@@ -70,7 +70,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
         await fetchVersions();
         capture('deck_version_saved', { deck_id: deckId });
         const { toast } = await import('@/lib/toast-client');
-        toast(`✅ Version ${data.version.version_number} saved (${data.version.card_count} cards)`, 'success');
+        toast(`Version ${data.version.version_number} saved (${data.version.card_count} cards)`, 'success');
       } else {
         setError(data.error || 'Failed to save version');
       }
@@ -143,13 +143,13 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="grid gap-2">
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-2 px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700"
           title="View saved deck snapshots and restore an older version."
         >
-          <span>⏱️</span>
+          <span aria-hidden="true">⏱</span>
           <span>Version History</span>
           <span className="text-[9px] bg-amber-600/30 text-amber-300 px-1 py-0.5 rounded">PRO</span>
           <span className="ml-1 text-[10px]">{open ? '▼' : '▶'}</span>
@@ -158,7 +158,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
         <button
           onClick={() => saveVersion()}
           disabled={saving}
-          className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-700 disabled:cursor-not-allowed border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
+          className="w-full rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
           title="Save the current deck as a new version snapshot."
         >
           {saving ? 'Saving...' : 'Save Version'}
@@ -166,10 +166,10 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
         
         <button
           onClick={() => setChangelogOpen(true)}
-          className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
+          className="w-full rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 py-2 text-center text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-500 hover:bg-neutral-700"
           title="Open the deck changelog for recent edits."
         >
-          📝 View Changelog
+          View Changelog
         </button>
       </div>
       
