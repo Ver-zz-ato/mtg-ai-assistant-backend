@@ -12,7 +12,7 @@ type DeckCsvReport = {
   unrecognizedCards?: Array<{ originalName: string; qty: number; suggestions: string[] }>;
 };
 
-export default function DeckCsvUpload({ deckId, onDone, onFixNames }: { deckId: string; onDone?: () => void; onFixNames?: () => void }) {
+export default function DeckCsvUpload({ deckId, onDone, onFixNames, label = "Import deck from CSV" }: { deckId: string; onDone?: () => void; onFixNames?: () => void; label?: string }) {
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<DeckCsvReport | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -74,7 +74,7 @@ export default function DeckCsvUpload({ deckId, onDone, onFixNames }: { deckId: 
       <div className="flex items-center gap-2">
         <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onChange} />
         <button onClick={pick} disabled={busy} className="text-xs border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 rounded px-2.5 py-1.5 transition-colors font-medium text-neutral-300 disabled:opacity-50">
-          {busy ? "Importing..." : "Import deck from CSV"}
+          {busy ? "Importing..." : label}
         </button>
         {report && !showFixPrompt && (
           <span className="text-xs text-muted-foreground">

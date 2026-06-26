@@ -104,54 +104,55 @@ export default function FunctionsPanel({
       {expanded ? (
         <div className="mt-3 grid gap-3 lg:grid-cols-3">
           <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3">
-            <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-violet-200">AI ✨</div>
+            <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-violet-200">AI ✨</div>
             <div className="grid gap-2">
-              <button onClick={() => focusBuildAssistant("deck:ai-scan-focus")} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+              <button onClick={() => focusBuildAssistant("deck:ai-scan-focus")} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
                 AI deck scan
               </button>
-              <button onClick={() => focusBuildAssistant("deck:finish-open")} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+              <button onClick={() => focusBuildAssistant("deck:finish-open")} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
                 Finish this Deck
               </button>
-              <Link href={`/ai-workshop?deckId=${deckId}`} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+              <Link href={`/ai-workshop?deckId=${deckId}`} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
                 AI Workshop
               </Link>
-              <Link href={`/compare-decks?deck1=${deckId}`} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
-                Compare decks
+              <Link href={`/compare-decks?deck1=${deckId}`} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+                ✨ Compare decks
               </Link>
             </div>
           </div>
 
           <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-3">
-            <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">Quick actions</div>
+            <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">Quick actions</div>
             <div className="grid gap-2">
-              <button onClick={runReanalysis} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-cyan-300/70">
+              <button onClick={runReanalysis} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-cyan-300/70">
                 Re-analyse
               </button>
-              <button onClick={() => setFixOpen(true)} className="rounded-lg border border-orange-600/50 bg-orange-600/15 px-3 py-2 text-left text-sm font-semibold text-orange-200 hover:bg-orange-600/25">
+              <button onClick={() => setFixOpen(true)} className="rounded-lg border border-orange-600/50 bg-orange-600/15 px-3 py-2 text-center text-sm font-semibold text-orange-200 hover:bg-orange-600/25">
                 Fix card names
               </button>
               <button
                 onClick={toggleAllPanels}
-                className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-cyan-300/70"
+                className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-cyan-300/70"
                 title={allPanelsHidden ? "Show all side panels" : "Hide all side panels"}
               >
                 {allPanelsHidden ? "Show side panels" : "Hide all side panels"}
               </button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <ExportDropdown deckId={deckId} label="Export" />
+                <button
+                  type="button"
+                  onClick={() => setUrlOpen(true)}
+                  className="rounded border border-cyan-600/50 bg-cyan-600/15 px-2.5 py-1.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-600/25"
+                >
+                  Import
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
-            <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-amber-200">Deck tools</div>
-            <div className="flex flex-wrap gap-2">
-              <ExportDropdown deckId={deckId} />
-              <DeckCsvUpload deckId={deckId} onFixNames={() => setFixOpen(true)} />
-              <button
-                type="button"
-                onClick={() => setUrlOpen(true)}
-                className="rounded border border-cyan-600/50 bg-cyan-600/15 px-2.5 py-1.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-600/25"
-              >
-                Import URL
-              </button>
+            <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-amber-200">Deck tools</div>
+            <div className="flex flex-wrap justify-center gap-2">
               <RecomputeButton />
             </div>
             <div className="mt-3">
@@ -177,7 +178,7 @@ export default function FunctionsPanel({
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 id="deck-url-import-title" className="text-base font-semibold text-white">
-                Import from Moxfield or Archidekt
+                Import deck
               </h2>
               <button
                 type="button"
@@ -194,6 +195,10 @@ export default function FunctionsPanel({
               className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
             />
             {urlError ? <div className="mt-2 text-xs text-red-400">{urlError}</div> : null}
+            <div className="mt-4 rounded-lg border border-neutral-800 bg-black/30 p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">CSV import</div>
+              <DeckCsvUpload deckId={deckId} onFixNames={() => setFixOpen(true)} onDone={() => setUrlOpen(false)} label="Import CSV" />
+            </div>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"

@@ -997,14 +997,7 @@ export default function CardsPane({ deckId, format, allowedColors = [] }: { deck
           onAdd={add}
           addTargetZone={isConstructed60 ? (msTab === "main" ? "mainboard" : "sideboard") : "mainboard"}
         />
-        <button
-          type="button"
-          onClick={() => setPasteOpen((v) => !v)}
-          className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
-        >
-          {pasteOpen ? "Hide decklist paste" : "Paste a full decklist"}
-        </button>
-        {pasteOpen && (
+        {false && pasteOpen && (
           <div className="space-y-2">
             <textarea
               value={pasteText}

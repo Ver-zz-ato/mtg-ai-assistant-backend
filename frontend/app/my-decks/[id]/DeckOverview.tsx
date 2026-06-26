@@ -198,7 +198,7 @@ export default function DeckOverview({
     children: React.ReactNode;
   }) {
     return (
-      <div className="rounded-lg border border-neutral-800 bg-neutral-950/35">
+      <div className="flex min-h-[18rem] flex-col rounded-lg border border-neutral-800 bg-neutral-950/35">
         <button
           type="button"
           onClick={onToggle}
@@ -207,14 +207,14 @@ export default function DeckOverview({
           <span className="text-xs font-semibold text-cyan-300">{title}</span>
           <span className="rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200">{open ? "Hide" : "Show"}</span>
         </button>
-        {open ? <div className="border-t border-neutral-800 p-3">{children}</div> : null}
+        {open ? <div className="flex-1 border-t border-neutral-800 p-3">{children}</div> : null}
       </div>
     );
   }
 
   function ManaPip({ value }: { value: string }) {
     return (
-      <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-black shadow ${manaClasses[value] || "border-neutral-600 bg-neutral-800 text-white"}`}>
+      <span className={`inline-flex h-12 w-12 items-center justify-center rounded-full border text-lg font-black shadow ${manaClasses[value] || "border-neutral-600 bg-neutral-800 text-white"}`}>
         {value}
       </span>
     );
@@ -327,7 +327,7 @@ export default function DeckOverview({
               {isCommander ? "(from Commander)" : "(editable)"}
             </span>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex h-[4.75rem] flex-wrap items-center gap-3">
             {colors.length > 0 ? (
               colors.map((c) => (
                 <button
@@ -385,7 +385,7 @@ export default function DeckOverview({
               </div>
             </div>
           ) : (
-            <div className="text-xs text-neutral-200 min-h-[2.5rem] p-2 bg-neutral-950/50 rounded border border-neutral-800">
+            <div className="min-h-[2.5rem] text-sm leading-relaxed text-neutral-100">
               {aim ? (
                 <p className="whitespace-pre-wrap break-words">{aim}</p>
               ) : (
@@ -404,13 +404,13 @@ export default function DeckOverview({
 
       <div className="relative mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
         <ToggleSection title="Mana Curve" open={curveOpen} onToggle={() => setCurveOpen((v) => !v)}>
-          <div className="grid h-24 grid-cols-7 items-end gap-1">
+          <div className="grid h-48 grid-cols-7 items-end gap-2">
             {(["1", "2", "3", "4", "5", "6", "7+"] as const).map((key) => {
               const count = Number(curveBreakdown?.[key] || 0);
               const height = Math.round((count / curveMax) * 100);
               return (
                 <div key={key} className="flex h-full flex-col items-center justify-end gap-1">
-                  <div className="relative w-6 rounded-t bg-emerald-500/85" style={{ height: `${Math.max(6, height)}%` }}>
+                  <div className="relative w-full max-w-12 rounded-t bg-emerald-500/85 shadow-sm shadow-emerald-500/20" style={{ height: `${Math.max(8, height)}%` }}>
                     <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] tabular-nums">{count}</span>
                   </div>
                   <div className="text-[10px] opacity-70">{key}</div>

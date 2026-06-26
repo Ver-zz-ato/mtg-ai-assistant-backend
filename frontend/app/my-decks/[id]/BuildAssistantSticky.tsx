@@ -85,7 +85,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   const assistantFormatRules = getFormatRules(analyzeFormatLabel);
   const workshopMinimumCards = getAiDeckHalfwayMinimumCards(analyzeFormatLabel);
   const workshopReady = cardCount >= workshopMinimumCards;
-  const [expanded, setExpanded] = React.useState(false); // Start collapsed
+  const [expanded, setExpanded] = React.useState(true);
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [swapThreshold, setSwapThreshold] = React.useState<{budget: number; currency: string} | null>(null);
@@ -429,16 +429,10 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {expanded && <button onClick={()=>setEditing(v=>!v)} className="min-h-[40px] inline-flex items-center text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-3 py-1.5 transition-colors touch-manipulation">{editing? '✓ Done':'⚙️ Edit'}</button>}
-          <button onClick={()=>setExpanded(v=>!v)} className="min-h-[40px] inline-flex items-center text-xs bg-pink-600 hover:bg-pink-500 border border-pink-500 rounded px-4 py-2 font-bold transition-colors shadow-lg shadow-pink-500/30 touch-manipulation">{expanded? '▼ Hide':'▶ Show'}</button>
-        </div>
+        <div className="flex-shrink-0" />
       </div>
       {expanded && (
-        <div className="mt-2 space-y-3">
-          {sectionToggle("AI deck scan", scanOpen, () => setScanOpen((v) => !v))}
-          {scanOpen && (
-          <>
+        <div className="mt-4 space-y-3">
           {/* AI Deck Scan - Nested inside Build Assistant */}
           {healthMetrics && format?.toLowerCase() === 'commander' && (() => {
             const { lands, ramp, draw, removal } = healthMetrics;
@@ -582,12 +576,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               </div>
             );
           })()}
-          </>
-          )}
-
-          {/* Constraints */}
-          {sectionToggle("Constraints", constraintsOpen, () => setConstraintsOpen((v) => !v))}
-          {constraintsOpen && <div className="text-[11px] rounded-lg border border-neutral-800 bg-neutral-950/35 p-3">
+          <div className="hidden text-[11px] rounded-lg border border-neutral-800 bg-neutral-950/35 p-3">
             <div className="opacity-80 mb-1">Constraints</div>
             {!editing ? (
               <div className="flex flex-wrap gap-1">
@@ -648,11 +637,10 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 </div>
               </form>
             )}
-          </div>}
+          </div>
 
           {/* Quick Actions */}
-          {sectionToggle("Quick actions", actionsOpen, () => setActionsOpen((v) => !v))}
-          {actionsOpen && <div className="text-[11px] rounded-lg border border-neutral-800 bg-neutral-950/35 p-3">
+          <div className="hidden text-[11px] rounded-lg border border-neutral-800 bg-neutral-950/35 p-3">
             <div className="opacity-90 mb-2 font-semibold flex items-center gap-1">
               <span>⚡</span> Quick Actions
             </div>
@@ -720,7 +708,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
                 </Link>
               ) : null}
             </div>
-          </div>}
+          </div>
         </div>
       )}
 
