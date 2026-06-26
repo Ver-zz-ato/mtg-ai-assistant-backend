@@ -16,6 +16,13 @@ interface DeckCardRecommendationsProps {
   onAddCard?: (cardName: string) => void;
 }
 
+function displayCardName(name: string) {
+  return name.replace(/\S+/g, (word) => {
+    if (word === word.toUpperCase() && /[A-Z]/.test(word)) return word;
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  });
+}
+
 export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardRecommendationsProps) {
   const { preview: hoverPreview, bind } = useHoverPreview();
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -138,7 +145,7 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
 
               {/* Card Info */}
               <div className="flex-1 min-w-0 space-y-2">
-                <h4 className="text-sm font-semibold text-white">{rec.name}</h4>
+                <h4 className="text-sm font-semibold text-white">{displayCardName(rec.name)}</h4>
                 
                 {/* Reason with "Why?" label */}
                 <div className="space-y-1">
@@ -178,4 +185,3 @@ export default function DeckCardRecommendations({ deckId, onAddCard }: DeckCardR
     </div>
   );
 }
-

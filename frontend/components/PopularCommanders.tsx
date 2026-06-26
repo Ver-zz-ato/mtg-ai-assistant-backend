@@ -5,6 +5,7 @@ import {
   getExternalMostPlayedCommanders,
   getExternalTrendingCommanders,
 } from "@/lib/meta/externalDailyMeta";
+import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { formatMetaUpdatedPhrase } from "@/lib/meta/freshness";
 import { pillClassAt } from "@/lib/ui/accentPills";
 
@@ -67,12 +68,19 @@ export async function PopularCommanders({
     ? formatMetaUpdatedPhrase(played.updatedAt)
     : played.snapshotDate ?? null;
 
+  const previewMap = await getImagesForNamesCached(commanders.map((commander) => commander.name)).catch(
+    () => new Map<string, { art_crop?: string; normal?: string; small?: string }>(),
+  );
+
   const rotatorItems = commanders.map((commander) => {
     const guideProfile = getCommanderBySlug(commander.slug);
+    const cachedImage = previewMap.get(commanderNorm(commander.name));
+    const artUrl = imageMap.get(commanderNorm(commander.name)) ?? cachedImage?.art_crop ?? cachedImage?.small ?? null;
     return {
       name: commander.name,
       slug: commander.slug,
-      artUrl: imageMap.get(commanderNorm(commander.name)) ?? null,
+      artUrl,
+      previewUrl: cachedImage?.normal ?? cachedImage?.art_crop ?? artUrl,
       hasGuide: Boolean(guideProfile && guideProfile.hasGuide !== false),
     };
   });

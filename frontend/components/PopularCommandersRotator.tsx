@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import CardDetailLink from "@/components/cards/CardDetailLink";
+import { useHoverPreview } from "@/components/shared/HoverPreview";
 import { PILL_BASE_CLASS, pillClassAt } from "@/lib/ui/accentPills";
 
 export type RotatorCommander = {
   name: string;
   slug: string;
   artUrl?: string | null;
+  previewUrl?: string | null;
   hasGuide?: boolean;
 };
 
@@ -16,6 +18,7 @@ const ROTATE_MS = 5000;
 
 export function PopularCommandersRotator({ commanders }: { commanders: RotatorCommander[] }) {
   const [index, setIndex] = useState(0);
+  const { preview, bind } = useHoverPreview();
   const count = commanders.length;
 
   useEffect(() => {
@@ -44,6 +47,7 @@ export function PopularCommandersRotator({ commanders }: { commanders: RotatorCo
                   src={commander.artUrl}
                   alt=""
                   className="h-24 w-16 shrink-0 rounded-lg object-cover object-top"
+                  {...bind(commander.previewUrl || commander.artUrl)}
                 />
               ) : (
                 <span className="h-24 w-16 shrink-0 rounded-lg bg-neutral-800/80" aria-hidden />
@@ -93,6 +97,7 @@ export function PopularCommandersRotator({ commanders }: { commanders: RotatorCo
                   src={commander.artUrl}
                   alt=""
                   className="h-8 w-6 object-cover object-top"
+                  {...bind(commander.previewUrl || commander.artUrl)}
                 />
               ) : (
                 <span className="block h-8 w-6 bg-neutral-800" aria-hidden />
@@ -101,6 +106,7 @@ export function PopularCommandersRotator({ commanders }: { commanders: RotatorCo
           ))}
         </div>
       ) : null}
+      {preview}
     </div>
   );
 }

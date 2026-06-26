@@ -123,20 +123,43 @@ export async function GET(
     const uniqueSnapshotDates = new Set((snapshots || []).map((s: any) => String(s.snapshot_date)));
     console.log(`[PriceHistory] Collection ${collectionId}: ${cardNames.length} cards, ${snapshots?.length || 0} snapshot rows, ${uniqueSnapshotDates.size} unique dates`);
 
-    // Group by date and sum total value
-    // For each date, sum up (price * quantity) for all cards that have a snapshot on that date
-    const byDate = new Map<string, number>();
+    const snapshotsByCard = new Map<string, Array<{ date: string; price: number }>>();
     for (const row of (snapshots || []) as any[]) {
-      const date = String(row.snapshot_date);
       const cardName = String(row.name_norm);
-      const qty = cardQuantities.get(cardName) || 0;
-      const price = Number(row.unit) || 0;
-      const value = price * qty;
-      byDate.set(date, (byDate.get(date) || 0) + value);
+      if (!cardQuantities.has(cardName)) continue;
+      const list = snapshotsByCard.get(cardName) || [];
+      list.push({ date: String(row.snapshot_date), price: Number(row.unit) || 0 });
+      snapshotsByCard.set(cardName, list);
     }
-    
+    for (const list of snapshotsByCard.values()) {
+      list.sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    const totalForDate = (date: string): number => {
+      let total = 0;
+      for (const [cardName, qty] of cardQuantities.entries()) {
+        const list = snapshotsByCard.get(cardName);
+        if (!list?.length) continue;
+        let selected: { date: string; price: number } | null = null;
+        for (const snapshot of list) {
+          if (snapshot.date > date) break;
+          selected = snapshot;
+        }
+        if (!selected) selected = list[0] || null;
+        if (selected) total += selected.price * qty;
+      }
+      return total;
+    };
+
+    // Group by date and value the whole collection using the latest known card price at that date.
+    const byDate = new Map<string, number>();
+    const datesFound = Array.from(uniqueSnapshotDates).sort();
+    for (const date of datesFound) {
+      const total = totalForDate(date);
+      if (total > 0) byDate.set(date, total);
+    }
+
     // Log what dates we found
-    const datesFound = Array.from(byDate.keys()).sort();
     console.log(`[PriceHistory] Dates with data: ${datesFound.length} dates (${datesFound.slice(0, 5).join(', ')}${datesFound.length > 5 ? '...' : ''})`);
 
     // Calculate 30d and 60d ago totals by finding closest snapshot for each card

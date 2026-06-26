@@ -103,22 +103,31 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   const [scanOpen, setScanOpen] = React.useState(true);
   const [constraintsOpen, setConstraintsOpen] = React.useState(false);
   const [actionsOpen, setActionsOpen] = React.useState(true);
+  const [actionsVisible, setActionsVisible] = React.useState(true);
 
   React.useEffect(() => {
     const openScan = () => {
+      setActionsVisible(true);
       setExpanded(true);
       setScanOpen(true);
     };
     const openFinish = () => {
+      setActionsVisible(true);
       setExpanded(true);
       setShowFinishDeck(true);
+    };
+    const syncActionsVisibility = (event: Event) => {
+      const visible = event instanceof CustomEvent ? event.detail?.visible : undefined;
+      setActionsVisible(visible !== false);
     };
 
     window.addEventListener("deck:ai-scan-focus", openScan);
     window.addEventListener("deck:finish-open", openFinish);
+    window.addEventListener("deck-actions-visibility", syncActionsVisibility as EventListener);
     return () => {
       window.removeEventListener("deck:ai-scan-focus", openScan);
       window.removeEventListener("deck:finish-open", openFinish);
+      window.removeEventListener("deck-actions-visibility", syncActionsVisibility as EventListener);
     };
   }, []);
 
@@ -405,6 +414,8 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
       setBusy(null);
     }
   }
+
+  if (!actionsVisible) return null;
 
   return (
     <section id="build-assistant-panel" className="min-w-0 rounded-xl border border-purple-500/35 bg-neutral-950/55 p-4 backdrop-blur shadow-lg shadow-black/20">

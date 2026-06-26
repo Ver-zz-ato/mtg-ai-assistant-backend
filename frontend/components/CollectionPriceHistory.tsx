@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Sparkline from "./Sparkline";
-
 interface PricePoint {
   date: string;
   total: number;
@@ -100,28 +98,32 @@ export default function CollectionPriceHistory({
     );
   }
 
-  // Find 30d and 60d ago points
+  // Find 30d and 60d ago points only when the history actually reaches those windows.
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const latestPoint = points[points.length - 1] || null;
   
-  // Find closest points to 30d and 60d ago
-  const findClosestPoint = (targetDate: Date): PricePoint | null => {
+  const daysBetween = (a: Date, b: Date) => Math.abs(a.getTime() - b.getTime()) / (24 * 60 * 60 * 1000);
+  const findHistoricPoint = (targetDate: Date, targetDays: number): PricePoint | null => {
     let closest: PricePoint | null = null;
     let minDiff = Infinity;
-    points.forEach(p => {
+    for (const p of points) {
       const pointDate = new Date(p.date);
-      const diff = Math.abs(pointDate.getTime() - targetDate.getTime());
+      if (latestPoint && p.date === latestPoint.date) continue;
+      const diff = daysBetween(pointDate, targetDate);
       if (diff < minDiff) {
         minDiff = diff;
         closest = p;
       }
-    });
-    return closest;
+    }
+    if (!closest || minDiff > 10) return null;
+    const actualAge = daysBetween(new Date(closest.date), now);
+    return actualAge >= targetDays - 10 ? closest : null;
   };
   
-  const point30d: PricePoint | null = findClosestPoint(thirtyDaysAgo);
-  const point60d: PricePoint | null = findClosestPoint(sixtyDaysAgo);
+  const point30d: PricePoint | null = findHistoricPoint(thirtyDaysAgo, 30);
+  const point60d: PricePoint | null = findHistoricPoint(sixtyDaysAgo, 60);
   
   const minValue = Math.min(...points.map(p => p.total));
   const maxValue = Math.max(...points.map(p => p.total));
@@ -163,7 +165,7 @@ export default function CollectionPriceHistory({
     // Auto-expand: use larger size by default for better visibility
     const width = isFullScreen ? 900 : 300;
     const height = isFullScreen ? 500 : 120; // Increased from 80 to 120 for better visibility
-    const padding = isFullScreen ? 50 : 15;
+    const padding = isFullScreen ? 56 : 24;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
     
@@ -258,9 +260,14 @@ export default function CollectionPriceHistory({
       return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
     }).join(' ');
 
+    const getTooltipBox = (x: number, y: number) => ({
+      x: Math.max(4, Math.min(width - 164, x - 80)),
+      y: Math.max(4, Math.min(height - 44, y - 50)),
+    });
+
     return (
     <div className={isFullScreen ? "w-full h-full" : "relative"}>
-      <div className={`${isFullScreen ? 'h-[500px]' : 'h-[120px]'} rounded border border-neutral-800 bg-neutral-950/50 relative overflow-hidden`}>
+      <div className={`${isFullScreen ? 'h-[500px]' : 'h-[120px]'} rounded border border-neutral-800 bg-neutral-950/50 relative overflow-visible`}>
         <svg 
           width={isFullScreen ? "100%" : width} 
           height={isFullScreen ? "100%" : height} 
@@ -381,11 +388,13 @@ export default function CollectionPriceHistory({
             );
           })}
           {/* Tooltip for hovered point */}
-          {hoveredPoint !== null && points[hoveredPoint.index] && (
+          {hoveredPoint !== null && points[hoveredPoint.index] && (() => {
+            const box = getTooltipBox(hoveredPoint.svgX, hoveredPoint.svgY);
+            return (
             <g>
               <rect
-                x={hoveredPoint.svgX - 80}
-                y={hoveredPoint.svgY - 50}
+                x={box.x}
+                y={box.y}
                 width={160}
                 height={40}
                 fill="rgba(0, 0, 0, 0.9)"
@@ -394,8 +403,8 @@ export default function CollectionPriceHistory({
                 rx="4"
               />
               <text
-                x={hoveredPoint.svgX}
-                y={hoveredPoint.svgY - 30}
+                x={box.x + 80}
+                y={box.y + 20}
                 textAnchor="middle"
                 fill="rgb(251, 191, 36)"
                 fontSize="12"
@@ -404,8 +413,8 @@ export default function CollectionPriceHistory({
                 {formatCurrency(points[hoveredPoint.index].total)}
               </text>
               <text
-                x={hoveredPoint.svgX}
-                y={hoveredPoint.svgY - 15}
+                x={box.x + 80}
+                y={box.y + 35}
                 textAnchor="middle"
                 fill="rgba(255, 255, 255, 0.7)"
                 fontSize="10"
@@ -413,7 +422,7 @@ export default function CollectionPriceHistory({
                 {formatDate(points[hoveredPoint.index].date, isFullScreen)}
               </text>
             </g>
-          )}
+          );})()}
           {/* Date labels for full screen */}
           {isFullScreen && points.length > 1 && (
             <>

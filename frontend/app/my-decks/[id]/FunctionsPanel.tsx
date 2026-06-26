@@ -39,6 +39,15 @@ export default function FunctionsPanel({
     window.dispatchEvent(new Event("analyzer:run"));
   };
 
+  const actionBase = "rounded-lg border bg-black/30 px-3 py-2 text-center text-sm font-semibold transition-colors";
+  const aiScanClass = `${actionBase} border-violet-500/50 text-violet-100 hover:bg-violet-500/15 hover:border-violet-300/80`;
+  const aiFinishClass = `${actionBase} border-pink-500/50 text-pink-100 hover:bg-pink-500/15 hover:border-pink-300/80`;
+  const aiWorkshopClass = `${actionBase} border-indigo-500/50 text-indigo-100 hover:bg-indigo-500/15 hover:border-indigo-300/80`;
+  const aiCompareClass = `${actionBase} border-sky-500/50 text-sky-100 hover:bg-sky-500/15 hover:border-sky-300/80`;
+  const quickReanalyseClass = `${actionBase} border-cyan-500/50 text-cyan-100 hover:bg-cyan-500/15 hover:border-cyan-300/80`;
+  const quickFixClass = `${actionBase} border-orange-600/50 text-orange-200 hover:bg-orange-600/20 hover:border-orange-300/80`;
+  const quickPanelsClass = `${actionBase} border-emerald-500/50 text-emerald-100 hover:bg-emerald-500/15 hover:border-emerald-300/80`;
+
   const toggleAllPanels = () => {
     const nextHidden = !allPanelsHidden;
     setAllPanelsHidden(nextHidden);
@@ -47,6 +56,14 @@ export default function FunctionsPanel({
         detail: { action: "toggle-all", show: !nextHidden },
       })
     );
+  };
+
+  const toggleExpanded = () => {
+    setExpanded((current) => {
+      const next = !current;
+      window.dispatchEvent(new CustomEvent("deck-actions-visibility", { detail: { visible: next } }));
+      return next;
+    });
   };
 
   async function importExternalUrl() {
@@ -94,7 +111,7 @@ export default function FunctionsPanel({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-neutral-300">Deck actions</h3>
         <button
-          onClick={() => setExpanded((v) => !v)}
+          onClick={toggleExpanded}
           className="rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:bg-neutral-700"
         >
           {expanded ? "Hide" : "Show"}
@@ -106,17 +123,17 @@ export default function FunctionsPanel({
           <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3">
             <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-violet-200">AI ✨</div>
             <div className="grid gap-2">
-              <button onClick={() => focusBuildAssistant("deck:ai-scan-focus")} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+              <button onClick={() => focusBuildAssistant("deck:ai-scan-focus")} className={aiScanClass}>
                 AI deck scan
               </button>
-              <button onClick={() => focusBuildAssistant("deck:finish-open")} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+              <button onClick={() => focusBuildAssistant("deck:finish-open")} className={aiFinishClass}>
                 Finish this Deck
               </button>
-              <Link href={`/ai-workshop?deckId=${deckId}`} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+              <Link href={`/ai-workshop?deckId=${deckId}`} className={aiWorkshopClass}>
                 AI Workshop
               </Link>
-              <Link href={`/compare-decks?deck1=${deckId}`} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
-                ✨ Compare decks
+              <Link href={`/compare-decks?deck1=${deckId}`} className={aiCompareClass}>
+                Compare decks
               </Link>
             </div>
           </div>
@@ -124,15 +141,15 @@ export default function FunctionsPanel({
           <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-3">
             <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">Quick actions</div>
             <div className="grid gap-2">
-              <button onClick={runReanalysis} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-cyan-300/70">
+              <button onClick={runReanalysis} className={quickReanalyseClass}>
                 Re-analyse
               </button>
-              <button onClick={() => setFixOpen(true)} className="rounded-lg border border-orange-600/50 bg-orange-600/15 px-3 py-2 text-center text-sm font-semibold text-orange-200 hover:bg-orange-600/25">
+              <button onClick={() => setFixOpen(true)} className={quickFixClass}>
                 Fix card names
               </button>
               <button
                 onClick={toggleAllPanels}
-                className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-center text-sm font-semibold text-neutral-100 hover:border-cyan-300/70"
+                className={quickPanelsClass}
                 title={allPanelsHidden ? "Show all side panels" : "Hide all side panels"}
               >
                 {allPanelsHidden ? "Show side panels" : "Hide all side panels"}

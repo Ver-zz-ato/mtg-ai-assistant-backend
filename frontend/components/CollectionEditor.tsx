@@ -37,23 +37,46 @@ function BarList({ data, total, colors, onClick }: { data: Array<{ label:string;
   );
 }
 
+function StatsSkeleton(){
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="h-3 w-20 animate-pulse rounded bg-neutral-800" />
+            <div className="h-3 w-8 animate-pulse rounded bg-neutral-800" />
+          </div>
+          <div className="h-2 overflow-hidden rounded bg-neutral-900">
+            <div className="h-full w-1/2 animate-pulse rounded bg-gradient-to-r from-neutral-800 via-neutral-700 to-neutral-800" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick, mode = "all" }: { collectionId: string; currency: 'USD'|'EUR'|'GBP'; onTypeClick?: (t:string)=>void; onBucketClick?: (b:string)=>void; mode?: "all" | "type" | "price" }){
   const [typeData, setTypeData] = React.useState<Array<{ label:string; value:number }>>([]);
   const [buckets, setBuckets] = React.useState<Array<{ label:string; value:number }>>([]);
+  const [typeLoading, setTypeLoading] = React.useState(true);
+  const [bucketLoading, setBucketLoading] = React.useState(true);
   React.useEffect(()=>{ (async()=>{
+    setTypeLoading(true);
+    let nextTypeData: Array<{ label:string; value:number }> = [];
     try{
       const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/stats`, { cache:'no-store' });
       const j = await r.json().catch(()=>({ ok:false }));
       if(j?.ok !== false){
         const types = j?.type_hist||{};
         const td = [ 'creature','instant','sorcery','land','artifact','enchantment' ].map(k=>({ label: k, value: Number(types?.[k]||0) }));
+        nextTypeData = td;
         setTypeData(td);
       }
     } catch{}
     // Fallback if API not available or all zero
     try{
       const isEmpty = (arr: any[]) => !Array.isArray(arr) || arr.reduce((s,x)=>s+(Number(x?.value)||0),0)===0;
-      if (isEmpty(typeData)) {
+      if (isEmpty(nextTypeData)) {
         const r2 = await fetch(`/api/collections/cards?collectionId=${encodeURIComponent(collectionId)}`, { cache:'no-store' });
         const j2 = await r2.json().catch(()=>({}));
         const items: Array<{ name:string; qty:number }> = Array.isArray(j2?.items)? j2.items : [];
@@ -73,8 +96,10 @@ function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick, mo
         setTypeData(Object.entries(map).map(([label,value])=>({ label, value })));
       }
     } catch{}
+    finally{ setTypeLoading(false); }
   })(); }, [collectionId]);
   React.useEffect(()=>{ (async()=>{
+    setBucketLoading(true);
     try{
       const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/price-buckets?currency=${encodeURIComponent(currency)}`, { cache:'no-store' });
       const j = await r.json().catch(()=>({ ok:false }));
@@ -100,6 +125,8 @@ function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick, mo
       // On error, show all brackets with 0
       const allBrackets = ['<$1', '$1–5', '$5–20', '$20–50', '$50–100', '$100+'];
       setBuckets(allBrackets.map(label => ({ label, value: 0 })));
+    } finally {
+      setBucketLoading(false);
     }
   })(); }, [collectionId, currency]);
   const typePanel = (
@@ -110,7 +137,7 @@ function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick, mo
           <span className="text-sm font-semibold text-neutral-300">Type histogram</span>
         </div>
       </summary>
-      <div className="p-3"><BarList data={typeData} onClick={(label)=> onTypeClick?.(label)} /></div>
+      <div className="p-3">{typeLoading ? <StatsSkeleton /> : <BarList data={typeData} onClick={(label)=> onTypeClick?.(label)} />}</div>
     </details>
   );
 
@@ -122,7 +149,7 @@ function AnalyticsCards({ collectionId, currency, onTypeClick, onBucketClick, mo
           <span className="text-sm font-semibold text-neutral-300">Price distribution</span>
         </div>
       </summary>
-      <div className="p-3"><BarList data={buckets} onClick={(label)=> onBucketClick?.(label)} /></div>
+      <div className="p-3">{bucketLoading ? <StatsSkeleton /> : <BarList data={buckets} onClick={(label)=> onBucketClick?.(label)} />}</div>
     </details>
   );
 
@@ -598,7 +625,9 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
 
   // Color pie (best-effort via Scryfall color_identity)
   const [colorCounts, setColorCounts] = React.useState<Record<string, number>>({ W:0, U:0, B:0, R:0, G:0 });
+  const [colorPieLoading, setColorPieLoading] = React.useState(false);
   const refreshColorPie = React.useCallback(async ()=>{
+    setColorPieLoading(true);
     try{
       const names = Array.from(new Set(items.map(i=>i.name))).slice(0, 300); // cap for drawer
       if(!names.length) { setColorCounts({W:0,U:0,B:0,R:0,G:0}); return; }
@@ -620,6 +649,7 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
       }
       setColorCounts(counts);
     }catch{ setColorCounts({W:0,U:0,B:0,R:0,G:0}); }
+    finally{ setColorPieLoading(false); }
   }, [items]);
   React.useEffect(()=>{ if(items.length) refreshColorPie(); }, [items, refreshColorPie]);
 
@@ -901,6 +931,21 @@ export default function CollectionEditor({ collectionId, mode = "drawer" }: Coll
   const windowed = filteredSorted.slice(startIndex, endIndex);
 
   function ColorPie(){
+    if (loading || colorPieLoading) {
+      return (
+        <div className="flex items-center gap-3">
+          <div className="h-16 w-16 animate-pulse rounded-full border border-neutral-700 bg-gradient-to-r from-neutral-800 via-neutral-700 to-neutral-800" />
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="h-3 w-3 animate-pulse rounded bg-neutral-800" />
+                <div className="h-3 w-14 animate-pulse rounded bg-neutral-800" />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     const order:[keyof typeof colorCounts, string][] = [['W','#f3f2e1'],['U','#70a0d0'],['B','#6a5c6a'],['R','#d2756a'],['G','#6db07b']];
     const sum = Object.values(colorCounts).reduce((a,b)=>a+b,0) || 1;
     const segs = order.map(([k,col])=> ({ k, col, pct: (colorCounts[k]/sum)*100 }));

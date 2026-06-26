@@ -141,6 +141,7 @@ export default function BuildADeckClient() {
 
   const isCommander = format === "Commander";
   const canGenerate = isCommander ? commander.trim().length > 1 || idea.trim().length > 3 : idea.trim().length > 3;
+  const canAdvanceStep = activeStep !== 2 || Boolean(result?.deckText);
   const currentLines = result ? deckLineCount(result.deckText) : 0;
 
   const planSummary = useMemo(() => {
@@ -670,8 +671,11 @@ export default function BuildADeckClient() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveStep((step) => Math.min(pipeline.length - 1, step + 1))}
-              disabled={activeStep === pipeline.length - 1}
+              onClick={() => {
+                if (!canAdvanceStep) return;
+                setActiveStep((step) => Math.min(pipeline.length - 1, step + 1));
+              }}
+              disabled={activeStep === pipeline.length - 1 || !canAdvanceStep}
               className="inline-flex min-h-11 items-center justify-center rounded-md bg-amber-300 px-5 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next step

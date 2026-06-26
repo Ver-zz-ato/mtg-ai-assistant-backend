@@ -198,7 +198,7 @@ export default function DeckOverview({
     children: React.ReactNode;
   }) {
     return (
-      <div className="flex min-h-[18rem] flex-col rounded-lg border border-neutral-800 bg-neutral-950/35">
+      <div className={`flex flex-col rounded-lg border border-neutral-800 bg-neutral-950/35 ${open ? "min-h-[18rem]" : ""}`}>
         <button
           type="button"
           onClick={onToggle}
