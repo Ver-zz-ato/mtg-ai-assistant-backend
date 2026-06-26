@@ -9,7 +9,7 @@ import { MetaSourceCallout } from "@/components/meta/MetaSourceCallout";
 import { getMetaSourceSummary } from "@/lib/meta/sourceSummary";
 
 export const metadata: Metadata = {
-  title: "Commander Tools & Guides | Mulligan, Cost, Budget | ManaTap",
+  title: "Commander Guides | ManaTap",
   description:
     "Commander-specific tools and guides. Mulligan strategy, budget upgrades, best cards. Browse 50+ commanders. Free EDH tools from ManaTap.",
   alternates: { canonical: "https://www.manatap.ai/commanders" },
@@ -67,7 +67,7 @@ export default async function CommandersIndexPage() {
         {/* Hero */}
         <section className="mb-10 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
-            Commander Tools & Guides
+            Commander Guides
           </h1>
         </section>
 
@@ -140,7 +140,7 @@ export default async function CommandersIndexPage() {
           </div>
         </section>
 
-        {/* Commander Directory Grid */}
+        {/* Commander Guides Grid */}
         <section>
           <h2 className="text-2xl font-bold text-white mb-6">
             Commander Guides

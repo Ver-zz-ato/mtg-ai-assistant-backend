@@ -27,6 +27,18 @@ export default function FunctionsPanel({
   const [urlBusy, setUrlBusy] = React.useState(false);
   const [urlError, setUrlError] = React.useState<string | null>(null);
 
+  const focusBuildAssistant = (eventName: string) => {
+    window.dispatchEvent(new Event(eventName));
+    document.getElementById("build-assistant-panel")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const runReanalysis = () => {
+    window.dispatchEvent(new Event("analyzer:run"));
+  };
+
   const toggleAllPanels = () => {
     const nextHidden = !allPanelsHidden;
     setAllPanelsHidden(nextHidden);
@@ -92,27 +104,40 @@ export default function FunctionsPanel({
       {expanded ? (
         <div className="mt-3 grid gap-3 lg:grid-cols-3">
           <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-3">
-            <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-violet-200">AI</div>
+            <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-violet-200">AI ✨</div>
             <div className="grid gap-2">
+              <button onClick={() => focusBuildAssistant("deck:ai-scan-focus")} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+                AI deck scan
+              </button>
+              <button onClick={() => focusBuildAssistant("deck:finish-open")} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+                Finish this Deck
+              </button>
+              <Link href={`/ai-workshop?deckId=${deckId}`} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
+                AI Workshop
+              </Link>
               <Link href={`/compare-decks?deck1=${deckId}`} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-sm font-semibold text-neutral-100 hover:border-violet-300/70">
                 Compare decks
               </Link>
-              <RecomputeButton />
-              <button onClick={() => setFixOpen(true)} className="rounded-lg border border-orange-600/50 bg-orange-600/15 px-3 py-2 text-left text-sm font-semibold text-orange-200 hover:bg-orange-600/25">
-                Fix card names
-              </button>
             </div>
           </div>
 
           <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-3">
             <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">Quick actions</div>
-            <button
-              onClick={toggleAllPanels}
-              className="w-full rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-cyan-300/70"
-              title={allPanelsHidden ? "Show all side panels" : "Hide all side panels"}
-            >
-              {allPanelsHidden ? "Show side panels" : "Hide side panels"}
-            </button>
+            <div className="grid gap-2">
+              <button onClick={runReanalysis} className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-cyan-300/70">
+                Re-analyse
+              </button>
+              <button onClick={() => setFixOpen(true)} className="rounded-lg border border-orange-600/50 bg-orange-600/15 px-3 py-2 text-left text-sm font-semibold text-orange-200 hover:bg-orange-600/25">
+                Fix card names
+              </button>
+              <button
+                onClick={toggleAllPanels}
+                className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-2 text-left text-sm font-semibold text-neutral-100 hover:border-cyan-300/70"
+                title={allPanelsHidden ? "Show all side panels" : "Hide all side panels"}
+              >
+                {allPanelsHidden ? "Show side panels" : "Hide all side panels"}
+              </button>
+            </div>
           </div>
 
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
@@ -127,6 +152,7 @@ export default function FunctionsPanel({
               >
                 Import URL
               </button>
+              <RecomputeButton />
             </div>
             <div className="mt-3">
               <DeckVersionHistory deckId={deckId} isPro={isPro} />

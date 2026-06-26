@@ -2,6 +2,14 @@
 :root { color-scheme: dark; }
 * { scrollbar-width: thin; }
 
+header {
+  scrollbar-width: none;
+}
+
+header::-webkit-scrollbar {
+  display: none;
+}
+
 /* Mobile: reduce tap highlight flash; does not cause horizontal overflow */
 @media (hover: none) and (pointer: coarse) {
   button, a, [role="button"] {

@@ -104,6 +104,24 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   const [constraintsOpen, setConstraintsOpen] = React.useState(false);
   const [actionsOpen, setActionsOpen] = React.useState(true);
 
+  React.useEffect(() => {
+    const openScan = () => {
+      setExpanded(true);
+      setScanOpen(true);
+    };
+    const openFinish = () => {
+      setExpanded(true);
+      setShowFinishDeck(true);
+    };
+
+    window.addEventListener("deck:ai-scan-focus", openScan);
+    window.addEventListener("deck:finish-open", openFinish);
+    return () => {
+      window.removeEventListener("deck:ai-scan-focus", openScan);
+      window.removeEventListener("deck:finish-open", openFinish);
+    };
+  }, []);
+
   function chip(label:string){ return (<span className="px-2 py-0.5 rounded border border-neutral-700 bg-neutral-900/60 text-[11px]">{label}</span>); }
   function sectionToggle(title: string, open: boolean, onClick: () => void) {
     return (
@@ -389,7 +407,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   }
 
   return (
-    <section className="min-w-0 rounded-xl border border-purple-500/35 bg-neutral-950/55 p-4 backdrop-blur shadow-lg shadow-black/20">
+    <section id="build-assistant-panel" className="min-w-0 rounded-xl border border-purple-500/35 bg-neutral-950/55 p-4 backdrop-blur shadow-lg shadow-black/20">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span className="text-2xl flex-shrink-0">🎯</span>
