@@ -172,12 +172,12 @@ export default function DeckOverview({
     }
   }
 
-  const manaClasses: Record<string, string> = {
-    W: "bg-stone-100 text-neutral-950 border-stone-300",
-    U: "bg-sky-400 text-sky-950 border-sky-200",
-    B: "bg-neutral-800 text-white border-neutral-500",
-    R: "bg-red-500 text-white border-red-300",
-    G: "bg-emerald-500 text-emerald-950 border-emerald-200",
+  const manaSymbols: Record<string, { src: string; label: string }> = {
+    W: { src: "/mana/w.svg", label: "White mana" },
+    U: { src: "/mana/u.svg", label: "Blue mana" },
+    B: { src: "/mana/b.svg", label: "Black mana" },
+    R: { src: "/mana/r.svg", label: "Red mana" },
+    G: { src: "/mana/g.svg", label: "Green mana" },
   };
 
   const typeRows = Object.entries(typeBreakdown || {}).filter(([, count]) => Number(count) > 0);
@@ -213,9 +213,18 @@ export default function DeckOverview({
   }
 
   function ManaPip({ value }: { value: string }) {
+    const symbol = manaSymbols[value];
     return (
-      <span className={`inline-flex h-12 w-12 items-center justify-center rounded-full border text-lg font-black shadow ${manaClasses[value] || "border-neutral-600 bg-neutral-800 text-white"}`}>
-        {value}
+      <span
+        className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-white/25 bg-black/45 p-1.5 shadow-lg shadow-black/35 ring-1 ring-black/60"
+        aria-label={symbol?.label || `${value} mana`}
+        title={symbol?.label || `${value} mana`}
+      >
+        {symbol ? (
+          <img src={symbol.src} alt="" aria-hidden="true" className="h-full w-full rounded-full object-contain" />
+        ) : (
+          <span className="text-lg font-black text-white">{value}</span>
+        )}
       </span>
     );
   }

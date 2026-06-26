@@ -37,12 +37,24 @@ type ToolDef = {
   priority?: "recommended" | "popular";
 };
 
-const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent: string; tools: ToolDef[] }> = [
+type JourneyStage = {
+  step: number;
+  title: string;
+  kicker: string;
+  icon: LucideIcon;
+  accent: string;
+  node: string;
+  tools: ToolDef[];
+};
+
+const JOURNEY: JourneyStage[] = [
   {
-    title: "Build & Analyze",
-    kicker: "Create a list, check it, then test the hands that actually matter.",
+    step: 1,
+    title: "Build",
+    kicker: "Bring your idea into a real list.",
     icon: Wand2,
-    accent: "from-amber-300/70 to-violet-300/60",
+    accent: "from-violet-400/60 to-amber-300/45",
+    node: "border-violet-300/45 bg-violet-500/15 text-violet-100 shadow-violet-500/25",
     tools: [
       {
         href: "/build-a-deck",
@@ -54,6 +66,25 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         priority: "recommended",
       },
       {
+        href: "/ai-workshop",
+        title: "AI Workshop",
+        subtitle: "Run focused AI passes on mana, curve, budget, power, or legality.",
+        badge: "Limited",
+        icon: Wrench,
+        accent: "text-violet-200 border-violet-300/25 bg-violet-300/10",
+        priority: "recommended",
+      },
+    ],
+  },
+  {
+    step: 2,
+    title: "Analyze",
+    kicker: "Find what the list is really doing.",
+    icon: Bot,
+    accent: "from-sky-400/60 to-cyan-300/45",
+    node: "border-sky-300/45 bg-sky-500/15 text-sky-100 shadow-sky-500/25",
+    tools: [
+      {
         href: "/mtg-deck-checker",
         title: "Deck Checker",
         subtitle: "Paste a list and get curve, role, legality, and upgrade notes.",
@@ -61,14 +92,6 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
         icon: Bot,
         accent: "text-violet-200 border-violet-300/25 bg-violet-300/10",
         priority: "popular",
-      },
-      {
-        href: "/tools/mulligan",
-        title: "Mulligan Simulator",
-        subtitle: "Test opening hands with London mulligan rules.",
-        badge: "Free",
-        icon: HeartHandshake,
-        accent: "text-rose-200 border-rose-300/25 bg-rose-300/10",
       },
       {
         href: CHAT_ROUTE,
@@ -82,20 +105,13 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
     ],
   },
   {
-    title: "Upgrade & Compare",
-    kicker: "Refine weak slots, lower costs, compare builds, and finish missing cards.",
+    step: 3,
+    title: "Improve",
+    kicker: "Fix weak slots and sharpen the plan.",
     icon: Sparkles,
-    accent: "from-emerald-300/70 to-cyan-300/55",
+    accent: "from-emerald-400/60 to-cyan-300/45",
+    node: "border-emerald-300/45 bg-emerald-500/15 text-emerald-100 shadow-emerald-500/25",
     tools: [
-      {
-        href: "/ai-workshop",
-        title: "AI Workshop",
-        subtitle: "Run focused AI passes on mana, curve, budget, power, or legality.",
-        badge: "Limited",
-        icon: Wrench,
-        accent: "text-violet-200 border-violet-300/25 bg-violet-300/10",
-        priority: "recommended",
-      },
       {
         href: "/budget-swaps",
         title: "Budget Swaps",
@@ -124,10 +140,12 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
     ],
   },
   {
-    title: "Search & Track",
-    kicker: "Use cards, collections, wishlists, and prices as one workflow.",
+    step: 4,
+    title: "Track",
+    kicker: "Keep cards, prices, and wants organized.",
     icon: Search,
-    accent: "from-amber-300/70 to-sky-300/55",
+    accent: "from-amber-400/60 to-sky-300/45",
+    node: "border-amber-300/45 bg-amber-500/15 text-amber-100 shadow-amber-500/25",
     tools: [
       {
         href: "/cards",
@@ -165,10 +183,12 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
     ],
   },
   {
-    title: "Discover & Play",
-    kicker: "Find commanders, follow the meta, and add a little table-talk chaos.",
+    step: 5,
+    title: "Discover",
+    kicker: "Find ideas from commanders and meta signals.",
     icon: BarChart3,
-    accent: "from-teal-300/70 to-red-300/45",
+    accent: "from-orange-400/60 to-red-300/45",
+    node: "border-orange-300/45 bg-orange-500/15 text-orange-100 shadow-orange-500/25",
     tools: [
       {
         href: "/roast",
@@ -204,6 +224,24 @@ const SECTIONS: Array<{ title: string; kicker: string; icon: LucideIcon; accent:
       },
     ],
   },
+  {
+    step: 6,
+    title: "Play",
+    kicker: "Test the hands before game night.",
+    icon: HeartHandshake,
+    accent: "from-pink-400/60 to-rose-300/45",
+    node: "border-rose-300/45 bg-rose-500/15 text-rose-100 shadow-rose-500/25",
+    tools: [
+      {
+        href: "/tools/mulligan",
+        title: "Mulligan Simulator",
+        subtitle: "Test opening hands with London mulligan rules.",
+        badge: "Free",
+        icon: HeartHandshake,
+        accent: "text-rose-200 border-rose-300/25 bg-rose-300/10",
+      },
+    ],
+  },
 ];
 
 function Badge({ value }: { value: ToolBadge }) {
@@ -215,70 +253,68 @@ function Badge({ value }: { value: ToolBadge }) {
         : value === "Limited"
           ? "border-violet-300/25 bg-violet-300/10 text-violet-100"
           : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
-  return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${classes}`}>{value}</span>;
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${classes}`}>
+      {value}
+    </span>
+  );
 }
 
-function ToolCard({ tool }: { tool: ToolDef }) {
+function ToolRow({ tool }: { tool: ToolDef }) {
   const Icon = tool.icon;
   const isPriority = Boolean(tool.priority);
   return (
     <Link
       href={tool.href}
-      className={`group relative block h-full overflow-hidden rounded-xl border bg-[linear-gradient(145deg,rgba(18,18,18,0.92),rgba(7,7,8,0.82))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_45px_rgba(0,0,0,0.24)] outline-none transition duration-200 hover:-translate-y-1 hover:bg-[linear-gradient(145deg,rgba(24,24,24,0.96),rgba(9,9,10,0.88))] focus-visible:ring-2 focus-visible:ring-amber-300/70 motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+      className={`group relative flex gap-2.5 rounded-lg border bg-black/35 p-2.5 outline-none transition duration-200 hover:-translate-y-0.5 hover:bg-black/55 focus-visible:ring-2 focus-visible:ring-amber-300/70 motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
         isPriority
-          ? "border-amber-300/30 hover:border-amber-200/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_52px_rgba(245,158,11,0.12)]"
-          : "border-white/10 hover:border-white/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_45px_rgba(0,0,0,0.36)]"
+          ? "border-amber-300/25 hover:border-amber-200/55 hover:shadow-[0_12px_34px_rgba(245,158,11,0.12)]"
+          : "border-white/10 hover:border-white/25 hover:shadow-[0_12px_34px_rgba(0,0,0,0.34)]"
       }`}
     >
       <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
-      <span className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-amber-300/0 blur-2xl transition group-hover:bg-amber-300/10" />
-      <div className="flex h-full items-start gap-3">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] ${tool.accent}`}>
-          <Icon size={20} aria-hidden="true" />
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] ${tool.accent}`}>
+        <Icon size={18} aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-start justify-between gap-2">
+          <span className="text-sm font-bold leading-5 text-white group-hover:text-amber-100">{tool.title}</span>
+          <Badge value={tool.badge} />
         </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="flex items-start justify-between gap-2">
-            <span className="text-[15px] font-bold leading-5 text-white group-hover:text-amber-100">{tool.title}</span>
-            <Badge value={tool.badge} />
+        <span className="mt-1 block text-xs leading-5 text-neutral-400">{tool.subtitle}</span>
+        {tool.priority ? (
+          <span className="mt-2 inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+            {tool.priority === "recommended" ? "Recommended" : "Popular"}
           </span>
-          {tool.priority ? (
-            <span className="mt-1 w-fit rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-              {tool.priority === "recommended" ? "Recommended" : "Popular"}
-            </span>
-          ) : null}
-          <span className="mt-2 block text-sm leading-6 text-neutral-400">{tool.subtitle}</span>
-          <span className="mt-auto pt-3 text-xs font-semibold text-amber-200/0 transition group-hover:text-amber-200">
-            Open →
-          </span>
-        </span>
-      </div>
+        ) : null}
+      </span>
     </Link>
   );
 }
 
 export default function ToolsIndexPage() {
   return (
-    <main className="relative w-full max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(251,191,36,0.08),transparent_28%),radial-gradient(circle_at_66%_38%,rgba(34,211,238,0.08),transparent_30%),linear-gradient(90deg,rgba(0,0,0,0.62),rgba(0,0,0,0.28),rgba(0,0,0,0.62))]" />
+    <main className="relative mx-auto w-full max-w-[96rem] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_8%,rgba(124,58,237,0.13),transparent_30%),radial-gradient(circle_at_76%_38%,rgba(251,146,60,0.09),transparent_28%),radial-gradient(circle_at_22%_46%,rgba(34,211,238,0.08),transparent_30%),linear-gradient(90deg,rgba(0,0,0,0.72),rgba(7,7,12,0.34),rgba(0,0,0,0.72))]" />
       <nav className="relative mb-4 text-sm text-neutral-400">
-        <Link href="/" className="hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 rounded">Home</Link>
+        <Link href="/" className="rounded hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70">Home</Link>
         <span className="mx-2">/</span>
         <span className="text-neutral-200">Tools</span>
       </nav>
 
-      <section className="relative overflow-hidden rounded-2xl border border-amber-300/22 bg-[linear-gradient(145deg,rgba(10,10,10,0.94),rgba(17,17,18,0.82)_52%,rgba(13,20,19,0.86))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_70px_rgba(0,0,0,0.38)] sm:p-6">
+      <section className="relative overflow-hidden rounded-2xl border border-violet-300/22 bg-[linear-gradient(145deg,rgba(10,10,16,0.95),rgba(17,17,25,0.84)_52%,rgba(13,20,22,0.86))] p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_70px_rgba(0,0,0,0.38)] sm:p-8">
         <div className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-amber-300/12 blur-3xl" />
         <div className="pointer-events-none absolute right-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-amber-200/35 to-transparent" />
         <div className="pointer-events-none absolute -right-20 bottom-0 h-48 w-48 rounded-full bg-teal-300/10 blur-3xl" />
         <div className="relative grid gap-5 lg:grid-cols-[1fr_300px] lg:items-center">
-          <div className="min-w-0">
+          <div className="min-w-0 lg:text-left">
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-amber-300">ManaTap tools</p>
-            <h1 className="mt-3 text-3xl font-black leading-tight text-white md:text-4xl">Build, tune, and track better MTG decks</h1>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-neutral-300">
-              A cleaner hub for deck building, analysis, mulligans, upgrades, card search, prices, and collection workflows.
+            <h1 className="mt-3 text-4xl font-black leading-tight text-white md:text-5xl">Your deckbuilding journey</h1>
+            <p className="mx-auto mt-3 max-w-3xl text-base leading-7 text-neutral-300 lg:mx-0">
+              From idea to table. ManaTap helps at every step.
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {["Deck building", "Card search", "Collection workflows"].map((label) => (
+            <div className="mt-4 flex flex-wrap justify-center gap-2 lg:justify-start">
+              {["Build", "Analyze", "Improve", "Track", "Discover", "Play"].map((label) => (
                 <span key={label} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-neutral-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                   {label}
                 </span>
@@ -297,30 +333,44 @@ export default function ToolsIndexPage() {
         </div>
       </section>
 
-      <div className="relative mt-7 space-y-7">
-        {SECTIONS.map((section) => {
-          const SectionIcon = section.icon;
-          return (
-            <section key={section.title}>
-              <div className="mb-3 flex items-center gap-3">
-                <span className={`h-10 w-1 rounded-full bg-gradient-to-b ${section.accent}`} />
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-black/30 text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                  <SectionIcon size={18} aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-xl font-black leading-6 text-white">{section.title}</h2>
-                  <p className="mt-0.5 text-sm text-neutral-400">{section.kicker}</p>
+      <div className="relative mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_80px_rgba(0,0,0,0.35)] sm:p-5">
+        <div className="pointer-events-none absolute left-8 right-8 top-[5.75rem] hidden h-px bg-gradient-to-r from-violet-400/35 via-amber-300/45 to-rose-400/35 lg:block" />
+        <div className="grid gap-4 lg:grid-cols-6">
+          {JOURNEY.map((stage) => {
+            const StageIcon = stage.icon;
+            return (
+              <section key={stage.title} className="relative grid gap-3 lg:block">
+                <div className="flex items-center gap-3 lg:min-h-36 lg:flex-col lg:text-center">
+                  <div className="min-w-0 lg:min-h-16">
+                    <div className="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">{stage.step}. {stage.title}</div>
+                    <p className="mt-1 text-xs leading-5 text-neutral-400">{stage.kicker}</p>
+                  </div>
+                  <div className={`relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-full border shadow-2xl ${stage.node}`}>
+                    <StageIcon size={25} aria-hidden="true" />
+                  </div>
                 </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {section.tools.map((tool) => (
-                  <ToolCard key={tool.href} tool={tool} />
-                ))}
-              </div>
-            </section>
-          );
-        })}
+                <div className={`rounded-xl border bg-gradient-to-br ${stage.accent} p-px`}>
+                  <div className="space-y-2 rounded-[11px] bg-neutral-950/90 p-2.5">
+                    {stage.tools.map((tool) => (
+                      <ToolRow key={tool.href} tool={tool} />
+                    ))}
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
+
+      <section className="relative mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl border border-violet-300/20 bg-violet-500/10 p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <h2 className="text-lg font-black text-white">Not sure where to start?</h2>
+        <Link
+          href="/build-a-deck"
+          className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-violet-950/35 transition hover:-translate-y-0.5 hover:from-violet-500 hover:to-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+        >
+          Take me to Build a Deck
+        </Link>
+      </section>
 
       <section className="relative mt-8 rounded-xl border border-white/10 bg-black/35 p-3 text-sm text-neutral-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -31,9 +31,22 @@ export default function ShareButton({
 }: ShareButtonProps) {
   const [showOptions, setShowOptions] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showCopyConfirm, setShowCopyConfirm] = useState(false);
   const [copiedRecently, setCopiedRecently] = useState(false);
   const { user } = useAuth();
   const { isPro } = useProStatus();
+
+  const shareNotice =
+    type === 'collection'
+      ? 'Public collection links can be viewed by others. Anyone with the link can open the shared binder page.'
+      : type === 'deck'
+        ? 'Public deck links can be viewed by others and may appear on your public profile.'
+        : `This ${type} link can be viewed by anyone you share it with.`;
+
+  const requestCopy = () => {
+    setShowOptions(false);
+    setShowCopyConfirm(true);
+  };
 
   const handleCopy = async () => {
     try {
@@ -79,6 +92,7 @@ export default function ShareButton({
 
       setTimeout(() => setCopiedRecently(false), 2000);
       setShowOptions(false);
+      setShowCopyConfirm(false);
     } catch (error) {
       console.error('Failed to copy:', error);
       try {
@@ -168,7 +182,7 @@ export default function ShareButton({
     return (
       <div className="relative">
         <button
-          onClick={handleCopy}
+          onClick={requestCopy}
           className={`flex items-center gap-1 ${copiedRecently ? 'text-green-400' : ''} ${className}`}
         >
           {copiedRecently ? (
@@ -190,6 +204,14 @@ export default function ShareButton({
           description={title}
           onClose={() => setShowQr(false)}
         />
+        {showCopyConfirm && (
+          <ShareCopyConfirmModal
+            type={type}
+            notice={shareNotice}
+            onCancel={() => setShowCopyConfirm(false)}
+            onShare={handleCopy}
+          />
+        )}
       </div>
     );
   }
@@ -219,7 +241,7 @@ export default function ShareButton({
             <div className="text-xs text-gray-600 mb-2 px-2">Share this {type}:</div>
             
             <button
-              onClick={handleCopy}
+              onClick={requestCopy}
               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
             >
               <Copy className="h-4 w-4" aria-hidden="true" />
@@ -286,6 +308,65 @@ export default function ShareButton({
         description={title}
         onClose={() => setShowQr(false)}
       />
+      {showCopyConfirm && (
+        <ShareCopyConfirmModal
+          type={type}
+          notice={shareNotice}
+          onCancel={() => setShowCopyConfirm(false)}
+          onShare={handleCopy}
+        />
+      )}
+    </div>
+  );
+}
+
+function ShareCopyConfirmModal({
+  type,
+  notice,
+  onCancel,
+  onShare,
+}: {
+  type: NonNullable<ShareButtonProps['type']>;
+  notice: string;
+  onCancel: () => void;
+  onShare: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="share-confirm-title"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-neutral-950 p-5 text-neutral-100 shadow-2xl shadow-cyan-950/40"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-3 inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-200">
+          Share link
+        </div>
+        <h2 id="share-confirm-title" className="text-xl font-black text-white">
+          Share this {type}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-neutral-300">{notice}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 transition-colors hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onShare}
+            className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-black text-black transition-colors hover:bg-cyan-300"
+          >
+            Share
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

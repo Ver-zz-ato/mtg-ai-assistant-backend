@@ -100,6 +100,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
   const [aiScanSuggestions, setAiScanSuggestions] = React.useState<Array<{ card: string; reason: string }>>([]);
   const [aiScanError, setAiScanError] = React.useState<string | null>(null);
   const [showFinishDeck, setShowFinishDeck] = React.useState(false);
+  const [showFinishIntro, setShowFinishIntro] = React.useState(false);
   const [scanOpen, setScanOpen] = React.useState(true);
   const [constraintsOpen, setConstraintsOpen] = React.useState(false);
   const [actionsOpen, setActionsOpen] = React.useState(true);
@@ -114,7 +115,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
     const openFinish = () => {
       setActionsVisible(true);
       setExpanded(true);
-      setShowFinishDeck(true);
+      setShowFinishIntro(true);
     };
     const syncActionsVisibility = (event: Event) => {
       const visible = event instanceof CustomEvent ? event.detail?.visible : undefined;
@@ -699,7 +700,7 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
               </button>
               <button 
                 className="px-3 py-2 rounded-lg border border-purple-500/50 hover:bg-purple-900/30 bg-gradient-to-r from-purple-600/40 to-pink-600/40 text-left transition-colors" 
-                onClick={() => setShowFinishDeck(true)}
+                onClick={() => setShowFinishIntro(true)}
               >
                 <div className="font-semibold text-xs">✨ Finish This Deck</div>
                 <div className="text-xs opacity-70">
@@ -754,6 +755,73 @@ export default function BuildAssistantSticky({ deckId, encodedIntent, isPro, hea
           }
         }}
       />
+
+      {showFinishIntro && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="finish-deck-intro-title"
+          onClick={() => setShowFinishIntro(false)}
+        >
+          <div
+            className="w-full max-w-xl rounded-2xl border border-purple-500/35 bg-neutral-950 p-5 shadow-2xl shadow-purple-950/40"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="mb-2 inline-flex rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-purple-200">
+                  AI completion pass
+                </div>
+                <h2 id="finish-deck-intro-title" className="text-xl font-black text-white">
+                  Finish This Deck
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFinishIntro(false)}
+                className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-1.5 text-xs text-neutral-200 transition-colors hover:bg-neutral-800"
+              >
+                Close
+              </button>
+            </div>
+            <p className="text-sm leading-6 text-neutral-300">
+              ManaTap will scan the current list, compare it against the {assistantFormatRules.analyzeAs} target of{" "}
+              {assistantFormatRules.mainDeckTarget} cards, then suggest additions that fill missing roles without replacing your current plan.
+            </p>
+            <div className="mt-4 grid gap-2 text-sm text-neutral-300 sm:grid-cols-3">
+              {[
+                "Checks missing deck slots",
+                "Looks for role gaps",
+                "Suggests addable cards",
+              ].map((label) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
+                  {label}
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFinishIntro(false)}
+                className="rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 transition-colors hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFinishIntro(false);
+                  setShowFinishDeck(true);
+                }}
+                className="rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-black text-white transition hover:from-purple-400 hover:to-pink-400"
+              >
+                Run
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Budget Swaps Threshold Popup */}
       {showFinishDeck && (

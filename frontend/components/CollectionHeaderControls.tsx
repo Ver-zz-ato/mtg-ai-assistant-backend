@@ -11,6 +11,7 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
   const [busy, setBusy] = React.useState(false);
   const [slugOk, setSlugOk] = React.useState<undefined|boolean>(undefined);
   const [checking, setChecking] = React.useState(false);
+  const [shareConfirmOpen, setShareConfirmOpen] = React.useState(false);
 
   React.useEffect(()=>{
     (async()=>{
@@ -101,7 +102,7 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
   const origin = typeof location!=='undefined'? location.origin : '';
   const url = slug? `${origin}/binder/${slug}` : '';
 
-  async function copyLink(){ if(!url) return; try{ await navigator.clipboard.writeText(url); }catch{} }
+  async function copyLink(){ if(!url) return; try{ await navigator.clipboard.writeText(url); toast("Collection link copied.", "success"); }catch{} finally { setShareConfirmOpen(false); } }
 
   async function doExport(fmt: 'csv'|'mtga'|'mtgo'|'moxfield'){
     const r = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/export?format=${fmt}`);
@@ -132,7 +133,7 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           {!checking && slug && slugOk===true && <span className="text-[11px] text-emerald-400">Available</span>}
           {!checking && slug && slugOk===false && <span className="text-[11px] text-red-400">Slug already in use</span>}
           <input readOnly value={url} onFocus={e=>e.currentTarget.select()} className="w-56 bg-neutral-950 border border-neutral-700 rounded px-2 py-1 text-xs" />
-          <button onClick={copyLink} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Copy</button>
+          <button onClick={() => setShareConfirmOpen(true)} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg">Copy</button>
         </div>
       )}
 
@@ -162,6 +163,46 @@ export default function CollectionHeaderControls({ collectionId }: { collectionI
           )}
         </div>
       </div>
+      {shareConfirmOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="collection-share-confirm-title"
+          onClick={() => setShareConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-neutral-950 p-5 text-neutral-100 shadow-2xl shadow-cyan-950/40"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-200">
+              Share collection
+            </div>
+            <h2 id="collection-share-confirm-title" className="text-xl font-black text-white">
+              Share this collection
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-neutral-300">
+              Public collection links can be viewed by others. Anyone with the link can open the shared binder page.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShareConfirmOpen(false)}
+                className="rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 transition-colors hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={copyLink}
+                className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-black text-black transition-colors hover:bg-cyan-300"
+              >
+                Share
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

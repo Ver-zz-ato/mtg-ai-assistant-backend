@@ -147,6 +147,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
         <button
           onClick={() => setOpen(!open)}
           className="flex items-center gap-2 px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
+          title="View saved deck snapshots and restore an older version."
         >
           <span>⏱️</span>
           <span>Version History</span>
@@ -158,6 +159,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
           onClick={() => saveVersion()}
           disabled={saving}
           className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-700 disabled:cursor-not-allowed border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
+          title="Save the current deck as a new version snapshot."
         >
           {saving ? 'Saving...' : 'Save Version'}
         </button>
@@ -165,6 +167,7 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
         <button
           onClick={() => setChangelogOpen(true)}
           className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs font-medium transition-colors text-neutral-300"
+          title="Open the deck changelog for recent edits."
         >
           📝 View Changelog
         </button>
@@ -268,4 +271,3 @@ export default function DeckVersionHistory({ deckId, isPro }: DeckVersionHistory
     </div>
   );
 }
-
