@@ -48,10 +48,12 @@ export default function BuildDeckFromCollectionPanel({ collectionId }: BuildDeck
           </p>
           <ul className="space-y-2 text-xs text-neutral-300 mb-4">
             <li className="flex items-center gap-2">
-              <span className="text-purple-400">•</span> <strong>Build it myself</strong> — Pick format and add cards from your collection
+              <span className="text-purple-400">-</span>
+              <strong>Build it myself</strong> - Pick format and add cards from your collection
             </li>
             <li className="flex items-center gap-2">
-              <span className="text-purple-400">•</span> <strong>Guided AI</strong> — Commander, playstyle quiz, or auto-build
+              <span className="text-purple-400">-</span>
+              <strong>Guided AI</strong> - Commander or 60-card constructed from your collection
             </li>
           </ul>
           <button
@@ -59,7 +61,7 @@ export default function BuildDeckFromCollectionPanel({ collectionId }: BuildDeck
             onClick={() => setShowChooser(true)}
             className="w-full rounded-lg border border-purple-500/30 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition-all hover:from-purple-500 hover:via-pink-500 hover:to-purple-500 hover:shadow-purple-500/25"
           >
-            Build a Deck From This Collection →
+            Build a Deck From This Collection
           </button>
         </div>
       </div>
