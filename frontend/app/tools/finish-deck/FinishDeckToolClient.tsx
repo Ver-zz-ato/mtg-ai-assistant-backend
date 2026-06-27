@@ -268,7 +268,8 @@ export default function FinishDeckToolClient() {
           </div>
         </div>
 
-        <div className="grid items-start gap-5 lg:grid-cols-[0.9fr_1.1fr] xl:grid-cols-[0.82fr_1fr_320px]">
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid items-start gap-5 lg:grid-cols-[0.82fr_1fr]">
           <div className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
             <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-neutral-800 bg-black/40 p-1">
               {(["saved", "paste"] as Mode[]).map((tab) => (
@@ -464,7 +465,12 @@ export default function FinishDeckToolClient() {
             </div>
           </div>
 
-          <aside className="lg:col-span-2 xl:col-span-1 xl:sticky xl:top-24 xl:self-start">
+            <div className="lg:col-span-2">
+              <FinishDeckExampleWalkthrough />
+            </div>
+          </div>
+
+          <aside className="xl:sticky xl:top-24 xl:self-start">
             <FinishDeckSideRail />
           </aside>
         </div>
@@ -539,6 +545,89 @@ function FinishDeckSideRail() {
         { href: "/ai-workshop", label: "AI Workshop", sub: "Refine a deck with instructions", tone: "amber" },
       ]}
     />
+  );
+}
+
+function FinishDeckExampleWalkthrough() {
+  return (
+    <section className="relative overflow-hidden rounded-xl border border-cyan-300/15 bg-zinc-950/75 p-5 shadow-2xl shadow-black/30">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_88%_12%,rgba(168,85,247,0.14),transparent_30%),linear-gradient(135deg,rgba(16,185,129,0.08),transparent_50%)]" aria-hidden />
+      <div className="relative grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+        <div className="flex flex-col justify-between gap-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Example review</p>
+            <h2 className="mt-2 text-2xl font-black tracking-normal text-white">From partial pile to builder-ready adds</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
+              Finish Deck is meant for the messy middle: enough cards to show intent, not enough to call it done. ManaTap keeps the plan intact, then gives you editable adds instead of silently rewriting the list.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              ["58/100", "Commander partial"],
+              ["18", "reviewable adds"],
+              ["2 zones", "main + sideboard"],
+            ].map(([value, label]) => (
+              <div key={label} className="rounded-lg border border-white/10 bg-black/35 p-3">
+                <p className="text-2xl font-black text-white">{value}</p>
+                <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-3">
+              <p className="text-sm font-black text-emerald-100">Keeps the deck&apos;s lane</p>
+              <p className="mt-1 text-xs leading-5 text-neutral-300">Suggestions patch missing essentials like mana, draw, interaction, and finishers before chasing cute upgrades.</p>
+            </div>
+            <div className="rounded-lg border border-purple-300/20 bg-purple-300/10 p-3">
+              <p className="text-sm font-black text-purple-100">Editable before applying</p>
+              <p className="mt-1 text-xs leading-5 text-neutral-300">Change quantities, remove rows, copy the result, or add only selected cards to a saved deck.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden rounded-xl border border-amber-300/25 bg-black/40 p-4">
+          <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
+            <div className="absolute left-1/2 top-[45%] w-[155%] -translate-x-1/2 -translate-y-1/2 -rotate-[18deg]">
+              <div className="border-y-[3px] border-amber-200/90 bg-gradient-to-r from-amber-300 via-amber-200 to-amber-300 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+                <p className="text-center text-[11px] font-black uppercase tracking-[0.28em] text-zinc-950">
+                  Example output
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="relative opacity-[0.78] saturate-[0.78]">
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Suggested adds</p>
+                <h3 className="mt-1 text-xl font-black text-white">Review rows before they touch your deck</h3>
+              </div>
+              <p className="text-xs font-bold text-cyan-200">3 selected / 3 rows</p>
+            </div>
+            <div className="space-y-2">
+              {EXAMPLE_SUGGESTIONS.map((row) => (
+                <div key={row.card} className="rounded-lg border border-neutral-800 bg-black/45 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-white">{row.qty} {row.card}</p>
+                      <p className="mt-1 text-xs text-cyan-200/80">{row.role} / {row.priority}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">
+                        {row.priority || "medium"}
+                      </span>
+                      <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] text-neutral-400">{row.zone}</span>
+                    </div>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-neutral-400">{row.reason}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
