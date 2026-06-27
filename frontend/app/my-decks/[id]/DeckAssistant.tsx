@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React from "react";
 import { usePathname } from "next/navigation";
 import { listMessages, postMessageStream } from "@/lib/threads";
@@ -23,7 +23,7 @@ import InlineCardLink from "@/components/chat/InlineCardLink";
 import CardDetailLink from "@/components/cards/CardDetailLink";
 
 type Msg = { id: any; role: "user"|"assistant"; content: string; metadata?: Record<string, unknown> | null };
-const CHAT_BACKGROUND_WATERMARK = "ManaTap AI can make mistakes. Double-check important advice.";
+const CHAT_BACKGROUND_WATERMARK = "ManaTap can make mistakes. Double-check important advice.";
 
 export default function DeckAssistant({ deckId, format: initialFormat }: { deckId: string; format?: string }) {
   const pathname = usePathname() || "/my-decks/[id]";
@@ -1091,7 +1091,7 @@ export default function DeckAssistant({ deckId, format: initialFormat }: { deckI
                 onClick={() => setHealthSuggestionsOpen(false)}
                 className="text-neutral-400 hover:text-white transition-colors"
               >
-                âœ•
+                ✕
               </button>
             </div>
             

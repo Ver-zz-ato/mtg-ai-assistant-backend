@@ -6,7 +6,7 @@ import { PopularCommanders } from "@/components/PopularCommanders";
 import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
-  title: "MTG Probability Calculator | Commander Draw Odds | ManaTap AI",
+  title: "MTG Probability Calculator | Commander Draw Odds | ManaTap",
   description: TOOL_DESCRIPTIONS.probability,
   alternates: { canonical: "https://www.manatap.ai/tools/probability" },
 };

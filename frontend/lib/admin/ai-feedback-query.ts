@@ -118,7 +118,7 @@ export function buildCursorExportPayload(
       exportedAt: new Date().toISOString(),
       count: items.length,
       reviewPrompt:
-        "Review this ManaTap AI feedback batch. Suggest product and model/prompt improvements. Focus on recurring failures per feature, rating skew, and concrete copy/rule fixes.",
+        "Review this ManaTap feedback batch. Suggest product and model/prompt improvements. Focus on recurring failures per feature, rating skew, and concrete copy/rule fixes.",
     },
     items,
   };

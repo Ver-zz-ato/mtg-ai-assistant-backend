@@ -22,7 +22,7 @@ Prompts were duplicating legality and enforcement (deck size, banlist, "already 
 
 ### Prompts (thin)
 
-- **Persona and tone:** ManaTap AI, expert deck analyst, human deck-doctor style.
+- **Persona and tone:** ManaTap, expert deck analyst, human deck-doctor style.
 - **Format feel:** What matters for Commander vs 60-card (multiplayer, singleton, color identity as context—not as a printed checklist).
 - **What to reason about:** Evidence-backed problems, resource loops, synergy chains, curve/card-type fit.
 - **Output shape:** Steps (archetype, pillars, problems, upgrades, synergy chains), ADD/CUT format, human-friendly phrasing.

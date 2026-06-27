@@ -16,7 +16,7 @@ export function selectPersona(input: PersonaInput = {}): Persona {
 
   const parts: string[] = [];
   parts.push(
-    "You are ManaTap AI — a concise, trustworthy Magic: The Gathering assistant. Keep responses focused, practical, and friendly. Prefer bullet lists and short steps."
+    "You are ManaTap — a concise, trustworthy Magic: The Gathering assistant. Keep responses focused, practical, and friendly. Prefer bullet lists and short steps."
   );
 
   // Format-specific guardrails

@@ -236,41 +236,41 @@ function MyDecksPageContent() {
     const features = [
       {
         icon: '📚',
-        title: 'Unlimited Deck Building',
-        description: 'Create and manage as many decks as you want. Import from popular formats or build from scratch.',
+        title: 'Guided Deck Builder',
+        description: 'Start from a commander, format, colour plan, or idea and let ManaTap shape the first draft.',
       },
       {
         icon: '🤖',
-        title: 'AI-Powered Analysis',
-        description: 'Get instant insights on mana curve, synergies, and deck strength powered by advanced AI.',
+        title: 'Deck Checker',
+        description: 'Catch legality, curve, mana, ramp, draw, interaction, and role-balance issues before game night.',
         highlight: true,
       },
       {
         icon: '💰',
-        title: 'Budget Optimization',
-        description: 'Find cheaper alternatives without sacrificing synergy. Optimize your deck within your budget.',
+        title: 'Budget Swaps',
+        description: 'Find cheaper alternatives, compare upgrades, and keep your deck plan intact while trimming cost.',
       },
       {
         icon: '🎲',
-        title: 'Mulligan Simulator',
-        description: 'Test your opening hands with our interactive London mulligan simulator using real MTG card art.',
+        title: 'Mulligan Lab',
+        description: 'Test opening hands, draw odds, and keep decisions with real card art and deck-aware tools.',
       },
       {
         icon: '📊',
-        title: 'Advanced Statistics',
-        description: 'Deep dive into probability calculations, combo odds, and deck performance metrics.',
+        title: 'Build From Collection',
+        description: 'Turn cards you already own into deck ideas, then review AI-generated lists before creating them.',
       },
       {
         icon: '📤',
-        title: 'Export Anywhere',
-        description: 'Export your decks to Moxfield, MTGO, Arena, and other popular MTG platforms.',
+        title: 'Import And Export',
+        description: 'Import decklists, CSVs, Moxfield, and Archidekt links, then export to the formats you use.',
       },
     ];
 
     return (
       <GuestLandingPage
         title="Build Better Decks"
-        subtitle="Create, analyze, and optimize your Magic: The Gathering decks with AI-powered insights"
+        subtitle="Build from ideas, check your list, tune your budget, and turn collections into playable Magic decks."
         features={features}
         destination="/my-decks"
       />

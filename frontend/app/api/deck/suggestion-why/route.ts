@@ -36,13 +36,13 @@ function buildSuggestionWhyPrompts(args: {
   const commanderName = commander.trim();
 
   const system = isCommander
-    ? `You are ManaTap AI, an expert Magic: The Gathering Commander assistant.
+    ? `You are ManaTap, an expert Magic: The Gathering Commander assistant.
 
 Explain why one suggested card fits this specific Commander deck in 1-2 short bullet points.
 Cover missing role (draw/ramp/removal/lands), commander synergy when a commander is known, curve smoothing, resilience, or table pressure.
 Only mention commander synergy if it is supported by the supplied commander or decklist.
 Be concise, concrete, and actionable.`
-    : `You are ManaTap AI, an expert Magic: The Gathering ${fmtTitle} assistant.
+    : `You are ManaTap, an expert Magic: The Gathering ${fmtTitle} assistant.
 
 Explain why one suggested card fits this specific ${fmtTitle} list in 1-2 short bullet points.
 Cover missing role (draw/ramp/removal/lands), curve smoothing, interaction, sideboard/meta pressure, or how it improves the deck's main plan.

@@ -518,7 +518,7 @@ export default function DeckRoastPanel({
                         if (j?.ok && j?.url) permalinkUrl = j.url;
                       } catch {}
                     }
-                    const shareText = `My deck got roasted ${level.emoji} ${level.label} on ManaTap AI — try yours!`;
+                    const shareText = `My deck got roasted ${level.emoji} ${level.label} on ManaTap — try yours!`;
                     const url = permalinkUrl ?? `${base}${sharePath}`;
                     const full = `${shareText}\n\n${roast}\n\n${url}`;
                     await navigator.clipboard.writeText(full);
@@ -554,13 +554,13 @@ export default function DeckRoastPanel({
                     }
                     if (typeof navigator !== "undefined" && navigator.share) {
                       await navigator.share({
-                        title: "Deck Roast | ManaTap AI",
-                        text: `My deck got roasted ${level.emoji} ${level.label} on ManaTap AI!`,
+                        title: "Deck Roast | ManaTap",
+                        text: `My deck got roasted ${level.emoji} ${level.label} on ManaTap!`,
                         url,
                       });
                       try { const t = await import("@/lib/toast-client"); t.toast("Shared!", "success"); } catch {}
                     } else {
-                      const text = encodeURIComponent(`My deck got roasted ${level.emoji} ${level.label} on ManaTap AI — try yours!`);
+                      const text = encodeURIComponent(`My deck got roasted ${level.emoji} ${level.label} on ManaTap — try yours!`);
                       window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, "_blank");
                     }
                   }}
@@ -591,7 +591,7 @@ export default function DeckRoastPanel({
                         if (j?.ok && j?.url) url = j.url;
                       } catch {}
                     }
-                    const text = encodeURIComponent("Just got my deck roasted 🔥 on ManaTap AI — try yours!");
+                    const text = encodeURIComponent("Just got my deck roasted 🔥 on ManaTap — try yours!");
                     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, "_blank");
                   }}
                   className="px-3 py-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-600 text-white font-medium text-sm transition-colors"

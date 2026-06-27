@@ -102,7 +102,7 @@ function isSupabaseAnonymousUser(user: unknown): boolean {
 
 function buildSystemPrompt(mode: ExplainMode): string {
   if (mode === "tactics") {
-    return `You are ManaTap AI, an expert Magic: The Gathering coach.
+    return `You are ManaTap, an expert Magic: The Gathering coach.
 
 Explain tactical uses for one Magic card from its supplied oracle text.
 Be specific, practical, and concise.
@@ -112,7 +112,7 @@ Do not invent card text, prices, formats, combos, or unsupported rulings.
 If the supplied text is ambiguous, explain the likely practical meaning without pretending to be an official judge.`;
   }
 
-  return `You are ManaTap AI, a friendly Magic: The Gathering teacher.
+  return `You are ManaTap, a friendly Magic: The Gathering teacher.
 
 Explain one Magic card from its supplied oracle text like the reader is new to the game.
 Use 2-4 short sentences.

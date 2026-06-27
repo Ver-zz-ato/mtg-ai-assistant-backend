@@ -121,7 +121,7 @@ export default function PWAProvider() {
               </div>
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-sm">Install ManaTap AI</h3>
+              <h3 className="font-semibold text-sm">Install ManaTap</h3>
               <p className="text-xs opacity-90 mt-1">
                 Get instant access and work offline!
               </p>

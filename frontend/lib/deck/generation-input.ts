@@ -128,35 +128,35 @@ export function normalizeGenerationBody(body: unknown): NormalizedGenerationInpu
 }
 
 /**
- * Operational build-mode text for the model. Output remains a plain 100-line decklist (no section headers);
- * modes bias *card choice* only. Empty when absent or when nothing to add.
+ * Operational build-mode text for the model. Output remains plain deck lines with no section headers.
+ * Empty when absent or when nothing to add.
  */
 export function buildModePromptDirective(buildMode: string | null): string {
   if (!buildMode?.trim()) return "";
   const m = normalizeModeRefKey(buildMode);
+  if (m === "core_shell") {
+    return [
+      "BUILD MODE (mandatory): core_shell",
+      "Output a partial Commander starter shell, not a full deck: about 35-45 cards total. Include the commander once, a stable mana base (roughly 32-38 lands depending on colors), and only the most essential early core pieces for the deck's plan.",
+      "Do not pad to 100 cards. Leave the rest of the deck intentionally open for the user to finish.",
+    ].join("\n");
+  }
+  if (m === "staples_flex") {
+    return [
+      "BUILD MODE (mandatory): staples_flex",
+      "Output an expanded partial Commander shell, not a full deck: about 55-75 cards total. Include the commander once, a stable mana base, on-color commander staples, efficient ramp/draw/interaction, and a first pass of flexible theme cards.",
+      "Do not pad to 100 cards. Leave meaningful room for the user to choose final flex cards and personal upgrades.",
+    ].join("\n");
+  }
   if (m === "full_deck") {
     return [
       "BUILD MODE (mandatory — follow when choosing cards): full_deck",
       "Produce a standard, complete 100-card Commander list: a normal land count (typically ~35–38 lands including utility lands), adequate ramp and card draw, interaction, and clear win lines. Balance all roles; do not emphasize a shell/flex split.",
     ].join("\n");
   }
-  if (m === "core_shell") {
-    return [
-      "BUILD MODE (mandatory — follow when choosing cards): core_shell",
-      "Still output exactly 100 lines of \"qty Card Name\" with no labels or commentary. Bias card selection toward: (1) a stable mana base (~35–38 lands) and ~8–12 ramp sources where possible, (2) the deck's engine, payoffs, and synergy density in nonland slots before filler, (3) interaction and protection that directly support the commander's plan.",
-      "Prioritize cards that are redundant with the strategy (multiple ways to execute the same game plan) over scattered goodstuff that does not advance the theme.",
-    ].join("\n");
-  }
-  if (m === "staples_flex") {
-    return [
-      "BUILD MODE (mandatory — follow when choosing cards): staples_flex",
-      "Still output exactly 100 plain lines. Structure choices as: (1) efficient format-wide staples for mana fixing, ramp, and must-answer interaction (on-color), (2) reserve roughly 15–25 slots for flexible, theme-specific, or meta-dependent cards that define deck identity.",
-      "Do not skimp on interaction or ramp to add flex; staples carry consistency, flex carries flavor.",
-    ].join("\n");
-  }
   return [
     `BUILD MODE (non-standard token "${buildMode.trim()}" — still apply):`,
-    "Interpret as: keep a coherent 100-card Commander list, but lean choices toward what that label suggests without breaking color identity or legality.",
+    "Interpret as: keep a coherent Commander output for the requested build shape, but lean choices toward what that label suggests without breaking color identity or legality.",
   ].join("\n");
 }
 
@@ -324,6 +324,17 @@ function buildDirectiveComplianceReminder(input: NormalizedGenerationInput): str
   return "\nCompliance: Where BUILD MODE, POWER LEVEL, or BUDGET directives conflict with generic deck-building advice, obey the explicit selected options.\n";
 }
 
+function outputTargetDirective(input: NormalizedGenerationInput): string {
+  const mode = normalizeModeRefKey(input.buildMode || "full_deck");
+  if (mode === "core_shell") {
+    return "Output target: partial core shell, about 35-45 cards total. Do not pad to 100.";
+  }
+  if (mode === "staples_flex") {
+    return "Output target: expanded staples/flex shell, about 55-75 cards total. Do not pad to 100.";
+  }
+  return "Output target: complete Commander deck, exactly 100 cards total.";
+}
+
 function powerLevelPromptDirective(powerLevel: string): string {
   const p = normalizeModeRefKey(powerLevel);
   if (p === "casual") {
@@ -364,7 +375,8 @@ function budgetPromptDirective(budget: string): string {
   if (b === "budget") {
     return [
       "BUDGET TIER (mandatory): Budget",
-      "Keep the total deck cost genuinely low: target roughly $100-$200 for the 99 where possible.",
+      "Keep the total deck cost genuinely low: target under about USD 100 / GBP 100 for the 99 where possible.",
+      "Treat this as a hard budget-friendly constraint, not a loose vibe. If a card would push the deck over that target, use a cheaper functional analogue.",
       "Avoid expensive staples unless they are the chosen commander or absolutely central and no cheap analogue exists. Avoid Mana Crypt, Jeweled Lotus, Dockside Extortionist, The One Ring, Rhystic Study, Smothering Tithe, Cyclonic Rift, Fierce Guardianship, Demonic Tutor, Vampiric Tutor, fetch lands, shock lands, original duals, Gaea's Cradle, Ancient Tomb, and other chase staples.",
       "Use budget mana fixing, basics, tapped/slow duals, cheap ramp, and affordable synergy cards instead of premium goodstuff.",
     ].join("\n");
@@ -372,7 +384,7 @@ function budgetPromptDirective(budget: string): string {
   if (b === "moderate") {
     return [
       "BUDGET TIER (mandatory): Moderate",
-      "Use some upgrades and efficient staples, but avoid luxury mana bases and very expensive chase cards unless uniquely important. Prefer affordable replacements when card role is similar.",
+      "Use some upgrades and efficient staples, but avoid luxury mana bases and very expensive chase cards unless uniquely important. Prefer affordable replacements when card role is similar, and keep the list clearly below premium pricing.",
     ].join("\n");
   }
   if (b === "high") {
@@ -396,9 +408,9 @@ export function buildGenerationSystemPrompt(): string {
   return `You are an expert Magic: The Gathering deck builder. Your task is to output a valid Commander decklist.
 
 CRITICAL RULES:
-0. Start your reply with the first deck line immediately (e.g. "1 Commander Name"). No introduction, title, or summary. Group basic lands by type on one line each (e.g. "32 Mountain") so the full 100-card list fits in the output limit.
+0. Start your reply with the first deck line immediately (e.g. "1 Commander Name"). No introduction, title, or summary. Group basic lands by type on one line each (e.g. "32 Mountain") so the requested list fits in the output limit.
 1. Output ONLY the decklist, one card per line, format: "1 Card Name" (quantity then card name).
-2. For Commander format: EXACTLY 100 cards total including the commander. Not 98, not 99, not 101. Count quantities before answering; grouped basics count by their quantity.
+2. For full_deck or no build mode: EXACTLY 100 cards total including the commander. For core_shell and staples_flex: output the requested partial shell size instead, and do not pad to 100. Count quantities before answering; grouped basics count by their quantity.
 3. Every card MUST be within the commander's color identity. NO cards with colors outside the commander's identity (e.g. if commander is WUBG, ZERO red cards - no Lightning Bolt, no Boros Signet, no Izzet Signet, no Rakdos Signet, no Blasphemous Act).
 4. Singleton except for basic lands (Plains, Island, Swamp, Mountain, Forest).
 5. All cards must be legal in Commander (no silver-bordered, no banned cards).
@@ -419,8 +431,8 @@ export function buildGenerationUserPrompt(
   collectionMeta?: CollectionPromptMeta | null
 ): string {
   const commanderLine = input.commander
-    ? `Commander: ${input.commander}. Build a 100-card Commander deck with this commander in the 99 or as the commander (include it once).`
-    : "No commander specified. Pick a well-known commander that fits the seed card / idea / collection, and output that commander as the VERY FIRST line in the decklist as \"1 Commander Name\". Then build the full 100-card Commander deck around it.";
+    ? `Commander: ${input.commander}. Use this commander as the leader and include it once.`
+    : "No commander specified. Pick a well-known commander that fits the seed card / idea / collection, and output that commander as the VERY FIRST line in the decklist as \"1 Commander Name\".";
 
   const structured = structuredIntentSection(input);
   const compliance = buildDirectiveComplianceReminder(input);
@@ -440,7 +452,7 @@ ${collectionList}
 Playstyle: ${input.playstyle || "general"}
 Power level: ${input.powerLevel}
 Budget: ${input.budget}
-${structured}${compliance}Output EXACTLY 100 cards. Double-check: no cards outside the commander's color identity. Output the decklist as plain text, one line per card (e.g. "1 Sol Ring").`;
+${structured}${compliance}${outputTargetDirective(input)} Double-check: no cards outside the commander's color identity. Output the decklist as plain text, one line per card (e.g. "1 Sol Ring").`;
 }
 
 export type NormalizedTransformInput = {

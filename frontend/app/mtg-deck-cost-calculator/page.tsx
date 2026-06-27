@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "MTG Deck Cost Calculator | Cost to Finish Your Deck | ManaTap AI",
+  title: "MTG Deck Cost Calculator | Cost to Finish Your Deck | ManaTap",
   description:
-    "Free MTG deck cost calculator. Estimate cost to finish a deck. Subtract owned cards from your collection. TCGPlayer and Cardmarket prices. ManaTap AI.",
+    "Free MTG deck cost calculator. Estimate cost to finish a deck. Subtract owned cards from your collection. TCGPlayer and Cardmarket prices. ManaTap.",
   alternates: { canonical: "https://www.manatap.ai/mtg-deck-cost-calculator" },
 };
 

@@ -27,7 +27,7 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const archetype = getArchetypeBySlug(slug);
-  if (!archetype) return { title: "Archetype Not Found | ManaTap AI" };
+  if (!archetype) return { title: "Archetype Not Found | ManaTap" };
   return {
     title: `${archetype.title} Commander Decks | ManaTap`,
     description: `Commander decks for the ${archetype.title} archetype. Mulligan simulator, cost to finish, budget swaps. Free EDH tools.`,

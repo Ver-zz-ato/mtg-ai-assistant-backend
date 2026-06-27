@@ -387,7 +387,7 @@ export async function POST(req: Request) {
     "Balanced upgrades — mix staples and efficient budget options.";
 
   const systemPrompt = [
-    "You are ManaTap AI. Respond with ONLY valid JSON (no markdown outside JSON).",
+    "You are ManaTap. Respond with ONLY valid JSON (no markdown outside JSON).",
     "Shape: {\"suggestions\":[{\"card\":\"Exact Card Name\",\"qty\":1,\"zone\":\"mainboard\",\"role\":\"short\",\"reason\":\"one sentence\",\"priority\":\"high|medium|low\",\"confidence\":0.85}]}",
     `Format: ${analyzeFormat}.`,
     analyzeFormat === "Commander"

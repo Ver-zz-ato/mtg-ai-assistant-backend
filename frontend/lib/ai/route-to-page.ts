@@ -3,7 +3,7 @@
  * Used for admin usage dashboard to show "Called from: X" context.
  */
 export const ROUTE_TO_PAGE: Record<string, { page: string; description: string; apiPath?: string }> = {
-  chat_stream: { page: "Chat (streaming)", description: "ManaTap AI chat in deck builder, deck page, or homepage", apiPath: "/api/chat/stream" },
+  chat_stream: { page: "Chat (streaming)", description: "ManaTap chat in deck builder, deck page, or homepage", apiPath: "/api/chat/stream" },
   chat: { page: "Chat (non-stream)", description: "Legacy chat or batch requests", apiPath: "/api/chat" },
   deck_analyze: { page: "Deck Analyze", description: "Full deck analysis (suggestions, whats good, quick fixes)", apiPath: "/api/deck/analyze" },
   deck_analyze_slot_planning: { page: "Deck Analyze (slot planning)", description: "Two-stage: slot planning phase", apiPath: "/api/deck/analyze" },

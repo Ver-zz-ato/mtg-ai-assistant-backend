@@ -43,14 +43,14 @@ export async function CoreStaples({
   const showPercent = shouldShowPercentInCoreStaples(deckCount);
 
   return (
-    <section className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-5 mb-6">
-      <h2 className="text-lg font-semibold text-neutral-100 mb-3">
+    <section className="rounded-2xl border border-emerald-400/25 bg-gradient-to-br from-emerald-950/25 via-neutral-950/60 to-neutral-900/50 p-5 mb-6 shadow-lg shadow-emerald-950/10">
+      <h2 className="text-lg font-semibold text-emerald-100 mb-3">
         Core Staples
       </h2>
       <p className="text-neutral-400 text-sm mb-4">
         {showPercent
           ? `Top cards across ${deckCount.toLocaleString()} tracked ${commanderName} decks.`
-          : `Seen in tracked lists (${deckCount} ${commanderName} deck${deckCount !== 1 ? "s" : ""}).`}
+          : `Early ManaTap sample for ${commanderName}; percentages unlock once the sample is larger.`}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {cards.map((c, i) => {
@@ -63,7 +63,7 @@ export async function CoreStaples({
               imageSmall={image?.small}
               imageNormal={image?.normal}
               title={c.cardName}
-              className="flex w-full items-center gap-3 p-2.5 rounded-lg bg-neutral-900/50 hover:bg-neutral-800/80 border border-transparent hover:border-neutral-600 transition-colors text-left"
+              className="flex w-full items-center gap-3 p-2.5 rounded-xl bg-black/35 hover:bg-emerald-950/35 border border-white/5 hover:border-emerald-300/35 transition-colors text-left"
             >
               <span className="shrink-0 w-6 text-center text-neutral-500 text-sm font-medium tabular-nums">
                 {i + 1}
@@ -72,7 +72,7 @@ export async function CoreStaples({
                 <img
                   src={imgUrl}
                   alt=""
-                  className="w-10 h-14 object-cover rounded shrink-0"
+                className="w-10 h-14 object-cover rounded-md shrink-0 shadow-md shadow-black/40"
                 />
               ) : (
                 <div className="w-10 h-14 rounded bg-neutral-700 shrink-0" />

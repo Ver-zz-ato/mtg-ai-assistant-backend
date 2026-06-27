@@ -35,7 +35,7 @@ function buildSwapWhyPrompts(args: {
   const cmd = commander?.trim() || null;
 
   if (isCommanderFormatKey(formatKey)) {
-    const system = `You are ManaTap AI, an expert Magic: The Gathering assistant.
+    const system = `You are ManaTap, an expert Magic: The Gathering assistant.
 
 Explain clearly and concisely why a cheaper swap preserves deck function in **Commander (singleton, 100-card)**.
 Focus on role/function overlap and synergy preservation. When explaining synergy, name both enabler and payoff cards and describe the mechanical sequence.
@@ -56,7 +56,7 @@ ${deckText}${ownershipNote ? `\n\n${ownershipNote}` : ''}`;
     return { system, user: userPrompt };
   }
 
-  const system = `You are ManaTap AI, an expert Magic: The Gathering assistant.
+  const system = `You are ManaTap, an expert Magic: The Gathering assistant.
 
 Explain clearly and concisely why a cheaper swap preserves deck function for **${fmtTitle}** (60-card constructed context).
 Focus on role/function overlap, curve, and interaction. Do **not** describe the deck as a Commander singleton list, do not mention "commander" unless that word appears on a **card** in the list, and do not claim a card is legal or banned unless you are certain from context — otherwise stay neutral and suggest verifying in a deckbuilder.`;

@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 
 export function generateMetadata(): Metadata {
   return canonicalMeta("/compare-decks", {
-    title: "Compare MTG Decks | ManaTap AI",
+    title: "Compare MTG Decks | ManaTap",
     description: TOOL_DESCRIPTIONS.compareDecks,
   });
 }

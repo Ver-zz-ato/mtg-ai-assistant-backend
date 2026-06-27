@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "MTG Probability Calculator | Commander Draw Odds | ManaTap AI",
+  title: "MTG Probability Calculator | Commander Draw Odds | ManaTap",
   description:
-    "Free MTG probability calculator. Hypergeometric odds for Commander and EDH. Calculate draw probability for lands, Sol Ring, combo pieces. ManaTap AI.",
+    "Free MTG probability calculator. Hypergeometric odds for Commander and EDH. Calculate draw probability for lands, Sol Ring, combo pieces. ManaTap.",
   alternates: { canonical: "https://www.manatap.ai/mtg-probability-calculator" },
 };
 

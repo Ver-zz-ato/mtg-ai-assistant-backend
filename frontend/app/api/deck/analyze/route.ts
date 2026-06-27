@@ -638,7 +638,7 @@ async function planSuggestionSlots(
   const promptVersion = getActivePromptVersion();
 
   // Use the main deck analysis prompt as the base, then add planning-specific instructions
-  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
+  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap, an expert Magic: The Gathering assistant.";
   
   const systemPrompt = [
     basePrompt,
@@ -746,7 +746,7 @@ async function fetchSlotCandidates(
   const profile = getCommanderProfileData(context.commander, context);
 
   // Use the main deck analysis prompt as the base, then add candidate-fetching instructions
-  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
+  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap, an expert Magic: The Gathering assistant.";
   
   const systemPrompt = [
     basePrompt,
@@ -847,7 +847,7 @@ async function retrySlotCandidates(
   usageSource?: string | null
 ): Promise<SlotCandidate[]> {
   // Use the main deck analysis prompt as the base, then add retry-specific instructions
-  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap AI, an expert Magic: The Gathering assistant.";
+  const basePrompt = deckAnalysisSystemPrompt || "You are ManaTap, an expert Magic: The Gathering assistant.";
   
   const systemPrompt = [
     basePrompt,
@@ -2191,7 +2191,7 @@ export async function runDeckAnalyzeCore(
   const suggestionDebugReasons = new Set<string>();
   let postFilteredCount = 0;
 
-  const DECK_ANALYSIS_HARDCODED_DEFAULT = "You are ManaTap AI, an expert Magic: The Gathering deck analysis assistant. Output structured analysis as requested (pillars, problems, suggestions). Use [[Card Name]] for card names.";
+  const DECK_ANALYSIS_HARDCODED_DEFAULT = "You are ManaTap, an expert Magic: The Gathering deck analysis assistant. Output structured analysis as requested (pillars, problems, suggestions). Use [[Card Name]] for card names.";
   const formatKey = body.format ? String(body.format).toLowerCase().replace(/\s+/g, "") : "commander";
   const deckContextForCompose = { deckCards: entries, commanderName: context.commander ?? null, colorIdentity: context.colors ?? null, deckId: undefined as string | undefined };
   const deckAnalyzeExtraSuffix = "\n\nOutput structured analysis as requested (pillars, problems, suggestions). Use [[Card Name]] for card names.";

@@ -222,7 +222,7 @@ function ThankYouContent() {
           <div className="text-center mb-12">
             <div className="text-8xl mb-6 animate-bounce">🎉</div>
             <h1 className="text-5xl font-bold text-white mb-4">
-              Welcome to ManaTap AI Pro!
+              Welcome to ManaTap Pro!
             </h1>
             <p className="text-xl text-blue-200 mb-2">
               Thank you for your support!

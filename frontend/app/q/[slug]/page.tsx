@@ -36,7 +36,7 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const page = await getSeoPageBySlug(slug);
-  if (!page) return { title: "Not Found | ManaTap AI" };
+  if (!page) return { title: "Not Found | ManaTap" };
   return {
     title: `${page.title} | ManaTap`,
     description: page.description,

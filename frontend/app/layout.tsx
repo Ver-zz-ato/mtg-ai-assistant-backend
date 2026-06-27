@@ -42,31 +42,31 @@ import {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.manatap.ai"),
-  title: "ManaTap AI — MTG Deck Builder & Assistant",
+  title: "ManaTap — MTG Deck Builder & Assistant",
   description: HOME_DESCRIPTION,
   keywords: "MTG, Magic The Gathering, deck builder, AI assistant, card prices, budget analysis",
-  authors: [{ name: "ManaTap AI" }],
+  authors: [{ name: "ManaTap" }],
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "ManaTap AI — MTG Deck Builder & Assistant",
+    title: "ManaTap — MTG Deck Builder & Assistant",
     description: HOME_DESCRIPTION,
     url: "https://www.manatap.ai",
-    siteName: "ManaTap AI",
+    siteName: "ManaTap",
     type: "website",
     locale: "en_US",
     images: [SOCIAL_PREVIEW_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ManaTap AI — MTG Deck Builder & Assistant",
+    title: "ManaTap — MTG Deck Builder & Assistant",
     description: HOME_DESCRIPTION,
     images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'ManaTap AI',
+    title: 'ManaTap',
   },
   manifest: '/manifest.json',
   icons: {

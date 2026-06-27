@@ -39,7 +39,7 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   if (!META_SLUGS.includes(slug as MetaSlug))
-    return { title: "Not Found | ManaTap AI" };
+    return { title: "Not Found | ManaTap" };
   return {
     title: `${getMetaTitle(slug as MetaSlug)} | ManaTap`,
     description: META_DESCRIPTIONS[slug as MetaSlug],

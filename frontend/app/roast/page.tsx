@@ -4,7 +4,7 @@ import { canonicalMeta } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
   return canonicalMeta("/roast", {
-    title: "Roast My Deck | ManaTap AI",
+    title: "Roast My Deck | ManaTap",
     description:
       "Paste a Magic: The Gathering decklist and get a funny AI roast. Pick your spice level, share the permalink, and send it to your playgroup.",
   });

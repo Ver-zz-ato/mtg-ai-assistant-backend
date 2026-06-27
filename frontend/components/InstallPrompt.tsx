@@ -116,7 +116,7 @@ export default function InstallPrompt() {
         <div className="flex items-start gap-4 mb-4">
           <div className="text-4xl">📱</div>
           <div>
-            <h3 className="font-bold text-lg mb-1">Install ManaTap AI</h3>
+            <h3 className="font-bold text-lg mb-1">Install ManaTap</h3>
             <p className="text-sm text-white/90">
               Install our app for quick access and offline support!
             </p>

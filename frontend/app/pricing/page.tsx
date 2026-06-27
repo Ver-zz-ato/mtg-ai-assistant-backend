@@ -165,39 +165,39 @@ export default function PricingPage() {
     // AI & Analysis
     {
       icon: '🤖',
-      title: 'AI Deck Assistant',
-      description: 'Format-aware deck help that checks legality, structure, synergy, and upgrade paths for supported formats',
+      title: 'Deck Checker',
+      description: 'Format-aware checks for legality, curve, mana, ramp, draw, interaction, and upgrade ideas',
       free: 'Guest access + signed-in free tier',
       pro: 'Higher limits + stronger models',
       category: 'ai'
     },
     {
       icon: '🎴',
-      title: 'AI Deck Generator',
-      description: 'Generate full decks with preview-first flows — Commander tools today, with broader format support expanding',
+      title: 'Guided Deck Builder',
+      description: 'Step-by-step deck building from a commander, archetype, colour pair, or table plan',
       free: 'Preview + create',
       pro: 'Same + rate limits',
       category: 'ai'
     },
     {
       icon: '💡',
-      title: 'AI Budget Swaps',
-      description: 'Find cheaper alternatives for expensive cards without losing deck power',
+      title: 'Budget Swaps',
+      description: 'Find cheaper alternatives for expensive cards without losing the deck plan',
       free: '5 swaps/day',
       pro: 'Higher limit + bulk apply',
       category: 'ai'
     },
     {
       icon: '🃏',
-      title: 'Smart Card Suggestions',
-      description: 'Suggestions respect Commander colour identity and legality for supported formats',
+      title: 'Card Suggestions',
+      description: 'Role-aware suggestions that respect Commander colour identity and supported format rules',
       free: true,
       pro: true,
       category: 'ai'
     },
     {
       icon: '🎯',
-      title: 'Hand Testing Widget',
+      title: 'Mulligan Lab',
       description: 'Simulate opening hands with London mulligan rules and real card art',
       free: '3 free runs',
       pro: 'Unlimited',
@@ -214,8 +214,8 @@ export default function PricingPage() {
     // Deck Management
     {
       icon: '📥',
-      title: 'Smart Deck Import',
-      description: 'Import from Moxfield, Archidekt, MTGO, Arena with automatic card name fixing',
+      title: 'Deck Imports',
+      description: 'Import pasted lists, CSVs, Moxfield, Archidekt, MTGO, and Arena-style lists',
       free: 'Unlimited imports',
       pro: 'Unlimited imports',
       category: 'deck'
@@ -263,8 +263,8 @@ export default function PricingPage() {
     // Pricing & Collection
     {
       icon: '💰',
-      title: 'Deck Price Tracking',
-      description: 'See total deck cost with TCGPlayer and CardKingdom prices',
+      title: 'Deck Value & Price Tracking',
+      description: 'See deck value, collection value, card movement, and price history',
       free: 'Current prices',
       pro: 'Full history',
       category: 'price'
@@ -280,7 +280,7 @@ export default function PricingPage() {
     {
       icon: '📦',
       title: 'Collection Management',
-      description: 'Track your cards, see total value, and manage inventory',
+      description: 'Track owned cards, set progress, colour spread, type spread, value, and imports',
       free: 'Basic tracking',
       pro: 'Bulk ops + analytics',
       category: 'collection'
@@ -288,7 +288,7 @@ export default function PricingPage() {
     {
       icon: '💵',
       title: 'Cost to Finish',
-      description: 'See what you need to complete a deck or collection, with AI swap suggestions',
+      description: 'See missing cards, estimate completion cost, and find cheaper routes to finish a list',
       free: '5/day',
       pro: 'Higher limit + Why? + sparklines + bulk apply',
       category: 'collection'
@@ -335,39 +335,16 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-6xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
             Unlock Your MTG Potential
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-2">
-            Take your Magic: The Gathering experience to the next level with ManaTap AI Pro. 
-            Get higher AI limits, deeper deck insight, and premium tools for building and refining decks faster.
+            Take your Magic: The Gathering experience to the next level with ManaTap Pro.
+            Get deeper deck checks, guided builds, collection-powered brewing, and premium tools for refining decks faster.
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-6">
-            Free and Pro tiers use different model ladders and limits. Pro gets the strongest website experience for deeper reasoning and heavier deck workflows.
-          </p>
-          
-          {/* ROI Calculator */}
-          <div className="bg-gradient-to-r from-emerald-600/20 to-blue-600/20 border border-emerald-500/30 rounded-xl p-6 max-w-2xl mx-auto mb-8">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-center md:text-left">
-              <div className="flex-1">
-                <p className="text-sm text-emerald-200 dark:text-emerald-300 font-semibold mb-2">💰 Save Time & Money</p>
-                <p className="text-2xl font-bold text-white dark:text-white mb-1">
-                  Less than a booster pack per month
-                </p>
-                <p className="text-sm text-emerald-100 dark:text-emerald-200">
-                  Save 5+ hours/week on deck building • Avoid expensive card mistakes
-                </p>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-white">£3.99</div>
-                <div className="text-sm text-emerald-200">per month</div>
-              </div>
-            </div>
-          </div>
-
           {/* Billing Interval Toggle */}
           <div className="inline-flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl p-2 shadow-lg border border-gray-200 dark:border-gray-700">
             <button
@@ -582,8 +559,31 @@ export default function PricingPage() {
           {WEBSITE_APP_PRICING_NOTE}
         </p>
 
+        <div className="grid gap-8 lg:grid-cols-[0.85fr_1.35fr] max-w-7xl mx-auto mb-16 items-start">
+          <aside className="space-y-6 lg:sticky lg:top-24">
+            <div className="bg-gradient-to-r from-emerald-600/20 to-blue-600/20 border border-emerald-500/30 rounded-xl p-6 shadow-2xl shadow-emerald-900/10">
+              <div className="flex flex-col md:flex-row lg:flex-col xl:flex-row items-center justify-between gap-6 text-center md:text-left lg:text-center xl:text-left">
+                <div className="flex-1">
+                  <p className="text-sm text-emerald-200 dark:text-emerald-300 font-semibold mb-2">Save Time & Money</p>
+                  <p className="text-2xl font-bold text-white dark:text-white mb-1">
+                    Less than a booster pack per month
+                  </p>
+                  <p className="text-sm text-emerald-100 dark:text-emerald-200">
+                    Save 5+ hours/week on deck building. Avoid expensive card mistakes.
+                  </p>
+                </div>
+                <div className="text-center rounded-xl border border-white/15 bg-black/25 px-5 py-4">
+                  <div className="text-4xl font-bold text-white">£3.99</div>
+                  <div className="text-sm text-emerald-200">per month</div>
+                </div>
+              </div>
+            </div>
+
+            <PricingTestimonials />
+          </aside>
+
         {/* Feature Comparison */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 mb-16 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 lg:p-8 border border-gray-200 dark:border-gray-700">
           <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-4">
             Feature Comparison
           </h2>
@@ -784,9 +784,7 @@ export default function PricingPage() {
             )}
           </div>
         </div>
-
-        {/* Testimonials Section */}
-        <PricingTestimonials />
+        </div>
 
         {/* CTA Section */}
         <div className="text-center bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-12 text-white mt-16">
@@ -794,7 +792,7 @@ export default function PricingPage() {
             Ready to Level Up Your MTG Game?
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of players who are already using ManaTap AI Pro to improve their decks and win more games.
+            Join thousands of players who are already using ManaTap Pro to improve their decks and win more games.
           </p>
           
           {!showManageUI && (
@@ -856,7 +854,7 @@ export default function PricingPage() {
                 Is there a free trial?
               </h3>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Our Free tier gives you a great taste of what ManaTap AI can do. Upgrade to Pro when you're ready for more!
+                Our Free tier gives you a great taste of what ManaTap can do. Upgrade to Pro when you're ready for more!
               </p>
             </div>
             

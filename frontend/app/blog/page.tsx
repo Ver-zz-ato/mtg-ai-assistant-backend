@@ -169,7 +169,7 @@ export default function BlogPage() {
             Ready to Build Better Decks?
           </h2>
           <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-            Use ManaTap AI's powerful tools to analyze your decks, find budget alternatives, and optimize your card choices.
+            Use ManaTap's powerful tools to analyze your decks, find budget alternatives, and optimize your card choices.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Link

@@ -17,6 +17,24 @@ export default function InlineSignUpForm() {
 
   const supabase = createBrowserSupabaseClient();
 
+  async function signInWithOAuth(provider: 'google' | 'github' | 'discord' | 'apple') {
+    try {
+      trackSignupStarted('oauth', provider);
+      const returnTo = (window.location.pathname + window.location.search) || '/';
+      try {
+        document.cookie = `auth_return_to=${encodeURIComponent(returnTo)}; path=/; max-age=600; samesite=lax`;
+      } catch {}
+      const next = encodeURIComponent(returnTo);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${next}` },
+      });
+      if (error) setEmailError(error.message);
+    } catch (e: unknown) {
+      setEmailError(e instanceof Error ? e.message : 'Sign-in failed');
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -128,7 +146,7 @@ export default function InlineSignUpForm() {
     return (
       <div className="bg-gradient-to-r from-emerald-600 to-blue-600 rounded-2xl p-8 text-center text-white">
         <div className="text-5xl mb-4">🎉</div>
-        <h3 className="text-2xl font-bold mb-2">Welcome to ManaTap AI!</h3>
+        <h3 className="text-2xl font-bold mb-2">Welcome to ManaTap!</h3>
         <p className="text-blue-100">Check your email to confirm your account.</p>
       </div>
     );
@@ -147,6 +165,30 @@ export default function InlineSignUpForm() {
         <span className="px-2 py-1 bg-white/10 rounded text-emerald-200 hover:bg-white/20 transition-colors cursor-default" title="Start using immediately, no payment needed">✓ No credit card required</span>
       </div>
       
+      <div className="mb-5 grid gap-2 sm:grid-cols-2">
+        {[
+          { provider: 'google' as const, label: 'Google', className: 'bg-white text-neutral-950 hover:bg-white/90' },
+          { provider: 'apple' as const, label: 'Apple', className: 'bg-white text-neutral-950 hover:bg-white/90' },
+          { provider: 'github' as const, label: 'GitHub', className: 'bg-black/25 text-white hover:bg-black/35' },
+          { provider: 'discord' as const, label: 'Discord', className: 'bg-indigo-500/35 text-white hover:bg-indigo-500/45' },
+        ].map((item) => (
+          <button
+            key={item.provider}
+            type="button"
+            onClick={() => signInWithOAuth(item.provider)}
+            className={`min-h-11 rounded-lg border border-white/25 px-4 py-2.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${item.className}`}
+          >
+            Continue with {item.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-white/20" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-white/70">or create account with email</span>
+        <div className="h-px flex-1 bg-white/20" />
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-white mb-1">

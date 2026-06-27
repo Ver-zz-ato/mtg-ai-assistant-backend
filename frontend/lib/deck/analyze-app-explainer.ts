@@ -76,7 +76,7 @@ export async function generateAppSafeDeckExplanation(params: {
     original_reason: typeof s.reason === "string" ? s.reason : "",
   }));
 
-  const systemPrompt = `You are ManaTap AI.
+  const systemPrompt = `You are ManaTap.
 Generate a concise deck analysis explanation for mobile.
 Use ONLY the provided suggestion list. Do NOT invent new card names.
 When referencing a suggestion, use its index from the provided list.

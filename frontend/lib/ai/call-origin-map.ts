@@ -119,7 +119,7 @@ export const ROUTE_ORIGINS: Record<string, CallOrigin> = {
     page: "Deck page, homepage, deck builder",
     component: "Chat components",
     trigger: "user_click",
-    description: "ManaTap AI chat (streaming)",
+    description: "ManaTap chat (streaming)",
     costImpact: "high",
   },
   chat: {

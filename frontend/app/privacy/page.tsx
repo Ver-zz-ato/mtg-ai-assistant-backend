@@ -99,7 +99,7 @@ export default function PrivacyPage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-1">•</span>
-              <span>AI data: prompts, decklists, collection data, chat messages, and other information you send to ManaTap AI features so we can generate deck analysis, recommendations, answers, and other AI-powered responses</span>
+              <span>AI data: prompts, decklists, collection data, chat messages, and other information you send to ManaTap features so we can generate deck analysis, recommendations, answers, and other AI-powered responses</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-1">•</span>

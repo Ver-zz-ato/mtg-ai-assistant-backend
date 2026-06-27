@@ -51,7 +51,7 @@ export const maxDuration = 120;
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Do NOT suggest cards already in the decklist.";
+const CHAT_HARDCODED_DEFAULT = "You are ManaTap, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Do NOT suggest cards already in the decklist.";
 const GENERAL_FIRST_CHAT_INSTRUCTION = `General-first chat behavior:
 - If the user asks a broad MTG strategy, archetype, sideboard, budget, staple, deck concept, rules, or recommendation question, answer usefully right away.
 - If a decklist/hand/card pool would make the answer more exact, give the useful general answer first, then briefly invite them to paste the list/hand/cards for exact ADD/CUT swaps.
@@ -231,7 +231,7 @@ function stripMisappliedChatBoilerplate(outText: string, ctx: GuardContext = {})
   }
   if (!ctx.isCustom) {
     text = text
-      .replace(/\s*ManaTap AI would treat (?:the\s+)?custom card list hypothetically and\s*/gi, " ")
+      .replace(/\s*ManaTap would treat (?:the\s+)?custom card list hypothetically and\s*/gi, " ")
       .replace(/\s*(?:the\s+)?custom card list hypothetically and\s*/gi, " ")
       .replace(/\bI[’']d evaluate the custom card ideas hypothetically from that framework\.?\s*/gi, "")
       .replace(/\bI would evaluate the custom card ideas hypothetically from that framework\.?\s*/gi, "");
@@ -1355,7 +1355,7 @@ export async function POST(req: NextRequest) {
 
     if (evalRunId && !hasDeckContextForTier) {
       sys =
-        "You are ManaTap AI, a concise Magic: The Gathering assistant. Answer the user's question directly. When mentioning card names use [[double brackets]]. Do not ask for a deck or say \"noted\" unless the user is clearly sharing a decklist.\n\n" +
+        "You are ManaTap, a concise Magic: The Gathering assistant. Answer the user's question directly. When mentioning card names use [[double brackets]]. Do not ask for a deck or say \"noted\" unless the user is clearly sharing a decklist.\n\n" +
         GENERAL_COMMANDER_FORMAT_INSTRUCTION +
         "\n\n" +
         NO_FILLER_INSTRUCTION;
@@ -2355,7 +2355,7 @@ Enforce these checks and fix the text before returning it:
 - If the user asked to crawl/sync/upload/fetch/export external data, state plainly that chat cannot do that directly and offer a practical workaround.
 - If the user flagged a custom card and the draft didn’t state that, say you will evaluate it hypothetically.
 - If the user asked about platform features (Pro access, combo finder, Pioneer support, custom testing, etc.), normalize the wording to: available / Pro-only / coming soon / not a separate tool right now / still rough.
-- Never mention "draft", "review", "corrected answer", or "your answer is solid"; speak directly as ManaTap AI to the user.
+- Never mention "draft", "review", "corrected answer", or "your answer is solid"; speak directly as ManaTap to the user.
 Return the corrected answer with concise, user-facing tone.`;
     console.log("🔍 [chat] Calling review with outText:", {
       outTextLength: outText.length,

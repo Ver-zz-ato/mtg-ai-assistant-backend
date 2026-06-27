@@ -48,12 +48,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   
   if (!post) {
     return {
-      title: 'Post Not Found | ManaTap AI Blog',
+      title: 'Post Not Found | ManaTap Blog',
     };
   }
 
   // Create SEO-friendly title and description
-  const title = post.title.replace(/[🚀🎉💰📊💎⚠️🔥🌍]/g, '').trim() + ' | ManaTap AI';
+  const title = post.title.replace(/[🚀🎉💰📊💎⚠️🔥🌍]/g, '').trim() + ' | ManaTap';
   const fallbackDescription = `Read ManaTap's MTG deck-building guide for ${post.title.replace(/[^\w\s:,'()-]/g, '').trim()}, with Commander strategy, tools, and upgrade ideas.`;
   const defaultExcerpt = DEFAULT_BLOG_POSTS.find((entry) => entry.slug === slug)?.excerpt;
   const intro = post.content
@@ -74,7 +74,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       title: post.title,
       description,
       url: `https://www.manatap.ai/blog/${slug}`,
-      siteName: 'ManaTap AI',
+      siteName: 'ManaTap',
       type: 'article',
       publishedTime: post.date,
       authors: [post.author],
@@ -147,7 +147,7 @@ If you're logged in, after a roast you can **Save & share**. We store the roast 
 
 ## Try It
 
-Head to [ManaTap AI](https://www.manatap.ai), paste a deck, and get roasted. Then save the link and send it to your friends. If you like the rest of what ManaTap does (suggestions, legality, curve, build-from-collection), check out [Pro](https://www.manatap.ai/pricing) for higher limits and premium models.
+Head to [ManaTap](https://www.manatap.ai), paste a deck, and get roasted. Then save the link and send it to your friends. If you like the rest of what ManaTap does (suggestions, legality, curve, build-from-collection), check out [Pro](https://www.manatap.ai/pricing) for higher limits and premium models.
 `
   },
   'deck-building-upgrades-march-2025': {
@@ -196,11 +196,11 @@ Deck-page card suggestions now:
 - AI deck generation now enforces **exactly 100 cards** and **strict commander color identity**
 - We've simplified the Build Assistant panel by removing History/Undo/Redo
 
-Try these features on [ManaTap AI](https://manatap.ai) — and if you like them, consider [going Pro](https://manatap.ai/pricing) for higher limits and premium models.
+Try these features on [ManaTap](https://manatap.ai) — and if you like them, consider [going Pro](https://manatap.ai/pricing) for higher limits and premium models.
 `
   },
   'how-manatap-ai-works-updated': {
-    title: 'How ManaTap AI Works (Updated)',
+    title: 'How ManaTap Works (Updated)',
     date: '2026-05-26',
     author: 'ManaTap Team',
     category: 'Strategy',
@@ -610,7 +610,7 @@ Thanks again for being here during the messy, magic-making early stage of ManaTa
     `,
   },
   'welcome-to-manatap-ai-soft-launch': {
-    title: '🎉 Welcome to ManaTap AI – Your MTG Deck Building Assistant is Here!',
+    title: '🎉 Welcome to ManaTap – Your MTG Deck Building Assistant is Here!',
     date: '2025-11-01',
     author: 'ManaTap Team',
     category: 'Announcement',
@@ -764,7 +764,7 @@ Artifact removal is crucial in Commander, and Vandalblast offers incredible flex
 
 ## Using ManaTap's Budget Swaps Feature
 
-Want to find more budget alternatives for expensive cards in your deck? ManaTap AI's Budget Swaps feature analyzes your deck and suggests cheaper alternatives that maintain synergy and power level.
+Want to find more budget alternatives for expensive cards in your deck? ManaTap's Budget Swaps feature analyzes your deck and suggests cheaper alternatives that maintain synergy and power level.
 
 **How to use it:**
 1. Import your deck into ManaTap
@@ -859,9 +859,9 @@ Your late-game cards should be **finishers**—cards that close out games when t
 **Problem:** Your curve is all threats and no answers.  
 **Fix:** Include 8-10 removal spells spread across your curve. You need to interact to win.
 
-## Build Your Perfect Curve with ManaTap AI
+## Build Your Perfect Curve with ManaTap
 
-Want to see your deck's curve visualized instantly? ManaTap AI's deck checker shows you exactly where your curve peaks, identifies gaps, and suggests improvements.
+Want to see your deck's curve visualized instantly? ManaTap's deck checker shows you exactly where your curve peaks, identifies gaps, and suggests improvements.
 
 **Try it now:**
 1. Import your deck to ManaTap
@@ -977,7 +977,7 @@ If your commander costs $5-10, it's probably worth it. Your commander is the one
 
 **$200 to $500:** Now you can afford the big hitters. Tutors (Vampiric Tutor, Demonic Tutor), fast mana (Mana Crypt if you're feeling spicy), and format staples (Smothering Tithe, Rhystic Study).
 
-## Find Budget Alternatives with ManaTap AI
+## Find Budget Alternatives with ManaTap
 
 Want to build on a budget but don't know which expensive cards to cut? ManaTap's Budget Swaps feature finds cheaper alternatives that maintain your deck's strategy and power level.
 
@@ -1011,7 +1011,7 @@ Building a $100 Commander deck doesn't mean building a weak one. Smart card choi
     content: `
 # 🔧 Bug Fixes & Improvements: Making ManaTap More Reliable
 
-We're constantly working to make ManaTap AI better, faster, and more reliable. This update focuses on fixing bugs, improving the user experience, and making the platform more polished overall. Here's what we've been working on.
+We're constantly working to make ManaTap better, faster, and more reliable. This update focuses on fixing bugs, improving the user experience, and making the platform more polished overall. Here's what we've been working on.
 
 ## 🐛 Bug Fixes
 
@@ -1061,7 +1061,7 @@ We've improved our analytics tracking to better identify internal and test users
 
 ## 💙 Thank You
 
-A huge thank you to everyone who has been using ManaTap AI, reporting bugs, and providing feedback. Your input directly shapes how we improve the platform.
+A huge thank you to everyone who has been using ManaTap, reporting bugs, and providing feedback. Your input directly shapes how we improve the platform.
 
 Every bug report helps us fix issues faster. Every feature request helps us prioritize what to build next. Every piece of feedback makes ManaTap better.
 
@@ -1124,7 +1124,7 @@ AI can:
 - Check every card against format legality instantly
 - Suggest alternatives while maintaining your strategy
 
-**Real example:** ManaTap AI can analyze a 100-card Commander deck, identify 20+ potential improvements, and explain each suggestion—all in under 10 seconds.
+**Real example:** ManaTap can analyze a 100-card Commander deck, identify 20+ potential improvements, and explain each suggestion—all in under 10 seconds.
 
 ### 📊 Data-Driven Insights
 
@@ -1298,7 +1298,7 @@ We're working on:
 
 Want to see how AI can help your deck building?
 
-**[Start Building with ManaTap AI →](/my-decks)**
+**[Start Building with ManaTap →](/my-decks)**
 
 Upload a deck, get instant analysis, and see how AI suggestions compare to your own ideas. Every suggestion includes reasoning, so you can learn while you build.
 
@@ -1312,7 +1312,7 @@ Together, that's how we build better decks.
 
 ---
 
-*Have thoughts on AI and deck building? Share your experiences in the comments or reach out to us directly. Your feedback shapes how we improve ManaTap AI.*
+*Have thoughts on AI and deck building? Share your experiences in the comments or reach out to us directly. Your feedback shapes how we improve ManaTap.*
     `,
   },
   'upgrade-marvel-commander-precons-without-losing-theme': {
@@ -1334,7 +1334,7 @@ If you’re upgrading lists like **Doom Prevails** or **Avengers Assemble**, the
 
 That means **upgrading in layers**.
 
-If you want a starting point for swap ideas, archetype support, and cleaner card suggestions, use the [ManaTap AI deck builder](https://www.manatap.ai/mtg-ai-deck-builder).
+If you want a starting point for swap ideas, archetype support, and cleaner card suggestions, use the [ManaTap deck builder](https://www.manatap.ai/mtg-ai-deck-builder).
 
 ## 1) Upgrade the deck’s foundation before the flashy slots
 
@@ -1453,7 +1453,7 @@ The right way to upgrade a Marvel Commander precon is not to rip out the persona
 
 That approach gives you a list that still feels like Doom Prevails, Avengers Assemble, or whatever Marvel shell you started with — just cleaner, faster, and more fun to actually play.
 
-If you’re ready to start tuning your list, build your upgrade path with the [ManaTap AI deck builder](https://www.manatap.ai/mtg-ai-deck-builder).
+If you’re ready to start tuning your list, build your upgrade path with the [ManaTap deck builder](https://www.manatap.ai/mtg-ai-deck-builder).
 
 And if you want cheaper replacements before you start buying singles, check [Budget Swaps](https://www.manatap.ai/budget-swaps).
 
@@ -1690,7 +1690,7 @@ function articleJsonLd(post: typeof blogContent[string], slug: string) {
     },
     "publisher": {
       "@type": "Organization",
-      "name": "ManaTap AI",
+      "name": "ManaTap",
       "logo": {
         "@type": "ImageObject",
         "url": SOCIAL_PREVIEW_OG_IMAGE_URL
@@ -2129,7 +2129,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               Ready to Build Better Decks?
             </h2>
             <p className="text-white/90 mb-8 max-w-2xl mx-auto text-lg backdrop-blur-sm bg-white/10 rounded-lg p-4">
-              Use ManaTap AI to analyze your decks, find budget alternatives, and get personalized card recommendations powered by advanced AI.
+              Use ManaTap to analyze your decks, find budget alternatives, and get personalized card recommendations powered by advanced AI.
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               <Link

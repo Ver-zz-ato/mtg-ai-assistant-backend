@@ -28,8 +28,8 @@ export const metadata: Metadata = {
     title,
     description,
     url: "https://www.manatap.ai/build-a-deck",
-    siteName: "ManaTap AI",
-    images: [{ ...SOCIAL_PREVIEW_OG_IMAGE, alt: "ManaTap AI Build a Deck" }],
+    siteName: "ManaTap",
+    images: [{ ...SOCIAL_PREVIEW_OG_IMAGE, alt: "ManaTap Build a Deck" }],
     locale: "en_US",
     type: "website",
   },
@@ -47,7 +47,7 @@ function jsonLd() {
     "@graph": [
       {
         "@type": "WebApplication",
-        name: "ManaTap AI Build a Deck",
+        name: "ManaTap Build a Deck",
         description,
         url: "https://www.manatap.ai/build-a-deck",
         applicationCategory: "GameApplication",

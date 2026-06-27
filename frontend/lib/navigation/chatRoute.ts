@@ -1,4 +1,4 @@
-/** Canonical public route for ManaTap AI Chat. */
+/** Canonical public route for ManaTap Chat. */
 export const CHAT_ROUTE = "/chat";
 
 const CHAT_DRAFT_STORAGE_KEY = "manatap_pending_chat_draft";

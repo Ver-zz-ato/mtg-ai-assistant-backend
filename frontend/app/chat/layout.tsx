@@ -8,7 +8,7 @@ import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 import { TOOL_DESCRIPTIONS, canonicalMeta } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = canonicalMeta(CHAT_ROUTE, {
-  title: "AI Chat | ManaTap AI",
+  title: "AI Chat | ManaTap",
   description: TOOL_DESCRIPTIONS.aiChat,
 });
 
@@ -21,7 +21,7 @@ const FAQ_QUESTION_COLORS = [
 
 const FAQ = [
   {
-    q: "What can I ask ManaTap AI?",
+    q: "What can I ask ManaTap?",
     a: "Rules questions, deckbuilding advice, card interactions, upgrade ideas, and quick strategy help for Commander and other constructed formats.",
   },
   {
@@ -60,9 +60,9 @@ const EXPLORE_LINKS = [
 const IntroBlock = () => (
   <section
     className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 sm:p-5 pb-4 text-neutral-200"
-    aria-label="About ManaTap AI Chat"
+    aria-label="About ManaTap Chat"
   >
-    <h2 className="text-xl md:text-2xl font-bold text-white mb-3">ManaTap AI Chat</h2>
+    <h2 className="text-xl md:text-2xl font-bold text-white mb-3">ManaTap Chat</h2>
     <p className="text-neutral-300 mb-3 text-sm">
       Your tactical MTG co-pilot for rules, deck tuning, and card questions. Paste a list, link a
       deck, or ask anything about your game plan — ManaTap answers with format-aware context.

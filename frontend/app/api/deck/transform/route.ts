@@ -363,7 +363,7 @@ async function buildAiWorkshopWhy(args: {
   }
 
   const fullPrompt = [
-    "Explain these already-decided deck changes for ManaTap AI Workshop.",
+    "Explain these already-decided deck changes for ManaTap Workshop.",
     "Return JSON only with shape:",
     '{"overallWhy":"short paragraph","added":[{"name":"Card","reason":"reason"}],"removed":[{"name":"Card","reason":"reason"}]}',
     "Rules:",
@@ -417,7 +417,7 @@ async function buildAiWorkshopWhy(args: {
 
     if (missingAdded.length || missingRemoved.length) {
       const followupPrompt = [
-        "Fill only the missing per-card reasons for this ManaTap AI Workshop pass.",
+        "Fill only the missing per-card reasons for this ManaTap Workshop pass.",
         "Return JSON only with shape:",
         '{"overallWhy":"","added":[{"name":"Card","reason":"reason"}],"removed":[{"name":"Card","reason":"reason"}]}',
         "Rules:",

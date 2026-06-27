@@ -13,11 +13,11 @@ export const SOCIAL_PREVIEW_OG_IMAGE = {
   url: SOCIAL_PREVIEW_OG_IMAGE_URL,
   width: 1200,
   height: 630,
-  alt: "ManaTap AI — Your Complete Magic Companion",
+  alt: "ManaTap — Your Complete Magic Companion",
 } as const;
 
 export const HOME_DESCRIPTION =
-  "Build better Magic: The Gathering decks with ManaTap AI. Analyze lists, test mulligans, track prices, discover commanders, and get deck-aware AI chat help.";
+  "Build better Magic: The Gathering decks with ManaTap. Analyze lists, test mulligans, track prices, discover commanders, and get deck-aware AI chat help.";
 
 export const TOOL_DESCRIPTIONS = {
   mulligan:
@@ -33,9 +33,9 @@ export const TOOL_DESCRIPTIONS = {
   compareDecks:
     "Compare Magic: The Gathering decks side by side with ManaTap. Review shared cards, unique upgrades, mana curves, colors, and deck value.",
   aiWorkshop:
-    "Refine your MTG deck with ManaTap AI Workshop. Run focused passes on mana, curve, budget, power, interaction, or legality — then review and save.",
+    "Refine your MTG deck with ManaTap Workshop. Run focused passes on mana, curve, budget, power, interaction, or legality — then review and save.",
   aiChat:
-    "Ask Magic: The Gathering rules questions, get deck advice, and explore card interactions with ManaTap AI Chat. Link a deck for grounded Commander and 60-card help.",
+    "Ask Magic: The Gathering rules questions, get deck advice, and explore card interactions with ManaTap Chat. Link a deck for grounded Commander and 60-card help.",
 } as const;
 
 export const META_DESCRIPTIONS = {
@@ -75,7 +75,7 @@ export function descriptionFromText(value: string, fallback: string, maxLength =
 export function buildCardDescription(cardName: string, typeLine?: string | null): string {
   const typeSnippet = cleanDescription(typeLine || "");
   const typeText = typeSnippet ? `, ${typeSnippet},` : "";
-  return `View ${cardName}${typeText} for Magic: The Gathering with oracle text, pricing, deck-building context, and ManaTap AI card insights.`;
+  return `View ${cardName}${typeText} for Magic: The Gathering with oracle text, pricing, deck-building context, and ManaTap card insights.`;
 }
 
 export function canonicalMeta(path: string, metadata: Metadata = {}): Metadata {

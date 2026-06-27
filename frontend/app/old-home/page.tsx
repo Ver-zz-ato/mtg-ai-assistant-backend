@@ -6,7 +6,7 @@ import ChatHomeWorkspace from "@/components/home/ChatHomeWorkspace";
 import { getHomeVariant } from "@/lib/analytics/home-experiment";
 
 export const metadata: Metadata = {
-  title: "Legacy Chat Homepage | ManaTap AI",
+  title: "Legacy Chat Homepage | ManaTap",
   robots: { index: false, follow: false },
 };
 
@@ -18,7 +18,7 @@ export default function OldHomePage() {
     <div className="w-full relative">
       <div className="max-w-[1760px] mx-auto px-4 -mt-4">
         <h1 className="mb-2 pt-1 text-center text-xl font-bold tracking-tight text-white sm:text-2xl">
-          ManaTap AI — MTG Deck Builder &amp; Assistant
+          ManaTap — MTG Deck Builder &amp; Assistant
         </h1>
         <TopToolsStrip />
       </div>

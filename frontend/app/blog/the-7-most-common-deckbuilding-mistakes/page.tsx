@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
 
 export const metadata: Metadata = {
-  title: 'The 7 Most Common Deckbuilding Mistakes in MTG | ManaTap AI',
+  title: 'The 7 Most Common Deckbuilding Mistakes in MTG | ManaTap',
   description: 'Avoid these 7 common mistakes when building Magic: The Gathering decks. Learn how to fix mana curves, ramp issues, and card selection problems.',
   keywords: 'MTG deck building mistakes, common EDH errors, deck building tips, Magic deck problems',
   alternates: {
@@ -88,7 +88,7 @@ Even experienced players make these mistakes. Learn to spot and fix them before 
 
 ## How to Avoid These Mistakes
 
-**Use ManaTap AI's Deck Analyzer** to catch these issues automatically:
+**Use ManaTap's Deck Analyzer** to catch these issues automatically:
 
 1. **Import your deck** - Paste your decklist
 2. **Get instant analysis** - See what's missing or unbalanced
@@ -115,7 +115,7 @@ If you answered "no" to any, fix it before playing!
 
 These seven mistakes are the most common reasons decks fail. Fix them, and you'll see immediate improvement in your win rate. The key is balance: ramp, draw, removal, and win conditions in the right ratios.
 
-**Want to check if your deck has these problems?** [Use ManaTap AI's free deck checker →](/my-decks)
+**Want to check if your deck has these problems?** [Use ManaTap's free deck checker →](/my-decks)
 
 ---
 

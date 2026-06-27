@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Commander Mulligan Calculator | Free MTG Keep Rate Simulator | ManaTap AI",
+  title: "Commander Mulligan Calculator | Free MTG Keep Rate Simulator | ManaTap",
   description:
-    "Free Commander mulligan calculator. Simulate London mulligan keep rates for your EDH deck. Calculate odds of lands, ramp, and key cards in your opener. ManaTap AI.",
+    "Free Commander mulligan calculator. Simulate London mulligan keep rates for your EDH deck. Calculate odds of lands, ramp, and key cards in your opener. ManaTap.",
   alternates: { canonical: "https://www.manatap.ai/commander-mulligan-calculator" },
 };
 

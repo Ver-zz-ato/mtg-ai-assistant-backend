@@ -69,10 +69,10 @@ export default function BadgeShareBanner({
       ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
     }
 
-    // ManaTap AI branding (top left)
+    // ManaTap branding (top left)
     ctx.fillStyle = '#9ca3af'; // gray-400
     ctx.font = 'bold 18px system-ui, -apple-system, sans-serif';
-    ctx.fillText('ManaTap AI', 40, 50);
+    ctx.fillText('ManaTap', 40, 50);
 
     // Badge emoji (large, centered)
     ctx.font = '120px system-ui, -apple-system, sans-serif';
@@ -299,7 +299,7 @@ export default function BadgeShareBanner({
 
                 {/* Branding */}
                 <div className="absolute top-4 left-4 text-gray-400 text-sm font-medium">
-                  ManaTap AI
+                  ManaTap
                 </div>
                 
                 {/* Date */}

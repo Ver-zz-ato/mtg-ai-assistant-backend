@@ -15,6 +15,7 @@ import {
   parseAiDeckOutputLines,
   getCommanderColorIdentity,
   totalDeckQty,
+  trimDeckToMaxQty,
   extractChatCompletionContent,
 } from "@/lib/deck/generation-helpers";
 import {
@@ -34,6 +35,7 @@ import {
   countBasicLandSlots,
   enforceCommanderCollectionManaBase,
   filterDeckToCollectionOwnership,
+  isBasicLandName,
   normalizeCommanderDeckQtyForCollection,
   ownedSlotStats,
   rebalanceLandHeavyMostlyCollectionDeck,
@@ -48,8 +50,223 @@ const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 /** Deck lists are long; gpt-5* may use part of the budget before visible text — keep headroom. */
 const DECK_GEN_MAX_COMPLETION_TOKENS = 16_384;
 const MAX_LENGTH_CONTINUATIONS = 4;
+const COMMANDER_TARGET_QTY = 100;
+const COMMANDER_REPAIRABLE_MIN_QTY = 75;
+const BUDGET_FRIENDLY_MAX_USD = 100;
+const MAX_BUDGET_REPAIR_RETRIES = 2;
+
+type CommanderBuildShapeTarget = {
+  mode: "full_deck" | "core_shell" | "staples_flex";
+  label: string;
+  minQty: number;
+  maxQty: number;
+  retryMinQty: number;
+  exactQty: number | null;
+  targetInstruction: string;
+};
+
+type CommanderQtyNormalizeOptions = Parameters<typeof normalizeCommanderDeckQtyForCollection>[2];
+type CommanderQtyNormalizeResult = ReturnType<typeof normalizeCommanderDeckQtyForCollection>;
+
+function normalizeBuildShapeMode(buildMode: string | null | undefined): CommanderBuildShapeTarget["mode"] {
+  const m = String(buildMode || "full_deck")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (m === "core_shell") return "core_shell";
+  if (m === "staples_flex") return "staples_flex";
+  return "full_deck";
+}
+
+function commanderBuildShapeTarget(buildMode: string | null | undefined): CommanderBuildShapeTarget {
+  const mode = normalizeBuildShapeMode(buildMode);
+  if (mode === "core_shell") {
+    return {
+      mode,
+      label: "core shell",
+      minQty: 35,
+      maxQty: 45,
+      retryMinQty: 20,
+      exactQty: null,
+      targetInstruction: "about 35-45 cards total; do not pad to 100",
+    };
+  }
+  if (mode === "staples_flex") {
+    return {
+      mode,
+      label: "staples/flex shell",
+      minQty: 55,
+      maxQty: 75,
+      retryMinQty: 35,
+      exactQty: null,
+      targetInstruction: "about 55-75 cards total; do not pad to 100",
+    };
+  }
+  return {
+    mode,
+    label: "full deck",
+    minQty: COMMANDER_TARGET_QTY,
+    maxQty: COMMANDER_TARGET_QTY,
+    retryMinQty: COMMANDER_REPAIRABLE_MIN_QTY,
+    exactQty: COMMANDER_TARGET_QTY,
+    targetInstruction: "exactly 100 cards total",
+  };
+}
+
+function commanderQtyFitsTarget(totalQty: number, target: CommanderBuildShapeTarget): boolean {
+  return target.exactQty != null
+    ? totalQty === target.exactQty
+    : totalQty >= target.minQty && totalQty <= target.maxQty;
+}
+
+function fitCommanderCardsToBuildShape(
+  cards: Array<{ name: string; qty: number }>,
+  target: CommanderBuildShapeTarget,
+  colors: string[],
+  options: CommanderQtyNormalizeOptions
+): CommanderQtyNormalizeResult {
+  if (target.exactQty != null) {
+    return normalizeCommanderDeckQtyForCollection(cards, colors, options);
+  }
+
+  return {
+    ok: true,
+    cards: totalDeckQty(cards) > target.maxQty ? trimDeckToMaxQty(cards, target.maxQty) : cards,
+  };
+}
 
 export const runtime = "nodejs";
+
+function normalizePriceCacheCardName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[''`]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function budgetFriendlyMaxUsd(budget: string): number | null {
+  const b = budget.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return b === "budget" || b === "budget_friendly" || b.includes("cheap") ? BUDGET_FRIENDLY_MAX_USD : null;
+}
+
+async function estimateDeckPriceUsd(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rows: Array<{ name: string; qty: number }>
+): Promise<{
+  totalUsd: number | null;
+  pricedRows: number;
+  expensive: Array<{ name: string; qty: number; unitUsd: number; subtotalUsd: number }>;
+}> {
+  if (!rows.length) return { totalUsd: null, pricedRows: 0, expensive: [] };
+  try {
+    const uniqKeys = [...new Set(rows.map((r) => normalizePriceCacheCardName(r.name)).filter(Boolean))];
+    const priceByKey = new Map<string, number>();
+    const chunkSize = 120;
+    for (let i = 0; i < uniqKeys.length; i += chunkSize) {
+      const slice = uniqKeys.slice(i, i + chunkSize);
+      const { data: prices } = await supabase.from("price_cache").select("card_name, usd_price").in("card_name", slice);
+      for (const row of prices ?? []) {
+        const cn = (row as { card_name?: string; usd_price?: number | null }).card_name;
+        const usd = Number((row as { usd_price?: number | null }).usd_price);
+        if (cn && Number.isFinite(usd) && usd > 0) priceByKey.set(String(cn), usd);
+      }
+    }
+
+    let total = 0;
+    let pricedRows = 0;
+    const expensive: Array<{ name: string; qty: number; unitUsd: number; subtotalUsd: number }> = [];
+    for (const row of rows) {
+      const unitUsd = priceByKey.get(normalizePriceCacheCardName(row.name));
+      if (unitUsd == null || !Number.isFinite(unitUsd) || unitUsd <= 0) continue;
+      const qty = Math.max(0, Number(row.qty) || 0);
+      const subtotalUsd = unitUsd * qty;
+      total += subtotalUsd;
+      pricedRows += 1;
+      if (unitUsd >= 8 || subtotalUsd >= 12) {
+        expensive.push({
+          name: row.name,
+          qty,
+          unitUsd: Math.round(unitUsd * 100) / 100,
+          subtotalUsd: Math.round(subtotalUsd * 100) / 100,
+        });
+      }
+    }
+
+    expensive.sort((a, b) => b.subtotalUsd - a.subtotalUsd || b.unitUsd - a.unitUsd);
+    return {
+      totalUsd: pricedRows > 0 ? Math.round(total * 100) / 100 : null,
+      pricedRows,
+      expensive: expensive.slice(0, 18),
+    };
+  } catch (e) {
+    console.warn("[generate-from-collection] budget price estimate failed", e);
+    return { totalUsd: null, pricedRows: 0, expensive: [] };
+  }
+}
+
+function buildBudgetRepairPrompt(args: {
+  currentTotalUsd: number;
+  maxUsd: number;
+  commanderName: string;
+  targetInstruction: string;
+  buildShapeLabel: string;
+  expensive: Array<{ name: string; qty: number; unitUsd: number; subtotalUsd: number }>;
+}): string {
+  const expensiveLines = args.expensive.length
+    ? args.expensive
+        .map((row) => `- ${row.qty} ${row.name}: about $${row.subtotalUsd} total ($${row.unitUsd} each)`)
+        .join("\n")
+    : "- Price cache did not identify individual expensive rows; rebuild with cheap cards throughout.";
+
+  return [
+    `The previous deck is too expensive for Budget: estimated about $${args.currentTotalUsd}, but Budget must stay under about $${args.maxUsd}.`,
+    `Commander: ${args.commanderName}. Output a replacement ${args.buildShapeLabel} decklist only, ${args.targetInstruction}.`,
+    "Use cheap functional alternatives, basics, budget tapped/slow lands, affordable ramp/draw/removal, and synergy pieces. Avoid premium staples and luxury mana bases.",
+    "Replace or avoid these expensive rows:",
+    expensiveLines,
+    'Output only plain deck lines in the form "qty Card Name". No markdown, no commentary.',
+  ].join("\n");
+}
+
+function trimOverBudgetRows(
+  rows: Array<{ name: string; qty: number }>,
+  estimate: {
+    totalUsd: number | null;
+    expensive: Array<{ name: string; qty: number; unitUsd: number; subtotalUsd: number }>;
+  },
+  commanderName: string,
+  maxUsd: number
+): { cards: Array<{ name: string; qty: number }>; removed: Array<{ name: string; qty: number }> } {
+  if (estimate.totalUsd == null || estimate.totalUsd <= maxUsd || estimate.expensive.length === 0) {
+    return { cards: rows, removed: [] };
+  }
+
+  const working = rows.map((row) => ({ ...row, qty: Math.max(0, Number(row.qty) || 0) }));
+  const removed: Array<{ name: string; qty: number }> = [];
+  const commanderKey = norm(commanderName);
+  let estimatedTotal = estimate.totalUsd;
+
+  for (const row of estimate.expensive) {
+    if (estimatedTotal <= maxUsd) break;
+    if (norm(row.name) === commanderKey || isBasicLandName(row.name)) continue;
+
+    const idx = working.findIndex((candidate) => norm(candidate.name) === norm(row.name));
+    if (idx < 0) continue;
+
+    while (working[idx] && working[idx].qty > 0 && estimatedTotal > maxUsd) {
+      working[idx].qty -= 1;
+      estimatedTotal = Math.max(0, estimatedTotal - row.unitUsd);
+      const existing = removed.find((r) => norm(r.name) === norm(row.name));
+      if (existing) existing.qty += 1;
+      else removed.push({ name: row.name, qty: 1 });
+    }
+  }
+
+  return { cards: working.filter((row) => row.qty > 0), removed };
+}
 
 function planLabelForResponse(powerLevel: string, budget: string, buildMode: string | null): string {
   const power = powerLevel?.trim() || "Casual";
@@ -97,6 +314,8 @@ export async function POST(req: NextRequest) {
     const format = input.format;
     const seedCard = input.seedCard;
     const isCommanderRequest = String(format || "Commander").toLowerCase().includes("commander");
+    const commanderTarget = commanderBuildShapeTarget(input.buildMode);
+    const isFullCommanderDeck = commanderTarget.exactQty === COMMANDER_TARGET_QTY;
 
     if (!collectionId && !commander && !(isCommanderRequest && seedCard)) {
       return NextResponse.json(
@@ -276,13 +495,14 @@ export async function POST(req: NextRequest) {
 
     let totalQty = totalDeckQty(cards);
 
-    /** Commander: need exactly 100 physical cards (sum of line quantities), not unique row count. */
-    const minCommanderQty = 100;
+    /** Commander checks use physical cards (sum of line quantities), not unique row count. */
+    const minCommanderQty = commanderTarget.minQty;
     const minOtherQty = 30;
 
     let lengthContinuationRound = 0;
     while (
       isCommanderRequest &&
+      isFullCommanderDeck &&
       totalQty < minCommanderQty &&
       finishReason === "length" &&
       lengthContinuationRound < MAX_LENGTH_CONTINUATIONS
@@ -312,6 +532,7 @@ export async function POST(req: NextRequest) {
 
     if (
       isCommanderRequest &&
+      isFullCommanderDeck &&
       totalQty >= 40 &&
       totalQty < minCommanderQty &&
       finishReason !== "length"
@@ -343,8 +564,112 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const tooShort =
-      isCommanderRequest ? totalQty < minCommanderQty : totalQty < minOtherQty;
+    if (
+      isCommanderRequest &&
+      !isFullCommanderDeck &&
+      totalQty >= commanderTarget.retryMinQty &&
+      totalQty < commanderTarget.minQty &&
+      finishReason !== "length"
+    ) {
+      const retryMsg = [
+        `Your previous reply totals only ${totalQty} cards.`,
+        `Output a replacement Commander ${commanderTarget.label} only: ${commanderTarget.targetInstruction}, same commander and constraints, one entry per line as "qty Card Name".`,
+        "Do not output a full 100-card deck. No markdown or commentary.",
+      ].join(" ");
+      const retry = await runCompletion([
+        ...baseMessages,
+        { role: "assistant", content },
+        { role: "user", content: retryMsg },
+      ]);
+      if (retry.ok) {
+        const retryCards = aggregateCards(parseAiDeckOutputLines(retry.content));
+        const retryTotal = totalDeckQty(retryCards);
+        if (retryTotal > totalQty && retryTotal <= commanderTarget.maxQty) {
+          const beforeTotal = totalQty;
+          content = retry.content;
+          finishReason = retry.finishReason;
+          cards = retryCards;
+          totalQty = retryTotal;
+          console.warn("[generate-from-collection] Applied shell retry (short first pass)", {
+            before: beforeTotal,
+            after: retryTotal,
+            buildMode: commanderTarget.mode,
+          });
+        }
+      }
+    }
+
+    const budgetMaxUsd = isCommanderRequest ? budgetFriendlyMaxUsd(input.budget) : null;
+    if (budgetMaxUsd != null && totalQty >= commanderTarget.retryMinQty) {
+      let budgetRepairRound = 0;
+      let priceEstimate = await estimateDeckPriceUsd(supabase, cards);
+      while (
+        priceEstimate.totalUsd != null &&
+        priceEstimate.totalUsd > budgetMaxUsd &&
+        budgetRepairRound < MAX_BUDGET_REPAIR_RETRIES
+      ) {
+        budgetRepairRound++;
+        const commanderNameForRepair = commander?.trim() || cards[0]?.name || "Unknown";
+        const budgetRetry = await runCompletion([
+          ...baseMessages,
+          { role: "assistant", content },
+          {
+            role: "user",
+            content: buildBudgetRepairPrompt({
+              currentTotalUsd: priceEstimate.totalUsd,
+              maxUsd: budgetMaxUsd,
+              commanderName: commanderNameForRepair,
+              targetInstruction: commanderTarget.targetInstruction,
+              buildShapeLabel: commanderTarget.label,
+              expensive: priceEstimate.expensive,
+            }),
+          },
+        ]);
+        if (!budgetRetry.ok) break;
+
+        const retryCards = aggregateCards(parseAiDeckOutputLines(budgetRetry.content));
+        const retryTotal = totalDeckQty(retryCards);
+        const budgetRetryMinQty = isFullCommanderDeck ? commanderTarget.retryMinQty : commanderTarget.minQty;
+        if (retryTotal < budgetRetryMinQty || retryTotal > commanderTarget.maxQty) {
+          console.warn("[generate-from-collection] budget repair retry too short", {
+            round: budgetRepairRound,
+            retryTotal,
+            minQty: budgetRetryMinQty,
+            maxQty: commanderTarget.maxQty,
+            currentTotalUsd: priceEstimate.totalUsd,
+          });
+          break;
+        }
+
+        const retryPriceEstimate = await estimateDeckPriceUsd(supabase, retryCards);
+        const retryImproved =
+          retryPriceEstimate.totalUsd == null ||
+          priceEstimate.totalUsd == null ||
+          retryPriceEstimate.totalUsd < priceEstimate.totalUsd;
+        if (!retryImproved) {
+          console.warn("[generate-from-collection] budget repair retry did not improve price", {
+            round: budgetRepairRound,
+            beforeUsd: priceEstimate.totalUsd,
+            afterUsd: retryPriceEstimate.totalUsd,
+          });
+          break;
+        }
+
+        content = budgetRetry.content;
+        finishReason = budgetRetry.finishReason;
+        cards = retryCards;
+        totalQty = retryTotal;
+        priceEstimate = retryPriceEstimate;
+        console.warn("[generate-from-collection] budget repair retry applied", {
+          round: budgetRepairRound,
+          totalQty,
+          estimatedUsd: priceEstimate.totalUsd,
+          budgetMaxUsd,
+        });
+      }
+    }
+
+    const tooShort = isCommanderRequest ? totalQty < commanderTarget.retryMinQty : totalQty < minOtherQty;
     if (tooShort) {
       console.error("[generate-from-collection] deck too short", {
         finishReason,
@@ -360,7 +685,7 @@ export async function POST(req: NextRequest) {
           ? " Output hit the size limit — tap try again."
           : "";
       const errMsg = isCommanderRequest
-        ? `Generated Commander decklist too short (${totalQty} cards total; must be exactly 100). Please try again.${hint}`
+        ? `Generated Commander ${commanderTarget.label} too short (${totalQty} cards total; target is ${commanderTarget.targetInstruction}). Please try again.${hint}`
         : `Generated decklist too short; please try again.${hint}`;
       return NextResponse.json({ ok: false, error: errMsg }, { status: 500 });
     }
@@ -413,7 +738,7 @@ export async function POST(req: NextRequest) {
     filtered = ownershipFiltered.cards;
 
     if (isCommanderRequest) {
-      const qtyNorm = normalizeCommanderDeckQtyForCollection(filtered, allowedColors, {
+      const qtyNorm = fitCommanderCardsToBuildShape(filtered, commanderTarget, allowedColors, {
         ownershipMode,
         ownerNormKeys,
         qtyByNormKey,
@@ -429,17 +754,18 @@ export async function POST(req: NextRequest) {
       cards = filtered;
     }
 
-    if (isCommanderRequest && totalDeckQty(cards) < 90) {
-      console.error("[generate-from-collection] Commander deck under 90 cards after processing", {
+    if (isCommanderRequest && totalDeckQty(cards) < commanderTarget.minQty) {
+      console.error("[generate-from-collection] Commander deck under repairable card threshold after processing", {
         commanderName,
         rows: cards.length,
         totalQty: totalDeckQty(cards),
+        buildMode: commanderTarget.mode,
       });
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Generated Commander deck was too short after checks; please try again or pick a different commander.",
+            `Generated Commander ${commanderTarget.label} was too short after checks; please try again or pick a different commander.`,
         },
         { status: 500 }
       );
@@ -451,7 +777,7 @@ export async function POST(req: NextRequest) {
         logPrefix: "/api/deck/generate-from-collection",
       });
       if (isCommanderRequest) {
-        const qtyNorm = normalizeCommanderDeckQtyForCollection(legalLines, allowedColors, {
+        const qtyNorm = fitCommanderCardsToBuildShape(legalLines, commanderTarget, allowedColors, {
           ownershipMode,
           ownerNormKeys,
           qtyByNormKey,
@@ -470,7 +796,7 @@ export async function POST(req: NextRequest) {
       console.warn("[generate-from-collection] Legality filter failed:", legErr);
     }
 
-    if (isCommanderRequest && ownerNormKeys.size > 0 && ownerNormToDisplay.size > 0) {
+    if (isCommanderRequest && isFullCommanderDeck && ownerNormKeys.size > 0 && ownerNormToDisplay.size > 0) {
       const manaEnforced = enforceCommanderCollectionManaBase(cards, {
         ownershipMode,
         ownerNormKeys,
@@ -555,27 +881,40 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (isCommanderRequest && totalDeckQty(cards) < 90) {
+    if (isCommanderRequest && totalDeckQty(cards) < commanderTarget.minQty) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Generated Commander deck was too short after legality filtering; please try again or pick a different commander.",
+            `Generated Commander ${commanderTarget.label} was too short after legality filtering; please try again or pick a different commander.`,
         },
         { status: 500 }
       );
     }
 
-    if (isCommanderRequest && totalDeckQty(cards) !== 100) {
-      console.error("[generate-from-collection] Commander deck not exactly 100 after processing", {
+    if (isCommanderRequest && !commanderQtyFitsTarget(totalDeckQty(cards), commanderTarget)) {
+      const qtyNorm = fitCommanderCardsToBuildShape(cards, commanderTarget, allowedColors, {
+        ownershipMode,
+        ownerNormKeys,
+        qtyByNormKey,
+      });
+      if (qtyNorm.ok) {
+        cards = qtyNorm.cards;
+      }
+    }
+
+    if (isCommanderRequest && !commanderQtyFitsTarget(totalDeckQty(cards), commanderTarget)) {
+      console.error("[generate-from-collection] Commander deck not in requested build shape after processing", {
         commanderName,
+        buildMode: commanderTarget.mode,
         rows: cards.length,
         totalQty: totalDeckQty(cards),
+        target: commanderTarget.targetInstruction,
       });
       return NextResponse.json(
         {
           ok: false,
-          error: "Generated Commander deck was not exactly 100 cards after checks; please try again.",
+          error: `Generated Commander ${commanderTarget.label} was not ${commanderTarget.targetInstruction} after checks; please try again.`,
         },
         { status: 500 }
       );
@@ -583,6 +922,56 @@ export async function POST(req: NextRequest) {
 
     const canonicalized = await canonicalizeGeneratedDeckRows(cards);
     cards = canonicalized.rows;
+
+    if (isCommanderRequest && budgetMaxUsd != null) {
+      const finalBudgetEstimate = await estimateDeckPriceUsd(supabase, cards);
+      if (finalBudgetEstimate.totalUsd != null && finalBudgetEstimate.totalUsd > budgetMaxUsd) {
+        const trimmed = trimOverBudgetRows(cards, finalBudgetEstimate, commanderName, budgetMaxUsd);
+        if (trimmed.removed.length > 0) {
+          const qtyNorm = fitCommanderCardsToBuildShape(trimmed.cards, commanderTarget, allowedColors, {
+            ownershipMode,
+            ownerNormKeys,
+            qtyByNormKey,
+          });
+          if (qtyNorm.ok && commanderQtyFitsTarget(totalDeckQty(qtyNorm.cards), commanderTarget)) {
+            cards = qtyNorm.cards;
+            console.warn("[generate-from-collection] final budget guard trimmed expensive rows", {
+              beforeUsd: finalBudgetEstimate.totalUsd,
+              budgetMaxUsd,
+              buildMode: commanderTarget.mode,
+              removed: trimmed.removed.map((row) => row.name).slice(0, 12),
+            });
+          }
+        }
+
+        const afterBudgetEstimate = await estimateDeckPriceUsd(supabase, cards);
+        if (afterBudgetEstimate.totalUsd != null && afterBudgetEstimate.totalUsd > budgetMaxUsd) {
+          console.error("[generate-from-collection] budget guard could not reach target", {
+            commanderName,
+            estimatedUsd: afterBudgetEstimate.totalUsd,
+            budgetMaxUsd,
+          });
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Could not keep this Commander draft inside the Budget target after checks. Try a cheaper commander or run Generate again.",
+            },
+            { status: 500 }
+          );
+        }
+      }
+    }
+
+    if (isCommanderRequest && !commanderQtyFitsTarget(totalDeckQty(cards), commanderTarget)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Generated Commander ${commanderTarget.label} was not ${commanderTarget.targetInstruction} after final checks; please try again.`,
+        },
+        { status: 500 }
+      );
+    }
 
     const deckText = cards.map((c) => `${c.qty} ${c.name}`).join("\n");
     const colors = allowedColors;

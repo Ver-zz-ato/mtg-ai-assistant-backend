@@ -5,7 +5,7 @@ import { PopularCommanders } from "@/components/PopularCommanders";
 import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
-  title: "MTG Price Tracker | Card Price History | ManaTap AI",
+  title: "MTG Price Tracker | Card Price History | ManaTap",
   description: TOOL_DESCRIPTIONS.priceTracker,
   alternates: { canonical: "https://www.manatap.ai/price-tracker" },
 };

@@ -349,7 +349,7 @@ export default function Header() {
         <div className="flex w-full min-w-0 flex-nowrap items-center gap-0.5 overflow-visible lg:w-auto xl:gap-1">
           <Link href="/" className="shrink-0 font-semibold flex items-center gap-1.5 pr-0.5">
             <Logo size={50} />
-            <span className="hidden sm:block text-xl font-bold whitespace-nowrap xl:text-2xl 2xl:text-3xl">ManaTap AI</span>
+            <span className="hidden sm:block text-xl font-bold whitespace-nowrap xl:text-2xl 2xl:text-3xl">ManaTap</span>
           </Link>
 
           {/* Desktop Navigation — tight row with logo and auth */}
@@ -378,7 +378,7 @@ export default function Header() {
             ]}
           />
           <DesktopNavDropdown
-            label="✨ AI"
+            label="AI ✨"
             colorClass="text-fuchsia-400 hover:bg-fuchsia-400/10 hover:shadow-sm"
             items={[
               { href: "/chat", label: "AI Chat", eventLabel: "ai" },
@@ -647,7 +647,7 @@ export default function Header() {
             >
               Deck Builder
             </Link>
-            <div className="block min-h-[44px] py-2 px-1 text-sm text-fuchsia-400 font-medium flex items-center">✨ AI</div>
+            <div className="block min-h-[44px] py-2 px-1 text-sm text-fuchsia-400 font-medium flex items-center">AI ✨</div>
             <Link
               href="/chat"
               className="block min-h-[44px] py-2 px-2 text-sm text-fuchsia-300 font-medium rounded transition-all hover:bg-fuchsia-400/10 flex items-center touch-manipulation"
@@ -1302,7 +1302,7 @@ export default function Header() {
                 <div className="text-2xl font-bold mb-3 bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
                   Account Created!
                 </div>
-                <div className="text-lg mb-2">Welcome to ManaTap AI!</div>
+                <div className="text-lg mb-2">Welcome to ManaTap!</div>
                 <div className="text-sm text-neutral-400 mb-4">
                   Check your email to confirm your account and start building amazing decks.
                 </div>

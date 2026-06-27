@@ -19,7 +19,7 @@ import ProFeatureCard from "@/components/ProFeatureCard";
 import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
 
 export const metadata: Metadata = {
-  title: "MTG Tools | ManaTap AI",
+  title: "MTG Tools | ManaTap",
   description:
     "ManaTap tools for deck building, deck analysis, mulligans, budget swaps, price tracking, card search, collections, and Commander discovery.",
   alternates: { canonical: "https://www.manatap.ai/tools" },
@@ -258,22 +258,6 @@ const JOURNEY: JourneyStage[] = [
   },
 ];
 
-function Badge({ value }: { value: ToolBadge }) {
-  const classes =
-    value === "Pro"
-      ? "border-amber-300/30 bg-amber-300/15 text-amber-100"
-      : value === "Sign in"
-        ? "border-sky-300/25 bg-sky-300/10 text-sky-100"
-        : value === "Limited"
-          ? "border-violet-300/25 bg-violet-300/10 text-violet-100"
-          : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
-  return (
-    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${classes}`}>
-      {value}
-    </span>
-  );
-}
-
 function ToolRow({ tool }: { tool: ToolDef }) {
   const Icon = tool.icon;
   const isPriority = Boolean(tool.priority);
@@ -291,10 +275,7 @@ function ToolRow({ tool }: { tool: ToolDef }) {
         <Icon size={18} aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-start justify-between gap-2">
-          <span className="text-sm font-bold leading-5 text-white group-hover:text-amber-100">{tool.title}</span>
-          <Badge value={tool.badge} />
-        </span>
+        <span className="block text-sm font-bold leading-5 text-white group-hover:text-amber-100">{tool.title}</span>
         <span className="mt-1 block text-xs leading-5 text-neutral-400">{tool.subtitle}</span>
         {tool.priority ? (
           <span className="mt-2 inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
@@ -309,7 +290,7 @@ function ToolRow({ tool }: { tool: ToolDef }) {
 export default function ToolsIndexPage() {
   return (
     <main className="relative mx-auto w-full max-w-[96rem] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_8%,rgba(124,58,237,0.13),transparent_30%),radial-gradient(circle_at_76%_38%,rgba(251,146,60,0.09),transparent_28%),radial-gradient(circle_at_22%_46%,rgba(34,211,238,0.08),transparent_30%),linear-gradient(90deg,rgba(0,0,0,0.72),rgba(7,7,12,0.34),rgba(0,0,0,0.72))]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_8%,rgba(124,58,237,0.13),transparent_30%),radial-gradient(circle_at_76%_38%,rgba(251,146,60,0.09),transparent_28%),radial-gradient(circle_at_22%_46%,rgba(34,211,238,0.08),transparent_30%),linear-gradient(90deg,rgba(0,0,0,0.72),rgba(7,7,12,0.34),rgba(0,0,0,0.72))]" />
       <nav className="relative mb-4 text-sm text-neutral-400">
         <Link href="/" className="rounded hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70">Home</Link>
         <span className="mx-2">/</span>

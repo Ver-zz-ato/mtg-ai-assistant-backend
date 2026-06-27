@@ -7,7 +7,7 @@ import {
 } from '@/lib/blog-card-placeholders';
 
 export const metadata: Metadata = {
-  title: 'Top Budget Staples Every MTG Player Should Know in 2026 | ManaTap AI',
+  title: 'Top Budget Staples Every MTG Player Should Know in 2026 | ManaTap',
   description: 'Discover the best budget Magic: The Gathering staples under $5 that every Commander player should own. Build competitive decks without breaking the bank.',
   keywords: 'budget MTG staples, cheap commander cards, budget Magic cards 2025, affordable MTG staples',
   alternates: {
@@ -227,7 +227,7 @@ Graveyard hate on a land. Free to include.
 
 **Total Cost**: ~$15-20 for all 20 cards. These will improve every deck you build.
 
-## Using ManaTap AI to Find Budget Alternatives
+## Using ManaTap to Find Budget Alternatives
 
 ManaTap's Budget Swaps feature finds cheaper alternatives for expensive cards:
 
@@ -251,9 +251,9 @@ ManaTap's Budget Swaps feature finds cheaper alternatives for expensive cards:
 
 ## Conclusion
 
-Budget staples are the foundation of every Commander collection. These cards work in multiple decks, provide consistent value, and won't break the bank. Start with the essentials, build your collection over time, and use tools like ManaTap AI to find budget alternatives.
+Budget staples are the foundation of every Commander collection. These cards work in multiple decks, provide consistent value, and won't break the bank. Start with the essentials, build your collection over time, and use tools like ManaTap to find budget alternatives.
 
-**Ready to build on a budget?** [Use ManaTap AI's free budget optimization →](/budget-swaps)
+**Ready to build on a budget?** [Use ManaTap's free budget optimization →](/budget-swaps)
 
 ---
 

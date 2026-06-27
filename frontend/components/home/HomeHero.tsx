@@ -21,11 +21,7 @@ export default function HomeHero() {
   const showMobileCtas = !ready || isMobile;
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(145deg,rgba(10,10,12,0.94),rgba(17,17,20,0.88)_55%,rgba(88,28,135,0.18))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_70px_rgba(0,0,0,0.38)] sm:p-8 lg:p-10">
-      <div className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-violet-500/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 bottom-0 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/35 to-transparent" />
-
+    <section className="relative px-1 py-6 sm:px-2 sm:py-8 lg:py-10">
       <div className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.28em] text-violet-300">
@@ -57,7 +53,7 @@ export default function HomeHero() {
                   Explore Tools
                 </Link>
                 <Link href={CHAT_ROUTE} className={aiBtn}>
-                  Ask ManaTap AI ✨
+                  Ask ManaTap ✨
                 </Link>
               </>
             )}

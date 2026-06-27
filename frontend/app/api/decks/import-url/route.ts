@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createClientWithBearerToken } from "@/lib/server-supabase";
+import { getGuestToken } from "@/lib/api/get-guest-token";
 import { rejectUnlessCsrfOrBearer } from "@/lib/api/requireCsrf";
 import { parseExternalDeckUrl } from "@/lib/external-deck-meta/url";
 import { addRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
+import { hashGuestToken, hashString } from "@/lib/guest-tracking";
 
 type ImportedDeck = {
   title: string;
@@ -18,6 +20,22 @@ type QtyLine = {
 
 const FETCH_TIMEOUT_MS = 12000;
 const MAX_RESPONSE_CHARS = 2_000_000;
+const IMPORT_BURST_WINDOW_MS = 60 * 1000;
+const IMPORT_IDENTITY_BURST_LIMIT = 20;
+const IMPORT_IP_BURST_LIMIT = 80;
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
+function bearerToken(req: NextRequest): string | null {
+  const authHeader = req.headers.get("Authorization");
+  return authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() || null : null;
+}
 
 function cleanName(value: unknown): string {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -160,23 +178,64 @@ function renderDeckText(lines: QtyLine[]): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const csrfBlock = rejectUnlessCsrfOrBearer(req);
+    const guest = await getGuestToken(req);
+    const csrfBlock = guest.source === "header" ? null : rejectUnlessCsrfOrBearer(req);
     if (csrfBlock) return csrfBlock;
 
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data?.user) {
-      return NextResponse.json({ ok: false, error: "Unauthenticated" }, { status: 401 });
+    let {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      const token = bearerToken(req);
+      if (token) {
+        const bearerSupabase = createClientWithBearerToken(token);
+        const {
+          data: { user: bearerUser },
+        } = await bearerSupabase.auth.getUser();
+        if (bearerUser) {
+          user = bearerUser;
+        }
+      }
     }
+
+    const realUserId = user && user.is_anonymous !== true ? user.id : null;
+    let identityKey: string | null = null;
+    if (realUserId) {
+      identityKey = `user:${realUserId}`;
+    } else if (guest.guestToken) {
+      identityKey = `guest:${await hashGuestToken(guest.guestToken)}`;
+    } else if (user?.is_anonymous === true && user.id) {
+      identityKey = `guest:${await hashString(`anonymous-user:${user.id}`)}`;
+    }
+
+    if (!identityKey) {
+      return NextResponse.json({ ok: false, error: "Authentication or guest session required." }, { status: 401 });
+    }
+
     const burst = checkRateLimit(req, {
-      windowMs: 60 * 1000,
-      maxRequests: 20,
-      keyGenerator: () => `decks-import-url:${data.user.id}`,
+      windowMs: IMPORT_BURST_WINDOW_MS,
+      maxRequests: IMPORT_IDENTITY_BURST_LIMIT,
+      keyGenerator: () => `decks-import-url:${identityKey}`,
     });
     if (!burst.allowed) {
       return addRateLimitHeaders(
         NextResponse.json({ ok: false, error: "Rate limit exceeded", retryAfter: burst.retryAfter }, { status: 429 }),
         burst
+      );
+    }
+
+    const ipHash = await hashString(getClientIp(req));
+    const ipBurst = checkRateLimit(req, {
+      windowMs: IMPORT_BURST_WINDOW_MS,
+      maxRequests: IMPORT_IP_BURST_LIMIT,
+      keyGenerator: () => `decks-import-url:ip:${ipHash}`,
+    });
+    if (!ipBurst.allowed) {
+      return addRateLimitHeaders(
+        NextResponse.json({ ok: false, error: "Rate limit exceeded", retryAfter: ipBurst.retryAfter }, { status: 429 }),
+        ipBurst
       );
     }
 

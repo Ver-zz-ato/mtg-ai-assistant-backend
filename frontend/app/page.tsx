@@ -8,7 +8,7 @@ import {
 } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = canonicalMeta("/", {
-  title: "ManaTap AI — MTG Deck Builder & Assistant",
+  title: "ManaTap — MTG Deck Builder & Assistant",
   description: HOME_DESCRIPTION,
 });
 
@@ -16,7 +16,7 @@ function jsonLd() {
   const data = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "ManaTap AI",
+    name: "ManaTap",
     description:
       "Magic: The Gathering deck building companion with AI chat, deck analysis, budget swaps, collection tools, mulligan simulation, and Commander discovery.",
     url: "https://www.manatap.ai",

@@ -6,7 +6,7 @@ import { PopularCommanders } from "@/components/PopularCommanders";
 import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
-  title: "Budget Swaps • ManaTap AI",
+  title: "Budget Swaps • ManaTap",
   description: TOOL_DESCRIPTIONS.budgetSwaps,
   alternates: { canonical: "https://www.manatap.ai/deck/swap-suggestions" },
 };

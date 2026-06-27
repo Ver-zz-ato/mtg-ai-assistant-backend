@@ -21,6 +21,7 @@ Use this doc when you need to answer:
 | Mobile AI tools | `/api/mobile/deck/analyze`, `/api/mobile/deck/compare-ai`, `/api/mobile/deck/compare-v2`, `/api/mobile/deck/compare-v2/ai`, `/api/mobile/deck/roast-ai`, `/api/mobile/card/explain`, `/api/mobile/commander-recommendations` |
 | Mobile live play | `/api/mobile/live-games*`, `/api/mobile/tournaments*` |
 | Scanner support | `/api/cards/fuzzy`, `/api/cards/recognize-image`, `/api/cards/batch-images`, `/api/cards/batch-metadata` |
+| Mobile deck inputs | `/api/decks/import-url`, `/api/decks/precons` |
 | Revenue / entitlements | `/api/revenuecat/webhook`, `/api/user/pro-status` |
 | Website billing | `/api/billing/create-checkout-session`, `/api/billing/portal`, `/api/stripe/webhook` |
 | Feedback/reporting | `/api/feedback`, `/api/chat/report` |
@@ -29,6 +30,8 @@ Use this doc when you need to answer:
 Deck Compare public route note: `/api/mobile/deck/compare-v2` backs the signed-in app Tools flow and the website `/compare-decks` page. It compares the user's saved decks, public ManaTap QR/shared-link decks, and pasted lists, then returns pod power / table-balance context. It must keep auth, saved-deck ownership checks, public-only scanned deck loading, input validation, request-size limits, and same-format enforcement. The deeper `/api/mobile/deck/compare-v2/ai` route remains Pro-only.
 
 Live play route notes: `/api/mobile/live-games*` backs synced Life Counter QR/link sessions. `/api/mobile/tournaments*` backs Tournament Manager host/join events, invite tokens, deck submission snapshots, pairings, results, disputes, drops, and event completion.
+
+Deck input route notes: `/api/decks/import-url` backs website and mobile public Moxfield/Archidekt link import. It accepts website cookie auth, mobile Bearer auth, or mobile `X-Guest-Session-Token`, then applies HTTPS-only URL validation, source host allowlists, timeout/response-size caps, and per-user/guest/IP rate limits before returning parsed `deckText`. `/api/decks/precons` is the shared public precon selector feed.
 
 ### Core product APIs
 

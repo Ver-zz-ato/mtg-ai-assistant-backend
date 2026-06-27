@@ -27,8 +27,8 @@ export const metadata: Metadata = {
     title,
     description,
     url: "https://www.manatap.ai/mtg-deck-checker",
-    siteName: "ManaTap AI",
-    images: [{ ...SOCIAL_PREVIEW_OG_IMAGE, alt: "ManaTap AI MTG Deck Checker" }],
+    siteName: "ManaTap",
+    images: [{ ...SOCIAL_PREVIEW_OG_IMAGE, alt: "ManaTap MTG Deck Checker" }],
     locale: "en_US",
     type: "website",
   },
@@ -46,7 +46,7 @@ function jsonLd() {
     "@graph": [
       {
         "@type": "WebApplication",
-        name: "ManaTap AI MTG Deck Checker",
+        name: "ManaTap MTG Deck Checker",
         description,
         url: "https://www.manatap.ai/mtg-deck-checker",
         applicationCategory: "GameApplication",

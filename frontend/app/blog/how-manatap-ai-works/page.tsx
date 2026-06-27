@@ -4,14 +4,14 @@ import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
 
 export const metadata: Metadata = {
-  title: 'How ManaTap\'s MTG AI Deck Builder Works | ManaTap AI',
+  title: 'How ManaTap\'s MTG AI Deck Builder Works | ManaTap',
   description: 'A plain-English explanation (plus a technical deep dive) of how ManaTap analyzes MTG decks for legality, colour identity, balance, and synergy.',
-  keywords: 'how manatap ai works, mtg ai deck builder, ai deck analysis, mtg deck checker how it works, magic the gathering ai',
+  keywords: 'how ManaTap works, mtg ai deck builder, ai deck analysis, mtg deck checker how it works, magic the gathering ai',
   alternates: {
     canonical: '/blog/how-manatap-ai-works',
   },
   openGraph: {
-    title: 'How ManaTap\'s MTG AI Deck Builder Works | ManaTap AI',
+    title: 'How ManaTap\'s MTG AI Deck Builder Works | ManaTap',
     description: 'A plain-English explanation (plus a technical deep dive) of how ManaTap analyzes MTG decks for legality, colour identity, balance, and synergy.',
     url: 'https://www.manatap.ai/blog/how-manatap-ai-works',
     type: 'article',
@@ -385,7 +385,7 @@ export default function HowManaTapAIWorksPage() {
           <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
             <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-xl p-8 text-center">
               <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                Try ManaTap AI Deck Builder
+                Try ManaTap Deck Builder
               </h2>
               <p className="text-white/90 mb-6 max-w-2xl mx-auto">
                 See how ManaTap's AI analyzes your deck for legality, balance, and synergy. Get instant deck analysis that understands MTG rules, archetypes, and card interactions.

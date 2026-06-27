@@ -349,7 +349,7 @@ async function runJudgePass(args: {
     },
   });
   const system = [
-    "You are ManaTap AI selecting the best recommendation candidates from a prevalidated legal pool.",
+    "You are ManaTap selecting the best recommendation candidates from a prevalidated legal pool.",
     "You must choose only from the provided candidates. Never invent a new card or commander.",
     `Return strict JSON: {\"picks\":[{\"name\":\"Exact Candidate Name\",\"reason\":\"Short reason\"}]}.`,
     `Pick exactly ${args.pickCount} items unless fewer valid candidates exist.`,

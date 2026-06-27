@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import { sanitizeBlogHtml } from '@/lib/blog/sanitizeBlogHtml';
 
 export const metadata: Metadata = {
-  title: 'EDH Land Count: What the Community Actually Runs | ManaTap AI',
+  title: 'EDH Land Count: What the Community Actually Runs | ManaTap',
   description: 'Data-driven analysis of optimal land counts in Commander decks. Learn how many lands to run based on your deck\'s strategy, ramp, and curve.',
   keywords: 'EDH land count, commander how many lands, MTG land count, EDH mana base',
   alternates: {
@@ -141,7 +141,7 @@ You need to reliably cast your commander. Don't skimp on lands.
 
 ## Testing Your Land Count
 
-**Use ManaTap AI's Mulligan Simulator** to test your land count:
+**Use ManaTap's Mulligan Simulator** to test your land count:
 
 1. Import your deck
 2. Run the mulligan simulator
@@ -159,7 +159,7 @@ You need to reliably cast your commander. Don't skimp on lands.
 
 **Test it**: Play games. If you're mana screwed, add lands. If you're flooding, cut lands.
 
-## Use ManaTap AI to Optimize Your Mana Base
+## Use ManaTap to Optimize Your Mana Base
 
 Our AI deck checker checks your land count and suggests improvements:
 

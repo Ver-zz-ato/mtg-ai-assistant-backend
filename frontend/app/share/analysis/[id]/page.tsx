@@ -25,9 +25,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     : "Shared deck analysis | ManaTap";
   return {
     title,
-    description: "View a shared ManaTap AI deck analysis snapshot.",
+    description: "View a shared ManaTap deck analysis snapshot.",
     alternates: { canonical: `${BASE}/share/analysis/${id}` },
-    openGraph: { title, description: "View a shared ManaTap AI deck analysis snapshot.", url: `${BASE}/share/analysis/${id}` },
+    openGraph: { title, description: "View a shared ManaTap deck analysis snapshot.", url: `${BASE}/share/analysis/${id}` },
   };
 }
 

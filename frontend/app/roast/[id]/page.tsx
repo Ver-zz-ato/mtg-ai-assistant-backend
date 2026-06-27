@@ -40,19 +40,19 @@ export async function generateMetadata({
   const fallbackDescription =
     "Share an AI-powered Commander deck roast from ManaTap. Read funny MTG deck feedback with card choices, strategy jokes, and upgrade context.";
   const fallbackMeta: Metadata = {
-    title: "Roast My Deck — ManaTap AI",
+    title: "Roast My Deck — ManaTap",
     description: fallbackDescription,
     openGraph: {
-      title: "Roast My Deck — ManaTap AI",
+      title: "Roast My Deck — ManaTap",
       description: fallbackDescription,
       url: `${OG_IMAGE_BASE}/roast/${id}`,
-      siteName: "ManaTap AI",
+      siteName: "ManaTap",
       type: "website",
       images: [imageUrl],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Roast My Deck — ManaTap AI",
+      title: "Roast My Deck — ManaTap",
       description: fallbackDescription,
       images: [imageUrl],
     },
@@ -66,9 +66,9 @@ export async function generateMetadata({
   const heatLabel = HEAT_LABELS[level] || "AI Roast";
   const commanderName = row.commander || "This deck";
   const excerpt = truncate(row.roast_text || "AI-powered Commander deck roast", 140);
-  const title = `${commanderName} got roasted 🔥 | ManaTap AI`;
+  const title = `${commanderName} got roasted 🔥 | ManaTap`;
   const description = descriptionFromText(
-    `${commanderName} received a ${heatLabel.toLowerCase()} Commander deck roast from ManaTap AI. ${excerpt}`,
+    `${commanderName} received a ${heatLabel.toLowerCase()} Commander deck roast from ManaTap. ${excerpt}`,
     fallbackDescription
   );
 
@@ -79,7 +79,7 @@ export async function generateMetadata({
       title: `${commanderName} got roasted 🔥`,
       description,
       url: `${OG_IMAGE_BASE}/roast/${id}`,
-      siteName: "ManaTap AI",
+      siteName: "ManaTap",
       type: "website",
       images: [imageUrl],
     },
@@ -122,7 +122,7 @@ export default async function RoastPage({ params }: { params: Promise<{ id: stri
             href="/"
             className="text-amber-400 hover:text-amber-300 text-sm font-medium"
           >
-            ← ManaTap AI
+            ← ManaTap
           </Link>
         </div>
 

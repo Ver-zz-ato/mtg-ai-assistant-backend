@@ -65,7 +65,7 @@ export async function composeSystemPrompt(options: {
     .eq("key", "BASE_UNIVERSAL_ENFORCEMENT")
     .maybeSingle();
   if (baseRow?.body) parts.push(baseRow.body);
-  else parts.push("You are ManaTap AI, an expert Magic: The Gathering deck analysis assistant. When referencing cards, wrap names in [[Double Brackets]].");
+  else parts.push("You are ManaTap, an expert Magic: The Gathering deck analysis assistant. When referencing cards, wrap names in [[Double Brackets]].");
 
   // 2) FORMAT layer
   if (formatLayerKey) {

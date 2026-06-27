@@ -38,7 +38,7 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const strategy = getStrategyBySlug(slug);
-  if (!strategy) return { title: "Strategy Not Found | ManaTap AI" };
+  if (!strategy) return { title: "Strategy Not Found | ManaTap" };
   return {
     title: `${strategy.title} Commander Decks | ManaTap`,
     description: `Commander decks for the ${strategy.title} strategy. Mulligan simulator, cost to finish, budget swaps. Free EDH tools.`,

@@ -18,8 +18,8 @@ export function CommunityBuildsTabs({
   recentDecks,
 }: Props) {
   return (
-    <section className="rounded-xl border border-neutral-700 bg-neutral-900/50 p-5 mb-6">
-      <h2 className="text-lg font-semibold text-neutral-100 mb-4">
+    <section className="rounded-2xl border border-blue-400/25 bg-gradient-to-br from-blue-950/25 via-neutral-950/60 to-neutral-900/50 p-5 mb-6 shadow-lg shadow-blue-950/10">
+      <h2 className="text-lg font-semibold text-blue-100 mb-4">
         Community Builds
       </h2>
       <p className="text-neutral-400 text-sm mb-4">
@@ -27,16 +27,16 @@ export function CommunityBuildsTabs({
         proven lists.
       </p>
       {recentDecks.length > 0 ? (
-        <ul className="space-y-2 mb-4">
+        <ul className="grid gap-2 mb-4 sm:grid-cols-2">
           {recentDecks.map((d) => (
-            <li key={d.id}>
+            <li key={d.id} className="rounded-xl border border-white/5 bg-black/30 px-3 py-2.5">
               <Link
                 href={`/decks/${d.id}`}
-                className="text-blue-400 hover:underline"
+                className="block text-blue-300 hover:text-blue-200 hover:underline font-medium"
               >
                 {d.title}
               </Link>
-              <span className="text-neutral-500 text-xs ml-2">
+              <span className="text-neutral-500 text-xs">
                 {new Date(d.updated_at).toLocaleDateString()}
               </span>
             </li>
@@ -50,9 +50,9 @@ export function CommunityBuildsTabs({
       )}
       <a
         href={browseUrl}
-        className="inline-block px-4 py-2 rounded-lg border border-neutral-600 bg-neutral-800/80 hover:bg-neutral-700 text-blue-400 font-medium text-sm"
+        className="inline-block px-4 py-2 rounded-lg border border-blue-400/30 bg-blue-950/35 hover:bg-blue-900/45 text-blue-200 font-medium text-sm"
       >
-        Browse {commanderName} decks →
+        Browse {commanderName} decks -&gt;
       </a>
     </section>
   );

@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates: { canonical: `${BASE}/cards/${slug}` },
     };
   }
-  return { title: "Card Not Found | ManaTap AI" };
+  return { title: "Card Not Found | ManaTap" };
 }
 
 export default async function CardPage({ params }: Props) {

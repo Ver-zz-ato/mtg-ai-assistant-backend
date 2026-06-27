@@ -51,7 +51,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-white mb-1">Keyboard Shortcuts</h2>
-              <p className="text-blue-100 text-sm">Master ManaTap AI with these shortcuts</p>
+              <p className="text-blue-100 text-sm">Master ManaTap with these shortcuts</p>
             </div>
             <button
               onClick={onClose}

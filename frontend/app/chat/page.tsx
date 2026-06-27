@@ -10,7 +10,7 @@ export default function ChatPage() {
               ✨
             </span>
             <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-300 to-cyan-300">
-              ManaTap AI Chat
+              ManaTap Chat
             </h1>
           </div>
           <p className="text-sm sm:text-base text-neutral-300 max-w-3xl leading-relaxed">

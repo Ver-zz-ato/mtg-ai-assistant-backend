@@ -9,17 +9,17 @@ import { TOOL_DESCRIPTIONS, SOCIAL_PREVIEW_OG_IMAGE, SOCIAL_PREVIEW_TWITTER_IMAG
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Cost to Finish • ManaTap AI",
+  title: "Cost to Finish • ManaTap",
   description: TOOL_DESCRIPTIONS.costToFinish,
   openGraph: {
-    title: "Cost to Finish • ManaTap AI",
+    title: "Cost to Finish • ManaTap",
     description: TOOL_DESCRIPTIONS.costToFinish,
     type: "website",
     images: [SOCIAL_PREVIEW_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cost to Finish • ManaTap AI",
+    title: "Cost to Finish • ManaTap",
     description: TOOL_DESCRIPTIONS.costToFinish,
     images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
   },

@@ -170,7 +170,7 @@ export function renderCommanderIntro(
   const closings = [
     "Browse community decks, simulate mulligans, estimate costs, and find budget swaps in one place.",
     "Use the mulligan simulator for opener quality, Cost to Finish for spend planning, and Budget Swaps for cheaper replacements.",
-    "ManaTap AI gives you practical Commander tools instead of generic deck advice.",
+    "ManaTap gives you practical Commander tools instead of generic deck advice.",
   ];
 
   return (

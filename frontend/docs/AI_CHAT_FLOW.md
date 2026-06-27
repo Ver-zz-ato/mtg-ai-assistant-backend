@@ -1,4 +1,4 @@
-# ManaTap AI Chat Flow — Technical Specification
+# ManaTap Chat Flow — Technical Specification
 
 **Purpose:** Single source of truth for how the AI chat works end-to-end. All architecture, request flow, deck context, commander handling, and design rationale live here.
 
@@ -370,7 +370,7 @@ Applied **after** the stream is complete (and after any regeneration/validation 
 
 1. **`buildSystemPromptForRequest`** (prompt-path.ts) calls **`composeSystemPrompt`** with `formatKey`, `deckContextForCompose`, `kind: "chat"`.
 2. **`composeSystemPrompt`** (composeSystemPrompt.ts):
-   - Loads **BASE**: `prompt_layers` where `key = 'BASE_UNIVERSAL_ENFORCEMENT'`. If missing, uses one-line default: “You are ManaTap AI... wrap names in [[Double Brackets]].”
+   - Loads **BASE**: `prompt_layers` where `key = 'BASE_UNIVERSAL_ENFORCEMENT'`. If missing, uses one-line default: “You are ManaTap... wrap names in [[Double Brackets]].”
    - Loads **FORMAT**: `prompt_layers` where `key = 'FORMAT_<FORMAT>'` (e.g. `FORMAT_COMMANDER`).
    - If `deckContext?.deckCards?.length`: runs module detection (cascade, aristocrats, landfall, etc.) and appends matching **MODULE_*** bodies from `prompt_layers`.
    - Concatenates: `BASE + "\n\n" + FORMAT + "\n\n" + MODULE_1 + ...`
@@ -387,7 +387,7 @@ Applied **after** the stream is complete (and after any regeneration/validation 
 
 ### 13.3 Hardcoded default
 
-- If both composed and fallback fail: short default string in code (e.g. “You are ManaTap AI... When referencing cards, wrap names in [[Double Brackets]].”). **Result:** `promptPath: "fallback_hardcoded"`.
+- If both composed and fallback fail: short default string in code (e.g. “You are ManaTap... When referencing cards, wrap names in [[Double Brackets]].”). **Result:** `promptPath: "fallback_hardcoded"`.
 
 ### 13.4 How to tell which prompt was used
 

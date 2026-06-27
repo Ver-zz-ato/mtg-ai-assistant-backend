@@ -110,7 +110,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
         url: SOCIAL_PREVIEW_OG_IMAGE_URL,
         width: 1200,
         height: 630,
-        alt: "ManaTap AI - MTG Deck Builder",
+        alt: "ManaTap - MTG Deck Builder",
       };
   
   return {

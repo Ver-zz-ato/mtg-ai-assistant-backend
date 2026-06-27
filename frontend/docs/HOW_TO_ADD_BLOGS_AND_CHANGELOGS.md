@@ -1,6 +1,6 @@
 # How to Add Blogs & Changelogs
 
-This guide explains how to add new blog posts and changelog entries to ManaTap AI.
+This guide explains how to add new blog posts and changelog entries to ManaTap.
 
 ---
 

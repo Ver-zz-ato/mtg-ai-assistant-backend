@@ -295,7 +295,7 @@ Use this context to make targeted suggestions that fill gaps. For example, if ra
     }
 
     // Minimal system prompt - deck_analysis prompt is 4k+ tokens and overkill for "suggest 5-7 cards"
-    const systemPrompt = `You are ManaTap AI, an expert Magic: The Gathering assistant.
+    const systemPrompt = `You are ManaTap, an expert Magic: The Gathering assistant.
 
 Provide specific card suggestions to improve the deck's health in the requested category.
 Format your response as a numbered list with card names and brief explanations.

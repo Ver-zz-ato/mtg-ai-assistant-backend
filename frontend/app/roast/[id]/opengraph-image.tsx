@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { createClientForStatic } from "@/lib/server-supabase";
 
-export const alt = "Roast my Deck — ManaTap AI";
+export const alt = "Roast my Deck — ManaTap";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -95,7 +95,7 @@ function FallbackImage() {
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 28, fontWeight: 700, color: "#fef3c7" }}>ManaTap AI</div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: "#fef3c7" }}>ManaTap</div>
         <div style={{ fontSize: 22, color: "#a8a29e" }}>ROAST MY DECK</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -209,7 +209,7 @@ export default async function RoastOgImage({
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#fef3c7" }}>ManaTap AI</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: "#fef3c7" }}>ManaTap</div>
             <div style={{ fontSize: 22, color: "#a8a29e" }}>ROAST MY DECK</div>
           </div>
 

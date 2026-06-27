@@ -13,7 +13,7 @@ const testimonials: Testimonial[] = [
   {
     name: 'Marcus Chen',
     role: 'Competitive Commander Player',
-    content: 'ManaTap AI helped me optimize my deck\'s mana curve and identified key synergies I missed. Went from 2-2 to 4-0 at my LGS. Worth every penny!',
+    content: 'ManaTap helped me optimize my deck\'s mana curve and identified key synergies I missed. Went from 2-2 to 4-0 at my LGS. Worth every penny!',
     rating: 5
   },
   {

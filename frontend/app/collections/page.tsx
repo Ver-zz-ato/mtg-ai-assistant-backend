@@ -132,40 +132,40 @@ function CollectionsPageClientBody() {
       {
         icon: '📦',
         title: 'Track Your Collection',
-        description: 'Organize all your Magic cards in one place. Track quantities, conditions, and variants.',
+        description: 'Organize owned cards, quantities, variants, and prices in one place.',
       },
       {
         icon: '💵',
-        title: 'Real-Time Pricing',
-        description: 'See your collection value with up-to-date pricing from multiple sources.',
+        title: 'Collection Value',
+        description: 'See collection value, price history, and the cards moving your total most.',
         highlight: true,
       },
       {
         icon: '📊',
-        title: 'Missing Cards Analysis',
-        description: 'Compare your collection against decks to see exactly what you need and what it costs.',
+        title: 'Build From Collection',
+        description: 'Turn cards you already own into Commander deck ideas, guided AI builds, or manual brews.',
       },
       {
         icon: '📁',
-        title: 'CSV Import/Export',
-        description: 'Easily import your existing collection from CSV or export for backup and sharing.',
+        title: 'CSV Import And Export',
+        description: 'Import existing binders from CSV and export clean backups whenever you need them.',
       },
       {
         icon: '✅',
-        title: 'Set Completion',
-        description: 'Track your progress completing MTG sets and see what cards you still need.',
+        title: 'Deck Gap Checks',
+        description: 'Compare your collection against decks to see what you already own and what is missing.',
       },
       {
         icon: '📈',
-        title: 'Price History',
-        description: 'View price trends over time.',
+        title: 'Advanced Stats',
+        description: 'Review colour pie, type histogram, set spread, and price distribution for each collection.',
       },
     ];
 
     return (
       <GuestLandingPage
         title="Manage Your Collection"
-        subtitle="Track, value, and organize your Magic: The Gathering card collection with powerful tools"
+        subtitle="Track your cards, value your binders, and build playable decks from what you already own."
         features={features}
         destination="/collections"
       />

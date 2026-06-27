@@ -186,7 +186,7 @@ export default function TrustFooter({ className = '', compact = false }: TrustFo
 
         {/* Copyright */}
         <div className="text-center mb-4">
-          <div>© {new Date().getFullYear()} ManaTap AI</div>
+          <div>© {new Date().getFullYear()} ManaTap</div>
         </div>
         
         {/* Explore ManaTap - Enhanced Internal Navigation */}

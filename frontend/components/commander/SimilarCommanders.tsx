@@ -67,8 +67,8 @@ export async function SimilarCommanders({ currentSlug }: Props) {
   if (similar.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-neutral-700 bg-neutral-800/60 p-5 mb-6">
-      <h2 className="text-lg font-semibold text-neutral-100 mb-4">
+    <section className="rounded-2xl border border-violet-400/20 bg-gradient-to-br from-violet-950/25 via-neutral-950/60 to-neutral-900/50 p-5 mb-6">
+      <h2 className="text-lg font-semibold text-violet-100 mb-4">
         Similar commanders in the meta
       </h2>
       <div className="overflow-x-auto -mx-1 pb-2">
@@ -77,7 +77,7 @@ export async function SimilarCommanders({ currentSlug }: Props) {
             <li key={c.slug} className="shrink-0">
               <Link
                 href={`/commanders/${c.slug}`}
-                className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium transition-colors border border-neutral-600 hover:border-neutral-500"
+                className="inline-block px-4 py-2 rounded-lg bg-violet-950/35 hover:bg-violet-900/45 text-cyan-200 hover:text-cyan-100 text-sm font-medium transition-colors border border-violet-400/25 hover:border-cyan-300/40"
               >
                 {c.name}
               </Link>

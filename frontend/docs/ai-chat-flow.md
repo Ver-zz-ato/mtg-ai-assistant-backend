@@ -1,4 +1,4 @@
-# ManaTap AI Chat Pipeline
+# ManaTap Chat Pipeline
 
 Technical reference for LLM agents and engineers working on ManaTap chat.
 

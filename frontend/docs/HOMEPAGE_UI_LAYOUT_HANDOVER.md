@@ -1,6 +1,6 @@
 # Homepage UI Layout — LLM Handover for Chat Cutoff Diagnosis
 
-**Purpose:** Handover document for diagnosing the chat/conversation box cutoff issue on the ManaTap AI homepage. Use this to understand the current layout structure and identify layout conflicts.
+**Purpose:** Handover document for diagnosing the chat/conversation box cutoff issue on the ManaTap homepage. Use this to understand the current layout structure and identify layout conflicts.
 
 ---
 
@@ -104,7 +104,7 @@ layout.tsx (root)
 ```
 Chat outer wrapper
 ├── 1. Header (flex-shrink-0)
-│   └── "ManaTap AI" title, Guest Mode badge, progress bar
+│   └── "ManaTap" title, Guest Mode badge, progress bar
 │   └── className: "relative p-4 sm:p-5 flex-shrink-0 overflow-hidden border-b border-neutral-700/80"
 │
 ├── 2. Controls strip (flex-shrink-0)

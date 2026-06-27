@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "MTG Budget Swap Tool | Cheaper Card Alternatives | ManaTap AI",
+  title: "MTG Budget Swap Tool | Cheaper Card Alternatives | ManaTap",
   description:
-    "Free MTG budget swap tool. Find cheaper alternatives for expensive cards. Quick swaps and AI-powered suggestions that keep your deck strategy. ManaTap AI.",
+    "Free MTG budget swap tool. Find cheaper alternatives for expensive cards. Quick swaps and AI-powered suggestions that keep your deck strategy. ManaTap.",
   alternates: { canonical: "https://www.manatap.ai/mtg-budget-swap-tool" },
 };
 

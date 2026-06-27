@@ -104,7 +104,7 @@ function SavePreferencesButton({ format, budget, colors }: { format: string; bud
 let currentlyAddingTypingMessage = false;
 // Prevent React Strict Mode duplicate streaming registrations
 let activeStreamingRef: { current: string | null } = { current: null };
-const CHAT_BACKGROUND_WATERMARK = "ManaTap AI can make mistakes. Double-check important advice.";
+const CHAT_BACKGROUND_WATERMARK = "ManaTap can make mistakes. Double-check important advice.";
 
 type AnalysisPayload = {
   type: "analysis";

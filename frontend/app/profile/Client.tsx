@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context"; // NEW: Use push-based auth
@@ -734,7 +734,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
                 
                 {pro ? (
                   <div className="space-y-2">
-                    <div className="text-sm opacity-80">Thanks for supporting ManaTap AI Pro! You have access to:</div>
+                    <div className="text-sm opacity-80">Thanks for supporting ManaTap Pro! You have access to:</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                       <div className="flex items-center gap-2"><span className="text-green-400" aria-hidden="true">&#10003;</span> Higher AI usage limits</div>
                       <div className="flex items-center gap-2"><span className="text-green-400" aria-hidden="true">&#10003;</span> Advanced deck statistics</div>
@@ -1055,7 +1055,7 @@ export default function ProfileClient({ initialBannerArt, initialBannerDebug }: 
               <section className="rounded-xl border border-neutral-800 p-4 space-y-3">
                 <div className="text-lg font-semibold">Privacy</div>
                 <div className="text-sm text-gray-400 mb-4">
-                  Control how your data is used to improve ManaTap AI.
+                  Control how your data is used to improve ManaTap.
                 </div>
                 <PrivacyDataToggle />
               </section>
@@ -2210,7 +2210,7 @@ function MiniWatchlistPanel({ pro }: { pro: boolean }) {
                     onClick={() => removeCard(item.id, item.name)}
                     className="text-xs px-2 py-1 rounded border border-neutral-700 hover:bg-red-600/20 hover:border-red-600 transition-colors flex-shrink-0"
                   >
-                    Ã—
+                    ×
                   </button>
                 </li>
               );

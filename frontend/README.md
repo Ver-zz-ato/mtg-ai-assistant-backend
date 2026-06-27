@@ -1,6 +1,6 @@
 # ManaTap Frontend
 
-Next.js website frontend for ManaTap AI.
+Next.js website frontend for ManaTap.
 
 ## What lives here
 

@@ -81,7 +81,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates: { canonical: `${BASE}/commanders/${slug}` },
     };
   }
-  return { title: "Commander Not Found | ManaTap AI" };
+  return { title: "Commander Not Found | ManaTap" };
 }
 
 export default async function CommanderHubPage({ params }: Props) {
@@ -166,22 +166,25 @@ export default async function CommanderHubPage({ params }: Props) {
           <span className="text-neutral-200">{name}</span>
         </nav>
 
-        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-3">
-          {name} Commander Tools
-        </h1>
-        <p className="text-neutral-400 text-base mb-6 max-w-2xl">
-          <GuideInlineText text={intro.split(/(?<=\.)\s+/).slice(0, 2).join(" ")} />
-        </p>
+        <section className="mb-6 rounded-2xl border border-fuchsia-400/20 bg-gradient-to-br from-fuchsia-950/20 via-neutral-950/50 to-cyan-950/20 p-5 sm:p-6">
+          <p className="text-xs uppercase tracking-[0.3em] text-fuchsia-200/80 mb-2">Commander Guide</p>
+          <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3">
+            {name} Commander Guide
+          </h1>
+          <p className="text-neutral-300 text-base max-w-3xl leading-relaxed">
+            <GuideInlineText text={intro.split(/(?<=\.)\s+/).slice(0, 2).join(" ")} />
+          </p>
+        </section>
 
         {/* Content thickness: Commander overview, how deck wins, key synergies, common mistakes - SSR for indexability */}
-        <section className="rounded-xl border border-neutral-700 bg-neutral-800/40 p-5 mb-6 space-y-4">
-          <h2 className="text-lg font-semibold text-neutral-100">Commander overview</h2>
+        <section className="rounded-2xl border border-fuchsia-400/20 bg-gradient-to-br from-neutral-950/75 via-fuchsia-950/15 to-neutral-900/60 p-5 mb-6 space-y-5 shadow-lg shadow-fuchsia-950/10">
+          <h2 className="text-xl font-semibold text-fuchsia-100">Commander overview</h2>
           <p className="text-neutral-300 text-sm leading-relaxed"><GuideInlineText text={intro} /></p>
           {profile && (
             <>
-              <h2 className="text-lg font-semibold text-neutral-100 pt-2">How this deck wins</h2>
+              <h2 className="text-lg font-semibold text-cyan-100 pt-2">How this deck wins</h2>
               <p className="text-neutral-300 text-sm leading-relaxed"><GuideInlineText text={renderHowDeckWins(profile)} /></p>
-              <h2 className="text-lg font-semibold text-neutral-100 pt-2">Common mistakes</h2>
+              <h2 className="text-lg font-semibold text-amber-100 pt-2">Common mistakes</h2>
               <p className="text-neutral-300 text-sm leading-relaxed"><GuideInlineText text={renderCommonMistakes(profile)} /></p>
             </>
           )}
@@ -220,21 +223,21 @@ export default async function CommanderHubPage({ params }: Props) {
         <SimilarCommanders currentSlug={slug} />
 
         {/* Popular Archetypes / Strategies - internal links for crawlability */}
-        <section className="rounded-xl border border-neutral-700 bg-neutral-800/60 p-5 mb-6">
-          <h2 className="text-lg font-semibold text-neutral-100 mb-3">
+        <section className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-950/20 via-neutral-950/60 to-neutral-900/50 p-5 mb-6">
+          <h2 className="text-lg font-semibold text-cyan-100 mb-3">
             Popular Archetypes & Strategies
           </h2>
           <p className="text-neutral-400 text-sm mb-3">
             Explore commanders by playstyle and archetype.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Link href="/commander-archetypes" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+            <Link href="/commander-archetypes" className="inline-block px-4 py-2 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-200 hover:text-cyan-100 text-sm font-medium border border-cyan-400/30">
               Commander Archetypes
             </Link>
-            <Link href="/strategies" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+            <Link href="/strategies" className="inline-block px-4 py-2 rounded-lg bg-fuchsia-950/35 hover:bg-fuchsia-900/45 text-fuchsia-200 hover:text-fuchsia-100 text-sm font-medium border border-fuchsia-400/30">
               Deck Strategies
             </Link>
-            <Link href="/meta/trending-commanders" className="inline-block px-4 py-2 rounded-lg bg-neutral-700/80 hover:bg-neutral-600 text-cyan-400 hover:text-cyan-300 text-sm font-medium border border-neutral-600">
+            <Link href="/meta/trending-commanders" className="inline-block px-4 py-2 rounded-lg bg-amber-950/35 hover:bg-amber-900/45 text-amber-200 hover:text-amber-100 text-sm font-medium border border-amber-400/30">
               Trending Commanders
             </Link>
           </div>

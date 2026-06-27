@@ -43,7 +43,7 @@ import { buildIntelligenceToolResults } from "@/lib/ai/intelligence/tool-registr
 
 export const runtime = "nodejs";
 
-const CHAT_HARDCODED_DEFAULT = "You are ManaTap AI, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Put a space after colons. Do NOT suggest cards already in the decklist.";
+const CHAT_HARDCODED_DEFAULT = "You are ManaTap, a concise, budget-aware Magic: The Gathering assistant. When mentioning card names, wrap them in [[Double Brackets]]. Put a space after colons. Do NOT suggest cards already in the decklist.";
 const GENERAL_FIRST_CHAT_INSTRUCTION = `General-first chat behavior:
 - If the user asks a broad MTG strategy, archetype, sideboard, budget, staple, deck concept, rules, or recommendation question, answer usefully right away.
 - If a decklist/hand/card pool would make the answer more exact, give the useful general answer first, then briefly invite them to paste the list/hand/cards for exact ADD/CUT swaps.

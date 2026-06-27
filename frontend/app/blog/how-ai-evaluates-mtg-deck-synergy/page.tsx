@@ -4,14 +4,14 @@ import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
 
 export const metadata: Metadata = {
-  title: 'How AI Evaluates MTG Deck Synergy | ManaTap AI',
+  title: 'How AI Evaluates MTG Deck Synergy | ManaTap',
   description: 'Learn how AI evaluates Magic: The Gathering deck synergy, analyzes card interactions, and identifies archetype patterns. Deep dive into how MTG AI tools understand card relationships better than generic builders.',
   keywords: 'how ai evaluates mtg deck synergy, mtg ai synergy, ai card interactions, mtg archetype detection, ai deck analysis, mtg synergy chains',
   alternates: {
     canonical: '/blog/how-ai-evaluates-mtg-deck-synergy',
   },
   openGraph: {
-    title: 'How AI Evaluates MTG Deck Synergy | ManaTap AI',
+    title: 'How AI Evaluates MTG Deck Synergy | ManaTap',
     description: 'Learn how AI evaluates Magic: The Gathering deck synergy and analyzes card interactions.',
     url: 'https://www.manatap.ai/blog/how-ai-evaluates-mtg-deck-synergy',
     type: 'article',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 const content = `
 # How AI Evaluates MTG Deck Synergy
 
-Most MTG AI deck builders fail because they don't understand **card synergy**—the way cards work together to create effects greater than their sum. Generic AI tools suggest "good cards" without understanding why they work together. ManaTap AI evaluates MTG deck synergy differently, using MTG-specific knowledge that generic tools lack.
+Most MTG AI deck builders fail because they don't understand **card synergy**—the way cards work together to create effects greater than their sum. Generic AI tools suggest "good cards" without understanding why they work together. ManaTap evaluates MTG deck synergy differently, using MTG-specific knowledge that generic tools lack.
 
 ## What Is Card Synergy in Magic: The Gathering?
 
@@ -33,7 +33,7 @@ Card synergy occurs when cards interact to produce effects that exceed their ind
 
 ### Pattern Recognition Across Card Types
 
-ManaTap AI recognizes synergy chains by analyzing:
+ManaTap recognizes synergy chains by analyzing:
 
 - **Trigger relationships:** "Whenever X, do Y" cards that chain together
 - **Resource conversion:** Cards that turn one resource (tokens, life, cards) into another
@@ -70,7 +70,7 @@ Most AI deck builders use **statistical correlation** instead of **causal unders
 - Format legality (suggesting banned cards)
 - Archetype-specific needs (suggesting control cards for aggro decks)
 
-**How ManaTap AI fixes this:** We train the AI on MTG rules, not just popularity. It understands:
+**How ManaTap fixes this:** We train the AI on MTG rules, not just popularity. It understands:
 - Color identity restrictions in Commander
 - Format banlists and legality
 - Card interactions based on card text, not just usage statistics
@@ -181,7 +181,7 @@ Generic AI tools often suggest "false synergy"—cards that seem related but don
 - **Type-based:** Suggesting all artifacts for an artifact deck (ignoring function)
 - **Popularity-based:** Suggesting popular cards that don't fit the strategy
 
-**How ManaTap AI avoids this:** The AI evaluates:
+**How ManaTap avoids this:** The AI evaluates:
 - **Actual card text:** Does this card trigger that card's ability?
 - **Resource conversion:** Does this card produce resources that card needs?
 - **Archetype fit:** Does this card fit the deck's strategy?
@@ -191,7 +191,7 @@ Generic AI tools often suggest "false synergy"—cards that seem related but don
 
 ## The Bottom Line
 
-Most MTG AI deck builders fail because they don't understand **card synergy**—they suggest popular cards instead of synergistic cards. ManaTap AI evaluates MTG deck synergy by understanding:
+Most MTG AI deck builders fail because they don't understand **card synergy**—they suggest popular cards instead of synergistic cards. ManaTap evaluates MTG deck synergy by understanding:
 
 - **Card interactions:** How cards work together, not just independently
 - **Archetype patterns:** Token strategies, aristocrat combos, landfall engines
@@ -200,9 +200,9 @@ Most MTG AI deck builders fail because they don't understand **card synergy**—
 
 **The result:** AI suggestions that make sense to actual MTG players, not just statistical correlations.
 
-## Try ManaTap AI
+## Try ManaTap
 
-Want to see how AI evaluates your deck's synergy? [Try ManaTap AI](https://manatap.ai/mtg-ai-deck-builder) to get deck analysis that understands MTG card interactions, archetype patterns, and format-specific rules. Free to start—no signup required.
+Want to see how AI evaluates your deck's synergy? [Try ManaTap](https://manatap.ai/mtg-ai-deck-builder) to get deck analysis that understands MTG card interactions, archetype patterns, and format-specific rules. Free to start—no signup required.
 `;
 
 export default function HowAIEvaluatesMTGDeckSynergyPage() {
@@ -338,7 +338,7 @@ export default function HowAIEvaluatesMTGDeckSynergyPage() {
           <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
             <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-xl p-8 text-center">
               <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                Try ManaTap AI Deck Builder
+                Try ManaTap Deck Builder
               </h2>
               <p className="text-white/90 mb-6 max-w-2xl mx-auto">
                 See how AI evaluates your deck's synergy with MTG-specific knowledge. Get instant deck analysis that understands card interactions, archetype patterns, and format-specific rules.

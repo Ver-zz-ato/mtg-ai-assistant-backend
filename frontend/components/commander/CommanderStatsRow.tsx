@@ -1,6 +1,6 @@
 /**
  * Compact stats row (chips/badges) replacing the big Commander Intelligence box.
- * Shows: Decks Tracked, Meta Signal, Difficulty, Power Tier, Data Confidence.
+ * Shows: ManaTap sample, Meta Signal, Difficulty, Power Tier, Data Confidence.
  */
 
 import {
@@ -30,8 +30,8 @@ type Props = {
 
 function Chip({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-800/80 border border-neutral-700 text-xs">
-      <span className="text-neutral-500 uppercase tracking-wider">{label}:</span>
+    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/45 border border-cyan-400/25 text-xs shadow-[0_0_18px_rgba(34,211,238,0.08)]">
+      <span className="text-cyan-200/70 uppercase tracking-wider">{label}:</span>
       <span className="font-medium text-white">{value}</span>
     </span>
   );
@@ -58,8 +58,8 @@ export function CommanderStatsRow({ data }: Props) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        <Chip label="Decks Tracked" value={count > 0 ? count.toLocaleString() : "—"} />
-        <Chip label="Meta Signal" value={metaBadge ?? "—"} />
+        <Chip label="ManaTap Sample" value={count > 0 ? count.toLocaleString() : "Growing"} />
+        <Chip label="Meta Signal" value={metaBadge ?? "Global watchlist"} />
         <Chip label="Difficulty" value={difficultyLabel ?? "—"} />
         {powerTier && <Chip label="Power Tier" value={powerTier} />}
         <Chip label="Data Confidence" value={confidence} />

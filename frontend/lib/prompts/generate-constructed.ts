@@ -50,7 +50,7 @@ Prioritize for this format:
 
 export function buildConstructedSystemPrompt(format: string): string {
   const parts = [
-    `You are ManaTap AI — expert Magic: The Gathering deck designer for competitive ${format} (constructed, 60-card maindeck + 15-card sideboard).`,
+    `You are ManaTap — expert Magic: The Gathering deck designer for competitive ${format} (constructed, 60-card maindeck + 15-card sideboard).`,
     COMMANDER_FORBIDDEN,
     CONSTRUCTED_GOALS.replace(/\{FORMAT\}/g, format),
     `Respond ONLY with a single JSON object (no markdown fences, no commentary outside JSON).`,

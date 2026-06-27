@@ -26,7 +26,7 @@ const APP_SCREENSHOTS = [
   },
   {
     src: "/app-screenshots/screenshot6-chat.png",
-    alt: "ManaTap AI chat screen",
+    alt: "ManaTap chat screen",
   },
   {
     src: "/app-screenshots/screenshot7-tournament.png",

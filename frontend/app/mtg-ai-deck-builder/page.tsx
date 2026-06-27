@@ -6,24 +6,24 @@ import {
 } from '@/lib/seo/metadata';
 
 export const metadata: Metadata = {
-  title: 'MTG AI Deck Builder | Free Magic: The Gathering AI Deck Checker - ManaTap AI',
+  title: 'MTG AI Deck Builder | Free Magic: The Gathering AI Deck Checker - ManaTap',
   description: 'Build and analyze Magic: The Gathering decks with AI. Free MTG AI deck builder for Commander, Modern, and Standard. Get instant deck analysis, budget swaps, and personalized card suggestions.',
   keywords: 'mtg ai deck builder, mtg ai, magic the gathering ai, ai deck builder mtg, commander ai deck builder, modern ai deck builder, standard ai deck builder, mtg deck checker ai',
   alternates: {
     canonical: '/mtg-ai-deck-builder',
   },
   openGraph: {
-    title: 'MTG AI Deck Builder | Free Magic: The Gathering AI - ManaTap AI',
+    title: 'MTG AI Deck Builder | Free Magic: The Gathering AI - ManaTap',
     description: 'Build and analyze Magic: The Gathering decks with AI-powered suggestions for Commander, Modern, and Standard formats.',
     url: 'https://www.manatap.ai/mtg-ai-deck-builder',
-    siteName: 'ManaTap AI',
-    images: [{ ...SOCIAL_PREVIEW_OG_IMAGE, alt: 'ManaTap AI - MTG AI Deck Builder' }],
+    siteName: 'ManaTap',
+    images: [{ ...SOCIAL_PREVIEW_OG_IMAGE, alt: 'ManaTap - MTG AI Deck Builder' }],
     locale: 'en_US',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MTG AI Deck Builder | Free Magic: The Gathering AI - ManaTap AI',
+    title: 'MTG AI Deck Builder | Free Magic: The Gathering AI - ManaTap',
     description: 'Build and analyze Magic: The Gathering decks with AI-powered suggestions.',
     images: [SOCIAL_PREVIEW_TWITTER_IMAGE_URL],
   },
@@ -33,7 +33,7 @@ function jsonLd() {
   return JSON.stringify({
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "ManaTap AI - MTG AI Deck Builder",
+    "name": "ManaTap - MTG AI Deck Builder",
     "description": "AI-powered Magic: The Gathering deck builder and deck checker. Build and check decks for Commander, Modern, and Standard formats with instant AI analysis, budget optimization, and personalized card suggestions.",
     "url": "https://www.manatap.ai/mtg-ai-deck-builder",
     "applicationCategory": "GameApplication",
@@ -81,7 +81,7 @@ export default function MTGAIDeckBuilderPage() {
                 Build, analyze, and optimize Magic: The Gathering decks with AI-powered suggestions
               </p>
               <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
-                ManaTap AI is an AI-powered Magic: The Gathering deck builder that analyzes colour identity, legality, 
+                ManaTap is an AI-powered Magic: The Gathering deck builder that analyzes colour identity, legality,
                 synergy chains, and archetypes. Get instant deck analysis, budget swaps, and personalized recommendations 
                 for Commander, Modern, and Standard formats. <strong>Free to start—no signup required.</strong>
               </p>
@@ -276,7 +276,7 @@ export default function MTGAIDeckBuilderPage() {
                 <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white">Paste Your Decklist</h3>
                 <p className="text-gray-600 dark:text-gray-400">
                   Copy your deck from Moxfield, MTGGoldfish, Archidekt, or any deck builder. 
-                  Paste it into ManaTap AI—no import needed, works with any format.
+                  Paste it into ManaTap—no import needed, works with any format.
                 </p>
               </div>
 
@@ -337,7 +337,7 @@ export default function MTGAIDeckBuilderPage() {
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
                 An MTG AI deck builder uses artificial intelligence to analyze Magic: The Gathering decks, suggest improvements, 
-                check format legality, and optimize card choices. ManaTap AI understands MTG archetypes, card synergies, and 
+                check format legality, and optimize card choices. ManaTap understands MTG archetypes, card synergies, and
                 format-specific rules to provide accurate recommendations for Commander, Modern, and Standard formats.
               </p>
             </div>
@@ -379,7 +379,7 @@ export default function MTGAIDeckBuilderPage() {
                 What formats does the AI deck builder support?
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                ManaTap AI supports Commander (EDH), Modern, and Standard formats. Each format has specific AI analysis tailored to 
+                ManaTap supports Commander (EDH), Modern, and Standard formats. Each format has specific AI analysis tailored to
                 format rules, banlists, and deck construction requirements. The AI adapts its suggestions based on the format you're building for.
               </p>
             </div>

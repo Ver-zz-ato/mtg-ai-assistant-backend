@@ -580,7 +580,7 @@ Navigation
 
 ☑ Top navigation bar optimization <!-- id:homepage.top_nav_optimization -->
   - Removed upgrade button from top bar since user has pro status and pricing link suffices
-  - Increased ManaTap AI site name/logo size by 3x for enhanced brand prominence
+  - Increased ManaTap site name/logo size by 3x for enhanced brand prominence
   - Ensured proper logo scaling and visual balance in header area
   - Streamlined navigation experience for authenticated pro users
 

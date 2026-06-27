@@ -38,10 +38,10 @@ export function CommunityProfileSection({ profile }: Props) {
   const refreshed = formatDate(profile.lastRefreshedAt);
 
   return (
-    <section className="rounded-xl border border-amber-500/20 bg-neutral-900/50 p-5 mb-6">
+    <section className="rounded-2xl border border-amber-400/25 bg-gradient-to-br from-amber-950/25 via-neutral-950/60 to-neutral-900/50 p-5 mb-6 shadow-lg shadow-amber-950/10">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-neutral-100">Community Profile</h2>
+          <h2 className="text-lg font-semibold text-amber-100">External Community Profile</h2>
           <p className="text-neutral-400 text-sm">
             Based on {profile.approvedSampleSize.toLocaleString()} approved decklists
           </p>
@@ -55,7 +55,7 @@ export function CommunityProfileSection({ profile }: Props) {
 
       <div className="grid gap-2 sm:grid-cols-5 mb-4">
         {averageLabels.map((item) => (
-          <div key={item.key} className="rounded-lg border border-neutral-700 bg-neutral-950/40 p-3">
+          <div key={item.key} className="rounded-xl border border-amber-400/15 bg-black/35 p-3">
             <div className="text-xs uppercase tracking-wide text-neutral-500">{item.label}</div>
             <div className="mt-1 text-xl font-semibold text-amber-200 tabular-nums">
               {formatAverage(profile.averages[item.key])}
@@ -71,7 +71,7 @@ export function CommunityProfileSection({ profile }: Props) {
             {profile.commonCards.map((card, index) => (
               <div
                 key={`${card.name}-${index}`}
-                className="flex items-center gap-3 rounded-lg border border-transparent bg-neutral-900/50 px-3 py-2.5"
+                className="flex items-center gap-3 rounded-xl border border-white/5 bg-black/30 px-3 py-2.5"
               >
                 <span className="shrink-0 w-6 text-center text-neutral-500 text-sm font-medium tabular-nums">
                   {index + 1}

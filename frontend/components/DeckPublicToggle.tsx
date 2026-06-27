@@ -150,7 +150,7 @@ export default function DeckPublicToggle({
               })()}
               type="deck"
               title="Check out this MTG deck!"
-              description="Built with ManaTap AI - MTG Deck Builder"
+              description="Built with ManaTap - MTG Deck Builder"
               isPublic
               compact
               className="text-xs border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 rounded px-2.5 py-1.5 transition-colors font-medium text-neutral-300"

@@ -6,7 +6,7 @@ import { PopularCommanders } from "@/components/PopularCommanders";
 import { TOOL_DESCRIPTIONS } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
-  title: "Commander Mulligan Simulator | MTG Keep Rate Calculator | ManaTap AI",
+  title: "Commander Mulligan Simulator | MTG Keep Rate Calculator | ManaTap",
   description: TOOL_DESCRIPTIONS.mulligan,
   alternates: { canonical: "https://www.manatap.ai/tools/mulligan" },
 };

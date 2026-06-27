@@ -111,7 +111,7 @@ export default async function Page() {
       {
         icon: '🎯',
         title: 'Badge Collection',
-        description: 'Earn badges and achievements as you use ManaTap AI features.',
+        description: 'Earn badges and achievements as you use ManaTap features.',
         highlight: true,
       },
     ];

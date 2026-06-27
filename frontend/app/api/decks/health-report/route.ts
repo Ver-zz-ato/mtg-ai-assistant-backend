@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
 
     const decklistForPrompt = cardList.slice(0, 12000);
 
-    const systemPrompt = `You are ManaTap AI, an expert Magic: The Gathering deck analyst. Produce a Pro Health Report in the exact format below.
+    const systemPrompt = `You are ManaTap, an expert Magic: The Gathering deck analyst. Produce a Pro Health Report in the exact format below.
 
 You will receive COMPUTED_DECK_FACTS as JSON from our pipeline (Scryfall cache enrichment, role tags, deterministic counts, curve, archetype/engine/win-pattern candidates${
       isCommanderFormat ? ', color identity, off-color and banned card lists when available' : ', banned card lists when available'

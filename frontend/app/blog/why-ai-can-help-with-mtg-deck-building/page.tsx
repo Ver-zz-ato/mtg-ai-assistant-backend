@@ -4,14 +4,14 @@ import { Metadata } from 'next';
 import BlogImage from '@/components/BlogImage';
 
 export const metadata: Metadata = {
-  title: 'Why AI Can Help With MTG Deck Building (And Where It Needs Work) | ManaTap AI',
+  title: 'Why AI Can Help With MTG Deck Building (And Where It Needs Work) | ManaTap',
   description: 'Learn how AI is transforming Magic: The Gathering deck building, what it excels at, where it struggles, and how we\'re making it better.',
   keywords: 'AI deck building, MTG AI, Magic the Gathering AI, deck building assistant, AI card suggestions, MTG strategy AI',
   alternates: {
     canonical: '/blog/why-ai-can-help-with-mtg-deck-building',
   },
   openGraph: {
-    title: 'Why AI Can Help With MTG Deck Building | ManaTap AI',
+    title: 'Why AI Can Help With MTG Deck Building | ManaTap',
     description: 'Learn how AI is transforming Magic: The Gathering deck building and where it needs improvement.',
     url: 'https://www.manatap.ai/blog/why-ai-can-help-with-mtg-deck-building',
     type: 'article',
@@ -47,7 +47,7 @@ AI can:
 - Check every card against format legality instantly
 - Suggest alternatives while maintaining your strategy
 
-**Real example:** ManaTap AI can analyze a 100-card Commander deck, identify 20+ potential improvements, and explain each suggestion—all in under 10 seconds.
+**Real example:** ManaTap can analyze a 100-card Commander deck, identify 20+ potential improvements, and explain each suggestion—all in under 10 seconds.
 
 ### 📊 Data-Driven Insights
 
@@ -221,7 +221,7 @@ We're working on:
 
 Want to see how AI can help your deck building?
 
-**[Start Building with ManaTap AI →](/my-decks)**
+**[Start Building with ManaTap →](/my-decks)**
 
 Upload a deck, get instant analysis, and see how AI suggestions compare to your own ideas. Every suggestion includes reasoning, so you can learn while you build.
 
@@ -235,7 +235,7 @@ Together, that's how we build better decks.
 
 ---
 
-*Have thoughts on AI and deck building? Share your experiences in the comments or reach out to us directly. Your feedback shapes how we improve ManaTap AI.*
+*Have thoughts on AI and deck building? Share your experiences in the comments or reach out to us directly. Your feedback shapes how we improve ManaTap.*
 `;
 
 export default function BlogPost() {
@@ -402,7 +402,7 @@ export default function BlogPost() {
               Ready to See AI Deck Building in Action?
             </h2>
             <p className="text-white/90 mb-8 max-w-2xl mx-auto text-lg backdrop-blur-sm bg-white/10 rounded-lg p-4">
-              Upload your deck to ManaTap AI and get instant analysis, budget suggestions, and synergy recommendations powered by advanced AI.
+              Upload your deck to ManaTap and get instant analysis, budget suggestions, and synergy recommendations powered by advanced AI.
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               <Link

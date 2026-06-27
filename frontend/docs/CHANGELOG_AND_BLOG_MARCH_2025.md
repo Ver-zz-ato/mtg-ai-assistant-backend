@@ -95,5 +95,5 @@ Deck-page card suggestions now:
 - AI deck generation now enforces **exactly 100 cards** and **strict commander color identity**
 - We’ve simplified the Build Assistant panel by removing History/Undo/Redo
 
-Try these features on [ManaTap AI](https://manatap.ai) — and if you like them, consider [going Pro](https://manatap.ai/pricing) for higher limits and premium models.
+Try these features on [ManaTap](https://manatap.ai) — and if you like them, consider [going Pro](https://manatap.ai/pricing) for higher limits and premium models.
 ```

@@ -156,7 +156,7 @@ function parseTacticBlocks(text: string): TacticBlock[] {
 function friendlyExplainError(result: Extract<ExplainResult, { ok: false }>): string {
   if (result.code === "MISSING_ORACLE_TEXT") return "No rules text is available to explain for this card.";
   if (result.code === "RATE_LIMIT_DAILY") return "Daily card explanation limit reached. Try again tomorrow.";
-  if (result.code === "BUDGET_LIMIT") return "ManaTap AI is busy right now. Try again later.";
+  if (result.code === "BUDGET_LIMIT") return "ManaTap is busy right now. Try again later.";
   if (result.code === "AI_UNAVAILABLE") return "Card explanations are temporarily unavailable. Try again in a moment.";
   if (result.code === "VALIDATION_ERROR") return "This card could not be explained from the details available.";
   return result.error || "Could not explain this card. Try again in a moment.";
