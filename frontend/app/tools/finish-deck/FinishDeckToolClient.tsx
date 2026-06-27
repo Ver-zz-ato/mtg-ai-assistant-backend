@@ -12,6 +12,7 @@ import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
 import { getAiDeckHalfwayMinimumCards, getSavedDeckTargetCount } from "@/lib/deck/tool-deck-eligibility";
 
 type Mode = "saved" | "paste";
+type FinishBudget = "balanced" | "budget" | "premium";
 type Suggestion = {
   card: string;
   qty: number;
@@ -25,6 +26,11 @@ type Suggestion = {
 };
 
 const FORMATS: AnalyzeFormat[] = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"];
+const BUDGET_OPTIONS: Array<{ value: FinishBudget; label: string; copy: string }> = [
+  { value: "balanced", label: "Balanced", copy: "Mix staples with efficient cheaper options." },
+  { value: "budget", label: "Budget", copy: "Prefer low-cost cards and cheaper mana." },
+  { value: "premium", label: "Premium", copy: "Top-tier staples are acceptable when they fit." },
+];
 const EXAMPLE_SUGGESTIONS: Suggestion[] = [
   {
     card: "Path to Exile",
@@ -86,6 +92,7 @@ export default function FinishDeckToolClient() {
   );
   const [format, setFormat] = useState<AnalyzeFormat>("Commander");
   const [commander, setCommander] = useState("");
+  const [budget, setBudget] = useState<FinishBudget>("balanced");
   const [deckText, setDeckText] = useState("");
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -177,8 +184,8 @@ export default function FinishDeckToolClient() {
       }
       const body =
         mode === "saved"
-          ? { deckId: selectedDeckId, format: activeFormat, maxSuggestions: 18 }
-          : { deckText: workingDeckText, commander: workingCommander || undefined, format: workingFormat, maxSuggestions: 18 };
+          ? { deckId: selectedDeckId, format: activeFormat, budget, maxSuggestions: 18 }
+          : { deckText: workingDeckText, commander: workingCommander || undefined, format: workingFormat, budget, maxSuggestions: 18 };
       const res = await fetch("/api/deck/finish-suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -351,6 +358,32 @@ export default function FinishDeckToolClient() {
               </div>
             )}
 
+            <div className="mt-4 rounded-lg border border-emerald-300/20 bg-emerald-300/5 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-200">Suggestion constraints</p>
+                  <p className="mt-1 text-xs leading-5 text-neutral-400">
+                    Budget is sent to the AI. Saved decks also pass their saved deck aim and plan automatically.
+                  </p>
+                </div>
+                <label className="min-w-[180px] text-xs font-bold uppercase tracking-[0.12em] text-neutral-300">
+                  Budget focus
+                  <select
+                    value={budget}
+                    onChange={(event) => setBudget(event.currentTarget.value as FinishBudget)}
+                    className="mt-2 w-full rounded-lg border border-neutral-700 bg-black/55 px-3 py-2 text-sm normal-case tracking-normal text-white outline-none focus:border-emerald-300"
+                  >
+                    {BUDGET_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-emerald-100/80">
+                {BUDGET_OPTIONS.find((option) => option.value === budget)?.copy}
+              </p>
+            </div>
+
             {error ? <div className="mt-4 rounded-lg border border-red-500/35 bg-red-950/35 px-3 py-2 text-sm text-red-200">{error}</div> : null}
             <button
               type="button"
@@ -405,7 +438,7 @@ export default function FinishDeckToolClient() {
                     Suggestions will appear here.
                   </div>
                 ) : (
-                  <ExampleSuggestionsPreview />
+                  <SuggestionsEmptyState />
                 )
               ) : suggestions.map((row, index) => {
                 const key = suggestionKey(row);
@@ -548,6 +581,31 @@ function FinishDeckSideRail() {
   );
 }
 
+function SuggestionsEmptyState() {
+  return (
+    <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/5 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">Ready for a run</p>
+      <h3 className="mt-2 text-xl font-black text-white">Suggestions will land here</h3>
+      <p className="mt-2 text-sm leading-6 text-neutral-300">
+        Pick a saved partial or paste a list, choose the budget focus, then ManaTap returns rows you can edit before adding or copying.
+      </p>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        {[
+          ["Priority", "High, medium, or low so you can skim fast.", "border-amber-300/25 bg-amber-300/10 text-amber-100"],
+          ["Zones", "Mainboard and sideboard stay separated.", "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"],
+          ["Controls", "Adjust quantity, deselect rows, copy, or add.", "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"],
+        ].map(([label, copy, classes]) => (
+          <div key={label} className={`rounded-lg border p-3 ${classes}`}>
+            <p className="text-sm font-black">{label}</p>
+            <p className="mt-1 text-xs leading-5 text-neutral-300">{copy}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FinishDeckExampleWalkthrough() {
   return (
     <section className="relative overflow-hidden rounded-xl border border-cyan-300/15 bg-zinc-950/75 p-5 shadow-2xl shadow-black/30">
@@ -628,35 +686,5 @@ function FinishDeckExampleWalkthrough() {
         </div>
       </div>
     </section>
-  );
-}
-
-function ExampleSuggestionsPreview() {
-  return (
-    <div className="relative overflow-hidden rounded-lg border border-amber-300/25 bg-black/35 p-3">
-      <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
-        <div className="absolute left-1/2 top-[44%] w-[155%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg]">
-          <div className="border-y-[3px] border-amber-200/90 bg-gradient-to-r from-amber-300 via-amber-200 to-amber-300 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
-            <p className="text-center text-[11px] font-black uppercase tracking-[0.28em] text-zinc-950">
-              Example preview
-            </p>
-          </div>
-        </div>
-      </div>
-      <div className="relative opacity-[0.68] saturate-[0.55]">
-        {EXAMPLE_SUGGESTIONS.map((row) => (
-          <div key={row.card} className="mb-2 rounded-lg border border-neutral-800 bg-black/40 p-3 last:mb-0">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-black text-white">{row.qty} {row.card}</p>
-                <p className="mt-1 text-xs text-cyan-200/80">{row.role} / {row.priority}</p>
-              </div>
-              <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] text-neutral-400">{row.zone}</span>
-            </div>
-            <p className="mt-2 line-clamp-2 text-xs leading-5 text-neutral-400">{row.reason}</p>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
