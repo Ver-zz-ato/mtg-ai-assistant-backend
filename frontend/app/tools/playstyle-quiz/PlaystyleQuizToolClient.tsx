@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Brain, Coins, Flame, Gem, Shield, Sparkles, Swords } from "lucide-react";
 import {
   QUIZ_QUESTIONS,
   calculateProfile,
@@ -26,13 +27,23 @@ import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 
 type QuizFormat = AnalyzeFormat;
 
-const FORMATS: Array<{ id: QuizFormat; label: string; sub: string }> = [
-  { id: "Commander", label: "Commander", sub: "Commander suggestions and 100-card handoff" },
-  { id: "Modern", label: "Modern", sub: "Fast 60-card constructed" },
-  { id: "Pioneer", label: "Pioneer", sub: "Non-rotating 60-card constructed" },
-  { id: "Standard", label: "Standard", sub: "Rotating 60-card constructed" },
-  { id: "Pauper", label: "Pauper", sub: "Commons-focused 60-card constructed" },
+const FORMATS: Array<{ id: QuizFormat; label: string; sub: string; art: string; accent: string }> = [
+  { id: "Commander", label: "Commander", sub: "Commander suggestions and 100-card handoff", art: "/format-pill-backgrounds/commander-pill-background.png", accent: "from-purple-500/35" },
+  { id: "Modern", label: "Modern", sub: "Fast 60-card constructed", art: "/format-pill-backgrounds/modern-pill-background.png", accent: "from-orange-500/35" },
+  { id: "Pioneer", label: "Pioneer", sub: "Non-rotating 60-card constructed", art: "/format-pill-backgrounds/pioneer-pill-background.png", accent: "from-emerald-500/35" },
+  { id: "Standard", label: "Standard", sub: "Rotating 60-card constructed", art: "/format-pill-backgrounds/standard-pill-background.png", accent: "from-sky-500/35" },
+  { id: "Pauper", label: "Pauper", sub: "Commons-focused 60-card constructed", art: "/format-pill-backgrounds/pauper-pill-background.png", accent: "from-fuchsia-500/35" },
 ];
+
+const ANSWER_STYLES = [
+  { icon: Flame, className: "border-orange-400/35 bg-orange-500/10 hover:border-orange-300/80 hover:bg-orange-500/18 text-orange-100" },
+  { icon: Shield, className: "border-sky-400/35 bg-sky-500/10 hover:border-sky-300/80 hover:bg-sky-500/18 text-sky-100" },
+  { icon: Sparkles, className: "border-violet-400/35 bg-violet-500/10 hover:border-violet-300/80 hover:bg-violet-500/18 text-violet-100" },
+  { icon: Swords, className: "border-red-400/35 bg-red-500/10 hover:border-red-300/80 hover:bg-red-500/18 text-red-100" },
+  { icon: Coins, className: "border-amber-300/35 bg-amber-300/10 hover:border-amber-200/80 hover:bg-amber-300/18 text-amber-100" },
+  { icon: Gem, className: "border-emerald-400/35 bg-emerald-500/10 hover:border-emerald-300/80 hover:bg-emerald-500/18 text-emerald-100" },
+  { icon: Brain, className: "border-cyan-400/35 bg-cyan-500/10 hover:border-cyan-300/80 hover:bg-cyan-500/18 text-cyan-100" },
+] as const;
 
 function isConstructed(format: QuizFormat): format is ConstructedFormat {
   return format !== "Commander";
@@ -67,6 +78,7 @@ export default function PlaystyleQuizToolClient() {
   const [done, setDone] = useState(false);
   const [selectedCommander, setSelectedCommander] = useState("");
   const [images, setImages] = useState<Record<string, { small?: string; normal?: string; art_crop?: string }>>({});
+  const [started, setStarted] = useState(false);
 
   const questions = useMemo(() => {
     if (isConstructed(format)) return getConstructedQuizQuestions(format);
@@ -121,6 +133,7 @@ export default function PlaystyleQuizToolClient() {
   }, [commanderResult, selectedCommander]);
 
   function answerCurrent(value: string) {
+    setStarted(true);
     const question = questions[index];
     const next = { ...answers, [question.id]: value };
     setAnswers(next);
@@ -136,6 +149,7 @@ export default function PlaystyleQuizToolClient() {
     setIndex(0);
     setAnswers({});
     setDone(false);
+    setStarted(false);
     setSelectedCommander("");
     setImages({});
   }
@@ -189,14 +203,20 @@ export default function PlaystyleQuizToolClient() {
               key={opt.id}
               type="button"
               onClick={() => reset(opt.id)}
-              className={`min-h-24 rounded-lg border p-3 text-left transition ${
+              style={{
+                backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.82), rgba(0,0,0,0.46)), url("${opt.art}")`,
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+              }}
+              className={`relative min-h-28 overflow-hidden rounded-lg border p-3 text-left transition ${
                 format === opt.id
-                  ? "border-cyan-300 bg-cyan-300/15 text-cyan-50"
-                  : "border-white/10 bg-white/[0.04] text-zinc-300 hover:border-cyan-300/35"
+                  ? "border-cyan-300 text-cyan-50 shadow-[0_0_30px_rgba(34,211,238,0.16)]"
+                  : "border-white/10 text-zinc-300 hover:border-cyan-300/35"
               }`}
             >
-              <span className="block text-sm font-black">{opt.label}</span>
-              <span className="mt-1 block text-xs text-zinc-500">{opt.sub}</span>
+              <span className={`absolute inset-0 bg-gradient-to-r ${opt.accent} to-transparent opacity-80`} aria-hidden />
+              <span className="relative block text-sm font-black drop-shadow">{opt.label}</span>
+              <span className="relative mt-1 block text-xs text-zinc-200/75 drop-shadow">{opt.sub}</span>
             </button>
           ))}
         </div>
@@ -216,16 +236,23 @@ export default function PlaystyleQuizToolClient() {
             <div>
               <h2 className="text-2xl font-black text-white">{currentQuestion.text}</h2>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {currentQuestion.options.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => answerCurrent(option.value)}
-                    className="rounded-lg border border-neutral-800 bg-black/35 p-4 text-left text-sm font-semibold text-zinc-200 transition hover:border-purple-400/60 hover:bg-purple-500/10"
-                  >
-                    {option.label}
-                  </button>
-                ))}
+                {currentQuestion.options.map((option, optionIndex) => {
+                  const style = ANSWER_STYLES[optionIndex % ANSWER_STYLES.length];
+                  const Icon = style.icon;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => answerCurrent(option.value)}
+                      className={`flex min-h-20 items-center gap-3 rounded-lg border p-4 text-left text-sm font-semibold transition ${style.className}`}
+                    >
+                      <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-lg border border-white/15 bg-black/35">
+                        <Icon className="h-5 w-5" aria-hidden />
+                      </span>
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="mt-5 flex justify-between">
                 <button
@@ -264,8 +291,48 @@ export default function PlaystyleQuizToolClient() {
             />
           ) : null}
         </div>
+
+        {!started && !done ? <ExampleQuizPreview /> : null}
       </section>
     </main>
+  );
+}
+
+function ExampleQuizPreview() {
+  return (
+    <div className="relative mt-5 overflow-hidden rounded-xl border border-amber-300/25 bg-zinc-950/75 p-5 shadow-2xl shadow-black/30">
+      <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
+        <div className="absolute left-1/2 top-[47%] w-[150%] -translate-x-1/2 -translate-y-1/2 -rotate-[18deg]">
+          <div className="border-y-[3px] border-amber-200/90 bg-gradient-to-r from-amber-300 via-amber-200 to-amber-300 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+            <p className="text-center text-[11px] font-black uppercase tracking-[0.28em] text-zinc-950">
+              Example result preview
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="relative grid gap-4 opacity-[0.68] saturate-[0.6] md:grid-cols-[1fr_1.2fr]">
+        <div className="rounded-xl border border-purple-500/25 bg-purple-500/10 p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-purple-200">Commander profile</p>
+          <h2 className="mt-2 text-2xl font-black text-white">Calculated Control</h2>
+          <p className="mt-2 text-sm text-zinc-300">
+            You prefer clear answers, careful resource loops, and winning once the table is out of clean outs.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {[
+            ["Suggested commander", "Talion, the Kindly Lord"],
+            ["Colors", "U/B"],
+            ["Power", "Focused"],
+            ["Next step", "Open builder with your result"],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-neutral-800 bg-black/30 p-3">
+              <p className="text-xs text-neutral-500">{label}</p>
+              <p className="mt-1 font-bold text-white">{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

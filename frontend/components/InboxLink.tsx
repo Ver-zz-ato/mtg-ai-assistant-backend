@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 
 export const INBOX_LAST_SEEN_PREFIX = "manatap:inbox:last-seen";
+export const INBOX_ARCHIVED_PREFIX = "manatap:inbox:archived";
 
 type Props = {
   className?: string;
@@ -16,8 +17,26 @@ function lastSeenKey(userId: string) {
   return `${INBOX_LAST_SEEN_PREFIX}:${userId}`;
 }
 
+function archivedKey(userId: string) {
+  return `${INBOX_ARCHIVED_PREFIX}:${userId}`;
+}
+
 export function getInboxLastSeenKey(userId: string) {
   return lastSeenKey(userId);
+}
+
+export function getInboxArchivedKey(userId: string) {
+  return archivedKey(userId);
+}
+
+function readArchivedIds(userId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(archivedKey(userId));
+    const parsed = JSON.parse(raw || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
 }
 
 export default function InboxLink({ className = "", label = "Inbox", onClick }: Props) {
@@ -38,8 +57,11 @@ export default function InboxLink({ className = "", label = "Inbox", onClick }: 
         const json = await res.json().catch(() => ({}));
         if (!alive || !res.ok || !json?.ok || !Array.isArray(json.items)) return;
         const raw = localStorage.getItem(lastSeenKey(userId));
+        const archived = readArchivedIds(userId);
         const lastSeenMs = raw ? new Date(raw).getTime() : 0;
-        const count = json.items.filter((item: { created_at?: string }) => {
+        const count = json.items.filter((item: { id?: string; commentId?: string; created_at?: string }) => {
+          const id = String(item.id || item.commentId || "");
+          if (id && archived.has(id)) return false;
           const t = item.created_at ? new Date(item.created_at).getTime() : 0;
           return Number.isFinite(t) && t > lastSeenMs;
         }).length;

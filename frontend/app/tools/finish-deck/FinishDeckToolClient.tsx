@@ -8,6 +8,7 @@ import { useEligibleSavedDecks } from "@/hooks/useEligibleSavedDecks";
 import { countAiWorkshopDeckCards } from "@/lib/deck/ai-workshop-deck-text";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
+import { getAiDeckHalfwayMinimumCards, getSavedDeckTargetCount } from "@/lib/deck/tool-deck-eligibility";
 
 type Mode = "saved" | "paste";
 type Suggestion = {
@@ -23,6 +24,32 @@ type Suggestion = {
 };
 
 const FORMATS: AnalyzeFormat[] = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"];
+const EXAMPLE_SUGGESTIONS: Suggestion[] = [
+  {
+    card: "Path to Exile",
+    qty: 1,
+    zone: "mainboard",
+    role: "Efficient removal",
+    reason: "Adds a cheap answer that keeps the deck from folding to one resolved threat.",
+    priority: "high",
+  },
+  {
+    card: "Esper Sentinel",
+    qty: 1,
+    zone: "mainboard",
+    role: "Card draw",
+    reason: "Improves early-game resource flow without pushing the curve up.",
+    priority: "medium",
+  },
+  {
+    card: "Bojuka Bog",
+    qty: 1,
+    zone: "mainboard",
+    role: "Graveyard interaction",
+    reason: "Covers a common weakness while still occupying a land slot.",
+    priority: "medium",
+  },
+];
 
 function normalizeQty(qty: number): number {
   return Math.max(1, Math.floor(Number(qty) || 1));
@@ -40,10 +67,17 @@ function renderSuggestionsText(rows: Suggestion[]): string {
   return out.join("\n");
 }
 
+function looksLikeSupportedDeckUrl(value: string): boolean {
+  const text = value.trim();
+  if (!/^https?:\/\//i.test(text)) return false;
+  return /(?:moxfield\.com|archidekt\.com)/i.test(text);
+}
+
 export default function FinishDeckToolClient() {
   const { user, loading: authLoading } = useAuth();
-  const { eligibleDecks, hiddenCount, loading: decksLoading } = useEligibleSavedDecks(user?.id);
-  const [mode, setMode] = useState<Mode>("saved");
+  const { eligibleDecks, hiddenCount, loading: decksLoading } = useEligibleSavedDecks(user?.id, { incompleteOnly: true });
+  const [mode, setMode] = useState<Mode>("paste");
+  const [modeTouched, setModeTouched] = useState(false);
   const [selectedDeckId, setSelectedDeckId] = useState("");
   const selectedDeck = useMemo(
     () => eligibleDecks.find((deck) => deck.id === selectedDeckId) ?? null,
@@ -60,6 +94,7 @@ export default function FinishDeckToolClient() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [images, setImages] = useState<Record<string, { small?: string; normal?: string }>>({});
   const [copied, setCopied] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   const activeFormat = selectedDeck && mode === "saved" ? deckFormatStringToAnalyzeFormat(selectedDeck.format) : format;
   const activeDeckText = mode === "saved" ? selectedDeck?.deckText ?? "" : deckText;
@@ -69,6 +104,22 @@ export default function FinishDeckToolClient() {
   );
   const selectedRows = suggestions.filter((row) => selected.has(suggestionKey(row)));
   const selectedTotal = selectedRows.reduce((sum, row) => sum + normalizeQty(row.qty), 0);
+  const targetCount = getSavedDeckTargetCount(activeFormat);
+
+  useEffect(() => {
+    if (authLoading || modeTouched) return;
+    setMode(user ? "saved" : "paste");
+  }, [authLoading, modeTouched, user]);
+
+  useEffect(() => {
+    if (mode !== "saved") return;
+    if (selectedDeckId && eligibleDecks.some((deck) => deck.id === selectedDeckId)) return;
+    if (!eligibleDecks.length) {
+      if (selectedDeckId) setSelectedDeckId("");
+      return;
+    }
+    setSelectedDeckId(eligibleDecks[0]?.id || "");
+  }, [eligibleDecks, mode, selectedDeckId]);
 
   useEffect(() => {
     if (!suggestions.length) return;
@@ -93,6 +144,7 @@ export default function FinishDeckToolClient() {
     setError(null);
     setWarnings([]);
     setCopied(false);
+    setHasStarted(true);
     if (mode === "saved" && !selectedDeckId) {
       setError("Pick a saved deck first, or switch to paste mode.");
       return;
@@ -103,10 +155,29 @@ export default function FinishDeckToolClient() {
     }
     setBusy(true);
     try {
+      let workingDeckText = deckText.trim();
+      let workingFormat = format;
+      let workingCommander = commander.trim();
+      if (mode === "paste" && looksLikeSupportedDeckUrl(workingDeckText)) {
+        const res = await fetch("/api/decks/import-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: workingDeckText }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.ok || !json?.deckText) throw new Error(json?.error || "Could not read that deck link.");
+        workingDeckText = String(json.deckText || "").trim();
+        const detectedFormat = deckFormatStringToAnalyzeFormat(String(json.format || workingFormat));
+        workingFormat = detectedFormat;
+        workingCommander = String(json.commander || workingCommander || "").trim();
+        setDeckText(workingDeckText);
+        setFormat(detectedFormat);
+        if (workingCommander) setCommander(workingCommander);
+      }
       const body =
         mode === "saved"
           ? { deckId: selectedDeckId, format: activeFormat, maxSuggestions: 18 }
-          : { deckText: deckText.trim(), commander: commander.trim() || undefined, format, maxSuggestions: 18 };
+          : { deckText: workingDeckText, commander: workingCommander || undefined, format: workingFormat, maxSuggestions: 18 };
       const res = await fetch("/api/deck/finish-suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -204,6 +275,7 @@ export default function FinishDeckToolClient() {
                   key={tab}
                   type="button"
                   onClick={() => {
+                    setModeTouched(true);
                     setMode(tab);
                     setError(null);
                   }}
@@ -228,6 +300,7 @@ export default function FinishDeckToolClient() {
                     label="Partial saved decks"
                     emptyLabel="No eligible partial saved decks yet."
                     placeholder="Choose a deck to complete"
+                    hiddenHint={`Decks below halfway (${getAiDeckHalfwayMinimumCards("Commander")}+ Commander / ${getAiDeckHalfwayMinimumCards("Standard")}+ other formats) or already complete (${getSavedDeckTargetCount("Commander")} Commander / ${getSavedDeckTargetCount("Standard")} other formats) are hidden.`}
                   />
                 ) : (
                   <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
@@ -236,7 +309,7 @@ export default function FinishDeckToolClient() {
                 )}
                 {selectedDeck ? (
                   <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-3 text-sm text-cyan-100">
-                    {selectedDeck.title}: {selectedDeck.cardCount} main-deck cards, {activeFormat}.
+                    {selectedDeck.title}: {selectedDeck.cardCount}/{targetCount} main-deck cards, {activeFormat}.
                   </div>
                 ) : null}
               </div>
@@ -267,10 +340,12 @@ export default function FinishDeckToolClient() {
                   value={deckText}
                   onChange={(event) => setDeckText(event.currentTarget.value)}
                   rows={16}
-                  placeholder={"1 Sol Ring\n1 Arcane Signet\n1 Command Tower\n\nSideboard\n2 Duress"}
+                  placeholder={"Paste a partial decklist or a public Moxfield/Archidekt link\n\n1 Sol Ring\n1 Arcane Signet\n1 Command Tower\n\nSideboard\n2 Duress"}
                   className="w-full resize-y rounded-lg border border-neutral-700 bg-black/50 px-3 py-2 font-mono text-sm text-white outline-none placeholder:text-neutral-600 focus:border-cyan-300"
                 />
-                <p className="text-xs text-neutral-500">{currentCount} main-deck cards detected.</p>
+                <p className="text-xs text-neutral-500">
+                  {currentCount}/{getSavedDeckTargetCount(format)} main-deck cards detected. Public Moxfield and Archidekt links are supported here too.
+                </p>
               </div>
             )}
 
@@ -323,9 +398,13 @@ export default function FinishDeckToolClient() {
 
             <div className="max-h-[650px] space-y-2 overflow-y-auto pr-1">
               {suggestions.length === 0 ? (
-                <div className="rounded-lg border border-neutral-800 bg-black/35 px-3 py-8 text-center text-sm text-neutral-500">
-                  Suggestions will appear here.
-                </div>
+                hasStarted ? (
+                  <div className="rounded-lg border border-neutral-800 bg-black/35 px-3 py-8 text-center text-sm text-neutral-500">
+                    Suggestions will appear here.
+                  </div>
+                ) : (
+                  <ExampleSuggestionsPreview />
+                )
               ) : suggestions.map((row, index) => {
                 const key = suggestionKey(row);
                 const checked = selected.has(key);
@@ -386,5 +465,35 @@ export default function FinishDeckToolClient() {
         </div>
       </section>
     </main>
+  );
+}
+
+function ExampleSuggestionsPreview() {
+  return (
+    <div className="relative overflow-hidden rounded-lg border border-amber-300/25 bg-black/35 p-3">
+      <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
+        <div className="absolute left-1/2 top-[44%] w-[155%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg]">
+          <div className="border-y-[3px] border-amber-200/90 bg-gradient-to-r from-amber-300 via-amber-200 to-amber-300 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+            <p className="text-center text-[11px] font-black uppercase tracking-[0.28em] text-zinc-950">
+              Example preview
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="relative opacity-[0.68] saturate-[0.55]">
+        {EXAMPLE_SUGGESTIONS.map((row) => (
+          <div key={row.card} className="mb-2 rounded-lg border border-neutral-800 bg-black/40 p-3 last:mb-0">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-white">{row.qty} {row.card}</p>
+                <p className="mt-1 text-xs text-cyan-200/80">{row.role} / {row.priority}</p>
+              </div>
+              <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] text-neutral-400">{row.zone}</span>
+            </div>
+            <p className="mt-2 line-clamp-2 text-xs leading-5 text-neutral-400">{row.reason}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

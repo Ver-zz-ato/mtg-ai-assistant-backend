@@ -103,8 +103,12 @@ export function buildCompactDailyOpsLines(
   const appLlm = num(digest, ["app", "ai", "calls_24h"]);
   const websiteLlm = num(digest, ["website", "ai", "calls_24h"]);
   const totalLlm = appLlm + websiteLlm;
-  const appAiCost = num(digest, ["app", "ai", "cost_usd_24h"]);
-  const websiteAiCost = num(digest, ["website", "ai", "cost_usd_24h"]);
+  const appAiCost =
+    num(digest, ["app", "ai", "actual_cost_usd_24h"]) ||
+    num(digest, ["app", "ai", "cost_usd_24h"]);
+  const websiteAiCost =
+    num(digest, ["website", "ai", "actual_cost_usd_24h"]) ||
+    num(digest, ["website", "ai", "cost_usd_24h"]);
   const appAiErrorRate = num(digest, ["app", "ai", "error_rate_pct"]);
   const websiteAiErrorRate = num(digest, ["website", "ai", "error_rate_pct"]);
   const openAi24h = num(digest, ["shared", "revenue", "openai_actual_24h_usd"]);
@@ -123,13 +127,18 @@ export function buildCompactDailyOpsLines(
 
   const emoji = status === "ok" ? "OK" : status === "warn" ? "WARN" : "FAIL";
   const totalVisitors = num(digest, ["shared", "summary", "visitors_24h"]) || appUsers + websiteVisitors;
+  const costBasis = text(digest, ["app", "ai", "actual_cost_basis"]);
+  const hasActualCostField =
+    valueAtPath(digest, ["app", "ai", "actual_cost_usd_24h"]) != null ||
+    valueAtPath(digest, ["website", "ai", "actual_cost_usd_24h"]) != null;
+  const costLabel = costBasis === "internal_estimate" || !hasActualCostField ? "AI est." : "OpenAI actual";
 
   const lines: string[] = [
     `${emoji} **Daily Ops** - ${text(digest, ["window", "london_range"], "last 24h")}`,
     dailyMood(status),
     "",
-    `**App** - ${appUsers} ${word(appUsers, "visitor")} - ${appSignups} ${word(appSignups, "signup")} - ${scanSessions} scanner ${word(scanSessions, "session")} - ${appLlm} AI ${word(appLlm, "call")} - ${money(appAiCost)} AI cost`,
-    `**Website** - ${websiteVisitors} ${word(websiteVisitors, "visitor")} - ${websiteSignups} ${word(websiteSignups, "signup")} - ${websiteLlm} AI ${word(websiteLlm, "call")} - ${money(websiteAiCost)} AI cost - ${pageviews} page ${word(pageviews, "load")}${firstVisits && firstVisits !== websiteVisitors ? ` - ${firstVisits} new ${word(firstVisits, "visitor")}` : ""}`,
+    `**App** - ${appUsers} ${word(appUsers, "visitor")} - ${appSignups} ${word(appSignups, "signup")} - ${scanSessions} scanner ${word(scanSessions, "session")} - ${appLlm} AI ${word(appLlm, "call")} - ${money(appAiCost)} ${costLabel}`,
+    `**Website** - ${websiteVisitors} ${word(websiteVisitors, "visitor")} - ${websiteSignups} ${word(websiteSignups, "signup")} - ${websiteLlm} AI ${word(websiteLlm, "call")} - ${money(websiteAiCost)} ${costLabel} - ${pageviews} page ${word(pageviews, "load")}${firstVisits && firstVisits !== websiteVisitors ? ` - ${firstVisits} new ${word(firstVisits, "visitor")}` : ""}`,
     `**Summary** - ${totalVisitors} ${word(totalVisitors, "visitor")} - ${totalSignups} ${word(totalSignups, "signup")} - ${totalLlm} AI ${word(totalLlm, "call")} - ${money(openAi24h)} OpenAI actual (24h, ${money(openAiMtd)} MTD) - ${stripeSubs} Stripe subs - ${appSubs} app subs - ${sentry} active Sentry - ${rateLimitEvents} rate-limit ${word(rateLimitEvents, "hit")}`,
   ];
 

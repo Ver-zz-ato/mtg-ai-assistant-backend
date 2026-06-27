@@ -134,6 +134,7 @@ export function EmptyDecksState() {
       }}
       suggestions={[
         "Import from Moxfield, Archidekt, or paste a decklist",
+        "Take the Playstyle Quiz if you are not sure what to build",
         "Start with a sample Commander deck and customize it",
         "Use AI chat to help you build from scratch"
       ]}

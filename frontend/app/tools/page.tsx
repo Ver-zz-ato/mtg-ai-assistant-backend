@@ -397,12 +397,20 @@ export default function ToolsIndexPage() {
 
       <section className="relative mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl border border-violet-300/20 bg-violet-500/10 p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         <h2 className="text-lg font-black text-white">Not sure where to start?</h2>
-        <Link
-          href="/build-a-deck"
-          className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-violet-950/35 transition hover:-translate-y-0.5 hover:from-violet-500 hover:to-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
-        >
-          Take me to Build a Deck
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/tools/playstyle-quiz"
+            className="rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-violet-950/35 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+          >
+            Take the Playstyle Quiz
+          </Link>
+          <Link
+            href="/build-a-deck"
+            className="rounded-xl border border-violet-300/35 bg-violet-500/10 px-5 py-3 text-sm font-black text-violet-100 shadow-lg shadow-violet-950/20 transition hover:-translate-y-0.5 hover:bg-violet-500/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+          >
+            Go straight to Build a Deck
+          </Link>
+        </div>
       </section>
 
       <section className="relative mt-8 rounded-xl border border-white/10 bg-black/35 p-3 text-sm text-neutral-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">

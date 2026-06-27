@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { getInboxLastSeenKey } from "@/components/InboxLink";
+import { getInboxArchivedKey, getInboxLastSeenKey } from "@/components/InboxLink";
 
 type InboxItem = {
   id: string;
@@ -45,6 +45,26 @@ export default function InboxClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSeenMs, setLastSeenMs] = useState(0);
+  const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
+
+  const readArchivedIds = useCallback(() => {
+    if (!user?.id) return new Set<string>();
+    try {
+      const raw = localStorage.getItem(getInboxArchivedKey(user.id));
+      const parsed = JSON.parse(raw || "[]");
+      return new Set<string>(Array.isArray(parsed) ? parsed.map(String) : []);
+    } catch {
+      return new Set<string>();
+    }
+  }, [user?.id]);
+
+  const writeArchivedIds = useCallback((next: Set<string>) => {
+    if (!user?.id) return;
+    localStorage.setItem(getInboxArchivedKey(user.id), JSON.stringify(Array.from(next)));
+    setArchivedIds(new Set(next));
+    window.dispatchEvent(new Event("manatap:inbox-seen"));
+  }, [user?.id]);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -56,6 +76,7 @@ export default function InboxClient() {
       if (!res.ok || !json?.ok) throw new Error(json?.error || "Could not load inbox.");
       const rows = Array.isArray(json.items) ? json.items : [];
       setItems(rows);
+      setArchivedIds(readArchivedIds());
       const key = getInboxLastSeenKey(user.id);
       const raw = localStorage.getItem(key);
       const prevSeen = raw ? new Date(raw).getTime() : 0;
@@ -67,16 +88,38 @@ export default function InboxClient() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [readArchivedIds, user?.id]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const newCount = useMemo(
-    () => items.filter((item) => new Date(item.created_at).getTime() > lastSeenMs).length,
-    [items, lastSeenMs],
+    () => items.filter((item) => !archivedIds.has(item.id) && new Date(item.created_at).getTime() > lastSeenMs).length,
+    [archivedIds, items, lastSeenMs],
   );
+  const visibleItems = useMemo(
+    () => items.filter((item) => showArchived || !archivedIds.has(item.id)),
+    [archivedIds, items, showArchived],
+  );
+
+  function archiveItem(id: string) {
+    const next = new Set(archivedIds);
+    next.add(id);
+    writeArchivedIds(next);
+  }
+
+  function restoreItem(id: string) {
+    const next = new Set(archivedIds);
+    next.delete(id);
+    writeArchivedIds(next);
+  }
+
+  function archiveAllVisible() {
+    const next = new Set(archivedIds);
+    for (const item of visibleItems) next.add(item.id);
+    writeArchivedIds(next);
+  }
 
   if (authLoading) {
     return (
@@ -128,49 +171,95 @@ export default function InboxClient() {
         </div>
 
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <Info label="Comments" value={String(items.length)} />
+          <Info label="Visible" value={String(visibleItems.length)} />
           <Info label="New since last open" value={String(newCount)} />
-          <Info label="Sources" value={String(new Set(items.map((item) => item.kind)).size)} />
+          <Info label="Archived" value={String(archivedIds.size)} />
         </div>
 
         {error ? <div className="mb-4 rounded-lg border border-red-500/35 bg-red-950/35 px-3 py-2 text-sm text-red-200">{error}</div> : null}
 
+        {items.length ? (
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={archiveAllVisible}
+              disabled={!visibleItems.length}
+              className="rounded-lg border border-neutral-700 px-3 py-2 text-xs font-bold text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
+            >
+              Archive visible
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowArchived((current) => !current)}
+              className="rounded-lg border border-cyan-500/40 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/10"
+            >
+              {showArchived ? "Hide archived" : "Show archived"}
+            </button>
+            {archivedIds.size ? (
+              <button
+                type="button"
+                onClick={() => writeArchivedIds(new Set())}
+                className="rounded-lg border border-amber-500/40 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-500/10"
+              >
+                Restore all
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="space-y-3">
-          {items.length === 0 && !loading ? (
+          {visibleItems.length === 0 && !loading ? (
             <div className="rounded-xl border border-neutral-800 bg-zinc-950/75 px-4 py-10 text-center text-sm text-neutral-500">
-              No comments yet. Shared decks, public binders, roasts, health reports, and custom cards will show here when people comment.
+              {items.length ? "Everything visible is archived. Show archived or restore all to bring messages back." : "No comments yet. Shared decks, public binders, roasts, health reports, and custom cards will show here when people comment."}
             </div>
           ) : null}
 
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             const isNew = new Date(item.created_at).getTime() > lastSeenMs;
+            const isArchived = archivedIds.has(item.id);
             return (
-              <Link
+              <article
                 key={item.id}
-                href={hrefFor(item)}
-                className={`block rounded-xl border p-4 transition ${
-                  isNew
-                    ? "border-cyan-300/45 bg-cyan-300/10 hover:bg-cyan-300/15"
-                    : "border-neutral-800 bg-zinc-950/75 hover:border-neutral-700 hover:bg-zinc-900/80"
+                className={`rounded-xl border p-4 transition ${
+                  isArchived
+                    ? "border-neutral-800 bg-zinc-950/45 opacity-70"
+                    : isNew
+                      ? "border-cyan-300/45 bg-cyan-300/10"
+                      : "border-neutral-800 bg-zinc-950/75"
                 }`}
               >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <Link
+                    href={hrefFor(item)}
+                    className={`min-w-0 flex-1 rounded-lg transition ${
+                  isNew
+                    ? "hover:bg-cyan-300/10"
+                    : "hover:bg-zinc-900/70"
+                }`}
+                  >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-neutral-300">
                         {labelFor(item.kind)}
                       </span>
                       {isNew ? <span className="rounded-full bg-cyan-300 px-2 py-0.5 text-[11px] font-black text-black">New</span> : null}
+                      {isArchived ? <span className="rounded-full bg-neutral-700 px-2 py-0.5 text-[11px] font-black text-neutral-200">Archived</span> : null}
                     </div>
                     <h2 className="mt-2 truncate text-base font-black text-white">{item.title || "Untitled"}</h2>
                     <p className="mt-1 line-clamp-3 text-sm leading-6 text-neutral-300">{item.content}</p>
-                  </div>
+                  </Link>
                   <div className="shrink-0 text-left text-xs text-neutral-500 sm:text-right">
                     <p>{item.authorLabel || "Someone"}</p>
                     <p className="mt-1">{formatWhen(item.created_at)}</p>
+                    <button
+                      type="button"
+                      onClick={() => (isArchived ? restoreItem(item.id) : archiveItem(item.id))}
+                      className="mt-3 rounded-lg border border-neutral-700 px-2.5 py-1.5 text-xs font-bold text-neutral-200 hover:bg-neutral-800"
+                    >
+                      {isArchived ? "Restore" : "Archive"}
+                    </button>
                   </div>
                 </div>
-              </Link>
+              </article>
             );
           })}
         </div>

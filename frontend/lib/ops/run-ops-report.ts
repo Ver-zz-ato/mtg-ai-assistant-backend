@@ -394,6 +394,49 @@ function summarizeAiUsageWindow(rows: Array<{
   };
 }
 
+function allocateActualOpenAiCost(input: {
+  actualTotalUsd: number | null;
+  appEstimatedUsd: number;
+  websiteEstimatedUsd: number;
+  appCalls: number;
+  websiteCalls: number;
+}): { app: number; website: number; basis: "openai_actual_allocated_by_estimated_cost" | "openai_actual_allocated_by_calls" | "internal_estimate" } {
+  if (input.actualTotalUsd == null) {
+    return {
+      app: round(input.appEstimatedUsd, 4),
+      website: round(input.websiteEstimatedUsd, 4),
+      basis: "internal_estimate",
+    };
+  }
+  const actualTotalUsd = Math.max(0, Number(input.actualTotalUsd) || 0);
+
+  const estimatedTotal = Math.max(0, input.appEstimatedUsd) + Math.max(0, input.websiteEstimatedUsd);
+  if (estimatedTotal > 0) {
+    const app = actualTotalUsd * (Math.max(0, input.appEstimatedUsd) / estimatedTotal);
+    return {
+      app: round(app, 4),
+      website: round(Math.max(0, actualTotalUsd - app), 4),
+      basis: "openai_actual_allocated_by_estimated_cost",
+    };
+  }
+
+  const callTotal = Math.max(0, input.appCalls) + Math.max(0, input.websiteCalls);
+  if (callTotal > 0) {
+    const app = actualTotalUsd * (Math.max(0, input.appCalls) / callTotal);
+    return {
+      app: round(app, 4),
+      website: round(Math.max(0, actualTotalUsd - app), 4),
+      basis: "openai_actual_allocated_by_calls",
+    };
+  }
+
+  return {
+    app: 0,
+    website: round(actualTotalUsd, 4),
+    basis: "openai_actual_allocated_by_calls",
+  };
+}
+
 function splitAiUsageWindow(rows: Array<{
   source?: string | null;
   source_page?: string | null;
@@ -474,6 +517,16 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
     const ratio = openAiCostAdjuster.ratiosByModel.get(modelKey);
     return ratio != null ? raw * ratio : raw;
   });
+  const openAiActual24hUsd = openAiLiveSpend?.totals
+    ? Number(openAiLiveSpend.totals.cost_usd || 0)
+    : null;
+  const actualAiCostSplit = allocateActualOpenAiCost({
+    actualTotalUsd: openAiActual24hUsd,
+    appEstimatedUsd: aiSplit.app.cost_usd,
+    websiteEstimatedUsd: aiSplit.website.cost_usd,
+    appCalls: aiSplit.app.billable_calls,
+    websiteCalls: aiSplit.website.billable_calls,
+  });
 
   const overviewAlerts = (overview.alerts || []).filter((alert) => alert.severity === "critical" || alert.severity === "warn");
   const dailyDigestAlerts = overviewAlerts.filter(shouldCountForDailyDigestStatus);
@@ -514,6 +567,8 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         logged_rows_24h: aiSplit.app.logged_rows,
         calls_24h: aiSplit.app.billable_calls,
         cost_usd_24h: aiSplit.app.cost_usd,
+        actual_cost_usd_24h: actualAiCostSplit.app,
+        actual_cost_basis: actualAiCostSplit.basis,
         error_rate_pct: aiSplit.app.error_rate_pct,
         cache_hit_pct: aiSplit.app.cache_hit_pct,
         requests_metric: asNumber(getMetric(ai, "requests")?.value),
@@ -547,6 +602,8 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         logged_rows_24h: aiSplit.website.logged_rows,
         calls_24h: aiSplit.website.billable_calls,
         cost_usd_24h: aiSplit.website.cost_usd,
+        actual_cost_usd_24h: actualAiCostSplit.website,
+        actual_cost_basis: actualAiCostSplit.basis,
         error_rate_pct: aiSplit.website.error_rate_pct,
         cache_hit_pct: aiSplit.website.cache_hit_pct,
         cost_basis: openAiCostAdjuster.source,
@@ -565,7 +622,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         stripe_subs: asNumber(getMetric(revenue, "stripe")?.value),
         app_subs: asNumber(getMetric(revenue, "app_subs")?.value),
         stripe_webhooks_24h: asNumber(getMetric(revenue, "stripe_webhooks")?.value),
-        openai_actual_24h_usd: Number(openAiLiveSpend?.totals?.cost_usd || 0),
+        openai_actual_24h_usd: Number(openAiActual24hUsd || 0),
         openai_actual_24h_cost_source: openAiLiveSpend?.cost_source || null,
         openai_actual_latest_day_usd: Number(openAiLatestCompletedSpend?.latest_completed_day?.cost_usd || 0),
         openai_actual_latest_day_date_utc: openAiLatestCompletedSpend?.latest_completed_day?.date || null,
@@ -612,7 +669,9 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         signups_24h: signupCounts.appSignups + signupCounts.websiteSignups,
         ai_calls_24h: aiSplit.app.billable_calls + aiSplit.website.billable_calls,
         ai_route_attributed_cost_usd_24h: round(aiSplit.app.cost_usd + aiSplit.website.cost_usd, 4),
-        openai_actual_24h_usd: Number(openAiLiveSpend?.totals?.cost_usd || 0),
+        openai_actual_allocated_cost_usd_24h: round(actualAiCostSplit.app + actualAiCostSplit.website, 4),
+        openai_actual_cost_allocation_basis: actualAiCostSplit.basis,
+        openai_actual_24h_usd: Number(openAiActual24hUsd || 0),
       },
     },
     top_alerts: dailyDigestAlerts.slice(0, 6).map((alert) => ({

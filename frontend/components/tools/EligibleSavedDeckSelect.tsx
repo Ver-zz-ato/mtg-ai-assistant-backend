@@ -14,6 +14,7 @@ type Props = {
   label?: string;
   emptyLabel?: string;
   placeholder?: string;
+  hiddenHint?: string;
 };
 
 export default function EligibleSavedDeckSelect({
@@ -26,13 +27,15 @@ export default function EligibleSavedDeckSelect({
   label = "Your saved decks",
   emptyLabel = "No saved decks meet the minimum size yet.",
   placeholder = "Paste a list below or pick a deck",
+  hiddenHint,
 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const selectedDeck = useMemo(() => decks.find((deck) => deck.id === value) ?? null, [decks, value]);
   const minHint =
     hiddenCount > 0
-      ? `Decks under halfway (${getAiDeckHalfwayMinimumCards("Commander")}+ Commander / ${getAiDeckHalfwayMinimumCards("Standard")}+ other formats) are hidden.`
+      ? hiddenHint ||
+        `Decks under halfway (${getAiDeckHalfwayMinimumCards("Commander")}+ Commander / ${getAiDeckHalfwayMinimumCards("Standard")}+ other formats) are hidden.`
       : null;
   const buttonLabel = loading
     ? "Loading your decks..."

@@ -4,13 +4,17 @@ import {
   enrichSavedDeckRow,
   filterEligibleSavedDecks,
   getAiDeckHalfwayMinimumCards,
+  getSavedDeckTargetCount,
   isSavedDeckEligibleForTools,
 } from "@/lib/deck/tool-deck-eligibility";
 
 async function main() {
   assert.equal(getAiDeckHalfwayMinimumCards("Commander"), 50);
+  assert.equal(getSavedDeckTargetCount("Commander"), 100);
+  assert.equal(getSavedDeckTargetCount("Modern"), 60);
   assert.equal(isSavedDeckEligibleForTools(49, "Commander"), false);
   assert.equal(isSavedDeckEligibleForTools(50, "Commander"), true);
+  assert.equal(isSavedDeckEligibleForTools(100, "Commander"), true);
   assert.equal(isSavedDeckEligibleForTools(29, "Modern"), false);
   assert.equal(isSavedDeckEligibleForTools(30, "Pioneer"), true);
 

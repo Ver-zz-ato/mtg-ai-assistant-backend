@@ -5,13 +5,22 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import {
   enrichSavedDeckRow,
   filterEligibleSavedDecks,
+  getSavedDeckTargetCount,
   type SavedDeckPickerRow,
 } from "@/lib/deck/tool-deck-eligibility";
 
-export function useEligibleSavedDecks(userId: string | null | undefined) {
+type EligibleSavedDeckOptions = {
+  incompleteOnly?: boolean;
+};
+
+export function useEligibleSavedDecks(
+  userId: string | null | undefined,
+  options: EligibleSavedDeckOptions = {}
+) {
   const [eligibleDecks, setEligibleDecks] = useState<SavedDeckPickerRow[]>([]);
   const [hiddenCount, setHiddenCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const incompleteOnly = options.incompleteOnly ?? false;
 
   useEffect(() => {
     if (!userId) {
@@ -37,8 +46,11 @@ export function useEligibleSavedDecks(userId: string | null | undefined) {
           .map((row) => enrichSavedDeckRow(row as Parameters<typeof enrichSavedDeckRow>[0]))
           .filter((row): row is SavedDeckPickerRow => row != null);
         const filtered = filterEligibleSavedDecks(enriched);
-        setEligibleDecks(filtered.eligible);
-        setHiddenCount(filtered.hiddenCount);
+        const eligible = incompleteOnly
+          ? filtered.eligible.filter((row) => row.cardCount < getSavedDeckTargetCount(row.format))
+          : filtered.eligible;
+        setEligibleDecks(eligible);
+        setHiddenCount(filtered.hiddenCount + (filtered.eligible.length - eligible.length));
       } catch {
         if (!alive) return;
         setEligibleDecks([]);
@@ -51,7 +63,7 @@ export function useEligibleSavedDecks(userId: string | null | undefined) {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, incompleteOnly]);
 
   return { eligibleDecks, hiddenCount, loading };
 }

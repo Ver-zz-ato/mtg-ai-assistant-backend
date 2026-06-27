@@ -1,5 +1,5 @@
 import { countAiWorkshopDeckCards } from "./ai-workshop-deck-text";
-import { getAiDeckHalfwayMinimumCards, isAiDeckBelowHalfway } from "./ai-workshop-rules";
+import { getAiDeckHalfwayMinimumCards, getTargetCountForFormat, isAiDeckBelowHalfway } from "./ai-workshop-rules";
 
 export { getAiDeckHalfwayMinimumCards, isAiDeckBelowHalfway };
 
@@ -15,6 +15,10 @@ export type SavedDeckPickerRow = {
 
 export function isSavedDeckEligibleForTools(cardCount: number, format: string): boolean {
   return cardCount > 0 && !isAiDeckBelowHalfway(cardCount, format);
+}
+
+export function getSavedDeckTargetCount(format: string): number {
+  return getTargetCountForFormat(format);
 }
 
 export function enrichSavedDeckRow(row: {

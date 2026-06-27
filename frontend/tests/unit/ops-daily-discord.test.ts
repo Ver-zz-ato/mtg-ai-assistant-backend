@@ -89,7 +89,13 @@ function testCompactDailyOpsLinesShape() {
       app: {
         users: { signups_24h: 0 },
         analytics: { events_seen: 3025, unique_users_24h: 5, scanner_sessions_completed: 100 },
-        ai: { calls_24h: 0, cost_usd_24h: 0.12, error_rate_pct: 1.2 },
+        ai: {
+          calls_24h: 0,
+          cost_usd_24h: 1.43,
+          actual_cost_usd_24h: 0.18,
+          actual_cost_basis: "openai_actual_allocated_by_estimated_cost",
+          error_rate_pct: 1.2,
+        },
         revenue: { revenuecat_grants_24h: 2 },
       },
       website: {
@@ -102,7 +108,13 @@ function testCompactDailyOpsLinesShape() {
           pro_upgrade_starts_24h: 2,
           pro_upgrade_completions_24h: 1,
         },
-        ai: { calls_24h: 909, cost_usd_24h: 0.56, error_rate_pct: 0.4 },
+        ai: {
+          calls_24h: 909,
+          cost_usd_24h: 3.95,
+          actual_cost_usd_24h: 0.5,
+          actual_cost_basis: "openai_actual_allocated_by_estimated_cost",
+          error_rate_pct: 0.4,
+        },
       },
       shared: {
         users: { new_profiles_24h: 27 },
@@ -129,7 +141,11 @@ function testCompactDailyOpsLinesShape() {
   assert.ok(lines.some((line) => line.includes("3200 page load")));
   assert.ok(lines.some((line) => line.includes("5 visitors")));
   assert.ok(lines.some((line) => line.includes("100 scanner sessions")));
+  assert.ok(lines.some((line) => line.includes("$0.18 OpenAI actual")));
+  assert.ok(lines.some((line) => line.includes("$0.50 OpenAI actual")));
   assert.ok(lines.some((line) => line.includes("$0.68 OpenAI actual")));
+  assert.ok(!lines.some((line) => line.includes("$1.43 AI cost")));
+  assert.ok(!lines.some((line) => line.includes("$3.95 AI cost")));
   assert.ok(lines.some((line) => line.includes("7 app subs")));
   assert.ok(lines.some((line) => line.includes("AI error rate: App 1.2% - Website 0.40%")));
   assert.ok(lines.some((line) => line.includes("New Pro events: 1 website - 2 app")));
