@@ -289,6 +289,23 @@ async function safeCount(
   }
 }
 
+async function safeActiveAppSubCount(db: Db): Promise<{ count: number; error?: string }> {
+  try {
+    const now = nowIso();
+    const { count, error } = await db
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("is_pro", true)
+      .is("stripe_subscription_id", null)
+      .in("pro_plan", ["monthly", "yearly"])
+      .or(`pro_until.is.null,pro_until.gt.${now}`);
+    if (error) return { count: 0, error: error.message };
+    return { count: count || 0 };
+  } catch (e) {
+    return { count: 0, error: e instanceof Error ? e.message : "count_failed" };
+  }
+}
+
 async function safeRows(
   db: Db,
   table: string,
@@ -819,9 +836,10 @@ export async function getMobileCommandCenterRevenue(days: number): Promise<Comma
   const db = getAdmin();
   if (!db) return missingDbPayload(days);
   const since = sinceDays(days);
-  const [pro, stripe, revenueCatGrants, revenueCatRevokes, stripeWebhook] = await Promise.all([
+  const [pro, stripe, appSubs, revenueCatGrants, revenueCatRevokes, stripeWebhook] = await Promise.all([
     safeCount(db, "profiles", { eq: { is_pro: true } }),
     safeCount(db, "profiles", { notNull: ["stripe_subscription_id"] }),
+    safeActiveAppSubCount(db),
     safeCount(db, "admin_audit", { since, eq: { action: "ops_entitlement_granted" } }),
     safeCount(db, "admin_audit", { since, eq: { action: "ops_entitlement_revoked" } }),
     safeCount(db, "admin_audit", { since, eq: { action: "ops_stripe_webhook_processed" } }),
@@ -834,6 +852,7 @@ export async function getMobileCommandCenterRevenue(days: number): Promise<Comma
     metrics: [
       { key: "pro", label: "Active Pro profiles", value: pro.count, severity: pro.error ? "info" : "ok" },
       { key: "stripe", label: "Stripe subs", value: stripe.count, severity: stripe.error ? "info" : "ok", href: "/admin/monetize" },
+      { key: "app_subs", label: "App subs", value: appSubs.count, sub: "RevenueCat-synced profiles", severity: appSubs.error ? "info" : "ok" },
       {
         key: "revenuecat_config",
         label: "RevenueCat API",
@@ -851,7 +870,10 @@ export async function getMobileCommandCenterRevenue(days: number): Promise<Comma
         { check: "Entitlement debug", status: "Use for one-user investigations", link: "/admin/entitlements/debug" },
       ],
     },
-    notes: ["RevenueCat v2 is optional in v1; webhook/admin_audit health is shown even when the API key is absent."],
+    notes: [
+      "App subs count uses RevenueCat webhook-synced profile state, not a live per-subscriber RevenueCat sweep.",
+      "RevenueCat v2 is optional in v1; webhook/admin_audit health is shown even when the API key is absent.",
+    ],
   };
 }
 

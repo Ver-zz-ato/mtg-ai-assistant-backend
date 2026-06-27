@@ -49,6 +49,10 @@ function money(value: unknown, digits = 2): string {
   return `$${(Number(value) || 0).toFixed(digits)}`;
 }
 
+function pct(value: number): string {
+  return `${value.toFixed(value > 0 && value < 1 ? 2 : 1)}%`;
+}
+
 function word(count: number, base: string, pluralForm?: string): string {
   return count === 1 ? base : (pluralForm ?? `${base}s`);
 }
@@ -78,7 +82,7 @@ function collectJobWatchlist(
   return watch;
 }
 
-/** Compact ELI5 daily digest: App / Website / Total blocks. */
+/** Compact daily digest: App / Website / Summary blocks. */
 export function buildCompactDailyOpsLines(
   digest: Record<string, unknown>,
   status: DiscordOpsPayload["status"],
@@ -90,57 +94,72 @@ export function buildCompactDailyOpsLines(
   const newProfiles = num(digest, ["shared", "users", "new_profiles_24h"]);
   const appUsers = num(digest, ["app", "analytics", "unique_users_24h"]);
   const scanSessions = num(digest, ["app", "analytics", "scanner_sessions_completed"]);
-  const appEvents = num(digest, ["app", "analytics", "events_seen"]);
+  const websiteVisitors =
+    num(digest, ["website", "analytics", "unique_visitors_24h"]) ||
+    num(digest, ["website", "analytics", "first_visits_24h"]);
   const firstVisits = num(digest, ["website", "analytics", "first_visits_24h"]);
   const pageviews = num(digest, ["website", "analytics", "pageviews_24h"]);
-  const logins = num(digest, ["website", "analytics", "logins_24h"]);
-  const proStarts = num(digest, ["website", "analytics", "pro_upgrade_starts_24h"]);
   const proCompletes = num(digest, ["website", "analytics", "pro_upgrade_completions_24h"]);
   const appLlm = num(digest, ["app", "ai", "calls_24h"]);
   const websiteLlm = num(digest, ["website", "ai", "calls_24h"]);
   const totalLlm = appLlm + websiteLlm;
+  const appAiCost = num(digest, ["app", "ai", "cost_usd_24h"]);
+  const websiteAiCost = num(digest, ["website", "ai", "cost_usd_24h"]);
+  const appAiErrorRate = num(digest, ["app", "ai", "error_rate_pct"]);
+  const websiteAiErrorRate = num(digest, ["website", "ai", "error_rate_pct"]);
   const openAi24h = num(digest, ["shared", "revenue", "openai_actual_24h_usd"]);
   const openAiMtd = num(digest, ["shared", "revenue", "openai_actual_mtd_usd"]);
   const stripeSubs = num(digest, ["shared", "revenue", "stripe_subs"]);
+  const appSubs = num(digest, ["shared", "revenue", "app_subs"]);
   const sentry = num(digest, ["shared", "reliability", "sentry_unresolved"]);
-  const rateLimits = num(digest, ["shared", "reliability", "rate_limit_hits_24h"]);
+  const rateLimitEvents =
+    num(digest, ["shared", "reliability", "rate_limit_hit_rows_24h"]) ||
+    num(digest, ["shared", "reliability", "rate_limit_hits_24h"]);
+  const topRateLimitRoute = text(digest, ["shared", "reliability", "top_rate_limit_route_24h"]);
+  const topRateLimitRouteHits = num(digest, ["shared", "reliability", "top_rate_limit_route_hits_24h"]);
+  const revenueCatGrants = num(digest, ["app", "revenue", "revenuecat_grants_24h"]);
   const critical = num(digest, ["counts", "critical_alerts"]);
   const warnings = num(digest, ["counts", "warning_alerts"]);
 
   const emoji = status === "ok" ? "OK" : status === "warn" ? "WARN" : "FAIL";
-  const proBit = proCompletes > 0
-    ? ` · ${proCompletes} Pro`
-    : proStarts > 0
-      ? ` · ${proStarts} Pro started`
-      : "";
-
-  const appActivity =
-    appUsers > 0 || scanSessions > 0
-      ? `${appUsers} ${word(appUsers, "user")}${scanSessions > 0 ? ` · ${scanSessions} scan ${word(scanSessions, "session")}` : ""}`
-      : appEvents > 0
-        ? `${appEvents} telemetry ${word(appEvents, "event")}`
-        : "quiet";
+  const totalVisitors = num(digest, ["shared", "summary", "visitors_24h"]) || appUsers + websiteVisitors;
 
   const lines: string[] = [
-    `${emoji} **Daily Ops** · ${text(digest, ["window", "london_range"], "last 24h")}`,
+    `${emoji} **Daily Ops** - ${text(digest, ["window", "london_range"], "last 24h")}`,
     dailyMood(status),
     "",
-    `**App** · ${appSignups} ${word(appSignups, "signup")} · ${appActivity} · ${appLlm} AI ${word(appLlm, "call")}`,
-    `**Website** · ${firstVisits} new ${word(firstVisits, "visitor")} · ${pageviews} page ${word(pageviews, "load")} · ${websiteSignups} ${word(websiteSignups, "signup")} · ${logins} ${word(logins, "login")}${proBit}`,
-    `**Total** · ${newProfiles} new ${word(newProfiles, "account")} · ${totalSignups} signup ${word(totalSignups, "event")} · ${totalLlm} AI ${word(totalLlm, "call")} · ${money(openAi24h)} OpenAI (24h, ${money(openAiMtd)} MTD) · ${stripeSubs} Stripe subs · ${sentry} Sentry · ${rateLimits} rate ${word(rateLimits, "limit")}`,
+    `**App** - ${appUsers} ${word(appUsers, "visitor")} - ${appSignups} ${word(appSignups, "signup")} - ${scanSessions} scanner ${word(scanSessions, "session")} - ${appLlm} AI ${word(appLlm, "call")} - ${money(appAiCost)} AI cost`,
+    `**Website** - ${websiteVisitors} ${word(websiteVisitors, "visitor")} - ${websiteSignups} ${word(websiteSignups, "signup")} - ${websiteLlm} AI ${word(websiteLlm, "call")} - ${money(websiteAiCost)} AI cost - ${pageviews} page ${word(pageviews, "load")}${firstVisits && firstVisits !== websiteVisitors ? ` - ${firstVisits} new ${word(firstVisits, "visitor")}` : ""}`,
+    `**Summary** - ${totalVisitors} ${word(totalVisitors, "visitor")} - ${totalSignups} ${word(totalSignups, "signup")} - ${totalLlm} AI ${word(totalLlm, "call")} - ${money(openAi24h)} OpenAI actual (24h, ${money(openAiMtd)} MTD) - ${stripeSubs} Stripe subs - ${appSubs} app subs - ${sentry} active Sentry - ${rateLimitEvents} rate-limit ${word(rateLimitEvents, "hit")}`,
   ];
 
   if (newProfiles !== totalSignups) {
-    lines.push(`_(Accounts = database rows; signup events = PostHog completions — small gaps are normal.)_`);
+    lines.push(`_DB account rows: ${newProfiles}; signup events: ${totalSignups}. Small gaps are normal._`);
+  }
+
+  const aiErrorParts = [
+    appAiErrorRate > 0 ? `App ${pct(appAiErrorRate)}` : null,
+    websiteAiErrorRate > 0 ? `Website ${pct(websiteAiErrorRate)}` : null,
+  ].filter(Boolean);
+  if (aiErrorParts.length > 0) {
+    lines.push(`AI error rate: ${aiErrorParts.join(" - ")}`);
+  }
+
+  if (proCompletes > 0 || revenueCatGrants > 0) {
+    lines.push(`New Pro events: ${proCompletes} website - ${revenueCatGrants} app`);
+  }
+
+  if (rateLimitEvents > 0 && topRateLimitRoute) {
+    lines.push(`Top rate-limited route: ${topRateLimitRoute} (${topRateLimitRouteHits || rateLimitEvents})`);
   }
 
   if (critical > 0 || warnings > 0) {
-    lines.push(`Alerts: ${critical} critical · ${warnings} warning`);
+    lines.push(`Alerts: ${critical} critical - ${warnings} warning`);
   }
 
   const jobWatch = collectJobWatchlist(digest, options.staleJobs);
   if (jobWatch.length > 0) {
-    lines.push(`Jobs to check: ${jobWatch.slice(0, 4).join(" · ")}`);
+    lines.push(`Jobs to check: ${jobWatch.slice(0, 4).join(" - ")}`);
   }
 
   const topAlerts = (valueAtPath(digest, ["top_alerts"]) as Array<Record<string, unknown>> | undefined) || [];

@@ -179,6 +179,16 @@ function asString(value: unknown): string {
   return value == null ? "" : String(value);
 }
 
+function topValue<T>(rows: T[], getValue: (row: T) => string): { value: string; count: number } | null {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const value = getValue(row).trim() || "unknown";
+    counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  const [value, count] = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0] || [];
+  return value ? { value, count } : null;
+}
+
 function formatLondonTimestamp(value: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London",
@@ -247,6 +257,7 @@ async function getWebsitePosthogDigest(hours: number) {
       pageviews: 0,
       pageviewsServer: 0,
       pageviewsClient: 0,
+      uniqueVisitors: 0,
       firstVisits: 0,
       logins: 0,
       signups: 0,
@@ -273,9 +284,18 @@ async function getWebsitePosthogDigest(hours: number) {
     GROUP BY event
     ORDER BY count DESC
   `;
+  const visitorsQuery = `
+    SELECT uniqIf(toString(distinct_id), distinct_id IS NOT NULL AND toString(distinct_id) != '') AS unique_visitors
+    FROM events
+    WHERE timestamp >= now() - INTERVAL ${Math.max(1, Math.min(hours, 168))} HOUR
+      AND event IN ['$pageview', 'pageview_server', 'user_first_visit']
+  `;
 
   try {
-    const result = await posthogHogql(query);
+    const [result, visitorsResult] = await Promise.all([
+      posthogHogql(query),
+      posthogHogql(visitorsQuery),
+    ]);
     const counts = new Map<string, number>();
     for (const row of result.results) {
       counts.set(String(row[0] || ""), Number(row[1] || 0));
@@ -287,6 +307,7 @@ async function getWebsitePosthogDigest(hours: number) {
       pageviews: websitePageviewCountFromEventCounts(counts),
       pageviewsServer,
       pageviewsClient,
+      uniqueVisitors: Number(visitorsResult.results[0]?.[0] || 0),
       firstVisits: counts.get("user_first_visit") || 0,
       logins: counts.get("auth_login_success") || 0,
       signups: 0,
@@ -300,6 +321,7 @@ async function getWebsitePosthogDigest(hours: number) {
       pageviews: 0,
       pageviewsServer: 0,
       pageviewsClient: 0,
+      uniqueVisitors: 0,
       firstVisits: 0,
       logins: 0,
       signups: 0,
@@ -460,6 +482,8 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
   const tier1Rows = (ops.tables?.["Daily price jobs (hourly alerts)"] || []) as Array<Record<string, unknown>>;
   const pipelineRows = (ops.tables?.["Pipeline jobs"] || []) as Array<Record<string, unknown>>;
   const discoverRows = (ops.tables?.["Discover jobs (daily digest)"] || []) as Array<Record<string, unknown>>;
+  const recentLimitHits = (security.tables?.["Recent limit hits"] || []) as Array<Record<string, unknown>>;
+  const topRateLimitRoute = topValue(recentLimitHits, (row) => asString(row.route || "unknown"));
 
   return {
     window: {
@@ -510,6 +534,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         pageviews_24h: websitePosthog.pageviews,
         pageviews_server_24h: websitePosthog.pageviewsServer,
         pageviews_client_24h: websitePosthog.pageviewsClient,
+        unique_visitors_24h: websitePosthog.uniqueVisitors,
         first_visits_24h: websitePosthog.firstVisits,
         logins_24h: websitePosthog.logins,
         signups_24h: signupCounts.websiteSignups,
@@ -538,6 +563,7 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
       },
       revenue: {
         stripe_subs: asNumber(getMetric(revenue, "stripe")?.value),
+        app_subs: asNumber(getMetric(revenue, "app_subs")?.value),
         stripe_webhooks_24h: asNumber(getMetric(revenue, "stripe_webhooks")?.value),
         openai_actual_24h_usd: Number(openAiLiveSpend?.totals?.cost_usd || 0),
         openai_actual_24h_cost_source: openAiLiveSpend?.cost_source || null,
@@ -555,6 +581,9 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
         local_error_logs_24h: asNumber(getMetric(errors, "local_errors")?.value),
         rate_limit_rows_24h: asNumber(getMetric(security, "rate_limit_rows")?.value),
         rate_limit_hits_24h: asNumber(getMetric(security, "rate_limit_hits")?.value),
+        rate_limit_hit_rows_24h: recentLimitHits.length,
+        top_rate_limit_route_24h: topRateLimitRoute?.value || null,
+        top_rate_limit_route_hits_24h: topRateLimitRoute?.count || 0,
         admin_audit_rows_24h: asNumber(getMetric(security, "admin_audit")?.value),
       },
       ops: {
@@ -577,6 +606,13 @@ async function buildDailyDigestDetails(admin: NonNullable<ReturnType<typeof getA
           last_seen: row.last_seen,
           severity: row.severity,
         })),
+      },
+      summary: {
+        visitors_24h: asNumber(getMetric(analytics, "app_unique_users")?.value) + websitePosthog.uniqueVisitors,
+        signups_24h: signupCounts.appSignups + signupCounts.websiteSignups,
+        ai_calls_24h: aiSplit.app.billable_calls + aiSplit.website.billable_calls,
+        ai_route_attributed_cost_usd_24h: round(aiSplit.app.cost_usd + aiSplit.website.cost_usd, 4),
+        openai_actual_24h_usd: Number(openAiLiveSpend?.totals?.cost_usd || 0),
       },
     },
     top_alerts: dailyDigestAlerts.slice(0, 6).map((alert) => ({

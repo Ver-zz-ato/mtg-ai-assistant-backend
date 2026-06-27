@@ -143,7 +143,7 @@ function CollectionsPageClientBody() {
       {
         icon: '📊',
         title: 'Build From Collection',
-        description: 'Turn cards you already own into Commander deck ideas, guided AI builds, or manual brews.',
+        description: 'Turn cards you already own into Commander or constructed deck ideas, guided AI builds, or manual brews.',
       },
       {
         icon: '📁',
@@ -372,7 +372,7 @@ function CollectionsPageClientBody() {
                 <h3 className="text-xl font-bold text-white">Build a Deck From Your Collection</h3>
               </div>
               <p className="text-neutral-200 leading-relaxed mb-4">
-                Build manually from cards you already own, or use AI to create Commander decks from your collection. Pick any collection below, open it, and click <strong className="text-purple-300">Build a Deck From This Collection</strong>.
+                Build manually from cards you already own, or use AI to create Commander, Modern, Pioneer, Standard, or Pauper decks from your collection. Pick any collection below, open it, and click <strong className="text-purple-300">Build a Deck From This Collection</strong>.
               </p>
               <div className="space-y-3 text-sm text-neutral-300 mb-5">
                 <p className="font-medium text-purple-200">How it works:</p>

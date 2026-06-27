@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useHoverPreview } from "@/components/shared/HoverPreview";
+import { AI_WORKSHOP_HANDOFF_KEY, type AiWorkshopHandoff } from "@/lib/deck/ai-workshop-actions";
 
 export type DeckPreviewResult = {
   decklist: Array<{ name: string; qty: number }>;
@@ -119,6 +120,23 @@ export default function DeckGenerationResultsModal({
 
   const handleDiscard = () => {
     onClose();
+  };
+
+  const openAiWorkshop = () => {
+    try {
+      const handoff: AiWorkshopHandoff = {
+        deckText: editedPreview.deckText,
+        format: editedPreview.format || "Commander",
+        commander: editedPreview.commander,
+        title: editedPreview.title,
+        sourceLabel: "Build from collection",
+      };
+      sessionStorage.setItem(AI_WORKSHOP_HANDOFF_KEY, JSON.stringify(handoff));
+    } catch {
+      // ignore
+    }
+    onClose();
+    router.push("/ai-workshop");
   };
 
   const changeQty = (index: number, delta: number) => {
@@ -269,6 +287,14 @@ export default function DeckGenerationResultsModal({
             className="px-6 py-3 rounded-lg border border-neutral-600 text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
           >
             Discard
+          </button>
+          <button
+            type="button"
+            onClick={openAiWorkshop}
+            disabled={isCreating || editedDecklist.length === 0}
+            className="px-6 py-3 rounded-lg border border-violet-500/50 text-violet-100 hover:bg-violet-900/30 disabled:opacity-50"
+          >
+            AI Workshop
           </button>
         </div>
       </div>

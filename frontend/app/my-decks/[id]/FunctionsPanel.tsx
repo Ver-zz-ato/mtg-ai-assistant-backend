@@ -4,16 +4,15 @@ import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ExportDropdown from "@/components/ExportDropdown";
-import DeckCsvUpload from "@/components/DeckCsvUpload";
+import DeckImportReviewModal from "@/components/DeckImportReviewModal";
 import RecomputeButton from "./RecomputeButton";
 import FixNamesModal from "./FixNamesModal";
 import DeckVersionHistory from "@/components/DeckVersionHistory";
 
-type ImportMode = "url" | "paste" | "csv";
-
 export default function FunctionsPanel({
   deckId,
   isPro,
+  format,
 }: {
   deckId: string;
   isPublic: boolean;
@@ -25,11 +24,6 @@ export default function FunctionsPanel({
   const [allPanelsHidden, setAllPanelsHidden] = React.useState(false);
   const [fixOpen, setFixOpen] = React.useState(false);
   const [urlOpen, setUrlOpen] = React.useState(false);
-  const [urlValue, setUrlValue] = React.useState("");
-  const [pasteValue, setPasteValue] = React.useState("");
-  const [importMode, setImportMode] = React.useState<ImportMode>("url");
-  const [urlBusy, setUrlBusy] = React.useState(false);
-  const [urlError, setUrlError] = React.useState<string | null>(null);
 
   const focusBuildAssistant = (eventName: string) => {
     window.dispatchEvent(new Event(eventName));
@@ -72,75 +66,13 @@ export default function FunctionsPanel({
 
   const closeImportModal = () => {
     setUrlOpen(false);
-    setUrlError(null);
   };
-
-  async function saveDeckTextToDeck(deckText: string) {
-    const saveRes = await fetch(`/api/decks/cards?deckId=${encodeURIComponent(deckId)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deckText }),
-    });
-    const saveJson = await saveRes.json().catch(() => ({}));
-    if (!saveRes.ok || !saveJson?.ok) {
-      throw new Error(saveJson?.error || "Could not import cards into this deck.");
-    }
-  }
 
   const completeImport = () => {
     setUrlOpen(false);
-    setUrlValue("");
-    setPasteValue("");
-    setUrlError(null);
     window.dispatchEvent(new Event("deck:changed"));
     router.refresh();
   };
-
-  async function importExternalUrl() {
-    const url = urlValue.trim();
-    if (!url) {
-      setUrlError("Paste a Moxfield or Archidekt URL first.");
-      return;
-    }
-    setUrlBusy(true);
-    setUrlError(null);
-    try {
-      const readRes = await fetch("/api/decks/import-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      const readJson = await readRes.json().catch(() => ({}));
-      if (!readRes.ok || !readJson?.ok || !readJson?.deckText) {
-        throw new Error(readJson?.error || "Could not read that deck URL.");
-      }
-
-      await saveDeckTextToDeck(String(readJson.deckText));
-      completeImport();
-    } catch (err: unknown) {
-      setUrlError(err instanceof Error ? err.message : "Import failed.");
-    } finally {
-      setUrlBusy(false);
-    }
-  }
-
-  async function importPastedDecklist() {
-    const deckText = pasteValue.trim();
-    if (!deckText) {
-      setUrlError("Paste a decklist first.");
-      return;
-    }
-    setUrlBusy(true);
-    setUrlError(null);
-    try {
-      await saveDeckTextToDeck(deckText);
-      completeImport();
-    } catch (err: unknown) {
-      setUrlError(err instanceof Error ? err.message : "Import failed.");
-    } finally {
-      setUrlBusy(false);
-    }
-  }
 
   return (
     <section className={`rounded-xl border p-3 transition-all ${
@@ -247,147 +179,13 @@ export default function FunctionsPanel({
 
       {fixOpen ? <FixNamesModal deckId={deckId} open={fixOpen} onClose={() => setFixOpen(false)} /> : null}
 
-      {urlOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="deck-import-title"
-          onClick={closeImportModal}
-        >
-          <div
-            className="w-full max-w-2xl overflow-hidden rounded-2xl border border-cyan-500/30 bg-neutral-950 shadow-2xl shadow-cyan-950/40"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="border-b border-neutral-800 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_34%),linear-gradient(135deg,rgba(88,28,135,0.3),rgba(8,47,73,0.18),rgba(0,0,0,0.2))] p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="mb-2 inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-200">
-                    Deck import
-                  </div>
-                  <h2 id="deck-import-title" className="text-xl font-black text-white">
-                    Import into this deck
-                  </h2>
-                  <p className="mt-1 max-w-xl text-sm text-neutral-300">
-                    Bring cards in from a public deck URL, pasted list, or CSV. ManaTap will parse the list and add it to this deck.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeImportModal}
-                  className="rounded-lg border border-neutral-700 bg-black/30 px-3 py-1.5 text-xs text-neutral-200 transition-colors hover:bg-neutral-800"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="p-5">
-              <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl border border-neutral-800 bg-black/35 p-1">
-                {[
-                  { key: "url" as const, label: "Deck URL", tone: "cyan" },
-                  { key: "paste" as const, label: "Paste list", tone: "amber" },
-                  { key: "csv" as const, label: "CSV", tone: "violet" },
-                ].map((tab) => {
-                  const active = importMode === tab.key;
-                  const activeClass =
-                    tab.tone === "cyan"
-                      ? "border-cyan-400/60 bg-cyan-400/15 text-cyan-100"
-                      : tab.tone === "amber"
-                        ? "border-amber-400/60 bg-amber-400/15 text-amber-100"
-                        : "border-violet-400/60 bg-violet-400/15 text-violet-100";
-                  return (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => {
-                        setImportMode(tab.key);
-                        setUrlError(null);
-                      }}
-                      className={`rounded-lg border px-3 py-2 text-sm font-bold transition-colors ${
-                        active ? activeClass : "border-transparent text-neutral-400 hover:bg-neutral-900 hover:text-white"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {importMode === "url" ? (
-                <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-4">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">
-                    Moxfield or Archidekt link
-                  </label>
-                  <input
-                    value={urlValue}
-                    onChange={(event) => setUrlValue(event.currentTarget.value)}
-                    placeholder="https://www.moxfield.com/decks/... or https://archidekt.com/decks/..."
-                    className="w-full rounded-lg border border-cyan-500/40 bg-black/50 px-3 py-2 text-sm text-white outline-none transition-colors placeholder:text-neutral-500 focus:border-cyan-300"
-                  />
-                  <p className="mt-2 text-xs text-cyan-100/75">
-                    Supports public Moxfield and Archidekt deck links, then imports through the normal ManaTap deck parser.
-                  </p>
-                </div>
-              ) : null}
-
-              {importMode === "paste" ? (
-                <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-amber-200">
-                    Paste decklist
-                  </label>
-                  <textarea
-                    value={pasteValue}
-                    onChange={(event) => setPasteValue(event.currentTarget.value)}
-                    placeholder={"1 Sol Ring\n1 Arcane Signet\n1 Command Tower\n36 Mountain"}
-                    rows={10}
-                    className="min-h-56 w-full resize-y rounded-lg border border-amber-500/35 bg-black/50 px-3 py-2 font-mono text-sm text-white outline-none transition-colors placeholder:text-neutral-500 focus:border-amber-300"
-                  />
-                  <p className="mt-2 text-xs text-amber-100/75">
-                    Handles the same line formats as the main decklist import, including quantities and basic sideboard-style sections.
-                  </p>
-                </div>
-              ) : null}
-
-              {importMode === "csv" ? (
-                <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-4">
-                  <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-violet-200">CSV import</div>
-                  <p className="mb-3 text-sm text-neutral-300">
-                    Upload a CSV from your collection or another deck tool. Use fix names afterwards if any card names need matching.
-                  </p>
-                  <DeckCsvUpload deckId={deckId} onFixNames={() => setFixOpen(true)} onDone={completeImport} label="Import CSV" />
-                </div>
-              ) : null}
-
-              {urlError ? (
-                <div className="mt-3 rounded-lg border border-red-500/35 bg-red-950/35 px-3 py-2 text-sm text-red-200">
-                  {urlError}
-                </div>
-              ) : null}
-
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={closeImportModal}
-                  className="rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 transition-colors hover:bg-neutral-800"
-                >
-                  Cancel
-                </button>
-                {importMode !== "csv" ? (
-                  <button
-                    type="button"
-                    disabled={urlBusy}
-                    onClick={importMode === "url" ? importExternalUrl : importPastedDecklist}
-                    className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-black text-black transition-colors hover:bg-cyan-300 disabled:opacity-60"
-                  >
-                    {urlBusy ? "Importing..." : "Import"}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <DeckImportReviewModal
+        deckId={deckId}
+        format={format}
+        open={urlOpen}
+        onClose={closeImportModal}
+        onDone={completeImport}
+      />
     </section>
   );
 }

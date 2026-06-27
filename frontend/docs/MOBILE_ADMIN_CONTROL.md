@@ -44,7 +44,7 @@ Routes:
 | GET | `/api/admin/mobile-command-center/ai` | App AI cost, errors, cache reuse, expensive users/routes |
 | GET | `/api/admin/mobile-command-center/users` | Supabase signups, Pro/free mix, masked recent rows |
 | GET | `/api/admin/mobile-command-center/analytics` | PostHog scanner/tool/monetization/feedback health, plus instrumentation gaps |
-| GET | `/api/admin/mobile-command-center/revenue` | RevenueCat/Stripe entitlement and webhook health |
+| GET | `/api/admin/mobile-command-center/revenue` | RevenueCat/Stripe entitlement counts, active app-sub estimate, and webhook health |
 | GET | `/api/admin/mobile-command-center/errors` | Sentry unresolved issues plus local `error_logs` |
 | GET | `/api/admin/mobile-command-center/security` | Durable rate limits, `ops_rate_limit_hit`, advisor reminders, admin audit |
 | GET | `/api/admin/mobile-command-center/feedback` | App AI reports and generic feedback caveats |
@@ -70,7 +70,7 @@ Discord send policy:
 - `Rollups` refreshes cached snapshots and alert rows, but stays quiet.
 - `Test Discord` sends one explicit manual test message.
 - **Hourly cron** posts only critical launch alerts: failed Tier-1 price jobs (`bulk_price_import`, `price_snapshot_bulk`, `deck-costs`), critical Sentry/error spikes, or missing Supabase admin config.
-- **Daily digest (22:30 UTC)** via `/api/cron/ops-report/daily` covers analytics, revenue, Discover job freshness (`meta-signals`, `commander-aggregates`, `top-cards`), rate-limit counts, and dashboard watch metrics. Only critical items are promoted into the digest watch list as launch alerts.
+- **Daily digest (22:30 UTC)** via `/api/cron/ops-report/daily` covers app/website analytics, revenue, active Stripe/app-sub counts, AI usage/cost, Discover job freshness (`meta-signals`, `commander-aggregates`, `top-cards`), rate-limit counts, and dashboard watch metrics. Only stale/degraded jobs and critical/warning items appear in the watch lines.
 - **Weekly digest (Sundays 07:00 UTC)** via `/api/cron/ops-report/weekly` covers Scryfall bulk import, legality refresh, and budget swaps freshness.
 - Hourly reminders: critical alerts can repeat after about 1 hour if they are still open or the detail changes.
 

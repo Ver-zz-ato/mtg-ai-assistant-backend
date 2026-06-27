@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHoverPreview } from "@/components/shared/HoverPreview";
 import type { ConstructedDeckResult } from "@/lib/build/collectionConstructedPayload";
+import { AI_WORKSHOP_HANDOFF_KEY, type AiWorkshopHandoff } from "@/lib/deck/ai-workshop-actions";
 
 type ConstructedDeckRow = {
   name: string;
@@ -140,6 +141,22 @@ export default function ConstructedDeckResultModal({
     await navigator.clipboard.writeText(editedDeckText);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const openAiWorkshop = () => {
+    try {
+      const handoff: AiWorkshopHandoff = {
+        deckText: editedDeckText,
+        format: result.format,
+        title: result.title,
+        sourceLabel: "Build from collection",
+      };
+      sessionStorage.setItem(AI_WORKSHOP_HANDOFF_KEY, JSON.stringify(handoff));
+    } catch {
+      // ignore
+    }
+    onClose();
+    router.push("/ai-workshop");
   };
 
   const handleCreateDeck = async () => {
@@ -348,6 +365,14 @@ export default function ConstructedDeckResultModal({
             className="rounded-lg border border-neutral-700 px-4 py-3 text-sm font-semibold text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
           >
             {copied ? "Copied" : "Copy List"}
+          </button>
+          <button
+            type="button"
+            onClick={openAiWorkshop}
+            disabled={isCreating || isRegenerating || !rows.length}
+            className="rounded-lg border border-violet-500/50 px-4 py-3 text-sm font-semibold text-violet-100 hover:bg-violet-900/30 disabled:opacity-50"
+          >
+            AI Workshop
           </button>
           {requireAuth && isGuest ? (
             <button

@@ -22,6 +22,45 @@ function getDeckId(url: string) {
   return sp.get("deckId") || sp.get("deckid") || sp.get("id");
 }
 
+type DeckCardsImportMode = "replace" | "merge";
+type DeckCardsImportRow = { deck_id: string; name: string; qty: number; zone: string };
+
+function renderDeckCardsText(formatRaw: string, rows: Array<{ name: string; qty: number; zone?: string | null }>): string {
+  const normalized = rows
+    .map((row) => ({
+      name: String(row.name || "").trim(),
+      qty: Math.max(1, Number(row.qty) || 1),
+      zone: String(row.zone || "mainboard").toLowerCase() === "sideboard" ? "sideboard" : "mainboard",
+    }))
+    .filter((row) => row.name);
+
+  if (isCommanderFormatString(formatRaw)) {
+    return normalized.map((row) => `${row.qty} ${row.name}`).join("\n");
+  }
+
+  const main = normalized.filter((row) => row.zone !== "sideboard");
+  const side = normalized.filter((row) => row.zone === "sideboard");
+  const out = ["Mainboard", ...main.map((row) => `${row.qty} ${row.name}`)];
+  if (side.length) out.push("", "Sideboard", ...side.map((row) => `${row.qty} ${row.name}`));
+  return out.join("\n");
+}
+
+async function updateDeckTextFromCards(
+  supabase: SupabaseServerClient,
+  deckId: string,
+  formatRaw: string
+) {
+  const { data: allCards } = await supabase
+    .from("deck_cards")
+    .select("name, qty, zone")
+    .eq("deck_id", deckId)
+    .order("zone", { ascending: true })
+    .order("name", { ascending: true });
+  const nextText = renderDeckCardsText(formatRaw, allCards ?? []);
+  const { error } = await supabase.from("decks").update({ deck_text: nextText }).eq("id", deckId);
+  return error;
+}
+
 function getDeckIds(url: string): string[] | null {
   const sp = new URL(url).searchParams;
   const raw = sp.get("deckIds") ?? sp.get("deck_ids");
@@ -142,11 +181,16 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function importDeckText(supabase: SupabaseServerClient, deckId: string, deckText: string) {
+async function importDeckText(
+  supabase: SupabaseServerClient,
+  deckId: string,
+  deckText: string,
+  mode: DeckCardsImportMode = "replace"
+) {
   const { data: deckMeta } = await supabase.from("decks").select("format").eq("id", deckId).maybeSingle();
   const formatRaw = String(deckMeta?.format ?? "commander");
 
-  const insertBatch: Array<{ deck_id: string; name: string; qty: number; zone: string }> = [];
+  const insertBatch: DeckCardsImportRow[] = [];
 
   if (isCommanderFormatString(formatRaw)) {
     for (const entry of parseDeckText(deckText)) {
@@ -179,10 +223,66 @@ async function importDeckText(supabase: SupabaseServerClient, deckId: string, de
     return NextResponse.json({ ok: false, error: "No cards found in decklist" }, { status: 400 });
   }
 
-  const totalCardCount = insertBatch.reduce((sum, card) => sum + Math.max(0, Number(card.qty) || 0), 0);
+  let totalCardCount = insertBatch.reduce((sum, card) => sum + Math.max(0, Number(card.qty) || 0), 0);
+  const existingRowsForMerge =
+    mode === "merge"
+      ? (
+          await supabase
+            .from("deck_cards")
+            .select("id, qty, name, zone")
+            .eq("deck_id", deckId)
+        ).data ?? []
+      : [];
+  if (mode === "merge") {
+    totalCardCount += existingRowsForMerge.reduce((sum: number, row: any) => sum + Math.max(0, Number(row.qty) || 0), 0);
+  }
   const deckHardCapMessage = getDeckHardCapMessage(totalCardCount);
   if (deckHardCapMessage) {
     return NextResponse.json({ ok: false, error: deckHardCapMessage }, { status: 400 });
+  }
+
+  if (mode === "merge") {
+    let inserted = 0;
+    let updated = 0;
+    const existingByKey = new Map<string, { id: string; qty: number; name: string; zone?: string | null }>();
+    for (const row of existingRowsForMerge as Array<{ id: string; qty: number; name: string; zone?: string | null }>) {
+      const zone = String(row.zone || "mainboard").toLowerCase() === "sideboard" ? "sideboard" : "mainboard";
+      existingByKey.set(`${zone}::${String(row.name || "").toLowerCase()}`, row);
+    }
+
+    for (const card of insertBatch) {
+      const zone = card.zone === "sideboard" ? "sideboard" : "mainboard";
+      const key = `${zone}::${card.name.toLowerCase()}`;
+      const existing = existingByKey.get(key);
+      if (existing?.id) {
+        const nextQty = Math.max(0, (Number(existing.qty) || 0) + Math.max(0, Number(card.qty) || 0));
+        const { error: upErr } = await supabase.from("deck_cards").update({ qty: nextQty }).eq("id", existing.id);
+        if (upErr) return NextResponse.json({ ok: false, error: toDeckCardsUserError(upErr.message) }, { status: 400 });
+        existing.qty = nextQty;
+        updated += 1;
+      } else {
+        const { data, error: insErr } = await supabase
+          .from("deck_cards")
+          .insert({ deck_id: deckId, name: card.name, qty: card.qty, zone })
+          .select("id, qty, name, zone")
+          .single();
+        if (insErr) return NextResponse.json({ ok: false, error: toDeckCardsUserError(insErr.message) }, { status: 400 });
+        if (data?.id) existingByKey.set(key, data as { id: string; qty: number; name: string; zone?: string | null });
+        inserted += 1;
+      }
+    }
+
+    const deckUpdateErr = await updateDeckTextFromCards(supabase, deckId, formatRaw);
+    if (deckUpdateErr) {
+      return NextResponse.json({ ok: false, error: deckUpdateErr.message }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      inserted,
+      updated,
+      deleted: 0,
+    });
   }
 
   const { error: delErr } = await supabase.from("deck_cards").delete().eq("deck_id", deckId);
@@ -226,7 +326,8 @@ export async function POST(req: NextRequest) {
 
     const deckText = typeof body?.deckText === "string" ? body.deckText : "";
     if (deckText.trim()) {
-      return await importDeckText(supabase, deckId, deckText);
+      const importMode: DeckCardsImportMode = body?.importMode === "merge" ? "merge" : "replace";
+      return await importDeckText(supabase, deckId, deckText, importMode);
     }
 
     let name = sanitizedNameForDeckPersistence(String(body?.name ?? ""));

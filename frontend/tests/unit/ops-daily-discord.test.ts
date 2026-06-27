@@ -57,8 +57,8 @@ async function testDailyOpsUsesDailyDigestWebhook() {
             },
             shared: {
               users: { new_profiles_24h: 0 },
-              revenue: { openai_actual_24h_usd: 0, openai_actual_mtd_usd: 0, stripe_subs: 0 },
-              reliability: { sentry_unresolved: 0, rate_limit_hits_24h: 0 },
+              revenue: { openai_actual_24h_usd: 0, openai_actual_mtd_usd: 0, stripe_subs: 0, app_subs: 0 },
+              reliability: { sentry_unresolved: 0, rate_limit_hits_24h: 0, rate_limit_hit_rows_24h: 0 },
             },
             counts: { critical_alerts: 0, warning_alerts: 0 },
           },
@@ -89,10 +89,12 @@ function testCompactDailyOpsLinesShape() {
       app: {
         users: { signups_24h: 0 },
         analytics: { events_seen: 3025, unique_users_24h: 5, scanner_sessions_completed: 100 },
-        ai: { calls_24h: 0 },
+        ai: { calls_24h: 0, cost_usd_24h: 0.12, error_rate_pct: 1.2 },
+        revenue: { revenuecat_grants_24h: 2 },
       },
       website: {
         analytics: {
+          unique_visitors_24h: 1811,
           first_visits_24h: 1769,
           pageviews_24h: 3200,
           signups_24h: 22,
@@ -100,12 +102,19 @@ function testCompactDailyOpsLinesShape() {
           pro_upgrade_starts_24h: 2,
           pro_upgrade_completions_24h: 1,
         },
-        ai: { calls_24h: 909 },
+        ai: { calls_24h: 909, cost_usd_24h: 0.56, error_rate_pct: 0.4 },
       },
       shared: {
         users: { new_profiles_24h: 27 },
-        revenue: { openai_actual_24h_usd: 0, openai_actual_mtd_usd: 2.73, stripe_subs: 41 },
-        reliability: { sentry_unresolved: 3, rate_limit_hits_24h: 14 },
+        revenue: { openai_actual_24h_usd: 0.68, openai_actual_mtd_usd: 2.73, stripe_subs: 41, app_subs: 7 },
+        reliability: {
+          sentry_unresolved: 3,
+          rate_limit_hits_24h: 4,
+          rate_limit_hit_rows_24h: 14,
+          top_rate_limit_route_24h: "/api/deck/analyze",
+          top_rate_limit_route_hits_24h: 8,
+        },
+        summary: { visitors_24h: 1816, signups_24h: 22, ai_calls_24h: 909 },
       },
       counts: { critical_alerts: 0, warning_alerts: 0 },
     },
@@ -116,12 +125,17 @@ function testCompactDailyOpsLinesShape() {
   assert.ok(lines[0].includes("Daily Ops"));
   assert.ok(lines.some((line) => line.startsWith("**App**")));
   assert.ok(lines.some((line) => line.startsWith("**Website**")));
-  assert.ok(lines.some((line) => line.startsWith("**Total**")));
+  assert.ok(lines.some((line) => line.startsWith("**Summary**")));
   assert.ok(lines.some((line) => line.includes("3200 page load")));
-  assert.ok(lines.some((line) => line.includes("5 users")));
-  assert.ok(lines.some((line) => line.includes("100 scan sessions")));
+  assert.ok(lines.some((line) => line.includes("5 visitors")));
+  assert.ok(lines.some((line) => line.includes("100 scanner sessions")));
+  assert.ok(lines.some((line) => line.includes("$0.68 OpenAI actual")));
+  assert.ok(lines.some((line) => line.includes("7 app subs")));
+  assert.ok(lines.some((line) => line.includes("AI error rate: App 1.2% - Website 0.40%")));
+  assert.ok(lines.some((line) => line.includes("New Pro events: 1 website - 2 app")));
+  assert.ok(lines.some((line) => line.includes("Top rate-limited route: /api/deck/analyze (8)")));
   assert.ok(lines.some((line) => line.includes("bulk_scryfall stale")));
-  assert.ok(lines.some((line) => line.includes("Accounts = database rows")));
+  assert.ok(lines.some((line) => line.includes("DB account rows")));
 }
 
 async function main() {

@@ -8,6 +8,7 @@ import { useActiveUsers } from '@/lib/active-users-context';
 import { capture, identify } from '@/lib/ph';
 import { trackSignupStarted, trackSignupCompleted, trackFeatureDiscovered } from '@/lib/analytics-enhanced';
 import Logo from './Logo';
+import InboxLink from './InboxLink';
 import { getEmailSignupRedirectTo } from '@/lib/auth/emailVerificationRedirect';
 import { MANATAP_DISCORD_INVITE_URL } from '@/lib/manatap-links';
 
@@ -510,6 +511,9 @@ export default function Header() {
             <div className="h-[38px]" /> 
           ) : sessionUser ? (
             <div className="flex items-center gap-1.5 xl:gap-2">
+              <InboxLink
+                className="rounded-lg border border-cyan-500/35 px-2 py-1 text-[13px] text-cyan-200 hover:bg-cyan-500/10 transition-colors whitespace-nowrap shrink-0 xl:px-3 xl:py-1.5 xl:text-sm"
+              />
               <Link
                 href="/profile"
                 prefetch={false}
@@ -742,6 +746,12 @@ export default function Header() {
             >
               My Wishlist
             </Link>
+            {isHydrated && sessionUser ? (
+              <InboxLink
+                className="block min-h-[44px] py-2 px-2 text-sm text-cyan-300 font-medium rounded transition-all hover:bg-cyan-300/10 flex items-center touch-manipulation"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+            ) : null}
 
             {!isHydrated ? (
               <div className="h-[100px]" />

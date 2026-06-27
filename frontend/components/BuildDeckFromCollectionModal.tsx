@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import CardAutocomplete from "./CardAutocomplete";
@@ -106,6 +106,7 @@ export default function BuildDeckFromCollectionModal({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<DeckPreviewResult | null>(null);
+  const activeControllerRef = useRef<AbortController | null>(null);
 
   // Guided mode
   const [commander, setCommander] = useState("");
@@ -147,6 +148,36 @@ export default function BuildDeckFromCollectionModal({
   const [constructedSeedSkeleton, setConstructedSeedSkeleton] = useState<CollectionDeckSkeleton | null>(null);
 
   useEffect(() => {
+    return () => {
+      activeControllerRef.current?.abort();
+      activeControllerRef.current = null;
+    };
+  }, []);
+
+  const beginGeneration = () => {
+    activeControllerRef.current?.abort();
+    const controller = new AbortController();
+    activeControllerRef.current = controller;
+    setLoading(true);
+    setError(null);
+    return controller;
+  };
+
+  const finishGeneration = (controller: AbortController) => {
+    if (activeControllerRef.current === controller) {
+      activeControllerRef.current = null;
+      setLoading(false);
+    }
+  };
+
+  const cancelGeneration = () => {
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = null;
+    setLoading(false);
+    setError("Generation cancelled.");
+  };
+
+  useEffect(() => {
     const handoff = loadCollectionBuildQuizHandoff();
     if (!handoff) return;
     setTab("quiz");
@@ -176,8 +207,7 @@ export default function BuildDeckFromCollectionModal({
     quizAnswers?: Record<string, string>;
     playstyleVibe?: string;
   }) => {
-    setLoading(true);
-    setError(null);
+    const controller = beginGeneration();
     try {
       const body =
         opts.fromQuiz && opts.profileLabel
@@ -209,6 +239,7 @@ export default function BuildDeckFromCollectionModal({
       const res = await fetch("/api/deck/generate-from-collection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify(body),
       });
       const json = await res.json();
@@ -236,9 +267,10 @@ export default function BuildDeckFromCollectionModal({
         onClose();
       }
     } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Generation failed");
     } finally {
-      setLoading(false);
+      finishGeneration(controller);
     }
   };
 
@@ -298,8 +330,7 @@ export default function BuildDeckFromCollectionModal({
   const runConstructedIdeas = async () => {
     const constructedFormat = assertCanRunConstructed();
     if (!constructedFormat) return;
-    setLoading(true);
-    setError(null);
+    const controller = beginGeneration();
     setConstructedSkeleton(null);
     setConstructedSkeletonMeta(null);
     setConstructedDeckResult(null);
@@ -308,6 +339,7 @@ export default function BuildDeckFromCollectionModal({
       const res = await fetch("/api/deck/collection-constructed-ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           collectionId,
           format: constructedFormat,
@@ -330,17 +362,17 @@ export default function BuildDeckFromCollectionModal({
       setConstructedIdeas(json.ideas);
       setConstructedIdeasMeta(json.meta || null);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Could not generate deck ideas.");
     } finally {
-      setLoading(false);
+      finishGeneration(controller);
     }
   };
 
   const runConstructedSkeleton = async () => {
     const constructedFormat = assertCanRunConstructed();
     if (!constructedFormat) return;
-    setLoading(true);
-    setError(null);
+    const controller = beginGeneration();
     setConstructedIdeas(null);
     setConstructedIdeasMeta(null);
     setConstructedDeckResult(null);
@@ -349,6 +381,7 @@ export default function BuildDeckFromCollectionModal({
       const res = await fetch("/api/deck/collection-constructed-ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           collectionId,
           format: constructedFormat,
@@ -371,9 +404,10 @@ export default function BuildDeckFromCollectionModal({
       setConstructedSkeleton(json.skeleton);
       setConstructedSkeletonMeta(json.meta || null);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Could not build a deck skeleton.");
     } finally {
-      setLoading(false);
+      finishGeneration(controller);
     }
   };
 
@@ -401,8 +435,7 @@ export default function BuildDeckFromCollectionModal({
     const seedColors = seedIdea?.colors || seedSkeleton?.colors || constructedColors;
     const source = opts?.source || (seedIdea ? "idea" : seedSkeleton ? "skeleton" : "direct");
 
-    setLoading(true);
-    setError(null);
+    const controller = beginGeneration();
     setConstructedResultSource(source);
     setConstructedSeedIdea(seedIdea || null);
     setConstructedSeedSkeleton(seedSkeleton || null);
@@ -417,6 +450,7 @@ export default function BuildDeckFromCollectionModal({
       const res = await fetch("/api/deck/generate-constructed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           format: generatedFormat,
           collectionId,
@@ -441,9 +475,10 @@ export default function BuildDeckFromCollectionModal({
       }
       setConstructedDeckResult(json as ConstructedDeckResult);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Could not build the full deck.");
     } finally {
-      setLoading(false);
+      finishGeneration(controller);
     }
   };
 
@@ -701,6 +736,13 @@ export default function BuildDeckFromCollectionModal({
               style={{ animation: "progress-bar-slide 1.5s ease-in-out infinite" }}
             />
           </div>
+          <button
+            type="button"
+            onClick={cancelGeneration}
+            className="mt-5 rounded-lg border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-800"
+          >
+            Cancel generation
+          </button>
         </div>
       )}
       <div className="bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
@@ -799,6 +841,14 @@ export default function BuildDeckFromCollectionModal({
                   Upgrade to Pro →
                 </a>
               )}
+              {!error.toLowerCase().includes("cancelled") ? (
+                <a
+                  href={`mailto:support@manatap.app?subject=${encodeURIComponent("Build from collection issue")}&body=${encodeURIComponent(error)}`}
+                  className="mt-2 block font-medium text-red-100 underline underline-offset-2 hover:text-white"
+                >
+                  Report this issue
+                </a>
+              ) : null}
             </div>
           )}
 

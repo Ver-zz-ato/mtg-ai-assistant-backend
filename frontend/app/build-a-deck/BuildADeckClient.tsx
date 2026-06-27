@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 import CardAutocomplete from "@/components/CardAutocomplete";
 import ManaSymbol from "@/components/ManaSymbol";
+import { clearBuildDeckHandoff, loadBuildDeckHandoff } from "@/lib/build/buildDeckHandoff";
 
 type BuildFormat = AnalyzeFormat;
 type Budget = "Budget" | "Moderate" | "High";
@@ -137,6 +138,21 @@ export default function BuildADeckClient() {
     setIdea(`Build a Commander deck around ${commanderParam}. Prioritize the commander's core synergies, interaction, ramp, draw, and a clear win plan.`);
     setResult(null);
     setError(null);
+  }, []);
+
+  useEffect(() => {
+    const handoff = loadBuildDeckHandoff();
+    if (!handoff) return;
+    clearBuildDeckHandoff();
+    setFormat(handoff.format);
+    if (handoff.commander) setCommander(handoff.commander);
+    if (handoff.idea) setIdea(handoff.idea);
+    if (handoff.colors?.length) setColors(handoff.colors.join(""));
+    if (handoff.budget) setBudget(handoff.budget);
+    if (handoff.power) setPower(handoff.power);
+    setResult(null);
+    setError(null);
+    setActiveStep(1);
   }, []);
 
   const isCommander = format === "Commander";
