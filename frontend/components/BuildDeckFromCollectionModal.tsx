@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import CardAutocomplete from "./CardAutocomplete";
 import { useProStatus } from "@/hooks/useProStatus";
 import { useAuth } from "@/lib/auth-context";
+import { useHoverPreview } from "@/components/shared/HoverPreview";
 import DeckGenerationResultsModal, { type DeckPreviewResult } from "./DeckGenerationResultsModal";
 import {
   QUIZ_QUESTIONS,
@@ -54,6 +55,7 @@ export default function BuildDeckFromCollectionModal({
   const router = useRouter();
   const { user } = useAuth();
   const { isPro } = useProStatus();
+  const { preview: hoverPreview, bind } = useHoverPreview();
   const [collectionItemNames, setCollectionItemNames] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [ownershipMode, setOwnershipMode] =
@@ -90,6 +92,7 @@ export default function BuildDeckFromCollectionModal({
   const [quizCommanders, setQuizCommanders] = useState<CommanderSuggestion[]>([]);
   const [quizProfile, setQuizProfile] = useState<string>("");
   const [selectedCommander, setSelectedCommander] = useState<string>("");
+  const [commanderImages, setCommanderImages] = useState<Record<string, { small?: string; normal?: string }>>({});
 
   useEffect(() => {
     const handoff = loadCollectionBuildQuizHandoff();
@@ -226,7 +229,7 @@ export default function BuildDeckFromCollectionModal({
   };
 
   const handleQuizBuild = () => {
-    const cmd = selectedCommander || quizCommanders[0]?.name;
+    const cmd = activeQuizCommander;
     if (!cmd) {
       setError("Select a commander");
       return;
@@ -246,24 +249,80 @@ export default function BuildDeckFromCollectionModal({
     collectionItemNames.map((n) => n.toLowerCase().trim())
   );
   const commandersInCollection = quizCommanders.filter((c) =>
-    inCollection.has(c.name.toLowerCase())
+    inCollection.has(c.name.toLowerCase().trim())
   );
   const commandersToShow =
     commandersInCollection.length > 0 ? commandersInCollection : quizCommanders;
+  const activeQuizCommander = selectedCommander || commandersToShow[0]?.name || "";
+  const commanderImageNames = quizDone
+    ? commandersToShow
+        .slice(0, 8)
+        .map((c) => c.name)
+        .join("|")
+    : "";
 
-  const handleCreateDeckFromPreview = async () => {
-    if (!preview) return;
+  useEffect(() => {
+    if (!commanderImageNames) return;
+    const names = commanderImageNames.split("|").filter(Boolean);
+    const missing = names.filter((name) => !commanderImages[name]);
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    fetch("/api/cards/batch-images", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names: missing }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        const next: Record<string, { small?: string; normal?: string }> = {};
+        (j?.data || []).forEach((card: { name: string; image_uris?: { small?: string; normal?: string } }) => {
+          if (card?.name && card?.image_uris) {
+            next[card.name] = {
+              small: card.image_uris.small,
+              normal: card.image_uris.normal,
+            };
+          }
+        });
+        if (Object.keys(next).length > 0) {
+          setCommanderImages((prev) => ({ ...prev, ...next }));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [commanderImageNames, commanderImages]);
+
+  const handleQuizGuided = () => {
+    const cmd = activeQuizCommander;
+    if (!cmd) {
+      setError("Select a commander");
+      return;
+    }
+    setSelectedCommander(cmd);
+    setCommander(cmd);
+    if (PLAYSTYLES.includes(quizProfile)) setPlaystyle(quizProfile);
+    setTab("guided");
+    setError(null);
+  };
+
+  const handleCreateDeckFromPreview = async (nextPreview?: DeckPreviewResult) => {
+    const deckToCreate = nextPreview ?? preview;
+    if (!deckToCreate) return;
     setCreating(true);
     try {
       const res = await fetch("/api/decks/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: preview.title,
-          format: preview.format,
-          plan: preview.plan,
-          colors: preview.colors,
-          deck_text: preview.deckText,
+          title: deckToCreate.title,
+          format: deckToCreate.format,
+          plan: deckToCreate.plan,
+          colors: deckToCreate.colors,
+          deck_text: deckToCreate.deckText,
           is_public: false,
         }),
       });
@@ -469,7 +528,7 @@ export default function BuildDeckFromCollectionModal({
                 disabled={loading || !commander.trim()}
                 className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg"
               >
-                {loading ? "Generating…" : "Generate Deck"}
+                {loading ? "Generating..." : "Generate Deck"}
               </button>
             </div>
           )}
@@ -530,35 +589,82 @@ export default function BuildDeckFromCollectionModal({
               <p className="text-sm text-neutral-400">
                 Pick a commander (prioritizing those in your collection):
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                {commandersToShow.slice(0, 8).map((c) => (
-                  <button
-                    key={c.name}
-                    onClick={() => setSelectedCommander(c.name)}
-                    className={`text-left p-3 rounded-lg border transition-colors ${
-                      selectedCommander === c.name
-                        ? "border-purple-500 bg-purple-900/30"
-                        : "border-neutral-700 hover:border-neutral-600 bg-neutral-900"
-                    }`}
-                  >
-                    <span className="font-medium text-white">{c.name}</span>
-                    {inCollection.has(c.name.toLowerCase()) && (
-                      <span className="ml-2 text-xs text-emerald-400">In collection</span>
-                    )}
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                {commandersToShow.slice(0, 8).map((c) => {
+                  const img = commanderImages[c.name];
+                  const imageSrc = img?.normal || img?.small;
+                  const hoverAttrs = imageSrc ? (bind(imageSrc) as any) : {};
+                  const selected = activeQuizCommander === c.name;
+                  return (
+                    <button
+                      key={c.name}
+                      onMouseEnter={hoverAttrs.onMouseEnter as any}
+                      onMouseMove={hoverAttrs.onMouseMove as any}
+                      onMouseLeave={hoverAttrs.onMouseLeave as any}
+                      onClick={() => {
+                        setSelectedCommander(c.name);
+                        window.dispatchEvent(new Event("manatap-hide-hover-preview"));
+                      }}
+                      className={`group flex min-h-[72px] items-center gap-3 text-left p-2 rounded-lg border transition-colors ${
+                        selected
+                          ? "border-purple-500 bg-purple-900/30"
+                          : "border-neutral-700 hover:border-neutral-600 bg-neutral-900"
+                      }`}
+                    >
+                      <span className="h-14 w-10 overflow-hidden rounded bg-neutral-800 border border-neutral-700 flex-shrink-0">
+                        {imageSrc ? (
+                          <img
+                            src={img?.small || imageSrc}
+                            alt={c.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-[10px] text-neutral-500">
+                            {c.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-white">{c.name}</span>
+                        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className="text-neutral-400">{c.archetype}</span>
+                          {typeof c.matchPct === "number" && (
+                            <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-purple-200">
+                              {c.matchPct}% match
+                            </span>
+                          )}
+                          {inCollection.has(c.name.toLowerCase().trim()) && (
+                            <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-emerald-300">
+                              In collection
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-              <button
-                onClick={handleQuizBuild}
-                disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg"
-              >
-                {loading ? "Generating…" : "Generate Deck"}
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={handleQuizGuided}
+                  disabled={loading || !activeQuizCommander}
+                  className="w-full py-3 border border-purple-500/60 bg-purple-950/40 hover:bg-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed text-purple-100 font-bold rounded-lg"
+                >
+                  Use in Guided Builder
+                </button>
+                <button
+                  onClick={handleQuizBuild}
+                  disabled={loading || !activeQuizCommander}
+                  className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg"
+                >
+                  {loading ? "Generating..." : "Build It For Me"}
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
+      {hoverPreview}
     </div>
   );
 

@@ -350,19 +350,20 @@ export default function PlaystyleQuizResults({
     }
   };
 
-  const handleCreateDeckFromPreview = async () => {
-    if (!preview) return;
+  const handleCreateDeckFromPreview = async (nextPreview?: DeckPreviewResult) => {
+    const deckToCreate = nextPreview ?? preview;
+    if (!deckToCreate) return;
     setCreating(true);
     try {
       const res = await fetch('/api/decks/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: preview.title,
-          format: preview.format,
-          plan: preview.plan,
-          colors: preview.colors,
-          deck_text: preview.deckText,
+          title: deckToCreate.title,
+          format: deckToCreate.format,
+          plan: deckToCreate.plan,
+          colors: deckToCreate.colors,
+          deck_text: deckToCreate.deckText,
           is_public: false,
         }),
       });

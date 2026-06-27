@@ -4,6 +4,8 @@
 
 import { normalizeScryfallCacheName } from "@/lib/server/scryfallCacheRow";
 import { norm, totalDeckQty, trimDeckToMaxQty } from "@/lib/deck/generation-helpers";
+import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
+import type { SfCard } from "@/lib/deck/inference";
 
 export type CollectionOwnershipMode = "collection_only" | "mostly_collection" | "best_with_missing";
 
@@ -133,6 +135,63 @@ export function filterDeckToCollectionOwnership(
     }
   }
   return { cards: kept, removed };
+}
+
+function resolveDetailEntry<T>(details: Map<string, T>, name: string): T | undefined {
+  const key = cardOwnerNormKey(name);
+  const exact = details.get(key) ?? details.get(norm(name));
+  if (exact) return exact;
+  for (const [candidateKey, value] of details.entries()) {
+    if (cardOwnerNormKey(candidateKey) === key || norm(candidateKey) === norm(name)) return value;
+  }
+  return undefined;
+}
+
+export function filterDeckToCommanderColorIdentity(
+  cards: Array<{ name: string; qty: number }>,
+  details: Map<string, Pick<SfCard, "color_identity">>,
+  allowedColors: string[],
+  options: {
+    commanderName?: string | null;
+    commanderKnown: boolean;
+    keepUnknown?: boolean;
+  }
+): {
+  cards: Array<{ name: string; qty: number }>;
+  removed: Array<{ name: string; qty: number }>;
+  skipped: boolean;
+} {
+  if (!options.commanderKnown) {
+    return { cards, removed: [], skipped: true };
+  }
+
+  const cmdKey = options.commanderName?.trim() ? cardOwnerNormKey(options.commanderName) : null;
+  const keepUnknown = options.keepUnknown ?? true;
+  const kept: Array<{ name: string; qty: number }> = [];
+  const removed: Array<{ name: string; qty: number }> = [];
+
+  for (const card of cards) {
+    const nk = cardOwnerNormKey(card.name);
+    if (cmdKey && nk === cmdKey) {
+      kept.push(card);
+      continue;
+    }
+
+    const entry = resolveDetailEntry(details, card.name);
+    if (!entry) {
+      if (keepUnknown) kept.push(card);
+      else removed.push(card);
+      continue;
+    }
+
+    if (isWithinColorIdentity(entry as SfCard, allowedColors)) {
+      kept.push(card);
+    } else {
+      removed.push(card);
+    }
+  }
+
+  return { cards: kept, removed, skipped: false };
 }
 
 function ownedBasicsPool(

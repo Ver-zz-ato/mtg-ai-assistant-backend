@@ -13,6 +13,13 @@ import { trimCardsToFreeLimit, wouldExceedCollectionLimit } from "@/lib/pro-stor
 import { useProStatus } from "@/components/ProContext";
 
 type ImportMode = 'new' | 'existing';
+type CollectionListRow = { id: string; name?: string };
+type ParsedCollectionCard = { name: string; qty?: number };
+type CollectionParseReport = { detectedFormat?: string } & Record<string, unknown>;
+type FuzzyMatchResult = Pick<
+  PreviewCard,
+  'matchStatus' | 'suggestedName' | 'confidence' | 'scryfallData'
+>;
 
 export default function CollectionCsvUpload({ 
   collectionId, 
@@ -24,7 +31,7 @@ export default function CollectionCsvUpload({
   mode?: ImportMode;
 }) {
   const [busy, setBusy] = useState(false);
-  const [report, setReport] = useState<{added:number;updated:number;skipped:string[];total:number;parser?:any} | null>(null);
+  const [report, setReport] = useState<{added:number;updated:number;skipped:string[];total:number;parser?:CollectionParseReport} | null>(null);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -39,6 +46,8 @@ export default function CollectionCsvUpload({
   const [targetCollectionId, setTargetCollectionId] = useState<string>('');
   const [collectionName, setCollectionName] = useState<string>('');
   const [currentCollectionQty, setCurrentCollectionQty] = useState(0);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { isPro, loading: proLoading } = useProStatus();
 
@@ -86,6 +95,113 @@ export default function CollectionCsvUpload({
     inputRef.current?.click();
   }
 
+  async function preparePreviewFromText(text: string, collectionNameHint: string) {
+    let actualCollectionId = collectionId;
+    let actualCollectionName = '';
+
+    if (mode === 'new' || collectionId === 'prompt') {
+      setProgress(10);
+      setStatusText('Creating new collection...');
+
+      actualCollectionName = collectionNameHint.trim() || 'Imported Collection';
+
+      const createRes = await fetch('/api/collections/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: actualCollectionName }),
+      });
+
+      const createJson = await createRes.json() as { ok?: boolean; id?: string; error?: string };
+      if (await handleProStorageLimitPayload(createJson)) {
+        throw new Error(createJson?.error || 'Collection limit reached');
+      }
+      if (!createRes.ok || !createJson?.ok || !createJson.id) {
+        throw new Error(createJson?.error || 'Failed to create collection');
+      }
+
+      actualCollectionId = createJson.id;
+      console.log('Created new collection:', actualCollectionId, actualCollectionName);
+    } else {
+      const colRes = await fetch(`/api/collections/list`);
+      const colJson = await colRes.json() as { ok?: boolean; collections?: CollectionListRow[] };
+      if (colRes.ok && colJson?.ok) {
+        const found = colJson.collections?.find((c) => c.id === actualCollectionId);
+        actualCollectionName = found?.name || '';
+      }
+    }
+
+    setTargetCollectionId(actualCollectionId);
+    setCollectionName(actualCollectionName);
+    const existingQty = await loadCollectionQty(actualCollectionId);
+    setCurrentCollectionQty(existingQty);
+
+    setProgress(20);
+    setStatusText('Parsing CSV...');
+    const parseRes = await fetch('/api/collections/parse-csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+
+    const parseJson = await parseRes.json() as { ok?: boolean; error?: string; rows?: ParsedCollectionCard[] };
+    if (!parseRes.ok || !parseJson?.ok) {
+      throw new Error(parseJson?.error || 'Failed to parse CSV');
+    }
+
+    const parsedCards = parseJson.rows || [];
+    if (!parsedCards.length) {
+      throw new Error('No cards found in that list');
+    }
+
+    setProgress(40);
+    setStatusText(`Verifying ${parsedCards.length} cards with Scryfall...`);
+
+    const cardNames = parsedCards.map((c) => c.name);
+    const results: FuzzyMatchResult[] = [];
+    const matchBatchSize = 200;
+    for (let i = 0; i < cardNames.length; i += matchBatchSize) {
+      const batch = cardNames.slice(i, i + matchBatchSize);
+      const matchRes = await fetch('/api/collections/fuzzy-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: batch }),
+      });
+
+      const matchJson = await matchRes.json() as { ok?: boolean; error?: string; results?: FuzzyMatchResult[] };
+      if (!matchRes.ok || !matchJson?.ok) {
+        throw new Error(matchJson?.error || 'Failed to verify cards');
+      }
+
+      results.push(...(matchJson.results || []));
+      setProgress(40 + Math.floor((Math.min(i + matchBatchSize, cardNames.length) / cardNames.length) * 40));
+    }
+
+    const preview: PreviewCard[] = parsedCards.map((card, index) => {
+      const matchResult = results[index] || {};
+      const matchStatus = matchResult.matchStatus || 'notfound';
+      return {
+        originalName: card.name,
+        quantity: card.qty || 1,
+        matchStatus,
+        suggestedName: matchResult.suggestedName,
+        confidence: matchResult.confidence,
+        selected: matchStatus !== 'notfound',
+        scryfallData: matchResult.scryfallData,
+      };
+    });
+
+    setPreviewCards(preview);
+    setProgress(100);
+    setStatusText('');
+    setBusy(false);
+    setPreviewPhase('review');
+    setImportSummary(null);
+    setShowPreview(true);
+
+    const importQty = sumSelectedQty(preview);
+    notifyCollectionSizeLimitChoice(importQty, existingQty, 'merge');
+  }
+
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) {
@@ -119,11 +235,11 @@ export default function CollectionCsvUpload({
           body: JSON.stringify({ name: actualCollectionName }),
         });
         
-        const createJson = await createRes.json();
+        const createJson = await createRes.json() as { ok?: boolean; id?: string; error?: string };
         if (await handleProStorageLimitPayload(createJson)) {
           throw new Error(createJson?.error || 'Collection limit reached');
         }
-        if (!createRes.ok || !createJson?.ok) {
+        if (!createRes.ok || !createJson?.ok || !createJson.id) {
           throw new Error(createJson?.error || 'Failed to create collection');
         }
         
@@ -132,9 +248,9 @@ export default function CollectionCsvUpload({
       } else {
         // Get collection name for existing collection
         const colRes = await fetch(`/api/collections/list`);
-        const colJson = await colRes.json();
+        const colJson = await colRes.json() as { ok?: boolean; collections?: CollectionListRow[] };
         if (colRes.ok && colJson?.ok) {
-          const found = colJson.collections.find((c: any) => c.id === actualCollectionId);
+          const found = colJson.collections?.find((c) => c.id === actualCollectionId);
           actualCollectionName = found?.name || '';
         }
       }
@@ -154,7 +270,7 @@ export default function CollectionCsvUpload({
         body: JSON.stringify({ text }),
       });
       
-      const parseJson = await parseRes.json();
+      const parseJson = await parseRes.json() as { ok?: boolean; error?: string; rows?: ParsedCollectionCard[] };
       if (!parseRes.ok || !parseJson?.ok) {
         throw new Error(parseJson?.error || 'Failed to parse CSV');
       }
@@ -165,8 +281,8 @@ export default function CollectionCsvUpload({
       setProgress(40);
       setStatusText(`Verifying ${parsedCards.length} cards with Scryfall...`);
       
-      const cardNames = parsedCards.map((c: any) => c.name);
-      const results: any[] = [];
+      const cardNames = parsedCards.map((c) => c.name);
+      const results: FuzzyMatchResult[] = [];
       const matchBatchSize = 200;
       for (let i = 0; i < cardNames.length; i += matchBatchSize) {
         const batch = cardNames.slice(i, i + matchBatchSize);
@@ -176,7 +292,7 @@ export default function CollectionCsvUpload({
           body: JSON.stringify({ names: batch }),
         });
         
-        const matchJson = await matchRes.json();
+        const matchJson = await matchRes.json() as { ok?: boolean; error?: string; results?: FuzzyMatchResult[] };
         if (!matchRes.ok || !matchJson?.ok) {
           throw new Error(matchJson?.error || 'Failed to verify cards');
         }
@@ -186,15 +302,16 @@ export default function CollectionCsvUpload({
       }
       
       // Build preview cards
-      const preview: PreviewCard[] = parsedCards.map((card: any, index: number) => {
+      const preview: PreviewCard[] = parsedCards.map((card, index) => {
         const matchResult = results[index] || {};
+        const matchStatus = matchResult.matchStatus || 'notfound';
         return {
           originalName: card.name,
           quantity: card.qty || 1,
-          matchStatus: matchResult.matchStatus || 'notfound',
+          matchStatus,
           suggestedName: matchResult.suggestedName,
           confidence: matchResult.confidence,
-          selected: matchResult.matchStatus !== 'notfound', // Auto-select found cards
+          selected: matchStatus !== 'notfound', // Auto-select found cards
           scryfallData: matchResult.scryfallData,
         };
       });
@@ -212,14 +329,41 @@ export default function CollectionCsvUpload({
       const importQty = sumSelectedQty(preview);
       notifyCollectionSizeLimitChoice(importQty, existingQty, 'merge');
       
-    } catch (e: any) {
+    } catch (e: unknown) {
       trackCollectionImportWorkflow('abandoned', { current_step: 3, abandon_reason: 'parse_failed' });
-      toast(e?.message || "Upload failed", 'error');
+      toast(e instanceof Error ? e.message : "Upload failed", 'error');
       setBusy(false);
       setStatusText('');
       setProgress(0);
     } finally {
       if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function handlePastePreview() {
+    const text = pasteText.trim();
+    const { toast } = await import('@/lib/toast-client');
+    if (!text) {
+      toast('Paste a CSV list first', 'warning');
+      return;
+    }
+
+    trackCollectionImportWorkflow('started', { source: 'paste' });
+    trackCollectionImportWorkflow('file_selected', { source: 'paste', text_length: text.length });
+    setBusy(true);
+    setReport(null);
+    setProgress(0);
+    setStatusText('Parsing pasted list...');
+
+    try {
+      await preparePreviewFromText(text, 'Pasted Collection');
+      setPasteOpen(false);
+    } catch (e: unknown) {
+      trackCollectionImportWorkflow('abandoned', { current_step: 3, abandon_reason: 'parse_failed', source: 'paste' });
+      toast(e instanceof Error ? e.message : "Paste import failed", 'error');
+      setBusy(false);
+      setStatusText('');
+      setProgress(0);
     }
   }
 
@@ -305,8 +449,8 @@ export default function CollectionCsvUpload({
         try { capture("collection_imported"); } catch {}
       }
       
-    } catch (e: any) {
-      toast(e?.message || "Import failed", 'error');
+    } catch (e: unknown) {
+      toast(e instanceof Error ? e.message : "Import failed", 'error');
       setBusy(false);
       setStatusText('');
       setProgress(0);
@@ -459,9 +603,9 @@ export default function CollectionCsvUpload({
         try { capture("collection_imported"); } catch {}
       }
       
-    } catch (e: any) {
+    } catch (e: unknown) {
       trackCollectionImportWorkflow('abandoned', { current_step: 4, abandon_reason: 'import_failed' });
-      toast(e?.message || "Import failed", 'error');
+      toast(e instanceof Error ? e.message : "Import failed", 'error');
       setBusy(false);
       setPreviewPhase('review');
       setStatusText('');
@@ -481,7 +625,7 @@ export default function CollectionCsvUpload({
 
   return (
     <>
-      <div className="space-y-2">
+      <div className="relative space-y-2">
         <div className="flex items-center gap-2">
           <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChange} />
           <button onClick={onPick} disabled={busy} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-medium transition-all shadow-md hover:shadow-lg min-w-[100px] disabled:opacity-50">
@@ -496,6 +640,14 @@ export default function CollectionCsvUpload({
                 <span>{mode === 'new' ? "Import a New Collection" : "Import CSV"}</span>
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPasteOpen((open) => !open)}
+            disabled={busy}
+            className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20 text-xs font-medium transition-all disabled:opacity-50"
+          >
+            {pasteOpen ? 'Hide Paste' : 'Paste List'}
           </button>
           {report && !busy && (
             <span className="text-xs text-muted-foreground">
@@ -516,13 +668,47 @@ export default function CollectionCsvUpload({
                 ?
               </button>
               <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-950 p-3 text-left text-xs leading-5 text-neutral-300 shadow-xl group-hover:block group-focus-within:block">
-                TCGPlayer, CardKingdom, Moxfield, Archidekt, generic CSV with name/quantity columns, or plain text like "2 Lightning Bolt".
+                TCGPlayer, CardKingdom, Moxfield, Archidekt, generic CSV with name/quantity columns, or plain text like &quot;2 Lightning Bolt&quot;.
               </span>
             </span>
           )}
         </div>
         
-        {/* Progress bar — only while parsing file, not during modal import */}
+        {pasteOpen && (
+          <div className="absolute right-0 top-full z-40 mt-2 w-[calc(100vw-2rem)] max-w-lg rounded-xl border border-amber-500/30 bg-neutral-950 p-3 shadow-2xl shadow-black/50">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-amber-200">
+              Paste CSV or card list
+            </label>
+            <textarea
+              value={pasteText}
+              onChange={(event) => setPasteText(event.currentTarget.value)}
+              placeholder={"Deck,Quantity,Card Name\nCloud,1,\"Cloud, Planet's Champion\"\nCloud,2,Coeurl"}
+              rows={8}
+              disabled={busy}
+              className="min-h-44 w-full resize-y rounded-lg border border-amber-500/35 bg-black/50 px-3 py-2 font-mono text-sm text-white outline-none transition-colors placeholder:text-neutral-500 focus:border-amber-300 disabled:opacity-60"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPasteOpen(false)}
+                disabled={busy}
+                className="rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 transition-colors hover:bg-neutral-800 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePastePreview}
+                disabled={busy || !pasteText.trim()}
+                className="rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-black transition-colors hover:bg-amber-300 disabled:opacity-60"
+              >
+                {busy ? 'Parsing...' : 'Preview Import'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Progress bar - only while parsing file, not during modal import */}
         {showHeaderProgress && (
           <div className="w-full bg-neutral-800 rounded-full h-2 overflow-hidden">
             <div 

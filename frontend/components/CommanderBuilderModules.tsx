@@ -105,19 +105,20 @@ export default function CommanderBuilderModules() {
     }
   };
 
-  const handleModuleDCreateDeck = async () => {
-    if (!moduleDPreview) return;
+  const handleModuleDCreateDeck = async (nextPreview?: DeckPreviewResult) => {
+    const deckToCreate = nextPreview ?? moduleDPreview;
+    if (!deckToCreate) return;
     setModuleDCreating(true);
     try {
       const res = await fetch("/api/decks/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: moduleDPreview.title,
-          format: moduleDPreview.format,
-          plan: moduleDPreview.plan,
-          colors: moduleDPreview.colors,
-          deck_text: moduleDPreview.deckText,
+          title: deckToCreate.title,
+          format: deckToCreate.format,
+          plan: deckToCreate.plan,
+          colors: deckToCreate.colors,
+          deck_text: deckToCreate.deckText,
           is_public: false,
         }),
       });
@@ -174,19 +175,20 @@ export default function CommanderBuilderModules() {
     }
   };
 
-  const handleModuleCCreateDeck = async () => {
-    if (!moduleCPreview) return;
+  const handleModuleCCreateDeck = async (nextPreview?: DeckPreviewResult) => {
+    const deckToCreate = nextPreview ?? moduleCPreview;
+    if (!deckToCreate) return;
     setModuleCCreating(true);
     try {
       const res = await fetch("/api/decks/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: moduleCPreview.title,
-          format: moduleCPreview.format,
-          plan: moduleCPreview.plan,
-          colors: moduleCPreview.colors,
-          deck_text: moduleCPreview.deckText,
+          title: deckToCreate.title,
+          format: deckToCreate.format,
+          plan: deckToCreate.plan,
+          colors: deckToCreate.colors,
+          deck_text: deckToCreate.deckText,
           is_public: false,
         }),
       });

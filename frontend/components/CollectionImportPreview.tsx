@@ -174,7 +174,7 @@ export default function CollectionImportPreview({
                   'bg-green-600/20 border-green-600/30 text-green-300'
                 )}
               >
-                ✅ {exactMatches} Exact
+                ✅ {exactMatches} unique exact
               </button>
             )}
             {fuzzyMatches > 0 && (
@@ -187,7 +187,7 @@ export default function CollectionImportPreview({
                   'bg-yellow-600/20 border-yellow-600/30 text-yellow-300'
                 )}
               >
-                ⚠️ {fuzzyMatches} Fuzzy
+                ⚠️ {fuzzyMatches} unique fuzzy
               </button>
             )}
             {notFound > 0 && (
@@ -200,11 +200,11 @@ export default function CollectionImportPreview({
                   'bg-red-600/20 border-red-600/30 text-red-300'
                 )}
               >
-                ❌ {notFound} Not Found
+                ❌ {notFound} unique not found
               </button>
             )}
             <div className="px-3 py-1.5 rounded-lg bg-blue-600/20 border border-blue-600/30 text-blue-300">
-              📦 {selectedCount} Selected ({totalCards} cards)
+              Selected: {selectedCount} unique cards / {totalCards} total cards
             </div>
             {matchFilter !== 'all' && (
               <button
@@ -223,7 +223,7 @@ export default function CollectionImportPreview({
               <p className="text-amber-100/90">
                 {canImportPartial ? (
                   <>
-                    You selected {totalCards} cards, but free collections hold up to {FREE_COLLECTION_CARD_LIMIT} cards.
+                    You selected {totalCards} total cards ({selectedCount} unique), but free collections hold up to {FREE_COLLECTION_CARD_LIMIT} cards.
                     {' '}Import the first <strong>{cappedImportQty}</strong> now ({cappedSkippedQty} will be skipped), or upgrade to Pro for unlimited size.
                   </>
                 ) : (
@@ -317,7 +317,7 @@ export default function CollectionImportPreview({
             />
             <span className="text-sm font-medium text-white">
               Select All ({visibleEntries.length}
-              {matchFilter !== 'all' ? ` of ${previewCards.length}` : ''} cards)
+              {matchFilter !== 'all' ? ` of ${previewCards.length}` : ''} unique)
             </span>
           </div>
 
@@ -422,7 +422,7 @@ export default function CollectionImportPreview({
               {exceedsFreeLimit && canImportPartial ? (
                 <>Choose: import first {cappedImportQty} cards (free) or upgrade to Pro for all {totalCards}</>
               ) : importMode === 'merge' ? (
-                <>Adding {totalCards} cards to your collection</>
+                <>Adding {totalCards} total cards ({selectedCount} unique) to your collection</>
               ) : (
                 <span className="text-red-400">⚠️ This will replace your existing collection</span>
               )}

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   filterDeckToCollectionOwnership,
   normalizeCommanderDeckQtyForCollection,
+  filterDeckToCommanderColorIdentity,
   resolveCollectionOwnershipMode,
   resolveDeckShapeBuildMode,
   computeCollectionFitSummary,
@@ -35,6 +36,65 @@ assert.deepEqual(
   ["Sol Ring", "Forest"]
 );
 assert.equal(filtered.removed.length, 1);
+
+const cloudIdentityDetails = new Map([
+  [cardOwnerNormKey("Cloud, Planet's Champion"), { color_identity: ["W", "R"] }],
+  [cardOwnerNormKey("Battlefield Forge"), { color_identity: ["W", "R"] }],
+  [cardOwnerNormKey("Breeding Pool"), { color_identity: ["G", "U"] }],
+  [cardOwnerNormKey("Arcane Signet"), { color_identity: [] }],
+  [cardOwnerNormKey("Mountain"), { color_identity: ["R"] }],
+  [cardOwnerNormKey("Forest"), { color_identity: ["G"] }],
+]);
+const cloudFiltered = filterDeckToCommanderColorIdentity(
+  [
+    { name: "Cloud, Planet's Champion", qty: 1 },
+    { name: "Battlefield Forge", qty: 1 },
+    { name: "Breeding Pool", qty: 1 },
+    { name: "Arcane Signet", qty: 1 },
+    { name: "Mountain", qty: 8 },
+    { name: "Forest", qty: 8 },
+  ],
+  cloudIdentityDetails,
+  ["W", "R"],
+  { commanderName: "Cloud, Planet's Champion", commanderKnown: true }
+);
+assert.deepEqual(
+  cloudFiltered.cards.map((c) => c.name),
+  ["Cloud, Planet's Champion", "Battlefield Forge", "Arcane Signet", "Mountain"]
+);
+assert.deepEqual(
+  cloudFiltered.removed.map((c) => c.name),
+  ["Breeding Pool", "Forest"]
+);
+
+const colorlessFiltered = filterDeckToCommanderColorIdentity(
+  [
+    { name: "Kozilek, the Great Distortion", qty: 1 },
+    { name: "Sol Ring", qty: 1 },
+    { name: "Mountain", qty: 1 },
+  ],
+  new Map([
+    [cardOwnerNormKey("Kozilek, the Great Distortion"), { color_identity: [] }],
+    [cardOwnerNormKey("Sol Ring"), { color_identity: [] }],
+    [cardOwnerNormKey("Mountain"), { color_identity: ["R"] }],
+  ]),
+  [],
+  { commanderName: "Kozilek, the Great Distortion", commanderKnown: true }
+);
+assert.deepEqual(
+  colorlessFiltered.cards.map((c) => c.name),
+  ["Kozilek, the Great Distortion", "Sol Ring"]
+);
+assert.deepEqual(colorlessFiltered.removed.map((c) => c.name), ["Mountain"]);
+
+const unknownCommanderFiltered = filterDeckToCommanderColorIdentity(
+  [{ name: "Forest", qty: 1 }],
+  new Map([[cardOwnerNormKey("Forest"), { color_identity: ["G"] }]]),
+  [],
+  { commanderName: "Mystery Commander", commanderKnown: false }
+);
+assert.equal(unknownCommanderFiltered.skipped, true);
+assert.deepEqual(unknownCommanderFiltered.cards, [{ name: "Forest", qty: 1 }]);
 
 const paddedQty = new Map<string, number>([
   [cardOwnerNormKey("Sol Ring"), 1],

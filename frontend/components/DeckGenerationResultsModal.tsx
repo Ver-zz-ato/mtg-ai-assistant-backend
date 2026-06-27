@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useHoverPreview } from "@/components/shared/HoverPreview";
 
@@ -18,10 +18,18 @@ export type DeckPreviewResult = {
 interface DeckGenerationResultsModalProps {
   preview: DeckPreviewResult;
   onClose: () => void;
-  onCreateDeck?: () => void;
+  onCreateDeck?: (preview: DeckPreviewResult) => void | Promise<void>;
   isCreating?: boolean;
   requireAuth?: boolean;
   isGuest?: boolean;
+}
+
+function normalizeQty(qty: number): number {
+  return Math.max(1, Math.floor(Number(qty) || 1));
+}
+
+function renderDeckText(decklist: DeckPreviewResult["decklist"]): string {
+  return decklist.map((card) => `${normalizeQty(card.qty)} ${card.name}`).join("\n");
 }
 
 export default function DeckGenerationResultsModal({
@@ -35,7 +43,21 @@ export default function DeckGenerationResultsModal({
   const router = useRouter();
   const { preview: hoverPreview, bind } = useHoverPreview();
   const [images, setImages] = useState<Record<string, { small?: string; normal?: string }>>({});
+  const [editedDecklist, setEditedDecklist] = useState(preview.decklist);
   const commanderImage = images[preview.commander]?.normal || images[preview.commander]?.small;
+  const totalCards = editedDecklist.reduce((sum, card) => sum + normalizeQty(card.qty), 0);
+  const editedPreview = useMemo<DeckPreviewResult>(
+    () => ({
+      ...preview,
+      decklist: editedDecklist,
+      deckText: renderDeckText(editedDecklist),
+    }),
+    [preview, editedDecklist],
+  );
+
+  useEffect(() => {
+    setEditedDecklist(preview.decklist);
+  }, [preview]);
 
   useEffect(() => {
     const names = [preview.commander, ...preview.decklist.map((c) => c.name)];
@@ -60,13 +82,14 @@ export default function DeckGenerationResultsModal({
   }, [preview.commander, preview.decklist]);
 
   const handleCreateDeck = async () => {
+    if (editedDecklist.length === 0) return;
     if (requireAuth && isGuest) {
       router.push("/login?redirect=" + encodeURIComponent(window.location.pathname));
       onClose();
       return;
     }
     if (onCreateDeck) {
-      onCreateDeck();
+      await onCreateDeck(editedPreview);
       return;
     }
     try {
@@ -74,11 +97,11 @@ export default function DeckGenerationResultsModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: preview.title,
-          format: preview.format,
-          plan: preview.plan,
-          colors: preview.colors,
-          deck_text: preview.deckText,
+          title: editedPreview.title,
+          format: editedPreview.format,
+          plan: editedPreview.plan,
+          colors: editedPreview.colors,
+          deck_text: editedPreview.deckText,
           is_public: false,
         }),
       });
@@ -96,6 +119,17 @@ export default function DeckGenerationResultsModal({
 
   const handleDiscard = () => {
     onClose();
+  };
+
+  const changeQty = (index: number, delta: number) => {
+    if (isCreating) return;
+    setEditedDecklist((cards) =>
+      cards.flatMap((card, i) => {
+        if (i !== index) return [card];
+        const nextQty = normalizeQty(card.qty) + delta;
+        return nextQty <= 0 ? [] : [{ ...card, qty: nextQty }];
+      }),
+    );
   };
 
   return (
@@ -150,14 +184,18 @@ export default function DeckGenerationResultsModal({
         {/* Card list - scrollable */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4">
           <p className="text-xs text-neutral-400 uppercase tracking-wide mb-3">
-            Cards ({preview.decklist.length})
+            Cards ({totalCards} total{totalCards !== editedDecklist.length ? `, ${editedDecklist.length} unique` : ""})
           </p>
           <div className="space-y-1 max-h-64 overflow-y-auto pr-2">
-            {preview.decklist.map((c) => {
+            {editedDecklist.length === 0 ? (
+              <div className="rounded border border-neutral-800 bg-neutral-900/60 px-3 py-4 text-sm text-neutral-400">
+                No cards selected.
+              </div>
+            ) : editedDecklist.map((c, index) => {
               const img = images[c.name];
               return (
                 <div
-                  key={c.name}
+                  key={`${c.name}-${index}`}
                   className="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-neutral-900/80 group"
                 >
                   <div className="w-8 h-11 rounded overflow-hidden bg-neutral-800 flex-shrink-0">
@@ -170,11 +208,33 @@ export default function DeckGenerationResultsModal({
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[8px] text-neutral-600">
-                        …
+                        ...
                       </div>
                     )}
                   </div>
-                  <span className="font-mono text-xs text-neutral-500 w-5">{c.qty}</span>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => changeQty(index, -1)}
+                      disabled={isCreating}
+                      className="h-7 w-7 rounded border border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-red-500/60 hover:text-red-300 disabled:opacity-50"
+                      aria-label={`Remove one ${c.name}`}
+                      title={normalizeQty(c.qty) <= 1 ? "Remove row" : "Remove one"}
+                    >
+                      -
+                    </button>
+                    <span className="font-mono text-xs text-neutral-300 w-6 text-center">{normalizeQty(c.qty)}</span>
+                    <button
+                      type="button"
+                      onClick={() => changeQty(index, 1)}
+                      disabled={isCreating}
+                      className="h-7 w-7 rounded border border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-emerald-500/60 hover:text-emerald-300 disabled:opacity-50"
+                      aria-label={`Add one ${c.name}`}
+                      title="Add one"
+                    >
+                      +
+                    </button>
+                  </div>
                   <span className="text-sm text-neutral-200 truncate flex-1">{c.name}</span>
                 </div>
               );
@@ -197,10 +257,10 @@ export default function DeckGenerationResultsModal({
           ) : (
             <button
               onClick={handleCreateDeck}
-              disabled={isCreating}
+              disabled={isCreating || editedDecklist.length === 0}
               className="flex-1 py-3 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 text-white font-semibold"
             >
-              {isCreating ? "Creating…" : "Create Deck"}
+              {isCreating ? "Creating..." : "Create Deck"}
             </button>
           )}
           <button

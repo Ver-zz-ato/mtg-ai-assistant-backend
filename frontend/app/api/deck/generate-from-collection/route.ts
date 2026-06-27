@@ -5,15 +5,12 @@ import { prepareOpenAIBody } from "@/lib/ai/openai-params";
 import { getModelForTier } from "@/lib/ai/model-by-tier";
 import { getDetailsForNamesCached } from "@/lib/server/scryfallCache";
 import { sanitizeName } from "@/lib/profanity";
-import { isWithinColorIdentity } from "@/lib/deck/mtgValidators";
-import type { SfCard } from "@/lib/deck/inference";
 import { GENERATE_FROM_COLLECTION_FREE, GENERATE_FROM_COLLECTION_PRO } from "@/lib/feature-limits";
 import { checkDurableRateLimit } from "@/lib/api/durable-rate-limit";
 import {
   norm,
   aggregateCards,
   parseAiDeckOutputLines,
-  getCommanderColorIdentity,
   totalDeckQty,
   trimDeckToMaxQty,
   extractChatCompletionContent,
@@ -34,6 +31,7 @@ import {
   computeCollectionFitSummary,
   countBasicLandSlots,
   enforceCommanderCollectionManaBase,
+  filterDeckToCommanderColorIdentity,
   filterDeckToCollectionOwnership,
   isBasicLandName,
   normalizeCommanderDeckQtyForCollection,
@@ -67,6 +65,7 @@ type CommanderBuildShapeTarget = {
 
 type CommanderQtyNormalizeOptions = Parameters<typeof normalizeCommanderDeckQtyForCollection>[2];
 type CommanderQtyNormalizeResult = ReturnType<typeof normalizeCommanderDeckQtyForCollection>;
+type CommanderIdentityResolution = { colors: string[]; known: boolean };
 
 function normalizeBuildShapeMode(buildMode: string | null | undefined): CommanderBuildShapeTarget["mode"] {
   const m = String(buildMode || "full_deck")
@@ -133,6 +132,41 @@ function fitCommanderCardsToBuildShape(
     ok: true,
     cards: totalDeckQty(cards) > target.maxQty ? trimDeckToMaxQty(cards, target.maxQty) : cards,
   };
+}
+
+async function resolveCommanderIdentity(commanderName: string): Promise<CommanderIdentityResolution> {
+  if (!commanderName?.trim()) return { colors: [], known: false };
+  const allColors = new Set<string>();
+  let known = false;
+
+  try {
+    const details = await getDetailsForNamesCached([commanderName]);
+    const fullCardData = details.get(norm(commanderName));
+    if (fullCardData) {
+      known = true;
+      if (Array.isArray(fullCardData.color_identity)) {
+        fullCardData.color_identity.forEach((c: string) => allColors.add(c.toUpperCase()));
+      }
+    }
+
+    const parts = commanderName.split(/\s*\/\/\s*/).filter(Boolean);
+    if (parts.length > 1) {
+      const partDetails = await getDetailsForNamesCached(parts);
+      for (const part of parts) {
+        const cardData = partDetails.get(norm(part));
+        if (!cardData) continue;
+        known = true;
+        if (Array.isArray(cardData.color_identity)) {
+          cardData.color_identity.forEach((c: string) => allColors.add(c.toUpperCase()));
+        }
+      }
+    }
+  } catch {
+    // Unknown identity is handled by the caller without blocking generation.
+  }
+
+  const wubrgOrder = ["W", "U", "B", "R", "G"];
+  return { colors: wubrgOrder.filter((c) => allColors.has(c)), known };
 }
 
 export const runtime = "nodejs";
@@ -429,6 +463,21 @@ export async function POST(req: NextRequest) {
         ? { totalCards: collectionTotalCards, sampleSize: collectionSampleSize }
         : null
     );
+    const promptCommanderName = commander?.trim() || "";
+    const requestedCommanderIdentity =
+      isCommanderRequest && promptCommanderName
+        ? await resolveCommanderIdentity(promptCommanderName)
+        : null;
+
+    if (requestedCommanderIdentity?.known) {
+      const identityLabel = requestedCommanderIdentity.colors.length
+        ? requestedCommanderIdentity.colors.join(", ")
+        : "colorless";
+      const forbiddenLabel = requestedCommanderIdentity.colors.length
+        ? `outside ${requestedCommanderIdentity.colors.join("")}`
+        : "with any colored color identity";
+      userPrompt = `${userPrompt}\n\nCOMMANDER COLOR IDENTITY (mandatory): ${promptCommanderName} is ${identityLabel}. Do not include cards ${forbiddenLabel}. This includes lands, hybrid cards, MDFCs, split cards, and signets/talismans.`;
+    }
 
     if (isCommanderRequest) {
       const refCommander = (commander || seedCard || "").trim();
@@ -691,35 +740,40 @@ export async function POST(req: NextRequest) {
     }
 
     const commanderName = commander?.trim() || cards[0]?.name || "Unknown";
-    const allowedColors = (await getCommanderColorIdentity(commanderName)).map((c) => c.toUpperCase());
+    const commanderIdentity =
+      commander?.trim() && requestedCommanderIdentity
+        ? requestedCommanderIdentity
+        : await resolveCommanderIdentity(commanderName);
+    const allowedColors = commanderIdentity.colors.map((c) => c.toUpperCase());
     const allNames = cards.map((c) => c.name);
     const details = await getDetailsForNamesCached(allNames);
 
     /**
-     * Empty commander identity: `isWithinColorIdentity` treats every colored card as illegal.
-     * Skip filtering so we don't return tiny 40–50 card "decks" of mostly colorless cards.
+     * Unknown commander identity cannot be validated safely.
+     * Known colorless commanders still enforce colorless-only cards.
      */
     let filtered: typeof cards;
-    if (allowedColors.length === 0) {
-      console.warn("[generate-from-collection] Skipping color-identity filter (no commander colors in cache)", {
+    if (!commanderIdentity.known) {
+      console.warn("[generate-from-collection] Skipping color-identity filter (commander not found in cache)", {
         commanderName,
       });
       filtered = cards;
     } else {
-      filtered = cards.filter((c) => {
-        const entry = details.get(norm(c.name));
-        if (!entry) return true; // Unknown cards: keep (e.g. basic lands)
-        return isWithinColorIdentity(entry as SfCard, allowedColors);
+      const identityFiltered = filterDeckToCommanderColorIdentity(cards, details, allowedColors, {
+        commanderName,
+        commanderKnown: true,
       });
-      if (totalDeckQty(filtered) < 60 && totalDeckQty(cards) >= 85) {
-        console.warn("[generate-from-collection] CI filter over-pruned; using full model list", {
+      filtered = identityFiltered.cards;
+      if (identityFiltered.removed.length > 0) {
+        console.warn("[generate-from-collection] Removed off-color cards from generated list", {
           commanderName,
+          colors: allowedColors,
           beforeRows: cards.length,
           beforeQty: totalDeckQty(cards),
           afterRows: filtered.length,
           afterQty: totalDeckQty(filtered),
+          removed: identityFiltered.removed.map((row) => row.name).slice(0, 20),
         });
-        filtered = cards;
       }
     }
 
@@ -922,6 +976,34 @@ export async function POST(req: NextRequest) {
 
     const canonicalized = await canonicalizeGeneratedDeckRows(cards);
     cards = canonicalized.rows;
+
+    if (isCommanderRequest && commanderIdentity.known) {
+      const finalDetails = await getDetailsForNamesCached(cards.map((c) => c.name));
+      const finalIdentityFiltered = filterDeckToCommanderColorIdentity(cards, finalDetails, allowedColors, {
+        commanderName,
+        commanderKnown: true,
+      });
+      if (finalIdentityFiltered.removed.length > 0) {
+        const qtyNorm = fitCommanderCardsToBuildShape(finalIdentityFiltered.cards, commanderTarget, allowedColors, {
+          ownershipMode,
+          ownerNormKeys,
+          qtyByNormKey,
+        });
+        if (!qtyNorm.ok) {
+          return NextResponse.json(
+            { ok: false, code: qtyNorm.code, error: qtyNorm.error },
+            { status: 400 }
+          );
+        }
+        cards = qtyNorm.cards;
+        console.warn("[generate-from-collection] Final color-identity guard removed cards", {
+          commanderName,
+          colors: allowedColors,
+          removed: finalIdentityFiltered.removed.map((row) => row.name).slice(0, 20),
+          totalQty: totalDeckQty(cards),
+        });
+      }
+    }
 
     if (isCommanderRequest && budgetMaxUsd != null) {
       const finalBudgetEstimate = await estimateDeckPriceUsd(supabase, cards);

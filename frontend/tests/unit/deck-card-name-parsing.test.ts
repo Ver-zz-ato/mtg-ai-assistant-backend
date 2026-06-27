@@ -69,6 +69,22 @@ assert.deepEqual(parseDeckOrCollectionCSV(moxfieldCollectionExport), [
 ]);
 assert.equal(parseCollectionCsvText(moxfieldCollectionExport).report.detectedFormat, "moxfield");
 
+const finalFantasyStarterKitExport = [
+  "Deck,Quantity,Card Name",
+  'Cloud,1,"Cloud, Planet\'s Champion"',
+  "Cloud,2,Coeurl",
+  "Cloud,3,Coeurl",
+  "Sephiroth,12,Swamp",
+].join("\n");
+
+const finalFantasyParsed = parseCollectionCsvText(finalFantasyStarterKitExport).rows;
+assert.deepEqual(finalFantasyParsed, [
+  { name: "Cloud, Planet's Champion", qty: 1 },
+  { name: "Coeurl", qty: 5 },
+  { name: "Swamp", qty: 12 },
+]);
+assert.equal(finalFantasyParsed.reduce((sum, row) => sum + row.qty, 0), 18);
+
 const archidektQuotedExport = [
   "Qty,Card,Edition,Condition,Language,Foil,Alter,Signed",
   "3,Path to Exile,Double Masters,NM,English,,FALSE,FALSE",
