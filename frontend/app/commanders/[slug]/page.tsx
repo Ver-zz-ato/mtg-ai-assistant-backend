@@ -33,6 +33,34 @@ type Props = { params: Promise<{ slug: string }> };
 
 const BASE = "https://www.manatap.ai";
 
+type CoreStapleCard = { cardName: string; count: number; percent: number };
+
+function mergeCoreStaples(
+  localCards: CoreStapleCard[],
+  externalCards: Array<{ name: string; inclusionRate: number }> | undefined,
+  externalSampleSize: number | undefined
+): CoreStapleCard[] {
+  const merged = new Map<string, CoreStapleCard>();
+  for (const card of localCards) {
+    merged.set(norm(card.cardName), card);
+  }
+  const sampleSize = Math.max(1, Number(externalSampleSize) || 1);
+  for (const card of externalCards ?? []) {
+    const name = card.name.trim();
+    if (!name) continue;
+    const key = norm(name);
+    const count = Math.max(1, Math.round(card.inclusionRate * sampleSize));
+    const percent = Math.round(card.inclusionRate * 100);
+    const existing = merged.get(key);
+    merged.set(key, {
+      cardName: existing?.cardName ?? name,
+      count: Math.max(existing?.count ?? 0, count),
+      percent: Math.max(existing?.percent ?? 0, percent),
+    });
+  }
+  return [...merged.values()].sort((a, b) => b.count - a.count || b.percent - a.percent);
+}
+
 function breadcrumbJsonLd(slug: string, name: string) {
   return JSON.stringify({
     "@context": "https://schema.org",
@@ -61,6 +89,15 @@ function humanizeSlug(slug: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function norm(s: string) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -136,14 +173,6 @@ export default async function CommanderHubPage({ params }: Props) {
     powerTier: snapshot.powerStyle,
   };
 
-  function norm(s: string) {
-    return String(s || "")
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
   const cmdImg = imgMap.get(norm(cleanName));
   const commanderArt = cmdImg?.art_crop || cmdImg?.normal || cmdImg?.small;
 
@@ -151,6 +180,11 @@ export default async function CommanderHubPage({ params }: Props) {
     ? getSynergyBullets(profile)
     : ["Ramp and card draw form the foundation", "Removal and interaction answer threats", "Browse community decks for strategy inspiration"];
   const recentDecks = aggregates?.recentDecks ?? fallback?.recentDecks ?? [];
+  const coreStaples = mergeCoreStaples(
+    aggregates?.topCards ?? [],
+    communityProfile?.commonCards,
+    communityProfile?.approvedSampleSize
+  );
 
   return (
     <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -202,11 +236,11 @@ export default async function CommanderHubPage({ params }: Props) {
           swapsUrl={swapsUrl}
         />
 
-        {aggregates && aggregates.topCards.length > 0 && (
+        {coreStaples.length > 0 && (
           <CoreStaples
-            cards={aggregates.topCards.slice(0, 12)}
+            cards={coreStaples.slice(0, 24)}
             commanderName={name}
-            deckCount={aggregates.deckCount}
+            deckCount={communityProfile?.approvedSampleSize ?? aggregates?.deckCount ?? 0}
           />
         )}
 

@@ -16,6 +16,7 @@ import { CommanderLandingShowcase } from "@/components/commander/CommanderLandin
 import { getCommanderShowcase } from "@/lib/seo/commander-showcases";
 import { getImagesForNamesCached } from "@/lib/server/scryfallCache";
 import { getCommanderAggregates } from "@/lib/commander-aggregates";
+import { getCommanderPageCommunityProfile } from "@/lib/external-deck-meta/commanderPageProfile";
 
 export async function generateStaticParams() {
   return getFirst50CommanderSlugs().map((slug) => ({ slug }));
@@ -27,6 +28,34 @@ const BASE = "https://www.manatap.ai";
 
 function norm(s: string) {
   return String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+type CoreStapleCard = { cardName: string; count: number; percent: number };
+
+function mergeCoreStaples(
+  localCards: CoreStapleCard[],
+  externalCards: Array<{ name: string; inclusionRate: number }> | undefined,
+  externalSampleSize: number | undefined
+): CoreStapleCard[] {
+  const merged = new Map<string, CoreStapleCard>();
+  for (const card of localCards) {
+    merged.set(norm(card.cardName), card);
+  }
+  const sampleSize = Math.max(1, Number(externalSampleSize) || 1);
+  for (const card of externalCards ?? []) {
+    const name = card.name.trim();
+    if (!name) continue;
+    const key = norm(name);
+    const count = Math.max(1, Math.round(card.inclusionRate * sampleSize));
+    const percent = Math.round(card.inclusionRate * 100);
+    const existing = merged.get(key);
+    merged.set(key, {
+      cardName: existing?.cardName ?? name,
+      count: Math.max(existing?.count ?? 0, count),
+      percent: Math.max(existing?.percent ?? 0, percent),
+    });
+  }
+  return [...merged.values()].sort((a, b) => b.count - a.count || b.percent - a.percent);
 }
 
 function faqJsonLd() {
@@ -99,11 +128,16 @@ export default async function BestCardsPage({ params }: Props) {
   const traps = (profile.avoid ?? []).slice(0, 3);
 
   const cleanName = name.replace(/\s*\(.*?\)\s*$/, "").trim();
-  const [imgMap, aggregates] = await Promise.all([
+  const [imgMap, aggregates, communityProfile] = await Promise.all([
     getImagesForNamesCached([cleanName]),
     getCommanderAggregates(slug),
+    getCommanderPageCommunityProfile(name).catch(() => null),
   ]);
-  const topCards = aggregates?.topCards?.slice(0, 12) ?? [];
+  const topCards = mergeCoreStaples(
+    aggregates?.topCards ?? [],
+    communityProfile?.commonCards,
+    communityProfile?.approvedSampleSize
+  );
   const cmdImg = imgMap.get(norm(cleanName));
   const commanderArt = cmdImg?.art_crop || cmdImg?.normal || cmdImg?.small;
   const showcase = getCommanderShowcase(slug, "best-cards");
@@ -175,7 +209,11 @@ export default async function BestCardsPage({ params }: Props) {
           )}
         </section>
         {topCards.length > 0 && (
-          <CoreStaples cards={topCards} commanderName={name} deckCount={aggregates?.deckCount ?? 0} />
+          <CoreStaples
+            cards={topCards.slice(0, 24)}
+            commanderName={name}
+            deckCount={communityProfile?.approvedSampleSize ?? aggregates?.deckCount ?? 0}
+          />
         )}
         <div className="space-y-6 text-neutral-300 leading-relaxed">
           {content.map((block, i) => (

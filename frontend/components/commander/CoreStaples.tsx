@@ -16,6 +16,8 @@ function norm(name: string): string {
     .trim();
 }
 
+const BASIC_LAND_NAMES = new Set(["plains", "island", "swamp", "mountain", "forest", "wastes"]);
+
 type CardItem = { cardName: string; count: number; percent: number };
 
 type Props = {
@@ -34,11 +36,24 @@ export async function CoreStaples({
   const names = cards.map((c) => c.cardName);
   const detailsMap = await getDetailsForNamesCached(names);
   const imageMap = new Map<string, { small?: string; normal?: string }>();
+  const landNames = new Set<string>();
   for (const [k, v] of detailsMap) {
+    const typeLine = String(v?.type_line ?? "").toLowerCase();
+    if (typeLine.includes("land")) {
+      landNames.add(norm(k));
+      continue;
+    }
     const small = v?.image_uris?.small;
     const normal = v?.image_uris?.normal;
     if (small || normal) imageMap.set(norm(k), { small, normal });
   }
+  const displayCards = cards
+    .filter((card) => {
+      const key = norm(card.cardName);
+      return !BASIC_LAND_NAMES.has(key) && !landNames.has(key);
+    })
+    .slice(0, 12);
+  if (displayCards.length === 0) return null;
 
   const showPercent = shouldShowPercentInCoreStaples(deckCount);
 
@@ -53,7 +68,7 @@ export async function CoreStaples({
           : `Early ManaTap sample for ${commanderName}; percentages unlock once the sample is larger.`}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
-        {cards.map((c, i) => {
+        {displayCards.map((c, i) => {
           const image = imageMap.get(norm(c.cardName));
           const imgUrl = image?.small ?? image?.normal;
           return (
