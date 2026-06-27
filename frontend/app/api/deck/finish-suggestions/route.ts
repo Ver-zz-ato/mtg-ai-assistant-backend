@@ -63,7 +63,10 @@ type FinishBody = {
   colors?: string[];
   maxSuggestions?: number;
   budget?: "budget" | "balanced" | "premium";
+  collectionMode?: CollectionMode;
 };
+
+type CollectionMode = "any" | "prefer_owned" | "owned_only";
 
 type CachedSuggestionDetail = SfCard & { legalities?: { [formatKey: string]: string } | null };
 
@@ -107,6 +110,11 @@ function normalizePriority(p: unknown): "high" | "medium" | "low" {
   const s = String(p || "").toLowerCase();
   if (s === "high" || s === "medium" || s === "low") return s;
   return "medium";
+}
+
+function resolveCollectionMode(value: unknown, userId?: string | null): CollectionMode {
+  if (value === "any" || value === "prefer_owned" || value === "owned_only") return value;
+  return userId ? "prefer_owned" : "any";
 }
 
 function looksLikeAntiRecommendation(reason: string): boolean {
@@ -175,6 +183,7 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json().catch(() => ({}))) as FinishBody;
+  const collectionMode = resolveCollectionMode(body.collectionMode, user?.id);
 
   if (body.deckId && !user) {
     return NextResponse.json({ ok: false, error: "Sign in required when deckId is provided." }, { status: 401 });
@@ -378,6 +387,12 @@ export async function POST(req: Request) {
     deckCards: deckCardsForOwnership ?? entries.map((e) => ({ name: e.name, qty: e.count })),
     sampleLimit: 24,
   });
+  if (collectionMode === "owned_only" && (!ownershipContext || !ownershipContext.hasCollection)) {
+    return NextResponse.json(
+      { ok: false, error: "Owned-only suggestions need cards in your saved collections first." },
+      { status: 400 },
+    );
+  }
   const ownershipPrompt = formatOwnershipContextForPrompt(ownershipContext);
 
   const rules = getFormatRules(analyzeFormat);
@@ -385,6 +400,13 @@ export async function POST(req: Request) {
     body.budget === "budget" ? "Prefer budget staples and lower mana bases where reasonable." :
     body.budget === "premium" ? "Premium mana bases and top-tier staples are acceptable when synergistic." :
     "Balanced upgrades — mix staples and efficient budget options.";
+
+  const ownershipInstruction =
+    collectionMode === "owned_only"
+      ? "When USER COLLECTION CONTEXT is present, suggest ONLY cards that appear in owned collection context. Every suggestion must be Owned."
+      : collectionMode === "prefer_owned"
+        ? "When USER COLLECTION CONTEXT is present, prefer owned close-fit cards first and label those reasons with 'Owned'. Separate true purchases from owned placeholders and missing buys."
+        : "When USER COLLECTION CONTEXT is present, label Owned or Missing when known, but suggestions may include missing cards.";
 
   const systemPrompt = [
     "You are ManaTap. Respond with ONLY valid JSON (no markdown outside JSON).",
@@ -395,7 +417,7 @@ export async function POST(req: Request) {
       : `Constructed: mainboard targets ${rules.mainDeckTarget} cards; max ${rules.maxCopies} copies per card except basic lands.`,
     `Suggest cards that are NOT already redundant at copy limit given the existing list.`,
     budgetTone,
-    "When USER COLLECTION CONTEXT is present, prefer owned close-fit cards first and label those reasons with 'Owned'. Separate true purchases from owned placeholders and missing buys.",
+    ownershipInstruction,
     "Only suggest realistic, playable cards that fit the deck's apparent strategy.",
     "Do not suggest cards from a different archetype just because they are generically strong or share a color.",
     "Do not suggest creature-token cards for spellslinger decks unless they directly reward casting instants/sorceries.",
@@ -548,6 +570,7 @@ export async function POST(req: Request) {
 
   const suggestionsOut: FinishSuggestionOut[] = [];
   let skippedBadQty = 0;
+  let skippedNotOwned = 0;
 
   for (const raw of parsed.suggestions.slice(0, maxSuggestions + 5)) {
     const name = String(raw.card || "").trim();
@@ -613,6 +636,10 @@ export async function POST(req: Request) {
     }
 
     const ownership = annotateOwnership(ownershipContext, name);
+    if (collectionMode === "owned_only" && ownership.ownership !== "owned") {
+      skippedNotOwned++;
+      continue;
+    }
 
     suggestionsOut.push({
       card: name,
@@ -635,6 +662,7 @@ export async function POST(req: Request) {
   }
 
   if (skippedBadQty) warnings.push(`${skippedBadQty} suggestion(s) skipped due to copy limits.`);
+  if (skippedNotOwned) warnings.push(`${skippedNotOwned} suggestion(s) skipped because they were not in your collections.`);
 
   if (admin && deckProfile && suggestionsOut.length > 0) {
     const groundedRows = await fetchTagGroundedRowsByNames(admin, suggestionsOut.map((s) => s.card));
@@ -749,6 +777,7 @@ export async function POST(req: Request) {
       route: "deck.finish-suggestions",
       generated_at: new Date().toISOString(),
       model: modelRes.model,
+      collectionMode,
     },
   });
 }

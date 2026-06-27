@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import ComputingModal from "@/components/ComputingModal";
+import WebsiteCardDetailModal from "@/components/cards/WebsiteCardDetailModal";
+import { useHoverPreview } from "@/components/shared/HoverPreview";
 import EligibleSavedDeckSelect from "@/components/tools/EligibleSavedDeckSelect";
 import { ToolInfoRail } from "@/components/tools/ToolInfoRail";
 import { useAuth } from "@/lib/auth-context";
@@ -9,10 +12,11 @@ import { useEligibleSavedDecks } from "@/hooks/useEligibleSavedDecks";
 import { countAiWorkshopDeckCards } from "@/lib/deck/ai-workshop-deck-text";
 import type { AnalyzeFormat } from "@/lib/deck/formatRules";
 import { deckFormatStringToAnalyzeFormat } from "@/lib/deck/formatRules";
-import { getAiDeckHalfwayMinimumCards, getSavedDeckTargetCount } from "@/lib/deck/tool-deck-eligibility";
+import { getSavedDeckTargetCount } from "@/lib/deck/tool-deck-eligibility";
 
 type Mode = "saved" | "paste";
 type FinishBudget = "balanced" | "budget" | "premium";
+type CollectionFit = "any" | "prefer_owned" | "owned_only";
 type Suggestion = {
   card: string;
   qty: number;
@@ -23,6 +27,7 @@ type Suggestion = {
   confidence?: number;
   estimatedUsd?: number;
   ownership?: "owned" | "missing" | "unknown";
+  ownedQty?: number;
 };
 
 const FORMATS: AnalyzeFormat[] = ["Commander", "Modern", "Pioneer", "Standard", "Pauper"];
@@ -30,6 +35,11 @@ const BUDGET_OPTIONS: Array<{ value: FinishBudget; label: string; copy: string }
   { value: "balanced", label: "Balanced", copy: "Mix staples with efficient cheaper options." },
   { value: "budget", label: "Budget", copy: "Prefer low-cost cards and cheaper mana." },
   { value: "premium", label: "Premium", copy: "Top-tier staples are acceptable when they fit." },
+];
+const COLLECTION_FIT_OPTIONS: Array<{ value: CollectionFit; label: string; copy: string }> = [
+  { value: "any", label: "Any cards", copy: "Best fit, with owned/missing labels when known." },
+  { value: "prefer_owned", label: "Prefer owned", copy: "Bias toward collection cards when they fit." },
+  { value: "owned_only", label: "Owned only", copy: "Only suggest cards found in your collections." },
 ];
 const EXAMPLE_SUGGESTIONS: Suggestion[] = [
   {
@@ -93,6 +103,8 @@ export default function FinishDeckToolClient() {
   const [format, setFormat] = useState<AnalyzeFormat>("Commander");
   const [commander, setCommander] = useState("");
   const [budget, setBudget] = useState<FinishBudget>("balanced");
+  const [collectionFit, setCollectionFit] = useState<CollectionFit>("any");
+  const [collectionFitTouched, setCollectionFitTouched] = useState(false);
   const [deckText, setDeckText] = useState("");
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -101,8 +113,11 @@ export default function FinishDeckToolClient() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [images, setImages] = useState<Record<string, { small?: string; normal?: string }>>({});
+  const [exampleImages, setExampleImages] = useState<Record<string, { small?: string; normal?: string }>>({});
+  const [detailCard, setDetailCard] = useState<{ name: string; imageSmall?: string; imageNormal?: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const { preview: hoverPreview, bind } = useHoverPreview();
 
   const activeFormat = selectedDeck && mode === "saved" ? deckFormatStringToAnalyzeFormat(selectedDeck.format) : format;
   const activeDeckText = mode === "saved" ? selectedDeck?.deckText ?? "" : deckText;
@@ -118,6 +133,11 @@ export default function FinishDeckToolClient() {
     if (authLoading || modeTouched) return;
     setMode(user ? "saved" : "paste");
   }, [authLoading, modeTouched, user]);
+
+  useEffect(() => {
+    if (authLoading || collectionFitTouched) return;
+    setCollectionFit(user ? "prefer_owned" : "any");
+  }, [authLoading, collectionFitTouched, user]);
 
   useEffect(() => {
     if (mode !== "saved") return;
@@ -147,6 +167,24 @@ export default function FinishDeckToolClient() {
       })
       .catch(() => {});
   }, [suggestions]);
+
+  useEffect(() => {
+    const names = EXAMPLE_SUGGESTIONS.map((row) => row.card);
+    fetch("/api/cards/batch-images", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        const next: Record<string, { small?: string; normal?: string }> = {};
+        (json?.data || []).forEach((card: { name: string; image_uris?: { small?: string; normal?: string } }) => {
+          if (card?.name && card?.image_uris) next[card.name] = card.image_uris;
+        });
+        setExampleImages(next);
+      })
+      .catch(() => {});
+  }, []);
 
   async function runSuggestions() {
     setError(null);
@@ -182,10 +220,18 @@ export default function FinishDeckToolClient() {
         setFormat(detectedFormat);
         if (workingCommander) setCommander(workingCommander);
       }
+      const requestedCollectionFit = user ? collectionFit : "any";
       const body =
         mode === "saved"
-          ? { deckId: selectedDeckId, format: activeFormat, budget, maxSuggestions: 18 }
-          : { deckText: workingDeckText, commander: workingCommander || undefined, format: workingFormat, budget, maxSuggestions: 18 };
+          ? { deckId: selectedDeckId, format: activeFormat, budget, collectionMode: requestedCollectionFit, maxSuggestions: 18 }
+          : {
+              deckText: workingDeckText,
+              commander: workingCommander || undefined,
+              format: workingFormat,
+              budget,
+              collectionMode: requestedCollectionFit,
+              maxSuggestions: 18,
+            };
       const res = await fetch("/api/deck/finish-suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -205,6 +251,7 @@ export default function FinishDeckToolClient() {
               confidence: Number(row.confidence || 0),
               estimatedUsd: Number(row.estimatedUsd || 0) || undefined,
               ownership: row.ownership,
+              ownedQty: Number(row.ownedQty || 0) || undefined,
             }))
             .filter((row: Suggestion) => row.card)
         : [];
@@ -260,8 +307,39 @@ export default function FinishDeckToolClient() {
     window.setTimeout(() => setCopied(false), 1600);
   }
 
+  function openCardDetail(card: string, image?: { small?: string; normal?: string }) {
+    window.dispatchEvent(new Event("manatap-hide-hover-preview"));
+    setDetailCard({
+      name: card,
+      imageSmall: image?.small,
+      imageNormal: image?.normal,
+    });
+  }
+
   return (
-    <main className="min-h-[calc(100vh-82px)] bg-[#050608] text-white">
+    <>
+      <ComputingModal
+        isOpen={busy}
+        title="Finishing your deck"
+        stages={[
+          { icon: "1", label: "Reading the partial list..." },
+          { icon: "2", label: user ? "Checking your collections..." : "Checking format rules..." },
+          { icon: "3", label: "Finding role-fit cards..." },
+          { icon: "4", label: "Preparing editable suggestions..." },
+        ]}
+        cycleInterval={1800}
+      />
+      {hoverPreview}
+      {detailCard ? (
+        <WebsiteCardDetailModal
+          open
+          cardName={detailCard.name}
+          imageSmall={detailCard.imageSmall}
+          imageNormal={detailCard.imageNormal}
+          onClose={() => setDetailCard(null)}
+        />
+      ) : null}
+      <main className="min-h-[calc(100vh-82px)] bg-[#050608] text-white">
       <section className="mx-auto max-w-[1500px] px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -309,7 +387,7 @@ export default function FinishDeckToolClient() {
                     label="Partial saved decks"
                     emptyLabel="No eligible partial saved decks yet."
                     placeholder="Choose a deck to complete"
-                    hiddenHint={`Decks below halfway (${getAiDeckHalfwayMinimumCards("Commander")}+ Commander / ${getAiDeckHalfwayMinimumCards("Standard")}+ other formats) or already complete (${getSavedDeckTargetCount("Commander")} Commander / ${getSavedDeckTargetCount("Standard")} other formats) are hidden.`}
+                    hiddenHint="Only partial saved decks show here."
                   />
                 ) : (
                   <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
@@ -359,28 +437,52 @@ export default function FinishDeckToolClient() {
             )}
 
             <div className="mt-4 rounded-lg border border-emerald-300/20 bg-emerald-300/5 p-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-3">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-200">Suggestion constraints</p>
                   <p className="mt-1 text-xs leading-5 text-neutral-400">
-                    Budget is sent to the AI. Saved decks also pass their saved deck aim and plan automatically.
+                    Shape the adds by price and collection fit.
                   </p>
                 </div>
-                <label className="min-w-[180px] text-xs font-bold uppercase tracking-[0.12em] text-neutral-300">
-                  Budget focus
-                  <select
-                    value={budget}
-                    onChange={(event) => setBudget(event.currentTarget.value as FinishBudget)}
-                    className="mt-2 w-full rounded-lg border border-neutral-700 bg-black/55 px-3 py-2 text-sm normal-case tracking-normal text-white outline-none focus:border-emerald-300"
-                  >
-                    {BUDGET_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-300">
+                    Budget focus
+                    <select
+                      value={budget}
+                      onChange={(event) => setBudget(event.currentTarget.value as FinishBudget)}
+                      className="mt-2 w-full rounded-lg border border-neutral-700 bg-black/55 px-3 py-2 text-sm normal-case tracking-normal text-white outline-none focus:border-emerald-300"
+                    >
+                      {BUDGET_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {user ? (
+                    <label className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-300">
+                      Collection fit
+                      <select
+                        value={collectionFit}
+                        onChange={(event) => {
+                          setCollectionFitTouched(true);
+                          setCollectionFit(event.currentTarget.value as CollectionFit);
+                        }}
+                        className="mt-2 w-full rounded-lg border border-neutral-700 bg-black/55 px-3 py-2 text-sm normal-case tracking-normal text-white outline-none focus:border-emerald-300"
+                      >
+                        {COLLECTION_FIT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">
+                      Sign in to prefer owned cards or require owned-only suggestions from your collections.
+                    </div>
+                  )}
+                </div>
               </div>
-              <p className="mt-2 text-xs text-emerald-100/80">
+              <p className="mt-3 text-xs text-emerald-100/80">
                 {BUDGET_OPTIONS.find((option) => option.value === budget)?.copy}
+                {user ? ` ${COLLECTION_FIT_OPTIONS.find((option) => option.value === collectionFit)?.copy}` : ""}
               </p>
             </div>
 
@@ -444,8 +546,15 @@ export default function FinishDeckToolClient() {
                 const key = suggestionKey(row);
                 const checked = selected.has(key);
                 const image = images[row.card];
+                const previewSrc = image?.normal || image?.small;
+                const ownershipLabel =
+                  row.ownership === "owned"
+                    ? `owned${row.ownedQty && row.ownedQty > 1 ? ` x${row.ownedQty}` : ""}`
+                    : row.ownership === "missing"
+                      ? "missing"
+                      : "";
                 return (
-                  <div key={`${key}-${index}`} className="flex gap-3 rounded-lg border border-neutral-800 bg-black/30 p-3">
+                  <div key={`${key}-${index}`} className="relative flex gap-3 rounded-lg border border-neutral-800 bg-black/30 p-3 pr-28">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -457,40 +566,63 @@ export default function FinishDeckToolClient() {
                           return next;
                         });
                       }}
-                      className="mt-6 h-4 w-4 accent-cyan-300"
+                      className="mt-7 h-4 w-4 accent-cyan-300"
                     />
-                    <div className="h-[68px] w-11 flex-shrink-0 overflow-hidden rounded bg-neutral-800">
+                    <button
+                      type="button"
+                      {...(previewSrc ? bind(previewSrc) : {})}
+                      onClick={() => openCardDetail(row.card, image)}
+                      className="h-[68px] w-11 flex-shrink-0 overflow-hidden rounded bg-neutral-800 outline-none ring-cyan-300/0 transition hover:ring-2 focus-visible:ring-2"
+                      title={`View ${row.card}`}
+                    >
                       {image?.small || image?.normal ? (
                         <img src={image.small || image.normal} alt={row.card} className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-[8px] text-neutral-600">...</div>
                       )}
-                    </div>
+                    </button>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => changeQty(index, -1)}
-                            className="h-7 w-7 rounded border border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-red-500/60 hover:text-red-300"
-                            title={normalizeQty(row.qty) <= 1 ? "Remove row" : "Remove one"}
-                          >
-                            -
-                          </button>
-                          <span className="w-7 text-center font-mono text-xs text-neutral-300">{normalizeQty(row.qty)}</span>
-                          <button
-                            type="button"
-                            onClick={() => changeQty(index, 1)}
-                            className="h-7 w-7 rounded border border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-emerald-500/60 hover:text-emerald-300"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <p className="truncate text-sm font-bold text-white">{row.card}</p>
+                        <button
+                          type="button"
+                          onClick={() => openCardDetail(row.card, image)}
+                          className="truncate text-left text-sm font-bold text-white hover:text-cyan-200"
+                        >
+                          {row.card}
+                        </button>
                         <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[11px] text-neutral-400">{row.zone}</span>
+                        {ownershipLabel ? (
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] ${
+                              row.ownership === "owned"
+                                ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                                : "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                            }`}
+                          >
+                            {ownershipLabel}
+                          </span>
+                        ) : null}
                       </div>
                       <p className="mt-1 text-xs text-cyan-200/80">{row.role || "Deck slot"}{row.priority ? ` / ${row.priority}` : ""}</p>
                       {row.reason ? <p className="mt-1 line-clamp-3 text-xs leading-5 text-neutral-400">{row.reason}</p> : null}
+                    </div>
+                    <div className="absolute right-3 top-3 flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1">
+                      <button
+                        type="button"
+                        onClick={() => changeQty(index, -1)}
+                        className="h-7 w-7 rounded border border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-red-500/60 hover:text-red-300"
+                        title={normalizeQty(row.qty) <= 1 ? "Remove row" : "Remove one"}
+                      >
+                        -
+                      </button>
+                      <span className="w-7 text-center font-mono text-xs text-neutral-300">{normalizeQty(row.qty)}</span>
+                      <button
+                        type="button"
+                        onClick={() => changeQty(index, 1)}
+                        className="h-7 w-7 rounded border border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-emerald-500/60 hover:text-emerald-300"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
                 );
@@ -499,7 +631,7 @@ export default function FinishDeckToolClient() {
           </div>
 
             <div className="lg:col-span-2">
-              <FinishDeckExampleWalkthrough />
+              <FinishDeckExampleWalkthrough images={exampleImages} />
             </div>
           </div>
 
@@ -508,7 +640,8 @@ export default function FinishDeckToolClient() {
           </aside>
         </div>
       </section>
-    </main>
+      </main>
+    </>
   );
 }
 
@@ -521,55 +654,32 @@ function FinishDeckSideRail() {
       steps={[
         {
           title: "Choose the partial",
-          body: "Saved decks appear only when they are between halfway and complete. Guests can start with paste or a public link.",
+          body: "Pick a saved partial, paste a list, or use a public deck link.",
           tone: "cyan",
         },
         {
           title: "ManaTap reads the gaps",
-          body: "The helper checks format, current count, mainboard, sideboard, and the deck's existing plan before suggesting cards.",
+          body: "It checks format, count, roles, sideboard, and collection fit.",
           tone: "emerald",
         },
         {
           title: "Review every add",
-          body: "Suggestions stay selectable and editable, with priority labels, reasons, copy output, and add-selected for saved decks.",
+          body: "Edit quantities, filter rows, copy, or add selected cards.",
           tone: "purple",
-        },
-      ]}
-      carousel={[
-        {
-          kicker: "Example flow",
-          title: "Commander at 58/100",
-          body: "ManaTap prioritizes missing ramp, removal, draw, and finishers while keeping the commander's theme intact.",
-          chips: ["58 cards", "Commander", "High priority first"],
-          tone: "purple",
-        },
-        {
-          kicker: "Example flow",
-          title: "Modern at 46/60",
-          body: "The tool fills curve holes, flags sideboard cards separately, and avoids changing the archetype unless you ask for it.",
-          chips: ["46 cards", "Modern", "Sideboard aware"],
-          tone: "cyan",
-        },
-        {
-          kicker: "Example flow",
-          title: "Moxfield or Archidekt link",
-          body: "Paste a public link directly, review parsed rows, then copy suggestions or add selected cards to a saved deck.",
-          chips: ["Public links", "Paste mode", "Editable rows"],
-          tone: "amber",
         },
       ]}
       faq={[
         {
-          q: "Why are some saved decks hidden?",
-          a: "Decks below halfway are too incomplete for focused finishing, and complete decks belong in Deck Checker or AI Workshop instead.",
+          q: "Can I use my collection?",
+          a: "Yes. Signed-in users can prefer owned cards or require owned-only suggestions.",
         },
         {
-          q: "Can I paste Moxfield or Archidekt?",
-          a: "Yes. Paste the public URL in the list tab and ManaTap will try to read the mainboard and sideboard from it.",
+          q: "Can I paste deck links?",
+          a: "Yes. Public Moxfield and Archidekt links work in paste mode.",
         },
         {
           q: "Does sideboard stay separate?",
-          a: "Yes. Copied output and saved-deck adds keep sideboard suggestions in the sideboard zone.",
+          a: "Yes. Copied output and saved-deck adds keep sideboard rows separate.",
         },
       ]}
       related={[
@@ -587,12 +697,12 @@ function SuggestionsEmptyState() {
       <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">Ready for a run</p>
       <h3 className="mt-2 text-xl font-black text-white">Suggestions will land here</h3>
       <p className="mt-2 text-sm leading-6 text-neutral-300">
-        Pick a saved partial or paste a list, choose the budget focus, then ManaTap returns rows you can edit before adding or copying.
+        Pick a partial, choose budget and collection fit, then review editable rows.
       </p>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         {[
-          ["Priority", "High, medium, or low so you can skim fast.", "border-amber-300/25 bg-amber-300/10 text-amber-100"],
+          ["Owned fit", "Signed-in users can prefer owned or owned-only.", "border-amber-300/25 bg-amber-300/10 text-amber-100"],
           ["Zones", "Mainboard and sideboard stay separated.", "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"],
           ["Controls", "Adjust quantity, deselect rows, copy, or add.", "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"],
         ].map(([label, copy, classes]) => (
@@ -606,7 +716,7 @@ function SuggestionsEmptyState() {
   );
 }
 
-function FinishDeckExampleWalkthrough() {
+function FinishDeckExampleWalkthrough({ images }: { images: Record<string, { small?: string; normal?: string }> }) {
   return (
     <section className="relative overflow-hidden rounded-xl border border-cyan-300/15 bg-zinc-950/75 p-5 shadow-2xl shadow-black/30">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_88%_12%,rgba(168,85,247,0.14),transparent_30%),linear-gradient(135deg,rgba(16,185,129,0.08),transparent_50%)]" aria-hidden />
@@ -667,9 +777,22 @@ function FinishDeckExampleWalkthrough() {
               {EXAMPLE_SUGGESTIONS.map((row) => (
                 <div key={row.card} className="rounded-lg border border-neutral-800 bg-black/45 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black text-white">{row.qty} {row.card}</p>
-                      <p className="mt-1 text-xs text-cyan-200/80">{row.role} / {row.priority}</p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="h-12 w-8 flex-shrink-0 overflow-hidden rounded bg-neutral-800">
+                        {images[row.card]?.small || images[row.card]?.normal ? (
+                          <img
+                            src={images[row.card]?.small || images[row.card]?.normal}
+                            alt={row.card}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[8px] text-neutral-600">...</div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">{row.qty} {row.card}</p>
+                        <p className="mt-1 text-xs text-cyan-200/80">{row.role} / {row.priority}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">
