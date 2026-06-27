@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
+import WebsiteCardDetailModal from "@/components/cards/WebsiteCardDetailModal";
 
 export type HomeMetaSpotlightItem = {
   kind: "commander" | "card";
@@ -22,6 +24,7 @@ export default function HomeMetaMoverRotatorClient({
   freshness: string | null;
 }) {
   const [index, setIndex] = useState(0);
+  const [selectedCard, setSelectedCard] = useState<HomeMetaSpotlightItem | null>(null);
   const active = items[index % Math.max(items.length, 1)];
 
   useEffect(() => {
@@ -56,9 +59,10 @@ export default function HomeMetaMoverRotatorClient({
         </Link>
       </div>
 
-      <Link
-        href={active.href}
-        className="group relative mt-1 flex min-h-[240px] flex-1 overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80 transition hover:border-fuchsia-400/40 sm:min-h-[280px]"
+      <button
+        type="button"
+        onClick={() => setSelectedCard(active)}
+        className="group relative mt-1 flex min-h-[240px] flex-1 overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80 text-left transition hover:border-fuchsia-400/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300/70 sm:min-h-[280px]"
       >
         {active.imageUrl ? (
           <img
@@ -99,10 +103,22 @@ export default function HomeMetaMoverRotatorClient({
           </h4>
           <p className="mt-2 text-sm text-neutral-300">{active.description}</p>
           <span className="mt-3 text-sm font-semibold text-fuchsia-300 group-hover:text-fuchsia-200">
-            Explore {active.kind} -&gt;
+            View full card -&gt;
           </span>
         </div>
-      </Link>
+      </button>
+      {selectedCard && typeof document !== "undefined"
+        ? createPortal(
+            <WebsiteCardDetailModal
+              open={Boolean(selectedCard)}
+              cardName={selectedCard.name}
+              imageSmall={selectedCard.imageUrl ?? undefined}
+              imageNormal={selectedCard.imageUrl ?? undefined}
+              onClose={() => setSelectedCard(null)}
+            />,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

@@ -71,13 +71,13 @@ export async function SimilarCommanders({ currentSlug }: Props) {
       <h2 className="text-lg font-semibold text-violet-100 mb-4">
         Similar commanders in the meta
       </h2>
-      <div className="overflow-x-auto -mx-1 pb-2">
-        <ul className="flex gap-2 min-w-0">
+      <div className="min-w-0">
+        <ul className="flex min-w-0 flex-wrap gap-2">
           {similar.map((c) => (
-            <li key={c.slug} className="shrink-0">
+            <li key={c.slug} className="min-w-0">
               <Link
                 href={`/commanders/${c.slug}`}
-                className="inline-block px-4 py-2 rounded-lg bg-violet-950/35 hover:bg-violet-900/45 text-cyan-200 hover:text-cyan-100 text-sm font-medium transition-colors border border-violet-400/25 hover:border-cyan-300/40"
+                className="inline-block max-w-full truncate px-4 py-2 rounded-lg bg-violet-950/35 hover:bg-violet-900/45 text-cyan-200 hover:text-cyan-100 text-sm font-medium transition-colors border border-violet-400/25 hover:border-cyan-300/40"
               >
                 {c.name}
               </Link>
