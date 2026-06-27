@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import CustomCardCreator from "@/components/CustomCardCreator";
+import { ToolInfoRail } from "@/components/tools/ToolInfoRail";
 
 export const metadata: Metadata = {
   title: "Custom Card Creator | ManaTap",
@@ -38,48 +39,70 @@ export default function CustomCardToolPage() {
 
 function CustomCardSideRail() {
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-200">Creator flow</p>
-        <div className="mt-4 space-y-2">
-          {[
-            ["Prompt", "Describe the joke, persona, or commander vibe."],
-            ["Tune", "Pick style and power, then edit the face directly."],
-            ["Art", "Choose Scryfall-sourced art with artist credit."],
-            ["Share", "Attach to profile, copy link, or show QR."],
-          ].map(([label, copy], index) => (
-            <div key={label} className="rounded-lg border border-neutral-800 bg-black/30 p-3">
-              <p className="text-sm font-black text-white">{index + 1}. {label}</p>
-              <p className="mt-1 text-xs leading-5 text-neutral-400">{copy}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4 shadow-2xl shadow-black/30">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">Prompt starters</p>
-        <div className="mt-3 space-y-2 text-sm text-neutral-300">
-          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">A graveyard wizard who turns failed combos into value.</p>
-          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">A chaotic red mage built around coin flips and bad decisions.</p>
-          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">A noble token commander who wins through tiny creatures.</p>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-200">Related</p>
-        <div className="mt-3 grid gap-2">
-          {[
-            { href: "/profile", label: "Profile", sub: "See attached custom cards" },
-            { href: "/tools/playstyle-quiz", label: "Playstyle Quiz", sub: "Find a vibe first" },
-            { href: "/build-a-deck", label: "Deck Builder", sub: "Turn the joke into a deck" },
-          ].map((item) => (
-            <Link key={item.href} href={item.href} className="rounded-lg border border-neutral-800 bg-black/30 p-3 transition hover:border-cyan-300/45 hover:bg-cyan-300/5">
-              <span className="block text-sm font-black text-white">{item.label}</span>
-              <span className="mt-1 block text-xs text-neutral-500">{item.sub}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-    </div>
+    <ToolInfoRail
+      title="Custom Card Creator"
+      description="Make a fan-made Magic-style profile card, tune the rules text, choose art, then save or share it."
+      accent="purple"
+      steps={[
+        {
+          title: "Describe the card",
+          body: "Start with a persona, joke, commander vibe, or deck identity. The clearer the hook, the better the first draft.",
+          tone: "purple",
+        },
+        {
+          title: "Tune the face",
+          body: "Pick style and power, then edit the generated name, type line, rules text, flavor, and stats directly.",
+          tone: "cyan",
+        },
+        {
+          title: "Choose art and share",
+          body: "Select Scryfall-sourced art with credit, save it to your account, attach it to profile, copy a link, or show QR.",
+          tone: "amber",
+        },
+      ]}
+      carousel={[
+        {
+          kicker: "Prompt starter",
+          title: "Graveyard value wizard",
+          body: "A self-aware necromancer who turns failed combos into card advantage and politely asks the table for one more turn.",
+          chips: ["Dimir", "Value", "Dry humor"],
+          tone: "purple",
+        },
+        {
+          kicker: "Prompt starter",
+          title: "Chaotic red mage",
+          body: "A coin-flip pyromancer whose best plan is technically legal, barely repeatable, and very funny when it works.",
+          chips: ["Izzet", "Coin flips", "High variance"],
+          tone: "rose",
+        },
+        {
+          kicker: "Prompt starter",
+          title: "Tiny creature monarch",
+          body: "A noble token leader who wins through a board of small creatures, anthem effects, and suspiciously dramatic speeches.",
+          chips: ["Selesnya", "Tokens", "Profile card"],
+          tone: "emerald",
+        },
+      ]}
+      faq={[
+        {
+          q: "Is this an official Magic card?",
+          a: "No. It is a fan-made ManaTap card for profiles, jokes, and sharing. It is not legal game material.",
+        },
+        {
+          q: "Where does the art come from?",
+          a: "The creator can use Scryfall-sourced card art and keeps artist credit visible where available.",
+        },
+        {
+          q: "Can I save or share it?",
+          a: "Yes. Signed-in users can save cards, attach one to their profile, copy the public link, or show a QR code.",
+        },
+      ]}
+      related={[
+        { href: "/profile", label: "Profile", sub: "Attach and show your saved card", tone: "purple" },
+        { href: "/tools/playstyle-quiz", label: "Playstyle Quiz", sub: "Find the vibe before you write it", tone: "cyan" },
+        { href: "/build-a-deck", label: "Deck Builder", sub: "Turn the card idea into a deck", tone: "emerald" },
+        { href: "/tools/finish-deck", label: "Complete This Deck", sub: "Patch the deck after brewing", tone: "amber" },
+      ]}
+    />
   );
 }

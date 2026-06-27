@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import EligibleSavedDeckSelect from "@/components/tools/EligibleSavedDeckSelect";
+import { ToolInfoRail } from "@/components/tools/ToolInfoRail";
 import { useAuth } from "@/lib/auth-context";
 import { useEligibleSavedDecks } from "@/hooks/useEligibleSavedDecks";
 import { countAiWorkshopDeckCards } from "@/lib/deck/ai-workshop-deck-text";
@@ -474,48 +475,70 @@ export default function FinishDeckToolClient() {
 
 function FinishDeckSideRail() {
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">Good inputs</p>
-        <div className="mt-4 space-y-2">
-          {[
-            ["Saved partials", "Only decks between halfway and complete appear in the saved deck picker."],
-            ["Pasted lists", "Mainboard and Sideboard headings are preserved."],
-            ["Public links", "Moxfield and Archidekt links can be pasted directly."],
-          ].map(([label, copy]) => (
-            <div key={label} className="rounded-lg border border-neutral-800 bg-black/30 p-3">
-              <p className="text-sm font-black text-white">{label}</p>
-              <p className="mt-1 text-xs leading-5 text-neutral-400">{copy}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 shadow-2xl shadow-black/30">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-200">Suggestion roles</p>
-        <div className="mt-3 grid gap-2 text-sm text-neutral-300">
-          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">High priority cards fix missing essentials like removal, mana, or win conditions.</p>
-          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">Medium priority cards improve texture without changing the deck&apos;s identity.</p>
-          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">Sideboard cards stay separated when copied or added to a saved deck.</p>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-200">Related</p>
-        <div className="mt-3 grid gap-2">
-          {[
-            { href: "/tools/playstyle-quiz", label: "Playstyle Quiz", sub: "Pick a direction first" },
-            { href: "/mtg-deck-checker", label: "Deck Checker", sub: "Audit the finished list" },
-            { href: "/ai-workshop", label: "AI Workshop", sub: "Refine a deck with instructions" },
-          ].map((item) => (
-            <Link key={item.href} href={item.href} className="rounded-lg border border-neutral-800 bg-black/30 p-3 transition hover:border-cyan-300/45 hover:bg-cyan-300/5">
-              <span className="block text-sm font-black text-white">{item.label}</span>
-              <span className="mt-1 block text-xs text-neutral-500">{item.sub}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-    </div>
+    <ToolInfoRail
+      title="Complete This Deck"
+      description="Turn a half-built saved deck, pasted list, or public deck link into format-aware card suggestions you can edit before applying."
+      accent="emerald"
+      steps={[
+        {
+          title: "Choose the partial",
+          body: "Saved decks appear only when they are between halfway and complete. Guests can start with paste or a public link.",
+          tone: "cyan",
+        },
+        {
+          title: "ManaTap reads the gaps",
+          body: "The helper checks format, current count, mainboard, sideboard, and the deck's existing plan before suggesting cards.",
+          tone: "emerald",
+        },
+        {
+          title: "Review every add",
+          body: "Suggestions stay selectable and editable, with priority labels, reasons, copy output, and add-selected for saved decks.",
+          tone: "purple",
+        },
+      ]}
+      carousel={[
+        {
+          kicker: "Example flow",
+          title: "Commander at 58/100",
+          body: "ManaTap prioritizes missing ramp, removal, draw, and finishers while keeping the commander's theme intact.",
+          chips: ["58 cards", "Commander", "High priority first"],
+          tone: "purple",
+        },
+        {
+          kicker: "Example flow",
+          title: "Modern at 46/60",
+          body: "The tool fills curve holes, flags sideboard cards separately, and avoids changing the archetype unless you ask for it.",
+          chips: ["46 cards", "Modern", "Sideboard aware"],
+          tone: "cyan",
+        },
+        {
+          kicker: "Example flow",
+          title: "Moxfield or Archidekt link",
+          body: "Paste a public link directly, review parsed rows, then copy suggestions or add selected cards to a saved deck.",
+          chips: ["Public links", "Paste mode", "Editable rows"],
+          tone: "amber",
+        },
+      ]}
+      faq={[
+        {
+          q: "Why are some saved decks hidden?",
+          a: "Decks below halfway are too incomplete for focused finishing, and complete decks belong in Deck Checker or AI Workshop instead.",
+        },
+        {
+          q: "Can I paste Moxfield or Archidekt?",
+          a: "Yes. Paste the public URL in the list tab and ManaTap will try to read the mainboard and sideboard from it.",
+        },
+        {
+          q: "Does sideboard stay separate?",
+          a: "Yes. Copied output and saved-deck adds keep sideboard suggestions in the sideboard zone.",
+        },
+      ]}
+      related={[
+        { href: "/tools/playstyle-quiz", label: "Playstyle Quiz", sub: "Pick a direction before filling slots", tone: "purple" },
+        { href: "/mtg-deck-checker", label: "Deck Checker", sub: "Audit the finished list", tone: "cyan" },
+        { href: "/ai-workshop", label: "AI Workshop", sub: "Refine a deck with instructions", tone: "amber" },
+      ]}
+    />
   );
 }
 

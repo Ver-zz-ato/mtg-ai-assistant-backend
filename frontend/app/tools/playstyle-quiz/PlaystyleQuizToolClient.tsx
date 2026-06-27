@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Brain, Coins, Flame, Gem, Layers, Shield, Sparkles, Swords, Target, Trophy, Zap } from "lucide-react";
+import { ToolInfoRail } from "@/components/tools/ToolInfoRail";
 import {
   QUIZ_QUESTIONS,
   calculateProfile,
@@ -644,50 +645,97 @@ export default function PlaystyleQuizToolClient() {
 }
 
 function PlaystyleSideRail({ format, done }: { format: QuizFormat; done: boolean }) {
-  const steps = format === "Commander"
-    ? ["Profile scores", "Commander art picks", "Style-fit card package", "Builder handoff"]
-    : ["Profile scores", "60-card paths", "Suggested cards with art", "Builder handoff"];
+  const isCommander = format === "Commander";
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">Result shape</p>
-        <h2 className="mt-2 text-xl font-black text-white">{done ? "Ready to build" : `${format} quiz`}</h2>
-        <div className="mt-4 space-y-2">
-          {steps.map((step, index) => (
-            <div key={step} className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-black/30 p-3">
-              <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-cyan-300/15 text-xs font-black text-cyan-200">
-                {index + 1}
-              </span>
-              <span className="text-sm text-neutral-200">{step}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-200">Next moves</p>
-        <div className="mt-3 grid gap-2">
-          {[
-            { href: "/build-a-deck", label: "Open Deck Builder", sub: "Use the quiz handoff" },
-            { href: "/tools/finish-deck", label: "Complete This Deck", sub: "Patch a half-built list" },
-            { href: "/mtg-deck-checker", label: "Deck Checker", sub: "Audit a finished deck" },
-            { href: "/tools/custom-card", label: "Custom Card Creator", sub: "Make a profile card" },
-          ].map((item) => (
-            <Link key={item.href} href={item.href} className="rounded-lg border border-neutral-800 bg-black/30 p-3 transition hover:border-cyan-300/45 hover:bg-cyan-300/5">
-              <span className="block text-sm font-black text-white">{item.label}</span>
-              <span className="mt-1 block text-xs text-neutral-500">{item.sub}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-amber-300/20 bg-amber-300/10 p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-100">Tip</p>
-        <p className="mt-2 text-sm leading-6 text-amber-50/80">
-          Switching format changes the result: Commander recommends leaders, while Modern, Pioneer, Standard, and Pauper recommend playable card packages.
-        </p>
-      </section>
-    </div>
+    <ToolInfoRail
+      title={done ? "Ready to build" : `${format} quiz`}
+      description={
+        isCommander
+          ? "Answer a few table-feel questions, then pick from commander cards and support packages that match your profile."
+          : `Answer the same style questions through a ${format} lens, then get archetypes, colors, and card packages built for 60-card deck construction.`
+      }
+      accent={isCommander ? "purple" : "cyan"}
+      steps={
+        isCommander
+          ? [
+              {
+                title: "Score your table style",
+                body: "ManaTap weighs control, aggression, combo appetite, interaction, game length, variance, and budget flexibility.",
+                tone: "cyan",
+              },
+              {
+                title: "Show commander art picks",
+                body: "Results include commander cards with art, match percentage, archetype labels, and quick selection.",
+                tone: "purple",
+              },
+              {
+                title: "Open the right builder",
+                body: "The handoff keeps your commander, profile, and notes ready for the guided builder or collection builder.",
+                tone: "emerald",
+              },
+            ]
+          : [
+              {
+                title: "Score your 60-card style",
+                body: "ManaTap maps your answers into speed, interaction, synergy, resilience, meta safety, budget fit, and complexity.",
+                tone: "cyan",
+              },
+              {
+                title: "Compare archetype paths",
+                body: "Constructed results recommend practical paths with colors, game plans, sideboard notes, and card art packages.",
+                tone: "emerald",
+              },
+              {
+                title: "Start from the result",
+                body: "Open the 60-card builder or build from your collection with the selected path already prefilled.",
+                tone: "purple",
+              },
+            ]
+      }
+      carousel={[
+        {
+          kicker: "Result example",
+          title: "Commander profile",
+          body: "A Chaos profile can surface commanders like Krark, Zada, or Norin, then show the support cards that make the deck feel right.",
+          chips: ["Commander art", "Support package", "Collection handoff"],
+          tone: "purple",
+        },
+        {
+          kicker: "Result example",
+          title: `${format === "Commander" ? "Modern" : format} archetype path`,
+          body: "A control-leaning constructed result can show Azorius Control, a tempo variant, and a collection-friendly core with real card examples.",
+          chips: ["60-card paths", "Suggested cards", "Sideboard notes"],
+          tone: "cyan",
+        },
+        {
+          kicker: "Result example",
+          title: "From quiz to builder",
+          body: "The quiz does not trap you on a result page. It hands the profile to the builder so the next step starts with context.",
+          chips: ["Builder handoff", "No retyping", "Format-aware"],
+          tone: "amber",
+        },
+      ]}
+      faq={[
+        {
+          q: "What changes by format?",
+          a: "Commander results focus on commander picks. Constructed formats focus on archetypes, colors, example cards, and sideboard plans.",
+        },
+        {
+          q: "Can I build from my collection?",
+          a: "Yes. After a result, use Build From Collection to carry the profile into collection-aware generation.",
+        },
+        {
+          q: "Does this generate the whole deck here?",
+          a: "No. The quiz finds the direction, then hands it to the dedicated builder so the actual deck-generation flow stays editable.",
+        },
+      ]}
+      related={[
+        { href: "/build-a-deck", label: "Deck Builder", sub: "Open the quiz handoff in the main builder", tone: "emerald" },
+        { href: "/tools/finish-deck", label: "Complete This Deck", sub: "Patch a half-built list after the quiz", tone: "cyan" },
+        { href: "/mtg-deck-checker", label: "Deck Checker", sub: "Audit the finished deck", tone: "amber" },
+        { href: "/tools/custom-card", label: "Custom Card Creator", sub: "Turn the vibe into a profile card", tone: "purple" },
+      ]}
+    />
   );
 }
 
