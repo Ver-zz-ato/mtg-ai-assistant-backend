@@ -254,7 +254,7 @@ export default function FinishDeckToolClient() {
 
   return (
     <main className="min-h-[calc(100vh-82px)] bg-[#050608] text-white">
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-[1500px] px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <Link href="/tools" className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300 hover:text-cyan-200">
@@ -267,7 +267,7 @@ export default function FinishDeckToolClient() {
           </div>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] xl:grid-cols-[0.82fr_1fr_320px]">
           <div className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
             <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-neutral-800 bg-black/40 p-1">
               {(["saved", "paste"] as Mode[]).map((tab) => (
@@ -462,9 +462,60 @@ export default function FinishDeckToolClient() {
               })}
             </div>
           </div>
+
+          <aside className="lg:col-span-2 xl:col-span-1 xl:sticky xl:top-24 xl:self-start">
+            <FinishDeckSideRail />
+          </aside>
         </div>
       </section>
     </main>
+  );
+}
+
+function FinishDeckSideRail() {
+  return (
+    <div className="space-y-4">
+      <section className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">Good inputs</p>
+        <div className="mt-4 space-y-2">
+          {[
+            ["Saved partials", "Only decks between halfway and complete appear in the saved deck picker."],
+            ["Pasted lists", "Mainboard and Sideboard headings are preserved."],
+            ["Public links", "Moxfield and Archidekt links can be pasted directly."],
+          ].map(([label, copy]) => (
+            <div key={label} className="rounded-lg border border-neutral-800 bg-black/30 p-3">
+              <p className="text-sm font-black text-white">{label}</p>
+              <p className="mt-1 text-xs leading-5 text-neutral-400">{copy}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 shadow-2xl shadow-black/30">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-200">Suggestion roles</p>
+        <div className="mt-3 grid gap-2 text-sm text-neutral-300">
+          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">High priority cards fix missing essentials like removal, mana, or win conditions.</p>
+          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">Medium priority cards improve texture without changing the deck&apos;s identity.</p>
+          <p className="rounded-lg border border-neutral-800 bg-black/30 p-3">Sideboard cards stay separated when copied or added to a saved deck.</p>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-200">Related</p>
+        <div className="mt-3 grid gap-2">
+          {[
+            { href: "/tools/playstyle-quiz", label: "Playstyle Quiz", sub: "Pick a direction first" },
+            { href: "/mtg-deck-checker", label: "Deck Checker", sub: "Audit the finished list" },
+            { href: "/ai-workshop", label: "AI Workshop", sub: "Refine a deck with instructions" },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} className="rounded-lg border border-neutral-800 bg-black/30 p-3 transition hover:border-cyan-300/45 hover:bg-cyan-300/5">
+              <span className="block text-sm font-black text-white">{item.label}</span>
+              <span className="mt-1 block text-xs text-neutral-500">{item.sub}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
 

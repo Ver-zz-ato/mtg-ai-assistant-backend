@@ -6,9 +6,12 @@ const TOOLS = [
   { href: "/ai-workshop", label: "AI Workshop" },
   { href: "/mtg-deck-checker", label: "Deck Checker" },
   { href: "/build-a-deck", label: "Build a Deck" },
+  { href: "/tools/playstyle-quiz", label: "Playstyle Quiz" },
+  { href: "/tools/finish-deck", label: "Finish Deck" },
   { href: "/deck/swap-suggestions", label: "Budget Swaps" },
   { href: "/price-tracker", label: "Price Tracker" },
   { href: "/tools/mulligan", label: "Mulligan + Probability" },
+  { href: "/tools/custom-card", label: "Custom Card" },
 ] as const;
 
 export type ToolStripVariant = "compact" | "full";
