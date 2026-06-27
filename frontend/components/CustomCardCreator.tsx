@@ -5,6 +5,7 @@ import { AUTH_MESSAGES, showAuthToast } from "@/lib/auth-messages";
 import { capture } from "@/lib/ph";
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import QRShareModal from "@/components/share/QRShareModal";
+import type { ProfileCardValue } from "./cardTypes";
 
 // Preset name blocks
 const PREFIX = ["Dr.","Lord","Lady","Captain","Sir","Arch-","Grand","Shadow","Iron","Flame","Night","Star","Void","Storm","Bone","Blood","Rune","Sky","Stone","Wild"];
@@ -34,6 +35,228 @@ type SavedCustomCard = {
   created_at?: string | null;
   data?: any;
 };
+
+function safeFilePart(value: string): string {
+  return String(value || "custom-card")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 48) || "custom-card";
+}
+
+function drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  const radius = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+function paletteFor(colorHint: string | undefined) {
+  const map: Record<string, { primary: string; secondary: string; accent: string }> = {
+    W: { primary: "#e7dfc6", secondary: "#8f856f", accent: "#fff7d9" },
+    U: { primary: "#74b7e6", secondary: "#244a7c", accent: "#a9d9ff" },
+    B: { primary: "#8f8b98", secondary: "#252733", accent: "#d5cfe1" },
+    R: { primary: "#e88969", secondary: "#6f2c24", accent: "#ffb190" },
+    G: { primary: "#72d58f", secondary: "#245f35", accent: "#b5f2c6" },
+    C: { primary: "#9aa7ba", secondary: "#3d4a5b", accent: "#c7d2e4" },
+  };
+  return map[String(colorHint || "C").toUpperCase()] || map.C;
+}
+
+function wrapCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines: number,
+) {
+  const paragraphs = String(text || "").split(/\n+/);
+  let lineY = y;
+  let lines = 0;
+  for (const paragraph of paragraphs) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    let line = "";
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        ctx.fillText(line, x, lineY);
+        lineY += lineHeight;
+        lines++;
+        line = word;
+        if (lines >= maxLines) return;
+      } else {
+        line = test;
+      }
+    }
+    if (line && lines < maxLines) {
+      ctx.fillText(line, x, lineY);
+      lineY += lineHeight;
+      lines++;
+    }
+    if (lines >= maxLines) return;
+  }
+}
+
+function loadCanvasImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const url = String(src || "").trim();
+    if (!url) {
+      resolve(null);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+async function renderCustomCardPng(value: ProfileCardValue, cardName: string): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  canvas.width = 750;
+  canvas.height = 1050;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not prepare image.");
+
+  const palette = paletteFor(value.colorHint);
+  const frameGradient = ctx.createLinearGradient(0, 0, 750, 1050);
+  frameGradient.addColorStop(0, palette.accent);
+  frameGradient.addColorStop(0.42, palette.primary);
+  frameGradient.addColorStop(1, palette.secondary);
+
+  ctx.fillStyle = "#080808";
+  drawRoundRect(ctx, 0, 0, 750, 1050, 34);
+  ctx.fill();
+  ctx.fillStyle = frameGradient;
+  drawRoundRect(ctx, 22, 22, 706, 1006, 28);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = "#111";
+  drawRoundRect(ctx, 52, 52, 646, 946, 18);
+  ctx.fill();
+
+  const barGradient = ctx.createLinearGradient(0, 0, 0, 120);
+  barGradient.addColorStop(0, "#f1ece3");
+  barGradient.addColorStop(0.5, "#a99f93");
+  barGradient.addColorStop(1, "#ddd6cc");
+
+  const drawBar = (x: number, y: number, w: number, h: number) => {
+    ctx.fillStyle = barGradient;
+    drawRoundRect(ctx, x, y, w, h, 8);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(20,20,20,0.55)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  };
+
+  drawBar(72, 74, 606, 62);
+  ctx.fillStyle = "#080808";
+  ctx.font = "bold 31px Georgia, serif";
+  ctx.textBaseline = "middle";
+  ctx.fillText(cardName || "Custom Card", 92, 105, 445);
+
+  const manaCost = Array.isArray(value.manaCost) && value.manaCost.length ? value.manaCost : [String(value.cost || 1)];
+  let pipX = 650;
+  for (let i = manaCost.length - 1; i >= 0; i--) {
+    ctx.fillStyle = "#e8e1d8";
+    ctx.beginPath();
+    ctx.arc(pipX, 105, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#111";
+    ctx.stroke();
+    ctx.fillStyle = "#111";
+    ctx.font = "bold 18px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(String(manaCost[i]), pipX, 106);
+    pipX -= 40;
+  }
+  ctx.textAlign = "left";
+
+  drawRoundRect(ctx, 72, 154, 606, 456, 8);
+  ctx.fillStyle = "#1b1b1b";
+  ctx.fill();
+  const img = await loadCanvasImage(value.art?.url || "");
+  if (img) {
+    const ratio = Math.max(606 / img.width, 456 / img.height);
+    const sw = 606 / ratio;
+    const sh = 456 / ratio;
+    const sx = (img.width - sw) / 2;
+    const sy = (img.height - sh) / 2;
+    ctx.save();
+    drawRoundRect(ctx, 72, 154, 606, 456, 8);
+    ctx.clip();
+    ctx.drawImage(img, sx, sy, sw, sh, 72, 154, 606, 456);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#2b2b2b";
+    ctx.fillRect(72, 154, 606, 456);
+    ctx.fillStyle = "#777";
+    ctx.font = "bold 24px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("ManaTap Custom Card", 375, 382);
+    ctx.textAlign = "left";
+  }
+  ctx.strokeStyle = "rgba(0,0,0,0.75)";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  drawBar(72, 630, 606, 54);
+  ctx.fillStyle = "#080808";
+  ctx.font = "bold 24px Georgia, serif";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(value.typeLine || "Creature"), 92, 657, 520);
+  ctx.font = "bold 18px Arial, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(String(value.setSymbol || "CCC"), 658, 657);
+  ctx.textAlign = "left";
+
+  ctx.fillStyle = "rgba(239,232,218,0.95)";
+  drawRoundRect(ctx, 72, 706, 606, 210, 8);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.65)";
+  ctx.stroke();
+  ctx.fillStyle = "#161616";
+  ctx.font = "24px Georgia, serif";
+  ctx.textBaseline = "top";
+  wrapCanvasText(ctx, String(value.subtext || ""), 94, 728, 562, 32, 5);
+
+  ctx.fillStyle = "#f1ece3";
+  drawRoundRect(ctx, 540, 912, 116, 56, 10);
+  ctx.fill();
+  ctx.strokeStyle = "#111";
+  ctx.stroke();
+  ctx.fillStyle = "#111";
+  ctx.font = "bold 28px Georgia, serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`${value.pt?.p ?? 1}/${value.pt?.t ?? 1}`, 598, 940);
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = "16px Arial, sans-serif";
+  ctx.fillText(value.art?.artist ? `Art: ${value.art.artist}` : "Art via Scryfall", 74, 990);
+  ctx.textAlign = "right";
+  ctx.fillText("ManaTap fan-made card", 676, 990);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Could not export image."));
+    }, "image/png");
+  });
+}
 
 export default function CustomCardCreator({ compact = false }: { compact?: boolean }){
   const [pi,setPi] = React.useState(0);
@@ -450,6 +673,29 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
     }catch(e:any){ setToast(e?.message||'Attach failed'); }
   }
 
+  async function downloadImage() {
+    const cleanName = name.trim() || "Custom Card";
+    if (containsProfanity(cleanName) || containsProfanity(value.subtext || "") || containsProfanity(value.typeLine || "")) {
+      setToast("Please avoid profanity before downloading.");
+      return;
+    }
+    setToast("Preparing image...");
+    try {
+      const blob = await renderCustomCardPng(value, cleanName);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `manatap-${safeFilePart(cleanName)}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+      setToast("Card image download started.");
+    } catch (e: any) {
+      setToast(e?.message || "Could not download image.");
+    }
+  }
+
   return (
     <div className={`${compact? 'bg-transparent border-0 rounded-none p-0 space-y-2 max-w-[380px]' : 'w-full bg-gray-900/70 border border-gray-800 rounded-xl p-4 md:p-6 space-y-5'} mx-auto`}>
       <div className="font-semibold text-center">Custom Card Creator</div>
@@ -568,7 +814,7 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
       )}
 
       {/* Attach + Share CTA */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <button disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))} onClick={async()=>{ await attach(); try{ fetch('/api/events/tools',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'card_attach'})}); }catch{} }} className={`px-3 py-1 rounded text-sm ${ (containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||'')) ? 'bg-gray-500 text-white opacity-60 cursor-not-allowed' : 'bg-emerald-600 text-white' }`}>Attach to my profile</button>
         <button disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))} onClick={async()=>{
         try {
@@ -601,6 +847,18 @@ export default function CustomCardCreator({ compact = false }: { compact?: boole
             setToast('Share link copied.');
           } catch(e:any){ alert(e?.message||'Share failed'); }
         }} className="px-3 py-1 rounded border border-neutral-700 text-sm">Share this creation</button>
+        <button
+          type="button"
+          disabled={(containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))}
+          onClick={() => void downloadImage()}
+          className={`px-3 py-1 rounded border text-sm ${
+            (containsProfanity(name) || containsProfanity(value.subtext||'') || containsProfanity(value.typeLine||''))
+              ? 'border-neutral-700 text-neutral-500 opacity-60 cursor-not-allowed'
+              : 'border-cyan-500/45 text-cyan-100 hover:bg-cyan-500/10'
+          }`}
+        >
+          Download image
+        </button>
       </div>
       {toast && (
         <div className="text-xs text-amber-300 text-center">

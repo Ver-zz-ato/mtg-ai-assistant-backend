@@ -692,29 +692,6 @@ function PlaystyleSideRail({ format, done }: { format: QuizFormat; done: boolean
               },
             ]
       }
-      carousel={[
-        {
-          kicker: "Result example",
-          title: "Commander profile",
-          body: "A Chaos profile can surface commanders like Krark, Zada, or Norin, then show the support cards that make the deck feel right.",
-          chips: ["Commander art", "Support package", "Collection handoff"],
-          tone: "purple",
-        },
-        {
-          kicker: "Result example",
-          title: `${format === "Commander" ? "Modern" : format} archetype path`,
-          body: "A control-leaning constructed result can show Azorius Control, a tempo variant, and a collection-friendly core with real card examples.",
-          chips: ["60-card paths", "Suggested cards", "Sideboard notes"],
-          tone: "cyan",
-        },
-        {
-          kicker: "Result example",
-          title: "From quiz to builder",
-          body: "The quiz does not trap you on a result page. It hands the profile to the builder so the next step starts with context.",
-          chips: ["Builder handoff", "No retyping", "Format-aware"],
-          tone: "amber",
-        },
-      ]}
       faq={[
         {
           q: "What changes by format?",

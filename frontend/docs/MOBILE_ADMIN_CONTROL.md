@@ -286,6 +286,8 @@ Use Supabase (`feature_flags` table) or `POST /api/admin/mobile/feature-flags` (
 
 Use `feature_flags` key `tournament_manager_beta` to surface the mobile Tournament Manager host/join entry outside dev builds while the rollout is controlled.
 
+The website Tournament Manager at `/tools/tournament-manager` is not controlled by this mobile bootstrap flag. It uses the existing `/api/mobile/tournaments*` backend contract so web rollout does not change app bootstrap behavior. The web page is currently private-preview gated: visible in development, and in production only to signed-in users listed by `ADMIN_USER_IDS` / `ADMIN_EMAILS`.
+
 Recommended value:
 
 ```json

@@ -60,29 +60,6 @@ function CustomCardSideRail() {
           tone: "amber",
         },
       ]}
-      carousel={[
-        {
-          kicker: "Prompt starter",
-          title: "Graveyard value wizard",
-          body: "A self-aware necromancer who turns failed combos into card advantage and politely asks the table for one more turn.",
-          chips: ["Dimir", "Value", "Dry humor"],
-          tone: "purple",
-        },
-        {
-          kicker: "Prompt starter",
-          title: "Chaotic red mage",
-          body: "A coin-flip pyromancer whose best plan is technically legal, barely repeatable, and very funny when it works.",
-          chips: ["Izzet", "Coin flips", "High variance"],
-          tone: "rose",
-        },
-        {
-          kicker: "Prompt starter",
-          title: "Tiny creature monarch",
-          body: "A noble token leader who wins through a board of small creatures, anthem effects, and suspiciously dramatic speeches.",
-          chips: ["Selesnya", "Tokens", "Profile card"],
-          tone: "emerald",
-        },
-      ]}
       faq={[
         {
           q: "Is this an official Magic card?",

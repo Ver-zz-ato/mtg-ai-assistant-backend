@@ -11,12 +11,16 @@ import {
   LineChart,
   Search,
   Sparkles,
+  Trophy,
   Wand2,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
 import ProFeatureCard from "@/components/ProFeatureCard";
 import { CHAT_ROUTE } from "@/lib/navigation/chatRoute";
+import { canViewTournamentManager, TOURNAMENT_MANAGER_PATH } from "@/lib/tournaments/visibility";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "MTG Tools | ManaTap",
@@ -280,6 +284,15 @@ const JOURNEY: JourneyStage[] = [
     node: "border-rose-300/45 bg-rose-500/15 text-rose-100 shadow-rose-500/25",
     tools: [
       {
+        href: TOURNAMENT_MANAGER_PATH,
+        title: "Tournament Manager",
+        subtitle: "Host or join MTG tournaments with pairings, QR invites, reports, and standings.",
+        badge: "Free",
+        icon: Trophy,
+        accent: "text-amber-200 border-amber-300/25 bg-amber-300/10",
+        priority: "recommended",
+      },
+      {
         href: "/tools/mulligan",
         title: "Mulligan Simulator",
         subtitle: "Test opening hands with London mulligan rules.",
@@ -320,7 +333,15 @@ function ToolRow({ tool }: { tool: ToolDef }) {
   );
 }
 
-export default function ToolsIndexPage() {
+export default async function ToolsIndexPage() {
+  const canShowTournamentManager = await canViewTournamentManager();
+  const journey = canShowTournamentManager
+    ? JOURNEY
+    : JOURNEY.map((stage) => ({
+        ...stage,
+        tools: stage.tools.filter((tool) => tool.href !== TOURNAMENT_MANAGER_PATH),
+      }));
+
   return (
     <main className="relative mx-auto w-full max-w-[96rem] px-4 py-6 sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_8%,rgba(124,58,237,0.13),transparent_30%),radial-gradient(circle_at_76%_38%,rgba(251,146,60,0.09),transparent_28%),radial-gradient(circle_at_22%_46%,rgba(34,211,238,0.08),transparent_30%),linear-gradient(90deg,rgba(0,0,0,0.72),rgba(7,7,12,0.34),rgba(0,0,0,0.72))]" />
@@ -364,7 +385,7 @@ export default function ToolsIndexPage() {
       <div className="relative mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_80px_rgba(0,0,0,0.35)] sm:p-5">
         <div className="pointer-events-none absolute left-8 right-8 top-[5.75rem] hidden h-px bg-gradient-to-r from-violet-400/35 via-amber-300/45 to-rose-400/35 lg:block" />
         <div className="grid gap-4 lg:grid-cols-6">
-          {JOURNEY.map((stage) => {
+          {journey.map((stage) => {
             const StageIcon = stage.icon;
             return (
               <section

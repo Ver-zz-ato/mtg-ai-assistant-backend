@@ -7,8 +7,10 @@ import { getPublishedSeoPagesForSitemap } from "@/lib/seo-pages";
 import { DEFAULT_BLOG_POSTS } from "@/lib/blog-defaults";
 import { getBlogListingFromDb } from "@/lib/blog/getBlogListingFromDb";
 import { getGlobalMetaCards } from "@/lib/meta/global-meta-entities";
+import { isTournamentManagerVisibleInDev, TOURNAMENT_MANAGER_PATH } from "@/lib/tournaments/visibility";
 
 const BASE = "https://www.manatap.ai";
+const TOURNAMENT_MANAGER_ROUTE = TOURNAMENT_MANAGER_PATH.replace(/^\//, "");
 const CONTENT_PAGES = ["mulligan-guide", "budget-upgrades", "best-cards"] as const;
 const META_SLUGS = ["trending-commanders", "most-played-commanders", "budget-commanders", "trending-cards", "most-played-cards"] as const;
 
@@ -47,6 +49,7 @@ export default async function sitemap(props: {
         "changelog",
         "price-tracker",
         "tools",
+        ...(isTournamentManagerVisibleInDev() ? [TOURNAMENT_MANAGER_ROUTE] : []),
         "tools/mulligan",
         "collections/cost-to-finish",
         "decks/browse",
@@ -89,6 +92,7 @@ export default async function sitemap(props: {
       const now = new Date();
       const entries = [
         "tools",
+        ...(isTournamentManagerVisibleInDev() ? [TOURNAMENT_MANAGER_ROUTE] : []),
         "tools/mulligan",
         "collections/cost-to-finish",
         "deck/swap-suggestions",
