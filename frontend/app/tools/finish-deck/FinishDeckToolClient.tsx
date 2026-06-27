@@ -268,7 +268,7 @@ export default function FinishDeckToolClient() {
           </div>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] xl:grid-cols-[0.82fr_1fr_320px]">
+        <div className="grid items-start gap-5 lg:grid-cols-[0.9fr_1.1fr] xl:grid-cols-[0.82fr_1fr_320px]">
           <div className="rounded-xl border border-white/10 bg-zinc-950/75 p-4 shadow-2xl shadow-black/30">
             <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-neutral-800 bg-black/40 p-1">
               {(["saved", "paste"] as Mode[]).map((tab) => (
